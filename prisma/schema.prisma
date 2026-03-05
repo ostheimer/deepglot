@@ -128,6 +128,8 @@ model Project {
   urlSlugs       UrlSlug[]
   exclusions     TranslationExclusion[]
   translatedUrls TranslatedUrl[]
+  settings       ProjectSettings?
+  members        ProjectMember[]
 }
 
 model ProjectLanguage {
@@ -211,6 +213,62 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELED
   TRIALING
+}
+
+// ─── Project Settings ─────────────────────────────────────────────────────
+
+model ProjectSettings {
+  id                      String   @id @default(cuid())
+
+  // General
+  autoSwitch              Boolean  @default(false)
+  displayAiNotice         Boolean  @default(false)
+  automaticTranslation    Boolean  @default(true)
+  translationMemory       Boolean  @default(false)
+  websiteType             String?  // Blog, Corporate, E-Commerce, etc.
+  industryType            String?  // Health & medical, etc.
+
+  // Language Switcher
+  switcherDisplayName     Boolean  @default(true)
+  switcherFullName        Boolean  @default(true)
+  switcherFlags           Boolean  @default(true)
+  switcherDropdown        Boolean  @default(true)
+  switcherFlagsType       String   @default("rectangle_mat")
+  switcherCustomCss       String?
+
+  // WordPress-specific
+  translateEmails         Boolean  @default(false)
+  translateSearch         Boolean  @default(false)
+  translateAmp            Boolean  @default(false)
+
+  // Page views tracking
+  pageViewsEnabled        Boolean  @default(false)
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  projectId String @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ─── Project Members ──────────────────────────────────────────────────────
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  email     String
+  role      ProjectRole @default(TRANSLATOR)
+  langCode  String?     // language they are responsible for
+  createdAt DateTime    @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, email])
+}
+
+enum ProjectRole {
+  ADMIN
+  TRANSLATOR
 }
 
 // ─── Glossary Rules ───────────────────────────────────────────────────────

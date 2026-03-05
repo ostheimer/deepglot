@@ -15,6 +15,10 @@ import {
   Key,
   ArrowLeft,
   Cpu,
+  ShieldOff,
+  Wrench,
+  Plug,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +63,10 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
         { href: `${base}/einstellungen`, label: "Allgemein", icon: Settings },
         { href: `${base}/einstellungen/sprachmodell`, label: "Sprachmodell", icon: Cpu, badge: "Neu" },
         { href: `${base}/einstellungen/switcher`, label: "Sprachauswahl", icon: Globe },
-        { href: `${base}/einstellungen/ausnahmen`, label: "Ausnahmen", icon: Settings },
+        { href: `${base}/einstellungen/ausnahmen`, label: "Ausnahmen", icon: ShieldOff },
+        { href: `${base}/einstellungen/setup`, label: "Setup", icon: Wrench },
+        { href: `${base}/einstellungen/wordpress`, label: "WordPress", icon: Plug },
+        { href: `${base}/einstellungen/mitglieder`, label: "Projektmitglieder", icon: Users },
         { href: `${base}/api-keys`, label: "API-Keys", icon: Key },
       ],
     },

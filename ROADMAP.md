@@ -74,6 +74,15 @@ Next.js App (Vercel)          WordPress Plugin
 
 | # | Aufgabe | Status |
 |---|---|---|
+| 3.7 | Settings: General (Toggles, Website-Typ, Branche) | ✅ Abgeschlossen |
+| 3.8 | Settings: Language model (Configure + Testimonial) | ✅ Abgeschlossen |
+| 3.9 | Settings: Language Switcher (Toggles, CSS, Sprach-Reihenfolge, Drag & Drop) | ✅ Abgeschlossen |
+| 3.10 | Settings: Translation Exclusions (Excluded URLs + Blocks) | ✅ Abgeschlossen |
+| 3.11 | Settings: Setup (API-Key Anzeige + WordPress Installationsanleitung) | ✅ Abgeschlossen |
+| 3.12 | Settings: WordPress Settings (E-Mail, Suche, AMP) | ✅ Abgeschlossen |
+| 3.13 | Settings: Project Members (Tabelle, Rollen, Einladen) | ✅ Abgeschlossen |
+| 3.14 | Prisma: ProjectSettings + ProjectMember Modelle | ✅ Abgeschlossen |
+
 | 4.1 | Plugin-Grundgerüst (plugin.php, Autoloader, Service Container) | ⏳ Offen |
 | 4.2 | URL-Klasse (Sprache aus URL, `$_SERVER` Manipulation) | ⏳ Offen |
 | 4.3 | Output Buffer + HTML Parser (DiDOM) | ⏳ Offen |
