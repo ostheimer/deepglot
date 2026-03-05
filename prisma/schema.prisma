@@ -124,6 +124,10 @@ model Project {
   translations   Translation[]
   apiKeys        ApiKey[]
   usageRecords   UsageRecord[]
+  glossaryRules  GlossaryRule[]
+  urlSlugs       UrlSlug[]
+  exclusions     TranslationExclusion[]
+  translatedUrls TranslatedUrl[]
 }
 
 model ProjectLanguage {
@@ -207,6 +211,83 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELED
   TRIALING
+}
+
+// ─── Glossary Rules ───────────────────────────────────────────────────────
+
+model GlossaryRule {
+  id             String   @id @default(cuid())
+  originalTerm   String
+  translatedTerm String
+  langFrom       String   // ISO 639-1
+  langTo         String   // ISO 639-1
+  caseSensitive  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, originalTerm, langFrom, langTo])
+  @@index([projectId, langFrom, langTo])
+}
+
+// ─── URL Slugs (übersetzbare URL-Pfadsegmente) ───────────────────────────
+
+model UrlSlug {
+  id             String   @id @default(cuid())
+  originalSlug   String
+  translatedSlug String?
+  langTo         String   // ISO 639-1
+  urlCount       Int      @default(0) // how many URLs use this slug
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, originalSlug, langTo])
+  @@index([projectId, langTo])
+}
+
+// ─── Translation Exclusions ───────────────────────────────────────────────
+
+model TranslationExclusion {
+  id        String          @id @default(cuid())
+  type      ExclusionType
+  value     String          // URL pattern, CSS selector, or regex
+  createdAt DateTime        @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, type])
+}
+
+enum ExclusionType {
+  URL         // full URL or wildcard
+  CSS_CLASS   // CSS class selector
+  CSS_ID      // CSS ID selector
+  REGEX       // regex pattern
+}
+
+// ─── Translated URLs (Statistiken pro URL) ────────────────────────────────
+
+model TranslatedUrl {
+  id          String   @id @default(cuid())
+  urlPath     String   // e.g. "/hautkrebsvorsorge-muttermalkontrolle-wien"
+  langTo      String   // ISO 639-1
+  wordCount   Int      @default(0)
+  requestCount Int     @default(0) // how often this URL was translated
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, urlPath, langTo])
+  @@index([projectId, langTo])
+  @@index([projectId, requestCount(sort: Desc)])
 }
 
 // ─── Usage Tracking ───────────────────────────────────────────────────────

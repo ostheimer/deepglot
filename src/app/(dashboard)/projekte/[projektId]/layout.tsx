@@ -1,0 +1,41 @@
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { notFound, redirect } from "next/navigation";
+import { ProjectSidebar } from "@/components/projekte/project-sidebar";
+
+interface ProjectLayoutProps {
+  children: React.ReactNode;
+  params: Promise<{ projektId: string }>;
+}
+
+export default async function ProjectLayout({ children, params }: ProjectLayoutProps) {
+  const { projektId } = await params;
+  const session = await auth();
+
+  if (!session?.user?.id) redirect("/anmelden");
+
+  const project = await db.project.findUnique({
+    where: { id: projektId },
+    include: {
+      languages: { orderBy: { langCode: "asc" } },
+      organization: true,
+      _count: { select: { translations: true } },
+    },
+  });
+
+  if (!project) notFound();
+
+  // Verify the user has access to this project's organization
+  const membership = await db.organizationMember.findFirst({
+    where: { userId: session.user.id, organizationId: project.organizationId },
+  });
+
+  if (!membership) notFound();
+
+  return (
+    <div className="flex gap-6 -m-8 min-h-screen">
+      <ProjectSidebar project={project} />
+      <div className="flex-1 p-8 min-w-0">{children}</div>
+    </div>
+  );
+}

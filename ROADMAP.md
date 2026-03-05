@@ -45,10 +45,15 @@ Next.js App (Vercel)          WordPress Plugin
 | 2.2 | Dashboard Layout + Navigation (Sidebar, Header) | ✅ Abgeschlossen |
 | 2.3 | Auth-Seiten (Anmelden, Registrieren) + Middleware | ✅ Abgeschlossen |
 | 2.4 | Dashboard Übersicht (Stats, Projekte, Usage-Anzeige) | ✅ Abgeschlossen |
-| 2.5 | Projekte-Verwaltung (CRUD: erstellen, bearbeiten, löschen) | ⏳ Offen |
-| 2.6 | API-Key Verwaltung (generieren, widerrufen, Berechtigungen) | ⏳ Offen |
-| 2.7 | Übersetzungs-Tabelle (suchen, bearbeiten, löschen, exportieren) | ⏳ Offen |
-| 2.8 | Sprachverwaltung pro Projekt | ⏳ Offen |
+| 2.5 | Projekte-Verwaltung: Übersicht, Neu-Erstellen, Sprachauswahl | ✅ Abgeschlossen |
+| 2.6 | Projekt-Detail: 7-teilige Sidebar-Navigation (wie Weglot) | ✅ Abgeschlossen |
+| 2.7 | Übersetzungen/Sprachen: Sprachpaare mit Wortanzahl + manuell-% | ✅ Abgeschlossen |
+| 2.8 | Übersetzungen/URLs: Paginierte URL-Liste mit Wortanzahl | ✅ Abgeschlossen |
+| 2.9 | Übersetzungen/Glossar: Glossarregeln + Leer-State | ✅ Abgeschlossen |
+| 2.10 | Übersetzungen/URL Slugs: Slug-Verwaltung mit Auto-Translate | ✅ Abgeschlossen |
+| 2.11 | Statistiken: Monatlicher Verlauf (Bar-Chart), Top-URLs | ✅ Abgeschlossen |
+| 2.12 | API-Keys-Verwaltung pro Projekt | ✅ Abgeschlossen |
+| 2.13 | Prisma Schema erweitert: GlossaryRule, UrlSlug, TranslationExclusion, TranslatedUrl | ✅ Abgeschlossen |
 
 ---
 
