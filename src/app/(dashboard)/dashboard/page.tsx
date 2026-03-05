@@ -1,36 +1,67 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Globe, Languages, Key, TrendingUp } from "lucide-react";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  Globe,
+  HelpCircle,
+  MessageCircle,
+  Plus,
+  Zap,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
 
-export const metadata = { title: "Dashboard" };
+export const metadata = { title: "Übersicht – Deepglot" };
+
+// Users limit per plan
+const PLAN_USERS_LIMIT: Record<string, number> = {
+  FREE: 1,
+  STARTER: 5,
+  PROFESSIONAL: 25,
+  ENTERPRISE: 100,
+};
+const PLAN_REQUESTS_LIMIT: Record<string, number> = {
+  FREE: 1_000,
+  STARTER: 50_000,
+  PROFESSIONAL: 1_000_000,
+  ENTERPRISE: 10_000_000,
+};
+const PLAN_LABELS: Record<string, string> = {
+  FREE: "Free",
+  STARTER: "Starter",
+  PROFESSIONAL: "Advanced",
+  ENTERPRISE: "Enterprise",
+};
 
 export default async function DashboardPage() {
   const session = await auth();
+  if (!session?.user?.id) redirect("/anmelden");
 
-  // Load user's organizations and projects
   const memberships = await db.organizationMember.findMany({
-    where: { userId: session?.user?.id ?? "" },
+    where: { userId: session.user.id },
     include: {
       organization: {
         include: {
           projects: {
             include: { languages: true },
+            orderBy: { updatedAt: "desc" },
           },
           subscription: true,
-          _count: { select: { usageRecords: true } },
+          members: { include: { user: { select: { name: true, email: true, image: true } } } },
+          _count: { select: { members: true } },
         },
       },
     },
-    take: 1, // first org for now
+    take: 1,
   });
 
   const org = memberships[0]?.organization;
   const currentMonth = parseInt(new Date().toISOString().slice(0, 7).replace("-", ""));
 
+  // Word usage this month
   const monthlyUsage = org
     ? await db.usageRecord.aggregate({
         where: { organizationId: org.id, month: currentMonth },
@@ -38,169 +69,406 @@ export default async function DashboardPage() {
       })
     : null;
 
+  // Translation requests this month (count of UsageRecord entries = API batches)
+  const requestsCount = org
+    ? await db.usageRecord.count({
+        where: { organizationId: org.id, month: currentMonth },
+      })
+    : 0;
+
+  // Activity: recent exclusions, glossary rules, projects
+  const recentExclusions = org
+    ? await db.translationExclusion.findMany({
+        where: { project: { organizationId: org.id } },
+        include: { project: { select: { name: true, domain: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      })
+    : [];
+
+  const recentGlossary = org
+    ? await db.glossaryRule.findMany({
+        where: { project: { organizationId: org.id } },
+        include: { project: { select: { name: true, domain: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      })
+    : [];
+
   const wordsUsed = monthlyUsage?._sum.words ?? 0;
   const wordsLimit = org?.subscription?.wordsLimit ?? 10_000;
-  const usagePercent = Math.min(Math.round((wordsUsed / wordsLimit) * 100), 100);
+  const plan = org?.plan ?? "FREE";
+  const usersLimit = PLAN_USERS_LIMIT[plan] ?? 1;
+  const requestsLimit = PLAN_REQUESTS_LIMIT[plan] ?? 1_000;
+  const usersCount = org?._count.members ?? 1;
 
-  const totalTranslations = org
-    ? await db.translation.count({ where: { project: { organizationId: org.id } } })
-    : 0;
+  const wordsPercent = Math.min(Math.round((wordsUsed / wordsLimit) * 100), 100);
+  const requestsPercent = Math.min(Math.round((requestsCount / requestsLimit) * 100), 100);
 
-  const totalApiKeys = org
-    ? await db.apiKey.count({ where: { project: { organizationId: org.id } } })
-    : 0;
+  // Build activity feed
+  type ActivityItem = {
+    id: string;
+    project: string;
+    message: string;
+    date: Date;
+    type: "exclusion" | "glossary" | "warning" | "project";
+  };
+
+  const activityItems: ActivityItem[] = [
+    ...recentExclusions.map((e) => ({
+      id: `excl-${e.id}`,
+      project: e.project.domain,
+      message: `${session.user?.email ?? "Du"} hat eine Ausnahme-Regel hinzugefügt „${e.type === "URL" ? "URL enthält" : e.type} ${e.value.slice(0, 30)}".`,
+      date: e.createdAt,
+      type: "exclusion" as const,
+    })),
+    ...recentGlossary.map((g) => ({
+      id: `gloss-${g.id}`,
+      project: g.project.domain,
+      message: `${session.user?.email ?? "Du"} hat Glossar-Regel „${g.originalTerm}" hinzugefügt.`,
+      date: g.createdAt,
+      type: "glossary" as const,
+    })),
+    ...(org?.projects ?? []).map((p) => ({
+      id: `proj-${p.id}`,
+      project: p.domain,
+      message: `Projekt „${p.name}" wurde erstellt.`,
+      date: p.createdAt,
+      type: "project" as const,
+    })),
+  ]
+    .sort((a, b) => b.date.getTime() - a.date.getTime())
+    .slice(0, 8);
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Willkommen zurück{session?.user?.name ? `, ${session.user.name}` : ""}!
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Hier ist eine Übersicht deiner Deepglot-Aktivitäten.
-        </p>
-      </div>
+    <div className="min-h-full">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Übersicht</h1>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <Globe className="h-4 w-4" />
-              Projekte
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-gray-900">{org?.projects.length ?? 0}</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_280px] gap-6">
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <Languages className="h-4 w-4" />
-              Gespeicherte Übersetzungen
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-gray-900">
-              {totalTranslations.toLocaleString("de-DE")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Aktive API-Keys
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-gray-900">{totalApiKeys}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Wörter diesen Monat
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-gray-900">
-              {wordsUsed.toLocaleString("de-DE")}
-            </p>
-            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  usagePercent > 90 ? "bg-red-500" : usagePercent > 70 ? "bg-yellow-500" : "bg-indigo-600"
-                }`}
-                style={{ width: `${usagePercent}%` }}
-              />
+        {/* ── LEFT: Plan Usage ──────────────────────────────── */}
+        <aside className="space-y-5">
+          {/* Plan Usage Card */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">Plan-Nutzung</h2>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              {wordsUsed.toLocaleString("de-DE")} / {wordsLimit.toLocaleString("de-DE")} Wörter ({usagePercent}%)
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="px-5 py-4 space-y-4">
+              {/* Current Plan */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                    Aktueller Plan
+                  </p>
+                  <p className="text-sm font-semibold text-indigo-700 mt-0.5">
+                    {PLAN_LABELS[plan] ?? plan}{" "}
+                    <span className="text-gray-400 font-normal text-xs">(Monatlich)</span>
+                  </p>
+                </div>
+                <Link href="/abonnement">
+                  <button className="text-xs text-gray-600 border border-gray-300 rounded px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+                    Plan verwalten
+                  </button>
+                </Link>
+              </div>
 
-      {/* Plan Banner */}
-      <Card className="mb-8 border-indigo-100 bg-indigo-50">
-        <CardContent className="flex items-center justify-between py-4">
-          <div>
-            <p className="font-medium text-indigo-900">
-              Aktueller Plan:{" "}
-              <Badge className="bg-indigo-600 text-white ml-1">
-                {org?.plan ?? "FREE"}
-              </Badge>
-            </p>
-            <p className="text-sm text-indigo-700 mt-0.5">
-              {(wordsLimit - wordsUsed).toLocaleString("de-DE")} Wörter verbleiben diesen Monat
-            </p>
-          </div>
-          <Link href="/abonnement">
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-              Plan upgraden
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
+              {/* Auto-upgrade */}
+              <div className="flex items-start gap-2">
+                <div className="flex-shrink-0 w-3 h-3 rounded-full border-2 border-gray-300 bg-gray-100 mt-0.5" />
+                <div>
+                  <p className="text-xs text-gray-600 flex items-center gap-1">
+                    Auto-Upgrade
+                    <HelpCircle className="h-3 w-3 text-gray-400" />
+                  </p>
+                  <p className="text-xs text-gray-500">AUS (Nicht empfohlen)</p>
+                </div>
+              </div>
 
-      {/* Recent Projects */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Deine Projekte</h2>
-          <Link href="/projekte">
-            <Button variant="ghost" size="sm">Alle ansehen</Button>
-          </Link>
-        </div>
-        {org?.projects.length ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {org.projects.slice(0, 6).map((project) => (
-              <Link key={project.id} href={`/projekte/${project.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="py-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{project.name}</p>
-                        <p className="text-sm text-gray-500 mt-0.5">{project.domain}</p>
-                      </div>
-                      <Globe className="h-4 w-4 text-gray-400 mt-0.5" />
+              {/* Word Usage */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                    Wörter-Nutzung
+                  </p>
+                </div>
+                <p className="text-sm font-semibold text-indigo-700 mb-1.5">
+                  {wordsUsed.toLocaleString("de-AT")} / {wordsLimit.toLocaleString("de-AT")}
+                </p>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      wordsPercent > 90 ? "bg-red-500" : wordsPercent > 70 ? "bg-yellow-400" : "bg-indigo-600"
+                    }`}
+                    style={{ width: `${wordsPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Translation Requests */}
+              <div>
+                <div className="flex items-center gap-1 mb-1.5">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+                    Übersetzungs-Anfragen
+                  </p>
+                  <HelpCircle className="h-3 w-3 text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-indigo-700 mb-1.5">
+                  {requestsCount.toLocaleString("de-AT")} / {requestsLimit.toLocaleString("de-AT")}
+                </p>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      requestsPercent > 90 ? "bg-red-500" : "bg-indigo-600"
+                    }`}
+                    style={{ width: `${requestsPercent}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5 leading-tight">
+                  Anfragen-Zähler wird am 1. jedes Monats zurückgesetzt.
+                </p>
+              </div>
+            </div>
+
+            {/* Users */}
+            <div className="px-5 py-4 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Benutzer
+                </p>
+                <span className="text-xs text-gray-500">
+                  {usersCount} / {usersLimit}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {org?.members.slice(0, 6).map((m) => (
+                  <div key={m.id} className="flex flex-col items-center gap-1">
+                    <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-white shadow-sm">
+                      {m.user?.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.user.image}
+                          alt={m.user.name ?? ""}
+                          className="h-9 w-9 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-indigo-700">
+                          {(m.user?.name ?? m.user?.email ?? "?").charAt(0).toUpperCase()}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex gap-1.5 mt-3 flex-wrap">
-                      <Badge variant="secondary" className="text-xs">
-                        {project.originalLang.toUpperCase()}
-                      </Badge>
-                      {project.languages.map((lang) => (
-                        <Badge key={lang.id} variant="outline" className="text-xs">
-                          {lang.langCode.toUpperCase()}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    <span className="text-xs text-gray-500">
+                      {m.role === "OWNER" ? "Admin" : m.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="py-12 text-center">
-              <Globe className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 font-medium">Noch kein Projekt</p>
-              <p className="text-sm text-gray-500 mt-1 mb-4">
-                Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.
+        </aside>
+
+        {/* ── CENTER: Projects ──────────────────────────────── */}
+        <main className="space-y-5">
+          {/* Promo Banner */}
+          <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden p-5 text-white min-h-[120px]">
+            <div className="relative z-10 max-w-[55%]">
+              <p className="text-sm font-bold leading-tight">
+                Übersetzt deine Inhalte schnell und datenschutzkonform – ohne Cloud-Lock-in.
               </p>
+              <p className="text-xs text-gray-300 mt-1.5">
+                Deepglot nutzt DeepL für höchste Übersetzungsqualität – deine Daten bleiben bei dir.
+              </p>
+              <div className="flex gap-2 mt-3">
+                <Link href="/projekte/neu">
+                  <button className="text-xs bg-white text-gray-900 font-semibold px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
+                    Projekt erstellen
+                  </button>
+                </Link>
+                <Link href="/abonnement">
+                  <button className="text-xs border border-white/30 text-white px-3 py-1.5 rounded hover:bg-white/10 transition-colors">
+                    Mehr erfahren
+                  </button>
+                </Link>
+              </div>
+            </div>
+            {/* Decorative */}
+            <div className="absolute right-0 top-0 h-full w-[42%] flex items-center justify-center opacity-20">
+              <Globe className="h-32 w-32 text-indigo-400" />
+            </div>
+            <div className="absolute top-3 right-3 bg-white/10 rounded-full px-2 py-0.5 flex items-center gap-1">
+              <Zap className="h-3 w-3 text-yellow-400" />
+              <span className="text-xs text-white font-medium">DeepL powered</span>
+            </div>
+          </div>
+
+          {/* Project List */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-900">
+                {org?.projects.length ?? 0} Projekt{(org?.projects.length ?? 0) !== 1 ? "e" : ""}
+              </h2>
               <Link href="/projekte/neu">
-                <Button className="bg-indigo-600 hover:bg-indigo-700">
-                  Erstes Projekt erstellen
+                <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs gap-1.5">
+                  <Plus className="h-3.5 w-3.5" />
+                  Projekt erstellen
                 </Button>
               </Link>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            {org?.projects.length ? (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                {org.projects.slice(0, 8).map((project) => {
+                  const minutesAgo = Math.floor(
+                    (Date.now() - project.updatedAt.getTime()) / 60000
+                  );
+                  const isRecent = minutesAgo < 60;
+                  const isActive = minutesAgo < 60 * 24 * 30; // active in last 30 days
+
+                  let timeLabel = "";
+                  if (minutesAgo < 1) timeLabel = "Gerade eben";
+                  else if (minutesAgo < 60) timeLabel = `Vor ${minutesAgo} Min.`;
+                  else if (minutesAgo < 60 * 24) timeLabel = `Vor ${Math.floor(minutesAgo / 60)} Std.`;
+                  else if (minutesAgo < 60 * 24 * 30) timeLabel = `Vor ${Math.floor(minutesAgo / (60 * 24))} Tagen`;
+                  else timeLabel = `Vor ${Math.floor(minutesAgo / (60 * 24 * 30))} Monaten`;
+
+                  return (
+                    <Link key={project.id} href={`/projekte/${project.id}/uebersetzungen/sprachen`}>
+                      <div className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className={`flex-shrink-0 h-2 w-2 rounded-full ${
+                              isRecent
+                                ? "bg-green-500"
+                                : isActive
+                                ? "bg-yellow-400"
+                                : "bg-gray-300"
+                            }`}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {project.domain}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">
+                              https://{project.domain}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 flex-shrink-0 ml-4">
+                          <Clock className="h-3 w-3" />
+                          {timeLabel}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white border border-dashed border-gray-300 rounded-xl py-14 text-center">
+                <Globe className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600">Noch kein Projekt</p>
+                <p className="text-xs text-gray-400 mt-1 mb-4 max-w-xs mx-auto">
+                  Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.
+                </p>
+                <Link href="/projekte/neu">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
+                    <Plus className="h-4 w-4" />
+                    Erstes Projekt erstellen
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {(org?.projects.length ?? 0) > 0 && (
+              <div className="text-center mt-2">
+                <Link
+                  href="/projekte"
+                  className="text-xs text-indigo-600 hover:underline"
+                >
+                  Alle Projekte anzeigen
+                </Link>
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* ── RIGHT: Activity + Support ─────────────────────── */}
+        <aside className="space-y-5">
+          {/* Activity Feed */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">Aktivität</h2>
+            </div>
+
+            {activityItems.length ? (
+              <div className="divide-y divide-gray-50 max-h-[420px] overflow-y-auto">
+                {activityItems.map((item) => {
+                  const icon =
+                    item.type === "warning" ? (
+                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+                    );
+
+                  const dateStr = new Intl.DateTimeFormat("de-AT", {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }).format(item.date);
+
+                  return (
+                    <div key={item.id} className="px-4 py-3 hover:bg-gray-50">
+                      <div className="flex gap-2.5">
+                        {icon}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-indigo-600 truncate">
+                            {item.project}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5 leading-snug">
+                            {item.message}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">{dateStr}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-5 py-10 text-center">
+                <p className="text-xs text-gray-400">Noch keine Aktivitäten</p>
+              </div>
+            )}
+
+            {activityItems.length > 0 && (
+              <div className="px-5 py-3 border-t border-gray-100 text-center">
+                <button className="text-xs text-indigo-600 hover:underline">
+                  Alle Aktivitäten anzeigen
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Support Box */}
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <MessageCircle className="h-5 w-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Support</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                  Deepglot Support ist montags bis freitags von 9–17 Uhr erreichbar.
+                </p>
+                <a
+                  href="mailto:support@deepglot.com"
+                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-2"
+                >
+                  Hilfecenter
+                  <HelpCircle className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );
