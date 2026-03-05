@@ -84,6 +84,8 @@ Next.js App (Vercel)          WordPress Plugin
 | 3.14 | Prisma: ProjectSettings + ProjectMember Modelle | ✅ Abgeschlossen |
 | 3.15 | Globale Konto-Einstellungen (My Account, Passwort, 2FA, Notifications, Workspaces) | ✅ Abgeschlossen |
 | 3.16 | API Routes: PATCH /api/user, PATCH /api/user/password, DELETE /api/user | ✅ Abgeschlossen |
+| 3.17 | Billing: Plan-Übersicht, Karte & Rechnungen, Nutzung (Pie Charts) | ✅ Abgeschlossen |
+| 3.18 | API Routes: POST /api/billing/portal, /cancel, /address | ✅ Abgeschlossen |
 
 | 4.1 | Plugin-Grundgerüst (plugin.php, Autoloader, Service Container) | ⏳ Offen |
 | 4.2 | URL-Klasse (Sprache aus URL, `$_SERVER` Manipulation) | ⏳ Offen |
