@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -13,46 +12,83 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
   const project = await db.project.findUnique({ where: { id: projektId } });
   if (!project) notFound();
 
-  const topUrls = await db.translatedUrl.findMany({
-    where: { projectId: projektId },
-    orderBy: { requestCount: "desc" },
-    take: 10,
-  });
+  // Page views tracking is opt-in (requires JS snippet activation)
+  const isActivated = false; // TODO: store activation state in Project model
 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-6">Seitenaufrufe</h2>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Eye className="h-4 w-4 text-indigo-600" />
-            Meistaufgerufene Seiten
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {topUrls.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">
-              Noch keine Seitenaufruf-Daten vorhanden.
-              Das Plugin sendet Daten beim ersten Seitenaufruf.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {topUrls.map((url) => (
-                <div key={url.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <span className="text-sm font-mono text-gray-700">{url.urlPath}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">{url.langTo.toUpperCase()}</span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {url.requestCount.toLocaleString("de-DE")} Aufrufe
-                    </span>
-                  </div>
-                </div>
-              ))}
+      {!isActivated ? (
+        <div className="bg-white border border-gray-200 rounded-xl py-24 flex flex-col items-center justify-center text-center px-8">
+          {/* Weglot-style icon */}
+          <div className="relative mb-6">
+            <div className="h-20 w-20 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <svg
+                className="h-10 w-10 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
+              <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+          </div>
+
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Seitenaufrufe noch nicht aktiviert.
+          </h3>
+          <p className="text-gray-500 text-sm mb-8 max-w-sm">
+            Aktiviere die Seitenaufruf-Statistiken um erweiterte Daten darüber zu
+            erhalten, welche übersetzten Seiten am häufigsten besucht werden.
+          </p>
+
+          <form action={`/api/projects/${projektId}/page-views/activate`} method="POST">
+            <Button
+              type="submit"
+              className="bg-indigo-600 hover:bg-indigo-700 px-8"
+            >
+              Aktivieren
+            </Button>
+          </form>
+
+          <div className="mt-8 border border-gray-100 rounded-xl p-5 text-left max-w-sm w-full">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Was du mit Seitenaufrufen erhältst:
+            </p>
+            <ul className="space-y-2 text-sm text-gray-600">
+              {[
+                "Anzahl der Aufrufe pro übersetzter Seite",
+                "Vergleich Original vs. übersetzte Versionen",
+                "Zeitlicher Verlauf nach Tag/Woche/Monat",
+                "Meistbesuchte übersetzte URLs",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : (
+        // Activated state – placeholder for actual chart
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <p className="text-gray-500 text-sm text-center py-16">
+            Seitenaufruf-Daten werden geladen...
+          </p>
+        </div>
+      )}
     </div>
   );
 }
