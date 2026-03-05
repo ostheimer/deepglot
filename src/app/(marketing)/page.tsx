@@ -20,7 +20,7 @@ export default function LandingPage() {
               <Link href="#features" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 Features
               </Link>
-              <Link href="#preise" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+              <Link href="/preise" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 Preise
               </Link>
               <Link href="#plugin" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
