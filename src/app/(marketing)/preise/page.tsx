@@ -54,7 +54,9 @@ export default function PreisePage() {
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-indigo-600" />
             <span className="font-semibold text-gray-900">Deepglot</span>
-            <span className="text-gray-400 text-sm ml-2">© {new Date().getFullYear()}</span>
+            <span className="text-gray-400 text-sm ml-2">
+              © {new Date().getFullYear()} Andreas Ostheimer
+            </span>
           </div>
           <div className="flex gap-6 text-sm text-gray-400">
             <Link href="/datenschutz" className="hover:text-gray-700">Datenschutz</Link>

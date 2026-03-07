@@ -1,28 +1,16 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/lib/auth.config";
+import { getAuthRedirect } from "@/lib/route-access";
 import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl, auth: session } = req;
-  const isLoggedIn = !!session?.user;
+  const redirectPath = getAuthRedirect(nextUrl.pathname, !!session?.user);
 
-  const isDashboard = nextUrl.pathname.startsWith("/dashboard") ||
-    nextUrl.pathname.startsWith("/projekte") ||
-    nextUrl.pathname.startsWith("/uebersetzungen") ||
-    nextUrl.pathname.startsWith("/api-keys") ||
-    nextUrl.pathname.startsWith("/abonnement") ||
-    nextUrl.pathname.startsWith("/einstellungen");
-
-  const isAuthPage = nextUrl.pathname.startsWith("/anmelden") ||
-    nextUrl.pathname.startsWith("/registrieren");
-
-  // Redirect unauthenticated users away from protected routes
-  if (isDashboard && !isLoggedIn) {
-    return NextResponse.redirect(new URL("/anmelden", nextUrl));
-  }
-
-  // Redirect authenticated users away from auth pages
-  if (isAuthPage && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", nextUrl));
+  if (redirectPath) {
+    return NextResponse.redirect(new URL(redirectPath, nextUrl));
   }
 
   return NextResponse.next();

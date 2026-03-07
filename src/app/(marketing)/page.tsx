@@ -48,15 +48,15 @@ export default function LandingPage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-20">
         <div className="text-center max-w-4xl mx-auto">
           <Badge variant="secondary" className="mb-6 text-indigo-700 bg-indigo-50 border-indigo-200">
-            Weglot-Alternative · Open Source · Kein Lock-in
+            Open Source · Kein Lock-in · WordPress-first
           </Badge>
           <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 tracking-tight mb-6">
             Übersetze deine WordPress-Site{" "}
             <span className="text-indigo-600">ohne Abo-Falle</span>
           </h1>
           <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Deepglot übersetzt deinen WordPress-Content automatisch per DeepL-KI –
-            zu einem Bruchteil der Weglot-Kosten. Übersetzungen gehören dir, nicht uns.
+            Deepglot übersetzt deinen WordPress-Content automatisch per KI – zu
+            einem Bruchteil der üblichen Kosten. Übersetzungen gehören dir, nicht uns.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/registrieren">
@@ -83,7 +83,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { label: "Weglot Professional", price: "€99/Monat", words: "200k Wörter", highlight: false },
+              { label: "Typische SaaS-Lösung", price: "ab €99/Monat", words: "200k Wörter", highlight: false },
               { label: "Deepglot Professional", price: "€49/Monat", words: "1 Mio. Wörter", highlight: true },
             ].map((item) => (
               <div
@@ -199,7 +199,9 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-indigo-600" />
               <span className="font-semibold text-gray-900">Deepglot</span>
-              <span className="text-gray-500 text-sm ml-2">© {new Date().getFullYear()}</span>
+              <span className="text-gray-500 text-sm ml-2">
+                © {new Date().getFullYear()} Andreas Ostheimer
+              </span>
             </div>
             <div className="flex gap-6 text-sm text-gray-500">
               <Link href="/datenschutz" className="hover:text-gray-900 transition-colors">Datenschutz</Link>
@@ -239,7 +241,7 @@ const features = [
     icon: Code,
     title: "WordPress Plugin",
     description:
-      "Bewährter ob_start-Ansatz wie Weglot – kompatibel mit Elementor, WooCommerce, Yoast SEO und mehr.",
+      "Bewährter ob_start-Ansatz für hohe Kompatibilität mit Elementor, WooCommerce, Yoast SEO und mehr.",
   },
   {
     icon: Check,

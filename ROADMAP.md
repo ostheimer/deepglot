@@ -86,8 +86,11 @@ Next.js App (Vercel)          WordPress Plugin
 | 3.16 | API Routes: PATCH /api/user, PATCH /api/user/password, DELETE /api/user | ✅ Abgeschlossen |
 | 3.17 | Billing: Plan-Übersicht, Karte & Rechnungen, Nutzung (Pie Charts) | ✅ Abgeschlossen |
 | 3.18 | API Routes: POST /api/billing/portal, /cancel, /address | ✅ Abgeschlossen |
+| 3.19 | Production-Fix: Edge-sichere Auth-/Middleware-Trennung + Routing-Tests | ✅ Abgeschlossen |
+| 3.20 | Production-Fix: Root-Route `/` auf echte Marketing-Landingpage umgestellt | ✅ Abgeschlossen |
+| 3.21 | Autor-/Projektmetadaten auf Andreas Ostheimer vereinheitlicht | ✅ Abgeschlossen |
 
-| 4.1 | Plugin-Grundgerüst (plugin.php, Autoloader, Service Container) | ⏳ Offen |
+| 4.1 | Plugin-Grundgerüst (plugin.php, Autoloader, Service Container) | ✅ Abgeschlossen |
 | 4.2 | URL-Klasse (Sprache aus URL, `$_SERVER` Manipulation) | ⏳ Offen |
 | 4.3 | Output Buffer + HTML Parser (DiDOM) | ⏳ Offen |
 | 4.4 | Deepglot API Client (HTTP-Requests zum Next.js Backend) | ⏳ Offen |

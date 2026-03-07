@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Deepglot
 
-## Getting Started
+Deepglot ist eine mehrsprachige WordPress-Plattform ohne Cloud-Lock-in: eine Next.js-Dashboard-App mit Stripe-Billing, NextAuth, Prisma/Neon und einer kompatiblen Übersetzungs-API für ein eigenes WordPress-Plugin.
 
-First, run the development server:
+## Autor
+
+Andreas Ostheimer  
+https://www.ostheimer.at
+
+## Stack
+
+- Next.js 16 + App Router
+- TypeScript
+- Tailwind CSS + shadcn/ui
+- NextAuth v5
+- Prisma 7 + Neon PostgreSQL
+- Stripe
+- DeepL
+
+## Lokale Entwicklung
+
+```bash
+npm install
+npm run dev
+```
+
+Die App läuft danach unter `http://localhost:3000`.
+
+## Wichtige Skripte
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run lint
+npm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Auth-Architektur
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Die Auth-Konfiguration ist absichtlich getrennt:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/lib/auth.config.ts`: edge-sichere Basis-Konfiguration für Middleware
+- `src/lib/auth.ts`: serverseitige Konfiguration mit Prisma-Adapter und Providern
+- `src/middleware.ts`: nutzt nur die edge-sichere Konfiguration
 
-## Learn More
+Diese Trennung verhindert Produktionsfehler wie `MIDDLEWARE_INVOCATION_FAILED` auf Vercel.
 
-To learn more about Next.js, take a look at the following resources:
+## API-Kompatibilität
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Die Route `POST /api/translate` ist Weglot-kompatibel:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `?api_key=...` wird unterstützt
+- Response enthält `from_words` und `to_words`
+- Public Endpoints:
+  - `GET /api/public/status`
+  - `GET /api/public/languages`
+  - `GET /api/public/languages/is-supported`
 
-## Deploy on Vercel
+## WordPress-Plugin
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Das erste Plugin-Grundgerüst liegt unter `wordpress-plugin/deepglot`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Enthalten sind aktuell:
+
+- Bootstrap-Datei mit Plugin-Header
+- Autoloader und kleiner Service-Container
+- Admin-Einstellungsseite unter `Einstellungen -> Deepglot`
+- vorbereiteter API-Client
+- erste testbare URL-Sprachlogik
+
+Plugin-Test lokal:
+
+```bash
+php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
+```
+
+## Deployment
+
+Die App wird auf Vercel deployed. Für einen lokalen Produktionscheck:
+
+```bash
+npm run build
+```
+
+Nach Deployments sollte die aktuelle Production-URL sowie der Deployment-Status geprüft werden.

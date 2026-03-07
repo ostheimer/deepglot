@@ -11,13 +11,13 @@ export const metadata: Metadata = {
     template: "%s | Deepglot",
   },
   description:
-    "Übersetze deine WordPress-Website mit KI – ohne monatliche Abo-Fallen. Deepglot ist die Open-Source-Alternative zu Weglot.",
+    "Deepglot übersetzt deinen WordPress-Content automatisch per KI – zu einem Bruchteil der üblichen Kosten. Übersetzungen gehören dir, nicht uns.",
   keywords: [
     "WordPress Übersetzung",
-    "Weglot Alternative",
     "mehrsprachige Website",
     "DeepL WordPress",
     "Open Source Übersetzung",
+    "WordPress Übersetzungs Plugin",
   ],
   openGraph: {
     type: "website",
