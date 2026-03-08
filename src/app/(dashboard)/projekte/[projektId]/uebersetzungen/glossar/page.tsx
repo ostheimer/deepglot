@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Plus, Upload } from "lucide-react";
 import { GlossaryTable } from "@/components/projekte/glossary-table";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -10,6 +11,7 @@ interface PageProps {
 
 export default async function GlossarPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -26,15 +28,17 @@ export default async function GlossarPage({ params }: PageProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Glossar</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {locale === "de" ? "Glossar" : "Glossary"}
+        </h2>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <Upload className="mr-2 h-4 w-4" />
-            Datei importieren
+            {locale === "de" ? "Datei importieren" : "Import file"}
           </Button>
           <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Glossarregel hinzufügen
+            {locale === "de" ? "Glossarregel hinzufügen" : "Add glossary rule"}
           </Button>
         </div>
       </div>
@@ -45,19 +49,20 @@ export default async function GlossarPage({ params }: PageProps) {
             <BookOpen className="h-8 w-8 text-gray-400" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Keine Glossarregeln vorhanden
+            {locale === "de" ? "Keine Glossarregeln vorhanden" : "No glossary rules yet"}
           </h3>
           <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">
-            Lege fest, dass bestimmte Begriffe immer auf eine bestimmte Weise
-            übersetzt werden – oder gar nicht.
+            {locale === "de"
+              ? "Lege fest, dass bestimmte Begriffe immer auf eine bestimmte Weise übersetzt werden – oder gar nicht."
+              : "Define terms that should always be translated in a specific way, or not translated at all."}
           </p>
           <div className="flex gap-3 justify-center">
             <Button className="bg-indigo-600 hover:bg-indigo-700">
               <Plus className="mr-2 h-4 w-4" />
-              Glossarregel hinzufügen
+              {locale === "de" ? "Glossarregel hinzufügen" : "Add glossary rule"}
             </Button>
             <Button variant="outline">
-              Oder Datei importieren
+              {locale === "de" ? "Oder Datei importieren" : "Or import file"}
             </Button>
           </div>
         </div>

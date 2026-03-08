@@ -1,22 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { getCookieLocale } from "@/lib/request-locale";
 import { z } from "zod";
 
-const registerSchema = z.object({
-  name: z.string().min(2, "Name muss mindestens 2 Zeichen haben"),
-  email: z.string().email("Ungültige E-Mail-Adresse"),
-  password: z.string().min(8, "Passwort muss mindestens 8 Zeichen haben"),
-});
+function t(locale: "en" | "de", deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const locale = await getCookieLocale();
+    const registerSchema = z.object({
+      name: z.string().min(2, t(locale, "Name muss mindestens 2 Zeichen haben", "Name must be at least 2 characters long")),
+      email: z.string().email(t(locale, "Ungültige E-Mail-Adresse", "Invalid email address")),
+      password: z.string().min(8, t(locale, "Passwort muss mindestens 8 Zeichen haben", "Password must be at least 8 characters long")),
+    });
     const body = await req.json();
     const parsed = registerSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.issues?.[0]?.message ?? "Ungültige Eingabe" },
+        {
+          error:
+            parsed.error.issues?.[0]?.message ??
+            t(locale, "Ungültige Eingabe", "Invalid input"),
+        },
         { status: 400 }
       );
     }
@@ -27,7 +36,13 @@ export async function POST(req: NextRequest) {
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json(
-        { error: "Diese E-Mail-Adresse ist bereits registriert" },
+        {
+          error: t(
+            locale,
+            "Diese E-Mail-Adresse ist bereits registriert",
+            "This email address is already registered"
+          ),
+        },
         { status: 409 }
       );
     }
@@ -78,13 +93,23 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { message: "Konto erfolgreich erstellt", userId: result.user.id },
+      {
+        message: t(locale, "Konto erfolgreich erstellt", "Account created successfully"),
+        userId: result.user.id,
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error("[Registrierung] Fehler:", error);
+    const locale = await getCookieLocale();
     return NextResponse.json(
-      { error: "Registrierung fehlgeschlagen – bitte versuche es später erneut" },
+      {
+        error: t(
+          locale,
+          "Registrierung fehlgeschlagen – bitte versuche es später erneut",
+          "Registration failed. Please try again later."
+        ),
+      },
       { status: 500 }
     );
   }

@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Copy, Save } from "lucide-react";
 import { SettingsToggle } from "@/components/projekte/settings-toggle";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getLanguageName } from "@/lib/language-names";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -25,6 +27,7 @@ const INDUSTRY_TYPES = [
 
 export default async function EinstellungenGeneralPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -38,7 +41,9 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
     <div className="max-w-3xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Allgemein</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {locale === "de" ? "Allgemein" : "General"}
+        </h2>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-500">
             <Trash2 className="h-4 w-4" />
@@ -48,7 +53,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
           </Button>
           <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm gap-1.5">
             <Save className="h-3.5 w-3.5" />
-            Speichern
+            {locale === "de" ? "Speichern" : "Save"}
           </Button>
         </div>
       </div>
@@ -59,7 +64,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Projektname
+                {locale === "de" ? "Projektname" : "Project name"}
               </Label>
               <Input defaultValue={project.name} className="h-9" />
             </div>
@@ -89,46 +94,58 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
 
           <div className="mt-4 space-y-1.5">
             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Originalsprache
+              {locale === "de" ? "Originalsprache" : "Original language"}
             </Label>
             <p className="text-xs text-gray-500">
-              Muss mit der Originalsprache deiner Website übereinstimmen.
+              {locale === "de"
+                ? "Muss mit der Originalsprache deiner Website übereinstimmen."
+                : "Must match the original language of your website."}
             </p>
             <select className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs">
-              <option value="de" selected={project.originalLang === "de"}>Deutsch</option>
-              <option value="en" selected={project.originalLang === "en"}>Englisch</option>
-              <option value="fr" selected={project.originalLang === "fr"}>Französisch</option>
-              <option value="es" selected={project.originalLang === "es"}>Spanisch</option>
-              <option value="it" selected={project.originalLang === "it"}>Italienisch</option>
+              {["de", "en", "fr", "es", "it"].map((code) => (
+                <option key={code} value={code} selected={project.originalLang === code}>
+                  {getLanguageName(code, locale)}
+                </option>
+              ))}
             </select>
           </div>
         </section>
 
         {/* Toggles */}
         <SettingsToggle
-          label="Auto-Weiterleitung"
-          description="Aktiviere die automatische Weiterleitung, um Besucher basierend auf ihrer Browser-Sprache umzuleiten."
+          label={locale === "de" ? "Auto-Weiterleitung" : "Automatic redirect"}
+          description={locale === "de"
+            ? "Aktiviere die automatische Weiterleitung, um Besucher basierend auf ihrer Browser-Sprache umzuleiten."
+            : "Redirect visitors automatically based on their browser language."}
           defaultChecked={s?.autoSwitch ?? false}
           className="border-x border-gray-200"
         />
         <SettingsToggle
-          label="KI-Übersetzungshinweis anzeigen"
-          description="Fügt deiner Website einen Hinweis hinzu, dass bestimmte Inhalte durch KI übersetzt wurden."
+          label={locale === "de" ? "KI-Übersetzungshinweis anzeigen" : "Show AI translation notice"}
+          description={locale === "de"
+            ? "Fügt deiner Website einen Hinweis hinzu, dass bestimmte Inhalte durch KI übersetzt wurden."
+            : "Adds a notice to your website that some content was translated with AI."}
           defaultChecked={s?.displayAiNotice ?? false}
           className="border-x border-gray-200"
         />
         <SettingsToggle
-          label="Automatische Inhaltsübersetzung"
-          description="Wenn aktiviert (Standard), erkennt und übersetzt Deepglot Inhalte automatisch. Wenn deaktiviert, musst du erkannte Inhalte manuell freigeben."
+          label={locale === "de" ? "Automatische Inhaltsübersetzung" : "Automatic content translation"}
+          description={locale === "de"
+            ? "Wenn aktiviert (Standard), erkennt und übersetzt Deepglot Inhalte automatisch. Wenn deaktiviert, musst du erkannte Inhalte manuell freigeben."
+            : "When enabled, Deepglot detects and translates content automatically. When disabled, you approve detected content manually."}
           defaultChecked={s?.automaticTranslation ?? true}
           className="border-x border-gray-200"
         />
         <div className="bg-white border-x border-gray-200 p-5">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">Übersetzungsgedächtnis (Beta)</p>
+              <p className="text-sm font-medium text-gray-900">
+                {locale === "de" ? "Übersetzungsgedächtnis (Beta)" : "Translation memory (beta)"}
+              </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Das Übersetzungsgedächtnis ist ab dem Professional-Plan verfügbar.
+                {locale === "de"
+                  ? "Das Übersetzungsgedächtnis ist ab dem Professional-Plan verfügbar."
+                  : "Translation memory is available starting with the Professional plan."}
               </p>
             </div>
             <div className="relative">
@@ -141,18 +158,23 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
         {/* Website type + Industry */}
         <section className="bg-white border border-gray-200 rounded-b-xl p-6">
           <p className="text-sm text-gray-500 mb-5">
-            Fülle diese Informationen aus, um von verbesserten automatischen Übersetzungen zu profitieren.
-            Der Typ und die Branche deiner Website helfen uns, die Übersetzung an deinen Fall anzupassen.
+            {locale === "de"
+              ? "Fülle diese Informationen aus, um von verbesserten automatischen Übersetzungen zu profitieren. Der Typ und die Branche deiner Website helfen uns, die Übersetzung an deinen Fall anzupassen."
+              : "Fill out this information to improve automatic translations. Your website type and industry help us adapt translations to your use case."}
           </p>
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-3">Was möchtest du aufbauen?</p>
-              <p className="text-xs text-gray-500 mb-3">Wähle den Typ deiner Website</p>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                {locale === "de" ? "Was möchtest du aufbauen?" : "What are you building?"}
+              </p>
+              <p className="text-xs text-gray-500 mb-3">
+                {locale === "de" ? "Wähle den Typ deiner Website" : "Choose your website type"}
+              </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="websiteType" value="" defaultChecked={!s?.websiteType}
                     className="h-3.5 w-3.5 text-indigo-600" />
-                  <span className="text-sm text-gray-700">Keine Angabe</span>
+                  <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
                 </label>
                 {WEBSITE_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">
@@ -165,13 +187,17 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               </div>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900 mb-3">Worum geht es auf deiner Website?</p>
-              <p className="text-xs text-gray-500 mb-3">Wähle die Branche</p>
+              <p className="text-sm font-semibold text-gray-900 mb-3">
+                {locale === "de" ? "Worum geht es auf deiner Website?" : "What is your website about?"}
+              </p>
+              <p className="text-xs text-gray-500 mb-3">
+                {locale === "de" ? "Wähle die Branche" : "Choose the industry"}
+              </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="industryType" value="" defaultChecked={!s?.industryType}
                     className="h-3.5 w-3.5 text-indigo-600" />
-                  <span className="text-sm text-gray-700">Keine Angabe</span>
+                  <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
                 </label>
                 {INDUSTRY_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">

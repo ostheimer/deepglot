@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useLocale } from "@/components/providers/locale-provider";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 interface ProjectSidebarProps {
   project: {
@@ -35,39 +37,40 @@ interface ProjectSidebarProps {
 }
 
 export function ProjectSidebar({ project }: ProjectSidebarProps) {
+  const locale = useLocale();
   const pathname = usePathname();
-  const base = `/projekte/${project.id}`;
+  const base = withLocalePrefix(`/projects/${project.id}`, locale);
 
   const nav = [
     {
-      label: "Übersetzungen",
+      label: locale === "de" ? "Übersetzungen" : "Translations",
       items: [
-        { href: `${base}/uebersetzungen/sprachen`, label: "Sprachen", icon: Languages },
-        { href: `${base}/uebersetzungen/urls`, label: "URLs", icon: Globe },
-        { href: `${base}/uebersetzungen/visuell`, label: "Visueller Editor", icon: Paintbrush },
-        { href: `${base}/uebersetzungen/glossar`, label: "Glossar", icon: BookOpen },
-        { href: `${base}/uebersetzungen/profis`, label: "Profi-Übersetzungen", icon: UserCog },
-        { href: `${base}/uebersetzungen/slugs`, label: "URL Slugs", icon: Link2 },
+        { href: `${base}/translations/languages`, label: locale === "de" ? "Sprachen" : "Languages", icon: Languages },
+        { href: `${base}/translations/urls`, label: "URLs", icon: Globe },
+        { href: `${base}/translations/visual`, label: locale === "de" ? "Visueller Editor" : "Visual Editor", icon: Paintbrush },
+        { href: `${base}/translations/glossary`, label: locale === "de" ? "Glossar" : "Glossary", icon: BookOpen },
+        { href: `${base}/translations/pros`, label: locale === "de" ? "Profi-Übersetzungen" : "Professional Translation", icon: UserCog },
+        { href: `${base}/translations/slugs`, label: "URL Slugs", icon: Link2 },
       ],
     },
     {
-      label: "Statistiken",
+      label: locale === "de" ? "Statistiken" : "Analytics",
       items: [
-        { href: `${base}/statistiken/anfragen`, label: "Übersetzungsanfragen", icon: BarChart2 },
-        { href: `${base}/statistiken/seitenaufrufe`, label: "Seitenaufrufe", icon: Eye },
+        { href: `${base}/stats/requests`, label: locale === "de" ? "Übersetzungsanfragen" : "Translation Requests", icon: BarChart2 },
+        { href: `${base}/stats/page-views`, label: locale === "de" ? "Seitenaufrufe" : "Page Views", icon: Eye },
       ],
     },
     {
-      label: "Einstellungen",
+      label: locale === "de" ? "Einstellungen" : "Settings",
       items: [
-        { href: `${base}/einstellungen`, label: "Allgemein", icon: Settings },
-        { href: `${base}/einstellungen/sprachmodell`, label: "Sprachmodell", icon: Cpu, badge: "Neu" },
-        { href: `${base}/einstellungen/switcher`, label: "Sprachauswahl", icon: Globe },
-        { href: `${base}/einstellungen/ausnahmen`, label: "Ausnahmen", icon: ShieldOff },
-        { href: `${base}/einstellungen/setup`, label: "Setup", icon: Wrench },
-        { href: `${base}/einstellungen/wordpress`, label: "WordPress", icon: Plug },
-        { href: `${base}/einstellungen/mitglieder`, label: "Projektmitglieder", icon: Users },
-        { href: `${base}/api-keys`, label: "API-Keys", icon: Key },
+        { href: `${base}/settings`, label: locale === "de" ? "Allgemein" : "General", icon: Settings },
+        { href: `${base}/settings/language-model`, label: locale === "de" ? "Sprachmodell" : "Language Model", icon: Cpu, badge: locale === "de" ? "Neu" : "New" },
+        { href: `${base}/settings/switcher`, label: locale === "de" ? "Sprachauswahl" : "Language Switcher", icon: Globe },
+        { href: `${base}/settings/exclusions`, label: locale === "de" ? "Ausnahmen" : "Exclusions", icon: ShieldOff },
+        { href: `${base}/settings/setup`, label: "Setup", icon: Wrench },
+        { href: `${base}/settings/wordpress`, label: "WordPress", icon: Plug },
+        { href: `${base}/settings/members`, label: locale === "de" ? "Projektmitglieder" : "Project Members", icon: Users },
+        { href: `${base}/api-keys`, label: "API Keys", icon: Key },
       ],
     },
   ];
@@ -77,11 +80,11 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
       {/* Back + Project info */}
       <div className="px-4 mb-6">
         <Link
-          href="/projekte"
+          href={withLocalePrefix("/projects", locale)}
           className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 mb-4 transition-colors"
         >
           <ArrowLeft className="h-3 w-3" />
-          Alle Projekte
+          {locale === "de" ? "Alle Projekte" : "All Projects"}
         </Link>
         <div>
           <p className="font-semibold text-gray-900 text-sm truncate">{project.name}</p>

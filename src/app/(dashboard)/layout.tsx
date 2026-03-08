@@ -1,16 +1,19 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
+import { getRequestLocale } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getRequestLocale();
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/anmelden");
+    redirect(withLocalePrefix("/login", locale));
   }
 
   return (

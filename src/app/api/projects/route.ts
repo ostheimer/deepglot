@@ -1,28 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getCookieLocale } from "@/lib/request-locale";
 import { z } from "zod";
 
-const createProjectSchema = z.object({
-  name: z.string().min(2, "Projektname muss mindestens 2 Zeichen haben"),
-  domain: z.string().min(3, "Ungültige Domain"),
-  originalLang: z.string().length(2, "Ungültiger Sprachcode"),
-  languages: z.array(z.string().length(2)).min(1, "Mindestens eine Übersetzungssprache erforderlich"),
-});
+function t(locale: "en" | "de", deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
+}
 
 export async function POST(req: NextRequest) {
+  const locale = await getCookieLocale();
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+    return NextResponse.json(
+      { error: t(locale, "Nicht authentifiziert", "Not authenticated") },
+      { status: 401 }
+    );
   }
 
   try {
+    const createProjectSchema = z.object({
+      name: z.string().min(2, t(locale, "Projektname muss mindestens 2 Zeichen haben", "Project name must be at least 2 characters long")),
+      domain: z.string().min(3, t(locale, "Ungültige Domain", "Invalid domain")),
+      originalLang: z.string().length(2, t(locale, "Ungültiger Sprachcode", "Invalid language code")),
+      languages: z
+        .array(z.string().length(2))
+        .min(1, t(locale, "Mindestens eine Übersetzungssprache erforderlich", "At least one translation language is required")),
+    });
     const body = await req.json();
     const parsed = createProjectSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" },
+        {
+          error:
+            parsed.error.issues[0]?.message ??
+            t(locale, "Ungültige Eingabe", "Invalid input"),
+        },
         { status: 400 }
       );
     }
@@ -36,7 +50,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!membership) {
-      return NextResponse.json({ error: "Organisation nicht gefunden" }, { status: 404 });
+      return NextResponse.json(
+        { error: t(locale, "Organisation nicht gefunden", "Organization not found") },
+        { status: 404 }
+      );
     }
 
     // Check project limit based on plan
@@ -55,7 +72,10 @@ export async function POST(req: NextRequest) {
     if (currentProjects >= limit) {
       return NextResponse.json(
         {
-          error: `Dein ${membership.organization.plan}-Plan erlaubt maximal ${limit} Projekt${limit > 1 ? "e" : ""}. Bitte upgrade deinen Plan.`,
+          error:
+            locale === "de"
+              ? `Dein ${membership.organization.plan}-Plan erlaubt maximal ${limit} Projekt${limit > 1 ? "e" : ""}. Bitte upgrade deinen Plan.`
+              : `Your ${membership.organization.plan} plan allows up to ${limit} project${limit > 1 ? "s" : ""}. Please upgrade your plan.`,
         },
         { status: 403 }
       );
@@ -86,6 +106,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ projectId: project.id }, { status: 201 });
   } catch (error) {
     console.error("[POST /api/projects] Fehler:", error);
-    return NextResponse.json({ error: "Projekt konnte nicht erstellt werden" }, { status: 500 });
+    return NextResponse.json(
+      { error: t(locale, "Projekt konnte nicht erstellt werden", "Could not create project") },
+      { status: 500 }
+    );
   }
 }

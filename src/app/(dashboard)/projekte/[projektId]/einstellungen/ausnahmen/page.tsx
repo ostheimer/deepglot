@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Edit2, Trash2 } from "lucide-react";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -17,6 +18,7 @@ const EXCLUSION_RULE_LABELS: Record<string, string> = {
 
 export default async function AusnahmenPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
 
   const project = await db.project.findUnique({ where: { id: projektId } });
   if (!project) notFound();
@@ -35,7 +37,7 @@ export default async function AusnahmenPage({ params }: PageProps) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            Ausgeschlossene URLs
+            {locale === "de" ? "Ausgeschlossene URLs" : "Excluded URLs"}
             <button className="text-gray-400 hover:text-gray-600">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -46,19 +48,19 @@ export default async function AusnahmenPage({ params }: PageProps) {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <Input placeholder="URLs suchen..." className="pl-9 h-8 w-52 text-sm" />
+              <Input placeholder={locale === "de" ? "URLs suchen..." : "Search URLs..."} className="pl-9 h-8 w-52 text-sm" />
             </div>
             <select className="h-8 text-sm border border-gray-200 rounded-md px-2 bg-white">
-              <option>Alle</option>
+              <option>{locale === "de" ? "Alle" : "All"}</option>
               <option>URL</option>
               <option>Regex</option>
             </select>
             <Button variant="outline" size="sm" className="h-8 text-sm">
-              Aktionen ▾
+              {locale === "de" ? "Aktionen" : "Actions"} ▾
             </Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 text-sm gap-1.5">
               <Plus className="h-3.5 w-3.5" />
-              Regel hinzufügen
+              {locale === "de" ? "Regel hinzufügen" : "Add rule"}
             </Button>
           </div>
         </div>
@@ -73,16 +75,18 @@ export default async function AusnahmenPage({ params }: PageProps) {
           <div className="grid grid-cols-[auto_1fr_1.5fr_1.5fr_2fr_auto] gap-4 px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider items-center">
             <input type="checkbox" className="h-3.5 w-3.5 rounded" />
             <span>Regel</span>
-            <span>Auszuschließende URL</span>
-            <span>Sprachen</span>
-            <span>Ausschlussverhalten</span>
-            <span>Aktionen</span>
+            <span>{locale === "de" ? "Auszuschließende URL" : "Excluded URL"}</span>
+            <span>{locale === "de" ? "Sprachen" : "Languages"}</span>
+            <span>{locale === "de" ? "Ausschlussverhalten" : "Exclusion behavior"}</span>
+            <span>{locale === "de" ? "Aktionen" : "Actions"}</span>
           </div>
 
           {urlExclusions.length === 0 ? (
             <div className="px-5 py-12 text-center">
               <p className="text-sm text-gray-500">
-                Keine ausgeschlossenen URLs. Füge Regeln hinzu, um bestimmte Seiten von der Übersetzung auszunehmen.
+                {locale === "de"
+                  ? "Keine ausgeschlossenen URLs. Füge Regeln hinzu, um bestimmte Seiten von der Übersetzung auszunehmen."
+                  : "No excluded URLs. Add rules to keep certain pages out of translation."}
               </p>
             </div>
           ) : (
@@ -98,8 +102,8 @@ export default async function AusnahmenPage({ params }: PageProps) {
                 <span className="text-sm font-mono text-gray-900">{exc.value}</span>
                 <span className="text-sm text-gray-400">—</span>
                 <div className="text-xs text-gray-600 space-y-0.5">
-                  <p>• Schalter ausblenden</p>
-                  <p>• URL leitet auf Original um</p>
+                  <p>{locale === "de" ? "• Schalter ausblenden" : "• Hide switcher"}</p>
+                  <p>{locale === "de" ? "• URL leitet auf Original um" : "• URL redirects to original"}</p>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -119,7 +123,7 @@ export default async function AusnahmenPage({ params }: PageProps) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            Ausgeschlossene Blöcke
+            {locale === "de" ? "Ausgeschlossene Blöcke" : "Excluded blocks"}
             <button className="text-gray-400 hover:text-gray-600">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -130,14 +134,14 @@ export default async function AusnahmenPage({ params }: PageProps) {
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <Input placeholder="Blöcke suchen..." className="pl-9 h-8 w-52 text-sm" />
+              <Input placeholder={locale === "de" ? "Blöcke suchen..." : "Search blocks..."} className="pl-9 h-8 w-52 text-sm" />
             </div>
             <Button variant="outline" size="sm" className="h-8 text-sm">
-              Aktionen ▾
+              {locale === "de" ? "Aktionen" : "Actions"} ▾
             </Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 text-sm gap-1.5">
               <Plus className="h-3.5 w-3.5" />
-              Regel hinzufügen
+              {locale === "de" ? "Regel hinzufügen" : "Add rule"}
             </Button>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
               <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -152,12 +156,13 @@ export default async function AusnahmenPage({ params }: PageProps) {
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <p className="px-5 py-3 text-sm text-gray-500 border-b border-gray-100">
-            0 Ergebnisse
+            0 {locale === "de" ? "Ergebnisse" : "results"}
           </p>
           <div className="px-5 py-12 text-center">
             <p className="text-sm text-gray-400">
-              Keine ausgeschlossenen Blöcke. Nutze CSS-Klassen oder IDs um bestimmte
-              HTML-Elemente von der Übersetzung auszuschließen.
+              {locale === "de"
+                ? "Keine ausgeschlossenen Blöcke. Nutze CSS-Klassen oder IDs um bestimmte HTML-Elemente von der Übersetzung auszuschließen."
+                : "No excluded blocks. Use CSS classes or IDs to exclude specific HTML elements from translation."}
             </p>
           </div>
         </div>

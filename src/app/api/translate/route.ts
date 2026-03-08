@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
-import { translateTexts, countWords } from "@/lib/deepl";
+import { translateTexts, countWords } from "@/lib/translation";
 import { db } from "@/lib/db";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-// WordType – same values as Weglot for drop-in compatibility
+// WordType - same values as the legacy translation contract for drop-in compatibility
 export const WordType = {
   OTHER: 0,
   TEXT: 1,
@@ -21,7 +21,7 @@ export const WordType = {
   EXTERNAL_LINK: 10,
 } as const;
 
-// BotType – same values as Weglot
+// BotType - same values as the legacy translation contract
 export const BotType = {
   HUMAN: 0,
   OTHER: 1,
@@ -40,9 +40,9 @@ const WINDOW_MS = 60_000;
 /**
  * POST /api/translate?api_key=dg_live_...
  *
- * Weglot-compatible translation endpoint.
+ * Drop-in-compatible translation endpoint.
  * Accepts both:
- *   - ?api_key=... query param (Weglot-style)
+ *   - ?api_key=... query param (legacy client format)
  *   - Authorization: Bearer ... header (Deepglot-native)
  *
  * Request body:
@@ -55,7 +55,7 @@ const WINDOW_MS = 60_000;
  *   bot?: number,            // BotType (0=human, 2=Google, etc.)
  * }
  *
- * Response (Weglot-compatible):
+ * Response (drop-in-compatible):
  * {
  *   l_from: string,
  *   l_to: string,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Skip translation for bots (except human and unknown)
-    // This matches Weglot's behavior – still cache but skip DeepL for bots
+    // This matches the legacy client behavior - still cache but skip external translation for bots
     const isBot = bot >= BotType.GOOGLE;
 
     // 4. Validate target language
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // 7. Translate uncached via DeepL
+    // 7. Translate uncached strings via the configured provider
     if (uncachedIndices.length > 0 && !isBot) {
       const uncachedTexts = uncachedIndices.map((i) => texts[i]);
       const results = await translateTexts({ texts: uncachedTexts, sourceLang: l_from, targetLang: l_to });
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
       if (!translatedTexts[i]) translatedTexts[i] = texts[i];
     });
 
-    // 10. Return Weglot-compatible response format
+    // 10. Return the drop-in-compatible response format
     return NextResponse.json({
       l_from,
       l_to,

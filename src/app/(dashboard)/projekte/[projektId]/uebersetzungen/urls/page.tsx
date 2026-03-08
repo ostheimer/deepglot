@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, RefreshCw, Trash2, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { formatNumber } from "@/lib/locale-formatting";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -14,6 +16,7 @@ interface PageProps {
 export default async function UrlsPage({ params, searchParams }: PageProps) {
   const { projektId } = await params;
   const { q, lang, seite } = await searchParams;
+  const locale = await getRequestLocale();
 
   const page = Math.max(1, parseInt(seite ?? "1", 10));
   const pageSize = 20;
@@ -48,7 +51,9 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Übersetzungen nach URLs</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {locale === "de" ? "Übersetzungen nach URLs" : "Translations by URL"}
+        </h2>
         <div className="flex gap-2 items-center">
           {/* Language filter */}
           <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white">
@@ -76,16 +81,16 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
           <Input
             name="q"
             defaultValue={q}
-            placeholder="URL suchen..."
+            placeholder={locale === "de" ? "URL suchen..." : "Search URL..."}
             className="pl-9 h-9"
           />
           {lang && <input type="hidden" name="lang" value={lang} />}
         </form>
         <span className="text-sm text-gray-500">
-          {total.toLocaleString("de-DE")} Ergebnisse
+          {formatNumber(total, locale)} {locale === "de" ? "Ergebnisse" : "results"}
         </span>
         <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
-          <span>Sortiert nach: Meiste Anfragen</span>
+          <span>{locale === "de" ? "Sortiert nach: Meiste Anfragen" : "Sorted by: most requests"}</span>
         </div>
       </div>
 
@@ -96,7 +101,9 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
             🇬🇧 {activeLang.toUpperCase()}
           </span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">MANUELL</span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            {locale === "de" ? "MANUELL" : "MANUAL"}
+          </span>
           <span></span>
         </div>
 
@@ -104,8 +111,12 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
           <div className="px-6 py-16 text-center">
             <p className="text-gray-500 text-sm">
               {q
-                ? `Keine URLs gefunden für "${q}"`
-                : "Noch keine URL-Übersetzungsanfragen. Richte das WordPress-Plugin ein, um anzufangen."}
+                ? locale === "de"
+                  ? `Keine URLs gefunden für "${q}"`
+                  : `No URLs found for "${q}"`
+                : locale === "de"
+                  ? "Noch keine URL-Übersetzungsanfragen. Richte das WordPress-Plugin ein, um anzufangen."
+                  : "No URL translation requests yet. Set up the WordPress plugin to get started."}
             </p>
           </div>
         ) : (
@@ -130,7 +141,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
 
               {/* Word count */}
               <span className="text-sm text-gray-700">
-                0/{record.wordCount.toLocaleString("de-DE")}
+                0/{formatNumber(record.wordCount, locale)}
               </span>
 
               {/* Manual % */}
@@ -138,10 +149,20 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
 
               {/* Actions */}
               <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Neu übersetzen">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  title={locale === "de" ? "Neu übersetzen" : "Retranslate"}
+                >
                   <RefreshCw className="h-3.5 w-3.5 text-gray-400" />
                 </Button>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Löschen">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  title={locale === "de" ? "Löschen" : "Delete"}
+                >
                   <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
                 </Button>
               </div>
@@ -154,17 +175,17 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-500">
-            Seite {page} von {totalPages}
+            {locale === "de" ? "Seite" : "Page"} {page} {locale === "de" ? "von" : "of"} {totalPages}
           </p>
           <div className="flex gap-2">
             {page > 1 && (
               <Link href={`?lang=${activeLang}&seite=${page - 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">Zurück</Button>
+                <Button variant="outline" size="sm">{locale === "de" ? "Zurück" : "Previous"}</Button>
               </Link>
             )}
             {page < totalPages && (
               <Link href={`?lang=${activeLang}&seite=${page + 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">Weiter</Button>
+                <Button variant="outline" size="sm">{locale === "de" ? "Weiter" : "Next"}</Button>
               </Link>
             )}
           </div>

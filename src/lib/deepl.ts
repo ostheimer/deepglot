@@ -1,4 +1,10 @@
-// DeepL API integration for translation
+// DeepL translation provider
+
+import type {
+  TranslateTextsInput,
+  TranslationEnv,
+  TranslationResult,
+} from "@/lib/translation-types";
 
 const DEEPL_API_URL = "https://api-free.deepl.com/v2"; // use api.deepl.com for Pro
 
@@ -7,25 +13,15 @@ export type DeepLLanguage = {
   name: string;
 };
 
-export type TranslationResult = {
-  detectedSourceLanguage?: string;
-  text: string;
-};
-
 /**
  * Translates an array of texts using the DeepL API.
- * Sends a single batch request to minimize latency (same approach as Weglot).
+ * Sends a single batch request to minimize latency (same batching strategy as the compatibility layer).
  */
-export async function translateTexts({
-  texts,
-  sourceLang,
-  targetLang,
-}: {
-  texts: string[];
-  sourceLang: string;
-  targetLang: string;
-}): Promise<TranslationResult[]> {
-  const apiKey = process.env.DEEPL_API_KEY;
+export async function translateWithDeepL(
+  { texts, sourceLang, targetLang }: TranslateTextsInput,
+  env: TranslationEnv = process.env
+): Promise<TranslationResult[]> {
+  const apiKey = env.DEEPL_API_KEY;
   if (!apiKey) throw new Error("DEEPL_API_KEY nicht konfiguriert");
 
   const params = new URLSearchParams();
@@ -72,10 +68,3 @@ export async function getSupportedLanguages(): Promise<DeepLLanguage[]> {
   return response.json();
 }
 
-/**
- * Counts words in a string (approximation).
- * DeepL bills per character, but we track words for user display.
- */
-export function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}

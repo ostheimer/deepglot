@@ -2,40 +2,45 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { LocaleProvider } from "@/components/providers/locale-provider";
+import { getRequestLocale } from "@/lib/request-locale";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://deepglot.com"),
   title: {
-    default: "Deepglot – WordPress Übersetzung ohne Cloud-Lock-in",
+    default: "Deepglot",
     template: "%s | Deepglot",
   },
   description:
-    "Deepglot übersetzt deinen WordPress-Content automatisch per KI – zu einem Bruchteil der üblichen Kosten. Übersetzungen gehören dir, nicht uns.",
+    "AI-powered WordPress translation with full control over your content and no cloud lock-in.",
   keywords: [
-    "WordPress Übersetzung",
-    "mehrsprachige Website",
+    "WordPress translation",
+    "multilingual website",
     "DeepL WordPress",
-    "Open Source Übersetzung",
-    "WordPress Übersetzungs Plugin",
+    "open source translation",
+    "WordPress translation plugin",
   ],
   openGraph: {
     type: "website",
-    locale: "de_DE",
+    locale: "en_US",
     url: "https://deepglot.com",
     siteName: "Deepglot",
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getRequestLocale();
+
   return (
-    <html lang="de">
+    <html lang={locale}>
       <body className={inter.className}>
-        {children}
+        <LocaleProvider locale={locale}>{children}</LocaleProvider>
         <Toaster richColors position="top-right" />
       </body>
     </html>

@@ -23,6 +23,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useLocale } from "@/components/providers/locale-provider";
+import { formatNumber } from "@/lib/locale-formatting";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export type ProjectRow = {
   id: string;
@@ -45,6 +48,7 @@ interface Props {
 }
 
 export function ProjectsTable({ projects }: Props) {
+  const locale = useLocale();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -75,7 +79,15 @@ export function ProjectsTable({ projects }: Props) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Projekt wirklich löschen? Alle Übersetzungen gehen verloren.")) return;
+    if (
+      !confirm(
+        locale === "de"
+          ? "Projekt wirklich löschen? Alle Übersetzungen gehen verloren."
+          : "Delete this project? All translations will be lost."
+      )
+    ) {
+      return;
+    }
     setDeletingId(id);
     await fetch(`/api/projects/${id}`, { method: "DELETE" });
     router.refresh();
@@ -103,14 +115,14 @@ export function ProjectsTable({ projects }: Props) {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Projekte</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{locale === "de" ? "Projekte" : "Projects"}</h1>
         <div className="flex items-center gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
               type="text"
-              placeholder="Projekt suchen"
+              placeholder={locale === "de" ? "Projekt suchen" : "Search project"}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9 pr-4 h-9 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-52"
@@ -123,9 +135,19 @@ export function ProjectsTable({ projects }: Props) {
               <button className="flex items-center gap-2 h-9 px-3 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors">
                 <ArrowUp className="h-3.5 w-3.5 text-gray-500" />
                 <span className="text-gray-700">
-                  Sortieren nach{" "}
+                  {locale === "de" ? "Sortieren nach" : "Sort by"}{" "}
                   <span className="font-medium">
-                    {sortKey === "name" ? "Name" : sortKey === "totalWords" ? "Wörter" : "Sprachen"}
+                    {sortKey === "name"
+                      ? locale === "de"
+                        ? "Name"
+                        : "Name"
+                      : sortKey === "totalWords"
+                        ? locale === "de"
+                          ? "Wörter"
+                          : "Words"
+                        : locale === "de"
+                          ? "Sprachen"
+                          : "Languages"}
                   </span>
                 </span>
                 <ArrowDown className="h-3 w-3 text-gray-400" />
@@ -136,19 +158,19 @@ export function ProjectsTable({ projects }: Props) {
                 Name {sortKey === "name" && <SortIcon k="name" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleSort("totalWords")}>
-                Gesamtwörter {sortKey === "totalWords" && <SortIcon k="totalWords" />}
+                {locale === "de" ? "Gesamtwörter" : "Total words"} {sortKey === "totalWords" && <SortIcon k="totalWords" />}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleSort("languagesCount")}>
-                Sprachen {sortKey === "languagesCount" && <SortIcon k="languagesCount" />}
+                {locale === "de" ? "Sprachen" : "Languages"} {sortKey === "languagesCount" && <SortIcon k="languagesCount" />}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* Create */}
-          <Link href="/projekte/neu">
+          <Link href={withLocalePrefix("/projects/new", locale)}>
             <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2 h-9">
               <Plus className="h-4 w-4" />
-              Projekt erstellen
+              {locale === "de" ? "Projekt erstellen" : "Create project"}
             </Button>
           </Link>
         </div>
@@ -158,14 +180,18 @@ export function ProjectsTable({ projects }: Props) {
         /* Empty state */
         <div className="border border-dashed border-gray-300 rounded-xl py-20 text-center">
           <Globe className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-base font-semibold text-gray-700 mb-1">Noch kein Projekt</h3>
+          <h3 className="text-base font-semibold text-gray-700 mb-1">
+            {locale === "de" ? "Noch kein Projekt" : "No project yet"}
+          </h3>
           <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
-            Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.
+            {locale === "de"
+              ? "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin."
+              : "Create your first project and connect your WordPress plugin."}
           </p>
-          <Link href="/projekte/neu">
+          <Link href={withLocalePrefix("/projects/new", locale)}>
             <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2">
               <Plus className="h-4 w-4" />
-              Erstes Projekt erstellen
+              {locale === "de" ? "Erstes Projekt erstellen" : "Create first project"}
             </Button>
           </Link>
         </div>
@@ -173,7 +199,12 @@ export function ProjectsTable({ projects }: Props) {
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           {/* Result count */}
           <div className="px-5 py-3 border-b border-gray-100">
-            <p className="text-sm text-gray-500">{filtered.length} Ergebnis{filtered.length !== 1 ? "se" : ""}</p>
+            <p className="text-sm text-gray-500">
+              {filtered.length}{" "}
+              {locale === "de"
+                ? `Ergebnis${filtered.length !== 1 ? "se" : ""}`
+                : `result${filtered.length !== 1 ? "s" : ""}`}
+            </p>
           </div>
 
           {/* Table header */}
@@ -188,19 +219,19 @@ export function ProjectsTable({ projects }: Props) {
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("totalWords")}
             >
-              Gesamtwörter <SortIcon k="totalWords" />
+              {locale === "de" ? "Gesamtwörter" : "Total words"} <SortIcon k="totalWords" />
             </button>
             <button
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("languagesCount")}
             >
-              Sprachen <SortIcon k="languagesCount" />
+              {locale === "de" ? "Sprachen" : "Languages"} <SortIcon k="languagesCount" />
             </button>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Mitglieder
+              {locale === "de" ? "Mitglieder" : "Members"}
             </span>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Manuelle Übersetzungen
+              {locale === "de" ? "Manuelle Übersetzungen" : "Manual translations"}
             </span>
             <span />
           </div>
@@ -208,7 +239,9 @@ export function ProjectsTable({ projects }: Props) {
           {/* Rows */}
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center">
-              <p className="text-sm text-gray-400">Keine Ergebnisse für „{query}"</p>
+              <p className="text-sm text-gray-400">
+                {locale === "de" ? "Keine Ergebnisse für" : "No results for"} "{query}"
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -225,7 +258,7 @@ export function ProjectsTable({ projects }: Props) {
                   >
                     {/* Name + Domain */}
                     <Link
-                      href={`/projekte/${project.id}/uebersetzungen/sprachen`}
+                      href={withLocalePrefix(`/projects/${project.id}/translations/languages`, locale)}
                       className="flex items-center gap-3 min-w-0 group"
                     >
                       <div
@@ -243,7 +276,7 @@ export function ProjectsTable({ projects }: Props) {
 
                     {/* Total Words */}
                     <span className="text-sm text-gray-700">
-                      {project.totalWords.toLocaleString("de-AT")}
+                      {formatNumber(project.totalWords, locale)}
                     </span>
 
                     {/* Languages */}
@@ -284,8 +317,8 @@ export function ProjectsTable({ projects }: Props) {
                     {/* Manual Translations */}
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-700">
-                        {project.manualTranslations.toLocaleString("de-AT")} /{" "}
-                        {project.totalTranslations.toLocaleString("de-AT")}
+                        {formatNumber(project.manualTranslations, locale)} /{" "}
+                        {formatNumber(project.totalTranslations, locale)}
                       </span>
                       <span className="text-sm font-medium text-indigo-600">{manualPct}%</span>
                     </div>
@@ -299,20 +332,20 @@ export function ProjectsTable({ projects }: Props) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem asChild>
-                          <Link href={`/projekte/${project.id}/uebersetzungen/sprachen`} className="flex items-center gap-2">
+                          <Link href={withLocalePrefix(`/projects/${project.id}/translations/languages`, locale)} className="flex items-center gap-2">
                             <ExternalLink className="h-3.5 w-3.5" />
-                            Öffnen
+                            {locale === "de" ? "Öffnen" : "Open"}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/projekte/${project.id}/einstellungen`} className="flex items-center gap-2">
+                          <Link href={withLocalePrefix(`/projects/${project.id}/settings`, locale)} className="flex items-center gap-2">
                             <Settings className="h-3.5 w-3.5" />
-                            Einstellungen
+                            {locale === "de" ? "Einstellungen" : "Settings"}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
                           <Copy className="h-3.5 w-3.5" />
-                          Duplizieren
+                          {locale === "de" ? "Duplizieren" : "Duplicate"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -321,7 +354,13 @@ export function ProjectsTable({ projects }: Props) {
                           disabled={deletingId === project.id}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          {deletingId === project.id ? "Löschen…" : "Löschen"}
+                          {deletingId === project.id
+                            ? locale === "de"
+                              ? "Löschen…"
+                              : "Deleting..."
+                            : locale === "de"
+                              ? "Löschen"
+                              : "Delete"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

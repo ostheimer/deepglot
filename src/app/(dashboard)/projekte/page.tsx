@@ -2,12 +2,19 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ProjectsTable, type ProjectRow } from "@/components/projekte/projects-table";
+import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export const metadata = { title: "Projekte – Deepglot" };
 
-export default async function ProjektePage() {
+type ProjektePageProps = {
+  searchParams: LocaleSearchParams;
+};
+
+export default async function ProjektePage({ searchParams }: ProjektePageProps) {
+  const locale = await getPageLocale(searchParams);
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const membership = await db.organizationMember.findFirst({
     where: { userId: session.user.id },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// All supported languages (ISO 639-1, subset via DeepL)
+// All supported languages (ISO 639-1 subset shared across providers)
 const LANGUAGES = [
   { code: "ar", local_name: "العربية‏", english_name: "Arabic" },
   { code: "bg", local_name: "български", english_name: "Bulgarian" },

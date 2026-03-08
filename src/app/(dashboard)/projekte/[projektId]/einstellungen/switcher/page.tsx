@@ -4,18 +4,29 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ExternalLink, GripVertical, Edit2 } from "lucide-react";
 import { SettingsToggle } from "@/components/projekte/settings-toggle";
+import { getLanguageName } from "@/lib/language-names";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
 }
 
-const FLAG_TYPES = [
-  { value: "rectangle_mat", label: "Rectangle mat" },
-  { value: "rectangle_glossy", label: "Rectangle glossy" },
-  { value: "circle_mat", label: "Circle mat" },
-  { value: "circle_glossy", label: "Circle glossy" },
-  { value: "none", label: "Keine Flaggen" },
-];
+const FLAG_TYPES = {
+  en: [
+    { value: "rectangle_mat", label: "Rectangle mat" },
+    { value: "rectangle_glossy", label: "Rectangle glossy" },
+    { value: "circle_mat", label: "Circle mat" },
+    { value: "circle_glossy", label: "Circle glossy" },
+    { value: "none", label: "No flags" },
+  ],
+  de: [
+    { value: "rectangle_mat", label: "Rechteck matt" },
+    { value: "rectangle_glossy", label: "Rechteck glänzend" },
+    { value: "circle_mat", label: "Kreis matt" },
+    { value: "circle_glossy", label: "Kreis glänzend" },
+    { value: "none", label: "Keine Flaggen" },
+  ],
+} as const;
 
 const LANG_FLAGS: Record<string, string> = {
   de: "🇩🇪", en: "🇬🇧", fr: "🇫🇷", es: "🇪🇸", it: "🇮🇹",
@@ -23,14 +34,9 @@ const LANG_FLAGS: Record<string, string> = {
   ja: "🇯🇵", ar: "🇸🇦", tr: "🇹🇷", at: "🇦🇹",
 };
 
-const LANG_NAMES: Record<string, string> = {
-  de: "Deutsch", en: "Englisch", fr: "Französisch", es: "Spanisch",
-  it: "Italienisch", nl: "Niederländisch", pl: "Polnisch", pt: "Portugiesisch",
-  ru: "Russisch", zh: "Chinesisch", ja: "Japanisch", ar: "Arabisch", tr: "Türkisch",
-};
-
 export default async function SwitcherPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -42,50 +48,59 @@ export default async function SwitcherPage({ params }: PageProps) {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <h2 className="text-xl font-bold text-gray-900">Sprachauswahl</h2>
+      <h2 className="text-xl font-bold text-gray-900">
+        {locale === "de" ? "Sprachauswahl" : "Language switcher"}
+      </h2>
 
       {/* Appearance & position */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-1">
-          Erscheinungsbild und Position
+          {locale === "de" ? "Erscheinungsbild und Position" : "Appearance and position"}
         </h3>
         <p className="text-sm text-gray-500 mb-4">
-          Nutze den interaktiven Editor, um den Sprachauswähler auf deiner Website
-          per Drag & Drop zu positionieren und das Erscheinungsbild anzupassen.
+          {locale === "de"
+            ? "Nutze den interaktiven Editor, um den Sprachauswähler auf deiner Website per Drag & Drop zu positionieren und das Erscheinungsbild anzupassen."
+            : "Use the interactive editor to position the language switcher on your website with drag and drop and adjust its appearance."}
         </p>
         <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2">
           <ExternalLink className="h-4 w-4" />
-          Switcher-Editor öffnen
+          {locale === "de" ? "Switcher-Editor öffnen" : "Open switcher editor"}
         </Button>
       </section>
 
       {/* Advanced options */}
       <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="p-5 border-b border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900">Erweiterte Optionen</h3>
+          <h3 className="text-base font-semibold text-gray-900">
+            {locale === "de" ? "Erweiterte Optionen" : "Advanced options"}
+          </h3>
           <p className="text-sm text-gray-500 mt-0.5">
-            Passe das Erscheinungsbild des Sprachauswählers an.
+            {locale === "de" ? "Passe das Erscheinungsbild des Sprachauswählers an." : "Adjust the appearance of the language switcher."}
           </p>
         </div>
 
         <SettingsToggle
-          label="Sprachname anzeigen"
-          description="Zeige den Namen der Sprache an."
+          label={locale === "de" ? "Sprachname anzeigen" : "Show language name"}
+          description={locale === "de" ? "Zeige den Namen der Sprache an." : "Display the language name."}
           defaultChecked={s?.switcherDisplayName ?? true}
         />
         <SettingsToggle
-          label="Vollständigen Sprachnamen anzeigen"
-          description="Vollständiger Name (z.B. Deutsch) anstatt Sprachcode (z.B. DE)."
+          label={locale === "de" ? "Vollständigen Sprachnamen anzeigen" : "Show full language name"}
+          description={locale === "de"
+            ? "Vollständiger Name (z.B. Deutsch) anstatt Sprachcode (z.B. DE)."
+            : "Use the full name (e.g. German) instead of the language code (e.g. DE)."}
           defaultChecked={s?.switcherFullName ?? true}
         />
         <SettingsToggle
-          label="Länderflaggen anzeigen"
-          description="Zeige Flaggen im Sprachauswähler an."
+          label={locale === "de" ? "Länderflaggen anzeigen" : "Show country flags"}
+          description={locale === "de" ? "Zeige Flaggen im Sprachauswähler an." : "Display flags in the language switcher."}
           defaultChecked={s?.switcherFlags ?? true}
         />
         <SettingsToggle
-          label="Als Dropdown-Menü"
-          description="Zeige den Sprachauswähler als aufklappbares Dropdown an."
+          label={locale === "de" ? "Als Dropdown-Menü" : "Use dropdown mode"}
+          description={locale === "de"
+            ? "Zeige den Sprachauswähler als aufklappbares Dropdown an."
+            : "Render the language switcher as an expandable dropdown."}
           defaultChecked={s?.switcherDropdown ?? true}
         />
 
@@ -93,23 +108,25 @@ export default async function SwitcherPage({ params }: PageProps) {
           {/* Flag type */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Flaggen-Typ
+              {locale === "de" ? "Flaggen-Typ" : "Flag style"}
             </Label>
             <select
               defaultValue={s?.switcherFlagsType ?? "rectangle_mat"}
               className="flex h-9 w-64 rounded-md border border-input bg-white px-3 py-1 text-sm"
             >
-              {FLAG_TYPES.map((t) => (
+              {FLAG_TYPES[locale].map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-400">Art der Länderflaggen.</p>
+            <p className="text-xs text-gray-400">
+              {locale === "de" ? "Art der Länderflaggen." : "Style of country flags."}
+            </p>
           </div>
 
           {/* Custom CSS */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Benutzerdefiniertes CSS
+              {locale === "de" ? "Benutzerdefiniertes CSS" : "Custom CSS"}
             </Label>
             <textarea
               defaultValue={s?.switcherCustomCss ?? ".language-selector {\n  margin-bottom: 20px;\n}"}
@@ -117,13 +134,15 @@ export default async function SwitcherPage({ params }: PageProps) {
               className="w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
             />
             <p className="text-xs text-gray-400">
-              CSS das auf den Sprachauswähler oder deine Website angewendet wird.
+              {locale === "de"
+                ? "CSS das auf den Sprachauswähler oder deine Website angewendet wird."
+                : "CSS applied to the language switcher or your website."}
             </p>
           </div>
 
           <div className="flex justify-end pt-1">
             <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm">
-              Speichern
+              {locale === "de" ? "Speichern" : "Save"}
             </Button>
           </div>
         </div>
@@ -132,11 +151,12 @@ export default async function SwitcherPage({ params }: PageProps) {
       {/* Languages appearance */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-1">
-          Sprachdarstellung
+          {locale === "de" ? "Sprachdarstellung" : "Language appearance"}
         </h3>
         <p className="text-sm text-gray-500 mb-4">
-          Verschiebe Sprachen per Drag & Drop, um ihre Reihenfolge im Sprachauswähler
-          zu ändern. Du kannst auch die Flagge und den Namen jeder Sprache anpassen.
+          {locale === "de"
+            ? "Verschiebe Sprachen per Drag & Drop, um ihre Reihenfolge im Sprachauswähler zu ändern. Du kannst auch die Flagge und den Namen jeder Sprache anpassen."
+            : "Reorder languages with drag and drop. You can also customize the flag and the name of each language."}
         </p>
 
         <div className="border border-gray-100 rounded-lg overflow-hidden">
@@ -146,10 +166,10 @@ export default async function SwitcherPage({ params }: PageProps) {
               <GripVertical className="h-4 w-4 text-gray-300" />
               <span className="text-lg">{LANG_FLAGS[project.originalLang] ?? "🏳️"}</span>
               <span className="text-sm font-medium text-gray-700">
-                {LANG_NAMES[project.originalLang] ?? project.originalLang.toUpperCase()}
+                {getLanguageName(project.originalLang, locale)}
               </span>
               <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                Original
+                {locale === "de" ? "Original" : "Original"}
               </span>
             </div>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
@@ -169,7 +189,7 @@ export default async function SwitcherPage({ params }: PageProps) {
                 <GripVertical className="h-4 w-4 text-gray-300 cursor-grab" />
                 <span className="text-lg">{LANG_FLAGS[lang.langCode] ?? "🏳️"}</span>
                 <span className="text-sm text-gray-700">
-                  {LANG_NAMES[lang.langCode] ?? lang.langCode.toUpperCase()}
+                  {getLanguageName(lang.langCode, locale)}
                 </span>
               </div>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
@@ -180,7 +200,7 @@ export default async function SwitcherPage({ params }: PageProps) {
 
           {project.languages.length === 0 && (
             <div className="px-4 py-6 text-center text-sm text-gray-400">
-              Noch keine Übersetzungssprachen konfiguriert.
+              {locale === "de" ? "Noch keine Übersetzungssprachen konfiguriert." : "No translation languages configured yet."}
             </div>
           )}
         </div>

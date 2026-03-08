@@ -2,7 +2,8 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { TranslationRequestsChart } from "@/components/statistiken/translation-requests-chart";
 import { subDays, format, eachDayOfInterval, parseISO } from "date-fns";
-import { de } from "date-fns/locale";
+import { formatNumber } from "@/lib/locale-formatting";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -14,6 +15,7 @@ type Granularity = "day" | "week" | "month";
 export default async function StatistikenAnfragenPage({ params, searchParams }: PageProps) {
   const { projektId } = await params;
   const { zeitraum = "30", ansicht = "day" } = await searchParams;
+  const locale = await getRequestLocale();
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -52,7 +54,9 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
       requests: countByDate[key] ?? 0,
       langPair: project.languages.length > 0
         ? `${project.originalLang.toUpperCase()} → ${project.languages[0].langCode.toUpperCase()}`
-        : "Keine Sprache",
+        : locale === "de"
+          ? "Keine Sprache"
+          : "No language",
     };
   });
 
@@ -66,15 +70,17 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
   });
 
   const zeitraumOptions = [
-    { value: "7", label: "Letzte 7 Tage" },
-    { value: "30", label: "Letzte 30 Tage" },
-    { value: "90", label: "Letzte 90 Tage" },
+    { value: "7", label: locale === "de" ? "Letzte 7 Tage" : "Last 7 days" },
+    { value: "30", label: locale === "de" ? "Letzte 30 Tage" : "Last 30 days" },
+    { value: "90", label: locale === "de" ? "Letzte 90 Tage" : "Last 90 days" },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Übersetzungsanfragen</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {locale === "de" ? "Übersetzungsanfragen" : "Translation requests"}
+        </h2>
 
         {/* Time range selector */}
         <form method="get">
@@ -103,17 +109,21 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           <div className="flex items-start justify-between mb-6">
             <div>
               <p className="text-3xl font-bold text-gray-900">
-                <span className="text-indigo-600">{totalRequests.toLocaleString("de-DE")}</span>
+                <span className="text-indigo-600">{formatNumber(totalRequests, locale)}</span>
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                Übersetzungsanfragen für den gewählten Zeitraum
+                {locale === "de"
+                  ? "Übersetzungsanfragen für den gewählten Zeitraum"
+                  : "Translation requests for the selected period"}
               </p>
             </div>
 
             {/* DAY / WEEK / MONTH toggle */}
             <div className="flex gap-0.5 border border-gray-200 rounded-lg p-0.5 bg-gray-50">
               {(["day", "week", "month"] as const).map((g) => {
-                const labels = { day: "TAG", week: "WOCHE", month: "MONAT" };
+                const labels = locale === "de"
+                  ? { day: "TAG", week: "WOCHE", month: "MONAT" }
+                  : { day: "DAY", week: "WEEK", month: "MONTH" };
                 const isActive = granularity === g;
                 return (
                   <a
@@ -138,19 +148,19 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
         {/* Right sidebar: Top URLs */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">
-            Anfragen nach URL
+            {locale === "de" ? "Anfragen nach URL" : "Requests by URL"}
           </h3>
 
           {topUrls.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">
-              Noch keine Anfragen registriert.
+              {locale === "de" ? "Noch keine Anfragen registriert." : "No requests recorded yet."}
             </p>
           ) : (
             <div className="space-y-1">
               <div className="grid grid-cols-[1fr_auto] gap-2 pb-2 border-b border-gray-100">
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">URL</span>
                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">
-                  ANFRAGEN
+                  {locale === "de" ? "ANFRAGEN" : "REQUESTS"}
                 </span>
               </div>
               {topUrls.map((url) => (
@@ -165,7 +175,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
                     https://{project.domain}{url.urlPath}
                   </span>
                   <span className="text-xs font-semibold text-gray-900 text-right whitespace-nowrap">
-                    {url.requestCount.toLocaleString("de-DE")}
+                    {formatNumber(url.requestCount, locale)}
                   </span>
                 </div>
               ))}

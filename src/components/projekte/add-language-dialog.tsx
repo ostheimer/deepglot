@@ -10,21 +10,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus, X } from "lucide-react";
+import { useLocale } from "@/components/providers/locale-provider";
+import { getLanguageName } from "@/lib/language-names";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-const ALL_LANGUAGES = [
-  { code: "en", name: "Englisch" }, { code: "fr", name: "Französisch" },
-  { code: "es", name: "Spanisch" }, { code: "it", name: "Italienisch" },
-  { code: "nl", name: "Niederländisch" }, { code: "pl", name: "Polnisch" },
-  { code: "pt", name: "Portugiesisch" }, { code: "ru", name: "Russisch" },
-  { code: "zh", name: "Chinesisch" }, { code: "ja", name: "Japanisch" },
-  { code: "ar", name: "Arabisch" }, { code: "tr", name: "Türkisch" },
-  { code: "sv", name: "Schwedisch" }, { code: "da", name: "Dänisch" },
-  { code: "fi", name: "Finnisch" }, { code: "no", name: "Norwegisch" },
-  { code: "cs", name: "Tschechisch" }, { code: "hu", name: "Ungarisch" },
-  { code: "ro", name: "Rumänisch" }, { code: "sk", name: "Slowakisch" },
-];
+const ALL_LANGUAGE_CODES = [
+  "en", "fr", "es", "it", "nl", "pl", "pt", "ru", "zh", "ja",
+  "ar", "tr", "sv", "da", "fi", "no", "cs", "hu", "ro", "sk",
+] as const;
 
 interface AddLanguageDialogProps {
   projectId: string;
@@ -37,13 +31,14 @@ export function AddLanguageDialog({
   originalLang,
   existingLangs,
 }: AddLanguageDialogProps) {
+  const locale = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const available = ALL_LANGUAGES.filter(
-    (l) => l.code !== originalLang && !existingLangs.includes(l.code)
+  const available = ALL_LANGUAGE_CODES.filter(
+    (code) => code !== originalLang && !existingLangs.includes(code)
   );
 
   async function handleAdd() {
@@ -59,12 +54,14 @@ export function AddLanguageDialog({
 
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler beim Hinzufügen");
+        toast.error(data.error ?? (locale === "de" ? "Fehler beim Hinzufügen" : "Could not add languages"));
         return;
       }
 
       toast.success(
-        `${selected.length} Sprache${selected.length > 1 ? "n" : ""} hinzugefügt`
+        locale === "de"
+          ? `${selected.length} Sprache${selected.length > 1 ? "n" : ""} hinzugefügt`
+          : `${selected.length} language${selected.length > 1 ? "s" : ""} added`
       );
       setOpen(false);
       setSelected([]);
@@ -79,34 +76,38 @@ export function AddLanguageDialog({
       <DialogTrigger asChild>
         <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
           <Plus className="mr-2 h-4 w-4" />
-          Sprache hinzufügen
+          {locale === "de" ? "Sprache hinzufügen" : "Add language"}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Übersetzungssprachen hinzufügen</DialogTitle>
+          <DialogTitle>{locale === "de" ? "Übersetzungssprachen hinzufügen" : "Add translation languages"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Wähle die Sprachen, in die du deine Website übersetzen möchtest.
+            {locale === "de"
+              ? "Wähle die Sprachen, in die du deine Website übersetzen möchtest."
+              : "Choose the languages you want to translate your website into."}
           </p>
           {available.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-6">
-              Alle verfügbaren Sprachen sind bereits hinzugefügt.
+              {locale === "de"
+                ? "Alle verfügbaren Sprachen sind bereits hinzugefügt."
+                : "All available languages have already been added."}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {available.map((lang) => {
-                const isSelected = selected.includes(lang.code);
+              {available.map((code) => {
+                const isSelected = selected.includes(code);
                 return (
                   <button
-                    key={lang.code}
+                    key={code}
                     type="button"
                     onClick={() =>
                       setSelected((prev) =>
                         isSelected
-                          ? prev.filter((c) => c !== lang.code)
-                          : [...prev, lang.code]
+                          ? prev.filter((c) => c !== code)
+                          : [...prev, code]
                       )
                     }
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
@@ -116,8 +117,8 @@ export function AddLanguageDialog({
                     }`}
                   >
                     {isSelected && <X className="h-3 w-3" />}
-                    {lang.name}
-                    <span className="text-xs opacity-70 uppercase">{lang.code}</span>
+                    {getLanguageName(code, locale)}
+                    <span className="text-xs opacity-70 uppercase">{code}</span>
                   </button>
                 );
               })}
@@ -126,7 +127,7 @@ export function AddLanguageDialog({
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Abbrechen
+              {locale === "de" ? "Abbrechen" : "Cancel"}
             </Button>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700"
@@ -134,8 +135,12 @@ export function AddLanguageDialog({
               disabled={selected.length === 0 || isLoading}
             >
               {isLoading
-                ? "Wird hinzugefügt..."
-                : `${selected.length > 0 ? selected.length + " " : ""}Sprache${selected.length !== 1 ? "n" : ""} hinzufügen`}
+                ? locale === "de"
+                  ? "Wird hinzugefügt..."
+                  : "Adding..."
+                : locale === "de"
+                  ? `${selected.length > 0 ? selected.length + " " : ""}Sprache${selected.length !== 1 ? "n" : ""} hinzufügen`
+                  : `Add ${selected.length > 0 ? `${selected.length} ` : ""}language${selected.length !== 1 ? "s" : ""}`}
             </Button>
           </div>
         </div>

@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { UsageCharts } from "@/components/abonnement/usage-charts";
+import { getRequestLocale } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export const metadata = { title: "Nutzung – Deepglot" };
 
@@ -13,8 +15,9 @@ const PLAN_LIMITS: Record<string, { words: number; requests: number; languages: 
 };
 
 export default async function NutzungPage() {
+  const locale = await getRequestLocale();
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const membership = await db.organizationMember.findFirst({
     where: { userId: session.user.id },
@@ -94,7 +97,9 @@ export default async function NutzungPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Nutzung</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {locale === "de" ? "Nutzung" : "Usage"}
+      </h1>
 
       <UsageCharts
         totalWords={totalWords}

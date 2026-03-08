@@ -10,7 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { format, parseISO } from "date-fns";
-import { de } from "date-fns/locale";
+import { useLocale } from "@/components/providers/locale-provider";
+import { formatNumber, getDateFnsLocale } from "@/lib/locale-formatting";
 
 interface ChartDataPoint {
   date: string; // ISO date string
@@ -32,6 +33,7 @@ function CustomTooltip({
   payload?: Array<{ value: number; payload: ChartDataPoint }>;
   label?: string;
 }) {
+  const locale = useLocale();
   if (!active || !payload?.length || !label) return null;
 
   const item = payload[0];
@@ -40,12 +42,14 @@ function CustomTooltip({
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm">
       <p className="font-semibold text-gray-900 mb-1">
-        {format(date, "dd. MMM yyyy", { locale: de })}
+        {format(date, locale === "de" ? "dd. MMM yyyy" : "MMM dd, yyyy", {
+          locale: getDateFnsLocale(locale),
+        })}
       </p>
       <div className="flex items-center justify-between gap-6">
         <span className="text-gray-500">{item.payload.langPair}</span>
         <span className="font-bold text-indigo-600 text-base">
-          {item.value.toLocaleString("de-DE")}
+          {formatNumber(item.value, locale)}
         </span>
       </div>
     </div>
@@ -56,10 +60,13 @@ export function TranslationRequestsChart({
   data,
   granularity,
 }: TranslationRequestsChartProps) {
+  const locale = useLocale();
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-        Keine Daten für den gewählten Zeitraum vorhanden.
+        {locale === "de"
+          ? "Keine Daten für den gewählten Zeitraum vorhanden."
+          : "No data available for the selected period."}
       </div>
     );
   }
@@ -67,9 +74,17 @@ export function TranslationRequestsChart({
   function formatXAxis(value: string) {
     try {
       const date = parseISO(value);
-      if (granularity === "day") return format(date, "dd. MMM", { locale: de });
-      if (granularity === "week") return format(date, "KW w", { locale: de });
-      return format(date, "MMM yy", { locale: de });
+      if (granularity === "day") {
+        return format(date, locale === "de" ? "dd. MMM" : "MMM dd", {
+          locale: getDateFnsLocale(locale),
+        });
+      }
+      if (granularity === "week") {
+        return format(date, locale === "de" ? "'KW' w" : "'Wk' w", {
+          locale: getDateFnsLocale(locale),
+        });
+      }
+      return format(date, "MMM yy", { locale: getDateFnsLocale(locale) });
     } catch {
       return value;
     }
@@ -91,7 +106,7 @@ export function TranslationRequestsChart({
           tick={{ fontSize: 12, fill: "#9ca3af" }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => v.toLocaleString("de-DE")}
+          tickFormatter={(v) => formatNumber(v, locale)}
           width={50}
         />
         <Tooltip content={<CustomTooltip />} />

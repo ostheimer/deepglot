@@ -1,23 +1,46 @@
-# Deepglot – Roadmap
+# Deepglot Roadmap
 
-> Weglot-Alternative ohne Cloud-Lock-in: SaaS-Plattform + Self-hosted-Option  
-> Stack: Next.js 15 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · DeepL API
+> Website translation platform without cloud lock-in: SaaS platform + self-hosted option  
+> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / DeepL
 
 ---
 
-## Architektur-Überblick
+## Project Operations
+
+| # | Task | Status |
+|---|---|---|
+| 0.1 | GitHub repository is public with a protected `main` branch | ✅ Completed |
+| 0.2 | Project documentation is standardized in English | ✅ Completed |
+| 0.3 | Public routing uses English on root and German under `/de` | ✅ Completed |
+| 0.4 | App-wide locale switching uses canonical English paths with German under `/de` | ✅ Completed |
+| 0.5 | Vendor-neutral terminology in code and core documentation | ✅ Completed |
+| 0.6 | Playwright E2E coverage verifies locale switching, redirects, and localized auth entry points | ✅ Completed |
+| 0.7 | Automated Markdown documentation language check in npm scripts and GitHub Actions | ✅ Completed |
+| 0.8 | CI/CD verifies PRs in GitHub Actions while Vercel Git integration deploys Preview and Production by branch | ✅ Completed |
+
+---
+
+## Architecture Overview
 
 ```
 Next.js App (Vercel)          WordPress Plugin
-├── Landing/Marketing    ←──  WP Plugin installieren
+├── Landing / Marketing  ←──  Install WP plugin
+│   ├── EN on `/` and `/pricing`
+│   └── DE on `/de` and `/de/pricing`
 ├── Auth (NextAuth v5)        ↓
-├── Dashboard            ←──  API-Key aus Dashboard
-│   ├── Projekte              ↓
-│   ├── Übersetzungen    ←──  POST /api/translate
-│   ├── API-Keys              ↓
-│   └── Settings         ──→  Übersetzter HTML zurück
+│   ├── EN on `/login` and `/signup`
+│   └── DE on `/de/login` and `/de/signup`
+├── Dashboard            ←──  API key from dashboard
+│   ├── Canonical EN paths like `/dashboard`, `/projects`, `/subscription`
+│   ├── German locale paths under `/de/...`
+│   ├── Proxy rewrites canonical routes to the current app structure
+│   └── Locale switcher keeps users on the matching localized page
+├── CI / CD
+│   ├── `main` deploys to Vercel Production
+│   ├── Non-`main` pushes deploy to Vercel Preview
+│   └── Local + Preview share Neon `preview`, Production uses Neon `prod`
 ├── API Routes
-│   ├── /api/translate   ←──  Plugin-Endpunkt
+│   ├── /api/translate   ←──  Plugin endpoint
 │   ├── /api/projects
 │   └── /api/webhooks/stripe
 └── Billing (Stripe)
@@ -25,128 +48,131 @@ Next.js App (Vercel)          WordPress Plugin
 
 ---
 
-## Phase 1 – Fundament (MVP)
+## Phase 1 - Foundation (MVP)
 
-| # | Aufgabe | Status |
+| # | Task | Status |
 |---|---|---|
-| 1.1 | Next.js 16 Projekt initialisieren (TypeScript, App Router, Tailwind, shadcn/ui) | ✅ Abgeschlossen |
-| 1.2 | Prisma Schema: User, Organization, Project, Translation, ApiKey, Subscription | ✅ Abgeschlossen |
-| 1.3 | Neon PostgreSQL Adapter konfiguriert (Prisma 7 + @prisma/adapter-neon) | ✅ Abgeschlossen |
-| 1.4 | NextAuth v5: Credentials + GitHub/Google OAuth | ✅ Abgeschlossen |
-| 1.5 | Stripe Integration: Produkte, Webhook-Handler, Subscription-Management | ✅ Abgeschlossen |
+| 1.1 | Initialize the Next.js 16 project (TypeScript, App Router, Tailwind, shadcn/ui) | ✅ Completed |
+| 1.2 | Prisma schema: User, Organization, Project, Translation, ApiKey, Subscription | ✅ Completed |
+| 1.3 | Configure Neon PostgreSQL adapter (Prisma 7 + `@prisma/adapter-neon`) | ✅ Completed |
+| 1.4 | NextAuth v5: Credentials + GitHub/Google OAuth | ✅ Completed |
+| 1.5 | Stripe integration: products, webhook handlers, subscription management | ✅ Completed |
 
 ---
 
-## Phase 2 – Dashboard & Core Features
+## Phase 2 - Dashboard and Core Features
 
-| # | Aufgabe | Status |
+| # | Task | Status |
 |---|---|---|
-| 2.1 | Landing Page (Marketing, Pricing, Features) | ✅ Abgeschlossen |
-| 2.2 | Dashboard Layout + Navigation (Sidebar, Header) | ✅ Abgeschlossen |
-| 2.3 | Auth-Seiten (Anmelden, Registrieren) + Middleware | ✅ Abgeschlossen |
-| 2.4 | Dashboard Übersicht (Stats, Projekte, Usage-Anzeige) | ✅ Abgeschlossen |
-| 2.5 | Projekte-Verwaltung: Übersicht, Neu-Erstellen, Sprachauswahl | ✅ Abgeschlossen |
-| 2.6 | Projekt-Detail: 7-teilige Sidebar-Navigation (wie Weglot) | ✅ Abgeschlossen |
-| 2.7 | Übersetzungen/Sprachen: Sprachpaare mit Wortanzahl + manuell-% | ✅ Abgeschlossen |
-| 2.8 | Übersetzungen/URLs: Paginierte URL-Liste mit Wortanzahl | ✅ Abgeschlossen |
-| 2.9 | Übersetzungen/Glossar: Glossarregeln + Leer-State | ✅ Abgeschlossen |
-| 2.10 | Übersetzungen/URL Slugs: Slug-Verwaltung mit Auto-Translate | ✅ Abgeschlossen |
-| 2.11 | Statistiken: Monatlicher Verlauf (Bar-Chart), Top-URLs | ✅ Abgeschlossen |
-| 2.12 | API-Keys-Verwaltung pro Projekt | ✅ Abgeschlossen |
-| 2.13 | Prisma Schema erweitert: GlossaryRule, UrlSlug, TranslationExclusion, TranslatedUrl | ✅ Abgeschlossen |
+| 2.1 | Landing page (marketing, pricing, features) | ✅ Completed |
+| 2.1a | Public locale routing: English root + German `/de` routes | ✅ Completed |
+| 2.2 | Dashboard layout + navigation (sidebar, header) | ✅ Completed |
+| 2.3 | Auth pages (sign in, register) + edge proxy routing | ✅ Completed |
+| 2.3a | App-wide EN/DE UI with route-aware language switcher | ✅ Completed |
+| 2.4 | Dashboard overview (stats, projects, usage display) | ✅ Completed |
+| 2.5 | Project management: overview, create flow, language selection | ✅ Completed |
+| 2.6 | Project detail view: 7-section sidebar navigation based on the reference UI | ✅ Completed |
+| 2.7 | Translations / Languages: language pairs with word count + manual percentage | ✅ Completed |
+| 2.8 | Translations / URLs: paginated URL list with word counts | ✅ Completed |
+| 2.9 | Translations / Glossary: glossary rules + empty state | ✅ Completed |
+| 2.10 | Translations / URL Slugs: slug management with auto-translate | ✅ Completed |
+| 2.11 | Statistics: monthly trend (bar chart), top URLs | ✅ Completed |
+| 2.12 | API key management per project | ✅ Completed |
+| 2.13 | Extend Prisma schema: `GlossaryRule`, `UrlSlug`, `TranslationExclusion`, `TranslatedUrl` | ✅ Completed |
 
 ---
 
-## Phase 3 – Übersetzungs-Engine
+## Phase 3 - Translation Engine
 
-| # | Aufgabe | Status |
+| # | Task | Status |
 |---|---|---|
-| 3.1 | DeepL API Integration (Batch-Requests, Fehlerbehandlung) | ✅ Abgeschlossen |
-| 3.2 | OpenAI GPT-4 Integration (kontextsensitive Übersetzungen) | ⏳ Offen |
-| 3.3 | Plugin-API Endpunkt (`POST /api/translate`) | ✅ Abgeschlossen |
-| 3.4 | Caching-Schicht (Hash-basiert, DB-Lookup vor API-Call) | ✅ Abgeschlossen |
-| 3.5 | Rate Limiting + API-Key Validierung | ✅ Abgeschlossen |
-| 3.6 | Wörter-Zählung + Usage-Tracking pro Subscription | ✅ Abgeschlossen |
+| 3.1 | DeepL API integration (batch requests, error handling) | ✅ Completed |
+| 3.2 | OpenAI translation provider + configurable provider abstraction (`openai`, `deepl`, `mock`) | ✅ Completed |
+| 3.3 | Plugin API endpoint (`POST /api/translate`) | ✅ Completed |
+| 3.4 | Caching layer (hash-based, DB lookup before API call) | ✅ Completed |
+| 3.5 | Rate limiting + API key validation | ✅ Completed |
+| 3.6 | Word counting + usage tracking per subscription | ✅ Completed |
 
 ---
 
-## Phase 4 – WordPress Plugin
+## Phase 4 - WordPress Plugin
 
-| # | Aufgabe | Status |
+| # | Task | Status |
 |---|---|---|
-| 3.7 | Settings: General (Toggles, Website-Typ, Branche) | ✅ Abgeschlossen |
-| 3.8 | Settings: Language model (Configure + Testimonial) | ✅ Abgeschlossen |
-| 3.9 | Settings: Language Switcher (Toggles, CSS, Sprach-Reihenfolge, Drag & Drop) | ✅ Abgeschlossen |
-| 3.10 | Settings: Translation Exclusions (Excluded URLs + Blocks) | ✅ Abgeschlossen |
-| 3.11 | Settings: Setup (API-Key Anzeige + WordPress Installationsanleitung) | ✅ Abgeschlossen |
-| 3.12 | Settings: WordPress Settings (E-Mail, Suche, AMP) | ✅ Abgeschlossen |
-| 3.13 | Settings: Project Members (Tabelle, Rollen, Einladen) | ✅ Abgeschlossen |
-| 3.14 | Prisma: ProjectSettings + ProjectMember Modelle | ✅ Abgeschlossen |
-| 3.15 | Globale Konto-Einstellungen (My Account, Passwort, 2FA, Notifications, Workspaces) | ✅ Abgeschlossen |
-| 3.16 | API Routes: PATCH /api/user, PATCH /api/user/password, DELETE /api/user | ✅ Abgeschlossen |
-| 3.17 | Billing: Plan-Übersicht, Karte & Rechnungen, Nutzung (Pie Charts) | ✅ Abgeschlossen |
-| 3.18 | API Routes: POST /api/billing/portal, /cancel, /address | ✅ Abgeschlossen |
-| 3.19 | Production-Fix: Edge-sichere Auth-/Middleware-Trennung + Routing-Tests | ✅ Abgeschlossen |
-| 3.20 | Production-Fix: Root-Route `/` auf echte Marketing-Landingpage umgestellt | ✅ Abgeschlossen |
-| 3.21 | Autor-/Projektmetadaten auf Andreas Ostheimer vereinheitlicht | ✅ Abgeschlossen |
-
-| 4.1 | Plugin-Grundgerüst (plugin.php, Autoloader, Service Container) | ✅ Abgeschlossen |
-| 4.2 | URL-Klasse (Sprache aus URL, `$_SERVER` Manipulation) | ⏳ Offen |
-| 4.3 | Output Buffer + HTML Parser (DiDOM) | ⏳ Offen |
-| 4.4 | Deepglot API Client (HTTP-Requests zum Next.js Backend) | ⏳ Offen |
-| 4.5 | Lokaler Übersetzungs-Cache (Custom DB-Tabelle) | ⏳ Offen |
-| 4.6 | Link-Replacement (HTML, JSON, XML) | ⏳ Offen |
-| 4.7 | hreflang Tags + SEO | ⏳ Offen |
-| 4.8 | Language Switcher (Shortcode + Widget + Gutenberg Block) | ⏳ Offen |
-| 4.9 | Admin-Settings-Page (API-Key, Sprachen, Exclusions) | ⏳ Offen |
+| 3.7 | Settings: General (toggles, website type, industry) | ✅ Completed |
+| 3.8 | Settings: Language model (configuration + testimonial) | ✅ Completed |
+| 3.9 | Settings: Language switcher (toggles, CSS, language order, drag and drop) | ✅ Completed |
+| 3.10 | Settings: Translation exclusions (excluded URLs + blocks) | ✅ Completed |
+| 3.11 | Settings: Setup (API key display + WordPress installation guide) | ✅ Completed |
+| 3.12 | Settings: WordPress settings (email, search, AMP) | ✅ Completed |
+| 3.13 | Settings: Project members (table, roles, invitations) | ✅ Completed |
+| 3.14 | Prisma: `ProjectSettings` + `ProjectMember` models | ✅ Completed |
+| 3.15 | Global account settings (My Account, password, 2FA, notifications, workspaces) | ✅ Completed |
+| 3.16 | API routes: `PATCH /api/user`, `PATCH /api/user/password`, `DELETE /api/user` | ✅ Completed |
+| 3.17 | Billing: plan overview, card & invoices, usage (pie charts) | ✅ Completed |
+| 3.18 | API routes: `POST /api/billing/portal`, `/cancel`, `/address` | ✅ Completed |
+| 3.18a | Billing portal return URL uses `AUTH_URL` with fallback to `NEXT_PUBLIC_APP_URL` plus test coverage | ✅ Completed |
+| 3.19 | Production fix: edge-safe auth / proxy split + routing tests | ✅ Completed |
+| 3.19a | Production fix: localized rewrite cookies + Playwright route coverage | ✅ Completed |
+| 3.20 | Production fix: root route `/` switched to the real marketing landing page | ✅ Completed |
+| 3.21 | Standardize author / project metadata to Andreas Ostheimer | ✅ Completed |
+| 4.1 | Plugin scaffold (`plugin.php`, autoloader, service container) | ✅ Completed |
+| 4.2 | URL class (language from URL, `$_SERVER` manipulation) | ⏳ Open |
+| 4.3 | Output buffer + HTML parser (DiDOM) | ⏳ Open |
+| 4.4 | Deepglot API client (HTTP requests to the Next.js backend) | ⏳ Open |
+| 4.5 | Local translation cache (custom DB table) | ⏳ Open |
+| 4.6 | Link replacement (HTML, JSON, XML) | ⏳ Open |
+| 4.7 | `hreflang` tags + SEO | ⏳ Open |
+| 4.8 | Language switcher (shortcode + widget + Gutenberg block) | ⏳ Open |
+| 4.9 | Admin settings page (API key, languages, exclusions) | ⏳ Open |
 
 ---
 
-## Phase 5 – Self-hosted Option
+## Phase 5 - Self-Hosted Option
 
-| # | Aufgabe | Status |
+| # | Task | Status |
 |---|---|---|
-| 5.1 | Docker Compose Setup (Next.js App + PostgreSQL) | ⏳ Offen |
-| 5.2 | Environment-Konfiguration für Self-hosting | ⏳ Offen |
-| 5.3 | Installationsanleitung | ⏳ Offen |
+| 5.1 | Docker Compose setup (Next.js app + PostgreSQL) | ⏳ Open |
+| 5.2 | Environment configuration for self-hosting | ⏳ Open |
+| 5.3 | Installation guide | ⏳ Open |
 
 ---
 
-## Phase 6 – Post-MVP Erweiterungen
+## Phase 6 - Post-MVP Extensions
 
-| # | Aufgabe | Status |
+| # | Task | Status |
 |---|---|---|
-| 6.1 | Visueller Übersetzungs-Editor (Live-Site Bearbeitung) | ⏳ Offen |
-| 6.2 | Glossar-Feature (Begriffe nie übersetzen) | ⏳ Offen |
-| 6.3 | Import/Export (CSV/PO-Dateien) | ⏳ Offen |
-| 6.4 | WooCommerce E-Mail-Übersetzung | ⏳ Offen |
-| 6.5 | Browser-Language Auto-Redirect | ⏳ Offen |
-| 6.6 | Subdomain-Support (`de.example.com`) | ⏳ Offen |
-| 6.7 | Analytics Dashboard (Übersetzungsvolumen, Sprachen-Stats) | ⏳ Offen |
-| 6.8 | Webhook-Events (bei neuen Übersetzungen etc.) | ⏳ Offen |
+| 6.1 | Visual translation editor (edit directly on the live site) | ⏳ Open |
+| 6.2 | Glossary feature (terms that should never be translated) | ⏳ Open |
+| 6.3 | Import / export (CSV / PO files) | ⏳ Open |
+| 6.4 | WooCommerce email translation | ⏳ Open |
+| 6.5 | Browser-language auto redirect | ⏳ Open |
+| 6.6 | Subdomain support (`de.example.com`) | ⏳ Open |
+| 6.7 | Analytics dashboard (translation volume, language stats) | ⏳ Open |
+| 6.8 | Webhook events (for new translations, etc.) | ⏳ Open |
 
 ---
 
-## Technische Entscheidungen
+## Technical Decisions
 
-| Bereich | Entscheidung | Begründung |
+| Area | Decision | Rationale |
 |---|---|---|
-| Framework | Next.js 15 (App Router) | Server Components, API Routes, Vercel-optimiert |
-| Auth | NextAuth v5 | Open Source, kein Lock-in, self-hosted-kompatibel |
-| Datenbank | Neon (serverless PostgreSQL) | Vercel-Integration, serverless, großzügiges Free Tier |
-| ORM | Prisma | Type-safe, Migrationen, gute Next.js-Integration |
-| Billing | Stripe | Industry-Standard, Subscription-Support |
-| UI | Tailwind CSS + shadcn/ui | Schnell, anpassbar, barrierefrei |
-| E-Mail | Resend | Next.js-freundlich, günstig |
-| Übersetzung (Primary) | DeepL API | Beste Qualität, günstig (€5,99/Mo für 1M Zeichen) |
-| Übersetzung (Secondary) | OpenAI GPT-4o | Kontextsensitiv, Glossar-Support |
-| WP HTML Parser | DiDOM | Modern, aktiv gepflegt, Composer-ready |
+| Framework | Next.js 16 (App Router) | Server Components, API Routes, optimized for Vercel |
+| Auth | NextAuth v5 | Open source, no lock-in, self-hosted compatible |
+| Database | Neon (serverless PostgreSQL) | Vercel integration, serverless, generous free tier |
+| ORM | Prisma | Type-safe, migrations, strong Next.js integration |
+| Billing | Stripe | Industry standard, strong subscription support |
+| UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
+| Email | Resend | Next.js friendly, cost-effective |
+| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
+| Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
+| WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
 
 ---
 
-## Legende
+## Legend
 
-- ✅ Abgeschlossen
-- 🔄 In Arbeit
-- ⏳ Offen
-- ❌ Blockiert
+- ✅ Completed
+- 🔄 In Progress
+- ⏳ Open
+- ❌ Blocked

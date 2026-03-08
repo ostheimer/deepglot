@@ -2,6 +2,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { ProjectSidebar } from "@/components/projekte/project-sidebar";
+import { getRequestLocale } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 interface ProjectLayoutProps {
   children: React.ReactNode;
@@ -10,9 +12,10 @@ interface ProjectLayoutProps {
 
 export default async function ProjectLayout({ children, params }: ProjectLayoutProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
   const session = await auth();
 
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const project = await db.project.findUnique({
     where: { id: projektId },

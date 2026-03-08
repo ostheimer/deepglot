@@ -8,6 +8,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useLocale } from "@/components/providers/locale-provider";
+import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 const PIE_COLORS = ["#8b5cf6", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#a78bfa"];
 
@@ -37,12 +40,13 @@ interface Props {
 }
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { name: string; value: number } }> }) {
+  const locale = useLocale();
   if (!active || !payload?.length) return null;
   const total = payload[0]?.payload?.value ?? 0;
   return (
     <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
       <p className="font-semibold">{payload[0]?.payload?.name}</p>
-      <p>{payload[0]?.payload?.name}: {total.toLocaleString("de-AT")}</p>
+      <p>{payload[0]?.payload?.name}: {formatNumber(total, locale)}</p>
     </div>
   );
 }
@@ -61,6 +65,7 @@ export function UsageCharts({
   membersLimit,
   langLimitPerProject,
 }: Props) {
+  const locale = useLocale();
   const wordsPercent = wordsLimit > 0 ? Math.min((totalWords / wordsLimit) * 100, 100) : 0;
 
   return (
@@ -70,9 +75,11 @@ export function UsageCharts({
         {/* Word Usage */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-semibold text-gray-900">Gesamte Wörter-Nutzung</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {locale === "de" ? "Gesamte Wörter-Nutzung" : "Total word usage"}
+            </p>
             <p className="text-sm font-semibold text-indigo-600">
-              {totalWords.toLocaleString("de-AT")} / {wordsLimit.toLocaleString("de-AT")}
+              {formatNumber(totalWords, locale)} / {formatNumber(wordsLimit, locale)}
             </p>
           </div>
 
@@ -85,7 +92,9 @@ export function UsageCharts({
           </div>
 
           <p className="text-xs text-gray-500 mb-3">
-            Aufschlüsselung über {pieWordData.length} Projekt{pieWordData.length !== 1 ? "e" : ""}
+            {locale === "de"
+              ? `Aufschlüsselung über ${pieWordData.length} Projekt${pieWordData.length !== 1 ? "e" : ""}`
+              : `Breakdown across ${pieWordData.length} project${pieWordData.length !== 1 ? "s" : ""}`}
           </p>
 
           {pieWordData.length > 0 ? (
@@ -109,7 +118,9 @@ export function UsageCharts({
             </ResponsiveContainer>
           ) : (
             <div className="h-[220px] flex items-center justify-center">
-              <p className="text-sm text-gray-400">Noch keine Wörter übersetzt</p>
+              <p className="text-sm text-gray-400">
+                {locale === "de" ? "Noch keine Wörter übersetzt" : "No translated words yet"}
+              </p>
             </div>
           )}
         </div>
@@ -117,14 +128,18 @@ export function UsageCharts({
         {/* Translation Requests */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-5">
-            <p className="text-sm font-semibold text-gray-900">Übersetzungs-Anfragen gesamt</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {locale === "de" ? "Übersetzungs-Anfragen gesamt" : "Total translation requests"}
+            </p>
             <p className="text-sm font-semibold text-indigo-600">
-              {totalRequests.toLocaleString("de-AT")}
+              {formatNumber(totalRequests, locale)}
             </p>
           </div>
 
           <p className="text-xs text-gray-500 mb-3">
-            Aufschlüsselung über {pieRequestData.length} Projekt{pieRequestData.length !== 1 ? "e" : ""}
+            {locale === "de"
+              ? `Aufschlüsselung über ${pieRequestData.length} Projekt${pieRequestData.length !== 1 ? "e" : ""}`
+              : `Breakdown across ${pieRequestData.length} project${pieRequestData.length !== 1 ? "s" : ""}`}
           </p>
 
           {pieRequestData.length > 0 ? (
@@ -148,7 +163,9 @@ export function UsageCharts({
             </ResponsiveContainer>
           ) : (
             <div className="h-[220px] flex items-center justify-center">
-              <p className="text-sm text-gray-400">Noch keine Anfragen</p>
+              <p className="text-sm text-gray-400">
+                {locale === "de" ? "Noch keine Anfragen" : "No requests yet"}
+              </p>
             </div>
           )}
         </div>
@@ -157,7 +174,9 @@ export function UsageCharts({
       {/* Projects table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Projekte</h2>
+          <h2 className="text-sm font-semibold text-gray-900">
+            {locale === "de" ? "Projekte" : "Projects"}
+          </h2>
           <span className="text-sm text-indigo-600 font-medium">
             {projectCount} / {projectsLimit}
           </span>
@@ -165,7 +184,15 @@ export function UsageCharts({
 
         {/* Table header */}
         <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_100px] gap-3 px-6 py-2.5 bg-gray-50 border-b border-gray-200">
-          {["Projektname", "Website", "Wörter", "Anfragen", "Sprachen", "Mitglieder", "Aktionen"].map(
+          {[
+            locale === "de" ? "Projektname" : "Project name",
+            "Website",
+            locale === "de" ? "Wörter" : "Words",
+            locale === "de" ? "Anfragen" : "Requests",
+            locale === "de" ? "Sprachen" : "Languages",
+            locale === "de" ? "Mitglieder" : "Members",
+            locale === "de" ? "Aktionen" : "Actions",
+          ].map(
             (h) => (
               <span key={h} className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {h}
@@ -176,7 +203,9 @@ export function UsageCharts({
 
         {projectRows.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <p className="text-sm text-gray-400">Noch keine Projekte</p>
+            <p className="text-sm text-gray-400">
+              {locale === "de" ? "Noch keine Projekte" : "No projects yet"}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -198,10 +227,10 @@ export function UsageCharts({
                 <span className="text-sm text-gray-600 truncate">{p.domain}</span>
 
                 {/* Words */}
-                <span className="text-sm text-gray-700">{p.words.toLocaleString("de-AT")}</span>
+                <span className="text-sm text-gray-700">{formatNumber(p.words, locale)}</span>
 
                 {/* Requests */}
-                <span className="text-sm text-gray-700">{p.requests.toLocaleString("de-AT")}</span>
+                <span className="text-sm text-gray-700">{formatNumber(p.requests, locale)}</span>
 
                 {/* Languages */}
                 <span className="text-sm text-gray-700">
@@ -215,10 +244,10 @@ export function UsageCharts({
 
                 {/* Actions */}
                 <Link
-                  href={`/projekte/${p.id}/uebersetzungen/sprachen`}
+                  href={withLocalePrefix(`/projects/${p.id}/translations/languages`, locale)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
-                  Details anzeigen
+                  {locale === "de" ? "Details anzeigen" : "View details"}
                 </Link>
               </div>
             ))}

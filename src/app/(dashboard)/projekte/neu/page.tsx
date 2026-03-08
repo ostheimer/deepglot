@@ -9,29 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Globe, X, Plus } from "lucide-react";
-
-const POPULAR_LANGUAGES = [
-  { code: "en", name: "Englisch" },
-  { code: "fr", name: "Französisch" },
-  { code: "es", name: "Spanisch" },
-  { code: "it", name: "Italienisch" },
-  { code: "nl", name: "Niederländisch" },
-  { code: "pl", name: "Polnisch" },
-  { code: "pt", name: "Portugiesisch" },
-  { code: "ru", name: "Russisch" },
-  { code: "zh", name: "Chinesisch" },
-  { code: "ja", name: "Japanisch" },
-  { code: "ar", name: "Arabisch" },
-  { code: "tr", name: "Türkisch" },
-];
+import { useLocale } from "@/components/providers/locale-provider";
+import { getPopularLanguageOptions, getLanguageName } from "@/lib/language-names";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export default function NeuesProjektPage() {
+  const locale = useLocale();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [originalLang, setOriginalLang] = useState("de");
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en"]);
+  const popularLanguages = getPopularLanguageOptions(locale);
 
   function toggleLanguage(code: string) {
     setSelectedLangs((prev) =>
@@ -42,7 +32,11 @@ export default function NeuesProjektPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (selectedLangs.length === 0) {
-      toast.error("Wähle mindestens eine Übersetzungssprache");
+      toast.error(
+        locale === "de"
+          ? "Wähle mindestens eine Übersetzungssprache"
+          : "Choose at least one translation language"
+      );
       return;
     }
     setIsLoading(true);
@@ -56,12 +50,12 @@ export default function NeuesProjektPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Projekt konnte nicht erstellt werden");
+        toast.error(data.error ?? (locale === "de" ? "Projekt konnte nicht erstellt werden" : "Could not create project"));
         return;
       }
 
-      toast.success("Projekt erfolgreich erstellt");
-      router.push(`/projekte/${data.projectId}/uebersetzungen/sprachen`);
+      toast.success(locale === "de" ? "Projekt erfolgreich erstellt" : "Project created successfully");
+      router.push(withLocalePrefix(`/projects/${data.projectId}/translations/languages`, locale));
     } finally {
       setIsLoading(false);
     }
@@ -70,9 +64,13 @@ export default function NeuesProjektPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Neues Projekt</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {locale === "de" ? "Neues Projekt" : "New project"}
+        </h1>
         <p className="text-gray-600 mt-1">
-          Verbinde deine Website mit Deepglot und starte die Übersetzung.
+          {locale === "de"
+            ? "Verbinde deine Website mit Deepglot und starte die Übersetzung."
+            : "Connect your website to Deepglot and start translating."}
         </p>
       </div>
 
@@ -81,15 +79,15 @@ export default function NeuesProjektPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Globe className="h-4 w-4 text-indigo-600" />
-              Website-Informationen
+              {locale === "de" ? "Website-Informationen" : "Website information"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Projektname</Label>
+              <Label htmlFor="name">{locale === "de" ? "Projektname" : "Project name"}</Label>
               <Input
                 id="name"
-                placeholder="z.B. Meine Unternehmenswebsite"
+                placeholder={locale === "de" ? "z.B. Meine Unternehmenswebsite" : "e.g. My company website"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -105,7 +103,9 @@ export default function NeuesProjektPage() {
                 required
               />
               <p className="text-xs text-gray-500">
-                Ohne https:// – z.B. example.com oder sub.example.com
+                {locale === "de"
+                  ? "Ohne https:// – z.B. example.com oder sub.example.com"
+                  : "Without https://, e.g. example.com or sub.example.com"}
               </p>
             </div>
           </CardContent>
@@ -113,31 +113,33 @@ export default function NeuesProjektPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Sprachen</CardTitle>
+            <CardTitle className="text-base">{locale === "de" ? "Sprachen" : "Languages"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Originalsprache der Website</Label>
+              <Label>{locale === "de" ? "Originalsprache der Website" : "Original website language"}</Label>
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={originalLang}
                 onChange={(e) => setOriginalLang(e.target.value)}
               >
-                <option value="de">Deutsch</option>
-                <option value="en">Englisch</option>
-                <option value="fr">Französisch</option>
-                <option value="es">Spanisch</option>
-                <option value="it">Italienisch</option>
+                {["de", "en", "fr", "es", "it"].map((code) => (
+                  <option key={code} value={code}>
+                    {getLanguageName(code, locale)}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div className="space-y-2">
-              <Label>Übersetzungssprachen</Label>
+              <Label>{locale === "de" ? "Übersetzungssprachen" : "Translation languages"}</Label>
               <p className="text-xs text-gray-500">
-                Wähle die Sprachen, in die du übersetzen möchtest.
+                {locale === "de"
+                  ? "Wähle die Sprachen, in die du übersetzen möchtest."
+                  : "Choose the languages you want to translate into."}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
-                {POPULAR_LANGUAGES.filter((l) => l.code !== originalLang).map(
+                {popularLanguages.filter((l) => l.code !== originalLang).map(
                   (lang) => {
                     const isSelected = selectedLangs.includes(lang.code);
                     return (
@@ -164,7 +166,11 @@ export default function NeuesProjektPage() {
               </div>
               {selectedLangs.length > 0 && (
                 <p className="text-xs text-indigo-600 mt-2">
-                  {selectedLangs.length} Sprache{selectedLangs.length > 1 ? "n" : ""} ausgewählt:{" "}
+                  {selectedLangs.length}{" "}
+                  {locale === "de"
+                    ? `Sprache${selectedLangs.length > 1 ? "n" : ""} ausgewählt`
+                    : `language${selectedLangs.length > 1 ? "s" : ""} selected`}
+                  :{" "}
                   {selectedLangs.map((c) => c.toUpperCase()).join(", ")}
                 </p>
               )}
@@ -179,14 +185,20 @@ export default function NeuesProjektPage() {
             onClick={() => router.back()}
             disabled={isLoading}
           >
-            Abbrechen
+            {locale === "de" ? "Abbrechen" : "Cancel"}
           </Button>
           <Button
             type="submit"
             className="bg-indigo-600 hover:bg-indigo-700"
             disabled={isLoading}
           >
-            {isLoading ? "Wird erstellt..." : "Projekt erstellen"}
+            {isLoading
+              ? locale === "de"
+                ? "Wird erstellt..."
+                : "Creating..."
+              : locale === "de"
+                ? "Projekt erstellen"
+                : "Create project"}
           </Button>
         </div>
       </form>

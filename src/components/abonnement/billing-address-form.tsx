@@ -4,22 +4,23 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-
-const COUNTRIES = [
-  { code: "AT", label: "Österreich" },
-  { code: "DE", label: "Deutschland" },
-  { code: "CH", label: "Schweiz" },
-  { code: "US", label: "USA" },
-  { code: "GB", label: "Großbritannien" },
-];
+import { useLocale } from "@/components/providers/locale-provider";
 
 interface Props {
   stripeCustomerId: string | null;
 }
 
 export function BillingAddressForm({ stripeCustomerId }: Props) {
+  const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const countries = [
+    { code: "AT", label: locale === "de" ? "Österreich" : "Austria" },
+    { code: "DE", label: locale === "de" ? "Deutschland" : "Germany" },
+    { code: "CH", label: locale === "de" ? "Schweiz" : "Switzerland" },
+    { code: "US", label: "USA" },
+    { code: "GB", label: locale === "de" ? "Großbritannien" : "United Kingdom" },
+  ];
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,41 +48,49 @@ export function BillingAddressForm({ stripeCustomerId }: Props) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Firmenname / Name
+          {locale === "de" ? "Firmenname / Name" : "Company / Name"}
         </Label>
-        <Input name="billingName" placeholder="z.B. Mustermann GmbH" className="max-w-xl" />
+        <Input
+          name="billingName"
+          placeholder={locale === "de" ? "z.B. Mustermann GmbH" : "e.g. Example Inc."}
+          className="max-w-xl"
+        />
       </div>
 
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          Adresse
+          {locale === "de" ? "Adresse" : "Address"}
         </Label>
-        <Input name="address" placeholder="Straße und Hausnummer" className="max-w-xl" />
+        <Input
+          name="address"
+          placeholder={locale === "de" ? "Straße und Hausnummer" : "Street and number"}
+          className="max-w-xl"
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-4 max-w-xl">
         <div className="col-span-1 space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Stadt
+            {locale === "de" ? "Stadt" : "City"}
           </Label>
-          <Input name="city" placeholder="Wien" />
+          <Input name="city" placeholder={locale === "de" ? "Wien" : "Vienna"} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            PLZ
+            {locale === "de" ? "PLZ" : "ZIP"}
           </Label>
           <Input name="zip" placeholder="1010" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Land
+            {locale === "de" ? "Land" : "Country"}
           </Label>
           <select
             name="country"
             defaultValue="AT"
             className="h-9 w-full border border-gray-200 rounded-md px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            {COUNTRIES.map((c) => (
+            {countries.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.label}
               </option>
@@ -92,13 +101,15 @@ export function BillingAddressForm({ stripeCustomerId }: Props) {
 
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          USt-IdNr. (nur für Unternehmen)
+          {locale === "de" ? "USt-IdNr. (nur für Unternehmen)" : "VAT number (companies only)"}
         </Label>
         <Input name="vatNumber" placeholder="ATU12345678" className="max-w-xs" />
       </div>
 
       {success && (
-        <p className="text-sm text-green-600">Rechnungsinformationen gespeichert.</p>
+        <p className="text-sm text-green-600">
+          {locale === "de" ? "Rechnungsinformationen gespeichert." : "Billing details saved."}
+        </p>
       )}
 
       <div className="flex justify-end max-w-xl pt-2">
@@ -107,7 +118,7 @@ export function BillingAddressForm({ stripeCustomerId }: Props) {
           disabled={loading}
           className="bg-indigo-600 hover:bg-indigo-700 h-9 px-5 text-sm"
         >
-          {loading ? "Speichern…" : "Speichern"}
+          {loading ? (locale === "de" ? "Speichern…" : "Saving...") : locale === "de" ? "Speichern" : "Save"}
         </Button>
       </div>
     </form>

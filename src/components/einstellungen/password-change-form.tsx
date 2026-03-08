@@ -4,12 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLocale } from "@/components/providers/locale-provider";
 
 interface Props {
   hasPassword: boolean;
 }
 
 export function PasswordChangeForm({ hasPassword }: Props) {
+  const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -26,7 +28,11 @@ export function PasswordChangeForm({ hasPassword }: Props) {
     const confirmPassword = (form.elements.namedItem("confirmPassword") as HTMLInputElement).value;
 
     if (newPassword !== confirmPassword) {
-      setError("Die neuen Passwörter stimmen nicht überein.");
+      setError(
+        locale === "de"
+          ? "Die neuen Passwörter stimmen nicht überein."
+          : "The new passwords do not match."
+      );
       setLoading(false);
       return;
     }
@@ -39,7 +45,7 @@ export function PasswordChangeForm({ hasPassword }: Props) {
 
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "Ein Fehler ist aufgetreten.");
+      setError(data.error ?? (locale === "de" ? "Ein Fehler ist aufgetreten." : "Something went wrong."));
     } else {
       setSuccess(true);
       form.reset();
@@ -52,12 +58,12 @@ export function PasswordChangeForm({ hasPassword }: Props) {
       {hasPassword && (
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Aktuelles Passwort
+            {locale === "de" ? "Aktuelles Passwort" : "Current password"}
           </Label>
           <Input
             name="currentPassword"
             type="password"
-            placeholder="Aktuelles Passwort eingeben"
+            placeholder={locale === "de" ? "Aktuelles Passwort eingeben" : "Enter current password"}
             className="max-w-md"
           />
         </div>
@@ -66,31 +72,35 @@ export function PasswordChangeForm({ hasPassword }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Neues Passwort
+            {locale === "de" ? "Neues Passwort" : "New password"}
           </Label>
           <Input
             name="newPassword"
             type="password"
-            placeholder="Neues Passwort eingeben"
+            placeholder={locale === "de" ? "Neues Passwort eingeben" : "Enter new password"}
             required
             minLength={8}
           />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Passwort bestätigen
+            {locale === "de" ? "Passwort bestätigen" : "Confirm password"}
           </Label>
           <Input
             name="confirmPassword"
             type="password"
-            placeholder="Neues Passwort bestätigen"
+            placeholder={locale === "de" ? "Neues Passwort bestätigen" : "Confirm new password"}
             required
           />
         </div>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {success && <p className="text-sm text-green-600">Passwort erfolgreich geändert.</p>}
+      {success && (
+        <p className="text-sm text-green-600">
+          {locale === "de" ? "Passwort erfolgreich geändert." : "Password updated successfully."}
+        </p>
+      )}
 
       <div className="flex justify-end">
         <Button
@@ -98,7 +108,13 @@ export function PasswordChangeForm({ hasPassword }: Props) {
           disabled={loading}
           className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm"
         >
-          {loading ? "Speichern…" : "Passwort ändern"}
+          {loading
+            ? locale === "de"
+              ? "Speichern…"
+              : "Saving..."
+            : locale === "de"
+              ? "Passwort ändern"
+              : "Change password"}
         </Button>
       </div>
     </form>
