@@ -1,28 +1,23 @@
 # Deepglot WordPress Plugin
 
-Dieses Verzeichnis enthaelt das erste MVP-Grundgeruest fuer das Deepglot-WordPress-Plugin.
+This directory contains the first MVP scaffold for the Deepglot WordPress plugin.
 
-## Autor
-
-Andreas Ostheimer  
-https://www.ostheimer.at
-
-## Autor
+## Author
 
 Andreas Ostheimer  
 https://www.ostheimer.at
 
-## Enthalten in diesem Stand
+## Included in this iteration
 
-- Plugin-Bootstrap mit WordPress-Header
-- einfacher PSR-4-artiger Autoloader
-- kleiner Service-Container
-- Admin-Seite unter `Einstellungen -> Deepglot`
-- konfigurierbarer API-Client fuer die Deepglot-API
-- erste Frontend-Integration per Output Buffer
-- testbare URL-Sprachlogik fuer Sprachpraefixe wie `/en/about/`
+- Plugin bootstrap with the WordPress header
+- Simple PSR-4-style autoloader
+- Lightweight service container
+- Admin page under `Settings -> Deepglot`
+- Configurable API client for the Deepglot API
+- First frontend integration via output buffering
+- Testable URL language logic for language prefixes such as `/en/about/`
 
-## Verzeichnisstruktur
+## Directory structure
 
 ```text
 wordpress-plugin/deepglot/
@@ -39,31 +34,31 @@ wordpress-plugin/deepglot/
 
 ## Installation in WordPress
 
-1. Ordner `wordpress-plugin/deepglot` als ZIP paketieren.
-2. In WordPress unter `Plugins -> Installieren -> Plugin hochladen` importieren.
-3. Plugin aktivieren.
-4. Unter `Einstellungen -> Deepglot` API-Basis-URL, API-Key und Sprachen konfigurieren.
+1. Package the `wordpress-plugin/deepglot` directory as a ZIP archive.
+2. Upload it in WordPress under `Plugins -> Add New -> Upload Plugin`.
+3. Activate the plugin.
+4. Under `Settings -> Deepglot`, configure the API base URL, API key, and languages.
 
-## Aktueller Funktionsumfang
+## Current scope
 
-Der Stand ist bewusst ein Grundgeruest:
+This iteration is intentionally a scaffold:
 
-- Die Admin-Konfiguration ist bereits nutzbar.
-- Der API-Client ist vorbereitet und kann direkt an `POST /api/translate` gekoppelt werden.
-- Das Frontend startet bei aktivierter Zielsprache bereits den Output Buffer.
-- Die eigentliche HTML-Extraktion, Uebersetzung, Cache-Tabelle und Link-Ersetzung folgen in den naechsten Schritten.
+- The admin configuration is already usable.
+- The API client is prepared and can be connected directly to `POST /api/translate`.
+- The frontend already starts output buffering when a target language is active.
+- The actual HTML extraction, translation, cache table, and link replacement follow in the next steps.
 
 ## Test
 
-Falls PHP lokal verfuegbar ist:
+If PHP is available locally:
 
 ```bash
 php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
 ```
 
-## Naechste Plugin-Schritte
+## Next plugin steps
 
-1. Request-URL-/Spracherkennung direkt in das Frontend integrieren
-2. HTML-Parser und String-Extraktion anbinden
-3. API-Client fuer echte Uebersetzungsrequests verwenden
-4. lokalen WordPress-Cache und Link-Replacement ergaenzen
+1. Integrate request URL and language detection directly into the frontend flow.
+2. Connect the HTML parser and string extraction.
+3. Use the API client for real translation requests.
+4. Add the local WordPress cache and link replacement.

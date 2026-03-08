@@ -1,0 +1,57 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  getDocumentLocale,
+  getLegacyPublicRedirect,
+  getMarketingPath,
+  getLocalizedPathname,
+  toCanonicalExternalPath,
+  toInternalPath,
+} from "@/lib/site-locale";
+
+test("detects document locale from localized and app paths", () => {
+  assert.equal(getDocumentLocale("/"), "en");
+  assert.equal(getDocumentLocale("/pricing"), "en");
+  assert.equal(getDocumentLocale("/login"), "en");
+  assert.equal(getDocumentLocale("/de"), "de");
+  assert.equal(getDocumentLocale("/de/pricing"), "de");
+  assert.equal(getDocumentLocale("/dashboard"), "en");
+  assert.equal(getDocumentLocale("/de/projects/new"), "de");
+});
+
+test("maps marketing routes per locale", () => {
+  assert.equal(getMarketingPath("en", "home"), "/");
+  assert.equal(getMarketingPath("en", "pricing"), "/pricing");
+  assert.equal(getMarketingPath("de", "home"), "/de");
+  assert.equal(getMarketingPath("de", "pricing"), "/de/pricing");
+  assert.equal(getMarketingPath("de", "login"), "/de/login");
+  assert.equal(getMarketingPath("de", "signup"), "/de/signup");
+});
+
+test("converts external english routes to internal app paths", () => {
+  assert.equal(toInternalPath("/projects/new"), "/projekte/neu");
+  assert.equal(toInternalPath("/de/projects/123/translations/languages"), "/projekte/123/uebersetzungen/sprachen");
+  assert.equal(toInternalPath("/pricing"), "/pricing");
+});
+
+test("converts internal legacy routes to canonical external paths", () => {
+  assert.equal(toCanonicalExternalPath("/projekte/neu"), "/projects/new");
+  assert.equal(toCanonicalExternalPath("/abonnement/karte-rechnungen"), "/subscription/billing");
+  assert.equal(toCanonicalExternalPath("/preise"), "/pricing");
+});
+
+test("builds localized canonical pathnames", () => {
+  assert.equal(getLocalizedPathname("/projects/new", "de"), "/de/projects/new");
+  assert.equal(getLocalizedPathname("/de/projects/new", "en"), "/projects/new");
+  assert.equal(getLocalizedPathname("/projekte/neu", "de"), "/de/projects/new");
+});
+
+test("returns legacy redirects for moved german routes", () => {
+  assert.equal(getLegacyPublicRedirect("/preise"), "/de/pricing");
+  assert.equal(getLegacyPublicRedirect("/anmelden"), "/de/login");
+  assert.equal(getLegacyPublicRedirect("/registrieren"), "/de/signup");
+  assert.equal(getLegacyPublicRedirect("/projekte/neu"), "/de/projects/new");
+  assert.equal(getLegacyPublicRedirect("/de/projekte/neu"), "/de/projects/new");
+  assert.equal(getLegacyPublicRedirect("/pricing"), null);
+});

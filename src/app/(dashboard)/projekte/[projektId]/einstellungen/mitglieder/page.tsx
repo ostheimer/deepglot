@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Trash2 } from "lucide-react";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -12,11 +13,12 @@ interface PageProps {
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
-  TRANSLATOR: "Übersetzer",
+  TRANSLATOR: "Translator",
 };
 
 export default async function MitgliederPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
   const session = await auth();
 
   const project = await db.project.findUnique({
@@ -41,10 +43,12 @@ export default async function MitgliederPage({ params }: PageProps) {
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Projektmitglieder</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {locale === "de" ? "Projektmitglieder" : "Project members"}
+        </h2>
         <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2">
           <UserPlus className="h-4 w-4" />
-          Mitglied einladen
+          {locale === "de" ? "Mitglied einladen" : "Invite member"}
         </Button>
       </div>
 
@@ -52,9 +56,15 @@ export default async function MitgliederPage({ params }: PageProps) {
         {/* Table header */}
         <div className="grid grid-cols-[2fr_1fr_1.5fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">BENUTZER</span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ROLLE</span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">SPRACHE</span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">AKTIONEN</span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            {locale === "de" ? "ROLLE" : "ROLE"}
+          </span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            {locale === "de" ? "SPRACHE" : "LANGUAGE"}
+          </span>
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            {locale === "de" ? "AKTIONEN" : "ACTIONS"}
+          </span>
         </div>
 
         {/* Owner row */}
@@ -70,7 +80,9 @@ export default async function MitgliederPage({ params }: PageProps) {
                 <p className="text-sm font-medium text-gray-900">
                   {owner.email}
                   {owner.email === session?.user?.email && (
-                    <span className="ml-2 text-xs text-gray-400">(Du)</span>
+                    <span className="ml-2 text-xs text-gray-400">
+                      {locale === "de" ? "(Du)" : "(You)"}
+                    </span>
                   )}
                 </p>
               </div>
@@ -96,7 +108,11 @@ export default async function MitgliederPage({ params }: PageProps) {
               <p className="text-sm text-gray-700">{member.email}</p>
             </div>
             <Badge variant="outline" className="w-fit text-xs">
-              {ROLE_LABELS[member.role] ?? member.role}
+              {member.role === "TRANSLATOR"
+                ? locale === "de"
+                  ? "Übersetzer"
+                  : "Translator"
+                : ROLE_LABELS[member.role] ?? member.role}
             </Badge>
             <span className="text-sm text-gray-500">
               {member.langCode ? member.langCode.toUpperCase() : "—"}
@@ -113,14 +129,17 @@ export default async function MitgliederPage({ params }: PageProps) {
 
         {project.members.length === 0 && !owner && (
           <div className="px-6 py-12 text-center">
-            <p className="text-sm text-gray-400">Noch keine Mitglieder eingeladen.</p>
+            <p className="text-sm text-gray-400">
+              {locale === "de" ? "Noch keine Mitglieder eingeladen." : "No members invited yet."}
+            </p>
           </div>
         )}
       </div>
 
       <p className="text-xs text-gray-400 mt-3">
-        Eingeladene Mitglieder können Übersetzungen bearbeiten und verwalten.
-        Admins haben vollen Zugriff auf alle Projekteinstellungen.
+        {locale === "de"
+          ? "Eingeladene Mitglieder können Übersetzungen bearbeiten und verwalten. Admins haben vollen Zugriff auf alle Projekteinstellungen."
+          : "Invited members can edit and manage translations. Admins have full access to all project settings."}
       </p>
     </div>
   );

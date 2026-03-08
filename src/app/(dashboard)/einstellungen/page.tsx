@@ -10,6 +10,8 @@ import { SettingsToggle } from "@/components/projekte/settings-toggle";
 import { ExternalLink, Eye, Pencil, Plus } from "lucide-react";
 import { PasswordChangeForm } from "@/components/einstellungen/password-change-form";
 import { AccountDeleteButton } from "@/components/einstellungen/account-delete-button";
+import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export const metadata = { title: "Konto-Einstellungen" };
 
@@ -20,9 +22,16 @@ const PLAN_LABELS: Record<string, string> = {
   ENTERPRISE: "Enterprise",
 };
 
-export default async function EinstellungenPage() {
+type EinstellungenPageProps = {
+  searchParams: LocaleSearchParams;
+};
+
+export default async function EinstellungenPage({
+  searchParams,
+}: EinstellungenPageProps) {
+  const locale = await getPageLocale(searchParams);
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
@@ -49,7 +58,9 @@ export default async function EinstellungenPage() {
 
       {/* ── My Account ──────────────────────────────────── */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Mein Konto</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          {locale === "de" ? "Mein Konto" : "My account"}
+        </h2>
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
           {/* Avatar */}
           <div className="flex items-start gap-4">
@@ -66,11 +77,13 @@ export default async function EinstellungenPage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
               >
-                Zu Gravatar
+                {locale === "de" ? "Zu Gravatar" : "Open Gravatar"}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <p className="text-xs text-gray-500 mt-1 max-w-xs">
-                Du kannst deinen Avatar über Gravatar ändern oder direkt ein Bild hochladen.
+                {locale === "de"
+                  ? "Du kannst deinen Avatar über Gravatar ändern oder direkt ein Bild hochladen."
+                  : "You can change your avatar via Gravatar or upload an image directly."}
               </p>
             </div>
           </div>
@@ -78,7 +91,7 @@ export default async function EinstellungenPage() {
           {/* Email */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              E-Mail-Adresse
+              {locale === "de" ? "E-Mail-Adresse" : "Email address"}
             </Label>
             <Input defaultValue={user?.email ?? ""} type="email" className="max-w-md" />
           </div>
@@ -87,22 +100,28 @@ export default async function EinstellungenPage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Vorname
+                {locale === "de" ? "Vorname" : "First name"}
               </Label>
-              <Input defaultValue={firstName} placeholder="Vorname eingeben" />
+              <Input
+                defaultValue={firstName}
+                placeholder={locale === "de" ? "Vorname eingeben" : "Enter first name"}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Nachname
+                {locale === "de" ? "Nachname" : "Last name"}
               </Label>
-              <Input defaultValue={lastName} placeholder="Nachname eingeben" />
+              <Input
+                defaultValue={lastName}
+                placeholder={locale === "de" ? "Nachname eingeben" : "Enter last name"}
+              />
             </div>
           </div>
 
           <div className="flex items-center justify-between pt-1">
             <AccountDeleteButton />
             <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm">
-              Speichern
+              {locale === "de" ? "Speichern" : "Save"}
             </Button>
           </div>
         </div>
@@ -110,14 +129,18 @@ export default async function EinstellungenPage() {
 
       {/* ── Account Security ────────────────────────────── */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Kontosicherheit</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          {locale === "de" ? "Kontosicherheit" : "Account security"}
+        </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <PasswordChangeForm hasPassword={!!user?.password} />
 
           <div className="border-t border-gray-100">
             <SettingsToggle
-              label="Zwei-Faktor-Authentifizierung"
-              description="Fügt eine zusätzliche Sicherheitsebene für die Anmeldung hinzu."
+              label={locale === "de" ? "Zwei-Faktor-Authentifizierung" : "Two-factor authentication"}
+              description={locale === "de"
+                ? "Fügt eine zusätzliche Sicherheitsebene für die Anmeldung hinzu."
+                : "Adds an extra layer of security to sign-in."}
               defaultChecked={false}
             />
           </div>
@@ -126,24 +149,32 @@ export default async function EinstellungenPage() {
 
       {/* ── Notifications ───────────────────────────────── */}
       <section>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Benachrichtigungen</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          {locale === "de" ? "Benachrichtigungen" : "Notifications"}
+        </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <SettingsToggle
-            label="Neuigkeiten & Feature-Updates"
-            description="Bleib über Produkt-Updates, Deepglot-Ankündigungen und gelegentliche News auf dem Laufenden."
+            label={locale === "de" ? "Neuigkeiten & Feature-Updates" : "News & feature updates"}
+            description={locale === "de"
+              ? "Bleib über Produkt-Updates, Deepglot-Ankündigungen und gelegentliche News auf dem Laufenden."
+              : "Stay up to date with product updates, Deepglot announcements, and occasional news."}
             defaultChecked={false}
           />
           <div className="border-t border-gray-100">
             <SettingsToggle
               label="Onboarding"
-              description="Erhalte Tipps für deine ersten Tage mit Deepglot."
+              description={locale === "de"
+                ? "Erhalte Tipps für deine ersten Tage mit Deepglot."
+                : "Get tips for your first days with Deepglot."}
               defaultChecked={true}
             />
           </div>
           <div className="border-t border-gray-100">
             <SettingsToggle
-              label="Workspaces & Projekte"
-              description="Werde über Aktivitäten in deinen Workspaces und Projekten benachrichtigt."
+              label={locale === "de" ? "Workspaces & Projekte" : "Workspaces & projects"}
+              description={locale === "de"
+                ? "Werde über Aktivitäten in deinen Workspaces und Projekten benachrichtigt."
+                : "Get notified about activity in your workspaces and projects."}
               defaultChecked={true}
             />
           </div>
@@ -168,7 +199,9 @@ export default async function EinstellungenPage() {
                     <div>
                       <p className="text-sm font-medium text-gray-900">Workspace-Nutzung</p>
                       <p className="text-xs text-gray-500 mt-0.5 max-w-sm">
-                        Benachrichtigungen zu Workspace-Auslastung, Plan-Limits, Einladungen etc.
+                        {locale === "de"
+                          ? "Benachrichtigungen zu Workspace-Auslastung, Plan-Limits, Einladungen etc."
+                          : "Notifications about workspace usage, plan limits, invitations, and more."}
                       </p>
                     </div>
                     <button
@@ -184,13 +217,15 @@ export default async function EinstellungenPage() {
                     <div>
                       <p className="text-sm font-medium text-gray-900">Aktivitäts-Digest</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        Regelmäßige Updates über Workspace-Aktivitäten
+                        {locale === "de"
+                          ? "Regelmäßige Updates über Workspace-Aktivitäten"
+                          : "Regular updates about workspace activity"}
                       </p>
                     </div>
                     <select className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700">
-                      <option value="weekly">Wöchentlich</option>
-                      <option value="daily">Täglich</option>
-                      <option value="never">Nie</option>
+                      <option value="weekly">{locale === "de" ? "Wöchentlich" : "Weekly"}</option>
+                      <option value="daily">{locale === "de" ? "Täglich" : "Daily"}</option>
+                      <option value="never">{locale === "de" ? "Nie" : "Never"}</option>
                     </select>
                   </div>
                 </div>
@@ -200,7 +235,7 @@ export default async function EinstellungenPage() {
 
           <div className="flex justify-end p-4 border-t border-gray-100">
             <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm">
-              Speichern
+              {locale === "de" ? "Speichern" : "Save"}
             </Button>
           </div>
         </div>
@@ -220,14 +255,22 @@ export default async function EinstellungenPage() {
           </h2>
           <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5 h-8 px-4 text-sm">
             <Plus className="h-3.5 w-3.5" />
-            Erstellen
+            {locale === "de" ? "Erstellen" : "Create"}
           </Button>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           {/* Table header */}
           <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-5 py-3 bg-gray-50 border-b border-gray-200">
-            {["NAME", "TYP", "PLAN", "ROLLE", "PROJEKTE", "USER", "AKTIONEN"].map((h) => (
+            {[
+              "NAME",
+              locale === "de" ? "TYP" : "TYPE",
+              "PLAN",
+              locale === "de" ? "ROLLE" : "ROLE",
+              locale === "de" ? "PROJEKTE" : "PROJECTS",
+              locale === "de" ? "USER" : "USERS",
+              locale === "de" ? "AKTIONEN" : "ACTIONS",
+            ].map((h) => (
               <span key={h} className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {h}
               </span>
@@ -236,7 +279,9 @@ export default async function EinstellungenPage() {
 
           {memberships.length === 0 ? (
             <div className="px-5 py-12 text-center">
-              <p className="text-sm text-gray-400">Noch kein Workspace vorhanden.</p>
+              <p className="text-sm text-gray-400">
+                {locale === "de" ? "Noch kein Workspace vorhanden." : "No workspace yet."}
+              </p>
             </div>
           ) : (
             memberships.map((m) => (
@@ -262,7 +307,7 @@ export default async function EinstellungenPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  Persönlich
+                  {locale === "de" ? "Persönlich" : "Personal"}
                 </span>
 
                 {/* Plan */}
@@ -275,7 +320,13 @@ export default async function EinstellungenPage() {
 
                 {/* Role */}
                 <span className="text-sm text-gray-700 capitalize">
-                  {m.role === "OWNER" ? "Admin" : m.role === "ADMIN" ? "Admin" : "Mitglied"}
+                  {m.role === "OWNER"
+                    ? "Admin"
+                    : m.role === "ADMIN"
+                      ? "Admin"
+                      : locale === "de"
+                        ? "Mitglied"
+                        : "Member"}
                 </span>
 
                 {/* Projects count */}

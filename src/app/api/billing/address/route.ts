@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
 import { z } from "zod";
+
+function t(locale: "en" | "de", deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
+}
 
 const schema = z.object({
   billingName: z.string().max(200).optional(),
@@ -14,15 +19,22 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  const locale = await getCookieLocale();
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+    return NextResponse.json(
+      { error: t(locale, "Nicht autorisiert", "Not authorized") },
+      { status: 401 }
+    );
   }
 
   const body = await request.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });
+    return NextResponse.json(
+      { error: t(locale, "Ungültige Eingabe", "Invalid input") },
+      { status: 400 }
+    );
   }
 
   const { billingName, address, city, zip, country, vatNumber } = parsed.data;

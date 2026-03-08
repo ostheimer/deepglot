@@ -1,31 +1,35 @@
+import { stripLocalePrefix, withLocalePrefix } from "@/lib/site-locale";
+
 const PROTECTED_PREFIXES = [
   "/dashboard",
-  "/projekte",
-  "/uebersetzungen",
-  "/api-keys",
-  "/abonnement",
-  "/einstellungen",
+  "/projects",
+  "/subscription",
+  "/settings",
 ] as const;
 
-const AUTH_PREFIXES = ["/anmelden", "/registrieren"] as const;
+const AUTH_PREFIXES = [
+  "/login",
+  "/signup",
+] as const;
 
 function matchesPrefix(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 export function getAuthRedirect(pathname: string, isLoggedIn: boolean) {
+  const { locale, pathname: normalizedPathname } = stripLocalePrefix(pathname);
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
-    matchesPrefix(pathname, prefix)
+    matchesPrefix(normalizedPathname, prefix)
   );
 
   if (isProtectedRoute && !isLoggedIn) {
-    return "/anmelden";
+    return withLocalePrefix("/login", locale);
   }
 
-  const isAuthRoute = AUTH_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+  const isAuthRoute = AUTH_PREFIXES.some((prefix) => matchesPrefix(normalizedPathname, prefix));
 
   if (isAuthRoute && isLoggedIn) {
-    return "/dashboard";
+    return withLocalePrefix("/dashboard", locale);
   }
 
   return null;

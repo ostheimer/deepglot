@@ -3,16 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileText, CreditCard, Activity } from "lucide-react";
+import { useLocale } from "@/components/providers/locale-provider";
+import { withLocalePrefix } from "@/lib/site-locale";
 import { cn } from "@/lib/utils";
 
-const items = [
-  { href: "/abonnement/uebersicht", label: "Plan-Übersicht", icon: FileText },
-  { href: "/abonnement/karte-rechnungen", label: "Karte & Rechnungen", icon: CreditCard },
-  { href: "/abonnement/nutzung", label: "Nutzung", icon: Activity },
-];
-
 export function BillingSidebarNav() {
+  const locale = useLocale();
   const pathname = usePathname();
+  const items = [
+    {
+      href: withLocalePrefix("/subscription/overview", locale),
+      label: locale === "de" ? "Plan-Übersicht" : "Plan Overview",
+      icon: FileText,
+    },
+    {
+      href: withLocalePrefix("/subscription/billing", locale),
+      label: locale === "de" ? "Karte & Rechnungen" : "Billing & Invoices",
+      icon: CreditCard,
+    },
+    {
+      href: withLocalePrefix("/subscription/usage", locale),
+      label: locale === "de" ? "Nutzung" : "Usage",
+      icon: Activity,
+    },
+  ];
 
   return (
     <nav className="space-y-0.5">

@@ -6,8 +6,6 @@ import {
   Globe,
   LayoutDashboard,
   FolderOpen,
-  Languages,
-  Key,
   Settings,
   CreditCard,
   LogOut,
@@ -15,16 +13,36 @@ import {
 import { signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/components/providers/locale-provider";
+import { LanguageSwitcher } from "@/components/site/language-switcher";
+import { getMarketingPath } from "@/lib/site-locale";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
-  { href: "/projekte", label: "Projekte", icon: FolderOpen },
-  { href: "/uebersetzungen", label: "Übersetzungen", icon: Languages },
-  { href: "/api-keys", label: "API-Keys", icon: Key },
-  { href: "/abonnement", label: "Abonnement", icon: CreditCard },
-  { href: "/einstellungen", label: "Einstellungen", icon: Settings },
-];
+const NAV_ITEMS = {
+  en: [
+    { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/projects", label: "Projects", icon: FolderOpen },
+    { href: "/subscription", label: "Subscription", icon: CreditCard },
+    { href: "/settings", label: "Settings", icon: Settings },
+  ],
+  de: [
+    { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
+    { href: "/projects", label: "Projekte", icon: FolderOpen },
+    { href: "/subscription", label: "Abonnement", icon: CreditCard },
+    { href: "/settings", label: "Einstellungen", icon: Settings },
+  ],
+} as const;
+
+const COPY = {
+  en: {
+    fallbackUser: "User",
+    signOut: "Sign out",
+  },
+  de: {
+    fallbackUser: "Benutzer",
+    signOut: "Abmelden",
+  },
+} as const;
 
 interface DashboardSidebarProps {
   user: {
@@ -35,6 +53,9 @@ interface DashboardSidebarProps {
 }
 
 export function DashboardSidebar({ user }: DashboardSidebarProps) {
+  const locale = useLocale();
+  const copy = COPY[locale];
+  const navItems = NAV_ITEMS[locale];
   const pathname = usePathname();
 
   return (
@@ -48,9 +69,10 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const localizedHref = locale === "de" ? `/de${item.href}` : item.href;
+          const isActive = pathname === localizedHref || pathname.startsWith(`${localizedHref}/`);
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={localizedHref}>
               <div
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -69,7 +91,10 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
 
       {/* User Footer */}
       <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <LanguageSwitcher compact />
+          </div>
+          <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.image ?? undefined} />
             <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-semibold">
@@ -78,7 +103,7 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">
-              {user.name ?? "Benutzer"}
+              {user.name ?? copy.fallbackUser}
             </p>
             <p className="text-xs text-gray-500 truncate">{user.email}</p>
           </div>
@@ -87,10 +112,10 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
           variant="ghost"
           size="sm"
           className="w-full justify-start text-gray-600 hover:text-red-600 hover:bg-red-50"
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => signOut({ callbackUrl: getMarketingPath(locale, "home") })}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          Abmelden
+          {copy.signOut}
         </Button>
       </div>
     </aside>

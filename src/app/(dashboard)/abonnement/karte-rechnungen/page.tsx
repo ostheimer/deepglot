@@ -5,12 +5,16 @@ import { stripe } from "@/lib/stripe";
 import { CreditCard } from "lucide-react";
 import { PortalButton } from "@/components/abonnement/portal-button";
 import { BillingAddressForm } from "@/components/abonnement/billing-address-form";
+import { getRequestLocale } from "@/lib/request-locale";
+import { getIntlLocale } from "@/lib/locale-formatting";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export const metadata = { title: "Karte & Rechnungen – Deepglot" };
 
 export default async function KarteRechnungenPage() {
+  const locale = await getRequestLocale();
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const membership = await db.organizationMember.findFirst({
     where: { userId: session.user.id },
@@ -67,7 +71,7 @@ export default async function KarteRechnungenPage() {
         id: inv.id,
         number: inv.number,
         amount: inv.amount_paid / 100,
-        date: new Date(inv.created * 1000).toLocaleDateString("de-AT"),
+        date: new Date(inv.created * 1000).toLocaleDateString(getIntlLocale(locale)),
         status: inv.status ?? "unknown",
         pdf: inv.invoice_pdf ?? null,
       }));
@@ -88,12 +92,16 @@ export default async function KarteRechnungenPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Karte & Rechnungen</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {locale === "de" ? "Karte & Rechnungen" : "Billing & invoices"}
+      </h1>
 
       <div className="space-y-5">
         {/* Payment Method */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Zahlungsmethoden</h2>
+          <h2 className="text-base font-semibold text-gray-900 mb-4">
+            {locale === "de" ? "Zahlungsmethoden" : "Payment methods"}
+          </h2>
 
           {cardLast4 ? (
             <div className="flex items-center justify-between">
@@ -106,27 +114,31 @@ export default async function KarteRechnungenPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {formatCardBrand(cardBrand ?? "")} endet auf {cardLast4}
+                    {locale === "de"
+                      ? `${formatCardBrand(cardBrand ?? "")} endet auf ${cardLast4}`
+                      : `${formatCardBrand(cardBrand ?? "")} ending in ${cardLast4}`}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Läuft ab {String(cardExpMonth).padStart(2, "0")}/{cardExpYear}
+                    {locale === "de" ? "Läuft ab" : "Expires"} {String(cardExpMonth).padStart(2, "0")}/{cardExpYear}
                   </p>
                 </div>
               </div>
               <PortalButton
                 stripeCustomerId={stripeCustomerId}
-                label="Karte ändern"
+                label={locale === "de" ? "Karte ändern" : "Change card"}
               />
             </div>
           ) : (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 text-gray-500">
                 <CreditCard className="h-5 w-5" />
-                <p className="text-sm">Keine Zahlungsmethode hinterlegt</p>
+                <p className="text-sm">
+                  {locale === "de" ? "Keine Zahlungsmethode hinterlegt" : "No payment method saved"}
+                </p>
               </div>
               <PortalButton
                 stripeCustomerId={stripeCustomerId}
-                label="Karte hinzufügen"
+                label={locale === "de" ? "Karte hinzufügen" : "Add card"}
               />
             </div>
           )}
@@ -134,9 +146,13 @@ export default async function KarteRechnungenPage() {
 
         {/* Billing Address */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-1">Rechnungsinformationen</h2>
+          <h2 className="text-base font-semibold text-gray-900 mb-1">
+            {locale === "de" ? "Rechnungsinformationen" : "Billing details"}
+          </h2>
           <p className="text-xs text-gray-500 mb-5">
-            Bestehende Rechnungen können nicht geändert werden – nur zukünftige Rechnungen sind betroffen.
+            {locale === "de"
+              ? "Bestehende Rechnungen können nicht geändert werden – nur zukünftige Rechnungen sind betroffen."
+              : "Existing invoices cannot be changed. Only future invoices will be affected."}
           </p>
           <BillingAddressForm stripeCustomerId={stripeCustomerId} />
         </div>
@@ -145,14 +161,16 @@ export default async function KarteRechnungenPage() {
         {invoices.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base font-semibold text-gray-900">Rechnungshistorie</h2>
+              <h2 className="text-base font-semibold text-gray-900">
+                {locale === "de" ? "Rechnungshistorie" : "Invoice history"}
+              </h2>
             </div>
             <div className="divide-y divide-gray-100">
               {/* Table header */}
               <div className="grid grid-cols-[1fr_100px_100px_80px_80px] gap-4 px-6 py-2.5 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <span>Rechnungsnummer</span>
-                <span>Datum</span>
-                <span>Betrag</span>
+                <span>{locale === "de" ? "Rechnungsnummer" : "Invoice number"}</span>
+                <span>{locale === "de" ? "Datum" : "Date"}</span>
+                <span>{locale === "de" ? "Betrag" : "Amount"}</span>
                 <span>Status</span>
                 <span>PDF</span>
               </div>
@@ -169,7 +187,11 @@ export default async function KarteRechnungenPage() {
                       inv.status === "paid" ? "text-green-600" : "text-gray-500"
                     }`}
                   >
-                    {inv.status === "paid" ? "Bezahlt" : inv.status}
+                    {inv.status === "paid"
+                      ? locale === "de"
+                        ? "Bezahlt"
+                        : "Paid"
+                      : inv.status}
                   </span>
                   {inv.pdf ? (
                     <a

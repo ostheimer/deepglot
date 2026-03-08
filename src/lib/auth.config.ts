@@ -3,7 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 const authConfig: NextAuthConfig = {
   providers: [],
   pages: {
-    signIn: "/anmelden",
+    signIn: "/login",
     error: "/fehler",
   },
   session: {

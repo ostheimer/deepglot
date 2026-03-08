@@ -2,10 +2,13 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { BillingSidebarNav } from "@/components/abonnement/billing-sidebar-nav";
+import { getRequestLocale } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export default async function AbonnementLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getRequestLocale();
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   return (
     <div className="flex gap-8 min-h-full">

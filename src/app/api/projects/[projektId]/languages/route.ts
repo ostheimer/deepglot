@@ -1,22 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getCookieLocale } from "@/lib/request-locale";
+
+function t(locale: "en" | "de", deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
+}
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ projektId: string }> }
 ) {
   const { projektId } = await params;
+  const locale = await getCookieLocale();
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+    return NextResponse.json(
+      { error: t(locale, "Nicht authentifiziert", "Not authenticated") },
+      { status: 401 }
+    );
   }
 
   try {
     const { languages } = await req.json();
 
     if (!Array.isArray(languages) || languages.length === 0) {
-      return NextResponse.json({ error: "Keine Sprachen angegeben" }, { status: 400 });
+      return NextResponse.json(
+        { error: t(locale, "Keine Sprachen angegeben", "No languages provided") },
+        { status: 400 }
+      );
     }
 
     // Verify project access
@@ -26,7 +38,10 @@ export async function POST(
     });
 
     if (!project) {
-      return NextResponse.json({ error: "Projekt nicht gefunden" }, { status: 404 });
+      return NextResponse.json(
+        { error: t(locale, "Projekt nicht gefunden", "Project not found") },
+        { status: 404 }
+      );
     }
 
     const membership = await db.organizationMember.findFirst({
@@ -34,7 +49,10 @@ export async function POST(
     });
 
     if (!membership) {
-      return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+      return NextResponse.json(
+        { error: t(locale, "Keine Berechtigung", "Permission denied") },
+        { status: 403 }
+      );
     }
 
     await db.projectLanguage.createMany({
@@ -49,7 +67,10 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[POST /api/projects/[id]/languages] Fehler:", error);
-    return NextResponse.json({ error: "Fehler beim Hinzufügen" }, { status: 500 });
+    return NextResponse.json(
+      { error: t(locale, "Fehler beim Hinzufügen", "Could not add languages") },
+      { status: 500 }
+    );
   }
 }
 
@@ -58,9 +79,13 @@ export async function DELETE(
   { params }: { params: Promise<{ projektId: string }> }
 ) {
   const { projektId } = await params;
+  const locale = await getCookieLocale();
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+    return NextResponse.json(
+      { error: t(locale, "Nicht authentifiziert", "Not authenticated") },
+      { status: 401 }
+    );
   }
 
   const { langCode } = await req.json();

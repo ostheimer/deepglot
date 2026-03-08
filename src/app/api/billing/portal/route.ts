@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getBillingPortalReturnUrl } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 
@@ -21,7 +22,7 @@ export async function POST() {
 
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${process.env.NEXTAUTH_URL}/abonnement/karte-rechnungen`,
+    return_url: getBillingPortalReturnUrl(),
   });
 
   return NextResponse.json({ url: portalSession.url });

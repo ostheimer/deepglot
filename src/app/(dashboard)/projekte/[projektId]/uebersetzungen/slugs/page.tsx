@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Zap } from "lucide-react";
 import Link from "next/link";
+import { formatNumber } from "@/lib/locale-formatting";
+import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -14,6 +16,7 @@ interface PageProps {
 export default async function SlugsPage({ params, searchParams }: PageProps) {
   const { projektId } = await params;
   const { q, lang, seite } = await searchParams;
+  const locale = await getRequestLocale();
 
   const page = Math.max(1, parseInt(seite ?? "1", 10));
   const pageSize = 25;
@@ -49,18 +52,18 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">
-          URL Slugs für{" "}
+          {locale === "de" ? "URL Slugs für" : "URL slugs for"}{" "}
           <span className="text-indigo-600">
             {activeLang.charAt(0).toUpperCase() + activeLang.slice(1)}
           </span>
           {" "}▾
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">Filter ▾</Button>
-          <Button variant="outline" size="sm">Aktionen ▾</Button>
+          <Button variant="outline" size="sm">{locale === "de" ? "Filter" : "Filters"} ▾</Button>
+          <Button variant="outline" size="sm">{locale === "de" ? "Aktionen" : "Actions"} ▾</Button>
           <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Slug hinzufügen
+            {locale === "de" ? "Slug hinzufügen" : "Add slug"}
           </Button>
         </div>
       </div>
@@ -89,13 +92,13 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
           <Input
             name="q"
             defaultValue={q}
-            placeholder="Slug suchen..."
+            placeholder={locale === "de" ? "Slug suchen..." : "Search slug..."}
             className="pl-9 h-9"
           />
           <input type="hidden" name="lang" value={activeLang} />
         </form>
         <span className="text-sm text-gray-500">
-          {total.toLocaleString("de-DE")} Ergebnisse
+          {formatNumber(total, locale)} {locale === "de" ? "Ergebnisse" : "results"}
         </span>
       </div>
 
@@ -103,10 +106,10 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="grid grid-cols-[2fr_2fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            ORIGINAL-SLUG
+            {locale === "de" ? "ORIGINAL-SLUG" : "ORIGINAL SLUG"}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            ÜBERSETZTER SLUG
+            {locale === "de" ? "ÜBERSETZTER SLUG" : "TRANSLATED SLUG"}
           </span>
           <span></span>
         </div>
@@ -115,8 +118,12 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
           <div className="px-6 py-16 text-center">
             <p className="text-gray-500 text-sm">
               {q
-                ? `Keine Slugs gefunden für "${q}"`
-                : "Keine URL-Slugs gefunden. Das Plugin extrahiert Slugs automatisch beim ersten Seitenaufruf."}
+                ? locale === "de"
+                  ? `Keine Slugs gefunden für "${q}"`
+                  : `No slugs found for "${q}"`
+                : locale === "de"
+                  ? "Keine URL-Slugs gefunden. Das Plugin extrahiert Slugs automatisch beim ersten Seitenaufruf."
+                  : "No URL slugs found. The plugin extracts slugs automatically the first time a page is opened."}
             </p>
           </div>
         ) : (
@@ -129,7 +136,9 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                 <p className="text-sm font-medium text-gray-900">{slug.originalSlug}</p>
                 {slug.urlCount > 0 && (
                   <p className="text-xs text-gray-400 mt-0.5">
-                    In {slug.urlCount} URLs gefunden
+                    {locale === "de"
+                      ? `In ${slug.urlCount} URLs gefunden`
+                      : `Found in ${slug.urlCount} URLs`}
                   </p>
                 )}
               </div>
@@ -148,7 +157,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                 className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 text-xs gap-1.5"
               >
                 <Zap className="h-3.5 w-3.5" />
-                Auto-Übersetzen
+                {locale === "de" ? "Auto-Übersetzen" : "Auto-translate"}
               </Button>
             </div>
           ))
@@ -158,16 +167,18 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-gray-500">Seite {page} von {totalPages}</p>
+          <p className="text-sm text-gray-500">
+            {locale === "de" ? "Seite" : "Page"} {page} {locale === "de" ? "von" : "of"} {totalPages}
+          </p>
           <div className="flex gap-2">
             {page > 1 && (
               <Link href={`?lang=${activeLang}&seite=${page - 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">Zurück</Button>
+                <Button variant="outline" size="sm">{locale === "de" ? "Zurück" : "Previous"}</Button>
               </Link>
             )}
             {page < totalPages && (
               <Link href={`?lang=${activeLang}&seite=${page + 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">Weiter</Button>
+                <Button variant="outline" size="sm">{locale === "de" ? "Weiter" : "Next"}</Button>
               </Link>
             )}
           </div>

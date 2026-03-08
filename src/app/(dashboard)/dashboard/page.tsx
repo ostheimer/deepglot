@@ -13,6 +13,9 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
+import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export const metadata = { title: "Übersicht – Deepglot" };
 
@@ -36,9 +39,14 @@ const PLAN_LABELS: Record<string, string> = {
   ENTERPRISE: "Enterprise",
 };
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams: LocaleSearchParams;
+};
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const locale = await getPageLocale(searchParams);
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const memberships = await db.organizationMember.findMany({
     where: { userId: session.user.id },
@@ -118,21 +126,30 @@ export default async function DashboardPage() {
     ...recentExclusions.map((e) => ({
       id: `excl-${e.id}`,
       project: e.project.domain,
-      message: `${session.user?.email ?? "Du"} hat eine Ausnahme-Regel hinzugefügt „${e.type === "URL" ? "URL enthält" : e.type} ${e.value.slice(0, 30)}".`,
+      message:
+        locale === "de"
+          ? `${session.user?.email ?? "Du"} hat eine Ausnahme-Regel hinzugefügt „${e.type === "URL" ? "URL enthält" : e.type} ${e.value.slice(0, 30)}".`
+          : `${session.user?.email ?? "You"} added an exclusion rule "${e.type === "URL" ? "URL contains" : e.type} ${e.value.slice(0, 30)}".`,
       date: e.createdAt,
       type: "exclusion" as const,
     })),
     ...recentGlossary.map((g) => ({
       id: `gloss-${g.id}`,
       project: g.project.domain,
-      message: `${session.user?.email ?? "Du"} hat Glossar-Regel „${g.originalTerm}" hinzugefügt.`,
+      message:
+        locale === "de"
+          ? `${session.user?.email ?? "Du"} hat Glossar-Regel „${g.originalTerm}" hinzugefügt.`
+          : `${session.user?.email ?? "You"} added glossary rule "${g.originalTerm}".`,
       date: g.createdAt,
       type: "glossary" as const,
     })),
     ...(org?.projects ?? []).map((p) => ({
       id: `proj-${p.id}`,
       project: p.domain,
-      message: `Projekt „${p.name}" wurde erstellt.`,
+      message:
+        locale === "de"
+          ? `Projekt „${p.name}" wurde erstellt.`
+          : `Project "${p.name}" was created.`,
       date: p.createdAt,
       type: "project" as const,
     })),
@@ -142,7 +159,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-full">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Übersicht</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {locale === "de" ? "Übersicht" : "Overview"}
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_280px] gap-6">
 
@@ -151,23 +170,29 @@ export default async function DashboardPage() {
           {/* Plan Usage Card */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Plan-Nutzung</h2>
+              <h2 className="text-sm font-semibold text-gray-900">
+                {locale === "de" ? "Plan-Nutzung" : "Plan usage"}
+              </h2>
             </div>
             <div className="px-5 py-4 space-y-4">
               {/* Current Plan */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                    Aktueller Plan
+                    {locale === "de" ? "Aktueller Plan" : "Current plan"}
                   </p>
                   <p className="text-sm font-semibold text-indigo-700 mt-0.5">
                     {PLAN_LABELS[plan] ?? plan}{" "}
-                    <span className="text-gray-400 font-normal text-xs">(Monatlich)</span>
+                    {plan !== "FREE" && (
+                      <span className="text-gray-400 font-normal text-xs">
+                        {locale === "de" ? "(Monatlich)" : "(Monthly)"}
+                      </span>
+                    )}
                   </p>
                 </div>
-                <Link href="/abonnement">
+                <Link href={withLocalePrefix("/subscription", locale)}>
                   <button className="text-xs text-gray-600 border border-gray-300 rounded px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
-                    Plan verwalten
+                    {locale === "de" ? "Plan verwalten" : "Manage plan"}
                   </button>
                 </Link>
               </div>
@@ -180,7 +205,9 @@ export default async function DashboardPage() {
                     Auto-Upgrade
                     <HelpCircle className="h-3 w-3 text-gray-400" />
                   </p>
-                  <p className="text-xs text-gray-500">AUS (Nicht empfohlen)</p>
+                  <p className="text-xs text-gray-500">
+                    {locale === "de" ? "AUS (Nicht empfohlen)" : "OFF (Not recommended)"}
+                  </p>
                 </div>
               </div>
 
@@ -188,11 +215,11 @@ export default async function DashboardPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                    Wörter-Nutzung
+                    {locale === "de" ? "Wörter-Nutzung" : "Word usage"}
                   </p>
                 </div>
                 <p className="text-sm font-semibold text-indigo-700 mb-1.5">
-                  {wordsUsed.toLocaleString("de-AT")} / {wordsLimit.toLocaleString("de-AT")}
+                  {formatNumber(wordsUsed, locale)} / {formatNumber(wordsLimit, locale)}
                 </p>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
@@ -208,12 +235,12 @@ export default async function DashboardPage() {
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                    Übersetzungs-Anfragen
+                    {locale === "de" ? "Übersetzungs-Anfragen" : "Translation requests"}
                   </p>
                   <HelpCircle className="h-3 w-3 text-gray-400" />
                 </div>
                 <p className="text-sm font-semibold text-indigo-700 mb-1.5">
-                  {requestsCount.toLocaleString("de-AT")} / {requestsLimit.toLocaleString("de-AT")}
+                  {formatNumber(requestsCount, locale)} / {formatNumber(requestsLimit, locale)}
                 </p>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
@@ -224,7 +251,9 @@ export default async function DashboardPage() {
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1.5 leading-tight">
-                  Anfragen-Zähler wird am 1. jedes Monats zurückgesetzt.
+                  {locale === "de"
+                    ? "Anfragen-Zähler wird am 1. jedes Monats zurückgesetzt."
+                    : "The request counter resets on the first day of each month."}
                 </p>
               </div>
             </div>
@@ -233,7 +262,7 @@ export default async function DashboardPage() {
             <div className="px-5 py-4 border-t border-gray-100">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Benutzer
+                  {locale === "de" ? "Benutzer" : "Users"}
                 </p>
                 <span className="text-xs text-gray-500">
                   {usersCount} / {usersLimit}
@@ -272,20 +301,24 @@ export default async function DashboardPage() {
           <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden p-5 text-white min-h-[120px]">
             <div className="relative z-10 max-w-[55%]">
               <p className="text-sm font-bold leading-tight">
-                Übersetzt deine Inhalte schnell und datenschutzkonform – ohne Cloud-Lock-in.
+                {locale === "de"
+                  ? "Übersetzt deine Inhalte schnell und datenschutzkonform – ohne Cloud-Lock-in."
+                  : "Translate your content quickly and privately without cloud lock-in."}
               </p>
               <p className="text-xs text-gray-300 mt-1.5">
-                Deepglot nutzt DeepL für höchste Übersetzungsqualität – deine Daten bleiben bei dir.
+                {locale === "de"
+                  ? "Deepglot nutzt DeepL für höchste Übersetzungsqualität – deine Daten bleiben bei dir."
+                  : "Deepglot uses DeepL for top translation quality while your data stays under your control."}
               </p>
               <div className="flex gap-2 mt-3">
-                <Link href="/projekte/neu">
+                <Link href={withLocalePrefix("/projects/new", locale)}>
                   <button className="text-xs bg-white text-gray-900 font-semibold px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                    Projekt erstellen
+                    {locale === "de" ? "Projekt erstellen" : "Create project"}
                   </button>
                 </Link>
-                <Link href="/abonnement">
+                <Link href={withLocalePrefix("/subscription", locale)}>
                   <button className="text-xs border border-white/30 text-white px-3 py-1.5 rounded hover:bg-white/10 transition-colors">
-                    Mehr erfahren
+                    {locale === "de" ? "Mehr erfahren" : "Learn more"}
                   </button>
                 </Link>
               </div>
@@ -304,12 +337,15 @@ export default async function DashboardPage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-gray-900">
-                {org?.projects.length ?? 0} Projekt{(org?.projects.length ?? 0) !== 1 ? "e" : ""}
+                {org?.projects.length ?? 0}{" "}
+                {locale === "de"
+                  ? `Projekt${(org?.projects.length ?? 0) !== 1 ? "e" : ""}`
+                  : `project${(org?.projects.length ?? 0) !== 1 ? "s" : ""}`}
               </h2>
-              <Link href="/projekte/neu">
+              <Link href={withLocalePrefix("/projects/new", locale)}>
                 <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs gap-1.5">
                   <Plus className="h-3.5 w-3.5" />
-                  Projekt erstellen
+                  {locale === "de" ? "Projekt erstellen" : "Create project"}
                 </Button>
               </Link>
             </div>
@@ -324,14 +360,38 @@ export default async function DashboardPage() {
                   const isActive = minutesAgo < 60 * 24 * 30; // active in last 30 days
 
                   let timeLabel = "";
-                  if (minutesAgo < 1) timeLabel = "Gerade eben";
-                  else if (minutesAgo < 60) timeLabel = `Vor ${minutesAgo} Min.`;
-                  else if (minutesAgo < 60 * 24) timeLabel = `Vor ${Math.floor(minutesAgo / 60)} Std.`;
-                  else if (minutesAgo < 60 * 24 * 30) timeLabel = `Vor ${Math.floor(minutesAgo / (60 * 24))} Tagen`;
-                  else timeLabel = `Vor ${Math.floor(minutesAgo / (60 * 24 * 30))} Monaten`;
+                  if (minutesAgo < 1) {
+                    timeLabel = locale === "de" ? "Gerade eben" : "Just now";
+                  } else if (minutesAgo < 60) {
+                    timeLabel =
+                      locale === "de"
+                        ? `Vor ${minutesAgo} Min.`
+                        : `${minutesAgo} min ago`;
+                  } else if (minutesAgo < 60 * 24) {
+                    const hours = Math.floor(minutesAgo / 60);
+                    timeLabel =
+                      locale === "de"
+                        ? `Vor ${hours} Std.`
+                        : `${hours} hr ago`;
+                  } else if (minutesAgo < 60 * 24 * 30) {
+                    const days = Math.floor(minutesAgo / (60 * 24));
+                    timeLabel =
+                      locale === "de"
+                        ? `Vor ${days} Tagen`
+                        : `${days} day${days === 1 ? "" : "s"} ago`;
+                  } else {
+                    const months = Math.floor(minutesAgo / (60 * 24 * 30));
+                    timeLabel =
+                      locale === "de"
+                        ? `Vor ${months} Monaten`
+                        : `${months} month${months === 1 ? "" : "s"} ago`;
+                  }
 
                   return (
-                    <Link key={project.id} href={`/projekte/${project.id}/uebersetzungen/sprachen`}>
+                    <Link
+                      key={project.id}
+                      href={withLocalePrefix(`/projects/${project.id}/translations/languages`, locale)}
+                    >
                       <div className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center gap-3 min-w-0">
                           <div
@@ -364,14 +424,18 @@ export default async function DashboardPage() {
             ) : (
               <div className="bg-white border border-dashed border-gray-300 rounded-xl py-14 text-center">
                 <Globe className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-600">Noch kein Projekt</p>
-                <p className="text-xs text-gray-400 mt-1 mb-4 max-w-xs mx-auto">
-                  Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.
+                <p className="text-sm font-medium text-gray-600">
+                  {locale === "de" ? "Noch kein Projekt" : "No project yet"}
                 </p>
-                <Link href="/projekte/neu">
+                <p className="text-xs text-gray-400 mt-1 mb-4 max-w-xs mx-auto">
+                  {locale === "de"
+                    ? "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin."
+                    : "Create your first project and connect your WordPress plugin."}
+                </p>
+                <Link href={withLocalePrefix("/projects/new", locale)}>
                   <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
                     <Plus className="h-4 w-4" />
-                    Erstes Projekt erstellen
+                    {locale === "de" ? "Erstes Projekt erstellen" : "Create first project"}
                   </Button>
                 </Link>
               </div>
@@ -380,10 +444,10 @@ export default async function DashboardPage() {
             {(org?.projects.length ?? 0) > 0 && (
               <div className="text-center mt-2">
                 <Link
-                  href="/projekte"
+                  href={withLocalePrefix("/projects", locale)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
-                  Alle Projekte anzeigen
+                  {locale === "de" ? "Alle Projekte anzeigen" : "View all projects"}
                 </Link>
               </div>
             )}
@@ -395,7 +459,9 @@ export default async function DashboardPage() {
           {/* Activity Feed */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900">Aktivität</h2>
+              <h2 className="text-sm font-semibold text-gray-900">
+                {locale === "de" ? "Aktivität" : "Activity"}
+              </h2>
             </div>
 
             {activityItems.length ? (
@@ -408,7 +474,7 @@ export default async function DashboardPage() {
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0 mt-0.5" />
                     );
 
-                  const dateStr = new Intl.DateTimeFormat("de-AT", {
+                  const dateStr = new Intl.DateTimeFormat(getIntlLocale(locale), {
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
@@ -436,14 +502,16 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <div className="px-5 py-10 text-center">
-                <p className="text-xs text-gray-400">Noch keine Aktivitäten</p>
+                <p className="text-xs text-gray-400">
+                  {locale === "de" ? "Noch keine Aktivitäten" : "No activity yet"}
+                </p>
               </div>
             )}
 
             {activityItems.length > 0 && (
               <div className="px-5 py-3 border-t border-gray-100 text-center">
                 <button className="text-xs text-indigo-600 hover:underline">
-                  Alle Aktivitäten anzeigen
+                  {locale === "de" ? "Alle Aktivitäten anzeigen" : "View all activity"}
                 </button>
               </div>
             )}
@@ -456,13 +524,15 @@ export default async function DashboardPage() {
               <div>
                 <p className="text-sm font-semibold text-gray-900">Support</p>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  Deepglot Support ist montags bis freitags von 9–17 Uhr erreichbar.
+                  {locale === "de"
+                    ? "Deepglot Support ist montags bis freitags von 9–17 Uhr erreichbar."
+                    : "Deepglot support is available Monday to Friday from 9 a.m. to 5 p.m."}
                 </p>
                 <a
                   href="mailto:support@deepglot.com"
                   className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-2"
                 >
-                  Hilfecenter
+                  {locale === "de" ? "Hilfecenter" : "Help center"}
                   <HelpCircle className="h-3 w-3" />
                 </a>
               </div>

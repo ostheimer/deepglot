@@ -11,21 +11,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getRequestLocale } from "@/lib/request-locale";
+import { formatNumber } from "@/lib/locale-formatting";
+import { getLanguageName } from "@/lib/language-names";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
 }
 
-const LANG_NAMES: Record<string, string> = {
-  de: "Deutsch", en: "Englisch", fr: "Französisch", es: "Spanisch",
-  it: "Italienisch", nl: "Niederländisch", pl: "Polnisch", pt: "Portugiesisch",
-  ru: "Russisch", zh: "Chinesisch", ja: "Japanisch", ar: "Arabisch", tr: "Türkisch",
-  sv: "Schwedisch", da: "Dänisch", fi: "Finnisch", no: "Norwegisch", cs: "Tschechisch",
-  hu: "Ungarisch", ro: "Rumänisch", sk: "Slowakisch", hr: "Kroatisch",
-};
-
 export default async function SprachenPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
   const session = await auth();
 
   const project = await db.project.findUnique({
@@ -64,10 +60,12 @@ export default async function SprachenPage({ params }: PageProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Übersetzungen nach Sprachen</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {locale === "de" ? "Übersetzungen nach Sprachen" : "Translations by language"}
+        </h2>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
-            Aktionen ▾
+            {locale === "de" ? "Aktionen" : "Actions"} ▾
           </Button>
           <AddLanguageDialog
             projectId={projektId}
@@ -81,13 +79,13 @@ export default async function SprachenPage({ params }: PageProps) {
         {/* Table Header */}
         <div className="grid grid-cols-[2fr_1.5fr_1.5fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            VON / NACH
+            {locale === "de" ? "VON / NACH" : "FROM / TO"}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            ÜBERSETZTE WÖRTER GESAMT
+            {locale === "de" ? "ÜBERSETZTE WÖRTER GESAMT" : "TOTAL TRANSLATED WORDS"}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            MANUELL ÜBERSETZT
+            {locale === "de" ? "MANUELL ÜBERSETZT" : "MANUAL SHARE"}
           </span>
           <span></span>
         </div>
@@ -97,7 +95,7 @@ export default async function SprachenPage({ params }: PageProps) {
           <div className="px-6 py-12 text-center">
             <Flag className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 text-sm">
-              Noch keine Übersetzungssprachen konfiguriert.
+              {locale === "de" ? "Noch keine Übersetzungssprachen konfiguriert." : "No translation languages configured yet."}
             </p>
           </div>
         ) : (
@@ -116,22 +114,22 @@ export default async function SprachenPage({ params }: PageProps) {
                 {/* Language pair */}
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-gray-900">
-                    {LANG_NAMES[project.originalLang] ?? project.originalLang.toUpperCase()}
+                    {getLanguageName(project.originalLang, locale)}
                   </span>
                   <span className="text-gray-400">→</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {LANG_NAMES[lang.langCode] ?? lang.langCode.toUpperCase()}
+                    {getLanguageName(lang.langCode, locale)}
                   </span>
                   {!lang.isActive && (
                     <Badge variant="outline" className="text-xs text-gray-400">
-                      Inaktiv
+                      {locale === "de" ? "Inaktiv" : "Inactive"}
                     </Badge>
                   )}
                 </div>
 
                 {/* Total words */}
                 <span className="text-sm text-gray-700 font-medium">
-                  {totalWords.toLocaleString("de-DE")}
+                  {formatNumber(totalWords, locale)}
                 </span>
 
                 {/* Manual % */}
@@ -150,7 +148,7 @@ export default async function SprachenPage({ params }: PageProps) {
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" className="text-xs h-7">
-                    Optionen ▾
+                    {locale === "de" ? "Optionen" : "Options"} ▾
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -161,7 +159,7 @@ export default async function SprachenPage({ params }: PageProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem className="text-red-600">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Sprache entfernen
+                        {locale === "de" ? "Sprache entfernen" : "Remove language"}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

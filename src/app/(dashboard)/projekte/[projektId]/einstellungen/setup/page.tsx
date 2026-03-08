@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { CopyApiKeyButton } from "@/components/projekte/copy-api-key-button";
 import { Plus, Key } from "lucide-react";
 import Link from "next/link";
+import { getRequestLocale } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -11,6 +13,7 @@ interface PageProps {
 
 export default async function SetupPage({ params }: PageProps) {
   const { projektId } = await params;
+  const locale = await getRequestLocale();
 
   const project = await db.project.findUnique({ where: { id: projektId } });
   if (!project) notFound();
@@ -23,7 +26,9 @@ export default async function SetupPage({ params }: PageProps) {
 
   return (
     <div className="max-w-2xl space-y-5">
-      <h2 className="text-xl font-bold text-gray-900">Setup</h2>
+      <h2 className="text-xl font-bold text-gray-900">
+        {locale === "de" ? "Setup" : "Setup"}
+      </h2>
 
       {/* API Key section */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
@@ -32,7 +37,9 @@ export default async function SetupPage({ params }: PageProps) {
           API-Key
         </h3>
         <p className="text-sm text-gray-500 mb-4">
-          Verwende diesen API-Key, um Deepglot in deine Website zu integrieren.
+          {locale === "de"
+            ? "Verwende diesen API-Key, um Deepglot in deine Website zu integrieren."
+            : "Use this API key to integrate Deepglot into your website."}
         </p>
 
         {apiKey ? (
@@ -44,19 +51,20 @@ export default async function SetupPage({ params }: PageProps) {
               <CopyApiKeyButton keyPrefix={apiKey.keyPrefix} />
             </div>
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠️ Der vollständige API-Key wird nur einmal beim Erstellen angezeigt.
-              Wenn du ihn verloren hast, erstelle einen neuen.
+              {locale === "de"
+                ? "⚠️ Der vollständige API-Key wird nur einmal beim Erstellen angezeigt. Wenn du ihn verloren hast, erstelle einen neuen."
+                : "⚠️ The full API key is shown only once when it is created. If you lose it, create a new one."}
             </p>
           </div>
         ) : (
           <div className="text-center py-6 border border-dashed border-gray-200 rounded-lg">
             <p className="text-sm text-gray-500 mb-3">
-              Noch kein API-Key vorhanden.
+              {locale === "de" ? "Noch kein API-Key vorhanden." : "No API key yet."}
             </p>
-            <Link href={`/projekte/${projektId}/api-keys`}>
+            <Link href={withLocalePrefix(`/projects/${projektId}/api-keys`, locale)}>
               <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
                 <Plus className="mr-2 h-4 w-4" />
-                API-Key erstellen
+                {locale === "de" ? "API-Key erstellen" : "Create API key"}
               </Button>
             </Link>
           </div>
@@ -66,30 +74,38 @@ export default async function SetupPage({ params }: PageProps) {
       {/* Installation guide */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-4">
-          WordPress Plugin einrichten
+          {locale === "de" ? "WordPress Plugin einrichten" : "Set up the WordPress plugin"}
         </h3>
         <ol className="space-y-4">
           {[
             {
               step: 1,
-              title: "Plugin herunterladen",
-              desc: "Lade das Deepglot WordPress Plugin herunter und installiere es in deinem WordPress-Backend.",
-              action: <Button variant="outline" size="sm">Plugin herunterladen</Button>,
+              title: locale === "de" ? "Plugin herunterladen" : "Download plugin",
+              desc: locale === "de"
+                ? "Lade das Deepglot WordPress Plugin herunter und installiere es in deinem WordPress-Backend."
+                : "Download the Deepglot WordPress plugin and install it in your WordPress admin.",
+              action: <Button variant="outline" size="sm">{locale === "de" ? "Plugin herunterladen" : "Download plugin"}</Button>,
             },
             {
               step: 2,
-              title: "Plugin aktivieren",
-              desc: "Gehe in WordPress zu Plugins → Installierte Plugins und aktiviere Deepglot.",
+              title: locale === "de" ? "Plugin aktivieren" : "Activate plugin",
+              desc: locale === "de"
+                ? "Gehe in WordPress zu Plugins → Installierte Plugins und aktiviere Deepglot."
+                : "Open Plugins → Installed Plugins in WordPress and activate Deepglot.",
             },
             {
               step: 3,
-              title: "API-Key eintragen",
-              desc: "Navigiere zu Einstellungen → Deepglot und trage deinen API-Key ein.",
+              title: locale === "de" ? "API-Key eintragen" : "Add API key",
+              desc: locale === "de"
+                ? "Navigiere zu Einstellungen → Deepglot und trage deinen API-Key ein."
+                : "Navigate to Settings → Deepglot and add your API key.",
             },
             {
               step: 4,
-              title: "Sprachen konfigurieren",
-              desc: "Wähle die Zielsprachen aus und speichere die Einstellungen. Deine Website wird automatisch übersetzt.",
+              title: locale === "de" ? "Sprachen konfigurieren" : "Configure languages",
+              desc: locale === "de"
+                ? "Wähle die Zielsprachen aus und speichere die Einstellungen. Deine Website wird automatisch übersetzt."
+                : "Choose target languages and save your settings. Your website will be translated automatically.",
             },
           ].map((item) => (
             <li key={item.step} className="flex gap-4">
@@ -109,11 +125,12 @@ export default async function SetupPage({ params }: PageProps) {
       {/* Code snippet */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-3">
-          Manuelle Integration (ohne WordPress)
+          {locale === "de" ? "Manuelle Integration (ohne WordPress)" : "Manual integration (without WordPress)"}
         </h3>
         <p className="text-sm text-gray-500 mb-3">
-          Für andere Plattformen: Füge dieses Script in den{" "}
-          <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">&lt;head&gt;</code> deiner Website ein.
+          {locale === "de" ? "Für andere Plattformen: Füge dieses Script in den" : "For other platforms, add this script to the"}{" "}
+          <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">&lt;head&gt;</code>{" "}
+          {locale === "de" ? "deiner Website ein." : "of your website."}
         </p>
         <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto">
           <code>{`<script>

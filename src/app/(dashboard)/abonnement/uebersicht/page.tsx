@@ -5,6 +5,9 @@ import Link from "next/link";
 import { stripe } from "@/lib/stripe";
 import { CancelSubscriptionButton } from "@/components/abonnement/cancel-subscription-button";
 import { AutoUpgradeToggle } from "@/components/abonnement/auto-upgrade-toggle";
+import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
+import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 export const metadata = { title: "Plan-Übersicht – Deepglot" };
 
@@ -22,9 +25,16 @@ const PLAN_LABELS: Record<string, string> = {
   ENTERPRISE: "Enterprise",
 };
 
-export default async function PlanUebersichtPage() {
+type PlanUebersichtPageProps = {
+  searchParams: LocaleSearchParams;
+};
+
+export default async function PlanUebersichtPage({
+  searchParams,
+}: PlanUebersichtPageProps) {
+  const locale = await getPageLocale(searchParams);
   const session = await auth();
-  if (!session?.user?.id) redirect("/anmelden");
+  if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   const membership = await db.organizationMember.findFirst({
     where: { userId: session.user.id },
@@ -50,7 +60,7 @@ export default async function PlanUebersichtPage() {
       const items = stripeSub.items.data;
       const periodEnd = items[0]?.current_period_end;
       if (periodEnd) {
-        nextInvoiceDate = new Date(periodEnd * 1000).toLocaleDateString("de-AT", {
+        nextInvoiceDate = new Date(periodEnd * 1000).toLocaleDateString(getIntlLocale(locale), {
           year: "numeric", month: "2-digit", day: "2-digit",
         });
       }
@@ -62,33 +72,47 @@ export default async function PlanUebersichtPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Plan-Übersicht</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {locale === "de" ? "Plan-Übersicht" : "Plan overview"}
+      </h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-8">
-        <p className="text-sm text-gray-600 mb-3">Dein aktueller Plan ist:</p>
+        <p className="text-sm text-gray-600 mb-3">
+          {locale === "de" ? "Dein aktueller Plan ist:" : "Your current plan is:"}
+        </p>
 
         <h2 className="text-lg font-bold text-indigo-600 mb-2">
-          {PLAN_LABELS[plan]} {plan !== "FREE" ? "(Monatlich)" : ""}
+          {PLAN_LABELS[plan]} {plan !== "FREE" ? locale === "de" ? "(Monatlich)" : "(Monthly)" : ""}
         </h2>
 
         {nextInvoiceDate && nextInvoiceAmount !== null && (
           <p className="text-sm text-gray-600 mb-4">
-            Deine nächste Rechnung beträgt €{nextInvoiceAmount.toFixed(2)} am {nextInvoiceDate}
+            {locale === "de"
+              ? `Deine nächste Rechnung beträgt €${nextInvoiceAmount.toFixed(2)} am ${nextInvoiceDate}`
+              : `Your next invoice is €${nextInvoiceAmount.toFixed(2)} on ${nextInvoiceDate}`}
           </p>
         )}
 
         {/* Features list */}
         <ul className="space-y-1.5 mb-5">
-          <li className="text-sm text-gray-700">{features.languages} übersetzte Sprachen</li>
-          <li className="text-sm text-gray-700">{features.projects} Projekte</li>
-          <li className="text-sm text-gray-700">{features.words.toLocaleString("de-AT")} übersetzte Wörter</li>
-          <li className="text-sm text-gray-700">{features.requests.toLocaleString("de-AT")} Übersetzungs-Anfragen/Monat</li>
+          <li className="text-sm text-gray-700">
+            {features.languages} {locale === "de" ? "übersetzte Sprachen" : "translated languages"}
+          </li>
+          <li className="text-sm text-gray-700">
+            {features.projects} {locale === "de" ? "Projekte" : "projects"}
+          </li>
+          <li className="text-sm text-gray-700">
+            {formatNumber(features.words, locale)} {locale === "de" ? "übersetzte Wörter" : "translated words"}
+          </li>
+          <li className="text-sm text-gray-700">
+            {formatNumber(features.requests, locale)} {locale === "de" ? "Übersetzungs-Anfragen/Monat" : "translation requests/month"}
+          </li>
         </ul>
 
         <p className="text-sm text-gray-600 mb-6">
-          Überprüfe deine{" "}
-          <Link href="/abonnement/nutzung" className="text-indigo-600 hover:underline">
-            Plan-Nutzung für alle Projekte.
+          {locale === "de" ? "Überprüfe deine" : "Review your"}{" "}
+          <Link href={withLocalePrefix("/subscription/usage", locale)} className="text-indigo-600 hover:underline">
+            {locale === "de" ? "Plan-Nutzung für alle Projekte." : "plan usage across all projects."}
           </Link>
         </p>
 
@@ -98,8 +122,9 @@ export default async function PlanUebersichtPage() {
           <div>
             <p className="text-sm font-medium text-gray-900">Auto-Upgrade</p>
             <p className="text-sm text-gray-500 mt-0.5">
-              Vermeide Unterbrechungen des Übersetzungsdienstes – dein Plan wird automatisch
-              upgradet, wenn dein Wort-Limit erreicht wird.
+              {locale === "de"
+                ? "Vermeide Unterbrechungen des Übersetzungsdienstes – dein Plan wird automatisch upgradet, wenn dein Wort-Limit erreicht wird."
+                : "Avoid translation interruptions. Your plan upgrades automatically once you reach your word limit."}
             </p>
           </div>
         </div>
@@ -110,9 +135,9 @@ export default async function PlanUebersichtPage() {
             subscriptionId={sub?.stripeSubscriptionId ?? null}
             plan={plan}
           />
-          <Link href="/abonnement/plan-wechseln">
+          <Link href={withLocalePrefix("/subscription", locale)}>
             <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
-              Plan wechseln
+              {locale === "de" ? "Plan wechseln" : "Change plan"}
             </button>
           </Link>
         </div>
