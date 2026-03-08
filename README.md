@@ -123,7 +123,7 @@ npm run build
 
 ## CI / CD
 
-The repository now uses `.github/workflows/ci-cd.yml` with this branch and environment mapping:
+The repository now uses `.github/workflows/ci-cd.yml` plus Vercel's native Git integration with this branch and environment mapping:
 
 - Local development: Vercel `Local` / `Development` variables + Neon `preview`
 - Any pushed non-`main` branch: GitHub Actions verify job, then Vercel `Preview` deploy + Neon `preview`
@@ -136,16 +136,11 @@ The verification stage currently runs:
 - `npm run build`
 - `npm run test:e2e`
 
-Required GitHub configuration:
-
-- repository variable `VERCEL_ORG_ID`
-- repository variable `VERCEL_PROJECT_ID`
-- repository secret `VERCEL_TOKEN`
-
 Required Vercel configuration:
 
 - set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in `Development` and `Preview` to the Neon preview branch
 - set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in `Production` to the Neon production branch
+- keep the repository connected to Vercel Git deployment so non-`main` pushes create Preview deployments and `main` creates Production deployments
 - enable automatic exposure of Vercel system environment variables so Preview and Production deployments can fall back to `VERCEL_BRANCH_URL`, `VERCEL_URL`, and `VERCEL_PROJECT_PRODUCTION_URL`
 
 After each deployment, verify the current production URL and deployment status.

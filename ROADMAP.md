@@ -16,7 +16,7 @@
 | 0.5 | Vendor-neutral terminology in code and core documentation | ✅ Completed |
 | 0.6 | Playwright E2E coverage verifies locale switching, redirects, and localized auth entry points | ✅ Completed |
 | 0.7 | Automated Markdown documentation language check in npm scripts and GitHub Actions | ✅ Completed |
-| 0.8 | CI/CD pipeline verifies PRs and deploys Preview vs Production from branch-aware Vercel environments | ✅ Completed |
+| 0.8 | CI/CD verifies PRs in GitHub Actions while Vercel Git integration deploys Preview and Production by branch | ✅ Completed |
 
 ---
 
