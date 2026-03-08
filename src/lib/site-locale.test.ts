@@ -35,6 +35,12 @@ test("converts external english routes to internal app paths", () => {
   assert.equal(toInternalPath("/pricing"), "/pricing");
 });
 
+test("leaves api routes unchanged during locale path mapping", () => {
+  assert.equal(toInternalPath("/api/projects"), "/api/projects");
+  assert.equal(toInternalPath("/de/api/projects"), "/api/projects");
+  assert.equal(toCanonicalExternalPath("/api/public/languages"), "/api/public/languages");
+});
+
 test("converts internal legacy routes to canonical external paths", () => {
   assert.equal(toCanonicalExternalPath("/projekte/neu"), "/projects/new");
   assert.equal(toCanonicalExternalPath("/abonnement/karte-rechnungen"), "/subscription/billing");

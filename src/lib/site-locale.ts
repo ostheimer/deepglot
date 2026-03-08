@@ -92,13 +92,23 @@ function mapSegments(pathname: string, segmentMap: Record<string, string>) {
   return `/${mapped.join("/")}`;
 }
 
+function isNonLocalizedPath(pathname: string) {
+  return pathname === "/api" || pathname.startsWith("/api/");
+}
+
 export function toInternalPath(pathname: string) {
   const { pathname: withoutLocale } = stripLocalePrefix(pathname);
+  if (isNonLocalizedPath(withoutLocale)) {
+    return withoutLocale;
+  }
   return mapSegments(withoutLocale, EXTERNAL_TO_INTERNAL_SEGMENT);
 }
 
 export function toCanonicalExternalPath(pathname: string) {
   const { pathname: withoutLocale } = stripLocalePrefix(pathname);
+  if (isNonLocalizedPath(withoutLocale)) {
+    return withoutLocale;
+  }
   return mapSegments(withoutLocale, INTERNAL_TO_EXTERNAL_SEGMENT);
 }
 
