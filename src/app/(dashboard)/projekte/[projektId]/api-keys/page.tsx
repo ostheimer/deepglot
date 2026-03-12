@@ -8,6 +8,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
 import { CreateApiKeyDialog } from "@/components/projekte/create-api-key-dialog";
 import { DeleteApiKeyButton } from "@/components/projekte/delete-api-key-button";
+import { NewApiKeyBanner } from "@/components/projekte/new-api-key-banner";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -27,6 +28,8 @@ export default async function ApiKeysPage({ params }: PageProps) {
 
   return (
     <div>
+      <NewApiKeyBanner projectId={projektId} />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900">

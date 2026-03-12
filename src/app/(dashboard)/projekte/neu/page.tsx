@@ -54,8 +54,17 @@ export default function NeuesProjektPage() {
         return;
       }
 
+      // Store the raw API key in sessionStorage so the API Keys page can display
+      // it once without exposing it in the URL.
+      if (data.rawKey) {
+        sessionStorage.setItem(
+          `deepglot_new_api_key_${data.projectId}`,
+          JSON.stringify({ rawKey: data.rawKey, keyName: data.keyName })
+        );
+      }
+
       toast.success(locale === "de" ? "Projekt erfolgreich erstellt" : "Project created successfully");
-      router.push(withLocalePrefix(`/projects/${data.projectId}/translations/languages`, locale));
+      router.push(withLocalePrefix(`/projects/${data.projectId}/api-keys`, locale));
     } finally {
       setIsLoading(false);
     }
