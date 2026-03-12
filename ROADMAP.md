@@ -125,14 +125,18 @@ Next.js App (Vercel)          WordPress Plugin
 | 3.20 | Production fix: root route `/` switched to the real marketing landing page | ✅ Completed |
 | 3.21 | Standardize author / project metadata to Andreas Ostheimer | ✅ Completed |
 | 4.1 | Plugin scaffold (`plugin.php`, autoloader, service container) | ✅ Completed |
-| 4.2 | URL class (language from URL, `$_SERVER` manipulation) | ⏳ Open |
-| 4.3 | Output buffer + HTML parser (DiDOM) | ⏳ Open |
-| 4.4 | Deepglot API client (HTTP requests to the Next.js backend) | ⏳ Open |
-| 4.5 | Local translation cache (custom DB table) | ⏳ Open |
-| 4.6 | Link replacement (HTML, JSON, XML) | ⏳ Open |
-| 4.7 | `hreflang` tags + SEO | ⏳ Open |
-| 4.8 | Language switcher (shortcode + widget + Gutenberg block) | ⏳ Open |
-| 4.9 | Admin settings page (API key, languages, exclusions) | ⏳ Open |
+| 4.2 | URL class (language from URL, `$_SERVER` manipulation) + `RequestRouter` (rewrite rules) | ✅ Completed |
+| 4.3 | Output buffer + HTML parser (DOMDocument, no external deps) + full translate pipeline | ✅ Completed |
+| 4.4 | Deepglot API client (HTTP requests to the Next.js backend) | ✅ Completed |
+| 4.5 | Local translation cache (WordPress transients, no custom table needed) | ✅ Completed |
+| 4.6 | Link replacement (internal `<a>`, `<form>`, `<link rel=canonical>`) | ✅ Completed |
+| 4.7 | `hreflang` tags + SEO | ✅ Completed |
+| 4.8 | Language switcher (shortcode `[deepglot_switcher]` + action hook) | ✅ Completed |
+| 4.9 | Admin settings page (API key, languages, exclusions) | ✅ Completed |
+| 4.10 | End-to-end live test: jobspot.at/en/ served in English via Deepglot pipeline | ✅ Completed |
+| 4.11 | UX: API key auto-generated on project creation with one-time display banner | ✅ Completed |
+| 4.12 | WP Plugin: guided 3-step setup wizard + redirect to settings on first activation | ✅ Completed |
+| 4.13 | WP Plugin: REST API v1 (CRUD settings, status, test-connection) with auth + rate limiting | ✅ Completed |
 
 ---
 

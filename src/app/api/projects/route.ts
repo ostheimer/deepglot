@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
+import { generateApiKey } from "@/lib/api-keys";
 import { z } from "zod";
 
 function t(locale: "en" | "de", deText: string, enText: string) {
@@ -103,7 +104,18 @@ export async function POST(req: NextRequest) {
       return newProject;
     });
 
-    return NextResponse.json({ projectId: project.id }, { status: 201 });
+    // Automatically create a default API key so the user can start using the
+    // plugin immediately without an extra step.
+    const defaultKeyName = locale === "de" ? "WordPress Plugin" : "WordPress plugin";
+    const { rawKey, apiKey } = await generateApiKey({
+      projectId: project.id,
+      name: defaultKeyName,
+    });
+
+    return NextResponse.json(
+      { projectId: project.id, rawKey, keyName: apiKey.name },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("[POST /api/projects] Fehler:", error);
     return NextResponse.json(
