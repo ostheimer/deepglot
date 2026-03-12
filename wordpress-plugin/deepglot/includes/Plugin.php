@@ -5,7 +5,14 @@ namespace Deepglot;
 use Deepglot\Admin\SettingsPage;
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
+use Deepglot\Frontend\HreflangInjector;
+use Deepglot\Frontend\HtmlTranslator;
+use Deepglot\Frontend\LanguageSwitcher;
+use Deepglot\Frontend\LinkRewriter;
 use Deepglot\Frontend\OutputBuffer;
+use Deepglot\Frontend\RequestRouter;
+use Deepglot\Support\TranslationCache;
+use Deepglot\Support\UrlLanguageResolver;
 
 class Plugin
 {
@@ -21,8 +28,13 @@ class Plugin
     {
         add_action('init', [$this, 'loadTextDomain']);
 
+        // Flush rewrite rules once after activation.
+        add_action('deepglot_flush_rewrite_rules', 'flush_rewrite_rules');
+
         $this->container->get(SettingsPage::class)->register();
+        $this->container->get(RequestRouter::class)->register();
         $this->container->get(OutputBuffer::class)->register();
+        $this->container->get(LanguageSwitcher::class)->register();
     }
 
     public function loadTextDomain(): void
@@ -35,6 +47,9 @@ class Plugin
         if (!get_option(Options::OPTION_KEY)) {
             add_option(Options::OPTION_KEY, Options::defaults());
         }
+
+        // Schedule a one-time flush of rewrite rules.
+        add_action('shutdown', 'flush_rewrite_rules');
     }
 
     public function client(): Client
@@ -42,22 +57,70 @@ class Plugin
         return $this->container->get(Client::class);
     }
 
+    // -------------------------------------------------------------------------
+    // Service registration
+    // -------------------------------------------------------------------------
+
     private function registerServices(): void
     {
         $this->container->singleton(Options::class, static function () {
             return new Options();
         });
 
-        $this->container->singleton(Client::class, function (Container $container) {
-            return new Client($container->get(Options::class));
+        $this->container->singleton(UrlLanguageResolver::class, function (Container $c) {
+            $opts = $c->get(Options::class);
+            return new UrlLanguageResolver($opts->getSourceLanguage(), $opts->getTargetLanguages());
         });
 
-        $this->container->singleton(SettingsPage::class, function (Container $container) {
-            return new SettingsPage($container->get(Options::class));
+        $this->container->singleton(Client::class, function (Container $c) {
+            return new Client($c->get(Options::class));
         });
 
-        $this->container->singleton(OutputBuffer::class, function (Container $container) {
-            return new OutputBuffer($container->get(Options::class));
+        $this->container->singleton(TranslationCache::class, static function () {
+            return new TranslationCache();
+        });
+
+        $this->container->singleton(HtmlTranslator::class, function (Container $c) {
+            return new HtmlTranslator(
+                $c->get(Client::class),
+                $c->get(Options::class),
+                $c->get(TranslationCache::class)
+            );
+        });
+
+        $this->container->singleton(RequestRouter::class, function (Container $c) {
+            return new RequestRouter($c->get(Options::class), $c->get(UrlLanguageResolver::class));
+        });
+
+        $this->container->singleton(LinkRewriter::class, function (Container $c) {
+            return new LinkRewriter($c->get(UrlLanguageResolver::class), get_site_url());
+        });
+
+        $this->container->singleton(HreflangInjector::class, function (Container $c) {
+            return new HreflangInjector(
+                $c->get(Options::class),
+                $c->get(UrlLanguageResolver::class),
+                get_site_url()
+            );
+        });
+
+        $this->container->singleton(OutputBuffer::class, function (Container $c) {
+            return new OutputBuffer(
+                $c->get(Options::class),
+                $c->get(UrlLanguageResolver::class),
+                $c->get(HtmlTranslator::class),
+                $c->get(LinkRewriter::class),
+                $c->get(HreflangInjector::class),
+                $c->get(RequestRouter::class)
+            );
+        });
+
+        $this->container->singleton(LanguageSwitcher::class, function (Container $c) {
+            return new LanguageSwitcher($c->get(Options::class), $c->get(UrlLanguageResolver::class));
+        });
+
+        $this->container->singleton(SettingsPage::class, function (Container $c) {
+            return new SettingsPage($c->get(Options::class));
         });
     }
 }
