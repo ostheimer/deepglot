@@ -88,23 +88,17 @@ async function ensureTestProjectSeed(
     },
   });
 
-  const existingExclusion = await db.translationExclusion.findFirst({
+  await db.translationExclusion.upsert({
     where: {
-      projectId,
-      type: "URL",
-      value: "/wp-admin",
-    },
-  });
-
-  if (!existingExclusion) {
-    await db.translationExclusion.create({
-      data: {
+      projectId_type_value: {
         projectId,
         type: "URL",
         value: "/wp-admin",
       },
-    });
-  }
+    },
+    create: { projectId, type: "URL", value: "/wp-admin" },
+    update: {},
+  });
 
   await db.urlSlug.upsert({
     where: {
@@ -237,24 +231,17 @@ async function ensureTestProjectSeed(
   const currentMonth = parseInt(
     new Date().toISOString().slice(0, 7).replace("-", "")
   );
-  const existingUsage = await db.usageRecord.findFirst({
+  await db.usageRecord.upsert({
     where: {
-      organizationId,
-      projectId,
-      month: currentMonth,
-    },
-  });
-
-  if (!existingUsage) {
-    await db.usageRecord.create({
-      data: {
+      organizationId_projectId_month: {
         organizationId,
         projectId,
         month: currentMonth,
-        words: 420,
       },
-    });
-  }
+    },
+    create: { organizationId, projectId, month: currentMonth, words: 420 },
+    update: {},
+  });
 }
 
 async function ensureTestProject(
