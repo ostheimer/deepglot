@@ -28,3 +28,8 @@ test("appends the visual editor flag to project URLs", () => {
     "https://example.com/path?deepglot_editor=1"
   );
 });
+
+test("returns null for malformed domains", () => {
+  assert.equal(getVisualEditorUrl(""), null);
+  assert.equal(getVisualEditorUrl("not a domain!@#"), null);
+});

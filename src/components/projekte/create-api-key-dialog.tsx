@@ -177,7 +177,7 @@ export function CreateApiKeyDialog({
             <div className="flex justify-end">
               <Button
                 className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setOpen(false)}
+                onClick={() => resetDialog(false)}
               >
                 {copy.done}
               </Button>

@@ -44,12 +44,19 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
             : "Use the visual editor to change translations directly in the context of your website. Click any text to translate it."}
         </p>
         <div className="flex items-center justify-center gap-3">
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
-            <a href={editorUrl} target="_blank" rel="noreferrer">
+          {editorUrl ? (
+            <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+              <a href={editorUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {locale === "de" ? "Bearbeitung starten" : "Start editing"}
+              </a>
+            </Button>
+          ) : (
+            <Button disabled className="bg-indigo-600 hover:bg-indigo-700">
               <ExternalLink className="mr-2 h-4 w-4" />
-              {locale === "de" ? "Bearbeitung starten" : "Start editing"}
-            </a>
-          </Button>
+              {locale === "de" ? "Domain ungültig" : "Invalid domain"}
+            </Button>
+          )}
           <Button asChild variant="outline">
             <Link href={withLocalePrefix(`/projects/${projektId}/settings/setup`, locale)}>
               {locale === "de" ? "Setup oeffnen" : "Open setup"}

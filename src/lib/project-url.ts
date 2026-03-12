@@ -14,8 +14,12 @@ export function getProjectUrl(domain: string): string {
   return `${protocol}://${trimmed}`;
 }
 
-export function getVisualEditorUrl(domain: string): string {
-  const url = new URL(getProjectUrl(domain));
-  url.searchParams.set("deepglot_editor", "1");
-  return url.toString();
+export function getVisualEditorUrl(domain: string): string | null {
+  try {
+    const url = new URL(getProjectUrl(domain));
+    url.searchParams.set("deepglot_editor", "1");
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
