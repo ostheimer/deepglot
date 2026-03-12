@@ -17,6 +17,9 @@
 | 0.6 | Playwright E2E coverage verifies locale switching, redirects, and localized auth entry points | ✅ Completed |
 | 0.7 | Automated Markdown documentation language check in npm scripts and GitHub Actions | ✅ Completed |
 | 0.8 | CI/CD verifies PRs in GitHub Actions while Vercel Git integration deploys Preview and Production by branch | ✅ Completed |
+| 0.9 | Manual Vercel CLI deployments ignore local `.env*` files via `.vercelignore` | ✅ Completed |
+| 0.10 | Repository-level `AGENTS.md` defines a test-first bug workflow before fixes | ✅ Completed |
+| 0.11 | Vercel Production uses Neon `prod` branch; Dev/Preview use Neon `preview` (Variant A: 2 branches) | ✅ Completed |
 
 ---
 
@@ -68,10 +71,12 @@ Next.js App (Vercel)          WordPress Plugin
 | 2.1a | Public locale routing: English root + German `/de` routes | ✅ Completed |
 | 2.2 | Dashboard layout + navigation (sidebar, header) | ✅ Completed |
 | 2.3 | Auth pages (sign in, register) + edge proxy routing | ✅ Completed |
+| 2.3b | Local/Preview test login with auto-provisioned demo workspace and project | ✅ Completed |
 | 2.3a | App-wide EN/DE UI with route-aware language switcher | ✅ Completed |
 | 2.4 | Dashboard overview (stats, projects, usage display) | ✅ Completed |
 | 2.5 | Project management: overview, create flow, language selection | ✅ Completed |
 | 2.6 | Project detail view: 7-section sidebar navigation based on the reference UI | ✅ Completed |
+| 2.6a | Project tools: API-key creation, page-view activation, and visual-editor launch handoff | ✅ Completed |
 | 2.7 | Translations / Languages: language pairs with word count + manual percentage | ✅ Completed |
 | 2.8 | Translations / URLs: paginated URL list with word counts | ✅ Completed |
 | 2.9 | Translations / Glossary: glossary rules + empty state | ✅ Completed |
@@ -114,6 +119,9 @@ Next.js App (Vercel)          WordPress Plugin
 | 3.18a | Billing portal return URL uses `AUTH_URL` with fallback to `NEXT_PUBLIC_APP_URL` plus test coverage | ✅ Completed |
 | 3.19 | Production fix: edge-safe auth / proxy split + routing tests | ✅ Completed |
 | 3.19a | Production fix: localized rewrite cookies + Playwright route coverage | ✅ Completed |
+| 3.19b | Local dev fix: remove deprecated duplicate `middleware.ts` and keep `proxy.ts` as the single request entrypoint | ✅ Completed |
+| 3.19c | Local DB fix: only use the Neon adapter for real Neon hosts so localhost PostgreSQL works for dev/test fallback | ✅ Completed |
+| 3.19d | Local auth fix: register OAuth providers only when configured and use hard redirects after credentials sign-in | ✅ Completed |
 | 3.20 | Production fix: root route `/` switched to the real marketing landing page | ✅ Completed |
 | 3.21 | Standardize author / project metadata to Andreas Ostheimer | ✅ Completed |
 | 4.1 | Plugin scaffold (`plugin.php`, autoloader, service container) | ✅ Completed |
@@ -167,6 +175,7 @@ Next.js App (Vercel)          WordPress Plugin
 | Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
+| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
 
 ---
 

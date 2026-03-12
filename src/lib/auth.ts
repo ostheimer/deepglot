@@ -6,19 +6,33 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import authConfig from "@/lib/auth.config";
+import { toAuthUser } from "@/lib/auth-user";
+import { getEnabledOAuthProviders } from "@/lib/oauth-provider-config";
+import { ensureTestLoginUser } from "@/lib/test-login";
+import { isTestLoginEnabled } from "@/lib/test-login-config";
+
+const enabledOAuthProviders = getEnabledOAuthProviders();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(db),
   providers: [
-    GitHub({
-      clientId: process.env.AUTH_GITHUB_ID,
-      clientSecret: process.env.AUTH_GITHUB_SECRET,
-    }),
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-    }),
+    ...(enabledOAuthProviders.github
+      ? [
+          GitHub({
+            clientId: process.env.AUTH_GITHUB_ID,
+            clientSecret: process.env.AUTH_GITHUB_SECRET,
+          }),
+        ]
+      : []),
+    ...(enabledOAuthProviders.google
+      ? [
+          Google({
+            clientId: process.env.AUTH_GOOGLE_ID,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET,
+          }),
+        ]
+      : []),
     Credentials({
       name: "credentials",
       credentials: {
@@ -41,7 +55,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
-        return user;
+        return toAuthUser(user);
+      },
+    }),
+    Credentials({
+      id: "test-login",
+      name: "test-login",
+      credentials: {},
+      async authorize() {
+        if (!isTestLoginEnabled()) {
+          return null;
+        }
+
+        const user = await ensureTestLoginUser();
+        return toAuthUser(user);
       },
     }),
   ],

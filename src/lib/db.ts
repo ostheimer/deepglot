@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { isNeonDatabaseUrl } from "@/lib/database-url";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL;
@@ -13,7 +15,12 @@ function createPrismaClient() {
     return new PrismaClient() as unknown as PrismaClient;
   }
 
-  const adapter = new PrismaNeon({ connectionString });
+  if (isNeonDatabaseUrl(connectionString)) {
+    const adapter = new PrismaNeon({ connectionString });
+    return new PrismaClient({ adapter });
+  }
+
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
 
