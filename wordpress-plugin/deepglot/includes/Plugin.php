@@ -4,6 +4,7 @@ namespace Deepglot;
 
 use Deepglot\Admin\SettingsPage;
 use Deepglot\Api\Client;
+use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
 use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
@@ -35,6 +36,7 @@ class Plugin
         add_action('deepglot_flush_rewrite_rules', 'flush_rewrite_rules');
 
         $this->container->get(SettingsPage::class)->register();
+        $this->container->get(RestApi::class)->register();
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
@@ -148,6 +150,10 @@ class Plugin
 
         $this->container->singleton(SettingsPage::class, function (Container $c) {
             return new SettingsPage($c->get(Options::class));
+        });
+
+        $this->container->singleton(RestApi::class, function (Container $c) {
+            return new RestApi($c->get(Options::class));
         });
     }
 }
