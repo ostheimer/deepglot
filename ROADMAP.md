@@ -135,6 +135,7 @@ Next.js App (Vercel)          WordPress Plugin
 | 4.9 | Admin settings page (API key, languages, exclusions) | ✅ Completed |
 | 4.10 | End-to-end live test: jobspot.at/en/ served in English via Deepglot pipeline | ✅ Completed |
 | 4.11 | UX: API key auto-generated on project creation with one-time display banner | ✅ Completed |
+| 4.12 | WP Plugin: guided 3-step setup wizard + redirect to settings on first activation | ✅ Completed |
 
 ---
 
