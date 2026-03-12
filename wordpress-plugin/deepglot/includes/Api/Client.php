@@ -23,8 +23,28 @@ class Client
         return $this->request('GET', '/public/languages');
     }
 
-    public function translate(array $payload)
+    /**
+     * Translates an array of plain text strings.
+     *
+     * @param  string[] $texts      Plain text strings to translate.
+     * @param  string   $langFrom   ISO 639-1 source language code (e.g. "de").
+     * @param  string   $langTo     ISO 639-1 target language code (e.g. "en").
+     * @param  string   $requestUrl Optional page URL for analytics.
+     * @return array|\WP_Error      On success: ['from_words' => [...], 'to_words' => [...]].
+     */
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
     {
+        // Build the words array in the API contract format.
+        $words = array_map(static fn(string $w) => ['w' => $w, 't' => 1], $texts);
+
+        $payload = [
+            'l_from'      => $langFrom,
+            'l_to'        => $langTo,
+            'words'       => $words,
+            'request_url' => $requestUrl,
+            'bot'         => 0,
+        ];
+
         return $this->request('POST', '/translate?api_key=' . rawurlencode($this->options->getApiKey()), $payload);
     }
 

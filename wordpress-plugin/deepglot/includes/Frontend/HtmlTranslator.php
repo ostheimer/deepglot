@@ -66,16 +66,17 @@ class HtmlTranslator
         $apiResults = [];
 
         foreach (array_chunk($missing, self::BATCH_SIZE) as $batch) {
-            $result = $this->client->translate([
-                'texts'    => $batch,
-                'lang_to'  => $targetLanguage,
-                'lang_from'=> $sourceLang,
-            ]);
+            $result = $this->client->translate($batch, $sourceLang, $targetLanguage);
 
-            if (!is_wp_error($result) && isset($result['translations']) && is_array($result['translations'])) {
-                foreach ($result['translations'] as $item) {
-                    if (isset($item['original'], $item['translated'])) {
-                        $apiResults[$item['original']] = $item['translated'];
+            if (
+                !is_wp_error($result)
+                && isset($result['from_words'], $result['to_words'])
+                && is_array($result['from_words'])
+                && is_array($result['to_words'])
+            ) {
+                foreach ($result['from_words'] as $index => $original) {
+                    if (isset($result['to_words'][$index])) {
+                        $apiResults[$original] = $result['to_words'][$index];
                     }
                 }
             }
