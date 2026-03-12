@@ -28,6 +28,9 @@ class Plugin
     {
         add_action('init', [$this, 'loadTextDomain']);
 
+        // Redirect to settings page on first activation.
+        add_action('admin_init', [$this, 'maybeRedirectAfterActivation']);
+
         // Flush rewrite rules once after activation.
         add_action('deepglot_flush_rewrite_rules', 'flush_rewrite_rules');
 
@@ -35,6 +38,27 @@ class Plugin
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
+    }
+
+    /**
+     * Redirects the user to the Deepglot settings page the first time the
+     * plugin is activated (one-shot via a transient set in ::activate()).
+     */
+    public function maybeRedirectAfterActivation(): void
+    {
+        if (!get_transient('deepglot_just_activated')) {
+            return;
+        }
+
+        delete_transient('deepglot_just_activated');
+
+        // Skip redirect during bulk plugin activations.
+        if (isset($_GET['activate-multi'])) {
+            return;
+        }
+
+        wp_safe_redirect(admin_url('options-general.php?page=deepglot'));
+        exit;
     }
 
     public function loadTextDomain(): void
@@ -47,6 +71,9 @@ class Plugin
         if (!get_option(Options::OPTION_KEY)) {
             add_option(Options::OPTION_KEY, Options::defaults());
         }
+
+        // Mark that the plugin was just activated so we can redirect on next admin load.
+        set_transient('deepglot_just_activated', true, 30);
 
         // Schedule a one-time flush of rewrite rules.
         add_action('shutdown', 'flush_rewrite_rules');
