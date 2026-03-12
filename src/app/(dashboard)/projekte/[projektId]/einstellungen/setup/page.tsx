@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { CopyApiKeyButton } from "@/components/projekte/copy-api-key-button";
+import { CreateApiKeyDialog } from "@/components/projekte/create-api-key-dialog";
 import { Plus, Key } from "lucide-react";
 import Link from "next/link";
 import { getRequestLocale } from "@/lib/request-locale";
@@ -48,7 +48,11 @@ export default async function SetupPage({ params }: PageProps) {
               <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 font-mono text-sm text-gray-800 select-all">
                 {apiKey.keyPrefix}••••••••••••••••••••••••••••••••
               </div>
-              <CopyApiKeyButton keyPrefix={apiKey.keyPrefix} />
+              <CreateApiKeyDialog
+                projectId={projektId}
+                label={locale === "de" ? "Neuen Schluessel erstellen" : "Create new key"}
+                variant="outline"
+              />
             </div>
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               {locale === "de"
@@ -61,12 +65,18 @@ export default async function SetupPage({ params }: PageProps) {
             <p className="text-sm text-gray-500 mb-3">
               {locale === "de" ? "Noch kein API-Key vorhanden." : "No API key yet."}
             </p>
-            <Link href={withLocalePrefix(`/projects/${projektId}/api-keys`, locale)}>
-              <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                {locale === "de" ? "API-Key erstellen" : "Create API key"}
-              </Button>
-            </Link>
+            <div className="flex items-center justify-center gap-3">
+              <CreateApiKeyDialog
+                projectId={projektId}
+                label={locale === "de" ? "API-Key erstellen" : "Create API key"}
+              />
+              <Link href={withLocalePrefix(`/projects/${projektId}/api-keys`, locale)}>
+                <Button variant="outline" size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  {locale === "de" ? "Zur Verwaltung" : "Open manager"}
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </section>

@@ -1,12 +1,13 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Key, Plus, Copy, Trash2 } from "lucide-react";
+import { Key } from "lucide-react";
 import { format } from "date-fns";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
+import { CreateApiKeyDialog } from "@/components/projekte/create-api-key-dialog";
+import { DeleteApiKeyButton } from "@/components/projekte/delete-api-key-button";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -37,10 +38,10 @@ export default async function ApiKeysPage({ params }: PageProps) {
               : "API keys connect your WordPress plugin to Deepglot"}
           </p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          {locale === "de" ? "Neuen API-Key erstellen" : "Create new API key"}
-        </Button>
+        <CreateApiKeyDialog
+          projectId={projektId}
+          label={locale === "de" ? "Neuen API-Key erstellen" : "Create new API key"}
+        />
       </div>
 
       {apiKeys.length === 0 ? (
@@ -57,15 +58,15 @@ export default async function ApiKeysPage({ params }: PageProps) {
                 ? "Erstelle einen API-Key und trage ihn in deinem WordPress-Plugin ein."
                 : "Create an API key and add it to your WordPress plugin."}
             </p>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="mr-2 h-4 w-4" />
-              {locale === "de" ? "Ersten API-Key erstellen" : "Create first API key"}
-            </Button>
+            <CreateApiKeyDialog
+              projectId={projektId}
+              label={locale === "de" ? "Ersten API-Key erstellen" : "Create first API key"}
+            />
           </CardContent>
         </Card>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="grid grid-cols-[2fr_1.8fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">NAME</span>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">KEY</span>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -80,7 +81,7 @@ export default async function ApiKeysPage({ params }: PageProps) {
           {apiKeys.map((apiKey) => (
             <div
               key={apiKey.id}
-              className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-4 px-6 py-4 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50"
+              className="grid grid-cols-[2fr_1.8fr_1fr_1fr_auto] gap-4 px-6 py-4 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50"
             >
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-gray-900">{apiKey.name}</p>
@@ -91,13 +92,15 @@ export default async function ApiKeysPage({ params }: PageProps) {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                <code className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-700">
+              <div className="space-y-1">
+                <code className="inline-flex text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-700">
                   {apiKey.keyPrefix}••••••••
                 </code>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <Copy className="h-3 w-3 text-gray-400" />
-                </Button>
+                <p className="text-xs text-gray-400">
+                  {locale === "de"
+                    ? "Vollstaendiger Schluessel war nur bei der Erstellung sichtbar."
+                    : "The full key was visible only when it was created."}
+                </p>
               </div>
 
               <span className="text-sm text-gray-500">
@@ -116,9 +119,7 @@ export default async function ApiKeysPage({ params }: PageProps) {
                     : "Never"}
               </span>
 
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
-              </Button>
+              <DeleteApiKeyButton apiKeyId={apiKey.id} projectId={projektId} />
             </div>
           ))}
         </div>

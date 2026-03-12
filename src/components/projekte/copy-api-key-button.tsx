@@ -4,11 +4,19 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 
-export function CopyApiKeyButton({ keyPrefix }: { keyPrefix: string }) {
+type CopyApiKeyButtonProps = {
+  value: string;
+  className?: string;
+};
+
+export function CopyApiKeyButton({
+  value,
+  className,
+}: CopyApiKeyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(keyPrefix);
+    await navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -17,7 +25,7 @@ export function CopyApiKeyButton({ keyPrefix }: { keyPrefix: string }) {
     <Button
       variant="outline"
       size="sm"
-      className="h-11 px-3 flex-shrink-0"
+      className={className ?? "h-11 px-3 flex-shrink-0"}
       onClick={handleCopy}
     >
       {copied ? (

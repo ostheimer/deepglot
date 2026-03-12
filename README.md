@@ -26,6 +26,8 @@ npm run dev
 
 The app will then be available at `http://localhost:3000`.
 
+For database access, the app now auto-selects the Prisma Neon adapter only for real Neon hosts. Local PostgreSQL URLs such as `localhost` or `127.0.0.1` automatically use Prisma's default PostgreSQL driver, which makes local fallback databases work without extra code changes.
+
 ## Important scripts
 
 ```bash
@@ -84,6 +86,8 @@ The authentication entry points are now:
 - English: `/login`, `/signup`
 - German: `/de/login`, `/de/signup`
 
+GitHub and Google sign-in are only registered when both provider secrets are configured. Local credentials login and the shared test-login therefore continue to work even when local OAuth credentials are intentionally absent.
+
 ## API compatibility
 
 The `POST /api/translate` route is designed for drop-in compatibility:
@@ -129,6 +133,11 @@ The repository now uses `.github/workflows/ci-cd.yml` plus Vercel's native Git i
 - Any pushed non-`main` branch: GitHub Actions verify job, then Vercel `Preview` deploy + Neon `preview`
 - `main`: GitHub Actions verify job, then Vercel `Production` deploy + Neon `prod`
 
+Recommended database topology:
+
+- Neon branch `preview`: used by Vercel `Development` and `Preview`
+- Neon branch `prod`: used only by Vercel `Production`
+
 The verification stage currently runs:
 
 - `npm run check:docs-language`
@@ -142,6 +151,47 @@ Required Vercel configuration:
 - set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in `Production` to the Neon production branch
 - keep the repository connected to Vercel Git deployment so non-`main` pushes create Preview deployments and `main` creates Production deployments
 - enable automatic exposure of Vercel system environment variables so Preview and Production deployments can fall back to `VERCEL_BRANCH_URL`, `VERCEL_URL`, and `VERCEL_PROJECT_PRODUCTION_URL`
+
+**Setting up the Neon production branch (Variant A: 2 branches)**
+
+**Option A – Neon CLI (recommended)**  
+From the repo root, create the `prod` branch and print connection strings:
+
+```bash
+export NEON_API_KEY=neon_...   # Create at https://console.neon.tech → Account → API keys
+./scripts/neon-create-prod-branch.sh
+```
+
+The script creates branch `prod` from `main` (if missing), prints `DATABASE_URL` and `DATABASE_URL_UNPOOLED`, and reminds you to run `prisma db push` and set the variables in Vercel Production.
+
+**Option B – Neon Console**  
+1. In the [Neon Console](https://console.neon.tech), open **Branches** and create a branch named `prod` with parent `main`.
+2. Open the `prod` branch and copy both connection strings: **Connection string** (pooled) → `DATABASE_URL`, **Session mode** (unpooled) → `DATABASE_URL_UNPOOLED`.
+3. Apply the schema once:  
+   `DATABASE_URL="<prod-pooled-url>" npx prisma db push`
+4. In Vercel → Settings → Environment Variables, set **Production** only: `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the `prod` URLs. Leave Development and Preview unchanged.
+5. Redeploy Production and verify the app uses the prod database.
+
+Recommended environment matrix:
+
+- `Development`
+  - set `AUTH_URL=http://localhost:3000`
+  - set `NEXT_PUBLIC_APP_URL=http://localhost:3000`
+  - set `TRANSLATION_PROVIDER=mock` unless a dedicated development provider key is available
+  - point both database URLs to Neon `preview`
+- `Preview`
+  - do not hardcode `AUTH_URL` or `NEXT_PUBLIC_APP_URL` to `localhost`
+  - set `TRANSLATION_PROVIDER=mock` unless Preview should spend real provider credits
+  - point both database URLs to Neon `preview`
+- `Production`
+  - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
+  - set `TRANSLATION_PROVIDER=openai`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-4o-mini`
+  - point both database URLs to Neon `prod`
+
+If the Vercel `Development` values are placeholders or missing, local development can temporarily run against a local PostgreSQL-compatible database instead.
+
+Manual `vercel deploy` runs should never upload local `.env*` files. The repository therefore keeps a `.vercelignore` file that excludes local environment files from ad-hoc deployments.
 
 After each deployment, verify the current production URL and deployment status.
 
@@ -162,13 +212,38 @@ The translation flow now uses a provider abstraction:
 - `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 
+## Test login and demo workspace
+
+The app now includes an instant test login for local work and Preview deployments:
+
+- enabled automatically in local development
+- enabled automatically on Vercel Preview
+- disabled by default on Production
+- optionally overrideable via `DEEPGLOT_ENABLE_TEST_LOGIN=true|false`
+
+On the first test login, the app automatically provisions a shared test user, a test workspace, and a demo project with sample data for the dashboard, activity feed, page views, and project subpages.
+
+## Project pages
+
+Project pages now support these additional flows:
+
+- API keys can be created directly under `Setup` and `API Keys`
+- the full API key is shown exactly once after creation
+- page views can be enabled under `Stats -> Page views`
+- the visual editor opens a real target URL with `deepglot_editor=1`
+
 ## Test coverage
 
 The current lightweight test suite covers:
 
+- Auth.js-safe user normalization in `src/lib/auth-user.ts`
 - auth redirect rules in `src/lib/route-access.ts`
 - locale path mapping, canonical route generation, and legacy redirects in `src/lib/site-locale.ts`
 - billing portal return URL resolution in `src/lib/billing.ts`
+- Neon-vs-local database adapter detection in `src/lib/database-url.ts`
+- optional GitHub/Google provider activation in `src/lib/oauth-provider-config.ts`
+- test-login environment gating and defaults in `src/lib/test-login-config.ts`
+- project and visual-editor URL generation in `src/lib/project-url.ts`
 - translation provider selection and mock translations in `src/lib/translation.ts`
 - markdown documentation language checks in `src/lib/docs-language.ts`
 - end-to-end locale switching, query preservation, legacy German redirects, and locale-aware auth redirects via Playwright in `tests/e2e/locale-routing.spec.ts`

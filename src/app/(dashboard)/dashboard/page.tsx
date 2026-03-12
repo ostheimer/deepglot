@@ -307,8 +307,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </p>
               <p className="text-xs text-gray-300 mt-1.5">
                 {locale === "de"
-                  ? "Deepglot nutzt DeepL für höchste Übersetzungsqualität – deine Daten bleiben bei dir."
-                  : "Deepglot uses DeepL for top translation quality while your data stays under your control."}
+                  ? "Deepglot kombiniert guenstige LLMs und optionale Premium-Provider, waehrend deine Daten unter deiner Kontrolle bleiben."
+                  : "Deepglot combines low-cost LLMs with optional premium providers while your data stays under your control."}
               </p>
               <div className="flex gap-2 mt-3">
                 <Link href={withLocalePrefix("/projects/new", locale)}>
@@ -353,39 +353,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {org?.projects.length ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
                 {org.projects.slice(0, 8).map((project) => {
-                  const minutesAgo = Math.floor(
-                    (Date.now() - project.updatedAt.getTime()) / 60000
-                  );
-                  const isRecent = minutesAgo < 60;
-                  const isActive = minutesAgo < 60 * 24 * 30; // active in last 30 days
-
-                  let timeLabel = "";
-                  if (minutesAgo < 1) {
-                    timeLabel = locale === "de" ? "Gerade eben" : "Just now";
-                  } else if (minutesAgo < 60) {
-                    timeLabel =
-                      locale === "de"
-                        ? `Vor ${minutesAgo} Min.`
-                        : `${minutesAgo} min ago`;
-                  } else if (minutesAgo < 60 * 24) {
-                    const hours = Math.floor(minutesAgo / 60);
-                    timeLabel =
-                      locale === "de"
-                        ? `Vor ${hours} Std.`
-                        : `${hours} hr ago`;
-                  } else if (minutesAgo < 60 * 24 * 30) {
-                    const days = Math.floor(minutesAgo / (60 * 24));
-                    timeLabel =
-                      locale === "de"
-                        ? `Vor ${days} Tagen`
-                        : `${days} day${days === 1 ? "" : "s"} ago`;
-                  } else {
-                    const months = Math.floor(minutesAgo / (60 * 24 * 30));
-                    timeLabel =
-                      locale === "de"
-                        ? `Vor ${months} Monaten`
-                        : `${months} month${months === 1 ? "" : "s"} ago`;
-                  }
+                  const timeLabel = new Intl.DateTimeFormat(
+                    getIntlLocale(locale),
+                    {
+                      dateStyle: "medium",
+                    }
+                  ).format(project.updatedAt);
+                  const statusClass =
+                    project.languages.length > 0 ? "bg-green-500" : "bg-gray-300";
 
                   return (
                     <Link
@@ -395,13 +370,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       <div className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
                         <div className="flex items-center gap-3 min-w-0">
                           <div
-                            className={`flex-shrink-0 h-2 w-2 rounded-full ${
-                              isRecent
-                                ? "bg-green-500"
-                                : isActive
-                                ? "bg-yellow-400"
-                                : "bg-gray-300"
-                            }`}
+                            className={`flex-shrink-0 h-2 w-2 rounded-full ${statusClass}`}
                           />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
@@ -505,14 +474,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <p className="text-xs text-gray-400">
                   {locale === "de" ? "Noch keine Aktivitäten" : "No activity yet"}
                 </p>
+                <p className="mt-2 text-xs text-gray-400">
+                  {locale === "de"
+                    ? "Sobald Projekte, Glossare oder Ausnahmen genutzt werden, erscheint die Aktivitaet hier."
+                    : "Activity will appear here as soon as projects, glossary rules, or exclusions are used."}
+                </p>
               </div>
             )}
 
             {activityItems.length > 0 && (
               <div className="px-5 py-3 border-t border-gray-100 text-center">
-                <button className="text-xs text-indigo-600 hover:underline">
+                <Link
+                  href={withLocalePrefix("/projects", locale)}
+                  className="text-xs text-indigo-600 hover:underline"
+                >
                   {locale === "de" ? "Alle Aktivitäten anzeigen" : "View all activity"}
-                </button>
+                </Link>
               </div>
             )}
           </div>

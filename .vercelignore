@@ -1,0 +1,8 @@
+.env
+.env.*
+.env*.local
+.git
+.cursor
+.DS_Store
+coverage
+output-playwright-smoke-failure.png

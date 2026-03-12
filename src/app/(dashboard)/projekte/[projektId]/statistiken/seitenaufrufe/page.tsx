@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { getRequestLocale } from "@/lib/request-locale";
+import { EnablePageViewsButton } from "@/components/projekte/enable-page-views-button";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -11,11 +11,35 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
   const { projektId } = await params;
   const locale = await getRequestLocale();
 
-  const project = await db.project.findUnique({ where: { id: projektId } });
+  const project = await db.project.findUnique({
+    where: { id: projektId },
+    include: {
+      settings: true,
+      translatedUrls: {
+        orderBy: [{ requestCount: "desc" }, { lastSeenAt: "desc" }],
+        take: 8,
+      },
+    },
+  });
   if (!project) notFound();
 
   // Page views tracking is opt-in (requires JS snippet activation)
-  const isActivated = false; // TODO: store activation state in Project model
+  const isActivated = project.settings?.pageViewsEnabled ?? false;
+  const aggregate = isActivated
+    ? await db.translatedUrl.aggregate({
+        where: { projectId: projektId },
+        _count: { _all: true },
+        _sum: { requestCount: true, wordCount: true },
+      })
+    : null;
+  const totalTrackedUrls = aggregate?._count._all ?? 0;
+  const totalRequests = aggregate?._sum.requestCount ?? 0;
+  const totalWords = aggregate?._sum.wordCount ?? 0;
+  const latestSeenAt = project.translatedUrls.reduce<Date | null>(
+    (latest, entry) =>
+      !latest || entry.lastSeenAt > latest ? entry.lastSeenAt : latest,
+    null
+  );
 
   return (
     <div>
@@ -58,14 +82,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
               : "Enable page-view analytics to see which translated pages are visited most often."}
           </p>
 
-          <form action={`/api/projects/${projektId}/page-views/activate`} method="POST">
-            <Button
-              type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 px-8"
-            >
-              {locale === "de" ? "Aktivieren" : "Enable"}
-            </Button>
-          </form>
+          <EnablePageViewsButton projectId={projektId} />
 
           <div className="mt-8 border border-gray-100 rounded-xl p-5 text-left max-w-sm w-full">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
@@ -87,11 +104,109 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
           </div>
         </div>
       ) : (
-        // Activated state – placeholder for actual chart
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <p className="text-gray-500 text-sm text-center py-16">
-            {locale === "de" ? "Seitenaufruf-Daten werden geladen..." : "Loading page-view data..."}
-          </p>
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {locale === "de" ? "Erfasste URLs" : "Tracked URLs"}
+              </p>
+              <p className="mt-2 text-2xl font-bold text-gray-900">
+                {totalTrackedUrls}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {locale === "de" ? "Gesamte Aufrufe" : "Total views"}
+              </p>
+              <p className="mt-2 text-2xl font-bold text-gray-900">
+                {totalRequests}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {locale === "de" ? "Zuletzt gesehen" : "Last seen"}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-gray-900">
+                {latestSeenAt
+                  ? new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-US", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(latestSeenAt)
+                  : locale === "de"
+                    ? "Noch keine Daten"
+                    : "No data yet"}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  {locale === "de"
+                    ? "Top uebersetzte Seiten"
+                    : "Top translated pages"}
+                </h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  {locale === "de"
+                    ? `Aktuell ${totalWords} Woerter ueber ${totalTrackedUrls} URLs erfasst`
+                    : `Currently tracking ${totalWords} words across ${totalTrackedUrls} URLs`}
+                </p>
+              </div>
+            </div>
+
+            {project.translatedUrls.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {project.translatedUrls.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="grid grid-cols-[1fr_auto_auto] gap-4 px-5 py-4 items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">
+                        {entry.urlPath}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {locale === "de" ? "Sprache" : "Language"}:{" "}
+                        <span className="font-medium uppercase text-gray-700">
+                          {entry.langTo}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {entry.requestCount}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {locale === "de" ? "Aufrufe" : "Views"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {entry.wordCount}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {locale === "de" ? "Woerter" : "Words"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-12 text-center">
+                <p className="text-sm font-medium text-gray-600">
+                  {locale === "de"
+                    ? "Seitenaufrufe sind aktiviert, aber es wurden noch keine Daten gesammelt."
+                    : "Page views are enabled, but no data has been collected yet."}
+                </p>
+                <p className="mt-2 text-xs text-gray-400">
+                  {locale === "de"
+                    ? "Sobald dein Plugin uebersetzte URLs meldet, erscheinen sie hier."
+                    : "Translated URLs will appear here as soon as your plugin starts reporting them."}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

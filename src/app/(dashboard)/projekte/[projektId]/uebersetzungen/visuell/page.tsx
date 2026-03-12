@@ -2,7 +2,10 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Paintbrush, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { getRequestLocale } from "@/lib/request-locale";
+import { getVisualEditorUrl } from "@/lib/project-url";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -18,6 +21,7 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
   });
 
   if (!project) notFound();
+  const editorUrl = getVisualEditorUrl(project.domain);
 
   return (
     <div>
@@ -39,17 +43,35 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
             ? "Mit dem visuellen Editor kannst du Übersetzungen direkt im Kontext deiner Website bearbeiten. Klicke auf einen Text um ihn zu übersetzen."
             : "Use the visual editor to change translations directly in the context of your website. Click any text to translate it."}
         </p>
-        <Button
-          className="bg-indigo-600 hover:bg-indigo-700"
-          onClick={() => {}}
-        >
-          <ExternalLink className="mr-2 h-4 w-4" />
-          {locale === "de" ? "Bearbeitung starten" : "Start editing"}
-        </Button>
+        <div className="flex items-center justify-center gap-3">
+          {editorUrl ? (
+            <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+              <a href={editorUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                {locale === "de" ? "Bearbeitung starten" : "Start editing"}
+              </a>
+            </Button>
+          ) : (
+            <Button disabled className="bg-indigo-600 hover:bg-indigo-700">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              {locale === "de" ? "Domain ungültig" : "Invalid domain"}
+            </Button>
+          )}
+          <Button asChild variant="outline">
+            <Link href={withLocalePrefix(`/projects/${projektId}/settings/setup`, locale)}>
+              {locale === "de" ? "Setup oeffnen" : "Open setup"}
+            </Link>
+          </Button>
+        </div>
         <p className="text-xs text-gray-400 mt-3">
           {locale === "de"
             ? `Öffnet ${project.domain} mit dem Deepglot Visual Editor`
             : `Opens ${project.domain} in the Deepglot visual editor`}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          {locale === "de"
+            ? "Der Editor startet direkt auf der Zielseite mit einem Editor-Parameter in der URL."
+            : "The editor opens the target site directly with an editor query parameter in the URL."}
         </p>
 
         {/* Feature preview */}
