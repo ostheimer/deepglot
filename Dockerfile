@@ -1,15 +1,20 @@
-FROM node:22-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS base
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY package.json package-lock.json ./
+FROM base AS deps
+
+COPY package.json package-lock.json prisma.config.ts ./
+COPY prisma ./prisma
 RUN npm ci
 
-FROM node:22-bookworm-slim AS builder
+FROM base AS builder
 
-WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL=postgresql://deepglot:deepglot@127.0.0.1:5432/deepglot?schema=public
 ENV DATABASE_URL_UNPOOLED=postgresql://deepglot:deepglot@127.0.0.1:5432/deepglot?schema=public
 ENV AUTH_SECRET=build-only-secret
@@ -23,11 +28,9 @@ COPY . .
 
 RUN npm run build
 
-FROM node:22-bookworm-slim AS runner
+FROM base AS runner
 
-WORKDIR /app
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
@@ -35,6 +38,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 
 RUN chmod +x ./scripts/docker-entrypoint.sh
