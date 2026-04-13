@@ -30,7 +30,7 @@ export default async function KarteRechnungenPage() {
   let cardLast4: string | null = null;
   let cardExpMonth: number | null = null;
   let cardExpYear: number | null = null;
-  let stripeCustomerId: string | null = sub?.stripeCustomerId ?? null;
+  const stripeCustomerId: string | null = sub?.stripeCustomerId ?? null;
 
   if (stripeCustomerId) {
     try {
@@ -154,7 +154,7 @@ export default async function KarteRechnungenPage() {
               ? "Bestehende Rechnungen können nicht geändert werden – nur zukünftige Rechnungen sind betroffen."
               : "Existing invoices cannot be changed. Only future invoices will be affected."}
           </p>
-          <BillingAddressForm stripeCustomerId={stripeCustomerId} />
+          <BillingAddressForm />
         </div>
 
         {/* Invoice History */}

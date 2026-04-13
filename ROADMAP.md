@@ -144,9 +144,9 @@ Next.js App (Vercel)          WordPress Plugin
 
 | # | Task | Status |
 |---|---|---|
-| 5.1 | Docker Compose setup (Next.js app + PostgreSQL) | ⏳ Open |
-| 5.2 | Environment configuration for self-hosting | ⏳ Open |
-| 5.3 | Installation guide | ⏳ Open |
+| 5.1 | Docker Compose setup (Next.js app + PostgreSQL) | ✅ Completed |
+| 5.2 | Environment configuration for self-hosting | ✅ Completed |
+| 5.3 | Installation guide | ✅ Completed |
 
 ---
 

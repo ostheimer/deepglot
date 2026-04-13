@@ -6,11 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
 
-interface Props {
-  stripeCustomerId: string | null;
-}
-
-export function BillingAddressForm({ stripeCustomerId }: Props) {
+export function BillingAddressForm() {
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);

@@ -2,7 +2,6 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Zap } from "lucide-react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/locale-formatting";

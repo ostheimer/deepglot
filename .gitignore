@@ -36,6 +36,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.selfhost
 
 # vercel
 .vercel
@@ -46,3 +47,6 @@ next-env.d.ts
 
 /src/generated/prisma
 .env*.local
+.env*.inspect
+.env.preview.branch
+wordpress-plugin/*.zip
