@@ -156,15 +156,39 @@ export default async function AusnahmenPage({ params }: PageProps) {
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <p className="px-5 py-3 text-sm text-gray-500 border-b border-gray-100">
-            0 {locale === "de" ? "Ergebnisse" : "results"}
+            {blockExclusions.length} {locale === "de" ? "Ergebnisse" : "results"}
           </p>
-          <div className="px-5 py-12 text-center">
-            <p className="text-sm text-gray-400">
-              {locale === "de"
-                ? "Keine ausgeschlossenen Blöcke. Nutze CSS-Klassen oder IDs um bestimmte HTML-Elemente von der Übersetzung auszuschließen."
-                : "No excluded blocks. Use CSS classes or IDs to exclude specific HTML elements from translation."}
-            </p>
-          </div>
+          {blockExclusions.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <p className="text-sm text-gray-400">
+                {locale === "de"
+                  ? "Keine ausgeschlossenen Blöcke. Nutze CSS-Klassen oder IDs um bestimmte HTML-Elemente von der Übersetzung auszuschließen."
+                  : "No excluded blocks. Use CSS classes or IDs to exclude specific HTML elements from translation."}
+              </p>
+            </div>
+          ) : (
+            blockExclusions.map((exc) => (
+              <div
+                key={exc.id}
+                className="flex items-center justify-between gap-4 px-5 py-3.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 group"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {EXCLUSION_RULE_LABELS[exc.type] ?? exc.type}
+                  </p>
+                  <p className="text-sm font-mono text-gray-600 truncate">{exc.value}</p>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Edit2 className="h-3.5 w-3.5 text-gray-400" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

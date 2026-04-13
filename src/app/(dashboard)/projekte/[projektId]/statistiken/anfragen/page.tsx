@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { TranslationRequestsChart } from "@/components/statistiken/translation-requests-chart";
-import { subDays, format, eachDayOfInterval, parseISO } from "date-fns";
+import { subDays, format, eachDayOfInterval } from "date-fns";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
 
@@ -88,9 +88,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           <select
             name="zeitraum"
             defaultValue={zeitraum}
-            onChange={(e) => {
-              // Client-side navigation handled via form submit
-            }}
+            onChange={(event) => event.currentTarget.form?.submit()}
             className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {zeitraumOptions.map((o) => (

@@ -50,6 +50,7 @@ interface Props {
 export function ProjectsTable({ projects }: Props) {
   const locale = useLocale();
   const router = useRouter();
+  const [referenceTime] = useState(() => Date.now());
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -96,20 +97,21 @@ export function ProjectsTable({ projects }: Props) {
 
   // Status dot based on last activity
   function statusDot(updatedAt: Date) {
-    const mins = (Date.now() - updatedAt.getTime()) / 60000;
+    const mins = (referenceTime - updatedAt.getTime()) / 60000;
     if (mins < 60 * 24) return "bg-green-500";
     if (mins < 60 * 24 * 60) return "bg-yellow-400";
     return "bg-gray-300";
   }
 
-  const SortIcon = ({ k }: { k: SortKey }) =>
-    sortKey === k ? (
-      sortDir === "asc" ? (
-        <ArrowUp className="h-3 w-3 text-indigo-600" />
-      ) : (
-        <ArrowDown className="h-3 w-3 text-indigo-600" />
-      )
-    ) : null;
+  function renderSortIcon(key: SortKey) {
+    if (sortKey !== key) {
+      return null;
+    }
+
+    return sortDir === "asc"
+      ? <ArrowUp className="h-3 w-3 text-indigo-600" />
+      : <ArrowDown className="h-3 w-3 text-indigo-600" />;
+  }
 
   return (
     <div>
@@ -155,13 +157,13 @@ export function ProjectsTable({ projects }: Props) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => toggleSort("name")}>
-                Name {sortKey === "name" && <SortIcon k="name" />}
+                Name {renderSortIcon("name")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleSort("totalWords")}>
-                {locale === "de" ? "Gesamtwörter" : "Total words"} {sortKey === "totalWords" && <SortIcon k="totalWords" />}
+                {locale === "de" ? "Gesamtwörter" : "Total words"} {renderSortIcon("totalWords")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleSort("languagesCount")}>
-                {locale === "de" ? "Sprachen" : "Languages"} {sortKey === "languagesCount" && <SortIcon k="languagesCount" />}
+                {locale === "de" ? "Sprachen" : "Languages"} {renderSortIcon("languagesCount")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -213,19 +215,19 @@ export function ProjectsTable({ projects }: Props) {
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("name")}
             >
-              Name <SortIcon k="name" />
+              Name {renderSortIcon("name")}
             </button>
             <button
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("totalWords")}
             >
-              {locale === "de" ? "Gesamtwörter" : "Total words"} <SortIcon k="totalWords" />
+              {locale === "de" ? "Gesamtwörter" : "Total words"} {renderSortIcon("totalWords")}
             </button>
             <button
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("languagesCount")}
             >
-              {locale === "de" ? "Sprachen" : "Languages"} <SortIcon k="languagesCount" />
+              {locale === "de" ? "Sprachen" : "Languages"} {renderSortIcon("languagesCount")}
             </button>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               {locale === "de" ? "Mitglieder" : "Members"}
@@ -240,7 +242,7 @@ export function ProjectsTable({ projects }: Props) {
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center">
               <p className="text-sm text-gray-400">
-                {locale === "de" ? "Keine Ergebnisse für" : "No results for"} "{query}"
+                {locale === "de" ? "Keine Ergebnisse für" : "No results for"} <span>&quot;{query}&quot;</span>
               </p>
             </div>
           ) : (

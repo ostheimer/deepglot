@@ -17,20 +17,29 @@ interface Props {
  */
 export function NewApiKeyBanner({ projectId }: Props) {
   const locale = useLocale();
-  const [apiKey, setApiKey] = useState<{ rawKey: string; keyName: string } | null>(null);
+  const storageKey = `deepglot_new_api_key_${projectId}`;
+  const [apiKey] = useState<{ rawKey: string; keyName: string } | null>(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const stored = sessionStorage.getItem(storageKey);
+    if (!stored) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
-    const storageKey = `deepglot_new_api_key_${projectId}`;
-    const stored = sessionStorage.getItem(storageKey);
-    if (stored) {
-      try {
-        setApiKey(JSON.parse(stored));
-      } catch {
-        // ignore malformed entry
-      }
+    if (apiKey) {
       sessionStorage.removeItem(storageKey);
     }
-  }, [projectId]);
+  }, [apiKey, storageKey]);
 
   if (!apiKey) return null;
 
@@ -64,7 +73,7 @@ export function NewApiKeyBanner({ projectId }: Props) {
 
           <p className="mt-2 text-xs text-emerald-600">
             {locale === "de"
-              ? `Name: „${apiKey.keyName}" – erscheint in der Liste unten.`
+              ? `Name: „${apiKey.keyName}“ – erscheint in der Liste unten.`
               : `Name: "${apiKey.keyName}" – appears in the list below.`}
           </p>
         </div>

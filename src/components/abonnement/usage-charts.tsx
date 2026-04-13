@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useLocale } from "@/components/providers/locale-provider";
-import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
+import { formatNumber } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
 
 const PIE_COLORS = ["#8b5cf6", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#a78bfa"];
@@ -132,7 +132,7 @@ export function UsageCharts({
               {locale === "de" ? "Übersetzungs-Anfragen gesamt" : "Total translation requests"}
             </p>
             <p className="text-sm font-semibold text-indigo-600">
-              {formatNumber(totalRequests, locale)}
+              {formatNumber(totalRequests, locale)} / {formatNumber(requestsLimit, locale)}
             </p>
           </div>
 

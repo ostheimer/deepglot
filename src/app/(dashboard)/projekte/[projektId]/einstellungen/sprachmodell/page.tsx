@@ -2,11 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Star, Sparkles } from "lucide-react";
 import { getRequestLocale } from "@/lib/request-locale";
 
-interface PageProps {
-  params: Promise<{ projektId: string }>;
-}
-
-export default async function SprachmodellPage({ params }: PageProps) {
+export default async function SprachmodellPage() {
   const locale = await getRequestLocale();
   return (
     <div className="max-w-2xl">

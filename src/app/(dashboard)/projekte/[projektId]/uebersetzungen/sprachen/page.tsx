@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,6 @@ interface PageProps {
 export default async function SprachenPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
-  const session = await auth();
 
   const project = await db.project.findUnique({
     where: { id: projektId },

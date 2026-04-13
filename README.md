@@ -125,6 +125,8 @@ The app is deployed on Vercel. For a local production check:
 npm run build
 ```
 
+For self-hosting with Docker Compose, see [SELFHOSTING.md](SELFHOSTING.md).
+
 ## CI / CD
 
 The repository now uses `.github/workflows/ci-cd.yml` plus Vercel's native Git integration with this branch and environment mapping:
@@ -194,6 +196,26 @@ If the Vercel `Development` values are placeholders or missing, local developmen
 Manual `vercel deploy` runs should never upload local `.env*` files. The repository therefore keeps a `.vercelignore` file that excludes local environment files from ad-hoc deployments.
 
 After each deployment, verify the current production URL and deployment status.
+
+## Self-hosting
+
+Deepglot now includes a first self-hosted setup:
+
+- `Dockerfile` builds the Next.js app for production use.
+- `docker-compose.yml` starts the app together with PostgreSQL.
+- `.env.selfhost.example` provides a dedicated self-hosting environment template.
+- `scripts/docker-entrypoint.sh` waits for PostgreSQL, runs `prisma db push`, and starts the app.
+
+Quick start:
+
+```bash
+cp .env.selfhost.example .env.selfhost
+openssl rand -base64 32
+# paste the secret into .env.selfhost as AUTH_SECRET
+docker compose up --build -d
+```
+
+The full installation guide lives in [SELFHOSTING.md](SELFHOSTING.md).
 
 ## Environment variables
 
