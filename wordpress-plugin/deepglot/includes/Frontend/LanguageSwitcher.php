@@ -3,7 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
-use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Support\SiteRouting;
 
 /**
  * Renders a language switcher and injects it into the page.
@@ -16,7 +16,7 @@ use Deepglot\Support\UrlLanguageResolver;
 class LanguageSwitcher
 {
     private Options $options;
-    private UrlLanguageResolver $resolver;
+    private SiteRouting $routing;
 
     /** ISO 639-1 → display label */
     private const LANGUAGE_LABELS = [
@@ -34,10 +34,10 @@ class LanguageSwitcher
         'ar' => 'العربية',
     ];
 
-    public function __construct(Options $options, UrlLanguageResolver $resolver)
+    public function __construct(Options $options, SiteRouting $routing)
     {
         $this->options  = $options;
-        $this->resolver = $resolver;
+        $this->routing = $routing;
     }
 
     public function register(): void
@@ -82,20 +82,21 @@ class LanguageSwitcher
         }
 
         $requestUri  = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $activeLang  = $this->resolver->detectLanguageFromPath($requestUri) ?? $this->options->getSourceLanguage();
+        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $activeLang  = $this->routing->detectLanguage($requestUri, $host) ?? $this->options->getSourceLanguage();
         $sourceLang  = $this->options->getSourceLanguage();
         $targetLangs = $this->options->getTargetLanguages();
         $allLangs    = array_merge([$sourceLang], $targetLangs);
 
         // Current canonical path (no language prefix).
-        $canonicalPath = $this->resolver->stripLanguageFromPath($requestUri);
+        $canonicalPath = $this->routing->getCanonicalPath($requestUri);
 
         $style = isset($atts['style']) && $atts['style'] === 'dropdown' ? 'dropdown' : 'list';
 
         $items = '';
 
         foreach ($allLangs as $lang) {
-            $href   = $this->resolver->withLanguage($canonicalPath, $lang);
+            $href   = $this->routing->buildHrefForLanguage($canonicalPath, $lang);
             $label  = self::LANGUAGE_LABELS[$lang] ?? strtoupper($lang);
             $active = ($lang === $activeLang) ? ' class="deepglot-active"' : '';
             $items .= sprintf(

@@ -48,9 +48,54 @@ class Client
         return $this->request('POST', '/translate?api_key=' . rawurlencode($this->options->getApiKey()), $payload);
     }
 
-    private function request(string $method, string $path, ?array $payload = null)
+    public function syncSettings(?array $settings = null, ?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
     {
-        $url = $this->options->getApiBaseUrl() . $path;
+        $settings = is_array($settings) ? $this->options->sanitize($settings) : $this->options->all();
+        $apiKey = $apiKeyOverride !== null ? trim($apiKeyOverride) : trim((string) ($settings['api_key'] ?? ''));
+        $baseUrl = $baseUrlOverride !== null
+            ? untrailingslashit((string) $baseUrlOverride)
+            : untrailingslashit((string) ($settings['api_base_url'] ?? $this->options->getApiBaseUrl()));
+
+        if ($apiKey === '') {
+            return new \WP_Error('deepglot_sync_missing_key', __('Kein API-Key für die Synchronisierung vorhanden.', 'deepglot'));
+        }
+
+        $domainMappings = [];
+
+        foreach ((array) ($settings['domain_mappings'] ?? []) as $lang => $host) {
+            if (!is_string($lang) || !is_string($host) || trim($lang) === '' || trim($host) === '') {
+                continue;
+            }
+
+            $domainMappings[] = [
+                'langCode' => strtolower(trim($lang)),
+                'host' => strtolower(trim($host)),
+            ];
+        }
+
+        $payload = [
+            'routingMode' => strtoupper((string) ($settings['routing_mode'] ?? 'PATH_PREFIX')) === 'SUBDOMAIN' ? 'SUBDOMAIN' : 'PATH_PREFIX',
+            'siteUrl' => get_site_url(),
+            'sourceLanguage' => strtolower((string) ($settings['source_language'] ?? 'de')),
+            'targetLanguages' => array_values(array_map('strtolower', (array) ($settings['target_languages'] ?? []))),
+            'autoRedirect' => !empty($settings['auto_redirect']),
+            'translateEmails' => !empty($settings['translate_emails']),
+            'translateSearch' => !empty($settings['translate_search']),
+            'translateAmp' => !empty($settings['translate_amp']),
+            'domainMappings' => $domainMappings,
+        ];
+
+        return $this->request(
+            'POST',
+            '/plugin/settings-sync?api_key=' . rawurlencode($apiKey),
+            $payload,
+            $baseUrl
+        );
+    }
+
+    private function request(string $method, string $path, ?array $payload = null, ?string $baseUrl = null)
+    {
+        $url = untrailingslashit((string) ($baseUrl ?? $this->options->getApiBaseUrl())) . $path;
 
         $args = [
             'method' => $method,

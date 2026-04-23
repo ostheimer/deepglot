@@ -1,7 +1,13 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { TranslationRequestsChart } from "@/components/statistiken/translation-requests-chart";
-import { subDays, format, eachDayOfInterval } from "date-fns";
+import {
+  eachDayOfInterval,
+  format,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from "date-fns";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
 
@@ -27,10 +33,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
   const granularity = (ansicht as Granularity) || "day";
 
   const since = subDays(new Date(), days);
-
-  // Build synthetic daily data from UsageRecords
-  // (In production this would be from a dedicated request-log table)
-  const usageRecords = await db.usageRecord.findMany({
+  const batchLogs = await db.translationBatchLog.findMany({
     where: {
       projectId: projektId,
       createdAt: { gte: since },
@@ -38,29 +41,65 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
     orderBy: { createdAt: "asc" },
   });
 
-  // Group by date
-  const countByDate: Record<string, number> = {};
-  for (const record of usageRecords) {
-    const dateKey = format(record.createdAt, "yyyy-MM-dd");
-    countByDate[dateKey] = (countByDate[dateKey] ?? 0) + record.words;
+  const getBucketDate = (date: Date) => {
+    if (granularity === "week") {
+      return startOfWeek(date, { weekStartsOn: 1 });
+    }
+
+    if (granularity === "month") {
+      return startOfMonth(date);
+    }
+
+    return date;
+  };
+
+  const sumByBucket = new Map<string, number>();
+
+  for (const log of batchLogs) {
+    const bucket = format(getBucketDate(log.createdAt), "yyyy-MM-dd");
+    sumByBucket.set(bucket, (sumByBucket.get(bucket) ?? 0) + log.totalWords);
   }
 
-  // Fill in all days in range (0 for missing days)
   const allDays = eachDayOfInterval({ start: since, end: new Date() });
-  const chartData = allDays.map((date) => {
-    const key = format(date, "yyyy-MM-dd");
-    return {
+  const seen = new Set<string>();
+  const chartData = allDays
+    .map((date) => format(getBucketDate(date), "yyyy-MM-dd"))
+    .filter((key) => {
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((key) => ({
       date: key,
-      requests: countByDate[key] ?? 0,
-      langPair: project.languages.length > 0
-        ? `${project.originalLang.toUpperCase()} → ${project.languages[0].langCode.toUpperCase()}`
-        : locale === "de"
-          ? "Keine Sprache"
-          : "No language",
-    };
-  });
+      requests: sumByBucket.get(key) ?? 0,
+      langPair: locale === "de" ? "Wörter" : "Words",
+    }));
 
-  const totalRequests = Object.values(countByDate).reduce((a, b) => a + b, 0);
+  const totalWords = batchLogs.reduce((sum, log) => sum + log.totalWords, 0);
+  const totalRequests = batchLogs.length;
+  const providerMix = batchLogs.reduce(
+    (acc, log) => {
+      acc.cached += log.cachedWords;
+      acc.manual += log.manualWords;
+      acc.glossary += log.glossaryWords;
+      acc.provider += log.translatedWords;
+      return acc;
+    },
+    { cached: 0, manual: 0, glossary: 0, provider: 0 }
+  );
+  const pairBreakdown = Array.from(
+    batchLogs.reduce((acc, log) => {
+      const key = `${log.langFrom.toUpperCase()} → ${log.langTo.toUpperCase()}`;
+      acc.set(key, (acc.get(key) ?? 0) + log.totalWords);
+      return acc;
+    }, new Map<string, number>())
+  ).sort((a, b) => b[1] - a[1]);
+  const manualEditVolume = batchLogs
+    .filter((log) => log.provider === "manual")
+    .reduce((sum, log) => sum + log.manualWords, 0);
+  const importActivity = batchLogs
+    .filter((log) => log.provider === "import")
+    .reduce((sum, log) => sum + log.totalWords, 0);
 
   // Top URLs by request count
   const topUrls = await db.translatedUrl.findMany({
@@ -107,12 +146,12 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           <div className="flex items-start justify-between mb-6">
             <div>
               <p className="text-3xl font-bold text-gray-900">
-                <span className="text-indigo-600">{formatNumber(totalRequests, locale)}</span>
+                <span className="text-indigo-600">{formatNumber(totalWords, locale)}</span>
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 {locale === "de"
-                  ? "Übersetzungsanfragen für den gewählten Zeitraum"
-                  : "Translation requests for the selected period"}
+                  ? "Übersetztes Volumen für den gewählten Zeitraum"
+                  : "Translated volume for the selected period"}
               </p>
             </div>
 
@@ -141,44 +180,146 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           </div>
 
           <TranslationRequestsChart data={chartData} granularity={granularity} />
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: locale === "de" ? "Batches" : "Batches",
+                value: totalRequests,
+              },
+              {
+                label: locale === "de" ? "Manuelle Bearbeitungen" : "Manual edits",
+                value: manualEditVolume,
+              },
+              {
+                label: locale === "de" ? "Importiertes Volumen" : "Imported volume",
+                value: importActivity,
+              },
+              {
+                label: locale === "de" ? "Provider-Wörter" : "Provider words",
+                value: providerMix.provider,
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-2xl font-bold text-gray-900">
+                  {formatNumber(item.value, locale)}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Right sidebar: Top URLs */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">
-            {locale === "de" ? "Anfragen nach URL" : "Requests by URL"}
-          </h3>
-
-          {topUrls.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">
-              {locale === "de" ? "Noch keine Anfragen registriert." : "No requests recorded yet."}
-            </p>
-          ) : (
-            <div className="space-y-1">
-              <div className="grid grid-cols-[1fr_auto] gap-2 pb-2 border-b border-gray-100">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">URL</span>
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">
-                  {locale === "de" ? "ANFRAGEN" : "REQUESTS"}
-                </span>
-              </div>
-              {topUrls.map((url) => (
-                <div
-                  key={url.id}
-                  className="grid grid-cols-[1fr_auto] gap-2 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
-                >
-                  <span
-                    className="text-xs text-gray-700 truncate"
-                    title={`https://${project.domain}${url.urlPath}`}
-                  >
-                    https://{project.domain}{url.urlPath}
-                  </span>
-                  <span className="text-xs font-semibold text-gray-900 text-right whitespace-nowrap">
-                    {formatNumber(url.requestCount, locale)}
-                  </span>
+        {/* Right sidebar */}
+        <div className="space-y-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">
+              {locale === "de" ? "Mix" : "Mix"}
+            </h3>
+            <div className="space-y-3">
+              {[
+                {
+                  label: locale === "de" ? "Cache" : "Cache",
+                  value: providerMix.cached,
+                },
+                {
+                  label: locale === "de" ? "Manuell" : "Manual",
+                  value: providerMix.manual,
+                },
+                {
+                  label: locale === "de" ? "Glossar" : "Glossary",
+                  value: providerMix.glossary,
+                },
+                {
+                  label: locale === "de" ? "Provider" : "Provider",
+                  value: providerMix.provider,
+                },
+              ].map((item) => (
+                <div key={item.label}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-gray-500">{item.label}</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatNumber(item.value, locale)}
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-100">
+                    <div
+                      className="h-2 rounded-full bg-indigo-600"
+                      style={{
+                        width: `${
+                          totalWords > 0 ? (item.value / totalWords) * 100 : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
-          )}
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">
+              {locale === "de" ? "Sprachpaare" : "Language pairs"}
+            </h3>
+            <div className="space-y-2">
+              {pairBreakdown.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  {locale === "de" ? "Noch keine Daten." : "No data yet."}
+                </p>
+              ) : (
+                pairBreakdown.slice(0, 6).map(([pair, value]) => (
+                  <div key={pair} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">{pair}</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatNumber(value, locale)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">
+              {locale === "de" ? "Top-URLs" : "Top URLs"}
+            </h3>
+
+            {topUrls.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
+                {locale === "de" ? "Noch keine Anfragen registriert." : "No requests recorded yet."}
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <div className="grid grid-cols-[1fr_auto] gap-2 pb-2 border-b border-gray-100">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">URL</span>
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">
+                    {locale === "de" ? "ANFRAGEN" : "REQUESTS"}
+                  </span>
+                </div>
+                {topUrls.map((url) => (
+                  <div
+                    key={url.id}
+                    className="grid grid-cols-[1fr_auto] gap-2 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
+                  >
+                    <span
+                      className="text-xs text-gray-700 truncate"
+                      title={`https://${project.domain}${url.urlPath}`}
+                    >
+                      https://{project.domain}{url.urlPath}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-900 text-right whitespace-nowrap">
+                      {formatNumber(url.requestCount, locale)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

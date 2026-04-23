@@ -2,6 +2,7 @@
 
 namespace Deepglot\Frontend;
 
+use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
 /**
@@ -12,13 +13,16 @@ use Deepglot\Support\UrlLanguageResolver;
  */
 class LinkRewriter
 {
-    private UrlLanguageResolver $resolver;
-    private string $siteHost;
+    private SiteRouting $routing;
 
-    public function __construct(UrlLanguageResolver $resolver, string $siteUrl)
+    public function __construct(UrlLanguageResolver|SiteRouting $routing, string $siteUrl = '')
     {
-        $this->resolver = $resolver;
-        $this->siteHost = (string) parse_url($siteUrl, PHP_URL_HOST);
+        if ($routing instanceof SiteRouting) {
+            $this->routing = $routing;
+            return;
+        }
+
+        $this->routing = new SiteRouting($routing, $siteUrl, 'PATH_PREFIX', []);
     }
 
     /**
@@ -57,13 +61,13 @@ class LinkRewriter
             }
 
             // Do not rewrite anchors that already carry a language prefix.
-            $existing = $this->resolver->detectLanguageFromPath($value);
+            $existing = $this->routing->detectLanguage($value);
 
             if ($existing !== null) {
                 continue;
             }
 
-            $node->setAttribute($attr, $this->resolver->withLanguage($value, $language));
+            $node->setAttribute($attr, $this->routing->rewriteUrl($value, $language));
         }
     }
 
@@ -85,10 +89,10 @@ class LinkRewriter
             $href = $link->getAttribute('href');
 
             if (in_array($rel, ['canonical', 'shortlink'], true) && $href !== '' && $this->isInternalUrl($href)) {
-                $existing = $this->resolver->detectLanguageFromPath($href);
+                $existing = $this->routing->detectLanguage($href);
 
                 if ($existing === null) {
-                    $link->setAttribute('href', $this->resolver->withLanguage($href, $language));
+                    $link->setAttribute('href', $this->routing->rewriteUrl($href, $language));
                 }
             }
         }
@@ -103,6 +107,6 @@ class LinkRewriter
 
         $host = (string) parse_url($url, PHP_URL_HOST);
 
-        return $host === $this->siteHost;
+        return $this->routing->isInternalHost($host);
     }
 }

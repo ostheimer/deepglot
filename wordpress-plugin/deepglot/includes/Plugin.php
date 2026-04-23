@@ -6,14 +6,18 @@ use Deepglot\Admin\SettingsPage;
 use Deepglot\Api\Client;
 use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
+use Deepglot\Frontend\BrowserRedirector;
 use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
 use Deepglot\Frontend\LinkRewriter;
 use Deepglot\Frontend\OutputBuffer;
 use Deepglot\Frontend\RequestRouter;
+use Deepglot\Frontend\WooCommerceEmailTranslator;
+use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Sync\SettingsSync;
 
 class Plugin
 {
@@ -37,9 +41,12 @@ class Plugin
 
         $this->container->get(SettingsPage::class)->register();
         $this->container->get(RestApi::class)->register();
+        $this->container->get(SettingsSync::class)->register();
         $this->container->get(RequestRouter::class)->register();
+        $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
+        $this->container->get(WooCommerceEmailTranslator::class)->register();
     }
 
     /**
@@ -105,6 +112,24 @@ class Plugin
             return new Client($c->get(Options::class));
         });
 
+        $this->container->singleton(SettingsSync::class, function (Container $c) {
+            return new SettingsSync(
+                $c->get(Options::class),
+                $c->get(Client::class)
+            );
+        });
+
+        $this->container->singleton(SiteRouting::class, function (Container $c) {
+            $options = $c->get(Options::class);
+
+            return new SiteRouting(
+                $c->get(UrlLanguageResolver::class),
+                get_site_url(),
+                $options->getRoutingMode(),
+                $options->getDomainMappings()
+            );
+        });
+
         $this->container->singleton(TranslationCache::class, static function () {
             return new TranslationCache();
         });
@@ -118,19 +143,15 @@ class Plugin
         });
 
         $this->container->singleton(RequestRouter::class, function (Container $c) {
-            return new RequestRouter($c->get(Options::class), $c->get(UrlLanguageResolver::class));
+            return new RequestRouter($c->get(Options::class), $c->get(SiteRouting::class));
         });
 
         $this->container->singleton(LinkRewriter::class, function (Container $c) {
-            return new LinkRewriter($c->get(UrlLanguageResolver::class), get_site_url());
+            return new LinkRewriter($c->get(SiteRouting::class));
         });
 
         $this->container->singleton(HreflangInjector::class, function (Container $c) {
-            return new HreflangInjector(
-                $c->get(Options::class),
-                $c->get(UrlLanguageResolver::class),
-                get_site_url()
-            );
+            return new HreflangInjector($c->get(Options::class), $c->get(SiteRouting::class));
         });
 
         $this->container->singleton(OutputBuffer::class, function (Container $c) {
@@ -140,12 +161,30 @@ class Plugin
                 $c->get(HtmlTranslator::class),
                 $c->get(LinkRewriter::class),
                 $c->get(HreflangInjector::class),
-                $c->get(RequestRouter::class)
+                $c->get(RequestRouter::class),
+                $c->get(SiteRouting::class)
             );
         });
 
         $this->container->singleton(LanguageSwitcher::class, function (Container $c) {
-            return new LanguageSwitcher($c->get(Options::class), $c->get(UrlLanguageResolver::class));
+            return new LanguageSwitcher($c->get(Options::class), $c->get(SiteRouting::class));
+        });
+
+        $this->container->singleton(BrowserRedirector::class, function (Container $c) {
+            return new BrowserRedirector(
+                $c->get(SiteRouting::class),
+                'deepglot_preferred_language',
+                $c->get(Options::class)
+            );
+        });
+
+        $this->container->singleton(WooCommerceEmailTranslator::class, function (Container $c) {
+            return new WooCommerceEmailTranslator(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class),
+                $c->get(Client::class),
+                $c->get(HtmlTranslator::class)
+            );
         });
 
         $this->container->singleton(SettingsPage::class, function (Container $c) {
@@ -153,7 +192,10 @@ class Plugin
         });
 
         $this->container->singleton(RestApi::class, function (Container $c) {
-            return new RestApi($c->get(Options::class));
+            return new RestApi(
+                $c->get(Options::class),
+                $c->get(SettingsSync::class)
+            );
         });
     }
 }

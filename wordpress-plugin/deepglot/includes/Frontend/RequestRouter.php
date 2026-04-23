@@ -3,7 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
-use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Support\SiteRouting;
 
 /**
  * Strips language prefixes from REQUEST_URI before WordPress routing
@@ -13,7 +13,7 @@ use Deepglot\Support\UrlLanguageResolver;
 class RequestRouter
 {
     private Options $options;
-    private UrlLanguageResolver $resolver;
+    private SiteRouting $routing;
 
     /** Language detected for the current request, or null for source language. */
     private ?string $currentLanguage = null;
@@ -21,10 +21,10 @@ class RequestRouter
     /** Original REQUEST_URI before we strip the language prefix. */
     private ?string $originalRequestUri = null;
 
-    public function __construct(Options $options, UrlLanguageResolver $resolver)
+    public function __construct(Options $options, SiteRouting $routing)
     {
         $this->options = $options;
-        $this->resolver = $resolver;
+        $this->routing = $routing;
     }
 
     public function register(): void
@@ -107,11 +107,13 @@ class RequestRouter
 
         // Build the expected canonical path for the current language-prefixed request.
         $originalUri   = $this->originalRequestUri ?? '/';
-        $canonicalPath = $this->resolver->stripLanguageFromPath(parse_url($originalUri, PHP_URL_PATH) ?: '/');
+        $canonicalPath = $this->routing->getCanonicalPath(parse_url($originalUri, PHP_URL_PATH) ?: '/');
         $siteUrl       = rtrim(get_site_url(), '/');
+        $currentHost   = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
 
         // If the redirect target equals the canonical URL (= same page without lang prefix), block it.
         $targetPath = parse_url($location, PHP_URL_PATH) ?: '/';
+        $targetHost = (string) parse_url($location, PHP_URL_HOST);
 
         if (rtrim($targetPath, '/') === rtrim($canonicalPath, '/')) {
             return false;
@@ -119,6 +121,10 @@ class RequestRouter
 
         // Also block if target equals site_url + canonical path.
         if (rtrim($location, '/') === $siteUrl . rtrim($canonicalPath, '/')) {
+            return false;
+        }
+
+        if ($this->routing->usesSubdomains() && $targetHost !== '' && $currentHost !== '' && $targetHost !== $currentHost) {
             return false;
         }
 
@@ -142,7 +148,8 @@ class RequestRouter
         }
 
         $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $detected = $this->resolver->detectLanguageFromPath($uri);
+        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $detected = $this->routing->detectLanguage($uri, $host);
 
         if ($detected === null) {
             return;
@@ -152,7 +159,7 @@ class RequestRouter
         $this->originalRequestUri = $uri;
 
         // Strip language prefix so WordPress sees the canonical URL.
-        $stripped = $this->resolver->stripLanguageFromPath($uri);
+        $stripped = $this->routing->getCanonicalPath($uri);
 
         // Preserve the query string.
         $queryString = parse_url($uri, PHP_URL_QUERY);
@@ -169,7 +176,7 @@ class RequestRouter
      */
     public function addRewriteRules(): void
     {
-        if (!$this->options->isEnabled()) {
+        if (!$this->options->isEnabled() || $this->routing->usesSubdomains()) {
             return;
         }
 

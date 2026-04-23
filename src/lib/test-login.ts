@@ -1,24 +1,12 @@
-import crypto from "crypto";
-
 import bcrypt from "bcryptjs";
 
 import { db } from "@/lib/db";
+import { computeTranslationHash } from "@/lib/translation-hash";
 import {
   getTestLoginConfig,
   isTestLoginEnabled,
   type TestLoginConfig,
 } from "@/lib/test-login-config";
-
-function computeTranslationHash(
-  originalText: string,
-  langFrom: string,
-  langTo: string
-): string {
-  return crypto
-    .createHash("md5")
-    .update(`${originalText}|${langFrom}|${langTo}`)
-    .digest("hex");
-}
 
 async function ensureTestProjectSeed(
   projectId: string,

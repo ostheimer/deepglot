@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
-import { translateTexts, countWords } from "@/lib/translation";
+import {
+  countWords,
+  resolveTranslationProvider,
+  translateTexts,
+} from "@/lib/translation";
 import { db } from "@/lib/db";
-import crypto from "crypto";
+import {
+  buildGlossaryProtection,
+  hasGlossaryProtection,
+  restoreGlossaryTerms,
+} from "@/lib/glossary";
+import {
+  getUsageMonthKey,
+  incrementUsageRecord,
+  recordTranslationBatch,
+  upsertTranslatedUrlHit,
+} from "@/lib/translation-batches";
+import { computeTranslationHash } from "@/lib/translation-hash";
+import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 
 export const runtime = "nodejs";
 
@@ -72,14 +88,19 @@ export async function POST(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const queryApiKey = searchParams.get("api_key");
     const authHeader = req.headers.get("Authorization");
-    const bearerKey = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    const bearerKey = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : null;
 
     const rawKey = queryApiKey ?? bearerKey;
 
     if (!rawKey) {
       return NextResponse.json(
-        { error: "API-Key fehlt. Nutze ?api_key=dg_live_... oder Authorization: Bearer ..." },
-        { status: 401 }
+        {
+          error:
+            "API-Key fehlt. Nutze ?api_key=dg_live_... oder Authorization: Bearer ...",
+        },
+        { status: 401 },
       );
     }
 
@@ -87,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (!apiKeyRecord) {
       return NextResponse.json(
         { error: "Ungültiger oder abgelaufener API-Key" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -99,8 +120,10 @@ export async function POST(req: NextRequest) {
     if (current && now < current.resetAt) {
       if (current.count >= RATE_LIMIT) {
         return NextResponse.json(
-          { error: "Rate Limit überschritten. Maximal 60 Anfragen pro Minute." },
-          { status: 429 }
+          {
+            error: "Rate Limit überschritten. Maximal 60 Anfragen pro Minute.",
+          },
+          { status: 429 },
         );
       }
       current.count++;
@@ -109,7 +132,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Parse request body
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       l_from: string;
       l_to: string;
       words: Array<{ t: number; w: string }>;
@@ -123,13 +146,14 @@ export async function POST(req: NextRequest) {
     if (!words?.length || !l_from || !l_to) {
       return NextResponse.json(
         { error: "Pflichtfelder fehlen: words, l_from, l_to" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Skip translation for bots (except human and unknown)
     // This matches the legacy client behavior - still cache but skip external translation for bots
     const isBot = bot >= BotType.GOOGLE;
+    const providerName = isBot ? "bot" : resolveTranslationProvider();
 
     // 4. Validate target language
     const project = apiKeyRecord.project;
@@ -138,105 +162,297 @@ export async function POST(req: NextRequest) {
     if (!allowedLangs.includes(l_to.toLowerCase())) {
       return NextResponse.json(
         { error: `Sprache '${l_to}' ist für dieses Projekt nicht aktiviert` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // 5. Check usage limits (skip for bots to avoid inflating usage)
+    // 5. Cache lookup and glossary protection
+    const texts = words.map((w) => w.w);
+    const translatedTexts: string[] = new Array(texts.length);
+    const glossaryRules = await db.glossaryRule.findMany({
+      where: {
+        projectId: project.id,
+        langFrom: l_from,
+        langTo: l_to,
+      },
+      orderBy: [{ originalTerm: "desc" }, { updatedAt: "desc" }],
+    });
+    const hashes = texts.map((text) =>
+      text?.trim() ? computeTranslationHash(text, l_from, l_to) : "",
+    );
+    const cachedTranslations = await db.translation.findMany({
+      where: {
+        projectId: project.id,
+        originalHash: { in: hashes.filter(Boolean) },
+      },
+    });
+    const cachedByHash = new Map(
+      cachedTranslations.map((translation) => [
+        translation.originalHash,
+        translation,
+      ]),
+    );
+
+    const pendingTranslations: Array<{
+      index: number;
+      hash: string;
+      wordCount: number;
+      protection: ReturnType<typeof buildGlossaryProtection>;
+      protectedText: string;
+    }> = [];
+
+    let totalWords = 0;
+    let cachedWords = 0;
+    let manualWords = 0;
+    let glossaryWords = 0;
+
+    for (let index = 0; index < texts.length; index += 1) {
+      const text = texts[index];
+
+      if (!text?.trim()) {
+        translatedTexts[index] = text;
+        continue;
+      }
+
+      const wordCount = countWords(text);
+      totalWords += wordCount;
+
+      const protection = buildGlossaryProtection(text, glossaryRules);
+      if (hasGlossaryProtection(protection)) {
+        glossaryWords += protection.glossaryWords;
+      }
+
+      const hash = hashes[index];
+      const cached = cachedByHash.get(hash);
+      const glossaryInvalidatesCache =
+        cached &&
+        !cached.isManual &&
+        protection.latestRuleUpdatedAt &&
+        cached.updatedAt < protection.latestRuleUpdatedAt;
+
+      if (cached && !glossaryInvalidatesCache) {
+        translatedTexts[index] = cached.translatedText;
+        if (cached.isManual) {
+          manualWords += wordCount;
+        } else {
+          cachedWords += wordCount;
+        }
+        continue;
+      }
+
+      pendingTranslations.push({
+        index,
+        hash,
+        wordCount,
+        protection,
+        protectedText: hasGlossaryProtection(protection)
+          ? protection.protectedText
+          : text,
+      });
+    }
+
+    // 6. Check usage limits after cache/manual/glossary short-circuiting.
+    const translatedWords = pendingTranslations.reduce(
+      (sum, item) => sum + item.wordCount,
+      0,
+    );
     const subscription = project.organization.subscription;
     const wordsLimit = subscription?.wordsLimit ?? 10_000;
-    const currentMonth = parseInt(new Date().toISOString().slice(0, 7).replace("-", ""));
+    const currentMonth = getUsageMonthKey();
 
-    if (!isBot) {
+    if (!isBot && translatedWords > 0) {
       const usageAggregate = await db.usageRecord.aggregate({
         where: { organizationId: project.organizationId, month: currentMonth },
         _sum: { words: true },
       });
 
       const wordsUsed = usageAggregate._sum.words ?? 0;
-      const totalWords = words.reduce((sum, w) => sum + countWords(w.w), 0);
 
-      if (wordsUsed + totalWords > wordsLimit) {
+      if (wordsUsed + translatedWords > wordsLimit) {
         return NextResponse.json(
-          { error: "Monatliches Wortlimit erreicht", used: wordsUsed, limit: wordsLimit },
-          { status: 402 }
+          {
+            error: "Monatliches Wortlimit erreicht",
+            used: wordsUsed,
+            limit: wordsLimit,
+          },
+          { status: 402 },
         );
       }
     }
 
-    // 6. Cache lookup
-    const texts = words.map((w) => w.w);
-    const translatedTexts: string[] = new Array(texts.length);
-    const uncachedIndices: number[] = [];
+    // 7. Translate uncached strings via the configured provider.
+    if (pendingTranslations.length > 0 && !isBot) {
+      const results = await translateTexts({
+        texts: pendingTranslations.map((item) => item.protectedText),
+        sourceLang: l_from,
+        targetLang: l_to,
+      });
 
-    await Promise.all(
-      texts.map(async (text, i) => {
-        // Don't translate empty strings
-        if (!text?.trim()) {
-          translatedTexts[i] = text;
-          return;
-        }
-        const hash = computeHash(text, l_from, l_to);
-        const cached = await db.translation.findUnique({
-          where: { projectId_originalHash: { projectId: project.id, originalHash: hash } },
-        });
-        if (cached) {
-          translatedTexts[i] = cached.translatedText;
-        } else {
-          uncachedIndices.push(i);
-        }
-      })
-    );
-
-    // 7. Translate uncached strings via the configured provider
-    if (uncachedIndices.length > 0 && !isBot) {
-      const uncachedTexts = uncachedIndices.map((i) => texts[i]);
-      const results = await translateTexts({ texts: uncachedTexts, sourceLang: l_from, targetLang: l_to });
-
-      await Promise.all(
-        uncachedIndices.map(async (originalIndex, resultIndex) => {
-          const translated = results[resultIndex].text;
-          translatedTexts[originalIndex] = translated;
-
-          const hash = computeHash(texts[originalIndex], l_from, l_to);
-          const wordCount = countWords(texts[originalIndex]);
-
-          await db.translation.upsert({
-            where: { projectId_originalHash: { projectId: project.id, originalHash: hash } },
-            create: {
-              projectId: project.id,
-              originalHash: hash,
-              originalText: texts[originalIndex],
-              translatedText: translated,
-              langFrom: l_from,
-              langTo: l_to,
-              wordCount,
+      const enabledTranslationWebhookEvents = await db.webhookEndpoint.findMany(
+        {
+          where: {
+            projectId: project.id,
+            enabled: true,
+            eventTypes: {
+              hasSome: ["translation.created", "translation.updated"],
             },
-            update: { translatedText: translated, updatedAt: new Date() },
-          });
-        })
+          },
+          select: { eventTypes: true },
+        },
       );
+      const enabledTranslationWebhookEventTypes = new Set(
+        enabledTranslationWebhookEvents.flatMap(
+          (endpoint) => endpoint.eventTypes,
+        ),
+      );
+      const hashesWrittenInTransaction = new Set<string>();
 
-      // 8. Record usage
-      const newWords = uncachedIndices.reduce((sum, i) => sum + countWords(texts[i]), 0);
-      if (newWords > 0) {
-        await db.usageRecord.create({
-          data: {
+      await db.$transaction(
+        async (tx) => {
+          for (const [resultIndex, item] of pendingTranslations.entries()) {
+            const translated = restoreGlossaryTerms(
+              results[resultIndex].text,
+              item.protection,
+            );
+
+            translatedTexts[item.index] = translated;
+
+            const existedBefore =
+              cachedByHash.has(item.hash) ||
+              hashesWrittenInTransaction.has(item.hash);
+            const saved = await tx.translation.upsert({
+              where: {
+                projectId_originalHash: {
+                  projectId: project.id,
+                  originalHash: item.hash,
+                },
+              },
+              create: {
+                projectId: project.id,
+                originalHash: item.hash,
+                originalText: texts[item.index],
+                translatedText: translated,
+                langFrom: l_from,
+                langTo: l_to,
+                wordCount: item.wordCount,
+                source:
+                  providerName === "deepl"
+                    ? "DEEPL"
+                    : providerName === "mock"
+                      ? "MOCK"
+                      : "OPENAI",
+              },
+              update: {
+                translatedText: translated,
+                updatedAt: new Date(),
+                wordCount: item.wordCount,
+                isManual: false,
+                source:
+                  providerName === "deepl"
+                    ? "DEEPL"
+                    : providerName === "mock"
+                      ? "MOCK"
+                      : "OPENAI",
+              },
+            });
+            hashesWrittenInTransaction.add(item.hash);
+
+            const eventType = existedBefore
+              ? "translation.updated"
+              : "translation.created";
+
+            if (enabledTranslationWebhookEventTypes.has(eventType)) {
+              await queueProjectWebhookEvent(
+                {
+                  projectId: project.id,
+                  eventType,
+                  payload: {
+                    type: eventType,
+                    translationId: saved.id,
+                    originalText: saved.originalText,
+                    translatedText: saved.translatedText,
+                    langFrom: saved.langFrom,
+                    langTo: saved.langTo,
+                    requestUrl: request_url || null,
+                  },
+                },
+                tx,
+              );
+            }
+          }
+
+          await incrementUsageRecord({
             organizationId: project.organizationId,
             projectId: project.id,
-            words: newWords,
+            words: translatedWords,
             month: currentMonth,
-          },
-        });
-      }
+            tx,
+          });
+
+          await recordTranslationBatch(
+            {
+              organizationId: project.organizationId,
+              projectId: project.id,
+              langFrom: l_from,
+              langTo: l_to,
+              requestUrl: request_url || null,
+              provider: providerName,
+              totalWords,
+              cachedWords,
+              manualWords,
+              glossaryWords,
+              translatedWords,
+            },
+            tx,
+          );
+
+          await upsertTranslatedUrlHit({
+            projectId: project.id,
+            langTo: l_to,
+            requestUrl: request_url || null,
+            wordCount: totalWords,
+            tx,
+          });
+        },
+        {
+          maxWait: 5_000,
+          timeout: 30_000,
+        },
+      );
     }
 
-    // 9. Fallback for bots or empty untranslated strings
-    uncachedIndices.forEach((i) => {
-      if (!translatedTexts[i]) translatedTexts[i] = texts[i];
+    // 8. Fallback for bots or empty untranslated strings.
+    pendingTranslations.forEach((item) => {
+      if (!translatedTexts[item.index]) {
+        translatedTexts[item.index] = texts[item.index];
+      }
     });
 
-    // 10. Return the drop-in-compatible response format
+    if (!isBot && pendingTranslations.length === 0) {
+      await Promise.all([
+        recordTranslationBatch({
+          organizationId: project.organizationId,
+          projectId: project.id,
+          langFrom: l_from,
+          langTo: l_to,
+          requestUrl: request_url || null,
+          provider: providerName,
+          totalWords,
+          cachedWords,
+          manualWords,
+          glossaryWords,
+          translatedWords,
+        }),
+        upsertTranslatedUrlHit({
+          projectId: project.id,
+          langTo: l_to,
+          requestUrl: request_url || null,
+          wordCount: totalWords,
+        }),
+      ]);
+    }
+
+    // 9. Return the drop-in-compatible response format.
     return NextResponse.json({
       l_from,
       l_to,
@@ -246,13 +462,11 @@ export async function POST(req: NextRequest) {
       from_words: texts,
       to_words: translatedTexts,
     });
-
   } catch (error) {
     console.error("[/api/translate] Fehler:", error);
-    return NextResponse.json({ error: "Interner Server-Fehler" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Interner Server-Fehler" },
+      { status: 500 },
+    );
   }
-}
-
-function computeHash(text: string, langFrom: string, langTo: string): string {
-  return crypto.createHash("md5").update(`${text}|${langFrom}|${langTo}`).digest("hex");
 }

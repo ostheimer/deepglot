@@ -3,6 +3,7 @@
 namespace Deepglot\Api;
 
 use Deepglot\Config\Options;
+use Deepglot\Sync\SettingsSync;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
@@ -38,10 +39,12 @@ class RestApi
     private const RATE_WINDOW    = 60;
 
     private Options $options;
+    private SettingsSync $settingsSync;
 
-    public function __construct(Options $options)
+    public function __construct(Options $options, SettingsSync $settingsSync)
     {
         $this->options = $options;
+        $this->settingsSync = $settingsSync;
     }
 
     public function register(): void
@@ -207,7 +210,20 @@ class RestApi
             return new WP_REST_Response(['ok' => false, 'error' => $error], 422);
         }
 
-        return new WP_REST_Response(['ok' => true], 200);
+        $candidateSettings = $this->options->sanitize(array_merge($settings, [
+            'api_key' => $apiKey,
+            'api_base_url' => $baseUrl,
+        ]));
+        $syncResult = $this->settingsSync->sync($candidateSettings, $apiKey, $baseUrl);
+
+        if (is_wp_error($syncResult)) {
+            return new WP_REST_Response([
+                'ok' => false,
+                'error' => $syncResult->get_error_message(),
+            ], 502);
+        }
+
+        return new WP_REST_Response(['ok' => true, 'synced' => true], 200);
     }
 
     // -------------------------------------------------------------------------
@@ -301,6 +317,11 @@ class RestApi
             'source_language'    => 'source_language',
             'target_languages'   => 'target_languages',
             'auto_redirect'      => 'auto_redirect',
+            'routing_mode'       => 'routing_mode',
+            'domain_mappings'    => 'domain_mappings',
+            'translate_emails'   => 'translate_emails',
+            'translate_search'   => 'translate_search',
+            'translate_amp'      => 'translate_amp',
             'exclude_urls'       => 'exclude_urls',
             'exclude_selectors'  => 'exclude_selectors',
         ];
@@ -415,6 +436,31 @@ class RestApi
                 'type'     => 'boolean',
                 'required' => $req,
                 'description' => 'Redirect visitors based on browser language.',
+            ],
+            'routing_mode' => [
+                'type'     => 'string',
+                'required' => false,
+                'description' => 'Routing mode: PATH_PREFIX or SUBDOMAIN.',
+            ],
+            'domain_mappings' => [
+                'type'     => 'object',
+                'required' => false,
+                'description' => 'Language to host map for subdomain routing.',
+            ],
+            'translate_emails' => [
+                'type'     => 'boolean',
+                'required' => false,
+                'description' => 'Translate WooCommerce and wp_mail emails.',
+            ],
+            'translate_search' => [
+                'type'     => 'boolean',
+                'required' => false,
+                'description' => 'Translate search behavior.',
+            ],
+            'translate_amp' => [
+                'type'     => 'boolean',
+                'required' => false,
+                'description' => 'Translate AMP pages.',
             ],
             'exclude_urls' => [
                 'type'              => 'string',
