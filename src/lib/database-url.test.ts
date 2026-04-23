@@ -1,7 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isNeonDatabaseUrl } from "@/lib/database-url";
+import { isNeonDatabaseUrl, resolveDatabaseUrl } from "@/lib/database-url";
+
+test("prefers the Deepglot-specific database URL override", () => {
+  assert.equal(
+    resolveDatabaseUrl({
+      DATABASE_URL: "postgresql://preview.example.com/deepglot",
+      DEEPGLOT_DATABASE_URL: "postgresql://production.example.com/deepglot",
+    }),
+    "postgresql://production.example.com/deepglot"
+  );
+});
+
+test("falls back to DATABASE_URL when no override is configured", () => {
+  assert.equal(
+    resolveDatabaseUrl({
+      DATABASE_URL: "postgresql://preview.example.com/deepglot",
+      DEEPGLOT_DATABASE_URL: "",
+    }),
+    "postgresql://preview.example.com/deepglot"
+  );
+});
 
 test("detects Neon database hosts", () => {
   assert.equal(

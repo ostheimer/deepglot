@@ -1,10 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { isNeonDatabaseUrl } from "@/lib/database-url";
+import { isNeonDatabaseUrl, resolveDatabaseUrl } from "@/lib/database-url";
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = resolveDatabaseUrl();
 
   if (!connectionString) {
     // During build time without a real DB, return a stub
