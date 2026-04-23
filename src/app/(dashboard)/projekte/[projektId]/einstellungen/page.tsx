@@ -1,12 +1,11 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Copy, Save } from "lucide-react";
 import { SettingsToggle } from "@/components/projekte/settings-toggle";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getLanguageName } from "@/lib/language-names";
+import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -39,23 +38,18 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
 
   return (
     <div className="max-w-3xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900">
           {locale === "de" ? "Allgemein" : "General"}
         </h2>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-500">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400">
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm gap-1.5">
-            <Save className="h-3.5 w-3.5" />
-            {locale === "de" ? "Speichern" : "Save"}
-          </Button>
-        </div>
+      </div>
+
+      <div className="mb-5">
+        <RuntimeSyncBanner
+          locale={locale}
+          domain={project.domain}
+          runtimeSyncedAt={s?.runtimeSyncedAt}
+        />
       </div>
 
       <div className="space-y-0">
@@ -66,7 +60,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 {locale === "de" ? "Projektname" : "Project name"}
               </Label>
-              <Input defaultValue={project.name} className="h-9" />
+              <Input defaultValue={project.name} className="h-9" readOnly />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -76,6 +70,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 <Input
                   defaultValue={`https://${project.domain}`}
                   className="h-9 pr-9"
+                  readOnly
                 />
                 <a
                   href={`https://${project.domain}`}
@@ -101,7 +96,10 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 ? "Muss mit der Originalsprache deiner Website übereinstimmen."
                 : "Must match the original language of your website."}
             </p>
-            <select className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs">
+            <select
+              disabled
+              className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-70"
+            >
               {["de", "en", "fr", "es", "it"].map((code) => (
                 <option key={code} value={code} selected={project.originalLang === code}>
                   {getLanguageName(code, locale)}
@@ -118,6 +116,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
             ? "Aktiviere die automatische Weiterleitung, um Besucher basierend auf ihrer Browser-Sprache umzuleiten."
             : "Redirect visitors automatically based on their browser language."}
           defaultChecked={s?.autoSwitch ?? false}
+          disabled
           className="border-x border-gray-200"
         />
         <SettingsToggle
@@ -126,6 +125,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
             ? "Fügt deiner Website einen Hinweis hinzu, dass bestimmte Inhalte durch KI übersetzt wurden."
             : "Adds a notice to your website that some content was translated with AI."}
           defaultChecked={s?.displayAiNotice ?? false}
+          disabled
           className="border-x border-gray-200"
         />
         <SettingsToggle
@@ -134,6 +134,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
             ? "Wenn aktiviert (Standard), erkennt und übersetzt Deepglot Inhalte automatisch. Wenn deaktiviert, musst du erkannte Inhalte manuell freigeben."
             : "When enabled, Deepglot detects and translates content automatically. When disabled, you approve detected content manually."}
           defaultChecked={s?.automaticTranslation ?? true}
+          disabled
           className="border-x border-gray-200"
         />
         <div className="bg-white border-x border-gray-200 p-5">
@@ -172,13 +173,13 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="websiteType" value="" defaultChecked={!s?.websiteType}
+                  <input type="radio" name="websiteType" value="" defaultChecked={!s?.websiteType} disabled
                     className="h-3.5 w-3.5 text-indigo-600" />
                   <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
                 </label>
                 {WEBSITE_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="websiteType" value={t}
+                    <input type="radio" name="websiteType" value={t} disabled
                       defaultChecked={s?.websiteType === t}
                       className="h-3.5 w-3.5 text-indigo-600" />
                     <span className="text-sm text-gray-700">{t}</span>
@@ -195,13 +196,13 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="industryType" value="" defaultChecked={!s?.industryType}
+                  <input type="radio" name="industryType" value="" defaultChecked={!s?.industryType} disabled
                     className="h-3.5 w-3.5 text-indigo-600" />
                   <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
                 </label>
                 {INDUSTRY_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="industryType" value={t}
+                    <input type="radio" name="industryType" value={t} disabled
                       defaultChecked={s?.industryType === t}
                       className="h-3.5 w-3.5 text-indigo-600" />
                     <span className="text-sm text-gray-700">{t}</span>

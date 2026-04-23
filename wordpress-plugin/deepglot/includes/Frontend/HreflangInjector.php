@@ -3,7 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
-use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Support\SiteRouting;
 
 /**
  * Injects hreflang <link> tags into the document <head> for every
@@ -17,14 +17,12 @@ use Deepglot\Support\UrlLanguageResolver;
 class HreflangInjector
 {
     private Options $options;
-    private UrlLanguageResolver $resolver;
-    private string $siteUrl;
+    private SiteRouting $routing;
 
-    public function __construct(Options $options, UrlLanguageResolver $resolver, string $siteUrl)
+    public function __construct(Options $options, SiteRouting $routing)
     {
         $this->options  = $options;
-        $this->resolver = $resolver;
-        $this->siteUrl  = rtrim($siteUrl, '/');
+        $this->routing  = $routing;
     }
 
     /**
@@ -51,8 +49,7 @@ class HreflangInjector
 
         // Target languages.
         foreach ($targetLangs as $lang) {
-            $langPath = $this->resolver->withLanguage($currentPath, $lang);
-            $head->appendChild($this->createHreflangTag($doc, $lang, $langPath));
+            $head->appendChild($this->createHreflangTag($doc, $lang, $currentPath));
         }
 
         // x-default = source language URL.
@@ -64,7 +61,8 @@ class HreflangInjector
         $link = $doc->createElement('link');
         $link->setAttribute('rel', 'alternate');
         $link->setAttribute('hreflang', $hreflang);
-        $link->setAttribute('href', $this->siteUrl . $path);
+        $language = $hreflang === 'x-default' ? $this->options->getSourceLanguage() : $hreflang;
+        $link->setAttribute('href', $this->routing->buildUrlForLanguage($path, $language));
 
         return $link;
     }

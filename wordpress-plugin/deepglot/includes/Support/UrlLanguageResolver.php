@@ -15,6 +15,19 @@ class UrlLanguageResolver
         $this->targetLanguages = array_values(array_unique(array_map('strtolower', $targetLanguages)));
     }
 
+    public function getSourceLanguage(): string
+    {
+        return $this->sourceLanguage;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getTargetLanguages(): array
+    {
+        return $this->targetLanguages;
+    }
+
     public function detectLanguageFromPath(string $path): ?string
     {
         $segments = $this->segments($path);

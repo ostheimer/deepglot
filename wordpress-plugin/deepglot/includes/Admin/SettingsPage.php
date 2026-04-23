@@ -334,6 +334,68 @@ class SettingsPage
                             <p class="description"><?php esc_html_e('Eine URL oder ein Muster pro Zeile.', 'deepglot'); ?></p>
                         </div>
                         <div class="dg-field">
+                            <label for="dg_routing_mode"><?php esc_html_e('Routing-Modus', 'deepglot'); ?></label>
+                            <select id="dg_routing_mode" name="<?php echo esc_attr($optKey); ?>[routing_mode]" style="min-width:220px;">
+                                <option value="PATH_PREFIX" <?php selected(($settings['routing_mode'] ?? 'PATH_PREFIX'), 'PATH_PREFIX'); ?>>
+                                    <?php esc_html_e('Pfad-Präfix (/en/meine-seite)', 'deepglot'); ?>
+                                </option>
+                                <option value="SUBDOMAIN" <?php selected(($settings['routing_mode'] ?? 'PATH_PREFIX'), 'SUBDOMAIN'); ?>>
+                                    <?php esc_html_e('Subdomains (en.example.com)', 'deepglot'); ?>
+                                </option>
+                            </select>
+                            <p class="description"><?php esc_html_e('Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host.', 'deepglot'); ?></p>
+                        </div>
+                        <div class="dg-field">
+                            <label for="dg_domain_mappings"><?php esc_html_e('Domain-Zuordnungen', 'deepglot'); ?></label>
+                            <textarea id="dg_domain_mappings" name="<?php echo esc_attr($optKey); ?>[domain_mappings]" rows="4" placeholder="en=en.example.com&#10;fr=fr.example.com"><?php
+                                $mappingLines = [];
+                                foreach ((array) ($settings['domain_mappings'] ?? []) as $lang => $host) {
+                                    $mappingLines[] = $lang . '=' . $host;
+                                }
+                                echo esc_textarea(implode("\n", $mappingLines));
+                            ?></textarea>
+                            <p class="description"><?php esc_html_e('Format: sprachcode=host, eine Zuordnung pro Zeile.', 'deepglot'); ?></p>
+                        </div>
+                        <div class="dg-toggle-row" style="margin-top:14px;">
+                            <input
+                                type="checkbox"
+                                id="dg_translate_emails"
+                                name="<?php echo esc_attr($optKey); ?>[translate_emails]"
+                                value="1"
+                                class="dg-toggle"
+                                <?php checked(!empty($settings['translate_emails'])); ?>
+                            />
+                            <label for="dg_translate_emails">
+                                <?php esc_html_e('WooCommerce- und wp_mail-E-Mails übersetzen', 'deepglot'); ?>
+                            </label>
+                        </div>
+                        <div class="dg-toggle-row" style="margin-top:14px;">
+                            <input
+                                type="checkbox"
+                                id="dg_translate_search"
+                                name="<?php echo esc_attr($optKey); ?>[translate_search]"
+                                value="1"
+                                class="dg-toggle"
+                                <?php checked(!empty($settings['translate_search'])); ?>
+                            />
+                            <label for="dg_translate_search">
+                                <?php esc_html_e('Suche in der Besuchersprache ausführen', 'deepglot'); ?>
+                            </label>
+                        </div>
+                        <div class="dg-toggle-row" style="margin-top:14px;">
+                            <input
+                                type="checkbox"
+                                id="dg_translate_amp"
+                                name="<?php echo esc_attr($optKey); ?>[translate_amp]"
+                                value="1"
+                                class="dg-toggle"
+                                <?php checked(!empty($settings['translate_amp'])); ?>
+                            />
+                            <label for="dg_translate_amp">
+                                <?php esc_html_e('AMP-Seiten übersetzen', 'deepglot'); ?>
+                            </label>
+                        </div>
+                        <div class="dg-field">
                             <label for="dg_exclude_selectors"><?php esc_html_e('Ausgeschlossene CSS-Selektoren', 'deepglot'); ?></label>
                             <textarea id="dg_exclude_selectors" name="<?php echo esc_attr($optKey); ?>[exclude_selectors]" rows="4" placeholder=".no-translate&#10;#sidebar"><?php echo esc_textarea($settings['exclude_selectors']); ?></textarea>
                             <p class="description"><?php esc_html_e('Eine CSS-Klasse, ID oder ein Selektor pro Zeile.', 'deepglot'); ?></p>

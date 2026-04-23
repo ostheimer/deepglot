@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
+require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Frontend/LinkRewriter.php';
 
 use Deepglot\Frontend\LinkRewriter;

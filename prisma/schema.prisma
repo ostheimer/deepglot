@@ -78,6 +78,7 @@ model Organization {
   projects     Project[]
   subscription Subscription?
   usageRecords UsageRecord[]
+  translationBatchLogs TranslationBatchLog[]
 }
 
 enum Plan {
@@ -130,6 +131,10 @@ model Project {
   translatedUrls TranslatedUrl[]
   settings       ProjectSettings?
   members        ProjectMember[]
+  domainMappings ProjectDomainMapping[]
+  translationBatchLogs TranslationBatchLog[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
 }
 
 model ProjectLanguage {
@@ -171,6 +176,8 @@ enum TranslationSource {
   OPENAI
   GOOGLE
   MANUAL
+  MOCK
+  IMPORT
 }
 
 // ─── API Keys (Plugin-Authentifizierung) ──────────────────────────────────
@@ -227,6 +234,8 @@ model ProjectSettings {
   translationMemory       Boolean  @default(false)
   websiteType             String?  // Blog, Corporate, E-Commerce, etc.
   industryType            String?  // Health & medical, etc.
+  routingMode             RoutingMode @default(PATH_PREFIX)
+  runtimeSyncedAt         DateTime?
 
   // Language Switcher
   switcherDisplayName     Boolean  @default(true)
@@ -249,6 +258,11 @@ model ProjectSettings {
 
   projectId String @unique
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+enum RoutingMode {
+  PATH_PREFIX
+  SUBDOMAIN
 }
 
 // ─── Project Members ──────────────────────────────────────────────────────
@@ -288,6 +302,20 @@ model GlossaryRule {
 
   @@unique([projectId, originalTerm, langFrom, langTo])
   @@index([projectId, langFrom, langTo])
+}
+
+model ProjectDomainMapping {
+  id        String   @id @default(cuid())
+  host      String   @unique
+  langCode  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, langCode])
+  @@index([projectId])
 }
 
 // ─── URL Slugs (übersetzbare URL-Pfadsegmente) ───────────────────────────
@@ -349,6 +377,30 @@ model TranslatedUrl {
   @@index([projectId, requestCount(sort: Desc)])
 }
 
+model TranslationBatchLog {
+  id              String   @id @default(cuid())
+  langFrom        String
+  langTo          String
+  requestUrl      String?
+  provider        String
+  totalWords      Int      @default(0)
+  cachedWords     Int      @default(0)
+  manualWords     Int      @default(0)
+  glossaryWords   Int      @default(0)
+  translatedWords Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  organizationId String
+  projectId      String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([projectId, langFrom, langTo])
+}
+
 // ─── Usage Tracking ───────────────────────────────────────────────────────
 
 model UsageRecord {
@@ -366,4 +418,54 @@ model UsageRecord {
   @@unique([organizationId, projectId, month])
   @@index([organizationId, month])
   @@index([projectId, month])
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model WebhookEndpoint {
+  id                 String    @id @default(cuid())
+  url                String
+  secret             String
+  eventTypes         String[]
+  enabled            Boolean   @default(true)
+  lastDeliveryStatus WebhookDeliveryStatus?
+  lastDeliveryAt     DateTime?
+  lastDeliveryCode   Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  deliveries WebhookDelivery[]
+
+  @@index([projectId, enabled])
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  eventType      String
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attemptCount   Int                   @default(0)
+  nextAttemptAt  DateTime              @default(now())
+  lastAttemptAt  DateTime?
+  responseStatus Int?
+  responseBody   String?
+  errorMessage   String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  endpointId String
+  projectId  String
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  project  Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, status, nextAttemptAt])
+  @@index([projectId, createdAt])
 }

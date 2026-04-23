@@ -40,8 +40,24 @@ class HtmlTranslator
      */
     public function translate(string $html, string $targetLanguage): string
     {
+        return $this->translateDocument($html, $targetLanguage, false)['html'];
+    }
+
+    /**
+     * @return array{html: string, segments: array<int, array<string, string>>}
+     */
+    public function translateForEditor(string $html, string $targetLanguage): array
+    {
+        return $this->translateDocument($html, $targetLanguage, true);
+    }
+
+    /**
+     * @return array{html: string, segments: array<int, array<string, string>>}
+     */
+    private function translateDocument(string $html, string $targetLanguage, bool $annotateSegments): array
+    {
         if ($html === '') {
-            return $html;
+            return ['html' => $html, 'segments' => []];
         }
 
         $sourceLang = $this->options->getSourceLanguage();
@@ -52,7 +68,7 @@ class HtmlTranslator
         $nodes = $this->collectTextNodes($doc);
 
         if (empty($nodes)) {
-            return $html;
+            return ['html' => $html, 'segments' => []];
         }
 
         // Deduplicate texts so we don't pay twice for the same string.
@@ -90,19 +106,39 @@ class HtmlTranslator
         $all = array_merge($cached, $apiResults);
 
         if (empty($all)) {
-            return $html;
+            return ['html' => $html, 'segments' => []];
         }
 
         // Replace text node data in the DOM.
+        $segments = [];
+        $segmentIndex = 0;
+
         foreach ($nodes as $node) {
             $original = $node->data;
 
             if (isset($all[$original])) {
+                if ($annotateSegments) {
+                    $this->replaceNodeWithSegment(
+                        $node,
+                        $original,
+                        $all[$original],
+                        $sourceLang,
+                        $targetLanguage,
+                        $segmentIndex,
+                        $segments
+                    );
+                    $segmentIndex++;
+                    continue;
+                }
+
                 $node->data = $all[$original];
             }
         }
 
-        return $this->saveHtml($doc);
+        return [
+            'html' => $this->saveHtml($doc),
+            'segments' => $segments,
+        ];
     }
 
     // -------------------------------------------------------------------------
@@ -186,5 +222,61 @@ class HtmlTranslator
         $html = str_replace('<?xml encoding="UTF-8">', '', $html);
 
         return $html;
+    }
+
+    /**
+     * @param array<int, array<string, string>> $segments
+     */
+    private function replaceNodeWithSegment(
+        \DOMText $node,
+        string $originalText,
+        string $translatedText,
+        string $sourceLanguage,
+        string $targetLanguage,
+        int $index,
+        array &$segments
+    ): void {
+        $document = $node->ownerDocument;
+        $parent = $node->parentNode;
+
+        if (!$document instanceof \DOMDocument || $parent === null) {
+            return;
+        }
+
+        preg_match('/^(\s*)(.*?)(\s*)$/us', $originalText, $originalParts);
+        preg_match('/^(\s*)(.*?)(\s*)$/us', $translatedText, $translatedParts);
+
+        $prefix = $originalParts[1] ?? '';
+        $trimmedOriginal = $originalParts[2] ?? trim($originalText);
+        $suffix = $originalParts[3] ?? '';
+        $trimmedTranslated = $translatedParts[2] ?? trim($translatedText);
+
+        $segmentId = 'dg-' . substr(md5($sourceLanguage . '|' . $targetLanguage . '|' . $trimmedOriginal . '|' . $index), 0, 12);
+
+        if ($prefix !== '') {
+            $parent->insertBefore($document->createTextNode($prefix), $node);
+        }
+
+        $span = $document->createElement('span');
+        $span->setAttribute('data-deepglot-segment-id', $segmentId);
+        $span->setAttribute('data-deepglot-lang-from', $sourceLanguage);
+        $span->setAttribute('data-deepglot-lang-to', $targetLanguage);
+        $span->setAttribute('class', 'deepglot-editor-segment');
+        $span->appendChild($document->createTextNode($trimmedTranslated !== '' ? $trimmedTranslated : $translatedText));
+        $parent->insertBefore($span, $node);
+
+        if ($suffix !== '') {
+            $parent->insertBefore($document->createTextNode($suffix), $node);
+        }
+
+        $parent->removeChild($node);
+
+        $segments[] = [
+            'id' => $segmentId,
+            'originalText' => $trimmedOriginal !== '' ? $trimmedOriginal : trim($originalText),
+            'translatedText' => $trimmedTranslated !== '' ? $trimmedTranslated : trim($translatedText),
+            'langFrom' => $sourceLanguage,
+            'langTo' => $targetLanguage,
+        ];
     }
 }

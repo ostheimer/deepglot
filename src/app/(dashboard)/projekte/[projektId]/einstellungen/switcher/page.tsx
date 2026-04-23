@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ExternalLink, GripVertical, Edit2 } from "lucide-react";
+import { GripVertical, Edit2 } from "lucide-react";
 import { SettingsToggle } from "@/components/projekte/settings-toggle";
 import { getLanguageName } from "@/lib/language-names";
 import { getRequestLocale } from "@/lib/request-locale";
+import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -52,6 +52,12 @@ export default async function SwitcherPage({ params }: PageProps) {
         {locale === "de" ? "Sprachauswahl" : "Language switcher"}
       </h2>
 
+      <RuntimeSyncBanner
+        locale={locale}
+        domain={project.domain}
+        runtimeSyncedAt={s?.runtimeSyncedAt}
+      />
+
       {/* Appearance & position */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-1">
@@ -59,13 +65,9 @@ export default async function SwitcherPage({ params }: PageProps) {
         </h3>
         <p className="text-sm text-gray-500 mb-4">
           {locale === "de"
-            ? "Nutze den interaktiven Editor, um den Sprachauswähler auf deiner Website per Drag & Drop zu positionieren und das Erscheinungsbild anzupassen."
-            : "Use the interactive editor to position the language switcher on your website with drag and drop and adjust its appearance."}
+            ? "Die Sprachauswahl wird auf deiner WordPress-Seite konfiguriert. Die Werte in Deepglot sind nur ein Spiegel der Plugin-Konfiguration."
+            : "The language switcher is configured on your WordPress site. Values in Deepglot are read-only mirrors of the plugin configuration."}
         </p>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2">
-          <ExternalLink className="h-4 w-4" />
-          {locale === "de" ? "Switcher-Editor öffnen" : "Open switcher editor"}
-        </Button>
       </section>
 
       {/* Advanced options */}
@@ -83,6 +85,7 @@ export default async function SwitcherPage({ params }: PageProps) {
           label={locale === "de" ? "Sprachname anzeigen" : "Show language name"}
           description={locale === "de" ? "Zeige den Namen der Sprache an." : "Display the language name."}
           defaultChecked={s?.switcherDisplayName ?? true}
+          disabled
         />
         <SettingsToggle
           label={locale === "de" ? "Vollständigen Sprachnamen anzeigen" : "Show full language name"}
@@ -90,11 +93,13 @@ export default async function SwitcherPage({ params }: PageProps) {
             ? "Vollständiger Name (z.B. Deutsch) anstatt Sprachcode (z.B. DE)."
             : "Use the full name (e.g. German) instead of the language code (e.g. DE)."}
           defaultChecked={s?.switcherFullName ?? true}
+          disabled
         />
         <SettingsToggle
           label={locale === "de" ? "Länderflaggen anzeigen" : "Show country flags"}
           description={locale === "de" ? "Zeige Flaggen im Sprachauswähler an." : "Display flags in the language switcher."}
           defaultChecked={s?.switcherFlags ?? true}
+          disabled
         />
         <SettingsToggle
           label={locale === "de" ? "Als Dropdown-Menü" : "Use dropdown mode"}
@@ -102,6 +107,7 @@ export default async function SwitcherPage({ params }: PageProps) {
             ? "Zeige den Sprachauswähler als aufklappbares Dropdown an."
             : "Render the language switcher as an expandable dropdown."}
           defaultChecked={s?.switcherDropdown ?? true}
+          disabled
         />
 
         <div className="p-5 border-t border-gray-100 space-y-4">
@@ -112,7 +118,8 @@ export default async function SwitcherPage({ params }: PageProps) {
             </Label>
             <select
               defaultValue={s?.switcherFlagsType ?? "rectangle_mat"}
-              className="flex h-9 w-64 rounded-md border border-input bg-white px-3 py-1 text-sm"
+              disabled
+              className="flex h-9 w-64 rounded-md border border-input bg-white px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-70"
             >
               {FLAG_TYPES[locale].map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -131,6 +138,7 @@ export default async function SwitcherPage({ params }: PageProps) {
             <textarea
               defaultValue={s?.switcherCustomCss ?? ".language-selector {\n  margin-bottom: 20px;\n}"}
               rows={5}
+              readOnly
               className="w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
             />
             <p className="text-xs text-gray-400">
@@ -140,11 +148,6 @@ export default async function SwitcherPage({ params }: PageProps) {
             </p>
           </div>
 
-          <div className="flex justify-end pt-1">
-            <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm">
-              {locale === "de" ? "Speichern" : "Save"}
-            </Button>
-          </div>
         </div>
       </section>
 
@@ -172,9 +175,9 @@ export default async function SwitcherPage({ params }: PageProps) {
                 {locale === "de" ? "Original" : "Original"}
               </span>
             </div>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+            <button type="button" className="h-7 w-7 p-0 opacity-40" disabled>
               <Edit2 className="h-3.5 w-3.5 text-gray-400" />
-            </Button>
+            </button>
           </div>
 
           {/* Target languages */}
@@ -192,9 +195,9 @@ export default async function SwitcherPage({ params }: PageProps) {
                   {getLanguageName(lang.langCode, locale)}
                 </span>
               </div>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+              <button type="button" className="h-7 w-7 p-0 opacity-40" disabled>
                 <Edit2 className="h-3.5 w-3.5 text-gray-400" />
-              </Button>
+              </button>
             </div>
           ))}
 

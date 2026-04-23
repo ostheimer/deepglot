@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UsageCharts } from "@/components/abonnement/usage-charts";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { startOfMonth } from "date-fns";
 
 export const metadata = { title: "Nutzung – Deepglot" };
 
@@ -40,6 +41,7 @@ export default async function NutzungPage() {
   const plan = org?.plan ?? "FREE";
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.FREE;
   const currentMonth = parseInt(new Date().toISOString().slice(0, 7).replace("-", ""));
+  const monthStart = startOfMonth(new Date());
 
   const projectIds = (org?.projects ?? []).map((p) => p.id);
 
@@ -54,9 +56,9 @@ export default async function NutzungPage() {
 
   // Request count per project this month
   const requestsByProject = projectIds.length
-    ? await db.usageRecord.groupBy({
+    ? await db.translationBatchLog.groupBy({
         by: ["projectId"],
-        where: { organizationId: org!.id, month: currentMonth },
+        where: { organizationId: org!.id, createdAt: { gte: monthStart } },
         _count: { _all: true },
       })
     : [];
