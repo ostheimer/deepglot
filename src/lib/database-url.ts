@@ -1,10 +1,9 @@
 export function resolveDatabaseUrl(
-  env: Pick<NodeJS.ProcessEnv, "DATABASE_URL" | "DEEPGLOT_DATABASE_URL"> =
-    process.env
+  env: Record<string, string | undefined> = process.env
 ): string | undefined {
-  const deepglotDatabaseUrl = env.DEEPGLOT_DATABASE_URL?.trim();
+  const deepglotDatabaseUrl = env["DEEPGLOT_DATABASE_URL"]?.trim();
 
-  return deepglotDatabaseUrl || env.DATABASE_URL;
+  return deepglotDatabaseUrl || env["DATABASE_URL"];
 }
 
 export function isNeonDatabaseUrl(connectionString: string): boolean {
