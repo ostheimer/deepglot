@@ -14,7 +14,7 @@ class SettingsPage
 {
     private Options $options;
 
-    private const DASHBOARD_URL = 'https://deepglot-five.vercel.app';
+    private const DASHBOARD_URL = 'https://deepglot.ai';
 
     public function __construct(Options $options)
     {
@@ -223,7 +223,7 @@ class SettingsPage
                                         value="<?php echo esc_attr($settings['api_base_url']); ?>"
                                     />
                                     <p class="description">
-                                        <?php esc_html_e('Standard: https://deepglot-five.vercel.app/api – nur ändern bei Self-Hosting.', 'deepglot'); ?>
+                                        <?php esc_html_e('Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting.', 'deepglot'); ?>
                                     </p>
                                 </div>
                             </div>

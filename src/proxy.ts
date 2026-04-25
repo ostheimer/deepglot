@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
 import authConfig from "@/lib/auth.config";
+import { getCanonicalHostRedirectUrl } from "@/lib/canonical-host";
 import { getAuthRedirect } from "@/lib/route-access";
 import {
   getDocumentLocale,
@@ -34,6 +35,15 @@ function withLocaleCookie(response: NextResponse, locale: "en" | "de") {
 
 export default auth((req) => {
   const { nextUrl, auth: session } = req;
+  const canonicalRedirectUrl = getCanonicalHostRedirectUrl(
+    nextUrl,
+    req.headers.get("host")
+  );
+
+  if (canonicalRedirectUrl) {
+    return NextResponse.redirect(canonicalRedirectUrl, 308);
+  }
+
   const localeParam = nextUrl.searchParams.get("__locale");
   const locale =
     localeParam === "de" || localeParam === "en"

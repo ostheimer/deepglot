@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "author": "Andreas Ostheimer (https://www.ostheimer.at)",
-  "homepage": "https://deepglot-five.vercel.app",
+  "homepage": "https://deepglot.ai",
   "scripts": {
     "check:docs-language": "node --import tsx scripts/check-docs-language.ts",
     "dev": "next dev",
