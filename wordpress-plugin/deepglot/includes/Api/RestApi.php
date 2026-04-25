@@ -418,7 +418,7 @@ class RestApi
                 'type'              => 'string',
                 'required'          => $req,
                 'sanitize_callback' => 'esc_url_raw',
-                'description'       => 'Backend URL, e.g. https://deepglot-five.vercel.app/api',
+                'description'       => 'Backend URL, e.g. https://deepglot.ai/api',
             ],
             'source_language' => [
                 'type'              => 'string',

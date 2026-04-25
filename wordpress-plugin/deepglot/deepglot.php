@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Deepglot
- * Plugin URI: https://deepglot-five.vercel.app
+ * Plugin URI: https://deepglot.ai
  * Description: Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API.
  * Version: 0.1.0
  * Author: Andreas Ostheimer

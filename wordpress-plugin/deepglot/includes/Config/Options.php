@@ -10,7 +10,7 @@ class Options
     {
         return [
             'enabled' => false,
-            'api_base_url' => 'https://deepglot-five.vercel.app/api',
+            'api_base_url' => 'https://deepglot.ai/api',
             'api_key' => '',
             'source_language' => 'de',
             'target_languages' => ['en'],
