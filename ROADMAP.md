@@ -173,7 +173,7 @@ Next.js App (Vercel)          WordPress Plugin
 |---|---|---|
 | 7.1 | Canonical domain cutover: DNS, Vercel aliases, production env URLs, and WordPress API base URL smoke test | ✅ Completed |
 | 7.2 | Production acceptance checklist and repeatable smoke script | ✅ Completed |
-| 7.3 | Live WordPress acceptance on `meinhaushalt.at` using the current plugin build | ⏳ Open |
+| 7.3 | Live WordPress acceptance on `meinhaushalt.at` using the current plugin build | ✅ Completed |
 | 7.4 | Phase 6 Playwright coverage for glossary, import/export, analytics, webhooks, and visual editor | ⏳ Open |
 | 7.5 | WordPress PHP coverage for subdomain routing, browser redirect edge cases, and WooCommerce email translation | ⏳ Open |
 | 7.6 | Production observability: webhook cron monitoring, failed delivery visibility, and operational runbook | ⏳ Open |
