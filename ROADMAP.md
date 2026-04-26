@@ -20,6 +20,7 @@
 | 0.9 | Manual Vercel CLI deployments ignore local `.env*` files via `.vercelignore` | ✅ Completed |
 | 0.10 | Repository-level `AGENTS.md` defines a test-first bug workflow before fixes | ✅ Completed |
 | 0.11 | Vercel Production uses Neon `prod` branch; Dev/Preview use Neon `preview` (Variant A: 2 branches) | ✅ Completed |
+| 0.12 | Production is served on the canonical `deepglot.ai` domain with `www` page redirects | ✅ Completed |
 
 ---
 
@@ -154,14 +155,31 @@ Next.js App (Vercel)          WordPress Plugin
 
 | # | Task | Status |
 |---|---|---|
-| 6.1 | Visual translation editor (edit directly on the live site) | ⏳ Open |
-| 6.2 | Glossary feature (terms that should never be translated) | ⏳ Open |
-| 6.3 | Import / export (CSV / PO files) | ⏳ Open |
-| 6.4 | WooCommerce email translation | ⏳ Open |
-| 6.5 | Browser-language auto redirect | ⏳ Open |
-| 6.6 | Subdomain support (`de.example.com`) | ⏳ Open |
-| 6.7 | Analytics dashboard (translation volume, language stats) | ⏳ Open |
-| 6.8 | Webhook events (for new translations, etc.) | ⏳ Open |
+| 6.0 | Shared foundation: plugin settings sync, batch translation logs, and log-backed usage accounting | ✅ Implemented |
+| 6.1 | Visual translation editor (edit directly on the live site) | 🔄 Implemented, live QA pending |
+| 6.2 | Glossary feature (terms that should never be translated) | 🔄 Implemented, live QA pending |
+| 6.3 | Import / export (CSV / PO files) | 🔄 Implemented, live QA pending |
+| 6.4 | WooCommerce email translation | 🔄 Implemented, WooCommerce QA pending |
+| 6.5 | Browser-language auto redirect | 🔄 Implemented, guarded rollout pending |
+| 6.6 | Subdomain support (`de.example.com`) | 🔄 Implemented, mapped-host QA pending |
+| 6.7 | Analytics dashboard (translation volume, language stats) | 🔄 Implemented, production data QA pending |
+| 6.8 | Webhook events (for new translations, etc.) | 🔄 Implemented, cron/delivery QA pending |
+
+---
+
+## Phase 7 - Production Acceptance and Hardening
+
+| # | Task | Status |
+|---|---|---|
+| 7.1 | Canonical domain cutover: DNS, Vercel aliases, production env URLs, and WordPress API base URL smoke test | ✅ Completed |
+| 7.2 | Production acceptance checklist and repeatable smoke script | ✅ Completed |
+| 7.3 | Live WordPress acceptance on `meinhaushalt.at` using the current plugin build | ⏳ Open |
+| 7.4 | Phase 6 Playwright coverage for glossary, import/export, analytics, webhooks, and visual editor | ⏳ Open |
+| 7.5 | WordPress PHP coverage for subdomain routing, browser redirect edge cases, and WooCommerce email translation | ⏳ Open |
+| 7.6 | Production observability: webhook cron monitoring, failed delivery visibility, and operational runbook | ⏳ Open |
+| 7.7 | Persistent API rate limiting and abuse controls for multi-instance production traffic | ⏳ Open |
+| 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | ⏳ Open |
+| 7.9 | Decide and enforce legacy Vercel alias policy | ⏳ Open |
 
 ---
 
@@ -186,6 +204,6 @@ Next.js App (Vercel)          WordPress Plugin
 ## Legend
 
 - ✅ Completed
-- 🔄 In Progress
+- 🔄 Implemented, QA / hardening pending
 - ⏳ Open
 - ❌ Blocked
