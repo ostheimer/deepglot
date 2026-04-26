@@ -73,7 +73,7 @@ Required checks on `meinhaushalt.at`:
 | Cache | Repeated translated page requests reuse the WordPress translation cache | ✅ Passed |
 | Link rewriting | Internal links, forms, canonicals, hreflang tags, and switcher URLs keep the active locale | ✅ Passed |
 | Exclusions | Admin, REST, AJAX, feed, preview, and excluded paths are not translated or redirected | ✅ Passed |
-| Browser redirect | First-visit redirect respects `Accept-Language`, preference cookie, and skip contexts | ✅ Passed, disabled for rollout |
+| Browser redirect | First-visit redirect respects `Accept-Language`, preference cookie, and skip contexts | ⏳ Deferred, disabled for rollout |
 | Subdomains | Host-based language routing works only when every active language has a valid mapping | ➖ Not applicable on this site |
 | WooCommerce email | If WooCommerce is present, subject, heading, and HTML body use checkout language order meta | ➖ Not applicable, WooCommerce inactive |
 | Visual editor | Editor mode only boots after token verification and only marks visible translated text nodes | ✅ Passed |
@@ -88,7 +88,7 @@ Required checks on `meinhaushalt.at`:
 - Repeated `/en/` requests returned `200`, kept the Deepglot transient count stable, and rendered English text without raw language markers.
 - Link rewriting and SEO output were verified on `/en/`: canonical URL, `de`, `en`, and `x-default` hreflang tags, and localized internal links were present.
 - Operational contexts were verified as not translated by Deepglot: admin, REST, feed, and preview requests used WordPress-native responses or redirects.
-- Browser-language redirect remained disabled for the rollout; an English `Accept-Language` request to `/` returned `200` without redirect.
+- Browser-language redirect remained disabled for the rollout; an English `Accept-Language` request to `/` returned `200` without redirect. Full redirect behavior still needs a guarded enablement test with `autoRedirect=true`.
 - Visual editor boot was verified with a production editor token: the live page emitted 262 manifest segments, 262 DOM segment markers, and the editor root.
 - `DEEPGLOT_EDITOR_SECRET` is set in Vercel Production for stable visual-editor token verification.
 
