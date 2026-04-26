@@ -67,16 +67,34 @@ Required checks on `meinhaushalt.at`:
 
 | Area | Required result | Status |
 |---|---|---|
-| Plugin install | Updated plugin activates without fatal errors and settings remain intact | ⏳ Pending |
-| Connection | Test connection succeeds and triggers settings sync to the SaaS backend | ⏳ Pending |
-| Path-prefix routing | `/en/` resolves to the source page and serves translated content | ✅ Smoke passed |
-| Cache | Repeated translated page requests reuse the WordPress translation cache | ⏳ Pending |
-| Link rewriting | Internal links, forms, canonicals, hreflang tags, and switcher URLs keep the active locale | ⏳ Pending |
-| Exclusions | Admin, REST, AJAX, feed, preview, and excluded paths are not translated or redirected | ⏳ Pending |
-| Browser redirect | First-visit redirect respects `Accept-Language`, preference cookie, and skip contexts | ⏳ Pending |
-| Subdomains | Host-based language routing works only when every active language has a valid mapping | ⏳ Pending |
-| WooCommerce email | If WooCommerce is present, subject, heading, and HTML body use checkout language order meta | ⏳ Pending |
-| Visual editor | Editor mode only boots after token verification and only marks visible translated text nodes | ⏳ Pending |
+| Plugin install | Updated plugin activates without fatal errors and settings remain intact | ✅ Passed |
+| Connection | Test connection succeeds and triggers settings sync to the SaaS backend | ✅ Passed |
+| Path-prefix routing | `/en/` resolves to the source page and serves translated content | ✅ Passed |
+| Cache | Repeated translated page requests reuse the WordPress translation cache | ✅ Passed |
+| Link rewriting | Internal links, forms, canonicals, hreflang tags, and switcher URLs keep the active locale | ✅ Passed |
+| Exclusions | Admin, REST, AJAX, feed, preview, and excluded paths are not translated or redirected | ✅ Passed |
+| Browser redirect | First-visit redirect respects `Accept-Language`, preference cookie, and skip contexts | ⏳ Deferred, disabled for rollout |
+| Subdomains | Host-based language routing works only when every active language has a valid mapping | ➖ Not applicable on this site |
+| WooCommerce email | If WooCommerce is present, subject, heading, and HTML body use checkout language order meta | ➖ Not applicable, WooCommerce inactive |
+| Visual editor | Editor mode only boots after token verification and only marks visible translated text nodes | ✅ Passed |
+
+### `meinhaushalt.at` Acceptance Run - 2026-04-26
+
+- Existing plugin and settings were backed up on the server before replacement.
+- Current plugin build was uploaded through SSH, linted on the server, and activated in place.
+- Stored plugin backend URL was changed from an old Vercel Preview API URL to `https://deepglot.ai/api`.
+- Production API key was updated from the local private environment and settings sync succeeded against the production backend.
+- Runtime sync updated project `cmoby1ofs0002687hgqupd5m3` with `PATH_PREFIX`, source `de`, target `en`, and `autoRedirect=false`.
+- Repeated `/en/` requests returned `200`, kept the Deepglot transient count stable, and rendered English text without raw language markers.
+- Link rewriting and SEO output were verified on `/en/`: canonical URL, `de`, `en`, and `x-default` hreflang tags, and localized internal links were present.
+- Operational contexts were verified as not translated by Deepglot: admin, REST, feed, and preview requests used WordPress-native responses or redirects.
+- Browser-language redirect remained disabled for the rollout; an English `Accept-Language` request to `/` returned `200` without redirect. Full redirect behavior still needs a guarded enablement test with `autoRedirect=true`.
+- Visual editor boot was verified with a production editor token: the live page emitted 262 manifest segments, 262 DOM segment markers, and the editor root.
+- `DEEPGLOT_EDITOR_SECRET` is set in Vercel Production for stable visual-editor token verification.
+
+Known follow-up:
+
+- The dashboard credentials currently stored in `.env.local` do not authenticate against Production, so the dashboard-issued editor-session click flow remains under SaaS acceptance. The WordPress-side token verification and editor boot path passed.
 
 ## Exit Criteria
 
