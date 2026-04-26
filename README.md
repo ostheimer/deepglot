@@ -197,6 +197,12 @@ Manual `vercel deploy` runs should never upload local `.env*` files. The reposit
 
 After each deployment, verify the current production URL and deployment status.
 
+Production acceptance is tracked in [PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md). After a production deployment, run the repeatable smoke test:
+
+```bash
+npm run smoke:production
+```
+
 ## Self-hosting
 
 Deepglot now includes a first self-hosted setup:
