@@ -14,8 +14,11 @@ test("redirects unauthenticated users from protected routes", () => {
 test("redirects authenticated users away from auth routes", () => {
   assert.equal(getAuthRedirect("/login", true), "/dashboard");
   assert.equal(getAuthRedirect("/signup", true), "/dashboard");
+  assert.equal(getAuthRedirect("/forgot-password", true), "/dashboard");
+  assert.equal(getAuthRedirect("/reset-password", true), "/dashboard");
   assert.equal(getAuthRedirect("/de/login", true), "/de/dashboard");
   assert.equal(getAuthRedirect("/de/signup", true), "/de/dashboard");
+  assert.equal(getAuthRedirect("/de/forgot-password", true), "/de/dashboard");
 });
 
 test("allows public routes and exact-prefix edge cases", () => {

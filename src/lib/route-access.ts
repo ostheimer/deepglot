@@ -10,6 +10,8 @@ const PROTECTED_PREFIXES = [
 const AUTH_PREFIXES = [
   "/login",
   "/signup",
+  "/forgot-password",
+  "/reset-password",
 ] as const;
 
 function matchesPrefix(pathname: string, prefix: string) {

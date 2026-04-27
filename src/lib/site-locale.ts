@@ -129,13 +129,15 @@ export function getLegacyPublicRedirect(pathname: string) {
 
 export function getMarketingPath(
   locale: SiteLocale,
-  route: "home" | "pricing" | "login" | "signup"
+  route: "home" | "pricing" | "login" | "signup" | "forgotPassword" | "resetPassword"
 ) {
   const localizedPaths = {
     home: "/",
     pricing: "/pricing",
     login: "/login",
     signup: "/signup",
+    forgotPassword: "/forgot-password",
+    resetPassword: "/reset-password",
   } as const;
 
   return withLocalePrefix(localizedPaths[route], locale);

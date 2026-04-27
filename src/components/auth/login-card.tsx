@@ -30,6 +30,7 @@ const COPY = {
     email: "Email",
     emailPlaceholder: "you@example.com",
     password: "Password",
+    forgotPassword: "Forgot password?",
     submit: "Sign in",
     submitting: "Signing in...",
     noAccount: "No account yet?",
@@ -52,6 +53,7 @@ const COPY = {
     email: "E-Mail",
     emailPlaceholder: "du@beispiel.de",
     password: "Passwort",
+    forgotPassword: "Passwort vergessen?",
     submit: "Anmelden",
     submitting: "Anmelden...",
     noAccount: "Noch kein Konto?",
@@ -219,7 +221,15 @@ export function LoginCard({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">{copy.password}</Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="password">{copy.password}</Label>
+              <Link
+                href={getMarketingPath(locale, "forgotPassword")}
+                className="text-sm font-medium text-indigo-600 hover:underline"
+              >
+                {copy.forgotPassword}
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"

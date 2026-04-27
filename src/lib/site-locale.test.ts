@@ -27,6 +27,9 @@ test("maps marketing routes per locale", () => {
   assert.equal(getMarketingPath("de", "pricing"), "/de/pricing");
   assert.equal(getMarketingPath("de", "login"), "/de/login");
   assert.equal(getMarketingPath("de", "signup"), "/de/signup");
+  assert.equal(getMarketingPath("en", "forgotPassword"), "/forgot-password");
+  assert.equal(getMarketingPath("de", "forgotPassword"), "/de/forgot-password");
+  assert.equal(getMarketingPath("de", "resetPassword"), "/de/reset-password");
 });
 
 test("converts external english routes to internal app paths", () => {
