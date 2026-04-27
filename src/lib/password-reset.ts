@@ -1,5 +1,6 @@
 import crypto from "crypto";
 
+import { canSendEmail } from "@/lib/email";
 import { withLocalePrefix, type SiteLocale } from "@/lib/site-locale";
 
 export const PASSWORD_RESET_TTL_SECONDS = 60 * 60;
@@ -82,5 +83,5 @@ export function buildPasswordResetUrl({
 export function canSendPasswordResetEmail(
   env: Record<string, string | undefined> = process.env
 ) {
-  return Boolean(env.RESEND_API_KEY?.trim() && env.EMAIL_FROM?.trim());
+  return canSendEmail(env);
 }
