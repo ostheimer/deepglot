@@ -69,13 +69,21 @@ test("sets one-hour token expiry", () => {
   assert.equal(getPasswordResetExpiresAt(now).toISOString(), "2026-04-27T13:00:00.000Z");
 });
 
-test("requires both Resend key and sender for email delivery", () => {
+test("requires Cloudflare Email Sending configuration for reset email delivery", () => {
   assert.equal(canSendPasswordResetEmail({}), false);
-  assert.equal(canSendPasswordResetEmail({ RESEND_API_KEY: "key" }), false);
+  assert.equal(canSendPasswordResetEmail({ CLOUDFLARE_ACCOUNT_ID: "account" }), false);
   assert.equal(canSendPasswordResetEmail({ EMAIL_FROM: "Deepglot <noreply@deepglot.ai>" }), false);
   assert.equal(
     canSendPasswordResetEmail({
-      RESEND_API_KEY: "key",
+      CLOUDFLARE_ACCOUNT_ID: "account",
+      CLOUDFLARE_EMAIL_API_TOKEN: "token",
+    }),
+    false
+  );
+  assert.equal(
+    canSendPasswordResetEmail({
+      CLOUDFLARE_ACCOUNT_ID: "account",
+      CLOUDFLARE_EMAIL_API_TOKEN: "token",
       EMAIL_FROM: "Deepglot <noreply@deepglot.ai>",
     }),
     true

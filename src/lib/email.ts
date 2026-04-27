@@ -1,14 +1,105 @@
-import { Resend } from "resend";
+const CLOUDFLARE_EMAIL_API_BASE_URL =
+  "https://api.cloudflare.com/client/v4/accounts";
 
-let resendClient: Resend | null = null;
+type EmailLocale = "en" | "de";
 
-function getResendClient() {
-  if (!process.env.RESEND_API_KEY?.trim()) {
+export type CloudflareEmailConfig = {
+  accountId: string;
+  apiToken: string;
+  from: string;
+};
+
+type CloudflareEmailResponse = {
+  success: boolean;
+  errors?: Array<{ code?: number; message?: string }>;
+  messages?: unknown[];
+  result?: {
+    delivered?: string[];
+    permanent_bounces?: string[];
+    queued?: string[];
+  } | null;
+};
+
+export function getCloudflareEmailConfig(
+  env: Record<string, string | undefined> = process.env
+): CloudflareEmailConfig | null {
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
+  const apiToken = env.CLOUDFLARE_EMAIL_API_TOKEN?.trim();
+  const from = env.EMAIL_FROM?.trim();
+
+  if (!accountId || !apiToken || !from) {
     return null;
   }
 
-  resendClient ??= new Resend(process.env.RESEND_API_KEY);
-  return resendClient;
+  return { accountId, apiToken, from };
+}
+
+export function canSendEmail(env: Record<string, string | undefined> = process.env) {
+  return Boolean(getCloudflareEmailConfig(env));
+}
+
+export function buildCloudflareEmailApiUrl(accountId: string) {
+  return `${CLOUDFLARE_EMAIL_API_BASE_URL}/${encodeURIComponent(accountId)}/email/sending/send`;
+}
+
+function getPasswordResetEmailCopy(locale: EmailLocale) {
+  const subject =
+    locale === "de"
+      ? "Passwort für Deepglot zurücksetzen"
+      : "Reset your Deepglot password";
+  const intro =
+    locale === "de"
+      ? "Du hast angefordert, dein Deepglot-Passwort zurückzusetzen."
+      : "You requested to reset your Deepglot password.";
+  const action = locale === "de" ? "Passwort zurücksetzen" : "Reset password";
+  const expiry =
+    locale === "de"
+      ? "Der Link ist 60 Minuten gültig. Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren."
+      : "This link is valid for 60 minutes. If you did not request this, you can ignore this email.";
+
+  return { subject, intro, action, expiry };
+}
+
+export function buildPasswordResetEmailPayload({
+  to,
+  from,
+  resetUrl,
+  locale,
+}: {
+  to: string;
+  from: string;
+  resetUrl: string;
+  locale: EmailLocale;
+}) {
+  const copy = getPasswordResetEmailCopy(locale);
+
+  return {
+    from,
+    to,
+    subject: copy.subject,
+    text: `${copy.intro}\n\n${resetUrl}\n\n${copy.expiry}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <p>${copy.intro}</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+            ${copy.action}
+          </a>
+        </p>
+        <p style="color:#4b5563">${copy.expiry}</p>
+        <p style="word-break:break-all;color:#6b7280">${resetUrl}</p>
+      </div>
+    `,
+  };
+}
+
+function formatCloudflareEmailError(response: CloudflareEmailResponse) {
+  const message = response.errors
+    ?.map((error) => error.message)
+    .filter(Boolean)
+    .join("; ");
+
+  return message || "Unknown Cloudflare Email Sending error";
 }
 
 export async function sendPasswordResetEmail({
@@ -18,50 +109,40 @@ export async function sendPasswordResetEmail({
 }: {
   to: string;
   resetUrl: string;
-  locale: "en" | "de";
+  locale: EmailLocale;
 }) {
-  const client = getResendClient();
-  const from = process.env.EMAIL_FROM?.trim();
+  const config = getCloudflareEmailConfig();
 
-  if (!client || !from) {
+  if (!config) {
     return { sent: false, reason: "email_not_configured" as const };
   }
 
-  const subject =
-    locale === "de"
-      ? "Passwort für Deepglot zurücksetzen"
-      : "Reset your Deepglot password";
-  const intro =
-    locale === "de"
-      ? "Du hast angefordert, dein Deepglot-Passwort zurückzusetzen."
-      : "You requested to reset your Deepglot password.";
-  const action =
-    locale === "de"
-      ? "Passwort zurücksetzen"
-      : "Reset password";
-  const expiry =
-    locale === "de"
-      ? "Der Link ist 60 Minuten gültig. Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren."
-      : "This link is valid for 60 minutes. If you did not request this, you can ignore this email.";
-
-  await client.emails.send({
-    from,
-    to,
-    subject,
-    text: `${intro}\n\n${resetUrl}\n\n${expiry}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-        <p>${intro}</p>
-        <p>
-          <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
-            ${action}
-          </a>
-        </p>
-        <p style="color:#4b5563">${expiry}</p>
-        <p style="word-break:break-all;color:#6b7280">${resetUrl}</p>
-      </div>
-    `,
+  const response = await fetch(buildCloudflareEmailApiUrl(config.accountId), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      buildPasswordResetEmailPayload({
+        to,
+        from: config.from,
+        resetUrl,
+        locale,
+      })
+    ),
   });
+  const data = (await response.json().catch(() => null)) as
+    | CloudflareEmailResponse
+    | null;
 
-  return { sent: true as const };
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      `Cloudflare Email Sending failed: ${
+        data ? formatCloudflareEmailError(data) : response.statusText
+      }`
+    );
+  }
+
+  return { sent: true as const, provider: "cloudflare" as const, result: data.result };
 }
