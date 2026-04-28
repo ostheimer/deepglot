@@ -16,7 +16,7 @@ export async function generateMetadata({
     ? {
         title: "WordPress Übersetzung ohne Cloud-Lock-in",
         description:
-          "Übersetze deine WordPress-Site mit DeepL und KI, behalte die Kontrolle über deine Daten und veröffentliche mehrsprachige Seiten unter /de.",
+          "Übersetze deine WordPress-Site mit modernen KI-Providern, behalte die Kontrolle über deine Daten und veröffentliche mehrsprachige Seiten unter /de.",
         alternates: {
           canonical: "/de",
           languages: {
@@ -33,7 +33,7 @@ export async function generateMetadata({
     : {
         title: "AI-powered WordPress translation without lock-in",
         description:
-          "Translate your WordPress site with DeepL and AI, keep your own data, and launch multilingual pages without cloud lock-in.",
+          "Translate your WordPress site with modern AI providers, keep your own data, and launch multilingual pages without cloud lock-in.",
         alternates: {
           canonical: "/",
           languages: {

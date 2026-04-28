@@ -48,6 +48,7 @@ export async function validateApiKey(rawKey: string) {
             include: { subscription: true },
           },
           languages: true,
+          settings: true,
         },
       },
     },

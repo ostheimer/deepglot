@@ -329,7 +329,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <div className="absolute top-3 right-3 bg-white/10 rounded-full px-2 py-0.5 flex items-center gap-1">
               <Zap className="h-3 w-3 text-yellow-400" />
-              <span className="text-xs text-white font-medium">DeepL powered</span>
+              <span className="text-xs text-white font-medium">AI powered</span>
             </div>
           </div>
 

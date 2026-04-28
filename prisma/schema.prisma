@@ -234,6 +234,11 @@ model ProjectSettings {
   translationMemory       Boolean  @default(false)
   websiteType             String?  // Blog, Corporate, E-Commerce, etc.
   industryType            String?  // Health & medical, etc.
+  translationProvider     String?  // openai, openrouter, ollama, openai-compatible, deepl, mock
+  translationModel        String?
+  translationBaseUrl      String?
+  translationApiKeyEncrypted String?
+  translationApiKeyUpdatedAt DateTime?
   routingMode             RoutingMode @default(PATH_PREFIX)
   runtimeSyncedAt         DateTime?
 

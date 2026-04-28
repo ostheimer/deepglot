@@ -16,18 +16,19 @@ test("counts words for usage tracking", () => {
 test("prefers an explicitly configured translation provider", () => {
   assert.equal(
     resolveTranslationProvider({
-      TRANSLATION_PROVIDER: "deepl",
+      TRANSLATION_PROVIDER: "openrouter",
       OPENAI_API_KEY: "openai-key",
       DEEPL_API_KEY: "deepl-key",
     }),
-    "deepl"
+    "openrouter"
   );
 });
 
-test("auto-selects OpenAI before DeepL when no provider is configured", () => {
+test("auto-selects OpenAI before OpenRouter and DeepL when no provider is configured", () => {
   assert.equal(
     resolveTranslationProvider({
       OPENAI_API_KEY: "openai-key",
+      OPENROUTER_API_KEY: "openrouter-key",
       DEEPL_API_KEY: "deepl-key",
     }),
     "openai"
@@ -43,7 +44,7 @@ test("rejects unknown translation providers early", () => {
     () => resolveTranslationProvider({ TRANSLATION_PROVIDER: "foobar" }),
     {
       message:
-        "Unbekannter TRANSLATION_PROVIDER 'foobar'. Erlaubt sind: openai, deepl, mock.",
+        "Unknown TRANSLATION_PROVIDER 'foobar'. Allowed providers: openai, openrouter, ollama, openai-compatible, deepl, mock.",
     }
   );
 });
@@ -76,7 +77,7 @@ test("openai provider fails clearly when the API key is missing", async () => {
         { TRANSLATION_PROVIDER: "openai" }
       ),
     {
-      message: "OPENAI_API_KEY ist nicht konfiguriert.",
+      message: "OpenAI API key is not configured.",
     }
   );
 });

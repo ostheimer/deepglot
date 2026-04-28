@@ -11,7 +11,7 @@ import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 const FEATURE_ICONS = {
   fast: Zap,
   control: Lock,
-  deepl: Globe,
+  model: Globe,
   plugin: Code,
   seo: Check,
   selfHosted: Globe,
@@ -57,10 +57,10 @@ const MARKETING_COPY = {
           "Translations are stored in your own database. No lock-in, exportable at any time.",
       },
       {
-        icon: FEATURE_ICONS.deepl,
-        title: "DeepL-quality output",
+        icon: FEATURE_ICONS.model,
+        title: "Provider-flexible AI output",
         description:
-          "High-quality translations powered by DeepL, with optional OpenAI support for context-sensitive content.",
+          "High-quality translations powered by current OpenAI models by default, with OpenRouter, Ollama, OpenAI-compatible gateways, and optional DeepL support.",
       },
       {
         icon: FEATURE_ICONS.plugin,
@@ -95,13 +95,13 @@ const MARKETING_COPY = {
     },
     planFeatures: {
       FREE: ["10,000 words/month", "1 project", "2 languages", "Community support"],
-      STARTER: ["200,000 words/month", "5 projects", "10 languages", "Email support", "DeepL quality"],
+      STARTER: ["200,000 words/month", "5 projects", "10 languages", "Email support", "Modern AI translation"],
       PROFESSIONAL: [
         "1,000,000 words/month",
         "Unlimited projects",
         "All languages",
         "Priority support",
-        "DeepL + OpenAI",
+        "Provider selection",
         "Visual editor",
       ],
       ENTERPRISE: [
@@ -152,10 +152,10 @@ const MARKETING_COPY = {
           "Übersetzungen werden in deiner eigenen Datenbank gespeichert. Kein Lock-in, jederzeit exportierbar.",
       },
       {
-        icon: FEATURE_ICONS.deepl,
-        title: "DeepL-Qualität",
+        icon: FEATURE_ICONS.model,
+        title: "Flexible KI-Qualität",
         description:
-          "Die beste verfügbare Übersetzungsqualität powered by DeepL, optional mit OpenAI für kontextsensitive Inhalte.",
+          "Hochwertige Übersetzungen standardmäßig mit aktuellen OpenAI-Modellen, optional über OpenRouter, Ollama, OpenAI-kompatible Gateways oder DeepL.",
       },
       {
         icon: FEATURE_ICONS.plugin,
@@ -190,13 +190,13 @@ const MARKETING_COPY = {
     },
     planFeatures: {
       FREE: ["10.000 Wörter/Monat", "1 Projekt", "2 Sprachen", "Community Support"],
-      STARTER: ["200.000 Wörter/Monat", "5 Projekte", "10 Sprachen", "E-Mail Support", "DeepL Qualität"],
+      STARTER: ["200.000 Wörter/Monat", "5 Projekte", "10 Sprachen", "E-Mail Support", "Moderne KI-Übersetzung"],
       PROFESSIONAL: [
         "1.000.000 Wörter/Monat",
         "Unbegrenzte Projekte",
         "Alle Sprachen",
         "Prioritäts-Support",
-        "DeepL + OpenAI",
+        "Provider-Auswahl",
         "Visueller Editor",
       ],
       ENTERPRISE: [
