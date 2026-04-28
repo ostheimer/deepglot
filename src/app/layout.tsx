@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   keywords: [
     "WordPress translation",
     "multilingual website",
-    "DeepL WordPress",
+    "AI WordPress translation",
     "open source translation",
     "WordPress translation plugin",
   ],

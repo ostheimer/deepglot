@@ -153,10 +153,12 @@ export async function POST(req: NextRequest) {
     // Skip translation for bots (except human and unknown)
     // This matches the legacy client behavior - still cache but skip external translation for bots
     const isBot = bot >= BotType.GOOGLE;
-    const providerName = isBot ? "bot" : resolveTranslationProvider();
 
     // 4. Validate target language
     const project = apiKeyRecord.project;
+    const providerName = isBot
+      ? "bot"
+      : resolveTranslationProvider(undefined, project.settings);
     const allowedLangs = project.languages.map((l) => l.langCode.toLowerCase());
 
     if (!allowedLangs.includes(l_to.toLowerCase())) {
@@ -282,11 +284,15 @@ export async function POST(req: NextRequest) {
 
     // 7. Translate uncached strings via the configured provider.
     if (pendingTranslations.length > 0 && !isBot) {
-      const results = await translateTexts({
-        texts: pendingTranslations.map((item) => item.protectedText),
-        sourceLang: l_from,
-        targetLang: l_to,
-      });
+      const results = await translateTexts(
+        {
+          texts: pendingTranslations.map((item) => item.protectedText),
+          sourceLang: l_from,
+          targetLang: l_to,
+        },
+        undefined,
+        project.settings,
+      );
 
       const enabledTranslationWebhookEvents = await db.webhookEndpoint.findMany(
         {

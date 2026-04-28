@@ -1,5 +1,10 @@
 import { translateWithDeepL } from "@/lib/deepl";
-import { translateWithOpenAI } from "@/lib/openai";
+import { translateWithOpenAICompatible } from "@/lib/openai";
+import {
+  resolveTranslationProviderConfig,
+  validateTranslationProviderConfig,
+  type TranslationSettingsLike,
+} from "@/lib/translation-config";
 import type {
   TranslateTextsInput,
   TranslationEnv,
@@ -7,12 +12,6 @@ import type {
   TranslationResult,
 } from "@/lib/translation-types";
 export { countWords } from "@/lib/translation-types";
-
-const VALID_TRANSLATION_PROVIDERS = new Set<TranslationProviderName>([
-  "deepl",
-  "mock",
-  "openai",
-]);
 
 function translateWithMock({
   texts,
@@ -35,51 +34,31 @@ function translateWithMock({
 }
 
 export function resolveTranslationProvider(
-  env: TranslationEnv = process.env
+  env: TranslationEnv = process.env,
+  settings?: TranslationSettingsLike | null
 ): TranslationProviderName {
-  const configuredProvider = env.TRANSLATION_PROVIDER?.trim().toLowerCase();
-
-  if (configuredProvider) {
-    if (VALID_TRANSLATION_PROVIDERS.has(configuredProvider as TranslationProviderName)) {
-      return configuredProvider as TranslationProviderName;
-    }
-
-    throw new Error(
-      `Unbekannter TRANSLATION_PROVIDER '${configuredProvider}'. Erlaubt sind: openai, deepl, mock.`
-    );
-  }
-
-  if (env.OPENAI_API_KEY) {
-    return "openai";
-  }
-
-  if (env.DEEPL_API_KEY) {
-    return "deepl";
-  }
-
-  if (env.NODE_ENV === "development" || env.NODE_ENV === "test") {
-    return "mock";
-  }
-
-  throw new Error(
-    "Kein Uebersetzungs-Provider konfiguriert. Setze TRANSLATION_PROVIDER oder OPENAI_API_KEY / DEEPL_API_KEY."
-  );
+  return resolveTranslationProviderConfig({ settings, env }).provider;
 }
 
 export async function translateTexts(
   input: TranslateTextsInput,
-  env: TranslationEnv = process.env
+  env: TranslationEnv = process.env,
+  settings?: TranslationSettingsLike | null
 ): Promise<TranslationResult[]> {
-  const provider = resolveTranslationProvider(env);
+  const config = resolveTranslationProviderConfig({ settings, env });
 
-  switch (provider) {
+  switch (config.provider) {
     case "openai":
-      return translateWithOpenAI(input, env);
+    case "openrouter":
+    case "ollama":
+    case "openai-compatible":
+      return translateWithOpenAICompatible(input, config);
     case "deepl":
-      return translateWithDeepL(input, env);
+      validateTranslationProviderConfig(config);
+      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey });
     case "mock":
       return translateWithMock(input);
     default:
-      throw new Error(`Provider '${provider}' wird nicht unterstuetzt.`);
+      throw new Error(`Provider '${config.provider}' is not supported.`);
   }
 }

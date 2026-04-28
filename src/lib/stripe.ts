@@ -29,7 +29,7 @@ export const PLANS = {
       "5 Projekte",
       "10 Sprachen",
       "E-Mail Support",
-      "DeepL Qualität",
+      "Moderne KI-Übersetzung",
     ],
   },
   PROFESSIONAL: {
@@ -42,7 +42,7 @@ export const PLANS = {
       "Unbegrenzte Projekte",
       "Alle Sprachen",
       "Prioritäts-Support",
-      "DeepL + OpenAI",
+      "Provider-Auswahl",
       "Visueller Editor",
     ],
   },

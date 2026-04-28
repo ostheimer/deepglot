@@ -9,7 +9,13 @@ export type TranslateTextsInput = {
   targetLang: string;
 };
 
-export type TranslationProviderName = "deepl" | "openai" | "mock";
+export type TranslationProviderName =
+  | "deepl"
+  | "mock"
+  | "ollama"
+  | "openai"
+  | "openai-compatible"
+  | "openrouter";
 
 export type TranslationEnv = Record<string, string | undefined>;
 
