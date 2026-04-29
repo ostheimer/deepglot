@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { TranslationRequestsChart } from "@/components/statistiken/translation-requests-chart";
+import { AnalyticsRangeSelector } from "@/components/statistiken/analytics-range-selector";
 import {
   eachDayOfInterval,
   format,
@@ -121,22 +122,11 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           {locale === "de" ? "Übersetzungsanfragen" : "Translation requests"}
         </h2>
 
-        {/* Time range selector */}
-        <form method="get">
-          <input type="hidden" name="ansicht" value={ansicht} />
-          <select
-            name="zeitraum"
-            defaultValue={zeitraum}
-            onChange={(event) => event.currentTarget.form?.submit()}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            {zeitraumOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </form>
+        <AnalyticsRangeSelector
+          ansicht={ansicht}
+          zeitraum={zeitraum}
+          options={zeitraumOptions}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">

@@ -29,8 +29,8 @@ export function getEditorSessionSecret(
   env: Record<string, string | undefined> = process.env
 ) {
   const configured =
-    env.DEEPGLOT_EDITOR_SECRET?.trim() ??
-    env.AUTH_SECRET?.trim() ??
+    env.DEEPGLOT_EDITOR_SECRET?.trim() ||
+    env.AUTH_SECRET?.trim() ||
     env.NEXTAUTH_SECRET?.trim();
 
   if (configured) {

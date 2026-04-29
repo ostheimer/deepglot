@@ -376,6 +376,11 @@ export function GlossaryTable({
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0"
+                  aria-label={
+                    locale === "de"
+                      ? `Glossarregel ${rule.originalTerm} bearbeiten`
+                      : `Edit glossary rule ${rule.originalTerm}`
+                  }
                   onClick={() => openEditDialog(rule)}
                 >
                   <Edit2 className="h-3.5 w-3.5 text-gray-500" />
@@ -385,6 +390,11 @@ export function GlossaryTable({
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0"
+                  aria-label={
+                    locale === "de"
+                      ? `Glossarregel ${rule.originalTerm} löschen`
+                      : `Delete glossary rule ${rule.originalTerm}`
+                  }
                   onClick={() => void handleDelete(rule)}
                 >
                   <Trash2 className="h-3.5 w-3.5 text-gray-500 hover:text-red-500" />

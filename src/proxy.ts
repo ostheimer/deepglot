@@ -67,11 +67,15 @@ export default auth((req) => {
   }
 
   const localeParam = nextUrl.searchParams.get("__locale");
+  const isInternalLocaleRewrite =
+    localeParam === "de" || localeParam === "en";
   const locale =
-    localeParam === "de" || localeParam === "en"
+    isInternalLocaleRewrite
       ? localeParam
       : getDocumentLocale(nextUrl.pathname);
-  const legacyRedirect = getLegacyPublicRedirect(nextUrl.pathname);
+  const legacyRedirect = isInternalLocaleRewrite
+    ? null
+    : getLegacyPublicRedirect(nextUrl.pathname);
 
   if (legacyRedirect) {
     const redirectUrl = createSameOriginUrl(legacyRedirect, req);
