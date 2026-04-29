@@ -12,7 +12,7 @@
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "test": "node --import tsx --test src/lib/*.test.ts",
     "test:e2e": "playwright test",
-    "test:wp": "for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done",
+    "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done",
     "test:e2e:headed": "playwright test --headed",
     "smoke:production": "node --import tsx scripts/production-smoke.ts",
     "postinstall": "prisma generate"
