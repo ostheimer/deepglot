@@ -23,6 +23,10 @@ class SettingsSync
 
     public function handleOptionUpdate($oldValue, $newValue): void
     {
+        if (!empty($GLOBALS['deepglot_applying_runtime_config'])) {
+            return;
+        }
+
         if (!is_array($newValue)) {
             return;
         }
@@ -48,6 +52,44 @@ class SettingsSync
             return new \WP_Error('deepglot_sync_missing_languages', __('Keine Zielsprachen für die Synchronisierung konfiguriert.', 'deepglot'));
         }
 
-        return $this->client->syncSettings($normalized, $apiKeyOverride, $baseUrlOverride);
+        $settingsResult = $this->client->syncSettings($normalized, $apiKeyOverride, $baseUrlOverride);
+
+        if (is_wp_error($settingsResult)) {
+            return $settingsResult;
+        }
+
+        $runtimeResult = $this->refreshRuntimeConfig($apiKeyOverride, $baseUrlOverride, true);
+
+        return is_wp_error($runtimeResult) ? $runtimeResult : $settingsResult;
+    }
+
+    public function maybeRefreshRuntimeConfig(): void
+    {
+        if (!$this->options->shouldRefreshRuntimeConfig()) {
+            return;
+        }
+
+        $result = $this->refreshRuntimeConfig();
+
+        if (is_wp_error($result)) {
+            error_log('[Deepglot] Runtime config sync failed: ' . $result->get_error_message());
+        }
+    }
+
+    public function refreshRuntimeConfig(?string $apiKeyOverride = null, ?string $baseUrlOverride = null, bool $force = false)
+    {
+        if (!$force && !$this->options->shouldRefreshRuntimeConfig()) {
+            return ['ok' => true, 'skipped' => true];
+        }
+
+        $runtimeConfig = $this->client->fetchRuntimeConfig($apiKeyOverride, $baseUrlOverride);
+
+        if (is_wp_error($runtimeConfig)) {
+            return $runtimeConfig;
+        }
+
+        $this->options->applyRuntimeConfig($runtimeConfig);
+
+        return $runtimeConfig;
     }
 }

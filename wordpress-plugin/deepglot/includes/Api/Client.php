@@ -93,6 +93,25 @@ class Client
         );
     }
 
+    public function fetchRuntimeConfig(?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
+    {
+        $apiKey = $apiKeyOverride !== null ? trim($apiKeyOverride) : trim($this->options->getApiKey());
+        $baseUrl = $baseUrlOverride !== null
+            ? untrailingslashit((string) $baseUrlOverride)
+            : $this->options->getApiBaseUrl();
+
+        if ($apiKey === '') {
+            return new \WP_Error('deepglot_runtime_config_missing_key', __('Kein API-Key für die Runtime-Konfiguration vorhanden.', 'deepglot'));
+        }
+
+        return $this->request(
+            'GET',
+            '/plugin/runtime-config?api_key=' . rawurlencode($apiKey),
+            null,
+            $baseUrl
+        );
+    }
+
     private function request(string $method, string $path, ?array $payload = null, ?string $baseUrl = null)
     {
         $url = untrailingslashit((string) ($baseUrl ?? $this->options->getApiBaseUrl())) . $path;

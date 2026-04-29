@@ -24,6 +24,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   memberships   OrganizationMember[]
+  projectMemberships ProjectMember[]
+  sentProjectInvitations ProjectInvitation[]
 }
 
 model Account {
@@ -131,6 +133,7 @@ model Project {
   translatedUrls TranslatedUrl[]
   settings       ProjectSettings?
   members        ProjectMember[]
+  invitations    ProjectInvitation[]
   domainMappings ProjectDomainMapping[]
   translationBatchLogs TranslationBatchLog[]
   webhookEndpoints WebhookEndpoint[]
@@ -280,14 +283,37 @@ model ProjectMember {
   createdAt DateTime    @default(now())
 
   projectId String
+  userId    String?
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, email])
+  @@index([userId])
 }
 
 enum ProjectRole {
   ADMIN
   TRANSLATOR
+}
+
+model ProjectInvitation {
+  id         String      @id @default(cuid())
+  email      String
+  role       ProjectRole @default(TRANSLATOR)
+  langCode   String?
+  tokenHash  String      @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime    @default(now())
+
+  projectId String
+  inviterId String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter User    @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, email])
+  @@index([expiresAt])
 }
 
 // ─── Glossary Rules ───────────────────────────────────────────────────────

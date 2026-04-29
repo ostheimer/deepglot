@@ -159,8 +159,17 @@ class HtmlTranslator
         );
         $skipExpr = implode(' or ', $skipConditions);
 
-        // Also skip nodes that carry translate="no".
-        $expr = '//text()[not(' . $skipExpr . ') and not(ancestor-or-self::*[@translate="no"])]';
+        $conditions = [
+            'not(' . $skipExpr . ')',
+            'not(ancestor-or-self::*[@translate="no"])',
+        ];
+        $excludedSelectorExpr = $this->excludedSelectorXPathExpression();
+
+        if ($excludedSelectorExpr !== '') {
+            $conditions[] = 'not(' . $excludedSelectorExpr . ')';
+        }
+
+        $expr = '//text()[' . implode(' and ', $conditions) . ']';
 
         $textNodes = $xpath->query($expr);
 
@@ -191,6 +200,38 @@ class HtmlTranslator
         }
 
         return $result;
+    }
+
+    private function excludedSelectorXPathExpression(): string
+    {
+        $conditions = [];
+
+        foreach ($this->options->getExcludedSelectors() as $selector) {
+            if (str_starts_with($selector, '.') && strlen($selector) > 1) {
+                $className = substr($selector, 1);
+                $conditions[] = 'ancestor-or-self::*[contains(concat(" ", normalize-space(@class), " "), ' . $this->xpathLiteral(' ' . $className . ' ') . ')]';
+            } elseif (str_starts_with($selector, '#') && strlen($selector) > 1) {
+                $id = substr($selector, 1);
+                $conditions[] = 'ancestor-or-self::*[@id = ' . $this->xpathLiteral($id) . ']';
+            }
+        }
+
+        return implode(' or ', $conditions);
+    }
+
+    private function xpathLiteral(string $value): string
+    {
+        if (!str_contains($value, "'")) {
+            return "'" . $value . "'";
+        }
+
+        if (!str_contains($value, '"')) {
+            return '"' . $value . '"';
+        }
+
+        $parts = explode("'", $value);
+
+        return "concat('" . implode("', \"'\", '", $parts) . "')";
     }
 
     private function loadHtml(string $html): \DOMDocument
