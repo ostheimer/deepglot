@@ -75,7 +75,7 @@ jobs:
         run: npm run build
 
       - name: Prepare Playwright database
-        run: npx prisma db push --skip-generate
+        run: npx prisma db push
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
