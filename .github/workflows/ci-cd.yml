@@ -71,6 +71,15 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Run WordPress PHP tests
+        run: npm run test:wp
+
       - name: Build application
         run: npm run build
 

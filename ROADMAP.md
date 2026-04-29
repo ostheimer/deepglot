@@ -175,7 +175,7 @@ Next.js App (Vercel)          WordPress Plugin
 | 7.2 | Production acceptance checklist and repeatable smoke script | ✅ Completed |
 | 7.3 | Live WordPress acceptance on `meinhaushalt.at` using the current plugin build | ✅ Completed |
 | 7.4 | Phase 6 Playwright coverage for glossary, import/export, analytics, webhooks, and visual editor | ✅ Completed |
-| 7.5 | WordPress PHP coverage for subdomain routing, browser redirect edge cases, and WooCommerce email translation | ⏳ Open |
+| 7.5 | WordPress PHP coverage for subdomain routing, browser redirect edge cases, and WooCommerce email translation | ✅ Completed |
 | 7.6 | Production observability: webhook cron monitoring, failed delivery visibility, and operational runbook | ⏳ Open |
 | 7.7 | Persistent API rate limiting and abuse controls for multi-instance production traffic | ⏳ Open |
 | 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | ⏳ Open |
