@@ -216,6 +216,62 @@ async function ensureTestProjectSeed(
     });
   }
 
+  await db.translationBatchLog.deleteMany({
+    where: {
+      projectId,
+      requestUrl: {
+        startsWith: "https://e2e.deepglot.local/",
+      },
+    },
+  });
+
+  await db.translationBatchLog.createMany({
+    data: [
+      {
+        organizationId,
+        projectId,
+        langFrom: "de",
+        langTo: "en",
+        requestUrl: "https://e2e.deepglot.local/preise",
+        provider: "openai",
+        totalWords: 120,
+        cachedWords: 10,
+        manualWords: 0,
+        glossaryWords: 20,
+        translatedWords: 90,
+        createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+      },
+      {
+        organizationId,
+        projectId,
+        langFrom: "de",
+        langTo: "en",
+        requestUrl: "https://e2e.deepglot.local/kontakt",
+        provider: "manual",
+        totalWords: 8,
+        cachedWords: 0,
+        manualWords: 8,
+        glossaryWords: 0,
+        translatedWords: 0,
+        createdAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      },
+      {
+        organizationId,
+        projectId,
+        langFrom: "de",
+        langTo: "fr",
+        requestUrl: "https://e2e.deepglot.local/import",
+        provider: "import",
+        totalWords: 12,
+        cachedWords: 0,
+        manualWords: 12,
+        glossaryWords: 0,
+        translatedWords: 0,
+        createdAt: now,
+      },
+    ],
+  });
+
   const currentMonth = parseInt(
     new Date().toISOString().slice(0, 7).replace("-", "")
   );

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 const webServerCommand =
   process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ??
   "npm run build && npm run start -- --hostname 127.0.0.1 --port 3000";
@@ -18,6 +18,11 @@ const webServerEnv: Record<string, string> = {
   AUTH_URL: process.env.PLAYWRIGHT_AUTH_URL ?? baseURL,
   NEXTAUTH_URL: process.env.PLAYWRIGHT_AUTH_URL ?? baseURL,
   NEXT_PUBLIC_APP_URL: process.env.PLAYWRIGHT_APP_URL ?? baseURL,
+  DEEPGLOT_ENABLE_TEST_LOGIN:
+    process.env.DEEPGLOT_ENABLE_TEST_LOGIN ?? "true",
+  TEST_LOGIN_PROJECT_DOMAIN:
+    process.env.TEST_LOGIN_PROJECT_DOMAIN ?? "localhost:3000",
+  TRANSLATION_PROVIDER: process.env.TRANSLATION_PROVIDER ?? "mock",
   VERCEL: process.env.PLAYWRIGHT_KEEP_VERCEL_ENV
     ? process.env.VERCEL ?? ""
     : "",

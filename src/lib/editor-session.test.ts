@@ -51,3 +51,12 @@ test("uses a development fallback editor secret in test mode", () => {
 
   assert.equal(secret, "deepglot-editor-local-development-secret");
 });
+
+test("ignores empty editor secret before falling back to auth secret", () => {
+  const secret = getEditorSessionSecret({
+    DEEPGLOT_EDITOR_SECRET: " ",
+    AUTH_SECRET: "auth-secret",
+  });
+
+  assert.equal(secret, "auth-secret");
+});

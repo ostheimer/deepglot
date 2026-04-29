@@ -103,6 +103,12 @@ export async function POST(
       eventTypes: parsed.data.eventTypes,
       secret: crypto.randomBytes(24).toString("hex"),
     },
+    include: {
+      deliveries: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+    },
   });
 
   return NextResponse.json({ endpoint }, { status: 201 });

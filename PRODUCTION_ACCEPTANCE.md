@@ -107,7 +107,7 @@ Known follow-up:
 
 ## Hardening Backlog
 
-- Expand Playwright coverage for Phase 6 dashboard flows: glossary, import/export, analytics, webhooks, and visual editor.
+- Maintain the Phase 6 Playwright coverage for dashboard flows: glossary, import/export, analytics, webhooks, and visual editor.
 - Add WordPress PHPUnit-style coverage for WooCommerce email translation and subdomain routing edge cases.
 - Move API rate limiting from in-memory process state to shared storage before real multi-tenant traffic.
 - Verify Vercel Cron authorization for `/api/webhooks/process` in Production and monitor failed webhook deliveries.
