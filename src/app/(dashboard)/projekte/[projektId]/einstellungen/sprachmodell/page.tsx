@@ -4,6 +4,7 @@ import { Cpu, ShieldCheck, Sparkles } from "lucide-react";
 import { LanguageModelSettingsCard } from "@/components/projekte/language-model-settings-card";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { userCanManageProject } from "@/lib/project-access";
 import { getRequestLocale } from "@/lib/request-locale";
 import {
   TRANSLATION_PROVIDERS,
@@ -24,11 +25,12 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
   }
 
   const { projektId } = await params;
+  if (!(await userCanManageProject(session.user.id, projektId))) {
+    notFound();
+  }
+
   const project = await db.project.findFirst({
-    where: {
-      id: projektId,
-      organization: { members: { some: { userId: session.user.id } } },
-    },
+    where: { id: projektId },
     include: { settings: true },
   });
 

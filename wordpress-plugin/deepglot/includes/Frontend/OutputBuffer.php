@@ -2,6 +2,7 @@
 
 namespace Deepglot\Frontend;
 
+use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
@@ -48,6 +49,12 @@ class OutputBuffer
         $targetLanguage = $this->detectTargetLanguage();
 
         if ($targetLanguage === null) {
+            return;
+        }
+
+        $this->maybeRefreshRuntimeConfig();
+
+        if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
             return;
         }
 
@@ -135,6 +142,34 @@ class OutputBuffer
         $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
         return $this->routing->detectLanguage($uri, $host);
+    }
+
+    private function maybeRefreshRuntimeConfig(): void
+    {
+        if (!$this->options->shouldRefreshRuntimeConfig()) {
+            return;
+        }
+
+        $client = new Client($this->options);
+        $runtimeConfig = $client->fetchRuntimeConfig();
+
+        if (is_wp_error($runtimeConfig)) {
+            error_log('[Deepglot] Runtime config sync failed: ' . $runtimeConfig->get_error_message());
+            return;
+        }
+
+        $this->options->applyRuntimeConfig($runtimeConfig);
+    }
+
+    private function currentRequestUrl(): string
+    {
+        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+
+        if (function_exists('home_url')) {
+            return home_url($uri);
+        }
+
+        return $uri;
     }
 
     private function loadDocument(string $html): \DOMDocument

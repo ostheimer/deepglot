@@ -31,6 +31,27 @@ export type TranslationProviderConfig = {
   apiKey?: string;
 };
 
+export type LanguageModelApiResponse = {
+  settings: {
+    provider: string | null;
+    model: string | null;
+    baseUrl: string | null;
+    hasProjectApiKey: boolean;
+  };
+  effective: {
+    provider: TranslationProviderName;
+    providerLabel: string;
+    model: string | null;
+    baseUrl: string | null;
+    hasApiKey: boolean;
+  };
+  providers?: Array<{
+    id: TranslationProviderName;
+    label: string;
+    recommendedModels: string[];
+  }>;
+};
+
 function clean(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
@@ -106,6 +127,42 @@ export function getRecommendedModels(provider: TranslationProviderName) {
     case "mock":
       return [];
   }
+}
+
+export function serializeLanguageModelApiResponse({
+  settings,
+  effective,
+  includeProviders = false,
+}: {
+  settings: TranslationSettingsLike | null | undefined;
+  effective: TranslationProviderConfig;
+  includeProviders?: boolean;
+}): LanguageModelApiResponse {
+  const payload: LanguageModelApiResponse = {
+    settings: {
+      provider: settings?.translationProvider ?? null,
+      model: settings?.translationModel ?? null,
+      baseUrl: settings?.translationBaseUrl ?? null,
+      hasProjectApiKey: Boolean(settings?.translationApiKeyEncrypted),
+    },
+    effective: {
+      provider: effective.provider,
+      providerLabel: getProviderLabel(effective.provider),
+      model: effective.model ?? null,
+      baseUrl: effective.baseUrl ?? null,
+      hasApiKey: Boolean(effective.apiKey),
+    },
+  };
+
+  if (includeProviders) {
+    payload.providers = TRANSLATION_PROVIDERS.map((provider) => ({
+      id: provider,
+      label: getProviderLabel(provider),
+      recommendedModels: getRecommendedModels(provider),
+    }));
+  }
+
+  return payload;
 }
 
 export function resolveTranslationProviderConfig({

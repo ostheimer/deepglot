@@ -6,6 +6,7 @@ import {
   DEFAULT_OPENAI_TRANSLATION_MODEL,
   normalizeTranslationProvider,
   resolveTranslationProviderConfig,
+  serializeLanguageModelApiResponse,
   validateTranslationProviderConfig,
 } from "@/lib/translation-config";
 
@@ -51,6 +52,44 @@ test("prefers project language model settings over environment defaults", () => 
     baseUrl: "https://openrouter.ai/api/v1",
     apiKey: "project-key",
   });
+});
+
+test("serializes GET and PATCH language-model API payloads without key material", () => {
+  const encrypted = encryptSecret("project-api-key", secretEnv);
+  const settings = {
+    translationProvider: "openrouter",
+    translationModel: "openai/gpt-5.5",
+    translationBaseUrl: "https://openrouter.ai/api/v1",
+    translationApiKeyEncrypted: encrypted,
+  };
+  const effective = resolveTranslationProviderConfig({
+    settings,
+    env: {
+      ...secretEnv,
+      TRANSLATION_PROVIDER: "openai",
+      OPENAI_API_KEY: "workspace-api-key",
+    },
+  });
+
+  const getPayload = serializeLanguageModelApiResponse({
+    settings,
+    effective,
+    includeProviders: true,
+  });
+  const patchPayload = serializeLanguageModelApiResponse({ settings, effective });
+
+  for (const payload of [getPayload, patchPayload]) {
+    const json = JSON.stringify(payload);
+
+    assert.equal(json.includes("project-api-key"), false);
+    assert.equal(json.includes("workspace-api-key"), false);
+    assert.equal(json.includes(encrypted), false);
+    assert.equal(payload.settings.hasProjectApiKey, true);
+    assert.equal(payload.effective.hasApiKey, true);
+    assert.equal("apiKey" in payload.effective, false);
+  }
+  assert.ok(getPayload.providers?.some((provider) => provider.id === "openrouter"));
+  assert.equal(patchPayload.providers, undefined);
 });
 
 test("supports Ollama without a dedicated API key", () => {

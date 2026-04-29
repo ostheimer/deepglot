@@ -184,6 +184,7 @@ export function LanguageModelSettingsCard({
           <Label htmlFor="translationProvider">{copy.provider}</Label>
           <select
             id="translationProvider"
+            data-testid="translation-provider-select"
             value={provider}
             onChange={(event) => setProvider(event.target.value)}
             className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -266,7 +267,7 @@ export function LanguageModelSettingsCard({
 
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
           <p className="font-semibold text-gray-900">{copy.currentRuntime}</p>
-          <p className="mt-1 text-gray-600">
+          <p className="mt-1 text-gray-600" data-testid="translation-runtime-provider">
             {effective.providerLabel}
             {effective.model ? ` · ${effective.model}` : ""}
           </p>

@@ -65,6 +65,27 @@ test("mock provider returns visible placeholder translations", async () => {
   ]);
 });
 
+test("uses project provider settings when translating even if the environment provider differs", async () => {
+  const result = await translateTexts(
+    {
+      texts: ["Hello world"],
+      sourceLang: "en",
+      targetLang: "de",
+    },
+    {
+      TRANSLATION_PROVIDER: "openai",
+      OPENAI_API_KEY: "workspace-openai-key",
+    },
+    {
+      translationProvider: "mock",
+    }
+  );
+
+  assert.deepEqual(result, [
+    { detectedSourceLanguage: "EN", text: "[de] Hello world" },
+  ]);
+});
+
 test("openai provider fails clearly when the API key is missing", async () => {
   await assert.rejects(
     () =>

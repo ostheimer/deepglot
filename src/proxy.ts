@@ -13,6 +13,11 @@ import {
 
 const { auth } = NextAuth(authConfig);
 
+type ProxyRequest = {
+  headers: Headers;
+  nextUrl: URL;
+};
+
 function upsertCookieHeader(headerValue: string | null, locale: "en" | "de") {
   const parts = (headerValue ?? "")
     .split(/;\s*/)
@@ -31,6 +36,23 @@ function withLocaleCookie(response: NextResponse, locale: "en" | "de") {
   });
 
   return response;
+}
+
+function getRequestOrigin(req: ProxyRequest) {
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  if (!host) {
+    return req.nextUrl.origin;
+  }
+
+  const protocol =
+    req.headers.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+
+  return `${protocol}://${host}`;
+}
+
+function createSameOriginUrl(pathname: string, req: ProxyRequest) {
+  return new URL(pathname, getRequestOrigin(req));
 }
 
 export default auth((req) => {
@@ -52,7 +74,7 @@ export default auth((req) => {
   const legacyRedirect = getLegacyPublicRedirect(nextUrl.pathname);
 
   if (legacyRedirect) {
-    const redirectUrl = new URL(legacyRedirect, nextUrl);
+    const redirectUrl = createSameOriginUrl(legacyRedirect, req);
     redirectUrl.search = nextUrl.search;
     return withLocaleCookie(NextResponse.redirect(redirectUrl), locale);
   }
@@ -60,7 +82,7 @@ export default auth((req) => {
   const redirectPath = getAuthRedirect(nextUrl.pathname, !!session?.user);
 
   if (redirectPath) {
-    const redirectUrl = new URL(redirectPath, nextUrl);
+    const redirectUrl = createSameOriginUrl(redirectPath, req);
     redirectUrl.search = nextUrl.search;
     return withLocaleCookie(NextResponse.redirect(redirectUrl), locale);
   }
@@ -71,7 +93,7 @@ export default auth((req) => {
   requestHeaders.set("cookie", upsertCookieHeader(req.headers.get("cookie"), locale));
 
   if (internalPath !== nextUrl.pathname) {
-    const rewriteUrl = new URL(internalPath, nextUrl);
+    const rewriteUrl = createSameOriginUrl(internalPath, req);
     rewriteUrl.search = nextUrl.search;
     rewriteUrl.searchParams.set("__locale", locale);
 
