@@ -14,6 +14,20 @@ jobs:
     name: Verify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: deepglot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d deepglot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_WEB_SERVER_COMMAND: "npm run start -- --hostname 127.0.0.1 --port 3000"
@@ -23,8 +37,8 @@ jobs:
       AUTH_GITHUB_SECRET: "ci-github-secret"
       AUTH_GOOGLE_ID: "ci-google-id"
       AUTH_GOOGLE_SECRET: "ci-google-secret"
-      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/deepglot?sslmode=require"
-      DATABASE_URL_UNPOOLED: "postgresql://ci:ci@127.0.0.1:5432/deepglot?sslmode=require"
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/deepglot?sslmode=disable"
+      DATABASE_URL_UNPOOLED: "postgresql://ci:ci@127.0.0.1:5432/deepglot?sslmode=disable"
       STRIPE_SECRET_KEY: "sk_test_ci"
       STRIPE_WEBHOOK_SECRET: "whsec_ci"
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_ci"
@@ -32,7 +46,7 @@ jobs:
       STRIPE_PRICE_PROFESSIONAL_MONTHLY: "price_ci_professional"
       STRIPE_PRICE_ENTERPRISE_MONTHLY: "price_ci_enterprise"
       TRANSLATION_PROVIDER: "mock"
-      OPENAI_TRANSLATION_MODEL: "gpt-4o-mini"
+      OPENAI_TRANSLATION_MODEL: "gpt-5.5"
       RESEND_API_KEY: "re_ci"
       EMAIL_FROM: "Deepglot <ci@example.com>"
       NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000"
@@ -59,6 +73,9 @@ jobs:
 
       - name: Build application
         run: npm run build
+
+      - name: Prepare Playwright database
+        run: npx prisma db push --skip-generate
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
