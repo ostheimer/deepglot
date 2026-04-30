@@ -12,6 +12,12 @@ import {
   hashPasswordResetToken,
   normalizePasswordResetEmail,
 } from "@/lib/password-reset";
+import {
+  AUTH_PASSWORD_RESET_RATE_LIMIT_SCOPE,
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRateLimitConfig,
+} from "@/lib/rate-limit";
 import { getCookieLocale } from "@/lib/request-locale";
 
 function t(locale: "en" | "de", deText: string, enText: string) {
@@ -48,6 +54,25 @@ export async function POST(request: NextRequest) {
   }
 
   const email = normalizePasswordResetEmail(parsed.data.email);
+  const rateLimit = await consumeRateLimit({
+    scope: AUTH_PASSWORD_RESET_RATE_LIMIT_SCOPE,
+    subject: email,
+    limit: getRateLimitConfig().authPerMinute,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Zu viele Anfragen zum Zurücksetzen des Passworts. Bitte versuche es später erneut.",
+          "Too many password reset requests. Please try again later."
+        ),
+      },
+      { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+    );
+  }
+
   const user = await db.user.findUnique({
     where: { email },
     select: { id: true, email: true, password: true },

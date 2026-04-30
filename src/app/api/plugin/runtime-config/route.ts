@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
 import { buildRuntimeExclusions } from "@/lib/exclusions";
+import {
+  PLUGIN_RATE_LIMIT_SCOPE,
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRateLimitConfig,
+} from "@/lib/rate-limit";
 
 function getRawApiKey(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -25,6 +31,21 @@ export async function GET(request: NextRequest) {
   const apiKey = await validateApiKey(rawApiKey);
   if (!apiKey) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+  }
+
+  const rateLimit = await consumeRateLimit({
+    scope: PLUGIN_RATE_LIMIT_SCOPE,
+    subject: apiKey.id,
+    limit: getRateLimitConfig().pluginPerMinute,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: `Rate limit exceeded. Maximum ${rateLimit.limit} plugin requests per minute.`,
+      },
+      { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+    );
   }
 
   const rules = await db.translationExclusion.findMany({
