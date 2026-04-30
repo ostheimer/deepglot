@@ -222,6 +222,14 @@ If the Vercel `Development` values are placeholders or missing, local developmen
 
 Manual `vercel deploy` runs should never upload local `.env*` files. The repository therefore keeps a `.vercelignore` file that excludes local environment files from ad-hoc deployments.
 
+Production alias policy:
+
+- `deepglot.ai` is canonical.
+- `www.deepglot.ai` redirects page traffic to `deepglot.ai`.
+- The active Vercel Production deployment host redirects page traffic to `deepglot.ai`.
+- Vercel Preview and branch deployment URLs remain reachable for PR QA.
+- Additional production-only aliases can be configured with `DEEPGLOT_CANONICAL_REDIRECT_HOSTS`.
+
 After each deployment, verify the current production URL and deployment status.
 
 Production acceptance is tracked in [PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md). After a production deployment, run the repeatable smoke test:

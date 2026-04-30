@@ -33,6 +33,7 @@ The smoke test verifies:
 - `GET /api/public/status` returns `200` on the `www` host.
 - `GET /pricing` returns `200` on the apex domain.
 - `www.deepglot.ai/pricing` redirects to `deepglot.ai/pricing` with `308`.
+- Optional legacy alias URLs in `DEEPGLOT_LEGACY_ALIAS_URLS` redirect to `deepglot.ai/pricing` with `308`.
 - Public DNS resolves both production hosts to the expected Vercel IP.
 - `meinhaushalt.at/en/` renders translated English content without raw language markers.
 
@@ -107,6 +108,14 @@ Neon and Stripe acceptance scripts are now repeatable and non-destructive by def
 
 These checks do not create paid Stripe objects. The live Stripe API check is read-only and validates price objects plus webhook endpoint registration once live keys and price IDs are available.
 
+## Alias Policy
+
+- `https://deepglot.ai` is the canonical SaaS host.
+- `www.deepglot.ai` redirects page traffic to the canonical apex host.
+- The active Vercel Production deployment host redirects page traffic to the canonical apex host automatically.
+- Additional known production aliases can be configured with `DEEPGLOT_CANONICAL_REDIRECT_HOSTS`.
+- Vercel Preview and branch deployment URLs remain reachable for PR QA, even when `VERCEL_URL` is present.
+
 ## Exit Criteria
 
 - `npm run smoke:production` passes after the production deployment.
@@ -124,4 +133,3 @@ These checks do not create paid Stripe objects. The live Stripe API check is rea
 - Monitor webhook processor runs and failed deliveries through the Webhooks dashboard after each production deployment.
 - Configure `NEON_API_KEY` and run the live Neon restore drill against a temporary branch.
 - Configure Stripe live keys and monthly price IDs, then run the read-only live Stripe acceptance check.
-- Decide whether legacy Vercel aliases should remain reachable or redirect to `https://deepglot.ai`.
