@@ -19,6 +19,12 @@ import {
 } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
+import {
+  TRANSLATE_RATE_LIMIT_SCOPE,
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRateLimitConfig,
+} from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -47,11 +53,6 @@ export const BotType = {
   BAIDU: 5,
   YANDEX: 6,
 } as const;
-
-// In-memory rate limiter (replace with Redis/Upstash in production)
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 60;
-const WINDOW_MS = 60_000;
 
 /**
  * POST /api/translate?api_key=dg_live_...
@@ -112,23 +113,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Rate limiting per API key
-    const now = Date.now();
-    const rateKey = apiKeyRecord.id;
-    const current = requestCounts.get(rateKey);
+    // 2. Persistent rate limiting per API key
+    const rateLimit = await consumeRateLimit({
+      scope: TRANSLATE_RATE_LIMIT_SCOPE,
+      subject: apiKeyRecord.id,
+      limit: getRateLimitConfig().translatePerMinute,
+    });
 
-    if (current && now < current.resetAt) {
-      if (current.count >= RATE_LIMIT) {
-        return NextResponse.json(
-          {
-            error: "Rate Limit überschritten. Maximal 60 Anfragen pro Minute.",
-          },
-          { status: 429 },
-        );
-      }
-      current.count++;
-    } else {
-      requestCounts.set(rateKey, { count: 1, resetAt: now + WINDOW_MS });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Rate Limit überschritten. Maximal ${rateLimit.limit} Anfragen pro Minute.`,
+        },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) },
+      );
     }
 
     // 3. Parse request body

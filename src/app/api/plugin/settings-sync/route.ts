@@ -7,6 +7,12 @@ import {
   pluginSettingsSyncSchema,
   type PluginSettingsSyncPayload,
 } from "@/lib/plugin-settings-sync";
+import {
+  PLUGIN_RATE_LIMIT_SCOPE,
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRateLimitConfig,
+} from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -49,6 +55,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Invalid or expired API key." },
       { status: 401 }
+    );
+  }
+
+  const rateLimit = await consumeRateLimit({
+    scope: PLUGIN_RATE_LIMIT_SCOPE,
+    subject: apiKey.id,
+    limit: getRateLimitConfig().pluginPerMinute,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: `Rate limit exceeded. Maximum ${rateLimit.limit} plugin requests per minute.`,
+      },
+      { status: 429, headers: buildRateLimitHeaders(rateLimit) }
     );
   }
 

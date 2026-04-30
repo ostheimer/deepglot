@@ -451,6 +451,19 @@ model UsageRecord {
   @@index([projectId, month])
 }
 
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  scope       String
+  subjectHash String
+  count       Int      @default(0)
+  resetAt     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([scope, subjectHash])
+  @@index([resetAt])
+}
+
 enum WebhookDeliveryStatus {
   PENDING
   SUCCESS
