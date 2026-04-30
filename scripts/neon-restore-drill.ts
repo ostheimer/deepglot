@@ -1,8 +1,16 @@
 import { spawnSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 
 import dotenv from "dotenv";
 import { Client } from "pg";
 
+import {
+  buildAcceptanceReport,
+  renderAcceptanceJson,
+  renderAcceptanceJunit,
+  type AcceptanceCheck,
+} from "@/lib/acceptance-report";
 import {
   buildNeonRestoreDrillBranchName,
   getNeonRestoreDrillExpiresAt,
@@ -17,6 +25,13 @@ type Options = {
   sourceBranch: string;
   branchName: string;
   expiresHours: number;
+  jsonFile: string | null;
+  junitFile: string | null;
+};
+
+let outputFiles: Pick<Options, "jsonFile" | "junitFile"> = {
+  jsonFile: null,
+  junitFile: null,
 };
 
 function parseArgs(argv: string[]): Options {
@@ -27,6 +42,8 @@ function parseArgs(argv: string[]): Options {
     sourceBranch: "prod",
     branchName: buildNeonRestoreDrillBranchName(),
     expiresHours: 24,
+    jsonFile: null,
+    junitFile: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -50,6 +67,12 @@ function parseArgs(argv: string[]): Options {
     } else if (arg === "--expires-hours" && next) {
       options.expiresHours = Number(next);
       index += 1;
+    } else if (arg === "--json" && next) {
+      options.jsonFile = next;
+      index += 1;
+    } else if (arg === "--junit" && next) {
+      options.junitFile = next;
+      index += 1;
     } else if (arg === "--help") {
       printHelp();
       process.exit(0);
@@ -57,6 +80,11 @@ function parseArgs(argv: string[]): Options {
       throw new Error(`Unknown or incomplete argument: ${arg}`);
     }
   }
+
+  outputFiles = {
+    jsonFile: options.jsonFile,
+    junitFile: options.junitFile,
+  };
 
   return options;
 }
@@ -71,6 +99,8 @@ Options:
   --source-branch <name>   Production source branch. Default: prod
   --branch-name <name>     Temporary branch name. Default: restore-drill-prod-<timestamp>
   --expires-hours <hours>  Set Neon branch expiration. Default: 24
+  --json <path>            Write a JSON acceptance report.
+  --junit <path>           Write a JUnit XML acceptance report.
 
 The script never writes to the source branch. It creates only a temporary child branch when --create is provided.`);
 }
@@ -84,6 +114,26 @@ function loadEnvFile(path: string | null) {
   if (result.error) {
     throw result.error;
   }
+}
+
+function writeReport(check: AcceptanceCheck) {
+  const report = buildAcceptanceReport({
+    name: "Deepglot Neon restore drill",
+    checks: [check],
+  });
+
+  if (outputFiles.jsonFile) {
+    writeReportFile(outputFiles.jsonFile, renderAcceptanceJson(report));
+  }
+
+  if (outputFiles.junitFile) {
+    writeReportFile(outputFiles.junitFile, renderAcceptanceJunit(report));
+  }
+}
+
+function writeReportFile(filePath: string, contents: string) {
+  mkdirSync(path.dirname(filePath), { recursive: true });
+  writeFileSync(filePath, contents);
 }
 
 function neonArgs(args: string[], projectId: string | null) {
@@ -141,12 +191,22 @@ async function main() {
   });
 
   if (!validation.ok) {
+    writeReport({
+      name: "Neon restore-drill validation",
+      status: "BLOCKED",
+      detail: validation.errors.join(" "),
+    });
     console.error("FAIL Neon restore-drill validation:");
     validation.errors.forEach((error) => console.error(`- ${error}`));
     process.exit(1);
   }
 
   if (!options.create) {
+    writeReport({
+      name: "Neon restore-drill dry run",
+      status: "PASS",
+      detail: `Would create ${options.branchName} from ${options.sourceBranch}.`,
+    });
     console.log(
       `PASS Neon restore-drill dry run: would create ${options.branchName} from ${options.sourceBranch}.`
     );
@@ -177,6 +237,11 @@ async function main() {
 
   await validateBranchConnection(connectionString);
 
+  writeReport({
+    name: "Neon restore drill",
+    status: "PASS",
+    detail: `${options.branchName} was created from ${options.sourceBranch}, validated, and expires at ${expiresAt}.`,
+  });
   console.log(
     `PASS Neon restore drill: ${options.branchName} was created from ${options.sourceBranch}, validated, and expires at ${expiresAt}.`
   );
@@ -184,6 +249,12 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("FAIL Neon restore drill:", error instanceof Error ? error.message : error);
+  const detail = error instanceof Error ? error.message : String(error);
+  writeReport({
+    name: "Neon restore drill",
+    status: "FAIL",
+    detail,
+  });
+  console.error("FAIL Neon restore drill:", detail);
   process.exit(1);
 });

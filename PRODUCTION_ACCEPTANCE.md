@@ -108,6 +108,8 @@ Neon and Stripe acceptance scripts are now repeatable and non-destructive by def
 
 These checks do not create paid Stripe objects. The live Stripe API check is read-only and validates price objects plus webhook endpoint registration once live keys and price IDs are available.
 
+`npm run acceptance:production` is the default post-deploy wrapper. It runs the smoke suite, Neon dry-run/readiness, Stripe live/test readiness, rate-limit config readiness, and webhook processor readiness. JSON and JUnit reports can be written with `--json output/production-acceptance.json --junit output/production-acceptance.xml`. The wrapper exits successfully when only external live checks are blocked; use `--strict` to make blocked or skipped checks fail CI.
+
 ## Alias Policy
 
 - `https://deepglot.ai` is the canonical SaaS host.
@@ -119,6 +121,7 @@ These checks do not create paid Stripe objects. The live Stripe API check is rea
 ## Exit Criteria
 
 - `npm run smoke:production` passes after the production deployment.
+- `npm run acceptance:production` passes after the production deployment, with no unexpected failures and with any blocked external checks explicitly reported.
 - GitHub Actions and Vercel checks are green on the production commit.
 - The WordPress validation site passes the manual plugin acceptance checks.
 - No redirect loop exists across `www`, path-prefix routing, switcher navigation, browser redirect, or subdomain routing.
