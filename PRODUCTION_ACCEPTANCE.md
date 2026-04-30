@@ -110,6 +110,6 @@ Known follow-up:
 - Maintain the Phase 6 Playwright coverage for dashboard flows: glossary, import/export, analytics, webhooks, and visual editor.
 - Maintain WordPress PHP coverage for WooCommerce email translation, browser redirect edge cases, and subdomain routing.
 - Move API rate limiting from in-memory process state to shared storage before real multi-tenant traffic.
-- Verify Vercel Cron authorization for `/api/webhooks/process` in Production and monitor failed webhook deliveries.
+- Monitor webhook processor runs and failed deliveries through the Webhooks dashboard after each production deployment.
 - Document the Neon backup and restore procedure for the `prod` branch.
 - Decide whether legacy Vercel aliases should remain reachable or redirect to `https://deepglot.ai`.
