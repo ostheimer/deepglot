@@ -41,3 +41,48 @@ test("ignores deployment and localhost hosts", () => {
     null
   );
 });
+
+test("redirects configured production aliases to the canonical apex host", () => {
+  const redirectUrl = getCanonicalHostRedirectUrl(
+    new URL("https://deepglot-old.example.vercel.app/pricing?plan=starter"),
+    "deepglot-old.example.vercel.app",
+    {
+      VERCEL_ENV: "production",
+      DEEPGLOT_CANONICAL_REDIRECT_HOSTS:
+        "deepglot-old.example.vercel.app, deepglot-legacy.example.vercel.app",
+    }
+  );
+
+  assert.equal(
+    redirectUrl?.toString(),
+    "https://deepglot.ai/pricing?plan=starter"
+  );
+});
+
+test("redirects the current Vercel production deployment host", () => {
+  const redirectUrl = getCanonicalHostRedirectUrl(
+    new URL("https://deepglot-current.vercel.app/dashboard"),
+    "deepglot-current.vercel.app",
+    {
+      VERCEL_ENV: "production",
+      VERCEL_URL: "deepglot-current.vercel.app",
+    }
+  );
+
+  assert.equal(redirectUrl?.toString(), "https://deepglot.ai/dashboard");
+});
+
+test("keeps preview deployment hosts reachable even when Vercel URL is set", () => {
+  assert.equal(
+    getCanonicalHostRedirectUrl(
+      new URL("https://deepglot-git-feature.vercel.app/pricing"),
+      "deepglot-git-feature.vercel.app",
+      {
+        VERCEL_ENV: "preview",
+        VERCEL_URL: "deepglot-git-feature.vercel.app",
+        DEEPGLOT_CANONICAL_REDIRECT_HOSTS: "deepglot-git-feature.vercel.app",
+      }
+    ),
+    null
+  );
+});

@@ -18,6 +18,11 @@ const dnsServers = (process.env.DEEPGLOT_DNS_SERVERS ?? "1.1.1.1,8.8.8.8")
   .split(",")
   .map((server) => server.trim())
   .filter(Boolean);
+const legacyAliasUrls = (process.env.DEEPGLOT_LEGACY_ALIAS_URLS ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .map(normalizeUrl);
 
 function normalizeUrl(value: string) {
   return value.replace(/\/+$/, "");
@@ -127,6 +132,15 @@ function printResults(results: CheckResult[]) {
 }
 
 async function main() {
+  const legacyAliasChecks = legacyAliasUrls.map((aliasUrl) => {
+    return checkRedirect(
+      `Legacy alias canonical redirect (${new URL(aliasUrl).hostname})`,
+      endpoint(aliasUrl, "/pricing"),
+      308,
+      endpoint(productionUrl, "/pricing")
+    );
+  });
+
   const checks = await Promise.all([
     checkHttpStatus("Apex public status", endpoint(productionUrl, "/api/public/status"), 200),
     checkHttpStatus("WWW public status", endpoint(wwwUrl, "/api/public/status"), 200),
@@ -140,6 +154,7 @@ async function main() {
     checkDns("Apex DNS", new URL(productionUrl).hostname),
     checkDns("WWW DNS", new URL(wwwUrl).hostname),
     checkWordPressTranslation(),
+    ...legacyAliasChecks,
   ]);
 
   printResults(checks);
