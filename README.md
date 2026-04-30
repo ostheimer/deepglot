@@ -166,6 +166,24 @@ export NEON_API_KEY=neon_...   # Create at https://console.neon.tech → Account
 
 The script creates branch `prod` from `main` (if missing), prints `DATABASE_URL` and `DATABASE_URL_UNPOOLED`, and reminds you to run `prisma db push` and set the variables in Vercel Production.
 
+**Neon restore drill**
+
+Dry-run the restore drill without creating a branch:
+
+```bash
+npm run acceptance:neon -- --env-file .env.production.local
+```
+
+Create a temporary restore-drill branch from `prod`, validate that the cloned schema is reachable, and let Neon auto-expire it after 24 hours:
+
+```bash
+export NEON_API_KEY=neon_...
+export NEON_PROJECT_ID=...
+npm run acceptance:neon -- --env-file .env.production.local --create
+```
+
+This script creates only a temporary child branch and never writes to `prod`.
+
 **Option B – Neon Console**  
 1. In the [Neon Console](https://console.neon.tech), open **Branches** and create a branch named `prod` with parent `main`.
 2. Open the `prod` branch and copy both connection strings: **Connection string** (pooled) → `DATABASE_URL`, **Session mode** (unpooled) → `DATABASE_URL_UNPOOLED`.
@@ -188,8 +206,17 @@ Recommended environment matrix:
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
   - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-4o-mini`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
   - point both database URLs to Neon `prod`
+
+Stripe acceptance can be checked without creating charges:
+
+```bash
+npm run acceptance:stripe -- --mode test --env-file .env.local --env-only
+npm run acceptance:stripe -- --mode live --env-file .env.production.local
+```
+
+The live check reads configured prices and webhook endpoints from Stripe. It does not create customers, subscriptions, checkout sessions, or payments.
 
 If the Vercel `Development` values are placeholders or missing, local development can temporarily run against a local PostgreSQL-compatible database instead.
 

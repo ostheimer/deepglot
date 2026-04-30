@@ -15,6 +15,8 @@
     "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done",
     "test:e2e:headed": "playwright test --headed",
     "smoke:production": "node --import tsx scripts/production-smoke.ts",
+    "acceptance:neon": "node --import tsx scripts/neon-restore-drill.ts",
+    "acceptance:stripe": "node --import tsx scripts/stripe-acceptance.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
