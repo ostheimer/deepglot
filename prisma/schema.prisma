@@ -457,6 +457,11 @@ enum WebhookDeliveryStatus {
   FAILED
 }
 
+enum WebhookProcessorRunStatus {
+  SUCCESS
+  FAILED
+}
+
 model WebhookEndpoint {
   id                 String    @id @default(cuid())
   url                String
@@ -499,4 +504,19 @@ model WebhookDelivery {
 
   @@index([endpointId, status, nextAttemptAt])
   @@index([projectId, createdAt])
+}
+
+model WebhookProcessorRun {
+  id                    String                    @id @default(cuid())
+  status                WebhookProcessorRunStatus
+  processedCount        Int                       @default(0)
+  deliveredCount        Int                       @default(0)
+  failedCount           Int                       @default(0)
+  pendingRemainingCount Int                       @default(0)
+  durationMs            Int                       @default(0)
+  errorMessage          String?
+  createdAt             DateTime                  @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
 }

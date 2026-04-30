@@ -26,6 +26,9 @@ type Delivery = {
   status: "PENDING" | "SUCCESS" | "FAILED";
   attemptCount: number;
   responseStatus: number | null;
+  nextAttemptAt: string | Date;
+  lastAttemptAt: string | Date | null;
+  errorMessage: string | null;
   createdAt: string | Date;
 };
 
@@ -44,6 +47,25 @@ type Endpoint = {
 type ProjectWebhooksManagerProps = {
   projectId: string;
   endpoints: Endpoint[];
+  health: {
+    latestProcessorRun: {
+      id: string;
+      status: "SUCCESS" | "FAILED";
+      processedCount: number;
+      deliveredCount: number;
+      failedCount: number;
+      pendingRemainingCount: number;
+      durationMs: number;
+      errorMessage: string | null;
+      createdAt: string | Date;
+    } | null;
+    deliveryCounts: {
+      PENDING: number;
+      SUCCESS: number;
+      FAILED: number;
+    };
+    pendingDueCount: number;
+  };
 };
 
 type FormState = {
@@ -56,6 +78,7 @@ type FormState = {
 export function ProjectWebhooksManager({
   projectId,
   endpoints: initialEndpoints,
+  health,
 }: ProjectWebhooksManagerProps) {
   const locale = useLocale();
   const router = useRouter();
@@ -91,9 +114,30 @@ export function ProjectWebhooksManager({
       recentDeliveries:
         locale === "de" ? "Letzte Zustellungen" : "Recent deliveries",
       active: locale === "de" ? "Aktiv" : "Enabled",
+      processorHealth:
+        locale === "de" ? "Processor-Status" : "Processor health",
+      lastRun: locale === "de" ? "Letzter Lauf" : "Last run",
+      noRun:
+        locale === "de"
+          ? "Noch kein Cron-Lauf erfasst."
+          : "No cron run recorded yet.",
+      pendingDue:
+        locale === "de" ? "Fällige Zustellungen" : "Due deliveries",
+      failedDeliveries:
+        locale === "de" ? "Fehlgeschlagen" : "Failed deliveries",
+      delivered: locale === "de" ? "Zugestellt" : "Delivered",
     }),
     [locale]
   );
+
+  function formatDateTime(value: string | Date | null) {
+    if (!value) return locale === "de" ? "Nie" : "Never";
+
+    return new Intl.DateTimeFormat(locale === "de" ? "de-AT" : "en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  }
 
   function resetDialog(nextOpen: boolean) {
     if (!nextOpen) {
@@ -287,6 +331,74 @@ export function ProjectWebhooksManager({
         </Button>
       </div>
 
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">
+              {copy.processorHealth}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {health.latestProcessorRun
+                ? `${copy.lastRun}: ${formatDateTime(health.latestProcessorRun.createdAt)}`
+                : copy.noRun}
+            </p>
+          </div>
+          {health.latestProcessorRun && (
+            <Badge
+              variant="secondary"
+              className={
+                health.latestProcessorRun.status === "SUCCESS"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }
+            >
+              {health.latestProcessorRun.status}
+            </Badge>
+          )}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs font-semibold uppercase text-gray-500">
+              {copy.pendingDue}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {health.pendingDueCount}
+            </p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs font-semibold uppercase text-gray-500">
+              {copy.failedDeliveries}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-red-700">
+              {health.deliveryCounts.FAILED}
+            </p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs font-semibold uppercase text-gray-500">
+              {copy.delivered}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {health.deliveryCounts.SUCCESS}
+            </p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs font-semibold uppercase text-gray-500">
+              {locale === "de" ? "Cron-Dauer" : "Cron duration"}
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {health.latestProcessorRun
+                ? `${health.latestProcessorRun.durationMs} ms`
+                : "0 ms"}
+            </p>
+          </div>
+        </div>
+        {health.latestProcessorRun?.errorMessage && (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {health.latestProcessorRun.errorMessage}
+          </p>
+        )}
+      </section>
+
       {endpoints.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white px-6 py-16 text-center text-sm text-gray-500">
           {copy.noEndpoints}
@@ -395,7 +507,7 @@ export function ProjectWebhooksManager({
                     {endpoint.deliveries.map((delivery) => (
                       <div
                         key={delivery.id}
-                        className="grid gap-2 rounded-lg border border-gray-100 px-3 py-2 text-sm text-gray-600 md:grid-cols-[1.5fr_100px_120px_80px]"
+                        className="grid gap-2 rounded-lg border border-gray-100 px-3 py-2 text-sm text-gray-600 md:grid-cols-[1.5fr_100px_120px_80px_1fr]"
                       >
                         <span className="truncate">{delivery.eventType}</span>
                         <span>{delivery.status}</span>
@@ -407,6 +519,16 @@ export function ProjectWebhooksManager({
                               : "No status"}
                         </span>
                         <span>#{delivery.attemptCount}</span>
+                        <span>
+                          {delivery.status === "PENDING"
+                            ? `${locale === "de" ? "Nächster Versuch" : "Next retry"}: ${formatDateTime(delivery.nextAttemptAt)}`
+                            : `${locale === "de" ? "Zuletzt" : "Last"}: ${formatDateTime(delivery.lastAttemptAt)}`}
+                        </span>
+                        {delivery.errorMessage && (
+                          <span className="md:col-span-5 text-red-700">
+                            {delivery.errorMessage}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>

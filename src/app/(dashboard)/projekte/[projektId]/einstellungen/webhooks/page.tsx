@@ -10,29 +10,57 @@ interface PageProps {
 export default async function WebhooksPage({ params }: PageProps) {
   const { projektId } = await params;
 
-  const project = await db.project.findUnique({
-    where: { id: projektId },
-    include: {
-      webhookEndpoints: {
+  const [project, latestProcessorRun, statusCounts, pendingDueCount] =
+    await Promise.all([
+      db.project.findUnique({
+        where: { id: projektId },
         include: {
-          deliveries: {
+          webhookEndpoints: {
+            include: {
+              deliveries: {
+                orderBy: { createdAt: "desc" },
+                take: 10,
+              },
+            },
             orderBy: { createdAt: "desc" },
-            take: 10,
           },
         },
+      }),
+      db.webhookProcessorRun.findFirst({
         orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+      }),
+      db.webhookDelivery.groupBy({
+        by: ["status"],
+        where: { projectId: projektId },
+        _count: { _all: true },
+      }),
+      db.webhookDelivery.count({
+        where: {
+          projectId: projektId,
+          status: "PENDING",
+          nextAttemptAt: { lte: new Date() },
+        },
+      }),
+    ]);
 
   if (!project) {
     notFound();
+  }
+
+  const deliveryCounts = { PENDING: 0, SUCCESS: 0, FAILED: 0 };
+  for (const item of statusCounts) {
+    deliveryCounts[item.status] = item._count._all;
   }
 
   return (
     <ProjectWebhooksManager
       projectId={project.id}
       endpoints={project.webhookEndpoints}
+      health={{
+        latestProcessorRun,
+        deliveryCounts,
+        pendingDueCount,
+      }}
     />
   );
 }

@@ -116,6 +116,15 @@ export async function dispatchPendingWebhookDeliveries(limit = 25) {
   return Promise.all(deliveries.map((delivery) => dispatchWebhookDelivery(delivery.id)));
 }
 
+export async function countDuePendingWebhookDeliveries(now = new Date()) {
+  return db.webhookDelivery.count({
+    where: {
+      status: "PENDING",
+      nextAttemptAt: { lte: now },
+    },
+  });
+}
+
 async function updateDeliveryOutcome({
   deliveryId,
   endpointId,

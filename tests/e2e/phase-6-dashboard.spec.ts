@@ -133,6 +133,9 @@ test.describe("Phase 6 dashboard flows", () => {
     const projectId = await signInAndGetProjectId(page);
 
     await page.goto(`/projects/${projectId}/settings/webhooks`);
+    await expect(page.getByText("Processor health")).toBeVisible();
+    await expect(page.getByText("Due deliveries")).toBeVisible();
+    await expect(page.getByText("Failed deliveries")).toBeVisible();
     await page.getByRole("button", { name: "Add webhook" }).click();
 
     const webhookUrl = new URL(
