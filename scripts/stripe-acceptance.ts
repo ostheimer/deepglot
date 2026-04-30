@@ -1,6 +1,15 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
 import dotenv from "dotenv";
 import Stripe from "stripe";
 
+import {
+  buildAcceptanceReport,
+  renderAcceptanceJson,
+  renderAcceptanceJunit,
+  type AcceptanceCheck,
+} from "@/lib/acceptance-report";
 import {
   REQUIRED_STRIPE_WEBHOOK_EVENTS,
   validateStripeAcceptanceConfig,
@@ -13,6 +22,13 @@ type Options = {
   mode: StripeAcceptanceMode;
   envFile: string | null;
   envOnly: boolean;
+  jsonFile: string | null;
+  junitFile: string | null;
+};
+
+let outputFiles: Pick<Options, "jsonFile" | "junitFile"> = {
+  jsonFile: null,
+  junitFile: null,
 };
 
 function parseArgs(argv: string[]): Options {
@@ -20,6 +36,8 @@ function parseArgs(argv: string[]): Options {
     mode: "test",
     envFile: null,
     envOnly: false,
+    jsonFile: null,
+    junitFile: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -34,6 +52,12 @@ function parseArgs(argv: string[]): Options {
       index += 1;
     } else if (arg === "--env-only") {
       options.envOnly = true;
+    } else if (arg === "--json" && next) {
+      options.jsonFile = next;
+      index += 1;
+    } else if (arg === "--junit" && next) {
+      options.junitFile = next;
+      index += 1;
     } else if (arg === "--help") {
       printHelp();
       process.exit(0);
@@ -41,6 +65,11 @@ function parseArgs(argv: string[]): Options {
       throw new Error(`Unknown or incomplete argument: ${arg}`);
     }
   }
+
+  outputFiles = {
+    jsonFile: options.jsonFile,
+    junitFile: options.junitFile,
+  };
 
   return options;
 }
@@ -52,6 +81,8 @@ Options:
   --mode test|live       Validate test or live Stripe configuration. Default: test
   --env-file <path>      Load environment values from a dotenv file.
   --env-only             Validate local env shape only; skip Stripe API reads.
+  --json <path>          Write a JSON acceptance report.
+  --junit <path>         Write a JUnit XML acceptance report.
 
 The script never creates charges, customers, subscriptions, or prices.`);
 }
@@ -65,6 +96,26 @@ function loadEnvFile(path: string | null) {
   if (result.error) {
     throw result.error;
   }
+}
+
+function writeReport(check: AcceptanceCheck) {
+  const report = buildAcceptanceReport({
+    name: "Deepglot Stripe acceptance",
+    checks: [check],
+  });
+
+  if (outputFiles.jsonFile) {
+    writeReportFile(outputFiles.jsonFile, renderAcceptanceJson(report));
+  }
+
+  if (outputFiles.junitFile) {
+    writeReportFile(outputFiles.junitFile, renderAcceptanceJunit(report));
+  }
+}
+
+function writeReportFile(filePath: string, contents: string) {
+  mkdirSync(path.dirname(filePath), { recursive: true });
+  writeFileSync(filePath, contents);
 }
 
 function getWebhookBaseUrl() {
@@ -88,12 +139,22 @@ async function main() {
   });
 
   if (!validation.ok) {
+    writeReport({
+      name: `Stripe ${options.mode} configuration validation`,
+      status: "BLOCKED",
+      detail: validation.errors.join(" "),
+    });
     console.error("FAIL Stripe acceptance configuration:");
     validation.errors.forEach((error) => console.error(`- ${error}`));
     process.exit(1);
   }
 
   if (options.envOnly) {
+    writeReport({
+      name: `Stripe ${options.mode} env-only validation`,
+      status: "PASS",
+      detail: "Stripe key mode, webhook secret, and monthly price IDs are configured.",
+    });
     console.log(`PASS Stripe ${options.mode} env-only configuration validation.`);
     return;
   }
@@ -120,6 +181,11 @@ async function main() {
   }
 
   if (priceErrors.length > 0) {
+    writeReport({
+      name: `Stripe ${options.mode} price validation`,
+      status: "FAIL",
+      detail: priceErrors.join(" "),
+    });
     console.error("FAIL Stripe price validation:");
     priceErrors.forEach((error) => console.error(`- ${error}`));
     process.exit(1);
@@ -127,6 +193,11 @@ async function main() {
 
   const webhookBaseUrl = getWebhookBaseUrl();
   if (!webhookBaseUrl) {
+    writeReport({
+      name: `Stripe ${options.mode} webhook validation`,
+      status: "BLOCKED",
+      detail: "AUTH_URL or NEXT_PUBLIC_APP_URL is required for webhook validation.",
+    });
     console.error("FAIL AUTH_URL or NEXT_PUBLIC_APP_URL is required for webhook validation.");
     process.exit(1);
   }
@@ -138,6 +209,11 @@ async function main() {
   });
 
   if (!endpoint) {
+    writeReport({
+      name: `Stripe ${options.mode} webhook validation`,
+      status: "FAIL",
+      detail: `Stripe webhook endpoint not found: ${expectedWebhookUrl}`,
+    });
     console.error(`FAIL Stripe webhook endpoint not found: ${expectedWebhookUrl}`);
     process.exit(1);
   }
@@ -148,17 +224,33 @@ async function main() {
   });
 
   if (missingEvents.length > 0) {
+    writeReport({
+      name: `Stripe ${options.mode} webhook event validation`,
+      status: "FAIL",
+      detail: missingEvents.join(" "),
+    });
     console.error("FAIL Stripe webhook endpoint is missing events:");
     missingEvents.forEach((event) => console.error(`- ${event}`));
     process.exit(1);
   }
 
+  writeReport({
+    name: `Stripe ${options.mode} API validation`,
+    status: "PASS",
+    detail: "Prices are active monthly recurring prices and webhook endpoint is configured.",
+  });
   console.log(
     `PASS Stripe ${options.mode} API validation: prices active and webhook endpoint configured.`
   );
 }
 
 main().catch((error) => {
-  console.error("FAIL Stripe acceptance check:", error instanceof Error ? error.message : error);
+  const detail = error instanceof Error ? error.message : String(error);
+  writeReport({
+    name: "Stripe acceptance check",
+    status: "FAIL",
+    detail,
+  });
+  console.error("FAIL Stripe acceptance check:", detail);
   process.exit(1);
 });

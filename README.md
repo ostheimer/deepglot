@@ -238,6 +238,15 @@ Production acceptance is tracked in [PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPT
 npm run smoke:production
 ```
 
+For the full non-destructive acceptance wrapper, use:
+
+```bash
+npm run acceptance:production
+npm run acceptance:production -- --json output/production-acceptance.json --junit output/production-acceptance.xml
+```
+
+The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readiness, rate-limit config checks, and webhook processor readiness. It exits successfully when only external live checks are blocked by missing credentials; add `--strict` to make blocked or skipped checks fail CI.
+
 ## Self-hosting
 
 Deepglot now includes a first self-hosted setup:

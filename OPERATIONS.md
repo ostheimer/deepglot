@@ -6,7 +6,7 @@ Vercel Cron invokes `/api/webhooks/process` every five minutes. Production requi
 
 After each production deployment:
 
-1. Run `npm run smoke:production`.
+1. Run `npm run acceptance:production`.
 2. Open a project under `Settings -> Webhooks`.
 3. Confirm the processor health card shows the latest cron run, due deliveries, failed deliveries, delivered deliveries, and duration.
 4. Confirm failed deliveries show the HTTP status or error message and the next retry time when retries remain.
@@ -40,6 +40,7 @@ Use the dry-run check before attempting a live branch drill:
 
 ```bash
 npm run acceptance:neon -- --env-file .env.production.local
+npm run acceptance:neon -- --env-file .env.production.local --json output/neon.json --junit output/neon.xml
 ```
 
 When `NEON_API_KEY` and `NEON_PROJECT_ID` are available, create and validate a temporary branch from `prod`:
@@ -61,6 +62,7 @@ Run env-only validation for test mode and read-only API validation for live mode
 ```bash
 npm run acceptance:stripe -- --mode test --env-file .env.local --env-only
 npm run acceptance:stripe -- --mode live --env-file .env.production.local
+npm run acceptance:stripe -- --mode live --env-file .env.production.local --json output/stripe.json --junit output/stripe.xml
 ```
 
 Expected behavior:
@@ -68,3 +70,23 @@ Expected behavior:
 - Test mode requires `sk_test_` and `pk_test_` keys plus all monthly price IDs.
 - Live mode requires `sk_live_` and `pk_live_` keys, active monthly prices, and an enabled `/api/webhooks/stripe` endpoint with the required subscription events.
 - The script never creates charges, customers, subscriptions, checkout sessions, or prices.
+
+## Production Acceptance Wrapper
+
+Use the wrapper for autonomous post-deploy checks:
+
+```bash
+npm run acceptance:production
+npm run acceptance:production -- --json output/production-acceptance.json --junit output/production-acceptance.xml
+```
+
+Default behavior is non-destructive:
+
+- Runs the production smoke suite.
+- Runs the Neon restore-drill dry run.
+- Reports Neon live restore-drill branch creation as blocked until `NEON_API_KEY` is available.
+- Runs Stripe live API validation only after live Stripe env shape is complete; otherwise reports the exact missing configuration as blocked.
+- Validates local/test Stripe env shape when `.env.local` is present.
+- Reports rate-limit and webhook processor readiness.
+
+Use `--strict` when CI should fail on blocked or skipped checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
