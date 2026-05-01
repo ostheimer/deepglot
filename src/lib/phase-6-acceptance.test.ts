@@ -10,6 +10,7 @@ import {
   buildBlockedPhase6Check,
   buildEditorBootUrl,
   buildRuntimeConfigUrl,
+  buildSubdomainAcceptanceUrl,
   classifyPhase6CommandFailure,
   resolvePhase6AcceptanceConfig,
 } from "@/lib/phase-6-acceptance";
@@ -91,6 +92,22 @@ test("does not build editor boot URLs without project or editor secret", () => {
   });
 
   assert.equal(buildEditorBootUrl({ config }), null);
+});
+
+test("builds subdomain acceptance URLs from host-only or full URL values", () => {
+  assert.equal(
+    buildSubdomainAcceptanceUrl("en.example.test", 123),
+    "https://en.example.test/?deepglot_phase6=123"
+  );
+  assert.equal(
+    buildSubdomainAcceptanceUrl("https://en.example.test/path", 123),
+    "https://en.example.test/?deepglot_phase6=123"
+  );
+});
+
+test("returns null for invalid subdomain acceptance hosts", () => {
+  assert.equal(buildSubdomainAcceptanceUrl("", 123), null);
+  assert.equal(buildSubdomainAcceptanceUrl("https://", 123), null);
 });
 
 test("classifies missing runtime dependencies as blocked, not failed", () => {

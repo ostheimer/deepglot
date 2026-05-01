@@ -83,6 +83,27 @@ export function buildEditorBootUrl({
   return url.toString();
 }
 
+export function buildSubdomainAcceptanceUrl(host: string, now = Date.now()) {
+  const trimmed = host.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const base = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL("/", base);
+    if (!url.hostname) {
+      return null;
+    }
+
+    url.searchParams.set("deepglot_phase6", String(now));
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function buildBlockedPhase6Check({
   name,
   missing,

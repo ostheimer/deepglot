@@ -170,7 +170,7 @@ function runNestedAcceptanceCheck({
   const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const reportPath = path.join(
     "output",
-    `nested-${safeName}.json`
+    `nested-${safeName}-${process.pid}-${startedAt}.json`
   );
   const result = spawnSync("npm", [...args, "--json", reportPath], {
     cwd: process.cwd(),

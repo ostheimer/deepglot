@@ -16,6 +16,7 @@ import {
   buildBlockedPhase6Check,
   buildEditorBootUrl,
   buildRuntimeConfigUrl,
+  buildSubdomainAcceptanceUrl,
   classifyPhase6CommandFailure,
   resolvePhase6AcceptanceConfig,
   type Phase6AcceptanceConfig,
@@ -371,8 +372,15 @@ async function checkSubdomainMappedHost(
   }
 
   const startedAt = Date.now();
-  const url = new URL("/", `https://${config.subdomainHost}`);
-  url.searchParams.set("deepglot_phase6", String(Date.now()));
+  const url = buildSubdomainAcceptanceUrl(config.subdomainHost);
+  if (!url) {
+    return {
+      name: "Subdomain mapped-host live QA",
+      status: "BLOCKED",
+      detail: `Invalid DEEPGLOT_PHASE6_SUBDOMAIN_HOST value: ${config.subdomainHost}.`,
+      durationMs: Date.now() - startedAt,
+    };
+  }
 
   try {
     const response = await fetch(url, {
