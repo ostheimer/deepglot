@@ -43,6 +43,16 @@ test("normalizes explicit Phase 6 app and WordPress URLs", () => {
   assert.equal(config.wordpressUrl, "https://example.test");
 });
 
+test("preserves documented defaults when Phase 6 URLs are blank", () => {
+  const config = resolvePhase6AcceptanceConfig({
+    DEEPGLOT_PHASE6_APP_URL: "",
+    DEEPGLOT_PHASE6_WORDPRESS_URL: "",
+  });
+
+  assert.equal(config.appUrl, "https://deepglot.ai");
+  assert.equal(config.wordpressUrl, "https://www.meinhaushalt.at");
+});
+
 test("builds runtime-config URLs without requiring callers to expose secrets in details", () => {
   const config = resolvePhase6AcceptanceConfig({
     DEEPGLOT_PHASE6_APP_URL: "https://app.example",

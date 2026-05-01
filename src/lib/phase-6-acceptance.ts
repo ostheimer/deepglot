@@ -26,9 +26,10 @@ export function resolvePhase6AcceptanceConfig(
   env: Phase6AcceptanceEnv = process.env
 ): Phase6AcceptanceConfig {
   return {
-    appUrl: normalizeUrl(env.DEEPGLOT_PHASE6_APP_URL ?? "https://deepglot.ai"),
+    appUrl: normalizeUrl(env.DEEPGLOT_PHASE6_APP_URL?.trim() || "https://deepglot.ai"),
     wordpressUrl: normalizeUrl(
-      env.DEEPGLOT_PHASE6_WORDPRESS_URL ?? "https://www.meinhaushalt.at"
+      env.DEEPGLOT_PHASE6_WORDPRESS_URL?.trim() ||
+        "https://www.meinhaushalt.at"
     ),
     projectId:
       env.DEEPGLOT_PHASE6_PROJECT_ID?.trim() ||
