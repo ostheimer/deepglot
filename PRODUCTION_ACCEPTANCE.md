@@ -48,12 +48,12 @@ The smoke test verifies:
 | Project flow | Create project, generate API key, update languages, and delete test project | ⏳ Pending |
 | Translation API | `/api/translate` validates API keys, returns backward-compatible response shape, writes batch logs, and updates usage | ⏳ Pending |
 | Runtime sync | Plugin settings sync mirrors routing mode, language settings, redirects, email/search/AMP flags, and domain mappings | ⏳ Pending |
-| Glossary | CRUD, validation, provider placeholder protection, manual override precedence, and webhook event creation work | ⏳ Pending |
-| Import/export | CSV and PO imports are all-or-nothing; exports use deterministic headers and content | ⏳ Pending |
-| Visual editor | Token creation, plugin-side token verification, segment selection, save, reload persistence, and invalid-token rejection work | ⏳ Pending |
-| Analytics | Translation volume, language mix, provider/cache/manual/glossary mix, top URLs, and import activity are log-backed | ⏳ Pending |
-| Webhooks | Endpoint CRUD, signing, test delivery, cron processing, retries, and final failure states work | ⏳ Pending |
-| Billing | Plan, usage, customer portal, cancellation, and Stripe webhook handling work in the intended mode | ⏳ Pending - live Stripe env is not configured |
+| Glossary | CRUD, validation, provider placeholder protection, manual override precedence, and webhook event creation work | ✅ Automated Phase 6 Playwright acceptance passed |
+| Import/export | CSV and PO imports are all-or-nothing; exports use deterministic headers and content | ✅ Automated Phase 6 Playwright acceptance passed |
+| Visual editor | Token creation, plugin-side token verification, segment selection, save, reload persistence, and invalid-token rejection work | 🔄 Dashboard flow passed; live boot check blocked until `DEEPGLOT_EDITOR_SECRET` is available to acceptance |
+| Analytics | Translation volume, language mix, provider/cache/manual/glossary mix, top URLs, and import activity are log-backed | ✅ Automated Phase 6 Playwright acceptance passed |
+| Webhooks | Endpoint CRUD, signing, test delivery, cron processing, retries, and final failure states work | ✅ Automated Phase 6 Playwright and webhook observability acceptance passed |
+| Billing | Plan, usage, customer portal, cancellation, and Stripe webhook handling work in the intended mode | ⏸️ Postponed - Stripe live billing acceptance is an external dependency |
 
 ## WordPress Acceptance
 
@@ -95,7 +95,32 @@ Required checks on `meinhaushalt.at`:
 
 Known follow-up:
 
-- The dashboard credentials currently stored in `.env.local` do not authenticate against Production, so the dashboard-issued editor-session click flow remains under SaaS acceptance. The WordPress-side token verification and editor boot path passed.
+- The dashboard credentials currently stored in `.env.local` do not authenticate against Production, so the dashboard-issued editor-session click flow remains under SaaS acceptance.
+- The WordPress-side editor boot path passed manually on 2026-04-26. The automated live boot check is blocked until the acceptance environment has `DEEPGLOT_EDITOR_SECRET`.
+
+## Phase 6 Automated Acceptance
+
+Run this suite when Phase 6 status needs to be refreshed without changing WordPress content, DNS, billing, or manual translations:
+
+```bash
+npm run acceptance:phase6 -- --json output/phase6.json --junit output/phase6.xml
+```
+
+Optional flags:
+
+- `--strict` makes blocked or skipped checks fail the command.
+- `--skip-live` skips production WordPress/backend checks.
+- `--skip-e2e` skips the dashboard Playwright flow.
+
+### Phase 6 Acceptance Run - 2026-05-01
+
+Latest local run:
+
+- `npm run acceptance:phase6 -- --json output/phase6.json --junit output/phase6.xml`
+- Result: `5/7` passed, `0` failed, `2` blocked, `0` skipped.
+- Passed: WordPress `/en/` translated output, plugin runtime-config API shape, browser-language redirect guarded-disabled rollout, WordPress PHP Phase 6 coverage, and Phase 6 Playwright dashboard flows.
+- Blocked: visual-editor live boot because the acceptance environment has no `DEEPGLOT_EDITOR_SECRET`; subdomain mapped-host QA because no `DEEPGLOT_PHASE6_SUBDOMAIN_HOST` is configured.
+- The suite is read-only for production WordPress: it does not save editor changes, update settings, edit content, or create DNS records.
 
 ## Operational Acceptance - 2026-04-30
 
@@ -103,12 +128,18 @@ Neon and Stripe acceptance scripts are now repeatable and non-destructive by def
 
 - `npm run acceptance:neon -- --env-file .env.production.local` passed as a dry run and would create a restore-drill branch from `prod`.
 - `npm run acceptance:neon -- --env-file .env.production.local --create` passed on 2026-05-01. It created and validated temporary branch `restore-drill-prod-20260501195333` from `prod`; Neon set it to expire at `2026-05-02T19:53:33.429Z`.
-- `npm run acceptance:stripe -- --mode live --env-file .env.production.local` is blocked because the configured Stripe keys are test-mode keys and the monthly price IDs are missing.
-- `npm run acceptance:stripe -- --mode test --env-file .env.local --env-only` is blocked because local Stripe keys, webhook secret, and monthly price IDs are missing.
+- `npm run acceptance:stripe -- --mode live --env-file .env.production.local` is postponed until live Stripe keys, webhook secret, and monthly price IDs are intentionally configured.
+- `npm run acceptance:stripe -- --mode test --env-file .env.local --env-only` is postponed until test Stripe keys, webhook secret, and monthly price IDs are intentionally configured.
 
-These checks do not create paid Stripe objects. The live Stripe API check is read-only and validates price objects plus webhook endpoint registration once live keys and price IDs are available.
+Stripe live billing acceptance is not active engineering work right now. These checks do not create paid Stripe objects; once Stripe is resumed, the live API check remains read-only and validates price objects plus webhook endpoint registration.
 
-`npm run acceptance:production` is the default post-deploy wrapper. It runs the smoke suite, Neon dry-run/readiness, Stripe live/test readiness, rate-limit config readiness, and webhook processor readiness. JSON and JUnit reports can be written with `--json output/production-acceptance.json --junit output/production-acceptance.xml`. The wrapper exits successfully when only external live checks are blocked; use `--strict` to make blocked or skipped checks fail CI. The 2026-05-01 run passed `5/7` checks with only Stripe live/test configuration blocked.
+`npm run acceptance:production` is the default post-deploy wrapper. It runs the smoke suite, Neon dry-run/readiness, Stripe live/test readiness, rate-limit config readiness, webhook processor readiness, and Phase 6 acceptance. JSON and JUnit reports can be written with `--json output/production-acceptance.json --junit output/production-acceptance.xml`. The wrapper exits successfully when only external live checks are blocked; use `--strict` to make blocked or skipped checks fail CI.
+
+Latest production wrapper run on 2026-05-01:
+
+- `npm run acceptance:production -- --json output/production-acceptance.json --junit output/production-acceptance.xml`
+- Result: `5/8` passed, `0` failed, `3` blocked, `0` skipped.
+- Blocked: Stripe live/test configuration is postponed, and Phase 6 has the two explicit runtime blockers listed above.
 
 ## Alias Policy
 

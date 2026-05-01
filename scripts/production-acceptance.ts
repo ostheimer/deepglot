@@ -10,7 +10,9 @@ import {
   renderAcceptanceJson,
   renderAcceptanceJunit,
   renderAcceptanceText,
+  summarizeAcceptanceReport,
   type AcceptanceCheck,
+  type AcceptanceReport,
 } from "@/lib/acceptance-report";
 import {
   buildNeonLiveReadinessCheck,
@@ -29,6 +31,7 @@ type Options = {
   junitFile: string | null;
   strict: boolean;
   skipSmoke: boolean;
+  skipLive: boolean;
   runWebhookProcessor: boolean;
   createNeonBranch: boolean;
 };
@@ -47,6 +50,7 @@ function parseArgs(argv: string[]): Options {
     junitFile: null,
     strict: false,
     skipSmoke: false,
+    skipLive: false,
     runWebhookProcessor: false,
     createNeonBranch: false,
   };
@@ -71,6 +75,8 @@ function parseArgs(argv: string[]): Options {
       options.strict = true;
     } else if (arg === "--skip-smoke") {
       options.skipSmoke = true;
+    } else if (arg === "--skip-live") {
+      options.skipLive = true;
     } else if (arg === "--run-webhook-processor") {
       options.runWebhookProcessor = true;
     } else if (arg === "--create-neon-branch") {
@@ -96,6 +102,7 @@ Options:
   --junit <path>               Write a JUnit XML report.
   --strict                     Exit non-zero for blocked or skipped checks.
   --skip-smoke                 Skip npm run smoke:production.
+  --skip-live                  Skip Phase 6 production WordPress/backend live checks.
   --run-webhook-processor      Call /api/webhooks/process with CRON_SECRET.
   --create-neon-branch         Create the temporary Neon restore-drill branch.
 
@@ -148,6 +155,70 @@ function runNpmCheck({
     detail: output || `npm ${args.join(" ")} exited with ${result.status ?? "unknown status"}.`,
     durationMs,
   };
+}
+
+function runNestedAcceptanceCheck({
+  name,
+  args,
+  env,
+}: {
+  name: string;
+  args: string[];
+  env?: NodeJS.ProcessEnv;
+}): AcceptanceCheck {
+  const startedAt = Date.now();
+  const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const reportPath = path.join(
+    "output",
+    `nested-${safeName}.json`
+  );
+  const result = spawnSync("npm", [...args, "--json", reportPath], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: env ? { ...process.env, ...env } : process.env,
+  });
+  const durationMs = Date.now() - startedAt;
+  const nestedReport = readNestedReport(reportPath);
+
+  if (nestedReport) {
+    const summary = summarizeAcceptanceReport(nestedReport);
+    const status =
+      summary.failed > 0
+        ? "FAIL"
+        : summary.blocked > 0
+          ? "BLOCKED"
+          : summary.skipped > 0
+            ? "SKIPPED"
+            : "PASS";
+
+    return {
+      name,
+      status,
+      detail: `${summary.passed}/${summary.total} passed, ${summary.failed} failed, ${summary.blocked} blocked, ${summary.skipped} skipped. Report: ${reportPath}.`,
+      durationMs,
+    };
+  }
+
+  const output = summarizeChildOutput(result.stdout, result.stderr);
+
+  return {
+    name,
+    status: result.status === 0 ? "PASS" : "FAIL",
+    detail: output || `npm ${args.join(" ")} exited with ${result.status ?? "unknown status"}.`,
+    durationMs,
+  };
+}
+
+function readNestedReport(reportPath: string): AcceptanceReport | null {
+  if (!existsSync(reportPath)) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(readFileSync(reportPath, "utf8")) as AcceptanceReport;
+  } catch {
+    return null;
+  }
 }
 
 function summarizeChildOutput(stdout: string | null, stderr: string | null) {
@@ -349,6 +420,23 @@ async function main() {
       })
     );
   }
+
+  checks.push(
+    runNestedAcceptanceCheck({
+      name: "Phase 6 acceptance",
+      args: [
+        "run",
+        "acceptance:phase6",
+        "--",
+        "--prod-env-file",
+        options.prodEnvFile,
+        "--local-env-file",
+        options.localEnvFile,
+        ...(options.skipLive ? ["--skip-live"] : []),
+      ],
+      env: localEnv,
+    })
+  );
 
   const report = buildAcceptanceReport({
     name: "Deepglot production acceptance",

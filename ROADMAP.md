@@ -156,14 +156,14 @@ Next.js App (Vercel)          WordPress Plugin
 | # | Task | Status |
 |---|---|---|
 | 6.0 | Shared foundation: plugin settings sync, batch translation logs, and log-backed usage accounting | ✅ Implemented |
-| 6.1 | Visual translation editor (edit directly on the live site) | 🔄 Implemented, live QA pending |
-| 6.2 | Glossary feature (terms that should never be translated) | 🔄 Implemented, live QA pending |
-| 6.3 | Import / export (CSV / PO files) | 🔄 Implemented, live QA pending |
-| 6.4 | WooCommerce email translation | 🔄 Implemented, WooCommerce QA pending |
-| 6.5 | Browser-language auto redirect | 🔄 Implemented, guarded rollout pending |
-| 6.6 | Subdomain support (`de.example.com`) | 🔄 Implemented, mapped-host QA pending |
-| 6.7 | Analytics dashboard (translation volume, language stats) | 🔄 Implemented, production data QA pending |
-| 6.8 | Webhook events (for new translations, etc.) | 🔄 Implemented, cron/delivery QA pending |
+| 6.1 | Visual translation editor (edit directly on the live site) | 🔄 Implemented; dashboard flow verified, live boot blocked until `DEEPGLOT_EDITOR_SECRET` is available to acceptance |
+| 6.2 | Glossary feature (terms that should never be translated) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
+| 6.3 | Import / export (CSV / PO files) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
+| 6.4 | WooCommerce email translation | ✅ Implemented and covered by WordPress PHP acceptance |
+| 6.5 | Browser-language auto redirect | ✅ Implemented; guarded-disabled production rollout verified |
+| 6.6 | Subdomain support (`de.example.com`) | 🔄 Implemented; path-prefix default verified, mapped-host live QA blocked until a production host is configured |
+| 6.7 | Analytics dashboard (translation volume, language stats) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
+| 6.8 | Webhook events (for new translations, etc.) | ✅ Implemented and covered by Phase 6 Playwright and production observability acceptance |
 
 ---
 
@@ -178,8 +178,9 @@ Next.js App (Vercel)          WordPress Plugin
 | 7.5 | WordPress PHP coverage for subdomain routing, browser redirect edge cases, and WooCommerce email translation | ✅ Completed |
 | 7.6 | Production observability: webhook cron monitoring, failed delivery visibility, and operational runbook | ✅ Completed |
 | 7.7 | Persistent API rate limiting and abuse controls for multi-instance production traffic | ✅ Completed |
-| 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | 🔄 Neon restore drill completed; Stripe live checks blocked by env |
+| 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | 🔄 Neon restore drill completed; Stripe live billing acceptance postponed as an external dependency |
 | 7.9 | Decide and enforce legacy Vercel alias policy | ✅ Completed |
+| 7.10 | Autonomous Phase 6 acceptance suite and production acceptance integration | ✅ Completed |
 
 ---
 
