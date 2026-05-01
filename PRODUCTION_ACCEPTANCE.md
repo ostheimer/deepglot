@@ -102,13 +102,13 @@ Known follow-up:
 Neon and Stripe acceptance scripts are now repeatable and non-destructive by default:
 
 - `npm run acceptance:neon -- --env-file .env.production.local` passed as a dry run and would create a restore-drill branch from `prod`.
-- `npm run acceptance:neon -- --env-file .env.production.local --create` is blocked because `NEON_API_KEY` is not configured locally.
+- `npm run acceptance:neon -- --env-file .env.production.local --create` passed on 2026-05-01. It created and validated temporary branch `restore-drill-prod-20260501195333` from `prod`; Neon set it to expire at `2026-05-02T19:53:33.429Z`.
 - `npm run acceptance:stripe -- --mode live --env-file .env.production.local` is blocked because the configured Stripe keys are test-mode keys and the monthly price IDs are missing.
 - `npm run acceptance:stripe -- --mode test --env-file .env.local --env-only` is blocked because local Stripe keys, webhook secret, and monthly price IDs are missing.
 
 These checks do not create paid Stripe objects. The live Stripe API check is read-only and validates price objects plus webhook endpoint registration once live keys and price IDs are available.
 
-`npm run acceptance:production` is the default post-deploy wrapper. It runs the smoke suite, Neon dry-run/readiness, Stripe live/test readiness, rate-limit config readiness, and webhook processor readiness. JSON and JUnit reports can be written with `--json output/production-acceptance.json --junit output/production-acceptance.xml`. The wrapper exits successfully when only external live checks are blocked; use `--strict` to make blocked or skipped checks fail CI.
+`npm run acceptance:production` is the default post-deploy wrapper. It runs the smoke suite, Neon dry-run/readiness, Stripe live/test readiness, rate-limit config readiness, and webhook processor readiness. JSON and JUnit reports can be written with `--json output/production-acceptance.json --junit output/production-acceptance.xml`. The wrapper exits successfully when only external live checks are blocked; use `--strict` to make blocked or skipped checks fail CI. The 2026-05-01 run passed `5/7` checks with only Stripe live/test configuration blocked.
 
 ## Alias Policy
 
@@ -134,5 +134,4 @@ These checks do not create paid Stripe objects. The live Stripe API check is rea
 - Maintain WordPress PHP coverage for WooCommerce email translation, browser redirect edge cases, and subdomain routing.
 - Monitor DB-backed rate-limit buckets for `/api/translate`, plugin API-key endpoints, and password-reset abuse paths after production rollout.
 - Monitor webhook processor runs and failed deliveries through the Webhooks dashboard after each production deployment.
-- Configure `NEON_API_KEY` and run the live Neon restore drill against a temporary branch.
 - Configure Stripe live keys and monthly price IDs, then run the read-only live Stripe acceptance check.
