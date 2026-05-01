@@ -55,7 +55,7 @@ export function buildStripeReadinessCheck({
     return {
       name: `Stripe ${mode} configuration readiness`,
       status: "BLOCKED",
-      detail: validation.errors.join(" "),
+      detail: `Postponed external dependency until Stripe ${mode} billing configuration is intentionally created. ${validation.errors.join(" ")}`,
     };
   }
 

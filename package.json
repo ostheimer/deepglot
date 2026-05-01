@@ -16,6 +16,7 @@
     "test:e2e:headed": "playwright test --headed",
     "smoke:production": "node --import tsx scripts/production-smoke.ts",
     "acceptance:production": "node --import tsx scripts/production-acceptance.ts",
+    "acceptance:phase6": "node --import tsx scripts/phase-6-acceptance.ts",
     "acceptance:neon": "node --import tsx scripts/neon-restore-drill.ts",
     "acceptance:stripe": "node --import tsx scripts/stripe-acceptance.ts",
     "postinstall": "prisma generate"

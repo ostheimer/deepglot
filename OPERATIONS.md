@@ -55,9 +55,42 @@ Expected behavior:
 - Live run creates a temporary child branch from `prod`, validates required tables through a pooled connection string, and sets a 24-hour branch expiry.
 - The script never writes to the `prod` branch. Delete the temporary branch manually in Neon if you do not want to wait for TTL expiry.
 
+## Phase 6 Acceptance
+
+Run the autonomous Phase 6 suite after relevant deployments or before moving Phase 6 roadmap items from QA pending to verified:
+
+```bash
+npm run acceptance:phase6
+npm run acceptance:phase6 -- --json output/phase6.json --junit output/phase6.xml
+```
+
+Default behavior is production-safe:
+
+- Reads `https://deepglot.ai` and `https://www.meinhaushalt.at` unless overridden.
+- Verifies translated `/en/` output, plugin runtime-config shape, visual-editor boot, browser redirect guard behavior, and mapped subdomain status.
+- Runs WordPress PHP coverage and Phase 6 Playwright dashboard flows.
+- Does not save visual-editor edits, update WordPress settings, edit content, create DNS records, or touch Stripe billing resources.
+
+Useful flags:
+
+- `--strict` exits non-zero for blocked or skipped checks.
+- `--skip-live` skips production WordPress/backend checks.
+- `--skip-e2e` skips the Playwright dashboard checks.
+
+Runtime configuration:
+
+- `DEEPGLOT_PHASE6_APP_URL` defaults to `https://deepglot.ai`.
+- `DEEPGLOT_PHASE6_WORDPRESS_URL` defaults to `https://www.meinhaushalt.at`.
+- `DEEPGLOT_PHASE6_PROJECT_ID` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_PROJECT_ID`.
+- `DEEPGLOT_PHASE6_API_KEY` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_API_KEY`.
+- `DEEPGLOT_EDITOR_SECRET` is required for the visual-editor live boot check.
+- `DEEPGLOT_PHASE6_SUBDOMAIN_HOST` is required before subdomain live QA can pass.
+
 ## Stripe Acceptance
 
-Run env-only validation for test mode and read-only API validation for live mode:
+Stripe live billing acceptance is postponed as an external dependency until live/test billing configuration is intentionally created. Do not create products, prices, webhooks, customers, checkout sessions, or subscriptions as part of normal engineering work.
+
+When Stripe is resumed, run env-only validation for test mode and read-only API validation for live mode:
 
 ```bash
 npm run acceptance:stripe -- --mode test --env-file .env.local --env-only
@@ -85,8 +118,8 @@ Default behavior is non-destructive:
 - Runs the production smoke suite.
 - Runs the Neon restore-drill dry run.
 - Reports Neon live restore-drill branch creation as blocked until `NEON_API_KEY` is available.
-- Runs Stripe live API validation only after live Stripe env shape is complete; otherwise reports the exact missing configuration as blocked.
-- Validates local/test Stripe env shape when `.env.local` is present.
+- Reports Stripe live/test acceptance as blocked or postponed until the required Stripe keys, webhook secret, and monthly price IDs exist.
 - Reports rate-limit and webhook processor readiness.
+- Runs Phase 6 acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 
-Use `--strict` when CI should fail on blocked or skipped checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
+Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip Phase 6 production WordPress/backend checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
