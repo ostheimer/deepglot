@@ -159,8 +159,9 @@ Stripe live billing acceptance is not active engineering work right now. These c
 Latest production wrapper run on 2026-05-03:
 
 - `npm run acceptance:production -- --json output/production-acceptance.json --junit output/production-acceptance.xml`
-- Result: `5/9` passed, `0` failed, `4` blocked, `0` skipped.
-- Blocked: Stripe live/test configuration is postponed, SaaS acceptance still used the pre-fix production deployment during this run, and Phase 6 subdomain mapped-host QA needs `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
+- Result: `6/9` passed, `0` failed, `3` blocked, `0` skipped.
+- Passed: production smoke, Neon dry-run/readiness, rate-limit config, webhook processor readiness, and SaaS acceptance.
+- Blocked: Stripe live/test configuration is postponed, and Phase 6 subdomain mapped-host QA needs `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
 
 ## Alias Policy
 
