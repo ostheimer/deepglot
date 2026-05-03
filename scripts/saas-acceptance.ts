@@ -47,7 +47,7 @@ type AuthResult = {
 
 type ProjectFlowResult = {
   check: AcceptanceCheck;
-  rawKey: string | null;
+  runtimeSyncCheck: AcceptanceCheck | null;
 };
 
 function parseArgs(argv: string[]): Options {
@@ -295,7 +295,7 @@ async function checkProjectFlow(
         status: "BLOCKED",
         detail: "Skipped because SaaS auth did not produce a session.",
       },
-      rawKey: null,
+      runtimeSyncCheck: null,
     };
   }
 
@@ -326,7 +326,7 @@ async function checkProjectFlow(
           detail: `Project creation blocked: ${createBody?.error ?? "permission or plan limit"}.`,
           durationMs: Date.now() - startedAt,
         },
-        rawKey: null,
+        runtimeSyncCheck: null,
       };
     }
 
@@ -338,7 +338,7 @@ async function checkProjectFlow(
           detail: `${createResponse.status}; project creation did not return projectId/rawKey.`,
           durationMs: Date.now() - startedAt,
         },
-        rawKey: null,
+        runtimeSyncCheck: null,
       };
     }
 
@@ -356,7 +356,10 @@ async function checkProjectFlow(
     );
 
     if (!languageResponse.ok) {
-      return failProjectFlow(languageResponse, "language update", startedAt, rawKey);
+      return failProjectFlow(languageResponse, "language update", startedAt, {
+        config,
+        disposableApiKey: rawKey,
+      });
     }
 
     const apiKeyResponse = await fetch(
@@ -370,7 +373,10 @@ async function checkProjectFlow(
     );
 
     if (!apiKeyResponse.ok) {
-      return failProjectFlow(apiKeyResponse, "API key creation", startedAt, rawKey);
+      return failProjectFlow(apiKeyResponse, "API key creation", startedAt, {
+        config,
+        disposableApiKey: rawKey,
+      });
     }
 
     const deleteLanguageResponse = await fetch(
@@ -388,9 +394,14 @@ async function checkProjectFlow(
         deleteLanguageResponse,
         "language deletion",
         startedAt,
-        rawKey
+        { config, disposableApiKey: rawKey }
       );
     }
+
+    const runtimeSyncCheck = await checkRuntimeSync({
+      config,
+      disposableApiKey: rawKey,
+    });
 
     return {
       check: {
@@ -399,7 +410,7 @@ async function checkProjectFlow(
         detail: "Created disposable project, generated API key, updated languages, and deleted the project.",
         durationMs: Date.now() - startedAt,
       },
-      rawKey,
+      runtimeSyncCheck,
     };
   } catch (error) {
     return {
@@ -409,7 +420,9 @@ async function checkProjectFlow(
         detail: getErrorMessage(error),
         durationMs: Date.now() - startedAt,
       },
-      rawKey,
+      runtimeSyncCheck: rawKey
+        ? await checkRuntimeSync({ config, disposableApiKey: rawKey })
+        : null,
     };
   } finally {
     if (projectId) {
@@ -588,12 +601,17 @@ async function checkRuntimeSync({
   }
 }
 
-function failProjectFlow(
+async function failProjectFlow(
   response: Response,
   step: string,
   startedAt: number,
-  rawKey: string | null
-): ProjectFlowResult {
+  runtimeSync:
+    | {
+        config: SaasAcceptanceConfig;
+        disposableApiKey: string;
+      }
+    | undefined
+): Promise<ProjectFlowResult> {
   return {
     check: {
       name: "SaaS project flow",
@@ -601,7 +619,9 @@ function failProjectFlow(
       detail: `${response.status}; ${step} failed.`,
       durationMs: Date.now() - startedAt,
     },
-    rawKey,
+    runtimeSyncCheck: runtimeSync
+      ? await checkRuntimeSync(runtimeSync)
+      : null,
   };
 }
 
@@ -676,10 +696,11 @@ async function main() {
 
     checks.push(await checkTranslationApi(config));
     checks.push(
-      await checkRuntimeSync({
-        config,
-        disposableApiKey: projectFlowResult.rawKey,
-      })
+      projectFlowResult.runtimeSyncCheck ??
+        (await checkRuntimeSync({
+          config,
+          disposableApiKey: null,
+        }))
     );
   }
 

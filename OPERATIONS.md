@@ -98,9 +98,9 @@ npm run acceptance:saas -- --json output/saas.json --junit output/saas.xml
 Default behavior:
 
 - Verifies production dashboard credentials can create a real session.
-- Creates and deletes a disposable SaaS project when credentials are valid.
+- Creates and deletes a disposable SaaS project with the dedicated production acceptance account when credentials are valid.
 - Verifies `/api/translate` response shape and the matching `TranslationBatchLog` row.
-- Verifies plugin settings sync returns `runtimeSyncedAt` only on a disposable project when dashboard credentials are valid.
+- Verifies plugin settings sync returns `runtimeSyncedAt` only on a disposable project API key before that project is deleted.
 - Does not touch Stripe billing resources, WordPress content, or live project settings.
 
 Runtime configuration:

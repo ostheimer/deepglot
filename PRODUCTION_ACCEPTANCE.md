@@ -44,10 +44,10 @@ The smoke test verifies:
 | Domain | `deepglot.ai` is the canonical app URL and `www` redirects for page traffic | ✅ Passed |
 | Environment | Production uses `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` set to `https://deepglot.ai` | ✅ Passed |
 | Public API | `/api/public/status` returns `200` on production hosts | ✅ Passed |
-| Auth | Login, logout, signup, OAuth fallback behavior, and localized auth redirects work | 🔄 Automated check added; blocked by stale dashboard credentials |
-| Project flow | Create project, generate API key, update languages, and delete test project | 🔄 Automated check added; blocked by stale dashboard credentials |
+| Auth | Login, logout, signup, OAuth fallback behavior, and localized auth redirects work | ✅ Automated SaaS acceptance passed |
+| Project flow | Create project, generate API key, update languages, and delete test project | ✅ Automated SaaS acceptance passed |
 | Translation API | `/api/translate` validates API keys, returns backward-compatible response shape, writes batch logs, and updates usage | ✅ Automated SaaS acceptance passed |
-| Runtime sync | Plugin settings sync mirrors routing mode, language settings, redirects, email/search/AMP flags, and domain mappings | 🔄 Automated check added; blocked until disposable project flow can supply a temporary API key |
+| Runtime sync | Plugin settings sync mirrors routing mode, language settings, redirects, email/search/AMP flags, and domain mappings | ✅ Automated SaaS acceptance passed with a disposable project API key |
 | Glossary | CRUD, validation, provider placeholder protection, manual override precedence, and webhook event creation work | ✅ Automated Phase 6 Playwright acceptance passed |
 | Import/export | CSV and PO imports are all-or-nothing; exports use deterministic headers and content | ✅ Automated Phase 6 Playwright acceptance passed |
 | Visual editor | Token creation, backend token verification, WordPress editor boot, segment selection, save, reload persistence, and invalid-token rejection work | ✅ Automated Phase 6 acceptance passed |
@@ -95,7 +95,6 @@ Required checks on `meinhaushalt.at`:
 
 Known follow-up:
 
-- The dashboard credentials currently stored in `.env.local` do not authenticate against Production, so the dashboard-issued editor-session click flow remains under SaaS acceptance.
 - The visual-editor live boot check now verifies the token against the production backend before accepting the WordPress editor shell.
 
 ## SaaS Automated Acceptance
@@ -116,10 +115,9 @@ Optional flags:
 Latest local run:
 
 - `npm run acceptance:saas -- --json output/saas.json --junit output/saas.xml`
-- Result: `1/4` passed, `0` failed, `3` blocked, `0` skipped.
-- Passed: `/api/translate` response shape plus `TranslationBatchLog` verification.
-- Blocked: dashboard auth credentials were rejected by production, so the disposable project create/update/API-key/delete flow and disposable-project runtime sync were skipped.
-- The suite does not create Stripe resources, edit WordPress content, or mutate live project settings. If valid dashboard credentials are configured, it creates and deletes a disposable SaaS project and runs settings sync only against that disposable project API key.
+- Result: `4/4` passed, `0` failed, `0` blocked, `0` skipped.
+- Passed: dashboard credentials session, disposable project create/update/API-key/delete flow, `/api/translate` response shape plus `TranslationBatchLog` verification, and disposable-project runtime settings sync.
+- The suite uses the dedicated `acceptance@deepglot.ai` production acceptance account. It does not create Stripe resources, edit WordPress content, or mutate live project settings; settings sync runs only against the disposable project API key before the project is deleted.
 
 ## Phase 6 Automated Acceptance
 
@@ -162,7 +160,7 @@ Latest production wrapper run on 2026-05-03:
 
 - `npm run acceptance:production -- --json output/production-acceptance.json --junit output/production-acceptance.xml`
 - Result: `5/9` passed, `0` failed, `4` blocked, `0` skipped.
-- Blocked: Stripe live/test configuration is postponed, SaaS auth/project/runtime-sync checks need valid dashboard credentials, and Phase 6 subdomain mapped-host QA needs `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
+- Blocked: Stripe live/test configuration is postponed, SaaS acceptance still used the pre-fix production deployment during this run, and Phase 6 subdomain mapped-host QA needs `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
 
 ## Alias Policy
 
