@@ -53,6 +53,24 @@ test("preserves documented defaults when Phase 6 URLs are blank", () => {
   assert.equal(config.wordpressUrl, "https://www.meinhaushalt.at");
 });
 
+test("uses the runtime editor secret fallback chain for Phase 6 acceptance", () => {
+  assert.equal(
+    resolvePhase6AcceptanceConfig({
+      DEEPGLOT_EDITOR_SECRET: " ",
+      AUTH_SECRET: " auth-secret ",
+    }).editorSecret,
+    "auth-secret"
+  );
+
+  assert.equal(
+    resolvePhase6AcceptanceConfig({
+      DEEPGLOT_EDITOR_SECRET: "",
+      NEXTAUTH_SECRET: " next-auth-secret ",
+    }).editorSecret,
+    "next-auth-secret"
+  );
+});
+
 test("builds runtime-config URLs without requiring callers to expose secrets in details", () => {
   const config = resolvePhase6AcceptanceConfig({
     DEEPGLOT_PHASE6_APP_URL: "https://app.example",

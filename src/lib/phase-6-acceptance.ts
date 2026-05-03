@@ -11,6 +11,8 @@ export type Phase6AcceptanceEnv = {
   MEINHAUSHALT_PROD_DEEPGLOT_PROJECT_ID?: string;
   MEINHAUSHALT_PROD_DEEPGLOT_API_KEY?: string;
   DEEPGLOT_EDITOR_SECRET?: string;
+  AUTH_SECRET?: string;
+  NEXTAUTH_SECRET?: string;
 };
 
 export type Phase6AcceptanceConfig = {
@@ -39,7 +41,11 @@ export function resolvePhase6AcceptanceConfig(
       env.DEEPGLOT_PHASE6_API_KEY?.trim() ||
       env.MEINHAUSHALT_PROD_DEEPGLOT_API_KEY?.trim() ||
       null,
-    editorSecret: env.DEEPGLOT_EDITOR_SECRET?.trim() || null,
+    editorSecret:
+      env.DEEPGLOT_EDITOR_SECRET?.trim() ||
+      env.AUTH_SECRET?.trim() ||
+      env.NEXTAUTH_SECRET?.trim() ||
+      null,
     subdomainHost: env.DEEPGLOT_PHASE6_SUBDOMAIN_HOST?.trim() || null,
   };
 }

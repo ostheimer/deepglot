@@ -304,10 +304,27 @@ async function checkVisualEditorBoot(config: Phase6AcceptanceConfig): Promise<Ac
       missing: ["valid editor launch URL"],
     });
   }
+  const token = new URL(url).searchParams.get("deepglot_editor_token") ?? "";
+  const verifyUrl = new URL(
+    `/api/projects/${encodeURIComponent(config.projectId!)}/editor-sessions/verify`,
+    config.appUrl
+  );
+  verifyUrl.searchParams.set("token", token);
 
   const startedAt = Date.now();
 
   try {
+    const verifyResponse = await fetch(verifyUrl, {
+      headers: {
+        Origin: config.wordpressUrl,
+        "User-Agent": "Deepglot Phase 6 acceptance",
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
+    const verifyBody = (await verifyResponse.json().catch(() => null)) as
+      | { ok?: boolean }
+      | null;
+    const backendVerified = verifyResponse.ok && verifyBody?.ok === true;
     const response = await fetch(url, {
       headers: { "User-Agent": "Deepglot Phase 6 acceptance" },
       signal: AbortSignal.timeout(25_000),
@@ -320,8 +337,11 @@ async function checkVisualEditorBoot(config: Phase6AcceptanceConfig): Promise<Ac
 
     return {
       name: "Visual editor WordPress boot",
-      status: response.ok && hasManifest && hasSegments && hasEditorRoot ? "PASS" : "FAIL",
-      detail: `${response.status}; manifest=${hasManifest}; segments=${segmentCount}; editorRoot=${hasEditorRoot}.`,
+      status:
+        backendVerified && response.ok && hasManifest && hasSegments && hasEditorRoot
+          ? "PASS"
+          : "FAIL",
+      detail: `${response.status}; backendVerify=${backendVerified}; manifest=${hasManifest}; segments=${segmentCount}; editorRoot=${hasEditorRoot}.`,
       durationMs: Date.now() - startedAt,
     };
   } catch (error) {

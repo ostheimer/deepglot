@@ -67,7 +67,7 @@ npm run acceptance:phase6 -- --json output/phase6.json --junit output/phase6.xml
 Default behavior is production-safe:
 
 - Reads `https://deepglot.ai` and `https://www.meinhaushalt.at` unless overridden.
-- Verifies translated `/en/` output, plugin runtime-config shape, visual-editor boot, browser redirect guard behavior, and mapped subdomain status.
+- Verifies translated `/en/` output, plugin runtime-config shape, backend-verified visual-editor boot, browser redirect guard behavior, and mapped subdomain status.
 - Runs WordPress PHP coverage and Phase 6 Playwright dashboard flows.
 - Does not save visual-editor edits, update WordPress settings, edit content, create DNS records, or touch Stripe billing resources.
 
@@ -83,7 +83,7 @@ Runtime configuration:
 - `DEEPGLOT_PHASE6_WORDPRESS_URL` defaults to `https://www.meinhaushalt.at`.
 - `DEEPGLOT_PHASE6_PROJECT_ID` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_PROJECT_ID`.
 - `DEEPGLOT_PHASE6_API_KEY` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_API_KEY`.
-- `DEEPGLOT_EDITOR_SECRET` is required for the visual-editor live boot check.
+- `DEEPGLOT_EDITOR_SECRET`, `AUTH_SECRET`, or `NEXTAUTH_SECRET` is required for the visual-editor live boot check.
 - `DEEPGLOT_PHASE6_SUBDOMAIN_HOST` is required before subdomain live QA can pass.
 
 ## SaaS Acceptance
