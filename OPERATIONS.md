@@ -86,6 +86,31 @@ Runtime configuration:
 - `DEEPGLOT_EDITOR_SECRET` is required for the visual-editor live boot check.
 - `DEEPGLOT_PHASE6_SUBDOMAIN_HOST` is required before subdomain live QA can pass.
 
+## SaaS Acceptance
+
+Run the SaaS acceptance suite after production deploys or auth/project-flow changes:
+
+```bash
+npm run acceptance:saas
+npm run acceptance:saas -- --json output/saas.json --junit output/saas.xml
+```
+
+Default behavior:
+
+- Verifies production dashboard credentials can create a real session.
+- Creates and deletes a disposable SaaS project when credentials are valid.
+- Verifies `/api/translate` response shape and the matching `TranslationBatchLog` row.
+- Verifies plugin settings sync returns `runtimeSyncedAt` only on a disposable project when dashboard credentials are valid.
+- Does not touch Stripe billing resources, WordPress content, or live project settings.
+
+Runtime configuration:
+
+- `DEEPGLOT_SAAS_APP_URL` defaults to `https://deepglot.ai`.
+- `DEEPGLOT_DASHBOARD_EMAIL` and `DEEPGLOT_DASHBOARD_PASSWORD` are required for auth and project-flow checks.
+- `DEEPGLOT_SAAS_PROJECT_ID` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_PROJECT_ID`.
+- `DEEPGLOT_SAAS_API_KEY` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_API_KEY`.
+- `DEEPGLOT_SAAS_PROJECT_DOMAIN` overrides the disposable project domain.
+
 ## Stripe Acceptance
 
 Stripe live billing acceptance is postponed as an external dependency until live/test billing configuration is intentionally created. Do not create products, prices, webhooks, customers, checkout sessions, or subscriptions as part of normal engineering work.
@@ -120,6 +145,7 @@ Default behavior is non-destructive:
 - Reports Neon live restore-drill branch creation as blocked until `NEON_API_KEY` is available.
 - Reports Stripe live/test acceptance as blocked or postponed until the required Stripe keys, webhook secret, and monthly price IDs exist.
 - Reports rate-limit and webhook processor readiness.
+- Runs SaaS acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 - Runs Phase 6 acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 
-Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip Phase 6 production WordPress/backend checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
+Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip SaaS and Phase 6 production HTTP checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.

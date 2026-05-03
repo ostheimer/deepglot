@@ -102,7 +102,7 @@ Options:
   --junit <path>               Write a JUnit XML report.
   --strict                     Exit non-zero for blocked or skipped checks.
   --skip-smoke                 Skip npm run smoke:production.
-  --skip-live                  Skip Phase 6 production WordPress/backend live checks.
+  --skip-live                  Skip SaaS and Phase 6 production HTTP/API checks.
   --run-webhook-processor      Call /api/webhooks/process with CRON_SECRET.
   --create-neon-branch         Create the temporary Neon restore-drill branch.
 
@@ -420,6 +420,23 @@ async function main() {
       })
     );
   }
+
+  checks.push(
+    runNestedAcceptanceCheck({
+      name: "SaaS acceptance",
+      args: [
+        "run",
+        "acceptance:saas",
+        "--",
+        "--prod-env-file",
+        options.prodEnvFile,
+        "--local-env-file",
+        options.localEnvFile,
+        ...(options.skipLive ? ["--skip-live"] : []),
+      ],
+      env: localEnv,
+    })
+  );
 
   checks.push(
     runNestedAcceptanceCheck({
