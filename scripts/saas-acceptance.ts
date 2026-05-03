@@ -356,7 +356,10 @@ async function checkProjectFlow(
     );
 
     if (!languageResponse.ok) {
-      return failProjectFlow(languageResponse, "language update", startedAt);
+      return failProjectFlow(languageResponse, "language update", startedAt, {
+        config,
+        disposableApiKey: rawKey,
+      });
     }
 
     const apiKeyResponse = await fetch(
@@ -370,7 +373,10 @@ async function checkProjectFlow(
     );
 
     if (!apiKeyResponse.ok) {
-      return failProjectFlow(apiKeyResponse, "API key creation", startedAt);
+      return failProjectFlow(apiKeyResponse, "API key creation", startedAt, {
+        config,
+        disposableApiKey: rawKey,
+      });
     }
 
     const deleteLanguageResponse = await fetch(
@@ -387,7 +393,8 @@ async function checkProjectFlow(
       return failProjectFlow(
         deleteLanguageResponse,
         "language deletion",
-        startedAt
+        startedAt,
+        { config, disposableApiKey: rawKey }
       );
     }
 
@@ -594,11 +601,17 @@ async function checkRuntimeSync({
   }
 }
 
-function failProjectFlow(
+async function failProjectFlow(
   response: Response,
   step: string,
-  startedAt: number
-): ProjectFlowResult {
+  startedAt: number,
+  runtimeSync:
+    | {
+        config: SaasAcceptanceConfig;
+        disposableApiKey: string;
+      }
+    | undefined
+): Promise<ProjectFlowResult> {
   return {
     check: {
       name: "SaaS project flow",
@@ -606,7 +619,9 @@ function failProjectFlow(
       detail: `${response.status}; ${step} failed.`,
       durationMs: Date.now() - startedAt,
     },
-    runtimeSyncCheck: null,
+    runtimeSyncCheck: runtimeSync
+      ? await checkRuntimeSync(runtimeSync)
+      : null,
   };
 }
 
