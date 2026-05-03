@@ -156,7 +156,7 @@ Next.js App (Vercel)          WordPress Plugin
 | # | Task | Status |
 |---|---|---|
 | 6.0 | Shared foundation: plugin settings sync, batch translation logs, and log-backed usage accounting | ✅ Implemented |
-| 6.1 | Visual translation editor (edit directly on the live site) | 🔄 Implemented; dashboard flow verified, live boot blocked until `DEEPGLOT_EDITOR_SECRET` is available to acceptance |
+| 6.1 | Visual translation editor (edit directly on the live site) | ✅ Implemented; dashboard flow and backend-verified WordPress live boot covered by Phase 6 acceptance |
 | 6.2 | Glossary feature (terms that should never be translated) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
 | 6.3 | Import / export (CSV / PO files) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
 | 6.4 | WooCommerce email translation | ✅ Implemented and covered by WordPress PHP acceptance |
