@@ -181,7 +181,7 @@ Next.js App (Vercel)          WordPress Plugin
 | 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | 🔄 Neon restore drill completed; Stripe live billing acceptance postponed as an external dependency |
 | 7.9 | Decide and enforce legacy Vercel alias policy | ✅ Completed |
 | 7.10 | Autonomous Phase 6 acceptance suite and production acceptance integration | ✅ Completed |
-| 7.11 | Autonomous SaaS acceptance for auth, project flow, translation API, and runtime sync | ✅ Completed; auth/project/runtime-sync flow blocked by stale dashboard credentials |
+| 7.11 | Autonomous SaaS acceptance for auth, project flow, translation API, and runtime sync | ✅ Completed |
 
 ---
 
