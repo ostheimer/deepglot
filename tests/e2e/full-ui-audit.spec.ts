@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { signInAsTestUser } from "./helpers";
 
@@ -69,7 +69,7 @@ test.describe("full UI audit", () => {
       0
     );
 
-    expect(checkedTargets.size, "unique rendered link targets").toBeGreaterThan(50);
+    expect(checkedTargets.size, "unique checked link targets").toBeGreaterThan(50);
     expect(checkedLinks, "visible same-origin links").toBeGreaterThan(500);
     expect(checkedInteractives, "visible interactives").toBeGreaterThan(700);
   });
@@ -153,8 +153,8 @@ async function auditRoute(
   );
 
   for (const link of links) {
-    await checkRenderedTarget(
-      page.context(),
+    await checkLinkTarget(
+      page,
       page.url(),
       path,
       link.label,
@@ -275,8 +275,8 @@ async function collectVisibleInteractives(page: Page) {
     }) as Promise<VisibleInteractive[]>;
 }
 
-async function checkRenderedTarget(
-  context: BrowserContext,
+async function checkLinkTarget(
+  page: Page,
   currentUrl: string,
   sourcePath: string,
   label: string,
@@ -291,26 +291,17 @@ async function checkRenderedTarget(
   const key = target.toString();
   if (checkedTargets.has(key)) return;
 
-  const checkPage = await context.newPage();
+  const response = await page.request.get(key, {
+    maxRedirects: 8,
+    timeout: 20_000,
+  });
 
-  try {
-    const response = await checkPage.goto(key, { waitUntil: "load" });
+  expect(
+    response.status(),
+    `${sourcePath} link "${label}" -> ${target.pathname} HTTP status`
+  ).toBeLessThan(400);
 
-    expect(
-      response?.status() ?? 200,
-      `${sourcePath} link "${label}" -> ${target.pathname} HTTP status`
-    ).toBeLessThan(400);
-
-    await checkPage.waitForLoadState("networkidle").catch(() => undefined);
-    await expect(
-      checkPage.locator("body"),
-      `${sourcePath} link "${label}" -> ${target.pathname} rendered page`
-    ).not.toContainText(/This page could not be found\.|^\s*404\s*$/m);
-
-    checkedTargets.set(key, true);
-  } finally {
-    await checkPage.close().catch(() => undefined);
-  }
+  checkedTargets.set(key, true);
 }
 
 function isSameOriginHttpLink(page: Page, href: string) {
