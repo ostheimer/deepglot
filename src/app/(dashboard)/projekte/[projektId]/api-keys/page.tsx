@@ -6,6 +6,7 @@ import { Key } from "lucide-react";
 import { format } from "date-fns";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
+import { requireProjectManagement } from "@/lib/project-page-access";
 import { CreateApiKeyDialog } from "@/components/projekte/create-api-key-dialog";
 import { DeleteApiKeyButton } from "@/components/projekte/delete-api-key-button";
 import { NewApiKeyBanner } from "@/components/projekte/new-api-key-banner";
@@ -17,6 +18,7 @@ interface PageProps {
 export default async function ApiKeysPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
+  await requireProjectManagement(projektId);
 
   const project = await db.project.findUnique({ where: { id: projektId } });
   if (!project) notFound();

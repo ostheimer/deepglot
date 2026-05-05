@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { stripe } from "@/lib/stripe";
 import { CancelSubscriptionButton } from "@/components/abonnement/cancel-subscription-button";
-import { AutoUpgradeToggle } from "@/components/abonnement/auto-upgrade-toggle";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
@@ -117,16 +118,18 @@ export default async function PlanUebersichtPage({
         </p>
 
         {/* Auto-upgrade */}
-        <div className="flex items-start gap-3 py-5 border-t border-gray-100">
-          <AutoUpgradeToggle defaultChecked={false} />
-          <div>
+        <div className="flex items-start justify-between gap-4 py-5 border-t border-gray-100">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900">Auto-Upgrade</p>
             <p className="text-sm text-gray-500 mt-0.5">
               {locale === "de"
-                ? "Vermeide Unterbrechungen des Übersetzungsdienstes – dein Plan wird automatisch upgradet, wenn dein Wort-Limit erreicht wird."
-                : "Avoid translation interruptions. Your plan upgrades automatically once you reach your word limit."}
+                ? "Automatische Planwechsel sind noch nicht verfügbar, weil Stripe-Live-Abrechnung bewusst verschoben ist."
+                : "Automatic plan changes are not available yet because Stripe live billing is intentionally postponed."}
             </p>
           </div>
+          <Badge variant="outline" className="shrink-0">
+            {locale === "de" ? "Aus" : "Off"}
+          </Badge>
         </div>
 
         {/* Actions */}
@@ -135,11 +138,11 @@ export default async function PlanUebersichtPage({
             subscriptionId={sub?.stripeSubscriptionId ?? null}
             plan={plan}
           />
-          <Link href={withLocalePrefix("/subscription", locale)}>
-            <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
+          <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+            <Link href={withLocalePrefix("/pricing", locale)}>
               {locale === "de" ? "Plan wechseln" : "Change plan"}
-            </button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

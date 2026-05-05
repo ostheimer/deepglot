@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getRequestLocale } from "@/lib/request-locale";
 import { Badge } from "@/components/ui/badge";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
+import { requireProjectManagement } from "@/lib/project-page-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -11,6 +12,7 @@ interface PageProps {
 export default async function WordPressSettingsPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
+  await requireProjectManagement(projektId);
 
   const project = await db.project.findUnique({
     where: { id: projektId },

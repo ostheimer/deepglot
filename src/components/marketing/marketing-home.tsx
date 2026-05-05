@@ -4,9 +4,13 @@ import { ArrowRight, Check, Code, Globe, Lock, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LanguageSwitcher } from "@/components/site/language-switcher";
+import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PLANS, type PlanKey } from "@/lib/stripe";
-import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import {
+  getMarketingPath,
+  withLocalePrefix,
+  type SiteLocale,
+} from "@/lib/site-locale";
 
 const FEATURE_ICONS = {
   fast: Zap,
@@ -63,6 +67,7 @@ const MARKETING_COPY = {
           "High-quality translations powered by current OpenAI models by default, with OpenRouter, Ollama, OpenAI-compatible gateways, and optional DeepL support.",
       },
       {
+        id: "plugin",
         icon: FEATURE_ICONS.plugin,
         title: "WordPress-first plugin",
         description:
@@ -158,6 +163,7 @@ const MARKETING_COPY = {
           "Hochwertige Übersetzungen standardmäßig mit aktuellen OpenAI-Modellen, optional über OpenRouter, Ollama, OpenAI-kompatible Gateways oder DeepL.",
       },
       {
+        id: "plugin",
         icon: FEATURE_ICONS.plugin,
         title: "WordPress Plugin",
         description:
@@ -216,46 +222,11 @@ type MarketingHomeProps = {
 
 export function MarketingHome({ locale }: MarketingHomeProps) {
   const copy = MARKETING_COPY[locale];
-  const loginHref = getMarketingPath(locale, "login");
   const signupHref = getMarketingPath(locale, "signup");
 
   return (
     <div className="min-h-screen bg-white">
-      <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <Globe className="h-6 w-6 text-indigo-600" />
-            <span className="text-xl font-bold text-gray-900">Deepglot</span>
-          </div>
-          <div className="hidden items-center gap-8 md:flex">
-            <Link href={`${getMarketingPath(locale, "home")}#features`} className="text-sm text-gray-600 transition-colors hover:text-gray-900">
-              {copy.nav.features}
-            </Link>
-            <Link href={getMarketingPath(locale, "pricing")} className="text-sm text-gray-600 transition-colors hover:text-gray-900">
-              {copy.nav.pricing}
-            </Link>
-            <Link href={`${getMarketingPath(locale, "home")}#plugin`} className="text-sm text-gray-600 transition-colors hover:text-gray-900">
-              {copy.nav.plugin}
-            </Link>
-            <Link href="/docs" className="text-sm text-gray-600 transition-colors hover:text-gray-900">
-              {copy.nav.docs}
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher compact />
-            <Link href={loginHref}>
-              <Button variant="ghost" size="sm">
-                {copy.nav.login}
-              </Button>
-            </Link>
-            <Link href={signupHref}>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
-                {copy.nav.signup}
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <MarketingNav locale={locale} />
 
       <section className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
@@ -279,18 +250,18 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
             {copy.heroDescription}
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href={signupHref}>
-              <Button size="lg" className="bg-indigo-600 px-8 text-base hover:bg-indigo-700">
+            <Button asChild size="lg" className="bg-indigo-600 px-8 text-base hover:bg-indigo-700">
+              <Link href={signupHref}>
                 {copy.heroPrimaryCta}
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="https://github.com/ostheimer/deepglot" target="_blank">
-              <Button size="lg" variant="outline" className="px-8 text-base">
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="px-8 text-base">
+              <Link href="https://github.com/ostheimer/deepglot" target="_blank">
                 <Code className="mr-2 h-4 w-4" />
                 {copy.heroSecondaryCta}
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
           <p className="mt-4 text-sm text-gray-500">{copy.heroFooter}</p>
         </div>
@@ -330,19 +301,29 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
           <p className="mx-auto max-w-2xl text-lg text-gray-600">{copy.featuresDescription}</p>
         </div>
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {copy.features.map((feature) => (
-            <Card key={feature.title} className="border-gray-100 transition-shadow hover:shadow-md">
-              <CardHeader>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50">
-                  <feature.icon className="h-5 w-5 text-indigo-600" />
-                </div>
-                <CardTitle className="text-lg">{feature.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600">{feature.description}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {copy.features.map((feature) => {
+            const featureId = "id" in feature ? feature.id : undefined;
+
+            return (
+              <Card
+                key={feature.title}
+                id={featureId}
+                className={`border-gray-100 transition-shadow hover:shadow-md ${
+                  featureId ? "scroll-mt-24" : ""
+                }`}
+              >
+                <CardHeader>
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50">
+                    <feature.icon className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <CardTitle className="text-lg">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">{feature.description}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </section>
 
@@ -391,16 +372,17 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
                         </li>
                       ))}
                     </ul>
-                    <Link href={signupHref}>
-                      <Button
-                        className={`w-full ${
-                          key === "PROFESSIONAL" ? "bg-indigo-600 hover:bg-indigo-700" : ""
-                        }`}
-                        variant={key === "PROFESSIONAL" ? "default" : "outline"}
-                      >
+                    <Button
+                      asChild
+                      className={`w-full ${
+                        key === "PROFESSIONAL" ? "bg-indigo-600 hover:bg-indigo-700" : ""
+                      }`}
+                      variant={key === "PROFESSIONAL" ? "default" : "outline"}
+                    >
+                      <Link href={signupHref}>
                         {plan.priceMonthly === 0 ? copy.planFreeCta : copy.planPrimaryCta}
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                   </CardContent>
                 </Card>
               );
@@ -411,21 +393,34 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
 
       <footer className="border-t border-gray-100 py-12">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:flex-row sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
+          <Link
+            href={getMarketingPath(locale, "home")}
+            className="flex items-center gap-2"
+            aria-label="Deepglot"
+          >
             <Globe className="h-5 w-5 text-indigo-600" />
             <span className="font-semibold text-gray-900">Deepglot</span>
             <span className="ml-2 text-sm text-gray-500">
               © {new Date().getFullYear()} Andreas Ostheimer
             </span>
-          </div>
+          </Link>
           <div className="flex gap-6 text-sm text-gray-500">
-            <Link href="/datenschutz" className="transition-colors hover:text-gray-900">
+            <Link
+              href={withLocalePrefix("/datenschutz", locale)}
+              className="transition-colors hover:text-gray-900"
+            >
               {copy.footer.privacy}
             </Link>
-            <Link href="/impressum" className="transition-colors hover:text-gray-900">
+            <Link
+              href={withLocalePrefix("/impressum", locale)}
+              className="transition-colors hover:text-gray-900"
+            >
               {copy.footer.legal}
             </Link>
-            <Link href="/agb" className="transition-colors hover:text-gray-900">
+            <Link
+              href={withLocalePrefix("/agb", locale)}
+              className="transition-colors hover:text-gray-900"
+            >
               {copy.footer.terms}
             </Link>
             <Link

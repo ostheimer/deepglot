@@ -2,8 +2,9 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CreateApiKeyDialog } from "@/components/projekte/create-api-key-dialog";
-import { Plus, Key } from "lucide-react";
+import { ExternalLink, Key, Plus } from "lucide-react";
 import Link from "next/link";
+import { requireProjectManagement } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 
@@ -14,6 +15,7 @@ interface PageProps {
 export default async function SetupPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
+  await requireProjectManagement(projektId);
 
   const project = await db.project.findUnique({ where: { id: projektId } });
   if (!project) notFound();
@@ -23,6 +25,8 @@ export default async function SetupPage({ params }: PageProps) {
     where: { projectId: projektId, isActive: true },
     orderBy: { createdAt: "desc" },
   });
+  const pluginSourceUrl =
+    "https://github.com/ostheimer/deepglot/tree/main/wordpress-plugin/deepglot";
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -50,7 +54,7 @@ export default async function SetupPage({ params }: PageProps) {
               </div>
               <CreateApiKeyDialog
                 projectId={projektId}
-                label={locale === "de" ? "Neuen Schluessel erstellen" : "Create new key"}
+                label={locale === "de" ? "Neuen Schlüssel erstellen" : "Create new key"}
                 variant="outline"
               />
             </div>
@@ -70,12 +74,12 @@ export default async function SetupPage({ params }: PageProps) {
                 projectId={projektId}
                 label={locale === "de" ? "API-Key erstellen" : "Create API key"}
               />
-              <Link href={withLocalePrefix(`/projects/${projektId}/api-keys`, locale)}>
-                <Button variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm">
+                <Link href={withLocalePrefix(`/projects/${projektId}/api-keys`, locale)}>
                   <Plus className="mr-2 h-4 w-4" />
                   {locale === "de" ? "Zur Verwaltung" : "Open manager"}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </div>
         )}
@@ -92,9 +96,16 @@ export default async function SetupPage({ params }: PageProps) {
               step: 1,
               title: locale === "de" ? "Plugin herunterladen" : "Download plugin",
               desc: locale === "de"
-                ? "Lade das Deepglot WordPress Plugin herunter und installiere es in deinem WordPress-Backend."
-                : "Download the Deepglot WordPress plugin and install it in your WordPress admin.",
-              action: <Button variant="outline" size="sm">{locale === "de" ? "Plugin herunterladen" : "Download plugin"}</Button>,
+                ? "Der Plugin-Quellcode ist im Deepglot-Repository verfügbar. Ein gebautes Installer-ZIP wird noch nicht automatisch bereitgestellt."
+                : "The plugin source is available in the Deepglot repository. A built installer ZIP is not published automatically yet.",
+              action: (
+                <Button asChild variant="outline" size="sm">
+                  <Link href={pluginSourceUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {locale === "de" ? "Plugin-Quelle öffnen" : "Open plugin source"}
+                  </Link>
+                </Button>
+              ),
             },
             {
               step: 2,

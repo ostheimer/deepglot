@@ -36,3 +36,16 @@ export function getAuthRedirect(pathname: string, isLoggedIn: boolean) {
 
   return null;
 }
+
+export function getSafeAuthCallbackUrl(
+  callbackUrl: string | string[] | undefined,
+  fallback: string
+) {
+  const value = Array.isArray(callbackUrl) ? callbackUrl[0] : callbackUrl;
+
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return fallback;
+  }
+
+  return value;
+}

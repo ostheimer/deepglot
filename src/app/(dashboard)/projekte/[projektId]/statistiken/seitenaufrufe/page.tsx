@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { getRequestLocale } from "@/lib/request-locale";
 import { EnablePageViewsButton } from "@/components/projekte/enable-page-views-button";
+import { requireProjectAreaAccess } from "@/lib/project-page-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -10,6 +11,7 @@ interface PageProps {
 export default async function SeitenaufrufeStatistikPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
+  await requireProjectAreaAccess(projektId, "analytics");
 
   const project = await db.project.findUnique({
     where: { id: projektId },

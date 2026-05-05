@@ -61,6 +61,11 @@ export function TranslationRequestsChart({
   granularity,
 }: TranslationRequestsChartProps) {
   const locale = useLocale();
+  const chartLabel =
+    locale === "de"
+      ? "Übersetzungsanfragen im Zeitverlauf"
+      : "Translation requests over time";
+
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
@@ -92,7 +97,12 @@ export function TranslationRequestsChart({
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+      <LineChart
+        data={data}
+        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        role="img"
+        aria-label={chartLabel}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis
           dataKey="date"

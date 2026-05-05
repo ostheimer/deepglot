@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ProjectWebhooksManager } from "@/components/projekte/project-webhooks-manager";
 import { db } from "@/lib/db";
+import { requireProjectManagement } from "@/lib/project-page-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -9,6 +10,7 @@ interface PageProps {
 
 export default async function WebhooksPage({ params }: PageProps) {
   const { projektId } = await params;
+  await requireProjectManagement(projektId);
 
   const [project, latestProcessorRun, statusCounts, pendingDueCount] =
     await Promise.all([

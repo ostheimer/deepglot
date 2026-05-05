@@ -67,6 +67,12 @@ export function UsageCharts({
 }: Props) {
   const locale = useLocale();
   const wordsPercent = wordsLimit > 0 ? Math.min((totalWords / wordsLimit) * 100, 100) : 0;
+  const wordsChartLabel =
+    locale === "de" ? "Wörter-Nutzung nach Projekt" : "Word usage by project";
+  const requestsChartLabel =
+    locale === "de"
+      ? "Übersetzungsanfragen nach Projekt"
+      : "Translation requests by project";
 
   return (
     <div className="space-y-5">
@@ -99,7 +105,7 @@ export function UsageCharts({
 
           {pieWordData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
+              <PieChart role="img" aria-label={wordsChartLabel}>
                 <Pie
                   data={pieWordData}
                   cx="50%"
@@ -108,6 +114,7 @@ export function UsageCharts({
                   outerRadius={90}
                   dataKey="value"
                   strokeWidth={2}
+                  rootTabIndex={-1}
                 >
                   {pieWordData.map((_, i) => (
                     <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -144,7 +151,7 @@ export function UsageCharts({
 
           {pieRequestData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
+              <PieChart role="img" aria-label={requestsChartLabel}>
                 <Pie
                   data={pieRequestData}
                   cx="50%"
@@ -153,6 +160,7 @@ export function UsageCharts({
                   outerRadius={90}
                   dataKey="value"
                   strokeWidth={2}
+                  rootTabIndex={-1}
                 >
                   {pieRequestData.map((_, i) => (
                     <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />

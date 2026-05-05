@@ -29,9 +29,11 @@ export function ImportExportPanel({
   const locale = useLocale();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [poLanguage, setPoLanguage] = useState(languages[0]?.langCode ?? "en");
+  const [poLanguage, setPoLanguage] = useState(languages[0]?.langCode ?? "");
   const pendingImportRef = useRef<ImportConfig | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasPoLanguages = languages.length > 0;
+  const poLanguageSelectId = "po-target-language";
 
   const copy = {
     title: locale === "de" ? "Import & Export" : "Import & export",
@@ -57,6 +59,10 @@ export function ImportExportPanel({
       locale === "de"
         ? `PO-Dateien immer pro Zielsprache. Ausgangssprache: ${getLanguageName(originalLang, locale)}.`
         : `PO files are always per target language. Source language: ${getLanguageName(originalLang, locale)}.`,
+    noPoLanguages:
+      locale === "de"
+        ? "Füge zuerst eine aktive Zielsprache hinzu, bevor du PO-Dateien importierst oder exportierst."
+        : "Add an active target language before importing or exporting PO files.",
   };
 
   function openImport(config: ImportConfig) {
@@ -218,12 +224,17 @@ export function ImportExportPanel({
             <p className="mt-3 text-xs text-gray-400">{copy.poHint}</p>
           </div>
           <div className="w-full max-w-xs space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <label
+              htmlFor={poLanguageSelectId}
+              className="text-xs font-semibold uppercase tracking-wider text-gray-500"
+            >
               {copy.chooseLanguage}
             </label>
             <select
+              id={poLanguageSelectId}
               value={poLanguage}
               onChange={(event) => setPoLanguage(event.target.value)}
+              disabled={!hasPoLanguages}
               className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm"
             >
               {languages.map((language) => (
@@ -232,6 +243,9 @@ export function ImportExportPanel({
                 </option>
               ))}
             </select>
+            {!hasPoLanguages && (
+              <p className="text-xs text-amber-700">{copy.noPoLanguages}</p>
+            )}
           </div>
         </div>
 
@@ -246,23 +260,30 @@ export function ImportExportPanel({
                 langTo: poLanguage,
               })
             }
-            disabled={isPending}
+            disabled={isPending || !hasPoLanguages}
           >
             <Upload className="mr-2 h-4 w-4" />
             {copy.import}
           </Button>
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
-            <a
-              href={buildExportHref({
-                asset: "translations",
-                format: "po",
-                langTo: poLanguage,
-              })}
-            >
+          {hasPoLanguages ? (
+            <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+              <a
+                href={buildExportHref({
+                  asset: "translations",
+                  format: "po",
+                  langTo: poLanguage,
+                })}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {copy.export}
+              </a>
+            </Button>
+          ) : (
+            <Button type="button" disabled className="bg-indigo-600 hover:bg-indigo-700">
               <Download className="mr-2 h-4 w-4" />
               {copy.export}
-            </a>
-          </Button>
+            </Button>
+          )}
         </div>
       </section>
     </div>

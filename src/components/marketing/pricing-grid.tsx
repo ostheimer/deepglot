@@ -236,6 +236,7 @@ const PRICING_COPY = {
     faq: "Questions about the plans?",
     faqCta: "Talk to us",
     faqSuffix: "and we will help you choose the right setup.",
+    billingToggleLabel: "Toggle yearly billing",
   },
   de: {
     monthly: "Monatlich",
@@ -257,6 +258,7 @@ const PRICING_COPY = {
     faq: "Fragen zu den Plänen?",
     faqCta: "Schreib uns",
     faqSuffix: "wir helfen gerne.",
+    billingToggleLabel: "Jährliche Abrechnung umschalten",
   },
 } as const;
 
@@ -280,6 +282,7 @@ export function PricingGrid({ locale }: PricingGridProps) {
         <button
           role="switch"
           aria-checked={yearly}
+          aria-label={copy.billingToggleLabel}
           onClick={() => setYearly((v) => !v)}
           className={`relative h-6 w-11 rounded-full transition-colors duration-200 ${
             yearly ? "bg-indigo-600" : "bg-gray-300"
@@ -335,16 +338,15 @@ export function PricingGrid({ locale }: PricingGridProps) {
                     )}
                   </div>
 
-                  <Link href={signupHref} className="block mb-4">
-                    <button
-                      className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
-                        isHighlighted
-                          ? "bg-gray-900 hover:bg-black text-white"
-                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                      }`}
-                    >
-                      {plan.cta}
-                    </button>
+                  <Link
+                    href={signupHref}
+                    className={`mb-4 flex w-full justify-center rounded-lg py-2 text-sm font-semibold text-white transition-colors ${
+                      isHighlighted
+                        ? "bg-gray-900 hover:bg-black"
+                        : "bg-indigo-600 hover:bg-indigo-700"
+                    }`}
+                  >
+                    {plan.cta}
                   </Link>
 
                   <div className="border-t border-gray-100 mb-3" />
@@ -376,10 +378,11 @@ export function PricingGrid({ locale }: PricingGridProps) {
 
             <p className="text-xs text-gray-300 mb-3">{copy.enterprisePrice}</p>
 
-            <a href="mailto:enterprise@deepglot.com">
-              <button className="w-full py-2 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors mb-4">
-                {copy.enterpriseContact}
-              </button>
+            <a
+              href="mailto:office@ostheimer.at?subject=Deepglot%20Enterprise"
+              className="mb-4 flex w-full justify-center rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+            >
+              {copy.enterpriseContact}
             </a>
 
             <div className="border-t border-white/10 mb-4" />
@@ -484,7 +487,7 @@ export function PricingGrid({ locale }: PricingGridProps) {
       <div className="mt-16 text-center">
         <p className="text-gray-500 text-sm">
           {copy.faq}{" "}
-          <a href="mailto:support@deepglot.com" className="text-indigo-600 hover:underline">
+          <a href="mailto:office@ostheimer.at?subject=Deepglot%20Plans" className="text-indigo-600 hover:underline">
             {copy.faqCta}
           </a>{" "}
           - {copy.faqSuffix}

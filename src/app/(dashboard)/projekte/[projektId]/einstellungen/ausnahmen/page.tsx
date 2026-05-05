@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ExclusionsManager } from "@/components/projekte/exclusions-manager";
 import { db } from "@/lib/db";
+import { requireProjectManagement } from "@/lib/project-page-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -9,6 +10,7 @@ interface PageProps {
 
 export default async function AusnahmenPage({ params }: PageProps) {
   const { projektId } = await params;
+  await requireProjectManagement(projektId);
 
   const project = await db.project.findUnique({
     where: { id: projektId },

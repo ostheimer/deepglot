@@ -6,6 +6,7 @@ import { SettingsToggle } from "@/components/projekte/settings-toggle";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getLanguageName } from "@/lib/language-names";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
+import { requireProjectManagement } from "@/lib/project-page-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -27,6 +28,7 @@ const INDUSTRY_TYPES = [
 export default async function EinstellungenGeneralPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
+  await requireProjectManagement(projektId);
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -35,6 +37,13 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
   if (!project) notFound();
 
   const s = project.settings;
+  const projectNameId = "project-name";
+  const websiteUrlId = "website-url";
+  const originalLanguageId = "original-language";
+  const openWebsiteLabel =
+    locale === "de" ? "Website in neuem Tab öffnen" : "Open website in a new tab";
+  const translationMemoryLabel =
+    locale === "de" ? "Übersetzungsgedächtnis (Beta)" : "Translation memory (beta)";
 
   return (
     <div className="max-w-3xl">
@@ -57,17 +66,29 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
         <section className="bg-white border border-gray-200 rounded-t-xl p-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <Label
+                htmlFor={projectNameId}
+                className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+              >
                 {locale === "de" ? "Projektname" : "Project name"}
               </Label>
-              <Input defaultValue={project.name} className="h-9" readOnly />
+              <Input
+                id={projectNameId}
+                defaultValue={project.name}
+                className="h-9"
+                readOnly
+              />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <Label
+                htmlFor={websiteUrlId}
+                className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+              >
                 Website URL
               </Label>
               <div className="relative">
                 <Input
+                  id={websiteUrlId}
                   defaultValue={`https://${project.domain}`}
                   className="h-9 pr-9"
                   readOnly
@@ -76,6 +97,8 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                   href={`https://${project.domain}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label={openWebsiteLabel}
+                  title={openWebsiteLabel}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,7 +111,10 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
           </div>
 
           <div className="mt-4 space-y-1.5">
-            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <Label
+              htmlFor={originalLanguageId}
+              className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >
               {locale === "de" ? "Originalsprache" : "Original language"}
             </Label>
             <p className="text-xs text-gray-500">
@@ -97,6 +123,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 : "Must match the original language of your website."}
             </p>
             <select
+              id={originalLanguageId}
               disabled
               className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-70"
             >
@@ -141,7 +168,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm font-medium text-gray-900">
-                {locale === "de" ? "Übersetzungsgedächtnis (Beta)" : "Translation memory (beta)"}
+                {translationMemoryLabel}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 {locale === "de"
@@ -150,7 +177,12 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               </p>
             </div>
             <div className="relative">
-              <input type="checkbox" disabled className="sr-only" />
+              <input
+                type="checkbox"
+                aria-label={translationMemoryLabel}
+                disabled
+                className="sr-only"
+              />
               <div className="h-5 w-9 rounded-full bg-gray-200 cursor-not-allowed opacity-50" />
             </div>
           </div>
@@ -172,13 +204,13 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 {locale === "de" ? "Wähle den Typ deiner Website" : "Choose your website type"}
               </p>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-not-allowed">
                   <input type="radio" name="websiteType" value="" defaultChecked={!s?.websiteType} disabled
                     className="h-3.5 w-3.5 text-indigo-600" />
                   <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
                 </label>
                 {WEBSITE_TYPES.map((t) => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer">
+                  <label key={t} className="flex items-center gap-2 cursor-not-allowed">
                     <input type="radio" name="websiteType" value={t} disabled
                       defaultChecked={s?.websiteType === t}
                       className="h-3.5 w-3.5 text-indigo-600" />
@@ -195,13 +227,13 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 {locale === "de" ? "Wähle die Branche" : "Choose the industry"}
               </p>
               <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-not-allowed">
                   <input type="radio" name="industryType" value="" defaultChecked={!s?.industryType} disabled
                     className="h-3.5 w-3.5 text-indigo-600" />
                   <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
                 </label>
                 {INDUSTRY_TYPES.map((t) => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer">
+                  <label key={t} className="flex items-center gap-2 cursor-not-allowed">
                     <input type="radio" name="industryType" value={t} disabled
                       defaultChecked={s?.industryType === t}
                       className="h-3.5 w-3.5 text-indigo-600" />

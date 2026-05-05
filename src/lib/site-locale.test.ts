@@ -36,6 +36,7 @@ test("maps marketing routes per locale", () => {
 test("converts external english routes to internal app paths", () => {
   assert.equal(toInternalPath("/projects/new"), "/projekte/neu");
   assert.equal(toInternalPath("/de/projects/123/translations/languages"), "/projekte/123/uebersetzungen/sprachen");
+  assert.equal(toInternalPath("/projects/123/settings/members"), "/projekte/123/einstellungen/mitglieder");
   assert.equal(toInternalPath("/pricing"), "/pricing");
 });
 
@@ -47,6 +48,7 @@ test("leaves api routes unchanged during locale path mapping", () => {
 
 test("converts internal legacy routes to canonical external paths", () => {
   assert.equal(toCanonicalExternalPath("/projekte/neu"), "/projects/new");
+  assert.equal(toCanonicalExternalPath("/projekte/123/einstellungen/mitglieder"), "/projects/123/settings/members");
   assert.equal(toCanonicalExternalPath("/abonnement/karte-rechnungen"), "/subscription/billing");
   assert.equal(toCanonicalExternalPath("/preise"), "/pricing");
 });

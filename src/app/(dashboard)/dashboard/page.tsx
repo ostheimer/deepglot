@@ -190,11 +190,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     )}
                   </p>
                 </div>
-                <Link href={withLocalePrefix("/subscription", locale)}>
-                  <button className="text-xs text-gray-600 border border-gray-300 rounded px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+                <Button asChild variant="outline" size="xs">
+                  <Link href={withLocalePrefix("/subscription", locale)}>
                     {locale === "de" ? "Plan verwalten" : "Manage plan"}
-                  </button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
 
               {/* Auto-upgrade */}
@@ -307,19 +307,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </p>
               <p className="text-xs text-gray-300 mt-1.5">
                 {locale === "de"
-                  ? "Deepglot kombiniert guenstige LLMs und optionale Premium-Provider, waehrend deine Daten unter deiner Kontrolle bleiben."
+                  ? "Deepglot kombiniert günstige LLMs und optionale Premium-Provider, während deine Daten unter deiner Kontrolle bleiben."
                   : "Deepglot combines low-cost LLMs with optional premium providers while your data stays under your control."}
               </p>
               <div className="flex gap-2 mt-3">
-                <Link href={withLocalePrefix("/projects/new", locale)}>
-                  <button className="text-xs bg-white text-gray-900 font-semibold px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-                    {locale === "de" ? "Projekt erstellen" : "Create project"}
-                  </button>
+                <Link
+                  href={withLocalePrefix("/projects/new", locale)}
+                  className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 transition-colors hover:bg-gray-100"
+                >
+                  {locale === "de" ? "Projekt erstellen" : "Create project"}
                 </Link>
-                <Link href={withLocalePrefix("/subscription", locale)}>
-                  <button className="text-xs border border-white/30 text-white px-3 py-1.5 rounded hover:bg-white/10 transition-colors">
-                    {locale === "de" ? "Mehr erfahren" : "Learn more"}
-                  </button>
+                <Link
+                  href={withLocalePrefix("/subscription", locale)}
+                  className="rounded border border-white/30 px-3 py-1.5 text-xs text-white transition-colors hover:bg-white/10"
+                >
+                  {locale === "de" ? "Mehr erfahren" : "Learn more"}
                 </Link>
               </div>
             </div>
@@ -342,12 +344,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   ? `Projekt${(org?.projects.length ?? 0) !== 1 ? "e" : ""}`
                   : `project${(org?.projects.length ?? 0) !== 1 ? "s" : ""}`}
               </h2>
-              <Link href={withLocalePrefix("/projects/new", locale)}>
-                <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs gap-1.5">
+              <Button asChild className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs gap-1.5">
+                <Link href={withLocalePrefix("/projects/new", locale)}>
                   <Plus className="h-3.5 w-3.5" />
                   {locale === "de" ? "Projekt erstellen" : "Create project"}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
 
             {org?.projects.length ? (
@@ -401,12 +403,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     ? "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin."
                     : "Create your first project and connect your WordPress plugin."}
                 </p>
-                <Link href={withLocalePrefix("/projects/new", locale)}>
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
+                <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
+                  <Link href={withLocalePrefix("/projects/new", locale)}>
                     <Plus className="h-4 w-4" />
                     {locale === "de" ? "Erstes Projekt erstellen" : "Create first project"}
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             )}
 
@@ -476,7 +478,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </p>
                 <p className="mt-2 text-xs text-gray-400">
                   {locale === "de"
-                    ? "Sobald Projekte, Glossare oder Ausnahmen genutzt werden, erscheint die Aktivitaet hier."
+                    ? "Sobald Projekte, Glossare oder Ausnahmen genutzt werden, erscheint die Aktivität hier."
                     : "Activity will appear here as soon as projects, glossary rules, or exclusions are used."}
                 </p>
               </div>
@@ -488,7 +490,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   href={withLocalePrefix("/projects", locale)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
-                  {locale === "de" ? "Alle Aktivitäten anzeigen" : "View all activity"}
+                  {locale === "de" ? "Alle Projekte anzeigen" : "View all projects"}
                 </Link>
               </div>
             )}
@@ -506,10 +508,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     : "Deepglot support is available Monday to Friday from 9 a.m. to 5 p.m."}
                 </p>
                 <a
-                  href="mailto:support@deepglot.com"
+                  href="mailto:office@ostheimer.at?subject=Deepglot%20Support"
                   className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-2"
                 >
-                  {locale === "de" ? "Hilfecenter" : "Help center"}
+                  {locale === "de" ? "Support kontaktieren" : "Contact support"}
                   <HelpCircle className="h-3 w-3" />
                 </a>
               </div>

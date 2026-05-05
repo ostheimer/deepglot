@@ -12,7 +12,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
@@ -74,6 +73,7 @@ type LoginCardProps = {
   canUseGoogleLogin: boolean;
   canUseTestLogin: boolean;
   testLoginEmail: string;
+  callbackUrl?: string;
 };
 
 export function LoginCard({
@@ -81,10 +81,11 @@ export function LoginCard({
   canUseGoogleLogin,
   canUseTestLogin,
   testLoginEmail,
+  callbackUrl,
 }: LoginCardProps) {
   const locale = useLocale();
   const copy = COPY[locale];
-  const dashboardPath = withLocalePrefix("/dashboard", locale);
+  const dashboardPath = callbackUrl ?? withLocalePrefix("/dashboard", locale);
   const [isLoading, setIsLoading] = useState(false);
   const [isTestLoginLoading, setIsTestLoginLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -135,7 +136,12 @@ export function LoginCard({
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">{copy.title}</CardTitle>
+        <h1
+          data-slot="card-title"
+          className="text-2xl leading-none font-semibold"
+        >
+          {copy.title}
+        </h1>
         <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

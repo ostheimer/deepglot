@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getAuthRedirect } from "@/lib/route-access";
+import { getAuthRedirect, getSafeAuthCallbackUrl } from "@/lib/route-access";
 
 test("redirects unauthenticated users from protected routes", () => {
   assert.equal(getAuthRedirect("/dashboard", false), "/login");
@@ -27,4 +27,14 @@ test("allows public routes and exact-prefix edge cases", () => {
   assert.equal(getAuthRedirect("/de/pricing", false), null);
   assert.equal(getAuthRedirect("/dashboarding", false), null);
   assert.equal(getAuthRedirect("/signups", true), null);
+});
+
+test("keeps auth callback URLs same-origin and relative", () => {
+  assert.equal(
+    getSafeAuthCallbackUrl("/accept-invite?token=abc", "/dashboard"),
+    "/accept-invite?token=abc"
+  );
+  assert.equal(getSafeAuthCallbackUrl("https://evil.test", "/dashboard"), "/dashboard");
+  assert.equal(getSafeAuthCallbackUrl("//evil.test", "/dashboard"), "/dashboard");
+  assert.equal(getSafeAuthCallbackUrl(undefined, "/dashboard"), "/dashboard");
 });

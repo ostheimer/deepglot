@@ -3,13 +3,10 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { SettingsToggle } from "@/components/projekte/settings-toggle";
 import { ExternalLink, Eye, Pencil, Plus } from "lucide-react";
 import { PasswordChangeForm } from "@/components/einstellungen/password-change-form";
-import { AccountDeleteButton } from "@/components/einstellungen/account-delete-button";
+import { ProfileSettingsForm } from "@/components/einstellungen/profile-settings-form";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 
@@ -55,6 +52,9 @@ export default async function EinstellungenPage({
 
   return (
     <div className="max-w-3xl space-y-8">
+      <h1 className="sr-only">
+        {locale === "de" ? "Konto-Einstellungen" : "Account settings"}
+      </h1>
 
       {/* ── My Account ──────────────────────────────────── */}
       <section>
@@ -82,48 +82,18 @@ export default async function EinstellungenPage({
               </a>
               <p className="text-xs text-gray-500 mt-1 max-w-xs">
                 {locale === "de"
-                  ? "Du kannst deinen Avatar über Gravatar ändern oder direkt ein Bild hochladen."
-                  : "You can change your avatar via Gravatar or upload an image directly."}
+                  ? "Deepglot verwendet aktuell deinen Gravatar. Direkte Uploads sind noch nicht verfügbar."
+                  : "Deepglot currently uses your Gravatar. Direct uploads are not available yet."}
               </p>
             </div>
           </div>
 
-          {/* Email */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {locale === "de" ? "E-Mail-Adresse" : "Email address"}
-            </Label>
-            <Input defaultValue={user?.email ?? ""} type="email" className="max-w-md" />
-          </div>
-
-          {/* Name */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {locale === "de" ? "Vorname" : "First name"}
-              </Label>
-              <Input
-                defaultValue={firstName}
-                placeholder={locale === "de" ? "Vorname eingeben" : "Enter first name"}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {locale === "de" ? "Nachname" : "Last name"}
-              </Label>
-              <Input
-                defaultValue={lastName}
-                placeholder={locale === "de" ? "Nachname eingeben" : "Enter last name"}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
-            <AccountDeleteButton />
-            <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm">
-              {locale === "de" ? "Speichern" : "Save"}
-            </Button>
-          </div>
+          <ProfileSettingsForm
+            locale={locale}
+            email={user?.email ?? ""}
+            firstName={firstName}
+            lastName={lastName}
+          />
         </div>
       </section>
 
@@ -136,13 +106,23 @@ export default async function EinstellungenPage({
           <PasswordChangeForm hasPassword={!!user?.password} />
 
           <div className="border-t border-gray-100">
-            <SettingsToggle
-              label={locale === "de" ? "Zwei-Faktor-Authentifizierung" : "Two-factor authentication"}
-              description={locale === "de"
-                ? "Fügt eine zusätzliche Sicherheitsebene für die Anmeldung hinzu."
-                : "Adds an extra layer of security to sign-in."}
-              defaultChecked={false}
-            />
+            <div className="bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {locale === "de" ? "Zwei-Faktor-Authentifizierung" : "Two-factor authentication"}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                    {locale === "de"
+                      ? "2FA benötigt ein eigenes Enrollment und Recovery-Konzept. Bis das umgesetzt ist, kann diese Einstellung nicht geändert werden."
+                      : "2FA needs a dedicated enrollment and recovery flow. This setting cannot be changed until that work is implemented."}
+                  </p>
+                </div>
+                <Badge variant="outline" className="shrink-0 text-xs">
+                  {locale === "de" ? "Geplant" : "Planned"}
+                </Badge>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -153,107 +133,87 @@ export default async function EinstellungenPage({
           {locale === "de" ? "Benachrichtigungen" : "Notifications"}
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <SettingsToggle
-            label={locale === "de" ? "Neuigkeiten & Feature-Updates" : "News & feature updates"}
-            description={locale === "de"
-              ? "Bleib über Produkt-Updates, Deepglot-Ankündigungen und gelegentliche News auf dem Laufenden."
-              : "Stay up to date with product updates, Deepglot announcements, and occasional news."}
-            defaultChecked={false}
-          />
-          <div className="border-t border-gray-100">
-            <SettingsToggle
-              label="Onboarding"
-              description={locale === "de"
-                ? "Erhalte Tipps für deine ersten Tage mit Deepglot."
-                : "Get tips for your first days with Deepglot."}
-              defaultChecked={true}
-            />
-          </div>
-          <div className="border-t border-gray-100">
-            <SettingsToggle
-              label={locale === "de" ? "Workspaces & Projekte" : "Workspaces & projects"}
-              description={locale === "de"
-                ? "Werde über Aktivitäten in deinen Workspaces und Projekten benachrichtigt."
-                : "Get notified about activity in your workspaces and projects."}
-              defaultChecked={true}
-            />
+          <div className="p-5">
+            <p className="text-sm font-medium text-gray-900">
+              {locale === "de" ? "Einstellungen sind noch nicht konfigurierbar" : "Preferences are not configurable yet"}
+            </p>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">
+              {locale === "de"
+                ? "Deepglot sendet weiterhin wichtige Konto-, Sicherheits- und Projekt-E-Mails. Optionale Benachrichtigungen werden erst angezeigt, wenn sie dauerhaft gespeichert werden können."
+                : "Deepglot will continue to send important account, security, and project emails. Optional notification controls will appear once they can be persisted."}
+            </p>
           </div>
 
-          {/* Workspace sub-settings */}
-          <div className="border-t border-gray-100 bg-gray-50">
-            {memberships.map((m) => (
-              <div key={m.id} className="px-5 py-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">
-                      {m.organization.name.charAt(0)}
-                    </span>
-                  </div>
-                  <span className="text-sm font-semibold text-gray-700">
-                    {m.organization.name}
-                  </span>
-                </div>
-
-                <div className="space-y-3 pl-7">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Workspace-Nutzung</p>
-                      <p className="text-xs text-gray-500 mt-0.5 max-w-sm">
-                        {locale === "de"
-                          ? "Benachrichtigungen zu Workspace-Auslastung, Plan-Limits, Einladungen etc."
-                          : "Notifications about workspace usage, plan limits, invitations, and more."}
-                      </p>
-                    </div>
-                    <button
-                      className="relative flex-shrink-0 h-5 w-9 rounded-full bg-indigo-600 transition-colors"
-                      role="switch"
-                      aria-checked="true"
-                    >
-                      <span className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-white shadow" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Aktivitäts-Digest</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {locale === "de"
-                          ? "Regelmäßige Updates über Workspace-Aktivitäten"
-                          : "Regular updates about workspace activity"}
-                      </p>
-                    </div>
-                    <select className="h-7 text-xs border border-gray-200 rounded px-2 bg-white text-gray-700">
-                      <option value="weekly">{locale === "de" ? "Wöchentlich" : "Weekly"}</option>
-                      <option value="daily">{locale === "de" ? "Täglich" : "Daily"}</option>
-                      <option value="never">{locale === "de" ? "Nie" : "Never"}</option>
-                    </select>
-                  </div>
-                </div>
+          <div className="border-t border-gray-100 divide-y divide-gray-100">
+            {[
+              {
+                label: locale === "de" ? "Konto- und Sicherheitshinweise" : "Account and security notices",
+                status: locale === "de" ? "Immer aktiv" : "Always on",
+              },
+              {
+                label: locale === "de" ? "Projekt- und Workspace-Aktivität" : "Project and workspace activity",
+                status: locale === "de" ? "Geplant" : "Planned",
+              },
+              {
+                label: locale === "de" ? "Produkt-Updates" : "Product updates",
+                status: locale === "de" ? "Geplant" : "Planned",
+              },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-4">
+                <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                <Badge variant="outline" className="shrink-0 text-xs">
+                  {item.status}
+                </Badge>
               </div>
             ))}
           </div>
 
-          <div className="flex justify-end p-4 border-t border-gray-100">
-            <Button className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm">
-              {locale === "de" ? "Speichern" : "Save"}
-            </Button>
-          </div>
+          {memberships.length > 0 && (
+            <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {locale === "de" ? "Workspace-Hinweis" : "Workspace note"}
+              </p>
+              <div className="mt-3 space-y-3">
+                {memberships.map((m) => (
+                  <div key={m.id} className="flex items-start gap-2">
+                    <div className="mt-0.5 h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {m.organization.name.charAt(0)}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-gray-500">
+                      <span className="font-semibold text-gray-700">{m.organization.name}</span>
+                      {" - "}
+                      {locale === "de"
+                        ? "eigene Workspace-Benachrichtigungen werden erst aktiviert, wenn es ein dauerhaftes Präferenzmodell gibt."
+                        : "workspace-specific notification controls will be enabled once a persisted preference model exists."}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ── Workspaces ──────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
             Workspaces
-            <button className="text-gray-400 hover:text-gray-600">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-          </h2>
-          <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5 h-8 px-4 text-sm">
+            </h2>
+            <p className="mt-1 text-xs text-gray-500">
+              {locale === "de"
+                ? "Workspace-Erstellung und Verwaltung werden hier angezeigt, sobald die Persistenz dafür umgesetzt ist."
+                : "Workspace creation and management will appear here once persistence for those actions is implemented."}
+            </p>
+          </div>
+          <Button
+            disabled
+            className="bg-indigo-600 hover:bg-indigo-600 gap-1.5 h-8 px-4 text-sm opacity-50"
+            title={locale === "de" ? "Noch nicht verfügbar" : "Not available yet"}
+          >
             <Plus className="h-3.5 w-3.5" />
             {locale === "de" ? "Erstellen" : "Create"}
           </Button>
@@ -345,10 +305,32 @@ export default async function EinstellungenPage({
 
                 {/* Actions */}
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    aria-label={
+                      locale === "de"
+                        ? `${m.organization.name} ansehen - noch nicht verfügbar`
+                        : `View ${m.organization.name} - not available yet`
+                    }
+                    title={locale === "de" ? "Noch nicht verfügbar" : "Not available yet"}
+                    className="h-7 w-7 p-0 opacity-40"
+                  >
                     <Eye className="h-3.5 w-3.5 text-gray-400" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    aria-label={
+                      locale === "de"
+                        ? `${m.organization.name} bearbeiten - noch nicht verfügbar`
+                        : `Edit ${m.organization.name} - not available yet`
+                    }
+                    title={locale === "de" ? "Noch nicht verfügbar" : "Not available yet"}
+                    className="h-7 w-7 p-0 opacity-40"
+                  >
                     <Pencil className="h-3.5 w-3.5 text-gray-400" />
                   </Button>
                 </div>
