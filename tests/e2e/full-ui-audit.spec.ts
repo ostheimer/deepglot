@@ -157,7 +157,7 @@ async function auditRoute(
 
     if (
       target &&
-      !target.pathname.startsWith("/api/") &&
+      shouldCheckLinkTarget(path, link.label, target) &&
       !checkedTargets.has(target.href)
     ) {
       pendingTargets.set(target.href, { label: link.label, url: target.href });
@@ -335,6 +335,28 @@ function normalizeLinkTarget(currentUrl: string, href: string) {
 
   target.hash = "";
   return target;
+}
+
+function shouldCheckLinkTarget(
+  sourcePath: string,
+  label: string,
+  target: URL
+) {
+  if (target.pathname.startsWith("/api/")) {
+    return false;
+  }
+
+  if (sourcePath.includes("/translations/urls")) {
+    const isProjectContentLink =
+      !target.pathname.startsWith("/projects/") &&
+      /^Open\s+\/|\/.+\s+öffnen$/i.test(label);
+
+    if (isProjectContentLink) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function chunk<T>(items: T[], size: number) {
