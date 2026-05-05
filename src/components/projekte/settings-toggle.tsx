@@ -40,6 +40,7 @@ export function SettingsToggle({
           type="button"
           role="switch"
           aria-checked={checked}
+          aria-label={label}
           onClick={handleToggle}
           disabled={disabled}
           className={cn(

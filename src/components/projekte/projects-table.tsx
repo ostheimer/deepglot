@@ -11,7 +11,6 @@ import {
   MoreVertical,
   Settings,
   Trash2,
-  Copy,
   ExternalLink,
   Globe,
 } from "lucide-react";
@@ -20,7 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -169,12 +167,12 @@ export function ProjectsTable({ projects }: Props) {
           </DropdownMenu>
 
           {/* Create */}
-          <Link href={withLocalePrefix("/projects/new", locale)}>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2 h-9">
+          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-2 h-9">
+            <Link href={withLocalePrefix("/projects/new", locale)}>
               <Plus className="h-4 w-4" />
               {locale === "de" ? "Projekt erstellen" : "Create project"}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -190,12 +188,12 @@ export function ProjectsTable({ projects }: Props) {
               ? "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin."
               : "Create your first project and connect your WordPress plugin."}
           </p>
-          <Link href={withLocalePrefix("/projects/new", locale)}>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 gap-2">
+          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-2">
+            <Link href={withLocalePrefix("/projects/new", locale)}>
               <Plus className="h-4 w-4" />
               {locale === "de" ? "Erstes Projekt erstellen" : "Create first project"}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -328,7 +326,15 @@ export function ProjectsTable({ projects }: Props) {
                     {/* Actions */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="h-7 w-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors">
+                        <button
+                          type="button"
+                          aria-label={
+                            locale === "de"
+                              ? `Aktionen für ${project.domain}`
+                              : `Actions for ${project.domain}`
+                          }
+                          className="h-7 w-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
+                        >
                           <MoreVertical className="h-4 w-4 text-gray-400" />
                         </button>
                       </DropdownMenuTrigger>
@@ -345,11 +351,6 @@ export function ProjectsTable({ projects }: Props) {
                             {locale === "de" ? "Einstellungen" : "Settings"}
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
-                          <Copy className="h-3.5 w-3.5" />
-                          {locale === "de" ? "Duplizieren" : "Duplicate"}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer"
                           onClick={() => handleDelete(project.id)}

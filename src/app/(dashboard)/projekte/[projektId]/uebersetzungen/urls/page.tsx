@@ -2,10 +2,15 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, RefreshCw, Trash2, ChevronRight } from "lucide-react";
+import { Search, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
+import { getProjectUrl } from "@/lib/project-url";
+import {
+  buildProjectQueryHref,
+  normalizeProjectLang,
+} from "@/lib/dashboard-query";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -27,7 +32,10 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
 
   if (!project) notFound();
 
-  const activeLang = lang ?? project.languages[0]?.langCode ?? "en";
+  const activeLang = normalizeProjectLang(
+    lang,
+    project.languages.map((language) => language.langCode)
+  );
 
   const where = {
     projectId: projektId,
@@ -46,6 +54,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
+  const projectBaseUrl = getProjectUrl(project.domain);
 
   return (
     <div>
@@ -57,21 +66,34 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
           {/* Language filter */}
           <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white">
             {project.languages.map((l) => (
-              <Link key={l.id} href={`?lang=${l.langCode}`}>
-                <button
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                    activeLang === l.langCode
-                      ? "bg-indigo-600 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
+              <Button
+                key={l.id}
+                asChild
+                variant="ghost"
+                size="sm"
+                className={`h-7 px-2.5 text-xs font-medium transition-colors ${
+                  activeLang === l.langCode
+                    ? "bg-indigo-600 text-white hover:bg-indigo-600 hover:text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                <Link
+                  href={buildProjectQueryHref({ lang: l.langCode, q })}
+                  aria-current={activeLang === l.langCode ? "page" : undefined}
                 >
                   {l.langCode.toUpperCase()}
-                </button>
-              </Link>
+                </Link>
+              </Button>
             ))}
           </div>
         </div>
       </div>
+
+      <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        {locale === "de"
+          ? "Neu übersetzen und Löschen sind hier noch nicht verfügbar. Öffne die URL, um die aktuelle Ausgabe auf der Website zu prüfen."
+          : "Retranslate and delete actions are not available here yet. Open the URL to inspect the current site output."}
+      </p>
 
       {/* Search */}
       <div className="flex items-center gap-3 mb-4">
@@ -83,7 +105,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
             placeholder={locale === "de" ? "URL suchen..." : "Search URL..."}
             className="pl-9 h-9"
           />
-          {lang && <input type="hidden" name="lang" value={lang} />}
+          <input type="hidden" name="lang" value={activeLang} />
         </form>
         <span className="text-sm text-gray-500">
           {formatNumber(total, locale)} {locale === "de" ? "Ergebnisse" : "results"}
@@ -119,54 +141,45 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
             </p>
           </div>
         ) : (
-          urlRecords.map((record) => (
-            <div
-              key={record.id}
-              className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
-            >
-              {/* URL */}
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm text-gray-900 truncate font-medium">
-                  {record.urlPath}
+          urlRecords.map((record) => {
+            const recordUrl = new URL(record.urlPath, projectBaseUrl).toString();
+
+            return (
+              <div
+                key={record.id}
+                className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
+              >
+                {/* URL */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm text-gray-900 truncate font-medium">
+                    {record.urlPath}
+                  </span>
+                  <Link
+                    href={recordUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex text-gray-400 transition-colors hover:text-indigo-600"
+                    title={locale === "de" ? "URL öffnen" : "Open URL"}
+                    aria-label={locale === "de" ? `${record.urlPath} öffnen` : `Open ${record.urlPath}`}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+
+                {/* Word count */}
+                <span className="text-sm text-gray-700">
+                  0/{formatNumber(record.wordCount, locale)}
                 </span>
-                <Link
-                  href={`https://${project.domain}${record.urlPath}`}
-                  target="_blank"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                </Link>
+
+                {/* Manual % */}
+                <span className="text-sm text-indigo-600 font-medium">0%</span>
+
+                <span className="text-xs text-gray-400">
+                  {locale === "de" ? "Nur Ansicht" : "Read-only"}
+                </span>
               </div>
-
-              {/* Word count */}
-              <span className="text-sm text-gray-700">
-                0/{formatNumber(record.wordCount, locale)}
-              </span>
-
-              {/* Manual % */}
-              <span className="text-sm text-indigo-600 font-medium">0%</span>
-
-              {/* Actions */}
-              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  title={locale === "de" ? "Neu übersetzen" : "Retranslate"}
-                >
-                  <RefreshCw className="h-3.5 w-3.5 text-gray-400" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  title={locale === "de" ? "Löschen" : "Delete"}
-                >
-                  <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
-                </Button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -178,14 +191,30 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
           </p>
           <div className="flex gap-2">
             {page > 1 && (
-              <Link href={`?lang=${activeLang}&seite=${page - 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">{locale === "de" ? "Zurück" : "Previous"}</Button>
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={buildProjectQueryHref({
+                    lang: activeLang,
+                    page: page - 1,
+                    q,
+                  })}
+                >
+                  {locale === "de" ? "Zurück" : "Previous"}
+                </Link>
+              </Button>
             )}
             {page < totalPages && (
-              <Link href={`?lang=${activeLang}&seite=${page + 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">{locale === "de" ? "Weiter" : "Next"}</Button>
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={buildProjectQueryHref({
+                    lang: activeLang,
+                    page: page + 1,
+                    q,
+                  })}
+                >
+                  {locale === "de" ? "Weiter" : "Next"}
+                </Link>
+              </Button>
             )}
           </div>
         </div>

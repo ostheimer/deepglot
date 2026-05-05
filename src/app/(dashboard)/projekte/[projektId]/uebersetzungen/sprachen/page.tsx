@@ -3,16 +3,12 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddLanguageDialog } from "@/components/projekte/add-language-dialog";
-import { Flag, Trash2, MoreHorizontal } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Flag } from "lucide-react";
+import Link from "next/link";
 import { getRequestLocale } from "@/lib/request-locale";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getLanguageName } from "@/lib/language-names";
+import { withLocalePrefix } from "@/lib/site-locale";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -54,6 +50,7 @@ export default async function SprachenPage({ params }: PageProps) {
   const totalCountMap = Object.fromEntries(
     wordCountsByLang.map((r) => [r.langTo, r._count.id])
   );
+  const translationsBase = withLocalePrefix(`/projects/${projektId}/translations`, locale);
 
   return (
     <div>
@@ -62,9 +59,6 @@ export default async function SprachenPage({ params }: PageProps) {
           {locale === "de" ? "Übersetzungen nach Sprachen" : "Translations by language"}
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            {locale === "de" ? "Aktionen" : "Actions"} ▾
-          </Button>
           <AddLanguageDialog
             projectId={projektId}
             originalLang={project.originalLang}
@@ -72,6 +66,12 @@ export default async function SprachenPage({ params }: PageProps) {
           />
         </div>
       </div>
+
+      <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        {locale === "de"
+          ? "Sprachen entfernen und weitere Sammelaktionen sind hier noch nicht verfügbar. Du kannst Zielsprachen hinzufügen oder die URL-Ansicht pro Sprache öffnen."
+          : "Removing languages and bulk actions are not available here yet. You can add target languages or open the URL view for each language."}
+      </p>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {/* Table Header */}
@@ -145,22 +145,11 @@ export default async function SprachenPage({ params }: PageProps) {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="text-xs h-7">
-                    {locale === "de" ? "Optionen" : "Options"} ▾
+                  <Button asChild variant="outline" size="sm" className="text-xs h-7">
+                    <Link href={`${translationsBase}/urls?lang=${lang.langCode}`}>
+                      {locale === "de" ? "URLs öffnen" : "Open URLs"}
+                    </Link>
                   </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="text-red-600">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        {locale === "de" ? "Sprache entfernen" : "Remove language"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
             );

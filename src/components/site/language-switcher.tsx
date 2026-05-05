@@ -30,14 +30,13 @@ export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
       ? "de"
       : locale;
 
-  function switchLocale(targetLocale: SiteLocale) {
+  function getTargetUrl(targetLocale: SiteLocale) {
     const targetPath = getLocalizedPathname(currentPathname, targetLocale);
     const query = searchParams.toString();
-    const targetUrl = query ? `${targetPath}?${query}` : targetPath;
+    const hash =
+      typeof window === "undefined" ? "" : window.location.hash;
 
-    // Canonical locale paths are served through proxy rewrites, so force a document
-    // navigation instead of relying on the client router's known route manifest.
-    window.location.assign(targetUrl);
+    return `${query ? `${targetPath}?${query}` : targetPath}${hash}`;
   }
 
   return (
@@ -48,22 +47,28 @@ export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
       </div>
       {SITE_LOCALES.map((value) => {
         const isActive = value === currentLocale;
+        const href = getTargetUrl(value);
 
         return (
-          <button
+          <a
             key={value}
-            type="button"
-            onClick={() => switchLocale(value)}
+            href={href}
+            onClick={(event) => {
+              // The URL hash is browser-only. Keep the link usable without JS,
+              // then preserve the current hash once the hydrated handler runs.
+              event.preventDefault();
+              window.location.assign(getTargetUrl(value));
+            }}
             className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
               isActive
                 ? "bg-indigo-600 text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
             }`}
-            aria-pressed={isActive}
+            aria-current={isActive ? "true" : undefined}
             title={LABELS[value].label}
           >
             {compact ? LABELS[value].short : LABELS[value].label}
-          </button>
+          </a>
         );
       })}
     </div>

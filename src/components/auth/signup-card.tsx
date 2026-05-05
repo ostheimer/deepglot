@@ -12,7 +12,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
@@ -118,7 +117,12 @@ export function SignupCard({
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">{copy.title}</CardTitle>
+        <h1
+          data-slot="card-title"
+          className="text-2xl leading-none font-semibold"
+        >
+          {copy.title}
+        </h1>
         <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -203,11 +207,17 @@ export function SignupCard({
 
         <p className="text-center text-xs text-gray-500">
           {copy.termsPrefix}{" "}
-          <Link href="/agb" className="underline hover:text-gray-700">
+          <Link
+            href={withLocalePrefix("/agb", locale)}
+            className="underline hover:text-gray-700"
+          >
             {copy.terms}
           </Link>{" "}
           {locale === "de" ? "und der" : "and"}{" "}
-          <Link href="/datenschutz" className="underline hover:text-gray-700">
+          <Link
+            href={withLocalePrefix("/datenschutz", locale)}
+            className="underline hover:text-gray-700"
+          >
             {copy.privacy}
           </Link>
           .

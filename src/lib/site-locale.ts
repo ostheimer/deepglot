@@ -18,6 +18,7 @@ const EXTERNAL_TO_INTERNAL_SEGMENT: Record<string, string> = {
   settings: "einstellungen",
   "language-model": "sprachmodell",
   exclusions: "ausnahmen",
+  members: "mitglieder",
   subscription: "abonnement",
   overview: "uebersicht",
   billing: "karte-rechnungen",
@@ -41,6 +42,7 @@ const INTERNAL_TO_EXTERNAL_SEGMENT: Record<string, string> = {
   einstellungen: "settings",
   sprachmodell: "language-model",
   ausnahmen: "exclusions",
+  mitglieder: "members",
   abonnement: "subscription",
   uebersicht: "overview",
   "karte-rechnungen": "billing",
@@ -132,6 +134,7 @@ export function getMarketingPath(
   route:
     | "home"
     | "pricing"
+    | "docs"
     | "login"
     | "signup"
     | "forgotPassword"
@@ -141,6 +144,7 @@ export function getMarketingPath(
   const localizedPaths = {
     home: "/",
     pricing: "/pricing",
+    docs: "/docs",
     login: "/login",
     signup: "/signup",
     forgotPassword: "/forgot-password",

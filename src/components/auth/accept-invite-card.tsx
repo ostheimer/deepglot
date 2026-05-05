@@ -11,7 +11,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -212,11 +211,19 @@ export function AcceptInviteCard({ token }: { token: string }) {
     isExistingUser &&
     (!status?.authenticatedEmail ||
       status.authenticatedEmail.toLowerCase() !== invitation?.email.toLowerCase());
+  const signInHref = `${getMarketingPath(locale, "login")}?callbackUrl=${encodeURIComponent(
+    `${getMarketingPath(locale, "acceptInvite")}?token=${encodeURIComponent(token)}`
+  )}`;
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">{copy.title}</CardTitle>
+        <h1
+          data-slot="card-title"
+          className="text-2xl leading-none font-semibold"
+        >
+          {copy.title}
+        </h1>
         <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -268,7 +275,7 @@ export function AcceptInviteCard({ token }: { token: string }) {
                   </p>
                 </div>
                 <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700">
-                  <Link href={getMarketingPath(locale, "login")}>{copy.signIn}</Link>
+                  <Link href={signInHref}>{copy.signIn}</Link>
                 </Button>
               </div>
             ) : isExistingUser ? (

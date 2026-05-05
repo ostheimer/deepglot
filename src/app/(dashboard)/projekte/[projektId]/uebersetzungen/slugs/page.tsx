@@ -2,8 +2,12 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Zap } from "lucide-react";
+import { Search } from "lucide-react";
 import Link from "next/link";
+import {
+  buildProjectQueryHref,
+  normalizeProjectLang,
+} from "@/lib/dashboard-query";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
 
@@ -27,7 +31,10 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
 
   if (!project) notFound();
 
-  const activeLang = lang ?? project.languages[0]?.langCode ?? "en";
+  const activeLang = normalizeProjectLang(
+    lang,
+    project.languages.map((language) => language.langCode)
+  );
 
   const where = {
     projectId: projektId,
@@ -55,32 +62,36 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
           <span className="text-indigo-600">
             {activeLang.charAt(0).toUpperCase() + activeLang.slice(1)}
           </span>
-          {" "}▾
         </h2>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">{locale === "de" ? "Filter" : "Filters"} ▾</Button>
-          <Button variant="outline" size="sm">{locale === "de" ? "Aktionen" : "Actions"} ▾</Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
-            <Plus className="mr-2 h-4 w-4" />
-            {locale === "de" ? "Slug hinzufügen" : "Add slug"}
-          </Button>
-        </div>
       </div>
+
+      <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        {locale === "de"
+          ? "Slug-Bearbeitung ist hier noch nicht verfügbar. Das Plugin erkennt Slugs automatisch; Import und Export bleiben der sichere Weg für manuelle Slug-Änderungen."
+          : "Slug editing is not available here yet. The plugin detects slugs automatically; import and export remain the safe path for manual slug changes."}
+      </p>
 
       {/* Language selector */}
       <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white w-fit mb-4">
         {project.languages.map((l) => (
-          <Link key={l.id} href={`?lang=${l.langCode}`}>
-            <button
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                activeLang === l.langCode
-                  ? "bg-indigo-600 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
+          <Button
+            key={l.id}
+            asChild
+            variant="ghost"
+            size="sm"
+            className={`h-8 px-3 text-xs font-medium transition-colors ${
+              activeLang === l.langCode
+                ? "bg-indigo-600 text-white hover:bg-indigo-600 hover:text-white"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            <Link
+              href={buildProjectQueryHref({ lang: l.langCode, q })}
+              aria-current={activeLang === l.langCode ? "page" : undefined}
             >
               {l.langCode.toUpperCase()}
-            </button>
-          </Link>
+            </Link>
+          </Button>
         ))}
       </div>
 
@@ -103,14 +114,13 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[2fr_2fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="grid grid-cols-[2fr_2fr] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             {locale === "de" ? "ORIGINAL-SLUG" : "ORIGINAL SLUG"}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             {locale === "de" ? "ÜBERSETZTER SLUG" : "TRANSLATED SLUG"}
           </span>
-          <span></span>
         </div>
 
         {slugs.length === 0 ? (
@@ -129,7 +139,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
           slugs.map((slug) => (
             <div
               key={slug.id}
-              className="grid grid-cols-[2fr_2fr_auto] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
+              className="grid grid-cols-[2fr_2fr] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
             >
               <div>
                 <p className="text-sm font-medium text-gray-900">{slug.originalSlug}</p>
@@ -142,22 +152,15 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                 )}
               </div>
 
-              <div className="relative">
-                <Input
-                  defaultValue={slug.translatedSlug ?? ""}
-                  placeholder={slug.originalSlug}
-                  className="h-8 text-sm pr-28"
-                />
+              <div>
+                {slug.translatedSlug ? (
+                  <p className="text-sm font-medium text-gray-900">{slug.translatedSlug}</p>
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    {locale === "de" ? "Wird automatisch generiert" : "Generated automatically"}
+                  </p>
+                )}
               </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 text-xs gap-1.5"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                {locale === "de" ? "Auto-Übersetzen" : "Auto-translate"}
-              </Button>
             </div>
           ))
         )}
@@ -171,14 +174,30 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
           </p>
           <div className="flex gap-2">
             {page > 1 && (
-              <Link href={`?lang=${activeLang}&seite=${page - 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">{locale === "de" ? "Zurück" : "Previous"}</Button>
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={buildProjectQueryHref({
+                    lang: activeLang,
+                    page: page - 1,
+                    q,
+                  })}
+                >
+                  {locale === "de" ? "Zurück" : "Previous"}
+                </Link>
+              </Button>
             )}
             {page < totalPages && (
-              <Link href={`?lang=${activeLang}&seite=${page + 1}${q ? `&q=${q}` : ""}`}>
-                <Button variant="outline" size="sm">{locale === "de" ? "Weiter" : "Next"}</Button>
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={buildProjectQueryHref({
+                    lang: activeLang,
+                    page: page + 1,
+                    q,
+                  })}
+                >
+                  {locale === "de" ? "Weiter" : "Next"}
+                </Link>
+              </Button>
             )}
           </div>
         </div>

@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { GripVertical, Edit2 } from "lucide-react";
 import { SettingsToggle } from "@/components/projekte/settings-toggle";
 import { getLanguageName } from "@/lib/language-names";
+import { requireProjectManagement } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 
@@ -37,6 +38,7 @@ const LANG_FLAGS: Record<string, string> = {
 export default async function SwitcherPage({ params }: PageProps) {
   const { projektId } = await params;
   const locale = await getRequestLocale();
+  await requireProjectManagement(projektId);
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -45,6 +47,12 @@ export default async function SwitcherPage({ params }: PageProps) {
   if (!project) notFound();
 
   const s = project.settings;
+  const flagStyleId = "switcher-flag-style";
+  const customCssId = "switcher-custom-css";
+  const originalEditLabel =
+    locale === "de"
+      ? "Darstellung der Originalsprache bearbeiten"
+      : "Edit original language appearance";
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -77,7 +85,9 @@ export default async function SwitcherPage({ params }: PageProps) {
             {locale === "de" ? "Erweiterte Optionen" : "Advanced options"}
           </h3>
           <p className="text-sm text-gray-500 mt-0.5">
-            {locale === "de" ? "Passe das Erscheinungsbild des Sprachauswählers an." : "Adjust the appearance of the language switcher."}
+            {locale === "de"
+              ? "Diese Optionen werden aus WordPress gespiegelt und hier schreibgeschützt angezeigt."
+              : "These options are mirrored from WordPress and shown here as read-only values."}
           </p>
         </div>
 
@@ -113,10 +123,14 @@ export default async function SwitcherPage({ params }: PageProps) {
         <div className="p-5 border-t border-gray-100 space-y-4">
           {/* Flag type */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <Label
+              htmlFor={flagStyleId}
+              className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >
               {locale === "de" ? "Flaggen-Typ" : "Flag style"}
             </Label>
             <select
+              id={flagStyleId}
               defaultValue={s?.switcherFlagsType ?? "rectangle_mat"}
               disabled
               className="flex h-9 w-64 rounded-md border border-input bg-white px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-70"
@@ -132,10 +146,14 @@ export default async function SwitcherPage({ params }: PageProps) {
 
           {/* Custom CSS */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <Label
+              htmlFor={customCssId}
+              className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >
               {locale === "de" ? "Benutzerdefiniertes CSS" : "Custom CSS"}
             </Label>
             <textarea
+              id={customCssId}
               defaultValue={s?.switcherCustomCss ?? ".language-selector {\n  margin-bottom: 20px;\n}"}
               rows={5}
               readOnly
@@ -158,15 +176,15 @@ export default async function SwitcherPage({ params }: PageProps) {
         </h3>
         <p className="text-sm text-gray-500 mb-4">
           {locale === "de"
-            ? "Verschiebe Sprachen per Drag & Drop, um ihre Reihenfolge im Sprachauswähler zu ändern. Du kannst auch die Flagge und den Namen jeder Sprache anpassen."
-            : "Reorder languages with drag and drop. You can also customize the flag and the name of each language."}
+            ? "Die Reihenfolge, Flaggen und Namen werden aus der WordPress-Konfiguration gespiegelt."
+            : "Language order, flags, and names are mirrored from the WordPress configuration."}
         </p>
 
         <div className="border border-gray-100 rounded-lg overflow-hidden">
           {/* Original language */}
           <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
             <div className="flex items-center gap-3">
-              <GripVertical className="h-4 w-4 text-gray-300" />
+              <GripVertical className="h-4 w-4 text-gray-300" aria-hidden="true" />
               <span className="text-lg">{LANG_FLAGS[project.originalLang] ?? "🏳️"}</span>
               <span className="text-sm font-medium text-gray-700">
                 {getLanguageName(project.originalLang, locale)}
@@ -175,8 +193,14 @@ export default async function SwitcherPage({ params }: PageProps) {
                 {locale === "de" ? "Original" : "Original"}
               </span>
             </div>
-            <button type="button" className="h-7 w-7 p-0 opacity-40" disabled>
-              <Edit2 className="h-3.5 w-3.5 text-gray-400" />
+            <button
+              type="button"
+              className="h-7 w-7 p-0 opacity-40"
+              disabled
+              aria-label={originalEditLabel}
+              title={originalEditLabel}
+            >
+              <Edit2 className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
             </button>
           </div>
 
@@ -189,14 +213,28 @@ export default async function SwitcherPage({ params }: PageProps) {
               } hover:bg-gray-50 transition-colors`}
             >
               <div className="flex items-center gap-3">
-                <GripVertical className="h-4 w-4 text-gray-300 cursor-grab" />
+                <GripVertical className="h-4 w-4 text-gray-300" aria-hidden="true" />
                 <span className="text-lg">{LANG_FLAGS[lang.langCode] ?? "🏳️"}</span>
                 <span className="text-sm text-gray-700">
                   {getLanguageName(lang.langCode, locale)}
                 </span>
               </div>
-              <button type="button" className="h-7 w-7 p-0 opacity-40" disabled>
-                <Edit2 className="h-3.5 w-3.5 text-gray-400" />
+              <button
+                type="button"
+                className="h-7 w-7 p-0 opacity-40"
+                disabled
+                aria-label={
+                  locale === "de"
+                    ? `Darstellung für ${getLanguageName(lang.langCode, locale)} bearbeiten`
+                    : `Edit ${getLanguageName(lang.langCode, locale)} appearance`
+                }
+                title={
+                  locale === "de"
+                    ? `Darstellung für ${getLanguageName(lang.langCode, locale)} bearbeiten`
+                    : `Edit ${getLanguageName(lang.langCode, locale)} appearance`
+                }
+              >
+                <Edit2 className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
               </button>
             </div>
           ))}

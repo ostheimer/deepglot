@@ -61,10 +61,14 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
       {/* Logo */}
-      <div className="h-16 flex items-center gap-2 px-6 border-b border-gray-100">
+      <Link
+        href={locale === "de" ? "/de/dashboard" : "/dashboard"}
+        className="h-16 flex items-center gap-2 px-6 border-b border-gray-100 hover:bg-gray-50"
+        aria-label="Deepglot dashboard"
+      >
         <Globe className="h-6 w-6 text-indigo-600" />
         <span className="text-lg font-bold text-gray-900">Deepglot</span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">

@@ -23,6 +23,11 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useLocale } from "@/components/providers/locale-provider";
+import {
+  canAccessProjectArea,
+  canManageProject,
+  type ProjectAccessContext,
+} from "@/lib/project-access-policy";
 import { withLocalePrefix } from "@/lib/site-locale";
 
 interface ProjectSidebarProps {
@@ -34,12 +39,15 @@ interface ProjectSidebarProps {
     languages: { id: string; langCode: string; isActive: boolean }[];
     _count: { translations: number };
   };
+  access: ProjectAccessContext;
 }
 
-export function ProjectSidebar({ project }: ProjectSidebarProps) {
+export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
   const locale = useLocale();
   const pathname = usePathname();
   const base = withLocalePrefix(`/projects/${project.id}`, locale);
+  const canManage = canManageProject(access);
+  const canViewAnalytics = canAccessProjectArea(access, "analytics");
 
   const nav = [
     {
@@ -55,6 +63,7 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
     },
     {
       label: locale === "de" ? "Statistiken" : "Analytics",
+      hidden: !canViewAnalytics,
       items: [
         { href: `${base}/stats/requests`, label: locale === "de" ? "Übersetzungsanfragen" : "Translation Requests", icon: BarChart2 },
         { href: `${base}/stats/page-views`, label: locale === "de" ? "Seitenaufrufe" : "Page Views", icon: Eye },
@@ -62,6 +71,7 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
     },
     {
       label: locale === "de" ? "Einstellungen" : "Settings",
+      hidden: !canManage,
       items: [
         { href: `${base}/settings`, label: locale === "de" ? "Allgemein" : "General", icon: Settings },
         { href: `${base}/settings/language-model`, label: locale === "de" ? "Sprachmodell" : "Language Model", icon: Cpu, badge: locale === "de" ? "Neu" : "New" },
@@ -111,7 +121,7 @@ export function ProjectSidebar({ project }: ProjectSidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-5">
-        {nav.map((section) => (
+        {nav.filter((section) => !("hidden" in section && section.hidden)).map((section) => (
           <div key={section.label}>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1.5">
               {section.label}

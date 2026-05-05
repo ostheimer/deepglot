@@ -34,7 +34,7 @@ test.describe("locale routing", () => {
         name: /Übersetze deine WordPress-Site/i,
       })
     ).toBeVisible();
-    await expect(page.getByTitle("Deutsch")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTitle("Deutsch")).toHaveAttribute("aria-current", "true");
     await expectLocaleCookie(page, "de");
 
     await page.getByTitle("English").click();
@@ -46,6 +46,82 @@ test.describe("locale routing", () => {
       })
     ).toBeVisible();
     await expectLocaleCookie(page, "en");
+  });
+
+  test("opens the WordPress plugin section from the homepage navigation", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await page.getByRole("link", { name: "WordPress Plugin" }).click();
+
+    await expect(page).toHaveURL(/\/#plugin$/);
+    await expect(page.locator("#plugin")).toBeVisible();
+  });
+
+  test("opens the WordPress plugin section from the pricing navigation", async ({
+    page,
+  }) => {
+    await page.goto("/pricing");
+
+    await page.getByRole("link", { name: "WordPress Plugin" }).click();
+
+    await expect(page).toHaveURL(/\/#plugin$/);
+    await expect(page.locator("#plugin")).toBeVisible();
+  });
+
+  test("uses the Deepglot logo as a home link", async ({ page }) => {
+    await page.goto("/#plugin");
+
+    await page
+      .getByRole("navigation")
+      .getByRole("link", { name: "Deepglot" })
+      .click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(
+      page.getByRole("heading", {
+        name: /Translate your WordPress site/i,
+      })
+    ).toBeVisible();
+  });
+
+  test("opens public documentation and legal footer links", async ({ page }) => {
+    await page.goto("/");
+
+    await page.getByRole("link", { name: "Documentation" }).click();
+    await expect(page).toHaveURL(/\/docs$/);
+    await expect(
+      page.getByRole("heading", { name: "Set up Deepglot" })
+    ).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Privacy" }).click();
+    await expect(page).toHaveURL(/\/datenschutz$/);
+    await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Legal Notice" }).click();
+    await expect(page).toHaveURL(/\/impressum$/);
+    await expect(
+      page.getByRole("heading", { name: "Legal Notice" })
+    ).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Terms" }).click();
+    await expect(page).toHaveURL(/\/agb$/);
+    await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
+  });
+
+  test("keeps the active anchor when switching homepage language", async ({
+    page,
+  }) => {
+    await page.goto("/#plugin");
+
+    await page.getByTitle("Deutsch").click();
+
+    await expect(page).toHaveURL(/\/de#plugin$/);
+    await expect(page.locator("#plugin")).toBeVisible();
   });
 
   test("keeps query parameters when switching pricing locales", async ({ page }) => {
@@ -96,6 +172,26 @@ test.describe("locale routing", () => {
         hasText: "Konto erstellen",
       })
     ).toBeVisible();
+  });
+
+  test("auth entry pages expose their visible title as the page h1", async ({
+    page,
+  }) => {
+    const pages = [
+      { path: "/login", heading: "Welcome back" },
+      { path: "/signup", heading: "Create your account" },
+      { path: "/forgot-password", heading: "Reset your password" },
+      { path: "/reset-password", heading: "Choose a new password" },
+      { path: "/accept-invite", heading: "Accept project invitation" },
+    ];
+
+    for (const entry of pages) {
+      await page.goto(entry.path);
+
+      await expect(
+        page.getByRole("heading", { level: 1, name: entry.heading })
+      ).toBeVisible();
+    }
   });
 
   test("redirects legacy German marketing paths to canonical localized URLs", async ({

@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { TranslationRequestsChart } from "@/components/statistiken/translation-requests-chart";
 import { AnalyticsRangeSelector } from "@/components/statistiken/analytics-range-selector";
 import {
+  buildAnalyticsHref,
+  normalizeAnalyticsParams,
+} from "@/lib/dashboard-query";
+import {
   eachDayOfInterval,
   format,
   startOfMonth,
@@ -10,6 +14,7 @@ import {
   subDays,
 } from "date-fns";
 import { formatNumber } from "@/lib/locale-formatting";
+import { requireProjectAreaAccess } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
 
 interface PageProps {
@@ -17,12 +22,12 @@ interface PageProps {
   searchParams: Promise<{ zeitraum?: string; ansicht?: string }>;
 }
 
-type Granularity = "day" | "week" | "month";
-
 export default async function StatistikenAnfragenPage({ params, searchParams }: PageProps) {
   const { projektId } = await params;
-  const { zeitraum = "30", ansicht = "day" } = await searchParams;
+  const rawSearchParams = await searchParams;
   const locale = await getRequestLocale();
+  await requireProjectAreaAccess(projektId, "analytics");
+  const { granularity, range: zeitraum } = normalizeAnalyticsParams(rawSearchParams);
 
   const project = await db.project.findUnique({
     where: { id: projektId },
@@ -31,8 +36,6 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
   if (!project) notFound();
 
   const days = parseInt(zeitraum, 10) || 30;
-  const granularity = (ansicht as Granularity) || "day";
-
   const since = subDays(new Date(), days);
   const batchLogs = await db.translationBatchLog.findMany({
     where: {
@@ -123,7 +126,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
         </h2>
 
         <AnalyticsRangeSelector
-          ansicht={ansicht}
+          ansicht={granularity}
           zeitraum={zeitraum}
           options={zeitraumOptions}
         />
@@ -155,7 +158,10 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
                 return (
                   <a
                     key={g}
-                    href={`?zeitraum=${zeitraum}&ansicht=${g}`}
+                    href={buildAnalyticsHref({
+                      granularity: g,
+                      range: zeitraum,
+                    })}
                     className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
                       isActive
                         ? "bg-indigo-600 text-white"

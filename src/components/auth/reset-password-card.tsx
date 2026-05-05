@@ -11,7 +11,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
@@ -100,7 +99,12 @@ export function ResetPasswordCard({ token }: { token: string }) {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">{copy.title}</CardTitle>
+        <h1
+          data-slot="card-title"
+          className="text-2xl leading-none font-semibold"
+        >
+          {copy.title}
+        </h1>
         <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
