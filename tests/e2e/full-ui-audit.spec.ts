@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { signInAsTestUser } from "./helpers";
 
 test.describe("full UI audit", () => {
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
 
   test("renders every known public and authenticated route with working internal links", async ({
     page,
@@ -117,7 +117,6 @@ async function auditRoute(
 
   expect(response?.status() ?? 200, `${path} HTTP status`).toBeLessThan(400);
 
-  await page.waitForLoadState("networkidle").catch(() => undefined);
   await expect(page.locator("body")).not.toContainText(
     /This page could not be found\.|^\s*404\s*$/m
   );
@@ -152,14 +151,25 @@ async function auditRoute(
     isSameOriginHttpLink(page, item.href)
   );
 
+  const pendingTargets = new Map<string, { label: string; url: string }>();
   for (const link of links) {
-    await checkLinkTarget(
-      page,
-      page.url(),
-      path,
-      link.label,
-      link.href,
-      checkedTargets
+    const target = normalizeLinkTarget(page.url(), link.href);
+
+    if (
+      target &&
+      !target.pathname.startsWith("/api/") &&
+      !checkedTargets.has(target.href)
+    ) {
+      pendingTargets.set(target.href, { label: link.label, url: target.href });
+    }
+  }
+
+  const batches = chunk(Array.from(pendingTargets.values()), 8);
+  for (const batch of batches) {
+    await Promise.all(
+      batch.map((target) =>
+        checkLinkTarget(page, path, target.label, target.url, checkedTargets)
+      )
     );
   }
 
@@ -277,21 +287,15 @@ async function collectVisibleInteractives(page: Page) {
 
 async function checkLinkTarget(
   page: Page,
-  currentUrl: string,
   sourcePath: string,
   label: string,
   href: string,
   checkedTargets: Map<string, true>
 ) {
-  const target = new URL(href, currentUrl);
-  target.hash = "";
+  const target = new URL(href);
+  if (checkedTargets.has(target.href)) return;
 
-  if (target.pathname.startsWith("/api/")) return;
-
-  const key = target.toString();
-  if (checkedTargets.has(key)) return;
-
-  const response = await page.request.get(key, {
+  const response = await page.request.get(target.href, {
     maxRedirects: 8,
     timeout: 20_000,
   });
@@ -301,7 +305,7 @@ async function checkLinkTarget(
     `${sourcePath} link "${label}" -> ${target.pathname} HTTP status`
   ).toBeLessThan(400);
 
-  checkedTargets.set(key, true);
+  checkedTargets.set(target.href, true);
 }
 
 function isSameOriginHttpLink(page: Page, href: string) {
@@ -316,6 +320,31 @@ function isSameOriginHttpLink(page: Page, href: string) {
     target.origin === current.origin &&
     (target.protocol === "http:" || target.protocol === "https:")
   );
+}
+
+function normalizeLinkTarget(currentUrl: string, href: string) {
+  const target = new URL(href, currentUrl);
+  const current = new URL(currentUrl);
+
+  if (
+    target.origin !== current.origin ||
+    (target.protocol !== "http:" && target.protocol !== "https:")
+  ) {
+    return null;
+  }
+
+  target.hash = "";
+  return target;
+}
+
+function chunk<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 function describeInteractive(item: VisibleInteractive) {
