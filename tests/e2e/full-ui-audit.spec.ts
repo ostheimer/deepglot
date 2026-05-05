@@ -346,6 +346,13 @@ function shouldCheckLinkTarget(
     return false;
   }
 
+  if (
+    target.pathname.startsWith("/wp-admin/") ||
+    target.pathname === "/wp-login.php"
+  ) {
+    return false;
+  }
+
   if (sourcePath.includes("/translations/urls")) {
     const isProjectContentLink =
       !target.pathname.startsWith("/projects/") &&
