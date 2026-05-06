@@ -117,24 +117,22 @@ class HtmlTranslator
         $cached  = $this->cache->getMany($texts, $sourceLang, $targetLanguage);
         $missing = array_values(array_filter($texts, static fn(string $t) => !isset($cached[$t])));
 
-        // Fetch missing translations from API in batches.
+        // Fetch missing translations from API. Multi-batch pages dispatch
+        // through translateBatches() so the client can run them in parallel
+        // (Requests v2 / curl_multi) instead of paying one round trip per
+        // batch. Single-batch pages keep the simpler translate() path.
         $apiResults = [];
+        $batches = array_chunk($missing, self::BATCH_SIZE);
 
-        foreach (array_chunk($missing, self::BATCH_SIZE) as $batch) {
-            $result = $this->client->translate($batch, $sourceLang, $targetLanguage);
+        if (count($batches) > 1) {
+            $batchResults = $this->client->translateBatches($batches, $sourceLang, $targetLanguage);
 
-            if (
-                !is_wp_error($result)
-                && isset($result['from_words'], $result['to_words'])
-                && is_array($result['from_words'])
-                && is_array($result['to_words'])
-            ) {
-                foreach ($result['from_words'] as $index => $original) {
-                    if (isset($result['to_words'][$index])) {
-                        $apiResults[$original] = $result['to_words'][$index];
-                    }
-                }
+            foreach ($batchResults as $result) {
+                $this->mergeTranslateResult($apiResults, $result);
             }
+        } elseif (!empty($batches)) {
+            $result = $this->client->translate($batches[0], $sourceLang, $targetLanguage);
+            $this->mergeTranslateResult($apiResults, $result);
         }
 
         // Persist new translations in cache.
@@ -252,6 +250,29 @@ class HtmlTranslator
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<string, string> $accumulator
+     * @param mixed $result
+     */
+    private function mergeTranslateResult(array &$accumulator, $result): void
+    {
+        if (
+            is_wp_error($result)
+            || !is_array($result)
+            || !isset($result['from_words'], $result['to_words'])
+            || !is_array($result['from_words'])
+            || !is_array($result['to_words'])
+        ) {
+            return;
+        }
+
+        foreach ($result['from_words'] as $index => $original) {
+            if (isset($result['to_words'][$index])) {
+                $accumulator[$original] = $result['to_words'][$index];
+            }
+        }
     }
 
     private function isInsideHead(\DOMNode $node): bool
