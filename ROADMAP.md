@@ -160,7 +160,7 @@ Next.js App (Vercel)          WordPress Plugin
 | 6.2 | Glossary feature (terms that should never be translated) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
 | 6.3 | Import / export (CSV / PO files) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
 | 6.4 | WooCommerce email translation | ✅ Implemented and covered by WordPress PHP acceptance |
-| 6.5 | Browser-language auto redirect | ✅ Implemented; guarded-disabled production rollout verified |
+| 6.5 | Browser-language auto redirect | ✅ Implemented and enabled on `meinhaushalt.at` after live skip-context verification |
 | 6.6 | Subdomain support (`de.example.com`) | 🔄 Implemented; path-prefix default verified, mapped-host live QA blocked until a production host is configured |
 | 6.7 | Analytics dashboard (translation volume, language stats) | ✅ Implemented and covered by Phase 6 Playwright acceptance |
 | 6.8 | Webhook events (for new translations, etc.) | ✅ Implemented and covered by Phase 6 Playwright and production observability acceptance |
