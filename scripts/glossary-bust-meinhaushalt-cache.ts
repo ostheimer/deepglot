@@ -17,6 +17,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import dotenv from "dotenv";
+import type { Prisma } from "@prisma/client";
 
 const envFiles = [".env.production.local", ".env.local"];
 
@@ -55,7 +56,6 @@ const TERMS = ["Mein Haushalt", "Meinhaushalt", "MeinHaushalt", "meinhaushalt.at
 
 async function main() {
   const { db } = await import("@/lib/db");
-  const { Prisma } = await import("@prisma/client");
 
   const project = await db.project.findUnique({
     where: { id: projectId },
