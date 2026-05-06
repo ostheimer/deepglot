@@ -191,4 +191,27 @@ foreach ($client->sentTexts as $sent) {
 dgAssert(in_array('Hallo Welt', $client->sentTexts, true), 'Body text must still be translated');
 dgAssert(str_contains($translated, '[en] Hallo Welt'), 'H1 text must be translated in body');
 
+// 9. Editor mode: head text nodes (title) get translated but never wrapped in
+// the editor span — wrapping inside <title> would produce invalid markup like
+// <title><span>...</span></title> that breaks title rendering. Body text still
+// gets the wrapping treatment so the visual editor can target it.
+$editorClient = new DeepglotMetadataFakeClient();
+$editorTranslator = new HtmlTranslator($editorClient, $options, new DeepglotMetadataNullCache());
+$editorHtml = '<!DOCTYPE html><html><head>'
+    . '<title>Hallo</title>'
+    . '<meta name="description" content="Beschreibung">'
+    . '</head><body><h1>Hallo Welt</h1></body></html>';
+$editorResult = $editorTranslator->translateForEditor($editorHtml, 'en');
+$editorDecoded = html_entity_decode($editorResult['html'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+dgAssert(str_contains($editorDecoded, '<title>[en] Hallo</title>'), 'Editor mode must translate <title> text without span wrapping, got: ' . $editorDecoded);
+dgAssert(!preg_match('/<title>[^<]*<span/u', $editorDecoded), 'Editor mode must NOT wrap <title> children in segment spans: ' . $editorDecoded);
+dgAssert(str_contains($editorDecoded, '"[en] Beschreibung"'), 'Editor mode must still translate meta description content');
+dgAssert(preg_match('/<h1>\s*<span[^>]*data-deepglot-segment-id/u', $editorDecoded) === 1, 'Editor mode must still wrap body text nodes in segment spans, got: ' . $editorDecoded);
+
+// Editor segments list must not include the title text node.
+foreach ($editorResult['segments'] as $segment) {
+    dgAssert($segment['originalText'] !== 'Hallo', 'Title text node must not be exposed as an editor segment');
+}
+
 fwrite(STDOUT, "MetadataTranslationTest: OK\n");

@@ -156,7 +156,11 @@ class HtmlTranslator
             $original = $node->data;
 
             if (isset($all[$original])) {
-                if ($annotateSegments) {
+                // Editor mode wraps translated text in <span data-deepglot-segment-id>
+                // for the visual editor. <head> children (notably <title>) cannot
+                // host inline spans without producing invalid markup, so they are
+                // translated in place even when annotateSegments is true.
+                if ($annotateSegments && !$this->isInsideHead($node)) {
                     $this->replaceNodeWithSegment(
                         $node,
                         $original,
@@ -248,6 +252,21 @@ class HtmlTranslator
         }
 
         return $result;
+    }
+
+    private function isInsideHead(\DOMNode $node): bool
+    {
+        $ancestor = $node->parentNode;
+
+        while ($ancestor !== null) {
+            if ($ancestor instanceof \DOMElement && strtolower($ancestor->tagName) === 'head') {
+                return true;
+            }
+
+            $ancestor = $ancestor->parentNode;
+        }
+
+        return false;
     }
 
     /**
