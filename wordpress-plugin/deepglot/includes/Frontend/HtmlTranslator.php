@@ -17,11 +17,46 @@ class HtmlTranslator
     /** Tags whose text content must never be translated. */
     private const SKIP_TAGS = [
         'script', 'style', 'pre', 'code', 'textarea', 'noscript',
-        'svg', 'math', 'head',
+        'svg', 'math',
     ];
 
-    /** Maximum number of text nodes sent in one API request. */
-    private const BATCH_SIZE = 100;
+    /**
+     * Meta-tag selectors whose `content` attribute carries human-readable
+     * copy that should be translated. Values are matched case-insensitively.
+     *
+     * Only selectors with user-facing text are listed — robots, generator,
+     * keywords, viewport, charset and similar machine-only meta tags are
+     * intentionally excluded.
+     */
+    private const TRANSLATABLE_META = [
+        'name' => [
+            'description',
+            'twitter:title',
+            'twitter:description',
+            'twitter:image:alt',
+        ],
+        'property' => [
+            'og:title',
+            'og:description',
+            'og:site_name',
+            'og:image:alt',
+        ],
+        'itemprop' => [
+            'name',
+            'description',
+            'headline',
+        ],
+    ];
+
+    /**
+     * Maximum number of text nodes sent in one API request.
+     *
+     * The Deepglot backend translates each batch in a single OpenAI / DeepL
+     * call, so larger batches save round-trips at the cost of bigger prompts.
+     * 200 keeps the prompt comfortably below the model context window while
+     * roughly halving the number of sequential calls compared to 100.
+     */
+    private const BATCH_SIZE = 200;
 
     private Client $client;
     private Options $options;
@@ -64,15 +99,19 @@ class HtmlTranslator
 
         $doc = $this->loadHtml($html);
 
-        // Collect all translatable DOMText nodes.
+        // Collect all translatable DOMText nodes plus head metadata attributes.
         $nodes = $this->collectTextNodes($doc);
+        $attrs = $this->collectMetadataAttributes($doc);
 
-        if (empty($nodes)) {
+        if (empty($nodes) && empty($attrs)) {
             return ['html' => $html, 'segments' => []];
         }
 
         // Deduplicate texts so we don't pay twice for the same string.
-        $texts = array_values(array_unique(array_map(static fn(\DOMText $n) => $n->data, $nodes)));
+        $texts = array_values(array_unique(array_merge(
+            array_map(static fn(\DOMText $n) => $n->data, $nodes),
+            array_map(static fn(\DOMAttr $a) => $a->value, $attrs)
+        )));
 
         // Load from cache.
         $cached  = $this->cache->getMany($texts, $sourceLang, $targetLanguage);
@@ -132,6 +171,15 @@ class HtmlTranslator
                 }
 
                 $node->data = $all[$original];
+            }
+        }
+
+        // Translate whitelisted head metadata attributes in place.
+        foreach ($attrs as $attr) {
+            $original = $attr->value;
+
+            if (isset($all[$original])) {
+                $attr->value = $all[$original];
             }
         }
 
@@ -200,6 +248,64 @@ class HtmlTranslator
         }
 
         return $result;
+    }
+
+    /**
+     * @return \DOMAttr[]
+     */
+    private function collectMetadataAttributes(\DOMDocument $doc): array
+    {
+        $head = $doc->getElementsByTagName('head')->item(0);
+
+        if (!$head instanceof \DOMElement) {
+            return [];
+        }
+
+        $result = [];
+        $metas = $head->getElementsByTagName('meta');
+
+        foreach ($metas as $meta) {
+            if (!$meta instanceof \DOMElement) {
+                continue;
+            }
+
+            $contentAttr = $meta->getAttributeNode('content');
+
+            if (!$contentAttr instanceof \DOMAttr || $contentAttr->value === '') {
+                continue;
+            }
+
+            if (!$this->isMetaContentTranslatable($meta)) {
+                continue;
+            }
+
+            $trimmed = trim($contentAttr->value);
+
+            if ($trimmed === '' || mb_strlen($trimmed) < 2) {
+                continue;
+            }
+
+            $result[] = $contentAttr;
+        }
+
+        return $result;
+    }
+
+    private function isMetaContentTranslatable(\DOMElement $meta): bool
+    {
+        foreach (self::TRANSLATABLE_META as $attribute => $values) {
+            if (!$meta->hasAttribute($attribute)) {
+                continue;
+            }
+
+            $candidate = strtolower(trim($meta->getAttribute($attribute)));
+
+            if (in_array($candidate, $values, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function excludedSelectorXPathExpression(): string

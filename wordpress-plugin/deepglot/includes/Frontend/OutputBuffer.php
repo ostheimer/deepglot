@@ -98,11 +98,27 @@ class OutputBuffer
         $canonicalPath = $this->routing->getCanonicalPath($rawUri);
         $this->hreflangInjector->inject($doc, $canonicalPath);
 
-        // Step 4: add translate="no" so browser extensions don't double-translate.
+        // Step 4: switch <html lang> to the target language and mark translate="no"
+        // so browser extensions (Chrome auto-translate, etc.) don't double translate.
         $htmlEl = $doc->getElementsByTagName('html')->item(0);
 
-        if ($htmlEl instanceof \DOMElement && !$htmlEl->hasAttribute('translate')) {
-            $htmlEl->setAttribute('translate', 'no');
+        if ($htmlEl instanceof \DOMElement) {
+            $htmlEl->setAttribute('lang', $targetLanguage);
+
+            // PHP DOMDocument keeps xml:lang as an attribute node but
+            // hasAttribute('xml:lang') / getAttributeNode('xml:lang') return
+            // false because the colon is interpreted as a namespace prefix.
+            // Iterate to find and update it directly.
+            foreach ($htmlEl->attributes as $attr) {
+                if ($attr instanceof \DOMAttr && strtolower($attr->name) === 'xml:lang') {
+                    $attr->value = $targetLanguage;
+                    break;
+                }
+            }
+
+            if (!$htmlEl->hasAttribute('translate')) {
+                $htmlEl->setAttribute('translate', 'no');
+            }
         }
 
         if ($editorMode && !empty($editorSegments)) {
