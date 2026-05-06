@@ -74,7 +74,7 @@ Required checks on `meinhaushalt.at`:
 | Cache | Repeated translated page requests reuse the WordPress translation cache | ✅ Passed |
 | Link rewriting | Internal links, forms, canonicals, hreflang tags, and switcher URLs keep the active locale | ✅ Passed |
 | Exclusions | Admin, REST, AJAX, feed, preview, and excluded paths are not translated or redirected | ✅ Passed |
-| Browser redirect | First-visit redirect respects `Accept-Language`, preference cookie, and skip contexts | ⏳ Deferred, disabled for rollout |
+| Browser redirect | First-visit redirect respects `Accept-Language`, preference cookie, and skip contexts | ✅ Passed |
 | Subdomains | Host-based language routing works only when every active language has a valid mapping | ➖ Not applicable on this site |
 | WooCommerce email | If WooCommerce is present, subject, heading, and HTML body use checkout language order meta | ➖ Not applicable, WooCommerce inactive |
 | Visual editor | Editor mode only boots after token verification and only marks visible translated text nodes | ✅ Passed |
@@ -96,6 +96,27 @@ Required checks on `meinhaushalt.at`:
 Known follow-up:
 
 - The visual-editor live boot check now verifies the token against the production backend before accepting the WordPress editor shell.
+
+### `meinhaushalt.at` Acceptance Run - 2026-05-07
+
+PR [#28](https://github.com/ostheimer/deepglot/pull/28) (`Translate head <title>, meta description, og:* and switch <html lang>`) was merged into `main` (`e258597`) and the WordPress plugin was redeployed live via SSH.
+
+- Existing plugin tarballed to `~/deepglot-backup-20260507-003909.tar.gz` on the server before replacement.
+- New plugin synced through `rsync` (excluding `tests/`), PHP-linted in place. `BATCH_SIZE` is now `200`, `head` is no longer in `SKIP_TAGS`, and `OutputBuffer` switches `<html lang>` plus `xml:lang`.
+- Brand-name glossary rules `Mein Haushalt`, `Meinhaushalt`, `MeinHaushalt`, and `meinhaushalt.at` are present in the production Neon project; the corresponding cached `Translation` rows that contained those terms were invalidated so the next translation run uses glossary protection.
+- WordPress translation transients (`_transient_dg_*`) were cleared (700 entries) and the WP Rocket `/en/` page cache was purged before smoke runs.
+- `/en/` warm hit returns translated `<title>`, `<meta name="description">`, `<meta property="og:title">`, and `<html lang="en">`. Brand-name occurrences of `Mein Haushalt` are preserved (no `My Household` in output).
+- `/en/kategorie/gesundheit/` cold hit returned `200` in ≈7 s and renders translated body and `<title>`.
+- `/en/tag/familie/` cold first hit can leave a few segments untranslated when the per-batch HTTP request reaches the 15 s plugin timeout; subsequent hits respond in ~1 s with full translation. Tracked as a follow-up performance task to parallelize translate batches.
+- Browser-language redirect was enabled by setting `auto_redirect=true` on the WordPress option `deepglot_settings`. Verified contexts:
+  - `/` with `Accept-Language: de` → `200` (no redirect, source language).
+  - `/` with `Accept-Language: en-US,en;q=0.9` → `302` to `/en/?…` and sets `deepglot_preferred_language=en` cookie.
+  - `/` with `curl/8.0` user agent → `200` (bot detection skip).
+  - `/` with cookie `deepglot_preferred_language=de` → `200` (preference respected).
+  - `/wp-admin/` with `Accept-Language: en` → only the regular WordPress login redirect.
+  - `/feed/` with `Accept-Language: en` → only the existing WP feed redirect to `/`.
+  - `/wp-json/` and `/sitemap_index.xml` with `Accept-Language: en` → `200`, no language redirect.
+  - DE post slug with `Accept-Language: en` → `302` to the same slug under `/en/`.
 
 ## SaaS Automated Acceptance
 
