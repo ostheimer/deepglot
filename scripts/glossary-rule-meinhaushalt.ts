@@ -7,8 +7,11 @@
  *
  * Writes through Prisma against the production Neon branch using the
  * connection string in `.env.production.local`. The script is idempotent:
- * each rule is keyed by (projectId, originalTerm, langFrom, langTo) and
- * existing rules are kept untouched.
+ * each rule is keyed by (projectId, originalTerm, langFrom, langTo).
+ * Existing rules with matching translatedTerm and caseSensitive are kept,
+ * mismatched rows are updated to the desired values so a stale brand
+ * mapping (e.g. an earlier manual edit) is reconciled instead of silently
+ * leaving the misconfiguration in place.
  *
  * Usage:
  *   node --import tsx scripts/glossary-rule-meinhaushalt.ts
@@ -88,8 +91,27 @@ async function main() {
     });
 
     if (existing) {
+      const translatedDiffers = existing.translatedTerm !== rule.translatedTerm;
+      const caseSensitivityDiffers =
+        existing.caseSensitive !== rule.caseSensitive;
+
+      if (!translatedDiffers && !caseSensitivityDiffers) {
+        console.log(
+          `[glossary] kept "${rule.originalTerm}" → "${existing.translatedTerm}" (id=${existing.id})`
+        );
+        continue;
+      }
+
+      const updated = await db.glossaryRule.update({
+        where: { id: existing.id },
+        data: {
+          translatedTerm: rule.translatedTerm,
+          caseSensitive: rule.caseSensitive,
+        },
+      });
+
       console.log(
-        `[glossary] kept "${rule.originalTerm}" → "${existing.translatedTerm}" (id=${existing.id})`
+        `[glossary] updated "${rule.originalTerm}" (id=${existing.id}): "${existing.translatedTerm}" -> "${updated.translatedTerm}", caseSensitive ${String(existing.caseSensitive)} -> ${String(updated.caseSensitive)}`
       );
       continue;
     }
