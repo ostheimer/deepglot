@@ -163,6 +163,29 @@ Latest production wrapper run on 2026-05-03:
 - Passed: production smoke, Neon dry-run/readiness, rate-limit config, webhook processor readiness, and SaaS acceptance.
 - Blocked: Stripe live/test configuration is postponed, and Phase 6 subdomain mapped-host QA needs `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
 
+## UI Audit Release - 2026-05-06
+
+PR `#26` (`Fix UI navigation and add full audit coverage`) was merged into `main` and deployed to Vercel Production.
+
+Verified results:
+
+- GitHub Actions `main` CI passed for commit `c882439`, including documentation language checks, unit tests, WordPress PHP tests, build, and Playwright smoke tests.
+- Vercel Production deployed successfully.
+- `npm run smoke:production` passed `7/7` checks after deployment:
+  - `https://deepglot.ai/api/public/status` returned `200`.
+  - `https://www.deepglot.ai/api/public/status` returned `200`.
+  - `https://deepglot.ai/pricing` returned `200`.
+  - `https://www.deepglot.ai/pricing` redirected to `https://deepglot.ai/pricing`.
+  - Apex and `www` DNS resolved to the expected Vercel IP.
+  - `https://www.meinhaushalt.at/en/` returned translated English output without raw language markers.
+
+Coverage added:
+
+- Public and authenticated route UI audit with visible-interactive labeling checks.
+- Internal app-owned link target verification.
+- Marketing navigation regression coverage for the logo home link and `WordPress Plugin` navigation item.
+- Accessibility coverage for account settings, project settings, subscription usage charts, and dashboard controls.
+
 ## Alias Policy
 
 - `https://deepglot.ai` is the canonical SaaS host.
