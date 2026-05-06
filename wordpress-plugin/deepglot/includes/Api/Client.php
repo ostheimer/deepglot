@@ -34,18 +34,177 @@ class Client
      */
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
     {
-        // Build the words array in the API contract format.
-        $words = array_map(static fn(string $w) => ['w' => $w, 't' => 1], $texts);
+        return $this->buildTranslateResponse($this->dispatchTranslate(
+            $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl)
+        ));
+    }
 
-        $payload = [
+    /**
+     * Translates several batches of texts at once, returning the result for
+     * each batch in the same key order as the input array.
+     *
+     * On servers that ship the WordPress Requests v2 library (WP 6.2+) the
+     * batches are dispatched in parallel via curl_multi, which keeps cold
+     * archive pages comfortably below the per-request timeout. Older sites
+     * fall back to sequential calls so behavior never silently changes.
+     *
+     * @param  array<int|string, string[]> $batches
+     * @return array<int|string, array|\WP_Error>
+     */
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = ''): array
+    {
+        if (empty($batches)) {
+            return [];
+        }
+
+        $payloads = [];
+
+        foreach ($batches as $key => $batch) {
+            if (!is_array($batch) || empty($batch)) {
+                continue;
+            }
+
+            $payloads[$key] = $this->buildTranslatePayload($batch, $langFrom, $langTo, $requestUrl);
+        }
+
+        if (empty($payloads)) {
+            return [];
+        }
+
+        if (count($payloads) === 1) {
+            $singleKey = array_key_first($payloads);
+            $result = $this->dispatchTranslate($payloads[$singleKey]);
+
+            return [$singleKey => $this->buildTranslateResponse($result)];
+        }
+
+        $parallel = $this->dispatchTranslateParallel($payloads);
+
+        if ($parallel !== null) {
+            return $parallel;
+        }
+
+        // Sequential fallback when the Requests v2 helper is not available.
+        $results = [];
+
+        foreach ($payloads as $key => $payload) {
+            $results[$key] = $this->buildTranslateResponse($this->dispatchTranslate($payload));
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param  string[] $texts
+     * @return array<string, mixed>
+     */
+    private function buildTranslatePayload(array $texts, string $langFrom, string $langTo, string $requestUrl): array
+    {
+        return [
             'l_from'      => $langFrom,
             'l_to'        => $langTo,
-            'words'       => $words,
+            'words'       => array_map(static fn(string $word) => ['w' => $word, 't' => 1], $texts),
             'request_url' => $requestUrl,
             'bot'         => 0,
         ];
+    }
 
-        return $this->request('POST', '/translate?api_key=' . rawurlencode($this->options->getApiKey()), $payload);
+    /**
+     * @param  array<string, mixed> $payload
+     * @return mixed
+     */
+    private function dispatchTranslate(array $payload)
+    {
+        return $this->request(
+            'POST',
+            '/translate?api_key=' . rawurlencode($this->options->getApiKey()),
+            $payload
+        );
+    }
+
+    /**
+     * @param  mixed $result
+     * @return mixed
+     */
+    private function buildTranslateResponse($result)
+    {
+        return $result;
+    }
+
+    /**
+     * Tries to dispatch every payload in parallel through Requests v2.
+     * Returns null when the helper class is unavailable so the caller can
+     * gracefully fall back to sequential calls.
+     *
+     * @param  array<int|string, array<string, mixed>> $payloads
+     * @return array<int|string, array|\WP_Error>|null
+     */
+    private function dispatchTranslateParallel(array $payloads): ?array
+    {
+        $requestsClass = '\\WpOrg\\Requests\\Requests';
+
+        if (!class_exists($requestsClass)) {
+            return null;
+        }
+
+        $baseUrl = untrailingslashit($this->options->getApiBaseUrl());
+        $url = $baseUrl . '/translate?api_key=' . rawurlencode($this->options->getApiKey());
+        $headers = [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
+
+        $requests = [];
+
+        foreach ($payloads as $key => $payload) {
+            $body = wp_json_encode($payload);
+
+            $requests[$key] = [
+                'url' => $url,
+                'type' => 'POST',
+                'headers' => $headers,
+                'data' => is_string($body) ? $body : '',
+                'options' => [
+                    'timeout' => 30,
+                    'connect_timeout' => 10,
+                    'useragent' => 'Deepglot WordPress Plugin/' . (defined('DEEPGLOT_PLUGIN_VERSION') ? DEEPGLOT_PLUGIN_VERSION : 'dev'),
+                ],
+            ];
+        }
+
+        try {
+            $responses = call_user_func([$requestsClass, 'request_multiple'], $requests);
+        } catch (\Throwable $exception) {
+            return null;
+        }
+
+        $results = [];
+
+        foreach ($responses as $key => $response) {
+            if ($response instanceof \Throwable) {
+                $results[$key] = new \WP_Error('deepglot_api_error', $response->getMessage());
+                continue;
+            }
+
+            $statusCode = (int) ($response->status_code ?? 0);
+            $body = (string) ($response->body ?? '');
+            $decoded = json_decode($body, true);
+
+            if ($statusCode >= 400) {
+                $results[$key] = new \WP_Error(
+                    'deepglot_api_error',
+                    is_array($decoded) && !empty($decoded['error'])
+                        ? $decoded['error']
+                        : __('Deepglot API Fehler.', 'deepglot'),
+                    ['status' => $statusCode, 'body' => $decoded]
+                );
+                continue;
+            }
+
+            $results[$key] = is_array($decoded) ? $decoded : [];
+        }
+
+        return $results;
     }
 
     public function syncSettings(?array $settings = null, ?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
