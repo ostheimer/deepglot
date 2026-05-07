@@ -61,12 +61,14 @@ class HtmlTranslator
     private Client $client;
     private Options $options;
     private TranslationCache $cache;
+    private JsonLdTranslator $jsonLd;
 
-    public function __construct(Client $client, Options $options, TranslationCache $cache)
+    public function __construct(Client $client, Options $options, TranslationCache $cache, ?JsonLdTranslator $jsonLd = null)
     {
         $this->client  = $client;
         $this->options = $options;
         $this->cache   = $cache;
+        $this->jsonLd  = $jsonLd ?? new JsonLdTranslator();
     }
 
     /**
@@ -99,18 +101,28 @@ class HtmlTranslator
 
         $doc = $this->loadHtml($html);
 
-        // Collect all translatable DOMText nodes plus head metadata attributes.
+        // Collect all translatable DOMText nodes, head metadata attributes,
+        // and JSON-LD strings (Yoast schema, etc.) into one dedup batch.
         $nodes = $this->collectTextNodes($doc);
         $attrs = $this->collectMetadataAttributes($doc);
+        $jsonLdMutations = $this->jsonLd->collect($doc);
 
-        if (empty($nodes) && empty($attrs)) {
+        if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
             return ['html' => $html, 'segments' => []];
         }
 
         // Deduplicate texts so we don't pay twice for the same string.
+        $jsonLdStrings = [];
+        foreach ($jsonLdMutations as $mutation) {
+            foreach ($mutation['strings'] as $value) {
+                $jsonLdStrings[] = $value;
+            }
+        }
+
         $texts = array_values(array_unique(array_merge(
             array_map(static fn(\DOMText $n) => $n->data, $nodes),
-            array_map(static fn(\DOMAttr $a) => $a->value, $attrs)
+            array_map(static fn(\DOMAttr $a) => $a->value, $attrs),
+            $jsonLdStrings
         )));
 
         // Load from cache.
@@ -142,7 +154,7 @@ class HtmlTranslator
 
         $all = array_merge($cached, $apiResults);
 
-        if (empty($all)) {
+        if (empty($all) && empty($jsonLdMutations)) {
             return ['html' => $html, 'segments' => []];
         }
 
@@ -183,6 +195,13 @@ class HtmlTranslator
             if (isset($all[$original])) {
                 $attr->value = $all[$original];
             }
+        }
+
+        // Apply translations + inLanguage rewrite to every JSON-LD block,
+        // even when no body text matched the available translations — the
+        // language switch alone is worth one pass.
+        if (!empty($jsonLdMutations)) {
+            $this->jsonLd->apply($jsonLdMutations, $all, $targetLanguage);
         }
 
         return [

@@ -109,6 +109,7 @@ require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
 require_once __DIR__ . '/../includes/Support/SiteRouting.php';
+require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
 require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
 require_once __DIR__ . '/../includes/Frontend/LinkRewriter.php';
 require_once __DIR__ . '/../includes/Frontend/HreflangInjector.php';
