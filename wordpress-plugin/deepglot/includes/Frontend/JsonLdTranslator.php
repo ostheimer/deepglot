@@ -15,8 +15,10 @@ class JsonLdTranslator
 {
     /**
      * JSON-LD keys whose string values are user-facing copy and should be
-     * translated. URLs, IDs, controlled vocabulary and timestamps are
-     * intentionally absent from this list.
+     * translated. URLs, IDs, controlled vocabulary, comma-separated tag
+     * lists (`keywords`), enum values (`creativeWorkStatus`), and
+     * controlled genre vocabulary are intentionally excluded so SEO
+     * scoring on the localized page is not distorted.
      */
     private const TRANSLATABLE_KEYS = [
         'name',
@@ -28,9 +30,6 @@ class JsonLdTranslator
         'disambiguatingDescription',
         'about',
         'abstract',
-        'creativeWorkStatus',
-        'genre',
-        'keywords',
     ];
 
     /**
@@ -99,7 +98,15 @@ class JsonLdTranslator
             $data = $mutation['data'];
             $this->applyTranslations($data, $translations, $targetLanguage);
 
-            $encoded = wp_json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // JSON_HEX_TAG escapes "<" and ">" as < / > so a
+            // translated value that happens to contain "</script>" cannot
+            // break out of the surrounding <script> block. Slashes stay
+            // unescaped to keep URL fields readable and identical to the
+            // shape WordPress / Yoast emits originally.
+            $encoded = wp_json_encode(
+                $data,
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG
+            );
 
             if (is_string($encoded)) {
                 $mutation['node']->data = $encoded;

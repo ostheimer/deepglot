@@ -230,4 +230,85 @@ jsonLdAssert(str_contains($translated, 'not-valid-json{{'), 'Malformed JSON-LD c
 // 8. Body H1 still translates the normal way.
 jsonLdAssert(str_contains($translated, '[en] Hallo Welt'), 'Body text must still translate alongside JSON-LD');
 
+// 9. Script-terminator escaping: even if a translation result happens to
+// contain "</script>" (a manual override or upstream injection scenario)
+// the rewritten <script> block must NOT emit a literal closing tag —
+// that would let the browser end the script block early and run anything
+// that follows as HTML.
+class DeepglotJsonLdInjectingClient extends Client
+{
+    public function __construct() {}
+
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    {
+        return [
+            'from_words' => $texts,
+            'to_words' => array_map(
+                static fn(string $text) => 'Read </script><script>alert(1)</script> please',
+                $texts
+            ),
+        ];
+    }
+
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = ''): array
+    {
+        $results = [];
+
+        foreach ($batches as $key => $batch) {
+            $results[$key] = $this->translate($batch, $langFrom, $langTo, $requestUrl);
+        }
+
+        return $results;
+    }
+}
+
+$injectionTranslator = new HtmlTranslator(
+    new DeepglotJsonLdInjectingClient(),
+    $options,
+    new DeepglotJsonLdNullCache()
+);
+$injectionPayload = json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'Article',
+    'headline' => 'Hallo Welt',
+    'inLanguage' => 'de',
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$injectionHtml = '<!DOCTYPE html><html><head><script type="application/ld+json">' . $injectionPayload . '</script></head><body><h1>x</h1></body></html>';
+$injectionOut = $injectionTranslator->translate($injectionHtml, 'en');
+
+// Exactly one </script> closing tag is expected: the JSON-LD block's own
+// closer. If the translated headline leaked through unescaped there would
+// be additional </script> tokens.
+preg_match_all('#</script>#i', $injectionOut, $closes);
+jsonLdAssert(
+    count($closes[0]) === 1,
+    'Translated JSON-LD must escape <, > as \\u003c / \\u003e so it cannot break out of <script>; got ' . count($closes[0]) . ' </script> tags in: ' . substr($injectionOut, 0, 400)
+);
+jsonLdAssert(
+    !str_contains($injectionOut, '<script>alert(1)</script>'),
+    'Injection payload from translation result must not appear unescaped'
+);
+
+// 10. Non-prose JSON-LD keys (keywords, genre, creativeWorkStatus) must NOT
+// be batched for translation — they are typically controlled vocabularies
+// or comma-separated tag lists where free-form translation distorts SEO.
+$nonProseClient = new DeepglotJsonLdFakeClient();
+$nonProseTranslator = new HtmlTranslator($nonProseClient, $options, new DeepglotJsonLdNullCache());
+$nonProsePayload = json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'Article',
+    'name' => 'Kuchen backen',
+    'keywords' => 'Familie, Kinder, Erziehung',
+    'genre' => 'Comedy',
+    'creativeWorkStatus' => 'Published',
+    'inLanguage' => 'de',
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$nonProseHtml = '<!DOCTYPE html><html><head><script type="application/ld+json">' . $nonProsePayload . '</script></head><body><h1>x</h1></body></html>';
+$nonProseTranslator->translate($nonProseHtml, 'en');
+
+jsonLdAssert(in_array('Kuchen backen', $nonProseClient->sentTexts, true), 'Prose name must still be translated');
+foreach (['Familie, Kinder, Erziehung', 'Comedy', 'Published'] as $controlled) {
+    jsonLdAssert(!in_array($controlled, $nonProseClient->sentTexts, true), 'Controlled-vocabulary value "' . $controlled . '" must NOT be translated');
+}
+
 fwrite(STDOUT, "JsonLdTranslationTest: OK\n");
