@@ -87,11 +87,10 @@ describe("billing-plans", () => {
     assert.equal(getStripePriceIdFromEnv("ENTERPRISE", "monthly", env), null);
   });
 
-  it("marks only Free, Starter, Pro and Enterprise as visibleInMarketing", () => {
-    const visible = BILLING_PLAN_KEYS.filter((key) => BILLING_PLANS[key].visibleInMarketing);
-    assert.deepEqual(visible, ["FREE", "STARTER", "PRO", "ENTERPRISE"]);
-    const hidden = BILLING_PLAN_KEYS.filter((key) => !BILLING_PLANS[key].visibleInMarketing);
-    assert.deepEqual(hidden, ["BUSINESS", "ADVANCED", "EXTENDED"]);
+  it("exposes the seven tiers in ascending word-volume order so the marketing slider can step through them", () => {
+    const wordsLimits = BILLING_PLAN_KEYS.map((key) => BILLING_PLANS[key].wordsLimit);
+    const sorted = [...wordsLimits].sort((a, b) => a - b);
+    assert.deepEqual(wordsLimits, sorted);
   });
 
   it("never advertises any limit as 'unlimited' or 'unbegrenzt'", () => {

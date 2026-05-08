@@ -13,102 +13,161 @@ import {
   type BillingPlanKey,
 } from "@/lib/billing-plans";
 
-type PaidPlanKey = Exclude<BillingPlanKey, "ENTERPRISE">;
-
 /**
- * Plans the marketing pricing grid advertises. Only `visibleInMarketing`
- * paid tiers are listed; Enterprise is rendered separately as the dark
- * sidebar card. Hidden tiers (Business / Advanced / Extended) stay in the
- * billing-plans catalogue so existing subscriptions keep their tier metadata
- * but the public grid stays focused on four columns.
+ * Marketing-friendly capabilities advertised per tier. Each cell mirrors the
+ * same feature gating the comparison table previously used so customers see
+ * exactly what they get when the slider lands on a tier — and nothing more.
  */
-const PAID_PLAN_KEYS = BILLING_PLAN_KEYS.filter(
-  (key): key is PaidPlanKey =>
-    key !== "ENTERPRISE" && BILLING_PLANS[key].visibleInMarketing
-);
-
-type FeatureRow = {
-  label: string;
-  /** Indexed by PAID_PLAN_KEYS order: FREE, STARTER, BUSINESS, PRO, ADVANCED, EXTENDED. */
-  values: (boolean | string)[];
-  /** Concrete value for Enterprise — never the string "unlimited". */
-  enterprise: boolean | string;
+const PLAN_FEATURES: Record<
+  BillingPlanKey,
+  Record<SiteLocale, string[]>
+> = {
+  FREE: {
+    en: ["AI translation", "Glossary", "1 project · 1 language", "Community support"],
+    de: ["KI-Übersetzung", "Glossar", "1 Projekt · 1 Sprache", "Community-Support"],
+  },
+  STARTER: {
+    en: [
+      "Everything in Free",
+      "Media translation",
+      "Auto-redirect for visitors",
+      "Email support",
+    ],
+    de: [
+      "Alles aus Free",
+      "Medien-Übersetzung",
+      "Auto-Weiterleitung für Besucher",
+      "E-Mail-Support",
+    ],
+  },
+  BUSINESS: {
+    en: [
+      "Everything in Starter",
+      "Translation analytics",
+      "3 projects · 3 languages",
+      "Priority email support",
+    ],
+    de: [
+      "Alles aus Starter",
+      "Übersetzungs-Statistiken",
+      "3 Projekte · 3 Sprachen",
+      "Bevorzugter E-Mail-Support",
+    ],
+  },
+  PRO: {
+    en: [
+      "Everything in Business",
+      "Translated URL slugs",
+      "Visual editor",
+      "5 projects · 5 languages",
+    ],
+    de: [
+      "Alles aus Business",
+      "Übersetzte URL-Slugs",
+      "Visueller Editor",
+      "5 Projekte · 5 Sprachen",
+    ],
+  },
+  ADVANCED: {
+    en: [
+      "Everything in Pro",
+      "Import & export (CSV / PO)",
+      "Custom AI provider",
+      "10 projects · 10 languages",
+    ],
+    de: [
+      "Alles aus Pro",
+      "Import & Export (CSV / PO)",
+      "Eigener KI-Provider",
+      "10 Projekte · 10 Sprachen",
+    ],
+  },
+  EXTENDED: {
+    en: [
+      "Everything in Advanced",
+      "Top-level domain routing",
+      "25 projects · 20 languages",
+      "Premium support (SLA)",
+    ],
+    de: [
+      "Alles aus Advanced",
+      "Top-Level-Domain Routing",
+      "25 Projekte · 20 Sprachen",
+      "Premium-Support (SLA)",
+    ],
+  },
+  ENTERPRISE: {
+    en: [
+      "Everything in Extended",
+      "SAML SSO",
+      "Dedicated contract (DPA)",
+      "Custom integrations & SLA",
+    ],
+    de: [
+      "Alles aus Extended",
+      "SAML SSO",
+      "Dedizierter Vertrag (DPA)",
+      "Custom Integrationen & SLA",
+    ],
+  },
 };
 
-type PlanCopy = {
-  cta: string;
-  badge: string | null;
-  featureSummary: string;
-};
-
-const PLAN_COPY: Record<SiteLocale, Record<PaidPlanKey, PlanCopy>> = {
+const PRICING_COPY = {
   en: {
-    FREE: {
-      cta: "Start free",
-      badge: null,
-      featureSummary: "AI translation, glossary, and more",
-    },
-    STARTER: {
-      cta: "Try for free",
-      badge: null,
-      featureSummary: "Media translation, auto-redirect, and more",
-    },
-    BUSINESS: {
-      cta: "Try for free",
-      badge: null,
-      featureSummary: "Access to pro translators, and more",
-    },
-    PRO: {
-      cta: "Try for free",
-      badge: "Recommended",
-      featureSummary: "Analytics, URL tracking, and more",
-    },
-    ADVANCED: {
-      cta: "Try for free",
-      badge: null,
-      featureSummary: "Import & export, custom languages, and more",
-    },
-    EXTENDED: {
-      cta: "Try for free",
-      badge: null,
-      featureSummary: "Top-level domain support, premium support, and more",
-    },
+    monthly: "Monthly",
+    yearly: "Yearly",
+    yearlySavings: "2 months free",
+    priceSuffix: "/mo.",
+    yearlyPriceSuffix: "/mo. billed yearly",
+    yearlyTotalSuffix: "/year",
+    enterprisePrice: "Custom pricing",
+    primaryCta: "Start free",
+    paidCta: "Try for free",
+    enterpriseCta: "Contact sales",
+    sliderLabel: "Translated words per month",
+    languagesLabel: "Translation languages",
+    projectsLabel: "Projects",
+    wordsLabel: "words / month",
+    yearlySavingsHint: "− 2 months free",
+    billingToggleLabel: "Toggle yearly billing",
+    sliderHint: "Drag the slider to find the plan that fits your monthly volume.",
+    selectedTierBadge: "Selected plan",
+    recommendedBadge: "Recommended",
+    contactPrompt: "Need more? We design custom enterprise contracts.",
+    faq: "Questions about the plans?",
+    faqCta: "Talk to us",
+    faqSuffix: "and we will help you choose the right setup.",
   },
   de: {
-    FREE: {
-      cta: "Kostenlos starten",
-      badge: null,
-      featureSummary: "KI-Übersetzung, Glossar, und mehr",
-    },
-    STARTER: {
-      cta: "Kostenlos testen",
-      badge: null,
-      featureSummary: "Medien-Übersetzung, Auto-Weiterleitung, und mehr",
-    },
-    BUSINESS: {
-      cta: "Kostenlos testen",
-      badge: null,
-      featureSummary: "Zugang zu Pro-Übersetzern, und mehr",
-    },
-    PRO: {
-      cta: "Kostenlos testen",
-      badge: "Empfohlen",
-      featureSummary: "Statistiken, URL-Tracking, und mehr",
-    },
-    ADVANCED: {
-      cta: "Kostenlos testen",
-      badge: null,
-      featureSummary: "Export & Import, Custom Sprachen, und mehr",
-    },
-    EXTENDED: {
-      cta: "Kostenlos testen",
-      badge: null,
-      featureSummary: "Top-Level-Domain, Premium Support, und mehr",
-    },
+    monthly: "Monatlich",
+    yearly: "Jährlich",
+    yearlySavings: "2 Monate gratis",
+    priceSuffix: "/Mo.",
+    yearlyPriceSuffix: "/Mo., jährlich abgerechnet",
+    yearlyTotalSuffix: "/Jahr",
+    enterprisePrice: "Preis auf Anfrage",
+    primaryCta: "Kostenlos starten",
+    paidCta: "Kostenlos testen",
+    enterpriseCta: "Kontakt aufnehmen",
+    sliderLabel: "Übersetzte Wörter pro Monat",
+    languagesLabel: "Übersetzungssprachen",
+    projectsLabel: "Projekte",
+    wordsLabel: "Wörter / Monat",
+    yearlySavingsHint: "− 2 Monate gratis",
+    billingToggleLabel: "Jährliche Abrechnung umschalten",
+    sliderHint:
+      "Schiebe den Regler bis zur Wortmenge die du brauchst — Preis und Features passen sich automatisch an.",
+    selectedTierBadge: "Ausgewählter Plan",
+    recommendedBadge: "Empfohlen",
+    contactPrompt:
+      "Brauchst du mehr? Wir bauen individuelle Enterprise-Verträge.",
+    faq: "Fragen zu den Plänen?",
+    faqCta: "Schreib uns",
+    faqSuffix: "wir helfen gerne.",
   },
-};
+} as const;
 
-function formatNumber(value: number, locale: SiteLocale): string {
+function formatWordCount(value: number, locale: SiteLocale): string {
   if (value >= 1_000_000) {
     const millions = value / 1_000_000;
     if (locale === "de") {
@@ -119,183 +178,44 @@ function formatNumber(value: number, locale: SiteLocale): string {
   return value.toLocaleString(locale === "de" ? "de-AT" : "en-US");
 }
 
-const FEATURE_LABELS: Record<SiteLocale, Record<string, string>> = {
-  en: {
-    words: "Words / month",
-    languages: "Translation languages",
-    projects: "Projects",
-    providerFlex: "Provider-flexible AI translation",
-    glossary: "Glossary",
-    media: "Media translation",
-    autoRedirect: "Auto-redirect",
-    analytics: "Analytics",
-    urlSlugs: "Translated URL slugs",
-    visualEditor: "Visual editor",
-    importExport: "Import & export (CSV/PO)",
-    customProvider: "Custom AI provider",
-    tldSupport: "Top-level domain support",
-    premiumSupport: "Premium support (SLA)",
-    saml: "SAML SSO",
-    contract: "Dedicated contract (DPA)",
-  },
-  de: {
-    words: "Wörter / Monat",
-    languages: "Übersetzungssprachen",
-    projects: "Projekte",
-    providerFlex: "Provider-flexible KI-Übersetzung",
-    glossary: "Glossar",
-    media: "Medien-Übersetzung",
-    autoRedirect: "Auto-Weiterleitung",
-    analytics: "Statistiken",
-    urlSlugs: "URL-Slugs übersetzen",
-    visualEditor: "Visueller Editor",
-    importExport: "Export & Import (CSV/PO)",
-    customProvider: "Eigener KI-Provider",
-    tldSupport: "Top-Level-Domain Support",
-    premiumSupport: "Premium Support (SLA)",
-    saml: "SAML SSO",
-    contract: "Dedizierter Vertrag (DPA)",
-  },
-};
-
-function buildFeatureRows(locale: SiteLocale): FeatureRow[] {
-  const labels = FEATURE_LABELS[locale];
-  const enterprisePlan = BILLING_PLANS.ENTERPRISE;
-  const paidLimits = PAID_PLAN_KEYS.map((key) => BILLING_PLANS[key]);
-
-  return [
-    {
-      label: labels.words,
-      values: paidLimits.map((plan) => formatNumber(plan.wordsLimit, locale)),
-      enterprise: formatNumber(enterprisePlan.wordsLimit, locale),
-    },
-    {
-      label: labels.languages,
-      values: paidLimits.map((plan) => String(plan.languagesLimit)),
-      enterprise: String(enterprisePlan.languagesLimit),
-    },
-    {
-      label: labels.projects,
-      values: paidLimits.map((plan) => String(plan.projectsLimit)),
-      enterprise: String(enterprisePlan.projectsLimit),
-    },
-    // Feature columns map to PAID_PLAN_KEYS in order: [FREE, STARTER, PRO].
-    // Enterprise has its own column to the right. The values must mirror the
-    // capability tiers we previously advertised when the hidden Business /
-    // Advanced / Extended columns were on screen — capabilities that used to
-    // start at Business or higher do not silently shift down to Starter, and
-    // capabilities that used to start at Advanced or higher are not silently
-    // promised to Pro.
-    { label: labels.providerFlex, values: [true, true, true], enterprise: true },
-    { label: labels.glossary, values: [true, true, true], enterprise: true },
-    { label: labels.media, values: [false, true, true], enterprise: true },
-    { label: labels.autoRedirect, values: [false, true, true], enterprise: true },
-    // Analytics started at Business in the six-tier table, so Starter stays
-    // off and Pro keeps it on.
-    { label: labels.analytics, values: [false, false, true], enterprise: true },
-    { label: labels.urlSlugs, values: [false, false, true], enterprise: true },
-    { label: labels.visualEditor, values: [false, false, true], enterprise: true },
-    // Import/export and the custom AI provider previously started at
-    // Advanced; with the four-tier marketing layout they remain Enterprise-
-    // only so we never over-promise on Pro.
-    { label: labels.importExport, values: [false, false, false], enterprise: true },
-    { label: labels.customProvider, values: [false, false, false], enterprise: true },
-    { label: labels.tldSupport, values: [false, false, false], enterprise: true },
-    // Premium SLA support previously started at Extended; keep it Enterprise
-    // only.
-    { label: labels.premiumSupport, values: [false, false, false], enterprise: true },
-    { label: labels.saml, values: [false, false, false], enterprise: true },
-    { label: labels.contract, values: [false, false, false], enterprise: true },
-  ];
+function centsToWholeEuros(cents: number | null | undefined): number | null {
+  if (typeof cents !== "number") return null;
+  return Math.round(cents / 100);
 }
-
-const PRICING_COPY = {
-  en: {
-    monthly: "Monthly",
-    yearly: "Yearly",
-    yearlySavings: "2 months free",
-    priceSuffix: "/mo.",
-    yearlySuffix: "/year",
-    yearlyBilled: "billed yearly",
-    wordsLabel: "words",
-    languageSingular: "translation language",
-    languagePlural: "translation languages",
-    enterprisePrice: "Custom pricing",
-    enterpriseContact: "Contact sales",
-    enterpriseHeading: "Enterprise-grade security & compliance",
-    enterpriseDescription: "Security review and SAML-based SSO",
-    enterpriseContract: "Dedicated contract",
-    enterpriseContractDetail: "with a custom DPA and SLA",
-    enterpriseTransfer: "Bank transfer available",
-    featureTableTitle: "What is included in every plan?",
-    faq: "Questions about the plans?",
-    faqCta: "Talk to us",
-    faqSuffix: "and we will help you choose the right setup.",
-    billingToggleLabel: "Toggle yearly billing",
-  },
-  de: {
-    monthly: "Monatlich",
-    yearly: "Jährlich",
-    yearlySavings: "2 Monate gratis",
-    priceSuffix: "/Mo.",
-    yearlySuffix: "/Jahr",
-    yearlyBilled: "jährlich abgerechnet",
-    wordsLabel: "Wörter",
-    languageSingular: "Übersetzungssprache",
-    languagePlural: "Übersetzungssprachen",
-    enterprisePrice: "Preis auf Anfrage",
-    enterpriseContact: "Kontakt",
-    enterpriseHeading: "Enterprise-Grade Sicherheit & Compliance",
-    enterpriseDescription: "Sicherheitsprüfung und SAML-basiertes SSO",
-    enterpriseContract: "Dedizierter Vertrag",
-    enterpriseContractDetail: "mit individuellem DPA und SLA",
-    enterpriseTransfer: "Überweisung möglich",
-    featureTableTitle: "Was ist in jedem Plan enthalten?",
-    faq: "Fragen zu den Plänen?",
-    faqCta: "Schreib uns",
-    faqSuffix: "wir helfen gerne.",
-    billingToggleLabel: "Jährliche Abrechnung umschalten",
-  },
-} as const;
 
 type PricingGridProps = {
   locale: SiteLocale;
 };
 
-function centsToWholeEuros(cents: number | null | undefined): number {
-  if (typeof cents !== "number") return 0;
-  return Math.round(cents / 100);
-}
-
 export function PricingGrid({ locale }: PricingGridProps) {
+  // The slider lets visitors land on a tier interactively. The default index
+  // points at PRO so the marketing-recommended plan is what greets every
+  // visitor before they touch the slider.
+  const defaultIndex = Math.max(BILLING_PLAN_KEYS.indexOf("PRO"), 0);
+  const [tierIndex, setTierIndex] = useState(defaultIndex);
   const [yearly, setYearly] = useState(false);
+
   const copy = PRICING_COPY[locale];
-  const planCopy = PLAN_COPY[locale];
-  const rows = buildFeatureRows(locale);
   const signupHref = getMarketingPath(locale, "signup");
+  const enterpriseMailto = "mailto:office@ostheimer.at?subject=Deepglot%20Enterprise";
 
-  const paidPlans = PAID_PLAN_KEYS.map((key) => {
-    const plan = BILLING_PLANS[key];
-    const monthlyEuros = centsToWholeEuros(plan.monthlyPriceCents);
-    const yearlyMonthlyEquivalentEuros = centsToWholeEuros(
-      formatYearlyMonthlyEquivalentCents(key)
-    );
-    const yearlyTotalEuros = centsToWholeEuros(computeYearlyTotalCents(key));
+  const tierKey = BILLING_PLAN_KEYS[tierIndex];
+  const tier = BILLING_PLANS[tierKey];
+  const features = PLAN_FEATURES[tierKey][locale];
+  const isFree = tierKey === "FREE";
+  const isEnterprise = tierKey === "ENTERPRISE";
 
-    return {
-      key,
-      plan,
-      copy: planCopy[key],
-      monthlyEuros,
-      yearlyMonthlyEquivalentEuros,
-      yearlyTotalEuros,
-    };
-  });
+  const monthlyEuros = centsToWholeEuros(tier.monthlyPriceCents);
+  const yearlyMonthlyEuros = centsToWholeEuros(
+    formatYearlyMonthlyEquivalentCents(tierKey)
+  );
+  const yearlyTotalEuros = centsToWholeEuros(computeYearlyTotalCents(tierKey));
 
-  const enterprisePlan = BILLING_PLANS.ENTERPRISE;
+  const displayedEuros = yearly ? yearlyMonthlyEuros : monthlyEuros;
 
   return (
-    <div className="max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+    <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pb-20">
+      {/* Monthly / Yearly toggle ------------------------------------------ */}
       <div className="mb-10 flex flex-col items-center gap-2">
         <div className="inline-flex items-center gap-4">
           <span
@@ -335,196 +255,150 @@ export function PricingGrid({ locale }: PricingGridProps) {
         </span>
       </div>
 
-      <div className="flex flex-col gap-4 sm:gap-3 lg:flex-row lg:items-stretch">
-        <div className={`grid gap-4 sm:gap-3 grid-cols-1 sm:grid-cols-2 ${paidPlans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"} flex-1`}>
-          {paidPlans.map(({ key, plan, copy: planRowCopy, monthlyEuros, yearlyMonthlyEquivalentEuros, yearlyTotalEuros }) => {
-            const displayedEuros = yearly ? yearlyMonthlyEquivalentEuros : monthlyEuros;
-            const isHighlighted = plan.highlight;
-
-            return (
-              <div
-                key={key}
-                className={`relative flex flex-col rounded-2xl border-2 overflow-hidden transition-shadow ${
-                  isHighlighted
-                    ? "border-indigo-600 shadow-xl shadow-indigo-100"
-                    : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-                }`}
-              >
-                {planRowCopy.badge && (
-                  <div className="absolute top-0 inset-x-0 h-1 bg-indigo-600" />
-                )}
-
-                <div className="flex h-full flex-col bg-white p-4">
-                  <p className="text-sm font-bold text-gray-900 mb-2">{plan.name}</p>
-
-                  <div className="mb-3">
-                    {displayedEuros === 0 ? (
-                      <p className="text-2xl font-extrabold text-gray-900">€0</p>
-                    ) : (
-                      <p className="text-2xl font-extrabold text-gray-900">
-                        €{displayedEuros}
-                        <span className="text-sm font-normal text-gray-500">{copy.priceSuffix}</span>
-                      </p>
-                    )}
-                    {yearly && yearlyTotalEuros > 0 && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        €{yearlyTotalEuros} {copy.yearlySuffix} · {copy.yearlyBilled}
-                      </p>
-                    )}
-                  </div>
-
-                  <Link
-                    href={signupHref}
-                    className={`mb-4 flex w-full justify-center rounded-lg py-2 text-sm font-semibold text-white transition-colors ${
-                      isHighlighted
-                        ? "bg-gray-900 hover:bg-black"
-                        : "bg-indigo-600 hover:bg-indigo-700"
-                    }`}
-                  >
-                    {planRowCopy.cta}
-                  </Link>
-
-                  <div className="border-t border-gray-100 mb-3" />
-
-                  <div className="mb-1">
-                    <p className="text-lg font-bold text-gray-900">{formatNumber(plan.wordsLimit, locale)}</p>
-                    <p className="text-xs text-gray-500">{copy.wordsLabel}</p>
-                  </div>
-
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-gray-700">
-                      {plan.languagesLimit}{" "}
-                      {plan.languagesLimit === 1 ? copy.languageSingular : copy.languagePlural}
-                    </p>
-                  </div>
-
-                  <p className="text-xs text-gray-500 leading-relaxed mt-auto">
-                    {planRowCopy.featureSummary}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+      {/* Usage slider ----------------------------------------------------- */}
+      <div className="mb-8">
+        <div className="mb-3 flex items-baseline justify-between">
+          <label
+            htmlFor="deepglot-words-slider"
+            className="text-xs font-medium uppercase tracking-wide text-gray-500"
+          >
+            {copy.sliderLabel}
+          </label>
+          <span className="text-2xl font-extrabold text-indigo-600 tabular-nums">
+            {formatWordCount(tier.wordsLimit, locale)}
+          </span>
         </div>
-
-        <div className="lg:w-56 lg:flex-shrink-0">
-          <div className="h-full rounded-2xl bg-[#1a1a2e] text-white p-5 flex flex-col">
-            <p className="text-sm font-bold mb-3">{enterprisePlan.name}</p>
-
-            <p className="text-xs text-gray-300 mb-3">{copy.enterprisePrice}</p>
-
-            <a
-              href="mailto:office@ostheimer.at?subject=Deepglot%20Enterprise"
-              className="mb-4 flex w-full justify-center rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
-            >
-              {copy.enterpriseContact}
-            </a>
-
-            <div className="border-t border-white/10 mb-4" />
-
-            <div className="space-y-3 flex-1">
-              <div>
-                <p className="text-xs font-semibold text-white leading-tight">
-                  {copy.enterpriseHeading}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5 leading-snug">
-                  {copy.enterpriseDescription}
-                </p>
-              </div>
-
-              <div className="border-t border-white/10" />
-
-              <p className="text-xs text-white font-medium leading-snug">
-                {copy.enterpriseContract}{" "}
-                <span className="text-gray-400 font-normal">
-                  {copy.enterpriseContractDetail}
-                </span>
-              </p>
-
-              <div className="border-t border-white/10" />
-
-              <p className="text-xs text-white">Custom Reverse Proxy</p>
-
-              <div className="border-t border-white/10" />
-
-              <p className="text-xs text-white">
-                {copy.enterpriseTransfer}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-16">
-        <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">
-          {copy.featureTableTitle}
-        </h2>
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-[220px_repeat(3,1fr)_120px] bg-gray-50 border-b border-gray-200">
-            <div className="p-4" />
-            {paidPlans.map(({ key, plan, monthlyEuros, yearlyMonthlyEquivalentEuros }) => (
-              <div
-                key={key}
-                className={`p-4 text-center border-l border-gray-200 ${
-                  plan.highlight ? "bg-indigo-50" : ""
-                }`}
-              >
-                <p className="text-xs font-bold text-gray-900">{plan.name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  €{yearly ? yearlyMonthlyEquivalentEuros : monthlyEuros}{copy.priceSuffix}
-                </p>
-              </div>
-            ))}
-            <div className="p-4 text-center border-l border-gray-200 bg-[#1a1a2e]">
-              <p className="text-xs font-bold text-white">{enterprisePlan.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{copy.enterprisePrice}</p>
-            </div>
-          </div>
-
-          {rows.map((row, i) => (
-            <div
-              key={row.label}
-              className={`grid grid-cols-[220px_repeat(3,1fr)_120px] border-b border-gray-100 last:border-0 ${
-                i % 2 === 1 ? "bg-gray-50/50" : ""
+        <input
+          id="deepglot-words-slider"
+          type="range"
+          min={0}
+          max={BILLING_PLAN_KEYS.length - 1}
+          step={1}
+          value={tierIndex}
+          onChange={(event) => setTierIndex(Number(event.target.value))}
+          aria-valuetext={`${tier.name}: ${formatWordCount(tier.wordsLimit, locale)} ${copy.wordsLabel}`}
+          className="w-full cursor-pointer appearance-none bg-transparent focus:outline-none [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gradient-to-r [&::-webkit-slider-runnable-track]:from-indigo-100 [&::-webkit-slider-runnable-track]:via-indigo-300 [&::-webkit-slider-runnable-track]:to-indigo-600 [&::-webkit-slider-thumb]:mt-[-8px] [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-indigo-600 [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-indigo-200 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-indigo-600"
+        />
+        <div className="mt-2 flex justify-between text-[10px] font-medium uppercase tracking-wide text-gray-400">
+          {BILLING_PLAN_KEYS.map((key, idx) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTierIndex(idx)}
+              className={`flex flex-col items-center gap-0.5 transition-colors hover:text-indigo-600 ${
+                idx === tierIndex ? "text-indigo-600" : ""
               }`}
+              aria-label={`${BILLING_PLANS[key].name}: ${formatWordCount(BILLING_PLANS[key].wordsLimit, locale)}`}
             >
-              <div className="p-3.5 flex items-center">
-                <p className="text-xs font-medium text-gray-700">{row.label}</p>
-              </div>
-              {row.values.map((val, j) => (
-                <div
-                  key={j}
-                  className={`p-3.5 flex items-center justify-center border-l border-gray-100 ${
-                    // Highlight the column for the recommended plan (PRO sits
-                    // at index 2 in the paid grid: FREE / STARTER / PRO).
-                    j === 2 ? "bg-indigo-50/30" : ""
-                  }`}
-                >
-                  {val === true ? (
-                    <Check className="h-4 w-4 text-indigo-600" />
-                  ) : val === false ? (
-                    <span className="text-gray-300 text-lg leading-none">–</span>
-                  ) : (
-                    <span className="text-xs font-medium text-gray-700">{val}</span>
-                  )}
-                </div>
-              ))}
-              <div className="p-3.5 flex items-center justify-center border-l border-gray-100 bg-[#1a1a2e]/5">
-                {row.enterprise === true ? (
-                  <Check className="h-4 w-4 text-indigo-600" />
-                ) : (
-                  <span className="text-xs font-medium text-gray-700">{row.enterprise}</span>
-                )}
-              </div>
-            </div>
+              <span className="text-[10px]">
+                {formatWordCount(BILLING_PLANS[key].wordsLimit, locale)}
+              </span>
+            </button>
           ))}
         </div>
+        <p className="mt-3 text-center text-xs text-gray-500">{copy.sliderHint}</p>
       </div>
 
-      <div className="mt-16 text-center">
-        <p className="text-gray-500 text-sm">
+      {/* Selected plan card ---------------------------------------------- */}
+      <div
+        className={`rounded-3xl border-2 p-6 sm:p-8 transition-colors ${
+          tier.highlight
+            ? "border-indigo-600 bg-gradient-to-b from-white to-indigo-50/30"
+            : "border-gray-200 bg-white"
+        }`}
+      >
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-2xl font-bold text-gray-900">{tier.name}</p>
+              {tier.highlight && (
+                <span className="inline-flex items-center rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  {copy.recommendedBadge}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-gray-600">
+              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {copy.languagesLabel.toLowerCase()} · {tier.projectsLimit} {copy.projectsLabel.toLowerCase()}
+            </p>
+          </div>
+
+          <div className="text-left sm:text-right">
+            {isEnterprise ? (
+              <p className="text-3xl font-extrabold text-gray-900">
+                {copy.enterprisePrice}
+              </p>
+            ) : displayedEuros === 0 ? (
+              <p className="text-4xl font-extrabold text-gray-900">€0</p>
+            ) : (
+              <>
+                <p className="text-4xl font-extrabold text-gray-900">
+                  €{displayedEuros}
+                  <span className="text-sm font-normal text-gray-500">
+                    {yearly ? copy.yearlyPriceSuffix : copy.priceSuffix}
+                  </span>
+                </p>
+                {yearly && yearlyTotalEuros !== null && yearlyTotalEuros > 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    €{yearlyTotalEuros}
+                    {copy.yearlyTotalSuffix} · {copy.yearlySavingsHint}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+          {features.map((feature) => (
+            <li key={feature} className="flex items-start gap-2 text-sm text-gray-700">
+              <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600" />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-8">
+          {isEnterprise ? (
+            <a
+              href={enterpriseMailto}
+              className="block w-full rounded-xl bg-gray-900 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-black"
+            >
+              {copy.enterpriseCta}
+            </a>
+          ) : (
+            <Link
+              href={signupHref}
+              className={`block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
+                tier.highlight
+                  ? "bg-indigo-600 hover:bg-indigo-700"
+                  : "bg-gray-900 hover:bg-black"
+              }`}
+            >
+              {isFree ? copy.primaryCta : copy.paidCta}
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Enterprise hint -------------------------------------------------- */}
+      {!isEnterprise && (
+        <p className="mt-6 text-center text-xs text-gray-500">
+          {copy.contactPrompt}{" "}
+          <a className="text-indigo-600 hover:underline" href={enterpriseMailto}>
+            {copy.enterpriseCta}
+          </a>
+          .
+        </p>
+      )}
+
+      {/* FAQ footer ------------------------------------------------------- */}
+      <div className="mt-12 text-center">
+        <p className="text-sm text-gray-500">
           {copy.faq}{" "}
-          <a href="mailto:office@ostheimer.at?subject=Deepglot%20Plans" className="text-indigo-600 hover:underline">
+          <a
+            href="mailto:office@ostheimer.at?subject=Deepglot%20Plans"
+            className="text-indigo-600 hover:underline"
+          >
             {copy.faqCta}
           </a>{" "}
           - {copy.faqSuffix}
