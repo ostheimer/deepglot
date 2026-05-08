@@ -1,20 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { BILLING_PLANS, BILLING_PLAN_KEYS } from "@/lib/billing-plans";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
 
-const STRIPE_PLAN_MAP: Record<string, Plan> = {
-  [process.env.STRIPE_PRICE_STARTER_MONTHLY ?? ""]: "STARTER",
-  [process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY ?? ""]: "PROFESSIONAL",
-  [process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY ?? ""]: "ENTERPRISE",
-};
+/**
+ * Stripe-priceId → Plan map. Kept for callers that prefer a direct lookup;
+ * `findPlanKeyByStripePriceId` is the canonical resolver because it iterates
+ * both monthly and yearly env keys.
+ */
+const STRIPE_PLAN_MAP: Record<string, Plan> = BILLING_PLAN_KEYS.reduce(
+  (accumulator, key) => {
+    const plan = BILLING_PLANS[key];
+    for (const interval of ["monthly", "yearly"] as const) {
+      const envKey = plan.stripePriceIdEnvKeys[interval];
+      if (!envKey) continue;
+      const value = process.env[envKey];
+      if (value && value.trim() !== "") {
+        accumulator[value] = key;
+      }
+    }
+    return accumulator;
+  },
+  {} as Record<string, Plan>
+);
 
 const WORDS_LIMIT_MAP: Record<Plan, number> = {
-  FREE: 10_000,
-  STARTER: 200_000,
-  PROFESSIONAL: 1_000_000,
-  ENTERPRISE: 10_000_000,
+  ...(BILLING_PLAN_KEYS.reduce(
+    (accumulator, key) => {
+      accumulator[key] = BILLING_PLANS[key].wordsLimit;
+      return accumulator;
+    },
+    {} as Record<Plan, number>
+  )),
+  // Legacy enum value retained for historical rows; treat it as the new PRO
+  // tier so older subscriptions keep their accustomed quota.
+  PROFESSIONAL: BILLING_PLANS.PRO.wordsLimit,
 };
 
 export async function POST(req: NextRequest) {

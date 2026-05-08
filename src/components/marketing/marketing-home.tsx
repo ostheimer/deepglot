@@ -5,12 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
-import { PLANS, type PlanKey } from "@/lib/stripe";
+import { PLANS } from "@/lib/stripe";
 import {
   getMarketingPath,
   withLocalePrefix,
   type SiteLocale,
 } from "@/lib/site-locale";
+
+/**
+ * The marketing home page only teases four plans (Free, Starter, Pro,
+ * Enterprise) so the pricing grid does not blow out the four-column layout.
+ * The full six-tier comparison lives on /pricing.
+ */
+const HOME_TEASER_PLAN_KEYS = ["FREE", "STARTER", "PRO", "ENTERPRISE"] as const;
+type HomeTeaserPlanKey = (typeof HOME_TEASER_PLAN_KEYS)[number];
 
 const FEATURE_ICONS = {
   fast: Zap,
@@ -99,24 +107,24 @@ const MARKETING_COPY = {
       github: "GitHub",
     },
     planFeatures: {
-      FREE: ["10,000 words/month", "1 project", "2 languages", "Community support"],
-      STARTER: ["200,000 words/month", "5 projects", "10 languages", "Email support", "Modern AI translation"],
-      PROFESSIONAL: [
-        "1,000,000 words/month",
-        "Unlimited projects",
-        "All languages",
+      FREE: ["2,000 words/month", "1 project", "1 language", "Community support"],
+      STARTER: ["10,000 words/month", "2 projects", "1 language", "Email support", "Modern AI translation"],
+      PRO: [
+        "200,000 words/month",
+        "5 projects",
+        "5 languages",
         "Priority support",
         "Provider selection",
         "Visual editor",
       ],
       ENTERPRISE: [
-        "10,000,000 words/month",
-        "Everything in Professional",
+        "20,000,000 words/month",
+        "Everything in Pro",
         "Dedicated support",
         "SLA",
         "Custom integrations",
       ],
-    } satisfies Record<PlanKey, string[]>,
+    } satisfies Record<HomeTeaserPlanKey, string[]>,
   },
   de: {
     nav: {
@@ -195,24 +203,24 @@ const MARKETING_COPY = {
       github: "GitHub",
     },
     planFeatures: {
-      FREE: ["10.000 Wörter/Monat", "1 Projekt", "2 Sprachen", "Community Support"],
-      STARTER: ["200.000 Wörter/Monat", "5 Projekte", "10 Sprachen", "E-Mail Support", "Moderne KI-Übersetzung"],
-      PROFESSIONAL: [
-        "1.000.000 Wörter/Monat",
-        "Unbegrenzte Projekte",
-        "Alle Sprachen",
+      FREE: ["2.000 Wörter/Monat", "1 Projekt", "1 Sprache", "Community Support"],
+      STARTER: ["10.000 Wörter/Monat", "2 Projekte", "1 Sprache", "E-Mail Support", "Moderne KI-Übersetzung"],
+      PRO: [
+        "200.000 Wörter/Monat",
+        "5 Projekte",
+        "5 Sprachen",
         "Prioritäts-Support",
         "Provider-Auswahl",
         "Visueller Editor",
       ],
       ENTERPRISE: [
-        "10.000.000 Wörter/Monat",
-        "Alles aus Professional",
+        "20.000.000 Wörter/Monat",
+        "Alles aus Pro",
         "Dedicated Support",
         "SLA",
         "Custom Integrationen",
       ],
-    } satisfies Record<PlanKey, string[]>,
+    } satisfies Record<HomeTeaserPlanKey, string[]>,
   },
 } as const;
 
@@ -333,19 +341,21 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
             <h2 className="text-3xl font-bold text-gray-900">{copy.pricingHeading}</h2>
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {Object.entries(PLANS).map(([key, plan]) => {
-              const localizedFeatures = copy.planFeatures[key as PlanKey];
+            {HOME_TEASER_PLAN_KEYS.map((key) => {
+              const plan = PLANS[key];
+              const localizedFeatures = copy.planFeatures[key];
+              const isFeatured = key === "PRO";
 
               return (
                 <Card
                   key={key}
                   className={`relative ${
-                    key === "PROFESSIONAL"
+                    isFeatured
                       ? "border-2 border-indigo-600 shadow-lg"
                       : "border-gray-200"
                   }`}
                 >
-                  {key === "PROFESSIONAL" && (
+                  {isFeatured && (
                     <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 transform">
                       <Badge className="bg-indigo-600 text-white">{copy.featuredPlanBadge}</Badge>
                     </div>
@@ -354,18 +364,22 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
                     <CardTitle className="text-lg">{plan.name}</CardTitle>
                     <div className="mt-2">
                       <span className="text-3xl font-bold">
-                        {plan.priceMonthly === 0
-                          ? copy.freeLabel
-                          : `EUR ${(plan.priceMonthly / 100).toFixed(0)}`}
+                        {plan.priceMonthly === null
+                          ? locale === "de"
+                            ? "Individuell"
+                            : "Custom"
+                          : plan.priceMonthly === 0
+                            ? copy.freeLabel
+                            : `EUR ${Math.round(plan.priceMonthly / 100)}`}
                       </span>
-                      {plan.priceMonthly > 0 && (
+                      {typeof plan.priceMonthly === "number" && plan.priceMonthly > 0 && (
                         <span className="text-sm text-gray-500">{copy.monthlySuffix}</span>
                       )}
                     </div>
                   </CardHeader>
                   <CardContent>
                     <ul className="mb-6 space-y-2">
-                      {localizedFeatures.map((feature) => (
+                      {localizedFeatures.map((feature: string) => (
                         <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
                           <Check className="h-4 w-4 flex-shrink-0 text-green-500" />
                           {feature}
@@ -375,9 +389,9 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
                     <Button
                       asChild
                       className={`w-full ${
-                        key === "PROFESSIONAL" ? "bg-indigo-600 hover:bg-indigo-700" : ""
+                        isFeatured ? "bg-indigo-600 hover:bg-indigo-700" : ""
                       }`}
-                      variant={key === "PROFESSIONAL" ? "default" : "outline"}
+                      variant={isFeatured ? "default" : "outline"}
                     >
                       <Link href={signupHref}>
                         {plan.priceMonthly === 0 ? copy.planFreeCta : copy.planPrimaryCta}

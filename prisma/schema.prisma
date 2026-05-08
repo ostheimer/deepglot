@@ -86,8 +86,15 @@ model Organization {
 enum Plan {
   FREE
   STARTER
-  PROFESSIONAL
+  BUSINESS
+  PRO
+  ADVANCED
+  EXTENDED
   ENTERPRISE
+  /// @deprecated Renamed to PRO. Kept on the enum for historical rows; new
+  /// subscriptions never write this value because the webhook plan map only
+  /// emits keys from BILLING_PLANS in src/lib/billing-plans.ts.
+  PROFESSIONAL
 }
 
 model OrganizationMember {
