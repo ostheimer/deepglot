@@ -114,8 +114,8 @@ const MARKETING_COPY = {
         "5 projects",
         "5 languages",
         "Priority support",
-        "Provider selection",
         "Visual editor",
+        "URL slug translation",
       ],
       ENTERPRISE: [
         "20,000,000 words/month",
@@ -210,8 +210,8 @@ const MARKETING_COPY = {
         "5 Projekte",
         "5 Sprachen",
         "Prioritäts-Support",
-        "Provider-Auswahl",
         "Visueller Editor",
+        "Übersetzte URL-Slugs",
       ],
       ENTERPRISE: [
         "20.000.000 Wörter/Monat",
