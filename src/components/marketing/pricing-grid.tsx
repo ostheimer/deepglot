@@ -5,215 +5,187 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import {
+  BILLING_PLANS,
+  BILLING_PLAN_KEYS,
+  computeYearlyTotalCents,
+  formatYearlyMonthlyEquivalentCents,
+  type BillingPlanKey,
+} from "@/lib/billing-plans";
 
-type PricingPlan = {
-  key: string;
-  name: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
-  words: string;
-  languages: number;
-  highlight: boolean;
+type PaidPlanKey = Exclude<BillingPlanKey, "ENTERPRISE">;
+
+const PAID_PLAN_KEYS = BILLING_PLAN_KEYS.filter(
+  (key): key is PaidPlanKey => key !== "ENTERPRISE"
+);
+
+type FeatureRow = {
+  label: string;
+  /** Indexed by PAID_PLAN_KEYS order: FREE, STARTER, BUSINESS, PRO, ADVANCED, EXTENDED. */
+  values: (boolean | string)[];
+  /** Concrete value for Enterprise — never the string "unlimited". */
+  enterprise: boolean | string;
+};
+
+type PlanCopy = {
   cta: string;
   badge: string | null;
   featureSummary: string;
 };
 
-type FeatureRow = {
-  label: string;
-  values: (boolean | string)[];
-  enterprise: boolean | string;
-};
-
-const PLAN_DATA: Record<SiteLocale, PricingPlan[]> = {
-  en: [
-    {
-      key: "free",
-      name: "Free",
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      words: "2,000",
-      languages: 1,
-      highlight: false,
+const PLAN_COPY: Record<SiteLocale, Record<PaidPlanKey, PlanCopy>> = {
+  en: {
+    FREE: {
       cta: "Start free",
       badge: null,
       featureSummary: "AI translation, glossary, and more",
     },
-    {
-      key: "starter",
-      name: "Starter",
-      monthlyPrice: 9,
-      yearlyPrice: 7,
-      words: "10,000",
-      languages: 1,
-      highlight: false,
+    STARTER: {
       cta: "Try for free",
       badge: null,
       featureSummary: "Media translation, auto-redirect, and more",
     },
-    {
-      key: "business",
-      name: "Business",
-      monthlyPrice: 19,
-      yearlyPrice: 15,
-      words: "50,000",
-      languages: 3,
-      highlight: false,
+    BUSINESS: {
       cta: "Try for free",
       badge: null,
       featureSummary: "Access to pro translators, and more",
     },
-    {
-      key: "pro",
-      name: "Pro",
-      monthlyPrice: 49,
-      yearlyPrice: 39,
-      words: "200,000",
-      languages: 5,
-      highlight: true,
+    PRO: {
       cta: "Try for free",
       badge: "Recommended",
       featureSummary: "Analytics, URL tracking, and more",
     },
-    {
-      key: "advanced",
-      name: "Advanced",
-      monthlyPrice: 99,
-      yearlyPrice: 79,
-      words: "1,000,000",
-      languages: 10,
-      highlight: false,
+    ADVANCED: {
       cta: "Try for free",
       badge: null,
       featureSummary: "Import & export, custom languages, and more",
     },
-    {
-      key: "extended",
-      name: "Extended",
-      monthlyPrice: 249,
-      yearlyPrice: 199,
-      words: "5,000,000",
-      languages: 20,
-      highlight: false,
+    EXTENDED: {
       cta: "Try for free",
       badge: null,
       featureSummary: "Top-level domain support, premium support, and more",
     },
-  ],
-  de: [
-    {
-      key: "free",
-      name: "Free",
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      words: "2.000",
-      languages: 1,
-      highlight: false,
+  },
+  de: {
+    FREE: {
       cta: "Kostenlos starten",
       badge: null,
       featureSummary: "KI-Übersetzung, Glossar, und mehr",
     },
-    {
-      key: "starter",
-      name: "Starter",
-      monthlyPrice: 9,
-      yearlyPrice: 7,
-      words: "10.000",
-      languages: 1,
-      highlight: false,
+    STARTER: {
       cta: "Kostenlos testen",
       badge: null,
       featureSummary: "Medien-Übersetzung, Auto-Weiterleitung, und mehr",
     },
-    {
-      key: "business",
-      name: "Business",
-      monthlyPrice: 19,
-      yearlyPrice: 15,
-      words: "50.000",
-      languages: 3,
-      highlight: false,
+    BUSINESS: {
       cta: "Kostenlos testen",
       badge: null,
       featureSummary: "Zugang zu Pro-Übersetzern, und mehr",
     },
-    {
-      key: "pro",
-      name: "Pro",
-      monthlyPrice: 49,
-      yearlyPrice: 39,
-      words: "200.000",
-      languages: 5,
-      highlight: true,
+    PRO: {
       cta: "Kostenlos testen",
       badge: "Empfohlen",
       featureSummary: "Statistiken, URL-Tracking, und mehr",
     },
-    {
-      key: "advanced",
-      name: "Advanced",
-      monthlyPrice: 99,
-      yearlyPrice: 79,
-      words: "1.000.000",
-      languages: 10,
-      highlight: false,
+    ADVANCED: {
       cta: "Kostenlos testen",
       badge: null,
       featureSummary: "Export & Import, Custom Sprachen, und mehr",
     },
-    {
-      key: "extended",
-      name: "Extended",
-      monthlyPrice: 249,
-      yearlyPrice: 199,
-      words: "5.000.000",
-      languages: 20,
-      highlight: false,
+    EXTENDED: {
       cta: "Kostenlos testen",
       badge: null,
       featureSummary: "Top-Level-Domain, Premium Support, und mehr",
     },
-  ],
+  },
 };
 
-const FEATURE_ROWS: Record<SiteLocale, FeatureRow[]> = {
-  en: [
-    { label: "Words / month", values: ["2,000", "10,000", "50,000", "200,000", "1M", "5M"], enterprise: "Custom" },
-    { label: "Translation languages", values: ["1", "1", "3", "5", "10", "20"], enterprise: "Unlimited" },
-    { label: "Projects", values: ["1", "2", "3", "5", "10", "25"], enterprise: "Unlimited" },
-    { label: "Provider-flexible AI translation", values: [true, true, true, true, true, true], enterprise: true },
-    { label: "Glossary", values: [true, true, true, true, true, true], enterprise: true },
-    { label: "Media translation", values: [false, true, true, true, true, true], enterprise: true },
-    { label: "Auto-redirect", values: [false, true, true, true, true, true], enterprise: true },
-    { label: "Analytics", values: [false, false, true, true, true, true], enterprise: true },
-    { label: "Translated URL slugs", values: [false, false, false, true, true, true], enterprise: true },
-    { label: "Visual editor", values: [false, false, false, true, true, true], enterprise: true },
-    { label: "Import & export (CSV/PO)", values: [false, false, false, false, true, true], enterprise: true },
-    { label: "Custom AI provider", values: [false, false, false, false, true, true], enterprise: true },
-    { label: "Top-level domain support", values: [false, false, false, false, false, true], enterprise: true },
-    { label: "Premium support (SLA)", values: [false, false, false, false, false, true], enterprise: true },
-    { label: "SAML SSO", values: [false, false, false, false, false, false], enterprise: true },
-    { label: "Dedicated contract (DPA)", values: [false, false, false, false, false, false], enterprise: true },
-  ],
-  de: [
-    { label: "Wörter / Monat", values: ["2.000", "10.000", "50.000", "200.000", "1 Mio.", "5 Mio."], enterprise: "Individuell" },
-    { label: "Übersetzungssprachen", values: ["1", "1", "3", "5", "10", "20"], enterprise: "Unbegrenzt" },
-    { label: "Projekte", values: ["1", "2", "3", "5", "10", "25"], enterprise: "Unbegrenzt" },
-    { label: "Provider-flexible KI-Übersetzung", values: [true, true, true, true, true, true], enterprise: true },
-    { label: "Glossar", values: [true, true, true, true, true, true], enterprise: true },
-    { label: "Medien-Übersetzung", values: [false, true, true, true, true, true], enterprise: true },
-    { label: "Auto-Weiterleitung", values: [false, true, true, true, true, true], enterprise: true },
-    { label: "Statistiken", values: [false, false, true, true, true, true], enterprise: true },
-    { label: "URL-Slugs übersetzen", values: [false, false, false, true, true, true], enterprise: true },
-    { label: "Visueller Editor", values: [false, false, false, true, true, true], enterprise: true },
-    { label: "Export & Import (CSV/PO)", values: [false, false, false, false, true, true], enterprise: true },
-    { label: "Eigener KI-Provider", values: [false, false, false, false, true, true], enterprise: true },
-    { label: "Top-Level-Domain Support", values: [false, false, false, false, false, true], enterprise: true },
-    { label: "Premium Support (SLA)", values: [false, false, false, false, false, true], enterprise: true },
-    { label: "SAML SSO", values: [false, false, false, false, false, false], enterprise: true },
-    { label: "Dedizierter Vertrag (DPA)", values: [false, false, false, false, false, false], enterprise: true },
-  ],
+function formatNumber(value: number, locale: SiteLocale): string {
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+    if (locale === "de") {
+      return `${millions.toLocaleString("de-AT", { maximumFractionDigits: 1 })} Mio.`;
+    }
+    return `${millions.toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
+  }
+  return value.toLocaleString(locale === "de" ? "de-AT" : "en-US");
+}
+
+const FEATURE_LABELS: Record<SiteLocale, Record<string, string>> = {
+  en: {
+    words: "Words / month",
+    languages: "Translation languages",
+    projects: "Projects",
+    providerFlex: "Provider-flexible AI translation",
+    glossary: "Glossary",
+    media: "Media translation",
+    autoRedirect: "Auto-redirect",
+    analytics: "Analytics",
+    urlSlugs: "Translated URL slugs",
+    visualEditor: "Visual editor",
+    importExport: "Import & export (CSV/PO)",
+    customProvider: "Custom AI provider",
+    tldSupport: "Top-level domain support",
+    premiumSupport: "Premium support (SLA)",
+    saml: "SAML SSO",
+    contract: "Dedicated contract (DPA)",
+  },
+  de: {
+    words: "Wörter / Monat",
+    languages: "Übersetzungssprachen",
+    projects: "Projekte",
+    providerFlex: "Provider-flexible KI-Übersetzung",
+    glossary: "Glossar",
+    media: "Medien-Übersetzung",
+    autoRedirect: "Auto-Weiterleitung",
+    analytics: "Statistiken",
+    urlSlugs: "URL-Slugs übersetzen",
+    visualEditor: "Visueller Editor",
+    importExport: "Export & Import (CSV/PO)",
+    customProvider: "Eigener KI-Provider",
+    tldSupport: "Top-Level-Domain Support",
+    premiumSupport: "Premium Support (SLA)",
+    saml: "SAML SSO",
+    contract: "Dedizierter Vertrag (DPA)",
+  },
 };
+
+function buildFeatureRows(locale: SiteLocale): FeatureRow[] {
+  const labels = FEATURE_LABELS[locale];
+  const enterprisePlan = BILLING_PLANS.ENTERPRISE;
+  const paidLimits = PAID_PLAN_KEYS.map((key) => BILLING_PLANS[key]);
+
+  return [
+    {
+      label: labels.words,
+      values: paidLimits.map((plan) => formatNumber(plan.wordsLimit, locale)),
+      enterprise: formatNumber(enterprisePlan.wordsLimit, locale),
+    },
+    {
+      label: labels.languages,
+      values: paidLimits.map((plan) => String(plan.languagesLimit)),
+      enterprise: String(enterprisePlan.languagesLimit),
+    },
+    {
+      label: labels.projects,
+      values: paidLimits.map((plan) => String(plan.projectsLimit)),
+      enterprise: String(enterprisePlan.projectsLimit),
+    },
+    { label: labels.providerFlex, values: [true, true, true, true, true, true], enterprise: true },
+    { label: labels.glossary, values: [true, true, true, true, true, true], enterprise: true },
+    { label: labels.media, values: [false, true, true, true, true, true], enterprise: true },
+    { label: labels.autoRedirect, values: [false, true, true, true, true, true], enterprise: true },
+    { label: labels.analytics, values: [false, false, true, true, true, true], enterprise: true },
+    { label: labels.urlSlugs, values: [false, false, false, true, true, true], enterprise: true },
+    { label: labels.visualEditor, values: [false, false, false, true, true, true], enterprise: true },
+    { label: labels.importExport, values: [false, false, false, false, true, true], enterprise: true },
+    { label: labels.customProvider, values: [false, false, false, false, true, true], enterprise: true },
+    { label: labels.tldSupport, values: [false, false, false, false, false, true], enterprise: true },
+    { label: labels.premiumSupport, values: [false, false, false, false, false, true], enterprise: true },
+    { label: labels.saml, values: [false, false, false, false, false, false], enterprise: true },
+    { label: labels.contract, values: [false, false, false, false, false, false], enterprise: true },
+  ];
+}
 
 const PRICING_COPY = {
   en: {
@@ -222,6 +194,7 @@ const PRICING_COPY = {
     yearlySavings: "2 months free",
     priceSuffix: "/mo.",
     yearlySuffix: "/year",
+    yearlyBilled: "billed yearly",
     wordsLabel: "words",
     languageSingular: "translation language",
     languagePlural: "translation languages",
@@ -244,6 +217,7 @@ const PRICING_COPY = {
     yearlySavings: "2 Monate gratis",
     priceSuffix: "/Mo.",
     yearlySuffix: "/Jahr",
+    yearlyBilled: "jährlich abgerechnet",
     wordsLabel: "Wörter",
     languageSingular: "Übersetzungssprache",
     languagePlural: "Übersetzungssprachen",
@@ -266,12 +240,37 @@ type PricingGridProps = {
   locale: SiteLocale;
 };
 
+function centsToWholeEuros(cents: number | null | undefined): number {
+  if (typeof cents !== "number") return 0;
+  return Math.round(cents / 100);
+}
+
 export function PricingGrid({ locale }: PricingGridProps) {
   const [yearly, setYearly] = useState(false);
-  const plans = PLAN_DATA[locale];
-  const rows = FEATURE_ROWS[locale];
   const copy = PRICING_COPY[locale];
+  const planCopy = PLAN_COPY[locale];
+  const rows = buildFeatureRows(locale);
   const signupHref = getMarketingPath(locale, "signup");
+
+  const paidPlans = PAID_PLAN_KEYS.map((key) => {
+    const plan = BILLING_PLANS[key];
+    const monthlyEuros = centsToWholeEuros(plan.monthlyPriceCents);
+    const yearlyMonthlyEquivalentEuros = centsToWholeEuros(
+      formatYearlyMonthlyEquivalentCents(key)
+    );
+    const yearlyTotalEuros = centsToWholeEuros(computeYearlyTotalCents(key));
+
+    return {
+      key,
+      plan,
+      copy: planCopy[key],
+      monthlyEuros,
+      yearlyMonthlyEquivalentEuros,
+      yearlyTotalEuros,
+    };
+  });
+
+  const enterprisePlan = BILLING_PLANS.ENTERPRISE;
 
   return (
     <div className="max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
@@ -283,7 +282,7 @@ export function PricingGrid({ locale }: PricingGridProps) {
           role="switch"
           aria-checked={yearly}
           aria-label={copy.billingToggleLabel}
-          onClick={() => setYearly((v) => !v)}
+          onClick={() => setYearly((value) => !value)}
           className={`relative h-6 w-11 rounded-full transition-colors duration-200 ${
             yearly ? "bg-indigo-600" : "bg-gray-300"
           }`}
@@ -302,20 +301,20 @@ export function PricingGrid({ locale }: PricingGridProps) {
 
       <div className="flex gap-3 items-stretch">
         <div className="grid grid-cols-6 gap-3 flex-1">
-          {plans.map((plan) => {
-            const price = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+          {paidPlans.map(({ key, plan, copy: planRowCopy, monthlyEuros, yearlyMonthlyEquivalentEuros, yearlyTotalEuros }) => {
+            const displayedEuros = yearly ? yearlyMonthlyEquivalentEuros : monthlyEuros;
             const isHighlighted = plan.highlight;
 
             return (
               <div
-                key={plan.key}
+                key={key}
                 className={`relative flex flex-col rounded-2xl border-2 overflow-hidden transition-shadow ${
                   isHighlighted
                     ? "border-indigo-600 shadow-xl shadow-indigo-100"
                     : "border-gray-200 hover:border-gray-300 hover:shadow-md"
                 }`}
               >
-                {plan.badge && (
+                {planRowCopy.badge && (
                   <div className="absolute top-0 inset-x-0 h-1 bg-indigo-600" />
                 )}
 
@@ -323,17 +322,17 @@ export function PricingGrid({ locale }: PricingGridProps) {
                   <p className="text-sm font-bold text-gray-900 mb-2">{plan.name}</p>
 
                   <div className="mb-3">
-                    {price === 0 ? (
+                    {displayedEuros === 0 ? (
                       <p className="text-2xl font-extrabold text-gray-900">€0</p>
                     ) : (
                       <p className="text-2xl font-extrabold text-gray-900">
-                        €{price}
+                        €{displayedEuros}
                         <span className="text-sm font-normal text-gray-500">{copy.priceSuffix}</span>
                       </p>
                     )}
-                    {yearly && price > 0 && (
+                    {yearly && yearlyTotalEuros > 0 && (
                       <p className="text-xs text-gray-400 mt-0.5">
-                        €{Math.round(price * 10)} {copy.yearlySuffix}
+                        €{yearlyTotalEuros} {copy.yearlySuffix} · {copy.yearlyBilled}
                       </p>
                     )}
                   </div>
@@ -346,25 +345,25 @@ export function PricingGrid({ locale }: PricingGridProps) {
                         : "bg-indigo-600 hover:bg-indigo-700"
                     }`}
                   >
-                    {plan.cta}
+                    {planRowCopy.cta}
                   </Link>
 
                   <div className="border-t border-gray-100 mb-3" />
 
                   <div className="mb-1">
-                    <p className="text-lg font-bold text-gray-900">{plan.words}</p>
+                    <p className="text-lg font-bold text-gray-900">{formatNumber(plan.wordsLimit, locale)}</p>
                     <p className="text-xs text-gray-500">{copy.wordsLabel}</p>
                   </div>
 
                   <div className="mb-3">
                     <p className="text-sm font-medium text-gray-700">
-                      {plan.languages}{" "}
-                      {plan.languages === 1 ? copy.languageSingular : copy.languagePlural}
+                      {plan.languagesLimit}{" "}
+                      {plan.languagesLimit === 1 ? copy.languageSingular : copy.languagePlural}
                     </p>
                   </div>
 
                   <p className="text-xs text-gray-500 leading-relaxed mt-auto">
-                    {plan.featureSummary}
+                    {planRowCopy.featureSummary}
                   </p>
                 </div>
               </div>
@@ -374,7 +373,7 @@ export function PricingGrid({ locale }: PricingGridProps) {
 
         <div className="w-48 flex-shrink-0">
           <div className="h-full rounded-2xl bg-[#1a1a2e] text-white p-5 flex flex-col">
-            <p className="text-sm font-bold mb-3">Enterprise</p>
+            <p className="text-sm font-bold mb-3">{enterprisePlan.name}</p>
 
             <p className="text-xs text-gray-300 mb-3">{copy.enterprisePrice}</p>
 
@@ -427,21 +426,21 @@ export function PricingGrid({ locale }: PricingGridProps) {
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <div className="grid grid-cols-[220px_repeat(6,1fr)_120px] bg-gray-50 border-b border-gray-200">
             <div className="p-4" />
-            {plans.map((p) => (
+            {paidPlans.map(({ key, plan, monthlyEuros, yearlyMonthlyEquivalentEuros }) => (
               <div
-                key={p.key}
+                key={key}
                 className={`p-4 text-center border-l border-gray-200 ${
-                  p.highlight ? "bg-indigo-50" : ""
+                  plan.highlight ? "bg-indigo-50" : ""
                 }`}
               >
-                <p className="text-xs font-bold text-gray-900">{p.name}</p>
+                <p className="text-xs font-bold text-gray-900">{plan.name}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {yearly ? `€${p.yearlyPrice}` : `€${p.monthlyPrice}`}{copy.priceSuffix}
+                  €{yearly ? yearlyMonthlyEquivalentEuros : monthlyEuros}{copy.priceSuffix}
                 </p>
               </div>
             ))}
             <div className="p-4 text-center border-l border-gray-200 bg-[#1a1a2e]">
-              <p className="text-xs font-bold text-white">Enterprise</p>
+              <p className="text-xs font-bold text-white">{enterprisePlan.name}</p>
               <p className="text-xs text-gray-400 mt-0.5">{copy.enterprisePrice}</p>
             </div>
           </div>
