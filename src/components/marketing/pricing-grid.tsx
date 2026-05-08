@@ -180,18 +180,30 @@ function buildFeatureRows(locale: SiteLocale): FeatureRow[] {
       enterprise: String(enterprisePlan.projectsLimit),
     },
     // Feature columns map to PAID_PLAN_KEYS in order: [FREE, STARTER, PRO].
-    // Enterprise has its own column to the right.
+    // Enterprise has its own column to the right. The values must mirror the
+    // capability tiers we previously advertised when the hidden Business /
+    // Advanced / Extended columns were on screen — capabilities that used to
+    // start at Business or higher do not silently shift down to Starter, and
+    // capabilities that used to start at Advanced or higher are not silently
+    // promised to Pro.
     { label: labels.providerFlex, values: [true, true, true], enterprise: true },
     { label: labels.glossary, values: [true, true, true], enterprise: true },
     { label: labels.media, values: [false, true, true], enterprise: true },
     { label: labels.autoRedirect, values: [false, true, true], enterprise: true },
-    { label: labels.analytics, values: [false, true, true], enterprise: true },
+    // Analytics started at Business in the six-tier table, so Starter stays
+    // off and Pro keeps it on.
+    { label: labels.analytics, values: [false, false, true], enterprise: true },
     { label: labels.urlSlugs, values: [false, false, true], enterprise: true },
     { label: labels.visualEditor, values: [false, false, true], enterprise: true },
-    { label: labels.importExport, values: [false, false, true], enterprise: true },
-    { label: labels.customProvider, values: [false, false, true], enterprise: true },
+    // Import/export and the custom AI provider previously started at
+    // Advanced; with the four-tier marketing layout they remain Enterprise-
+    // only so we never over-promise on Pro.
+    { label: labels.importExport, values: [false, false, false], enterprise: true },
+    { label: labels.customProvider, values: [false, false, false], enterprise: true },
     { label: labels.tldSupport, values: [false, false, false], enterprise: true },
-    { label: labels.premiumSupport, values: [false, false, true], enterprise: true },
+    // Premium SLA support previously started at Extended; keep it Enterprise
+    // only.
+    { label: labels.premiumSupport, values: [false, false, false], enterprise: true },
     { label: labels.saml, values: [false, false, false], enterprise: true },
     { label: labels.contract, values: [false, false, false], enterprise: true },
   ];
