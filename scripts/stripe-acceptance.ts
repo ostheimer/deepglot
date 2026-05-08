@@ -176,6 +176,7 @@ async function main() {
         active: stripePrice.active,
         interval: stripePrice.recurring?.interval,
         expectedLivemode: validation.expectedLivemode,
+        expectedInterval: price.expectedInterval,
       })
     );
   }
