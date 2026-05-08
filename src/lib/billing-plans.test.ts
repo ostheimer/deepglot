@@ -87,6 +87,13 @@ describe("billing-plans", () => {
     assert.equal(getStripePriceIdFromEnv("ENTERPRISE", "monthly", env), null);
   });
 
+  it("marks only Free, Starter, Pro and Enterprise as visibleInMarketing", () => {
+    const visible = BILLING_PLAN_KEYS.filter((key) => BILLING_PLANS[key].visibleInMarketing);
+    assert.deepEqual(visible, ["FREE", "STARTER", "PRO", "ENTERPRISE"]);
+    const hidden = BILLING_PLAN_KEYS.filter((key) => !BILLING_PLANS[key].visibleInMarketing);
+    assert.deepEqual(hidden, ["BUSINESS", "ADVANCED", "EXTENDED"]);
+  });
+
   it("never advertises any limit as 'unlimited' or 'unbegrenzt'", () => {
     const forbiddenPattern = /unlimited|unbegrenzt|infinity|infinite/i;
     for (const key of BILLING_PLAN_KEYS) {

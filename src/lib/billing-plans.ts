@@ -48,6 +48,13 @@ export type BillingPlan = {
   projectsLimit: number;
   /** Marks the plan that should receive visual emphasis on the pricing grid. */
   highlight: boolean;
+  /**
+   * Marks plans the public pricing grid advertises. Hidden plans stay in the
+   * catalogue so existing subscriptions keep their tier metadata, but the
+   * marketing UI does not show them. Customers that need a hidden tier reach
+   * out via sales for a custom contract.
+   */
+  visibleInMarketing: boolean;
   /** Stripe price-id environment key for the monthly price, or null. */
   stripePriceIdEnvKeys: {
     monthly: string | null;
@@ -65,6 +72,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 1,
     projectsLimit: 1,
     highlight: false,
+    visibleInMarketing: true,
     stripePriceIdEnvKeys: { monthly: null, yearly: null },
   },
   STARTER: {
@@ -76,6 +84,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 1,
     projectsLimit: 2,
     highlight: false,
+    visibleInMarketing: true,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_STARTER_MONTHLY",
       yearly: "STRIPE_PRICE_STARTER_YEARLY",
@@ -90,6 +99,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 3,
     projectsLimit: 3,
     highlight: false,
+    visibleInMarketing: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_BUSINESS_MONTHLY",
       yearly: "STRIPE_PRICE_BUSINESS_YEARLY",
@@ -104,6 +114,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 5,
     projectsLimit: 5,
     highlight: true,
+    visibleInMarketing: true,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_PRO_MONTHLY",
       yearly: "STRIPE_PRICE_PRO_YEARLY",
@@ -118,6 +129,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 10,
     projectsLimit: 10,
     highlight: false,
+    visibleInMarketing: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_ADVANCED_MONTHLY",
       yearly: "STRIPE_PRICE_ADVANCED_YEARLY",
@@ -132,6 +144,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 20,
     projectsLimit: 25,
     highlight: false,
+    visibleInMarketing: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_EXTENDED_MONTHLY",
       yearly: "STRIPE_PRICE_EXTENDED_YEARLY",
@@ -146,6 +159,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     languagesLimit: 50,
     projectsLimit: 100,
     highlight: false,
+    visibleInMarketing: true,
     stripePriceIdEnvKeys: { monthly: null, yearly: null },
   },
 };
