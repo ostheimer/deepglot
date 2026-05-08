@@ -69,13 +69,20 @@ test("validates Stripe live-mode configuration without creating charges", () => 
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_123",
       STRIPE_WEBHOOK_SECRET: "whsec_123",
       STRIPE_PRICE_STARTER_MONTHLY: "price_starter",
-      STRIPE_PRICE_PROFESSIONAL_MONTHLY: "price_professional",
-      STRIPE_PRICE_ENTERPRISE_MONTHLY: "price_enterprise",
+      STRIPE_PRICE_STARTER_YEARLY: "price_starter_y",
+      STRIPE_PRICE_BUSINESS_MONTHLY: "price_business",
+      STRIPE_PRICE_BUSINESS_YEARLY: "price_business_y",
+      STRIPE_PRICE_PRO_MONTHLY: "price_pro",
+      STRIPE_PRICE_PRO_YEARLY: "price_pro_y",
+      STRIPE_PRICE_ADVANCED_MONTHLY: "price_advanced",
+      STRIPE_PRICE_ADVANCED_YEARLY: "price_advanced_y",
+      STRIPE_PRICE_EXTENDED_MONTHLY: "price_extended",
+      STRIPE_PRICE_EXTENDED_YEARLY: "price_extended_y",
     },
   });
 
   assert.deepEqual(result.errors, [
-    "STRIPE_SECRET_KEY must start with sk_live_ for live acceptance.",
+    "STRIPE_SECRET_KEY must start with one of sk_live_, rk_live_ for live acceptance.",
   ]);
 });
 
@@ -87,8 +94,15 @@ test("passes Stripe env-only validation when key modes and price IDs align", () 
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
       STRIPE_WEBHOOK_SECRET: "whsec_123",
       STRIPE_PRICE_STARTER_MONTHLY: "price_starter",
-      STRIPE_PRICE_PROFESSIONAL_MONTHLY: "price_professional",
-      STRIPE_PRICE_ENTERPRISE_MONTHLY: "price_enterprise",
+      STRIPE_PRICE_STARTER_YEARLY: "price_starter_y",
+      STRIPE_PRICE_BUSINESS_MONTHLY: "price_business",
+      STRIPE_PRICE_BUSINESS_YEARLY: "price_business_y",
+      STRIPE_PRICE_PRO_MONTHLY: "price_pro",
+      STRIPE_PRICE_PRO_YEARLY: "price_pro_y",
+      STRIPE_PRICE_ADVANCED_MONTHLY: "price_advanced",
+      STRIPE_PRICE_ADVANCED_YEARLY: "price_advanced_y",
+      STRIPE_PRICE_EXTENDED_MONTHLY: "price_extended",
+      STRIPE_PRICE_EXTENDED_YEARLY: "price_extended_y",
     },
   });
 
@@ -150,8 +164,15 @@ test("builds production acceptance readiness checks without live provider calls"
         NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_123",
         STRIPE_WEBHOOK_SECRET: "whsec_123",
         STRIPE_PRICE_STARTER_MONTHLY: "price_starter",
-        STRIPE_PRICE_PROFESSIONAL_MONTHLY: "price_professional",
-        STRIPE_PRICE_ENTERPRISE_MONTHLY: "price_enterprise",
+        STRIPE_PRICE_STARTER_YEARLY: "price_starter_y",
+      STRIPE_PRICE_BUSINESS_MONTHLY: "price_business",
+      STRIPE_PRICE_BUSINESS_YEARLY: "price_business_y",
+      STRIPE_PRICE_PRO_MONTHLY: "price_pro",
+      STRIPE_PRICE_PRO_YEARLY: "price_pro_y",
+      STRIPE_PRICE_ADVANCED_MONTHLY: "price_advanced",
+      STRIPE_PRICE_ADVANCED_YEARLY: "price_advanced_y",
+      STRIPE_PRICE_EXTENDED_MONTHLY: "price_extended",
+        STRIPE_PRICE_EXTENDED_YEARLY: "price_extended_y",
       },
     }).status,
     "PASS"
