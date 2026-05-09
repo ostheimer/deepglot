@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
@@ -104,7 +105,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     : [];
 
   const wordsUsed = monthlyUsage?._sum.words ?? 0;
-  const wordsLimit = org?.subscription?.wordsLimit ?? 10_000;
+  const wordsLimit = getEffectiveWordsLimit(org?.subscription);
   const plan = org?.plan ?? "FREE";
   const usersLimit = PLAN_USERS_LIMIT[plan] ?? 1;
   const requestsLimit = PLAN_REQUESTS_LIMIT[plan] ?? 1_000;

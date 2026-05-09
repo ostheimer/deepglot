@@ -17,12 +17,25 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { getMarketingPath, withLocalePrefix } from "@/lib/site-locale";
+import { BILLING_PLANS } from "@/lib/billing-plans";
+import {
+  getMarketingPath,
+  withLocalePrefix,
+  type SiteLocale,
+} from "@/lib/site-locale";
+
+function buildDescription(locale: SiteLocale): string {
+  const freeWords = BILLING_PLANS.FREE.wordsLimit.toLocaleString(
+    locale === "de" ? "de-DE" : "en-US"
+  );
+  return locale === "de"
+    ? `Starte kostenlos mit ${freeWords} Wörtern pro Monat`
+    : `Start for free with ${freeWords} words per month`;
+}
 
 const COPY = {
   en: {
     title: "Create your account",
-    description: "Start for free with 10,000 words per month",
     github: "Continue with GitHub",
     google: "Continue with Google",
     separator: "or",
@@ -44,7 +57,6 @@ const COPY = {
   },
   de: {
     title: "Konto erstellen",
-    description: "Starte kostenlos mit 10.000 Wörtern pro Monat",
     github: "Mit GitHub registrieren",
     google: "Mit Google registrieren",
     separator: "oder",
@@ -77,6 +89,7 @@ export function SignupCard({
 }: SignupCardProps) {
   const locale = useLocale();
   const copy = COPY[locale];
+  const description = buildDescription(locale);
   const dashboardPath = withLocalePrefix("/dashboard", locale);
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
@@ -123,7 +136,7 @@ export function SignupCard({
         >
           {copy.title}
         </h1>
-        <CardDescription>{copy.description}</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {(canUseGitHubLogin || canUseGoogleLogin) && (

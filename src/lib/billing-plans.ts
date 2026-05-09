@@ -1,3 +1,5 @@
+import type { SubscriptionStatus } from "@prisma/client";
+
 /**
  * Single source of truth for Deepglot billing plans.
  *
@@ -61,7 +63,7 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     name: "Free",
     monthlyPriceCents: 0,
     yearlyPriceCents: 0,
-    wordsLimit: 2_000,
+    wordsLimit: 10_000,
     languagesLimit: 1,
     projectsLimit: 1,
     highlight: false,
@@ -72,8 +74,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     name: "Starter",
     monthlyPriceCents: 1300,
     yearlyPriceCents: 13_000,
-    wordsLimit: 10_000,
-    languagesLimit: 1,
+    wordsLimit: 25_000,
+    languagesLimit: 2,
     projectsLimit: 2,
     highlight: false,
     stripePriceIdEnvKeys: {
@@ -189,6 +191,31 @@ export function getStripePriceIdFromEnv(
   if (!envKey) return null;
   const value = env[envKey];
   return value && value.trim() !== "" ? value : null;
+}
+
+/**
+ * Resolves the per-billing-month word ceiling that should be enforced for a
+ * subscription right now. ACTIVE and TRIALING subscriptions get their full
+ * paid quota; every other status (PAST_DUE, INACTIVE, CANCELED) is soft-capped
+ * at the FREE-tier ceiling so the customer's site keeps serving cached and
+ * already-translated content but cannot consume large new quotas while the
+ * billing relationship is broken. Missing subscription rows are treated as
+ * FREE so callers do not need separate null-handling.
+ */
+export function getEffectiveWordsLimit(
+  subscription:
+    | { status: SubscriptionStatus; wordsLimit: number }
+    | null
+    | undefined
+): number {
+  const freeLimit = BILLING_PLANS.FREE.wordsLimit;
+  if (!subscription) return freeLimit;
+
+  if (subscription.status === "ACTIVE" || subscription.status === "TRIALING") {
+    return subscription.wordsLimit;
+  }
+
+  return Math.min(subscription.wordsLimit, freeLimit);
 }
 
 /**

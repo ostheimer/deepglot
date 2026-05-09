@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
+import { BILLING_PLANS } from "@/lib/billing-plans";
+import { formatNumber } from "@/lib/locale-formatting";
 import {
   getMarketingPath,
   withLocalePrefix,
@@ -38,7 +40,6 @@ const MARKETING_COPY = {
       "Deepglot translates your WordPress content automatically with AI at a fraction of the usual cost. Your translations stay yours.",
     heroPrimaryCta: "Get started for free",
     heroSecondaryCta: "View on GitHub",
-    heroFooter: "10,000 words/month for free · No credit card required",
     comparison: [
       { label: "Typical SaaS solution", price: "from EUR 99/month", words: "200k words", highlight: false },
       { label: "Deepglot Professional", price: "EUR 49/month", words: "1M words", highlight: true },
@@ -110,7 +111,6 @@ const MARKETING_COPY = {
       "Deepglot übersetzt deinen WordPress-Content automatisch per KI zu einem Bruchteil der üblichen Kosten. Übersetzungen gehören dir, nicht uns.",
     heroPrimaryCta: "Kostenlos loslegen",
     heroSecondaryCta: "GitHub ansehen",
-    heroFooter: "10.000 Wörter/Monat kostenlos · Keine Kreditkarte erforderlich",
     comparison: [
       { label: "Typische SaaS-Lösung", price: "ab EUR 99/Monat", words: "200k Wörter", highlight: false },
       { label: "Deepglot Professional", price: "EUR 49/Monat", words: "1 Mio. Wörter", highlight: true },
@@ -172,8 +172,16 @@ type MarketingHomeProps = {
   locale: SiteLocale;
 };
 
+function buildHeroFooter(locale: SiteLocale): string {
+  const freeWords = formatNumber(BILLING_PLANS.FREE.wordsLimit, locale);
+  return locale === "de"
+    ? `${freeWords} Wörter/Monat kostenlos · Keine Kreditkarte erforderlich`
+    : `${freeWords} words/month for free · No credit card required`;
+}
+
 export function MarketingHome({ locale }: MarketingHomeProps) {
   const copy = MARKETING_COPY[locale];
+  const heroFooter = buildHeroFooter(locale);
   const signupHref = getMarketingPath(locale, "signup");
 
   return (
@@ -215,7 +223,7 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
               </Link>
             </Button>
           </div>
-          <p className="mt-4 text-sm text-gray-500">{copy.heroFooter}</p>
+          <p className="mt-4 text-sm text-gray-500">{heroFooter}</p>
         </div>
       </section>
 
