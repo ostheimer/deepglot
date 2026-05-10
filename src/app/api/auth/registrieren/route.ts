@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { BILLING_PLANS } from "@/lib/billing-plans";
 import { getCookieLocale } from "@/lib/request-locale";
 import { z } from "zod";
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
           stripeCustomerId: `free_${user.id}`,
           status: "ACTIVE",
           plan: "FREE",
-          wordsLimit: 10_000,
+          wordsLimit: BILLING_PLANS.FREE.wordsLimit,
         },
       });
 

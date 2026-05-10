@@ -6,6 +6,7 @@ import {
   BILLING_PLANS,
   computeYearlyTotalCents,
   formatYearlyMonthlyEquivalentCents,
+  getEffectiveWordsLimit,
   getStripePriceIdFromEnv,
   type BillingPlanKey,
 } from "./billing-plans";
@@ -32,8 +33,8 @@ describe("billing-plans", () => {
       languagesLimit: number;
       projectsLimit: number;
     }> = [
-      { key: "FREE", monthlyCents: 0, yearlyCents: 0, wordsLimit: 2_000, languagesLimit: 1, projectsLimit: 1 },
-      { key: "STARTER", monthlyCents: 1300, yearlyCents: 13_000, wordsLimit: 10_000, languagesLimit: 1, projectsLimit: 2 },
+      { key: "FREE", monthlyCents: 0, yearlyCents: 0, wordsLimit: 10_000, languagesLimit: 1, projectsLimit: 1 },
+      { key: "STARTER", monthlyCents: 1300, yearlyCents: 13_000, wordsLimit: 25_000, languagesLimit: 2, projectsLimit: 2 },
       { key: "BUSINESS", monthlyCents: 2500, yearlyCents: 25_000, wordsLimit: 50_000, languagesLimit: 3, projectsLimit: 3 },
       { key: "PRO", monthlyCents: 6900, yearlyCents: 69_000, wordsLimit: 200_000, languagesLimit: 5, projectsLimit: 5 },
       { key: "ADVANCED", monthlyCents: 25_900, yearlyCents: 259_000, wordsLimit: 1_000_000, languagesLimit: 10, projectsLimit: 10 },
@@ -91,6 +92,44 @@ describe("billing-plans", () => {
     const wordsLimits = BILLING_PLAN_KEYS.map((key) => BILLING_PLANS[key].wordsLimit);
     const sorted = [...wordsLimits].sort((a, b) => a - b);
     assert.deepEqual(wordsLimits, sorted);
+  });
+
+  it("getEffectiveWordsLimit grants the full quota only to ACTIVE and TRIALING subscriptions", () => {
+    const freeLimit = BILLING_PLANS.FREE.wordsLimit;
+    const proLimit = BILLING_PLANS.PRO.wordsLimit;
+
+    assert.equal(getEffectiveWordsLimit(null), freeLimit);
+    assert.equal(getEffectiveWordsLimit(undefined), freeLimit);
+    assert.equal(
+      getEffectiveWordsLimit({ status: "ACTIVE", wordsLimit: proLimit }),
+      proLimit
+    );
+    assert.equal(
+      getEffectiveWordsLimit({ status: "TRIALING", wordsLimit: proLimit }),
+      proLimit
+    );
+
+    // Grace + soft-cap: PAST_DUE keeps the API alive but cannot consume more
+    // than the FREE quota for new translations until billing is restored.
+    assert.equal(
+      getEffectiveWordsLimit({ status: "PAST_DUE", wordsLimit: proLimit }),
+      freeLimit
+    );
+    assert.equal(
+      getEffectiveWordsLimit({ status: "INACTIVE", wordsLimit: proLimit }),
+      freeLimit
+    );
+    assert.equal(
+      getEffectiveWordsLimit({ status: "CANCELED", wordsLimit: proLimit }),
+      freeLimit
+    );
+
+    // A FREE-tier subscription is its own ceiling — soft-cap should not grant
+    // a higher limit than the stored quota when that quota is already <= FREE.
+    assert.equal(
+      getEffectiveWordsLimit({ status: "PAST_DUE", wordsLimit: freeLimit }),
+      freeLimit
+    );
   });
 
   it("never advertises any limit as 'unlimited' or 'unbegrenzt'", () => {

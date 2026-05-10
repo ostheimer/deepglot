@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 
+import { BILLING_PLANS } from "@/lib/billing-plans";
 import { db } from "@/lib/db";
 import { computeTranslationHash } from "@/lib/translation-hash";
 import {
@@ -376,12 +377,12 @@ export async function ensureTestLoginUser() {
       stripeCustomerId: `free_${organization.id}`,
       status: "ACTIVE",
       plan: "FREE",
-      wordsLimit: 10_000,
+      wordsLimit: BILLING_PLANS.FREE.wordsLimit,
     },
     update: {
       status: "ACTIVE",
       plan: "FREE",
-      wordsLimit: 10_000,
+      wordsLimit: BILLING_PLANS.FREE.wordsLimit,
     },
   });
 

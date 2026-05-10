@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
+import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import {
   countWords,
   resolveTranslationProvider,
@@ -252,12 +253,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Check usage limits after cache/manual/glossary short-circuiting.
+    // Cache hits bypass this check entirely so an expired or past-due
+    // subscription still serves already-translated content; only fresh
+    // provider calls are gated. PAST_DUE/INACTIVE/CANCELED are soft-capped
+    // at the FREE-tier ceiling by getEffectiveWordsLimit (grace policy).
     const translatedWords = pendingTranslations.reduce(
       (sum, item) => sum + item.wordCount,
       0,
     );
     const subscription = project.organization.subscription;
-    const wordsLimit = subscription?.wordsLimit ?? 10_000;
+    const wordsLimit = getEffectiveWordsLimit(subscription);
     const currentMonth = getUsageMonthKey();
 
     if (!isBot && translatedWords > 0) {
