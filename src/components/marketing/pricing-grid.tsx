@@ -279,22 +279,36 @@ export function PricingGrid({ locale }: PricingGridProps) {
           aria-valuetext={`${tier.name}: ${formatWordCount(tier.wordsLimit, locale)} ${copy.wordsLabel}`}
           className="w-full cursor-pointer appearance-none bg-transparent focus:outline-none [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-gradient-to-r [&::-webkit-slider-runnable-track]:from-indigo-100 [&::-webkit-slider-runnable-track]:via-indigo-300 [&::-webkit-slider-runnable-track]:to-indigo-600 [&::-webkit-slider-thumb]:mt-[-8px] [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-indigo-600 [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-indigo-200 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-indigo-600"
         />
-        <div className="mt-2 flex justify-between text-[10px] font-medium uppercase tracking-wide text-gray-400">
-          {BILLING_PLAN_KEYS.map((key, idx) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTierIndex(idx)}
-              className={`flex flex-col items-center gap-0.5 transition-colors hover:text-indigo-600 ${
-                idx === tierIndex ? "text-indigo-600" : ""
-              }`}
-              aria-label={`${BILLING_PLANS[key].name}: ${formatWordCount(BILLING_PLANS[key].wordsLimit, locale)}`}
-            >
-              <span className="text-[10px]">
+        {/*
+          Tick labels are absolutely positioned to match the native range
+          input's thumb travel exactly. The thumb (24px / w-6) centres at
+          `thumbRadius` on the left and `100% - thumbRadius` on the right,
+          so labels at `calc(12px + (100% - 24px) * idx / (n-1))` sit on
+          the same x as the thumb for every tier. Plain `justify-between`
+          flex layout would drift because each button's *left edge* — not
+          its centre — is what gets distributed, so wider labels at the
+          ends visibly offset from the thumb.
+        */}
+        <div className="relative mt-2 h-4 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+          {BILLING_PLAN_KEYS.map((key, idx) => {
+            const lastIndex = BILLING_PLAN_KEYS.length - 1;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTierIndex(idx)}
+                style={{
+                  left: `calc(12px + (100% - 24px) * ${idx} / ${lastIndex})`,
+                }}
+                className={`absolute top-0 -translate-x-1/2 whitespace-nowrap transition-colors hover:text-indigo-600 ${
+                  idx === tierIndex ? "text-indigo-600" : ""
+                }`}
+                aria-label={`${BILLING_PLANS[key].name}: ${formatWordCount(BILLING_PLANS[key].wordsLimit, locale)}`}
+              >
                 {formatWordCount(BILLING_PLANS[key].wordsLimit, locale)}
-              </span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
         <p className="mt-3 text-center text-xs text-gray-500">{copy.sliderHint}</p>
       </div>
