@@ -23,6 +23,29 @@ const FEATURE_ICONS = {
   selfHosted: Globe,
 } as const;
 
+/**
+ * Compact marketing word-count formatter. The hero comparison cards are
+ * small and headline-style, so they use short forms ("200k", "1 Mio.")
+ * instead of the slider's spelled-out "200,000". Both pull from the same
+ * BILLING_PLANS source of truth, so the copy can never claim a volume or
+ * price that contradicts the actual plan.
+ */
+function formatHeroWords(value: number, locale: SiteLocale): string {
+  if (value >= 1_000_000) {
+    const millions = value / 1_000_000;
+    return locale === "de"
+      ? `${millions.toLocaleString("de-AT", { maximumFractionDigits: 1 })} Mio.`
+      : `${millions.toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
+  }
+  if (value >= 1_000) {
+    return `${Math.round(value / 1_000)}k`;
+  }
+  return value.toLocaleString(locale === "de" ? "de-AT" : "en-US");
+}
+
+const PRO_PLAN = BILLING_PLANS.PRO;
+const PRO_PLAN_EUROS = Math.round((PRO_PLAN.monthlyPriceCents ?? 0) / 100);
+
 const MARKETING_COPY = {
   en: {
     nav: {
@@ -41,10 +64,10 @@ const MARKETING_COPY = {
     heroPrimaryCta: "Get started for free",
     heroSecondaryCta: "View on GitHub",
     comparison: [
-      { label: "Typical SaaS solution", price: "from EUR 99/month", words: "200k words", highlight: false },
-      { label: "Deepglot Professional", price: "EUR 49/month", words: "1M words", highlight: true },
+      { label: "Typical SaaS solution", price: "from EUR 99/month", words: `${formatHeroWords(PRO_PLAN.wordsLimit, "en")} words`, highlight: false },
+      { label: `Deepglot ${PRO_PLAN.name}`, price: `EUR ${PRO_PLAN_EUROS}/month`, words: `${formatHeroWords(PRO_PLAN.wordsLimit, "en")} words`, highlight: true },
     ],
-    comparisonBadge: "5x more for half the price",
+    comparisonBadge: "30% off the same volume",
     featuresHeading: "Everything you need. Nothing that traps you.",
     featuresDescription:
       "Deepglot gives you control over your translations again, with professional features at fair prices.",
@@ -112,10 +135,10 @@ const MARKETING_COPY = {
     heroPrimaryCta: "Kostenlos loslegen",
     heroSecondaryCta: "GitHub ansehen",
     comparison: [
-      { label: "Typische SaaS-Lösung", price: "ab EUR 99/Monat", words: "200k Wörter", highlight: false },
-      { label: "Deepglot Professional", price: "EUR 49/Monat", words: "1 Mio. Wörter", highlight: true },
+      { label: "Typische SaaS-Lösung", price: "ab EUR 99/Monat", words: `${formatHeroWords(PRO_PLAN.wordsLimit, "de")} Wörter`, highlight: false },
+      { label: `Deepglot ${PRO_PLAN.name}`, price: `EUR ${PRO_PLAN_EUROS}/Monat`, words: `${formatHeroWords(PRO_PLAN.wordsLimit, "de")} Wörter`, highlight: true },
     ],
-    comparisonBadge: "5x mehr für die Hälfte",
+    comparisonBadge: "30% günstiger bei gleicher Wortmenge",
     featuresHeading: "Alles was du brauchst. Nichts was dich fesselt.",
     featuresDescription:
       "Deepglot gibt dir die Kontrolle über deine Übersetzungen zurück, mit professionellen Features zu fairen Preisen.",
