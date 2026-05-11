@@ -49,6 +49,43 @@ class HtmlTranslator
     ];
 
     /**
+     * Element / attribute combinations that carry user-facing copy outside
+     * the regular text-node flow. Image alt text, link/button tooltips,
+     * form placeholders, submit-button labels and accessibility labels all
+     * need to follow the visible page language, otherwise screen-reader
+     * users keep hearing the source language on a translated page.
+     *
+     * Tags whose attributes look text-shaped but actually carry machine
+     * identifiers (`<link>`, `<meta>`, `<area>` href targets, etc.) are
+     * intentionally left out.
+     */
+    private const TRANSLATABLE_BODY_ATTRIBUTES = [
+        'img' => ['alt'],
+        'a' => ['title', 'aria-label'],
+        'button' => ['title', 'aria-label'],
+        'input' => ['placeholder', 'aria-label'],
+        'textarea' => ['placeholder', 'aria-label'],
+        'select' => ['aria-label'],
+        'label' => ['aria-label'],
+        'optgroup' => ['label'],
+        'option' => ['label'],
+    ];
+
+    /**
+     * `<input value>` is only translated when the input renders a button.
+     * Plain text / hidden / email / password / search inputs carry user
+     * data, never UI copy.
+     */
+    private const TRANSLATABLE_INPUT_VALUE_TYPES = ['submit', 'button', 'reset'];
+
+    /**
+     * Tags whose attributes must never be translated even if they appear in
+     * the whitelist above. Mirrors SKIP_TAGS plus `<noscript>` so the
+     * fallback markup browsers without JS see stays in the source language.
+     */
+    private const ATTR_SKIP_ANCESTORS = ['script', 'style', 'noscript', 'template'];
+
+    /**
      * Maximum number of text nodes sent in one API request.
      *
      * The Deepglot backend translates each batch in a single OpenAI / DeepL
@@ -102,9 +139,14 @@ class HtmlTranslator
         $doc = $this->loadHtml($html);
 
         // Collect all translatable DOMText nodes, head metadata attributes,
-        // and JSON-LD strings (Yoast schema, etc.) into one dedup batch.
+        // accessibility-relevant body attributes (img alt, aria-label,
+        // placeholders, …) and JSON-LD strings (Yoast schema, etc.) into one
+        // dedup batch.
         $nodes = $this->collectTextNodes($doc);
-        $attrs = $this->collectMetadataAttributes($doc);
+        $attrs = array_merge(
+            $this->collectMetadataAttributes($doc),
+            $this->collectAccessibilityAttributes($doc)
+        );
         $jsonLdMutations = $this->jsonLd->collect($doc);
 
         if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
@@ -348,6 +390,103 @@ class HtmlTranslator
         }
 
         return $result;
+    }
+
+    /**
+     * Walks the body for elements that carry user-facing copy in HTML
+     * attributes — `<img alt>`, `<a title>`, `<button aria-label>`,
+     * `<input placeholder>`, `<input type="submit" value>`, etc. The returned
+     * `DOMAttr` nodes plug into the same dedup batch the meta attributes use.
+     *
+     * @return \DOMAttr[]
+     */
+    private function collectAccessibilityAttributes(\DOMDocument $doc): array
+    {
+        $body = $doc->getElementsByTagName('body')->item(0);
+        if (!$body instanceof \DOMElement) {
+            return [];
+        }
+
+        $xpath = new \DOMXPath($doc);
+        $result = [];
+
+        foreach (self::TRANSLATABLE_BODY_ATTRIBUTES as $tagName => $attributeNames) {
+            $elements = $xpath->query('.//' . $tagName, $body);
+            if ($elements === false) {
+                continue;
+            }
+
+            foreach ($elements as $element) {
+                if (!$element instanceof \DOMElement) {
+                    continue;
+                }
+
+                if ($this->hasSkippedAttributeAncestor($element)) {
+                    continue;
+                }
+
+                foreach ($attributeNames as $attributeName) {
+                    $attr = $element->getAttributeNode($attributeName);
+                    if (!$attr instanceof \DOMAttr) {
+                        continue;
+                    }
+
+                    if (!$this->isTranslatableAttributeValue($attr->value)) {
+                        continue;
+                    }
+
+                    $result[] = $attr;
+                }
+
+                // <input value> is gated on the input type — only submit /
+                // button / reset render visible UI copy. All other input
+                // types carry user data and must stay untranslated.
+                if ($tagName === 'input') {
+                    $valueAttr = $element->getAttributeNode('value');
+                    if ($valueAttr instanceof \DOMAttr && $this->isTranslatableAttributeValue($valueAttr->value)) {
+                        $type = strtolower(trim($element->getAttribute('type')));
+                        if (in_array($type, self::TRANSLATABLE_INPUT_VALUE_TYPES, true)) {
+                            $result[] = $valueAttr;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private function isTranslatableAttributeValue(string $value): bool
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '' || mb_strlen($trimmed) < 2) {
+            return false;
+        }
+
+        // Pure numeric / punctuation-only values are never UI copy.
+        if (preg_match('/^[\d\s\p{P}\p{S}]+$/u', $trimmed)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function hasSkippedAttributeAncestor(\DOMElement $element): bool
+    {
+        $ancestor = $element->parentNode;
+        while ($ancestor !== null) {
+            if ($ancestor instanceof \DOMElement) {
+                $tag = strtolower($ancestor->tagName);
+                if (in_array($tag, self::ATTR_SKIP_ANCESTORS, true)) {
+                    return true;
+                }
+                if ($ancestor->hasAttribute('translate') && strtolower($ancestor->getAttribute('translate')) === 'no') {
+                    return true;
+                }
+            }
+            $ancestor = $ancestor->parentNode;
+        }
+        return false;
     }
 
     private function isMetaContentTranslatable(\DOMElement $meta): bool
