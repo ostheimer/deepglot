@@ -425,6 +425,10 @@ class HtmlTranslator
                     continue;
                 }
 
+                if ($this->matchesExcludedSelector($element)) {
+                    continue;
+                }
+
                 foreach ($attributeNames as $attributeName) {
                     $attr = $element->getAttributeNode($attributeName);
                     if (!$attr instanceof \DOMAttr) {
@@ -471,21 +475,81 @@ class HtmlTranslator
         return true;
     }
 
+    /**
+     * Mirrors the `ancestor-or-self::*` semantics the text-node collector
+     * uses: the walk starts at the element itself so a single
+     * `<img translate="no" alt="…">` opts out, not only elements wrapped
+     * in a no-translate ancestor.
+     */
     private function hasSkippedAttributeAncestor(\DOMElement $element): bool
     {
-        $ancestor = $element->parentNode;
-        while ($ancestor !== null) {
-            if ($ancestor instanceof \DOMElement) {
-                $tag = strtolower($ancestor->tagName);
+        $node = $element;
+        while ($node !== null) {
+            if ($node instanceof \DOMElement) {
+                $tag = strtolower($node->tagName);
                 if (in_array($tag, self::ATTR_SKIP_ANCESTORS, true)) {
                     return true;
                 }
-                if ($ancestor->hasAttribute('translate') && strtolower($ancestor->getAttribute('translate')) === 'no') {
+                if ($node->hasAttribute('translate') && strtolower($node->getAttribute('translate')) === 'no') {
                     return true;
                 }
             }
-            $ancestor = $ancestor->parentNode;
+            $node = $node->parentNode;
         }
+        return false;
+    }
+
+    /**
+     * Honours the project's `exclude_selectors` option for accessibility
+     * attributes the same way `collectTextNodes` honours it for text nodes.
+     * Without this mirror, operators that excluded `.no-translate` or
+     * `#hero` for body text would silently see those elements' `alt`,
+     * `title`, `aria-label` and `placeholder` traffic sent to the API.
+     */
+    private function matchesExcludedSelector(\DOMElement $element): bool
+    {
+        $selectors = $this->options->getExcludedSelectors();
+        if (empty($selectors)) {
+            return false;
+        }
+
+        $classSelectors = [];
+        $idSelectors = [];
+        foreach ($selectors as $selector) {
+            if (str_starts_with($selector, '.') && strlen($selector) > 1) {
+                $classSelectors[] = substr($selector, 1);
+            } elseif (str_starts_with($selector, '#') && strlen($selector) > 1) {
+                $idSelectors[] = substr($selector, 1);
+            }
+        }
+
+        if (empty($classSelectors) && empty($idSelectors)) {
+            return false;
+        }
+
+        $node = $element;
+        while ($node !== null) {
+            if ($node instanceof \DOMElement) {
+                foreach ($idSelectors as $id) {
+                    if ($node->getAttribute('id') === $id) {
+                        return true;
+                    }
+                }
+                if (!empty($classSelectors)) {
+                    $classAttr = $node->getAttribute('class');
+                    if ($classAttr !== '') {
+                        $classes = preg_split('/\s+/', $classAttr) ?: [];
+                        foreach ($classSelectors as $cls) {
+                            if (in_array($cls, $classes, true)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            $node = $node->parentNode;
+        }
+
         return false;
     }
 

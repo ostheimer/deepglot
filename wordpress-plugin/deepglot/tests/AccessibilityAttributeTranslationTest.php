@@ -210,4 +210,44 @@ a11yAssert(!in_array('Sollte nicht uebersetzt werden', $client->sentTexts, true)
 a11yAssert(in_array('Hauptüberschrift', $client->sentTexts, true), 'Body H1 still translates');
 a11yAssert(str_contains($decoded, '[en] Hauptüberschrift'), 'H1 translation applied');
 
+// 11. translate="no" on the element itself (not just an ancestor) must opt
+// out — mirrors the ancestor-or-self semantics that text nodes already
+// use so a single `<img translate="no" alt="…">` stays untranslated.
+$selfClient = new DeepglotA11yFakeClient();
+$selfTranslator = new HtmlTranslator($selfClient, $options, new DeepglotA11yNullCache());
+$selfHtml = '<!DOCTYPE html><html><head></head><body>'
+    . '<img translate="no" alt="Eigenname stays german" src="/x.jpg">'
+    . '<a href="/x" translate="no" title="Auch nicht übersetzen">link</a>'
+    . '<button translate="no" aria-label="Button-aria">Push</button>'
+    . '<img alt="Normales Bildtitel" src="/y.jpg">'
+    . '</body></html>';
+$selfTranslator->translate($selfHtml, 'en');
+a11yAssert(!in_array('Eigenname stays german', $selfClient->sentTexts, true), 'img alt on translate="no" element must NOT be sent');
+a11yAssert(!in_array('Auch nicht übersetzen', $selfClient->sentTexts, true), '<a title> on translate="no" element must NOT be sent');
+a11yAssert(!in_array('Button-aria', $selfClient->sentTexts, true), '<button aria-label> on translate="no" element must NOT be sent');
+a11yAssert(in_array('Normales Bildtitel', $selfClient->sentTexts, true), 'Untagged img alt still translates as control');
+
+// 12. Project `exclude_selectors` (.no-translate / #hero etc.) must scope
+// accessibility attributes the same way it scopes text nodes, otherwise
+// the existing exclusion contract regresses for alt / title / aria-label
+// / placeholder traffic.
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_test_key',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'exclude_selectors' => ".no-translate\n#hero",
+]));
+$excludeClient = new DeepglotA11yFakeClient();
+$excludeTranslator = new HtmlTranslator($excludeClient, $options, new DeepglotA11yNullCache());
+$excludeHtml = '<!DOCTYPE html><html><head></head><body>'
+    . '<div class="no-translate"><img alt="Bild im no-translate Block" src="/x.jpg"></div>'
+    . '<section id="hero"><a title="Hero Link" href="/">Link</a></section>'
+    . '<div class="content"><img alt="Bild im normalen Block" src="/y.jpg"></div>'
+    . '</body></html>';
+$excludeTranslator->translate($excludeHtml, 'en');
+a11yAssert(!in_array('Bild im no-translate Block', $excludeClient->sentTexts, true), '.no-translate ancestor must exclude img alt');
+a11yAssert(!in_array('Hero Link', $excludeClient->sentTexts, true), '#hero ancestor must exclude <a title>');
+a11yAssert(in_array('Bild im normalen Block', $excludeClient->sentTexts, true), 'Non-excluded ancestor still allows img alt');
+
 fwrite(STDOUT, "AccessibilityAttributeTranslationTest: OK\n");
