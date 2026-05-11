@@ -26,7 +26,7 @@ test("uses GPT-5.5 as the OpenAI default translation model", () => {
 
   assert.equal(config.provider, "openai");
   assert.equal(config.model, DEFAULT_OPENAI_TRANSLATION_MODEL);
-  assert.equal(config.model, "gpt-5.5");
+  assert.equal(config.model, "gpt-5-mini");
 });
 
 test("prefers project language model settings over environment defaults", () => {
