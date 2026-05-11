@@ -44,7 +44,7 @@ test("rejects unknown translation providers early", () => {
     () => resolveTranslationProvider({ TRANSLATION_PROVIDER: "foobar" }),
     {
       message:
-        "Unknown TRANSLATION_PROVIDER 'foobar'. Allowed providers: openai, openrouter, ollama, openai-compatible, deepl, mock.",
+        "Unknown TRANSLATION_PROVIDER 'foobar'. Allowed providers: openai, gemini, openrouter, ollama, openai-compatible, deepl, mock.",
     }
   );
 });
@@ -101,4 +101,103 @@ test("openai provider fails clearly when the API key is missing", async () => {
       message: "OpenAI API key is not configured.",
     }
   );
+});
+
+test("falls back to a secondary provider when the primary returns a 429 quota error", async () => {
+  const originalFetch = globalThis.fetch;
+  const recorded: string[] = [];
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    recorded.push(url);
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return new Response(
+        JSON.stringify({ error: { message: "rate limit exceeded", type: "insufficient_quota" } }),
+        { status: 429 }
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      translations: [{ text: "fallback-worked", detectedSourceLanguage: "de" }],
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      );
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [
+      { text: "fallback-worked", detectedSourceLanguage: "de" },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("does not retry on auth errors that should surface to the operator", async () => {
+  const originalFetch = globalThis.fetch;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return new Response('{"error":{"message":"Invalid API key"}}', { status: 401 });
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"translations":[{"text":"x"}]}' }] } }] }));
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Hi"], sourceLang: "en", targetLang: "de" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          }
+        ),
+      /401/
+    );
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 0, "fallback must not run on auth errors");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
