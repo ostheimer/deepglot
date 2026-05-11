@@ -17,9 +17,19 @@ export const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const DEFAULT_OPENROUTER_TRANSLATION_MODEL = "openai/gpt-5-mini";
 export const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_OLLAMA_TRANSLATION_MODEL = "llama3.3";
+/**
+ * Default Gemini model for translation. Google explicitly recommends
+ * `gemini-3.1-flash-lite-preview` for high-volume translation workloads —
+ * twice as fast as 2.5-flash-lite, better quality on translation / RAG /
+ * data-extraction benchmarks, and still in the cheap tier ($0.25 input /
+ * $1.50 output per 1M tokens).
+ */
+export const DEFAULT_GEMINI_TRANSLATION_MODEL = "gemini-3.1-flash-lite-preview";
+export const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export const TRANSLATION_PROVIDERS = [
   "openai",
+  "gemini",
   "openrouter",
   "ollama",
   "openai-compatible",
@@ -99,6 +109,8 @@ export function getProviderLabel(provider: TranslationProviderName) {
   switch (provider) {
     case "openai":
       return "OpenAI";
+    case "gemini":
+      return "Google Gemini";
     case "openrouter":
       return "OpenRouter";
     case "ollama":
@@ -122,6 +134,16 @@ export function getRecommendedModels(provider: TranslationProviderName) {
         "gpt-5.4-mini",
         "gpt-5.4",
         "gpt-5.5",
+      ];
+    case "gemini":
+      return [
+        // Default for translation — Google's recommended high-volume model.
+        "gemini-3.1-flash-lite-preview",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-2.5-pro",
+        "gemini-3.1-pro-preview",
       ];
     case "openrouter":
       return [
@@ -202,17 +224,19 @@ export function resolveTranslationProviderConfig({
   const provider =
     configuredProjectProvider ??
     configuredEnvProvider ??
-    (env.OPENAI_API_KEY
-      ? "openai"
-      : env.OPENROUTER_API_KEY
-        ? "openrouter"
-        : env.DEEPL_API_KEY
-          ? "deepl"
-          : env.OLLAMA_BASE_URL
-            ? "ollama"
-            : env.NODE_ENV === "development" || env.NODE_ENV === "test"
-              ? "mock"
-              : null);
+    (env.GEMINI_API_KEY
+      ? "gemini"
+      : env.OPENAI_API_KEY
+        ? "openai"
+        : env.OPENROUTER_API_KEY
+          ? "openrouter"
+          : env.DEEPL_API_KEY
+            ? "deepl"
+            : env.OLLAMA_BASE_URL
+              ? "ollama"
+              : env.NODE_ENV === "development" || env.NODE_ENV === "test"
+                ? "mock"
+                : null);
 
   if (!provider) {
     throw new Error(
@@ -235,6 +259,19 @@ export function resolveTranslationProviderConfig({
           DEFAULT_OPENAI_TRANSLATION_MODEL,
         baseUrl: projectBaseUrl || clean(env.OPENAI_BASE_URL) || DEFAULT_OPENAI_BASE_URL,
         apiKey: projectApiKey || clean(env.OPENAI_API_KEY) || clean(env.TRANSLATION_API_KEY),
+      };
+    case "gemini":
+      return {
+        provider,
+        model:
+          projectModel ||
+          clean(env.GEMINI_TRANSLATION_MODEL) ||
+          clean(env.TRANSLATION_MODEL) ||
+          DEFAULT_GEMINI_TRANSLATION_MODEL,
+        baseUrl:
+          projectBaseUrl || clean(env.GEMINI_BASE_URL) || DEFAULT_GEMINI_BASE_URL,
+        apiKey:
+          projectApiKey || clean(env.GEMINI_API_KEY) || clean(env.TRANSLATION_API_KEY),
       };
     case "openrouter":
       return {
@@ -297,5 +334,63 @@ export function validateTranslationProviderConfig(config: TranslationProviderCon
   }
   if (!config.apiKey) {
     throw new Error(`${getProviderLabel(config.provider)} API key is not configured.`);
+  }
+}
+
+/**
+ * Builds the ordered provider chain `translateTexts` walks when one
+ * provider returns a quota / rate-limit / 5xx error. The first entry is
+ * always the active primary config. Additional entries come from the
+ * comma-separated `TRANSLATION_FALLBACK_PROVIDERS` env var (or default to
+ * the implicit chain `gemini → openai` so the most common outage
+ * combination still serves traffic).
+ *
+ * Providers that cannot produce a usable config (missing API key, no
+ * base URL, no model) are silently skipped — the operator should see the
+ * primary failure rather than a wave of misconfiguration errors.
+ */
+export function buildFallbackProviderChain(
+  primary: TranslationProviderConfig,
+  env: Record<string, string | undefined> = process.env
+): TranslationProviderConfig[] {
+  const chain: TranslationProviderConfig[] = [primary];
+  const rawList = clean(env.TRANSLATION_FALLBACK_PROVIDERS);
+  const candidateNames = rawList
+    ? rawList
+        .split(",")
+        .map((entry) => normalizeTranslationProvider(entry.trim()))
+        .filter((entry): entry is TranslationProviderName => entry !== null)
+    : DEFAULT_FALLBACK_PROVIDERS.filter((name) => name !== primary.provider);
+
+  for (const candidateName of candidateNames) {
+    if (candidateName === primary.provider) continue;
+    if (chain.some((entry) => entry.provider === candidateName)) continue;
+
+    const candidate = tryResolveFallbackProvider(candidateName, env);
+    if (candidate) {
+      chain.push(candidate);
+    }
+  }
+
+  return chain;
+}
+
+const DEFAULT_FALLBACK_PROVIDERS: TranslationProviderName[] = [
+  "gemini",
+  "openai",
+];
+
+function tryResolveFallbackProvider(
+  provider: TranslationProviderName,
+  env: Record<string, string | undefined>
+): TranslationProviderConfig | null {
+  try {
+    const candidate = resolveTranslationProviderConfig({
+      env: { ...env, TRANSLATION_PROVIDER: provider },
+    });
+    validateTranslationProviderConfig(candidate);
+    return candidate;
+  } catch {
+    return null;
   }
 }

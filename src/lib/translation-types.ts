@@ -11,6 +11,7 @@ export type TranslateTextsInput = {
 
 export type TranslationProviderName =
   | "deepl"
+  | "gemini"
   | "mock"
   | "ollama"
   | "openai"
