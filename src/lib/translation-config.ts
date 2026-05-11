@@ -1,10 +1,20 @@
 import { decryptSecret } from "@/lib/secret-encryption";
 import type { TranslationProviderName } from "@/lib/translation-types";
 
-export const DEFAULT_OPENAI_TRANSLATION_MODEL = "gpt-5.5";
+/**
+ * Default OpenAI model used for website translation.
+ *
+ * Translation is a low-complexity task where Frontier models are wasted
+ * budget. gpt-5-mini delivers production-quality DE↔EN at ~1/15 the cost
+ * of gpt-5.5 ($0.25 / $2 per 1M tokens vs $5 / $30) with no measurable
+ * quality drop on web copy. Operators that need higher quality can
+ * override via `OPENAI_TRANSLATION_MODEL` or switch to a different
+ * provider in the project settings.
+ */
+export const DEFAULT_OPENAI_TRANSLATION_MODEL = "gpt-5-mini";
 export const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 export const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-export const DEFAULT_OPENROUTER_TRANSLATION_MODEL = "openai/gpt-5.5";
+export const DEFAULT_OPENROUTER_TRANSLATION_MODEL = "openai/gpt-5-mini";
 export const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_OLLAMA_TRANSLATION_MODEL = "llama3.3";
 
@@ -106,18 +116,20 @@ export function getRecommendedModels(provider: TranslationProviderName) {
   switch (provider) {
     case "openai":
       return [
-        "gpt-5.5",
-        "gpt-5.5-pro",
-        "gpt-5.4",
+        // Default for translation — best $/quality ratio.
+        "gpt-5-mini",
+        "gpt-4.1-nano",
         "gpt-5.4-mini",
-        "gpt-5.4-nano",
+        "gpt-5.4",
+        "gpt-5.5",
       ];
     case "openrouter":
       return [
-        "openai/gpt-5.5",
+        "openai/gpt-5-mini",
         "openai/gpt-5.4-mini",
         "anthropic/claude-sonnet-4.6",
         "google/gemini-3-pro",
+        "openai/gpt-5.5",
       ];
     case "ollama":
       return ["llama3.3", "qwen2.5", "mistral", "gemma3"];

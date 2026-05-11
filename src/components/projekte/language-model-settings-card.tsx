@@ -53,8 +53,8 @@ const COPY = {
     customProviderWarning:
       "For Ollama/local gateways, the Vercel runtime must be able to reach the base URL. localhost on your laptop is not reachable from production.",
     providers: {
-      openai: "OpenAI models. Default model is gpt-5.5.",
-      openrouter: "OpenRouter model ids such as openai/gpt-5.5 or anthropic/claude-sonnet-4.6.",
+      openai: "OpenAI models. Default model is gpt-5-mini — best $/quality ratio for translation.",
+      openrouter: "OpenRouter model ids such as openai/gpt-5-mini, google/gemini-3-pro or anthropic/claude-sonnet-4.6.",
       ollama: "Ollama or another local OpenAI-compatible endpoint.",
       "openai-compatible": "Any OpenAI-compatible API gateway, proxy, or self-hosted endpoint.",
       deepl: "DeepL translation API. No model id is needed.",
@@ -83,8 +83,8 @@ const COPY = {
     customProviderWarning:
       "Für Ollama/lokale Gateways muss die Vercel-Laufzeit die Base URL erreichen können. localhost auf deinem Laptop ist in Production nicht erreichbar.",
     providers: {
-      openai: "OpenAI-Modelle. Standardmodell ist gpt-5.5.",
-      openrouter: "OpenRouter-Modell-IDs wie openai/gpt-5.5 oder anthropic/claude-sonnet-4.6.",
+      openai: "OpenAI-Modelle. Standardmodell ist gpt-5-mini — bestes Preis/Qualitäts-Verhältnis für Übersetzungen.",
+      openrouter: "OpenRouter-Modell-IDs wie openai/gpt-5-mini, google/gemini-3-pro oder anthropic/claude-sonnet-4.6.",
       ollama: "Ollama oder ein anderer lokaler OpenAI-kompatibler Endpoint.",
       "openai-compatible": "Beliebiger OpenAI-kompatibler API-Gateway, Proxy oder selbst gehosteter Endpoint.",
       deepl: "DeepL Translation API. Es wird keine Modell-ID benötigt.",
@@ -211,7 +211,7 @@ export function LanguageModelSettingsCard({
               list="translationModelPresets"
               value={model}
               onChange={(event) => setModel(event.target.value)}
-              placeholder={selectedProviderOption?.recommendedModels[0] ?? "gpt-5.5"}
+              placeholder={selectedProviderOption?.recommendedModels[0] ?? "gpt-5-mini"}
             />
             <datalist id="translationModelPresets">
               {selectedProviderOption?.recommendedModels.map((item) => (

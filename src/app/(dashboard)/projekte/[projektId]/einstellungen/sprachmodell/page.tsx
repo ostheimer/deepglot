@@ -64,8 +64,8 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
           </p>
           <p className="mt-1 text-xs text-gray-500">
             {locale === "de"
-              ? "Standard: gpt-5.5, mit Mini-/Nano-Optionen für Kostenkontrolle."
-              : "Default: gpt-5.5, with mini/nano options for cost control."}
+              ? "Standard: gpt-5-mini für beste Kosten/Qualität. Pro/Flagship-Modelle wie gpt-5.5 sind opt-in."
+              : "Default: gpt-5-mini for best cost/quality. Pro/flagship models like gpt-5.5 are opt-in."}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
