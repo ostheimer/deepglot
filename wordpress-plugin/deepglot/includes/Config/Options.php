@@ -25,6 +25,21 @@ class Options
     /** Allowed values for `switcher_label_format`. */
     public const SWITCHER_LABEL_FORMATS = ['full_name', 'iso_code'];
 
+    /**
+     * Allowed values for `switcher_position`. `inline` (default) keeps the
+     * Weglot-compatible drop-anywhere behaviour; the four `fixed-*` slots
+     * pin the switcher to a viewport corner via CSS `position: fixed` so
+     * auto-inject can deliver the floating-button UX that Weglot ships as
+     * default.
+     */
+    public const SWITCHER_POSITIONS = [
+        'inline',
+        'fixed-bottom-right',
+        'fixed-bottom-left',
+        'fixed-top-right',
+        'fixed-top-left',
+    ];
+
     public static function defaults(): array
     {
         return [
@@ -53,6 +68,7 @@ class Options
             'switcher_label_format' => 'full_name',
             'switcher_language_order' => [],
             'switcher_custom_css' => '',
+            'switcher_position' => 'inline',
         ];
     }
 
@@ -108,6 +124,11 @@ class Options
             ),
             'switcher_language_order' => $this->normalizeLanguageList($input['switcher_language_order'] ?? []),
             'switcher_custom_css' => trim((string) ($input['switcher_custom_css'] ?? '')),
+            'switcher_position' => $this->sanitizeEnum(
+                (string) ($input['switcher_position'] ?? 'inline'),
+                self::SWITCHER_POSITIONS,
+                'inline'
+            ),
         ];
     }
 
@@ -280,6 +301,13 @@ class Options
         return (string) ($options['switcher_custom_css'] ?? '');
     }
 
+    public function getSwitcherPosition(): string
+    {
+        $options = $this->all();
+        $value   = strtolower(trim((string) ($options['switcher_position'] ?? 'inline')));
+        return in_array($value, self::SWITCHER_POSITIONS, true) ? $value : 'inline';
+    }
+
     public function getRuntimeConfigSyncedAt(): int
     {
         $options = $this->all();
@@ -341,6 +369,13 @@ class Options
             }
             if (array_key_exists('customCss', $switcher)) {
                 $settings['switcher_custom_css'] = trim((string) $switcher['customCss']);
+            }
+            if (array_key_exists('position', $switcher)) {
+                $settings['switcher_position'] = $this->sanitizeEnum(
+                    (string) $switcher['position'],
+                    self::SWITCHER_POSITIONS,
+                    'inline'
+                );
             }
         }
 

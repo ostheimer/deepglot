@@ -273,6 +273,11 @@ class HtmlTranslator
         $conditions = [
             'not(' . $skipExpr . ')',
             'not(ancestor-or-self::*[@translate="no"])',
+            // Deepglot-owned subtrees (language switcher, debug widgets,
+            // SaaS-injected UI) mark themselves with this attribute so
+            // they never get re-translated and end up shipping
+            // "[en] English" gibberish.
+            'not(ancestor-or-self::*[@data-deepglot-no-translate])',
         ];
         $excludedSelectorExpr = $this->excludedSelectorXPathExpression();
 
@@ -491,6 +496,9 @@ class HtmlTranslator
                     return true;
                 }
                 if ($node->hasAttribute('translate') && strtolower($node->getAttribute('translate')) === 'no') {
+                    return true;
+                }
+                if ($node->hasAttribute('data-deepglot-no-translate')) {
                     return true;
                 }
             }

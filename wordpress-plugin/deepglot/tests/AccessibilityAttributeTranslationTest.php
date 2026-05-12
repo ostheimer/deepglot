@@ -250,4 +250,20 @@ a11yAssert(!in_array('Bild im no-translate Block', $excludeClient->sentTexts, tr
 a11yAssert(!in_array('Hero Link', $excludeClient->sentTexts, true), '#hero ancestor must exclude <a title>');
 a11yAssert(in_array('Bild im normalen Block', $excludeClient->sentTexts, true), 'Non-excluded ancestor still allows img alt');
 
+// 13. data-deepglot-no-translate is the canonical "plugin-owned subtree"
+// marker. The language switcher uses it on its <aside> so the same
+// HTML pipeline that translates the rest of the page never re-translates
+// switcher labels (otherwise "English" comes out as "[en] English").
+$dgClient     = new DeepglotA11yFakeClient();
+$dgTranslator = new HtmlTranslator($dgClient, $options, new DeepglotA11yNullCache());
+$dgHtml = '<!DOCTYPE html><html><head></head><body>'
+    . '<aside data-deepglot-no-translate><span>English bleibt unangetastet</span><a title="Switcher Titel" href="/en/">EN</a><img alt="Switcher Flagge" src="/x.svg"></aside>'
+    . '<p>Normaler Absatz wird übersetzt.</p>'
+    . '</body></html>';
+$dgTranslator->translate($dgHtml, 'en');
+a11yAssert(!in_array('English bleibt unangetastet', $dgClient->sentTexts, true), 'Text inside data-deepglot-no-translate subtree must not be sent');
+a11yAssert(!in_array('Switcher Titel', $dgClient->sentTexts, true), '<a title> inside data-deepglot-no-translate must not be sent');
+a11yAssert(!in_array('Switcher Flagge', $dgClient->sentTexts, true), '<img alt> inside data-deepglot-no-translate must not be sent');
+a11yAssert(in_array('Normaler Absatz wird übersetzt.', $dgClient->sentTexts, true), 'Text outside the subtree still translates as control');
+
 fwrite(STDOUT, "AccessibilityAttributeTranslationTest: OK\n");

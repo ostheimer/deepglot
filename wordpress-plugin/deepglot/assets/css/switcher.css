@@ -1,10 +1,53 @@
 /* Deepglot language switcher — appearance is driven by admin options,
    so adding new switcher_* values in Options.php should be paired with
-   a matching block here. */
+   a matching block here.
+
+   Markup contract (mirrors Weglot's <aside> + <input type=checkbox>
+   pattern so the same CSS hooks work and the dropdown is JS-free):
+
+     <aside class="deepglot-switcher deepglot-switcher--{list|dropdown}
+                  deepglot-switcher--flag-{style} deepglot-switcher--{position}"
+            data-deepglot-no-translate tabindex="0" aria-expanded="false">
+       <input id="dgXXXX" class="deepglot-choice" type="checkbox">
+       <label for="dgXXXX" class="deepglot-current ...">
+         <span class="deepglot-flag deepglot-flag--de"></span>
+         <span class="deepglot-label">Deutsch</span>
+       </label>
+       <ul role="none">
+         <li class="deepglot-li deepglot-lang-en" role="option" data-l="en" …>
+           <a href="/en/" hreflang="en" role="option" data-deepglot-no-translate>…</a>
+         </li>
+       </ul>
+     </aside>
+*/
 
 .deepglot-switcher {
   display: inline-flex;
+  position: relative;
   font-family: inherit;
+}
+
+/* The checkbox drives the dropdown via :checked. Hide visually but
+   keep it focusable so keyboard users can Space/Enter to toggle. */
+.deepglot-switcher .deepglot-choice {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+  margin: 0;
+}
+
+.deepglot-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.875rem;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
 }
 
 .deepglot-switcher ul {
@@ -39,6 +82,11 @@
   opacity: 1;
   font-weight: 600;
 }
+
+/* In the inline (list) style, the always-visible <label> is redundant
+   with the inline list — hide it. The active <li> already shows the
+   current language. */
+.deepglot-switcher--list .deepglot-current { display: none; }
 
 /* -------------------------------------------------------------------------
    Flag rendering. Flags are emitted by the renderer as
@@ -179,8 +227,9 @@
 }
 
 /* -------------------------------------------------------------------------
-   Dropdown style
-   The active <li> acts as the trigger; siblings appear on hover / focus.
+   Dropdown style — JS-free via input[type=checkbox] + :checked.
+   Tap/click anywhere on the label toggles the checkbox; CSS reveals the
+   <ul>. Works on touch devices where :hover sticks.
    ------------------------------------------------------------------------- */
 
 .deepglot-switcher--dropdown {
@@ -191,32 +240,36 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-  position: relative;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 6px;
-  min-width: 8em;
+  min-width: 9em;
   padding: 0.25rem 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: none;
+  z-index: 999;
+}
+
+.deepglot-switcher--dropdown .deepglot-choice:checked ~ ul {
+  display: flex;
+}
+
+/* Keep keyboard-only users in mind: focus-within reveals the menu too. */
+.deepglot-switcher--dropdown:focus-within > ul {
+  display: flex;
 }
 
 .deepglot-switcher--dropdown li {
-  display: none;
-  padding: 0;
-}
-
-.deepglot-switcher--dropdown li.deepglot-active {
-  display: list-item;
-}
-
-.deepglot-switcher--dropdown:hover li,
-.deepglot-switcher--dropdown:focus-within li {
-  display: list-item;
+  width: 100%;
 }
 
 .deepglot-switcher--dropdown li a {
   display: flex;
-  padding: 0.35rem 0.75rem;
+  width: 100%;
+  padding: 0.4rem 0.85rem;
   border-radius: 0;
 }
 
@@ -224,6 +277,51 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
-.deepglot-switcher--dropdown li a:hover {
+.deepglot-switcher--dropdown li a:hover,
+.deepglot-switcher--dropdown li a:focus {
   background: rgba(0, 0, 0, 0.06);
+}
+
+.deepglot-switcher--dropdown .deepglot-current::after {
+  content: "▾";
+  font-size: 0.7em;
+  opacity: 0.6;
+  margin-left: 0.2em;
+}
+
+/* -------------------------------------------------------------------------
+   Fixed-position variants (Weglot-style "floating button" UX).
+   Combined with switcher_auto_inject they give the "install plugin →
+   chip appears bottom-right of every page" out-of-the-box experience.
+   ------------------------------------------------------------------------- */
+
+.deepglot-switcher--fixed-bottom-right,
+.deepglot-switcher--fixed-bottom-left,
+.deepglot-switcher--fixed-top-right,
+.deepglot-switcher--fixed-top-left {
+  position: fixed;
+  z-index: 999999;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.deepglot-switcher--fixed-bottom-right { bottom: 20px; right: 20px; }
+.deepglot-switcher--fixed-bottom-left  { bottom: 20px; left: 20px; }
+.deepglot-switcher--fixed-top-right    { top: 20px; right: 20px; }
+.deepglot-switcher--fixed-top-left     { top: 20px; left: 20px; }
+
+/* In a fixed slot the dropdown should flip up if anchored at the bottom
+   so the menu doesn't get clipped under the viewport edge. */
+.deepglot-switcher--fixed-bottom-right.deepglot-switcher--dropdown > ul,
+.deepglot-switcher--fixed-bottom-left.deepglot-switcher--dropdown > ul {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+.deepglot-switcher--fixed-bottom-right.deepglot-switcher--dropdown > ul,
+.deepglot-switcher--fixed-top-right.deepglot-switcher--dropdown > ul {
+  left: auto;
+  right: 0;
 }
