@@ -525,6 +525,30 @@ class SettingsPage
                             </select>
                         </div>
 
+                        <div class="dg-field">
+                            <label for="dg_switcher_position"><?php esc_html_e('Position auf der Seite', 'deepglot'); ?></label>
+                            <select id="dg_switcher_position" name="<?php echo esc_attr($optKey); ?>[switcher_position]">
+                                <option value="inline" <?php selected(($settings['switcher_position'] ?? 'inline'), 'inline'); ?>>
+                                    <?php esc_html_e('Inline (an der eingebetteten Stelle)', 'deepglot'); ?>
+                                </option>
+                                <option value="fixed-bottom-right" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-bottom-right'); ?>>
+                                    <?php esc_html_e('Floating: rechts unten', 'deepglot'); ?>
+                                </option>
+                                <option value="fixed-bottom-left" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-bottom-left'); ?>>
+                                    <?php esc_html_e('Floating: links unten', 'deepglot'); ?>
+                                </option>
+                                <option value="fixed-top-right" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-top-right'); ?>>
+                                    <?php esc_html_e('Floating: rechts oben', 'deepglot'); ?>
+                                </option>
+                                <option value="fixed-top-left" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-top-left'); ?>>
+                                    <?php esc_html_e('Floating: links oben', 'deepglot'); ?>
+                                </option>
+                            </select>
+                            <p class="description" style="margin-top:4px; font-size:12px;">
+                                <?php esc_html_e('„Floating" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten.', 'deepglot'); ?>
+                            </p>
+                        </div>
+
                         <div class="dg-field" style="display:flex; align-items:flex-end;">
                             <div class="dg-toggle-row" style="margin-bottom:6px;">
                                 <input

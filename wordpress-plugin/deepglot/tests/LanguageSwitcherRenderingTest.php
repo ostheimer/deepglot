@@ -231,8 +231,8 @@ $cssHtml = $customCss->renderShortcode([]);
 switcherRenderAssert(str_contains($cssHtml, '<style'), 'Custom CSS wrapper present: ' . $cssHtml);
 switcherRenderAssert(str_contains($cssHtml, $css), 'Custom CSS contents preserved verbatim');
 $cssStylePos = strpos($cssHtml, '<style');
-$cssNavPos   = strpos($cssHtml, '<nav');
-switcherRenderAssert($cssStylePos !== false && $cssNavPos !== false && $cssStylePos < $cssNavPos, 'Custom CSS emitted before nav');
+$cssNavPos   = strpos($cssHtml, '<aside');
+switcherRenderAssert($cssStylePos !== false && $cssNavPos !== false && $cssStylePos < $cssNavPos, 'Custom CSS emitted before switcher wrapper');
 
 // Custom CSS must NOT break out of its <style> tag. A malicious admin
 // submission with a closing tag should be neutralised. The renderer must

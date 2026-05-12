@@ -6,23 +6,29 @@ use Deepglot\Config\Options;
 use Deepglot\Support\SiteRouting;
 
 /**
- * Renders a language switcher and injects it into the page.
+ * Renders the Deepglot language switcher.
  *
- * Usage options:
- *  1. Shortcode:   [deepglot_switcher]
- *  2. PHP call:    do_action('deepglot_language_switcher')
- *  3. Auto-inject: enabled in plugin settings (appends switcher before </body>)
+ * Usage:
+ *   1. Shortcode:   [deepglot_switcher]
+ *   2. PHP call:    do_action('deepglot_language_switcher')
+ *   3. Auto-inject: enabled in plugin settings (fires on wp_footer)
  *
- * Every appearance knob is driven by Options (admin settings), so the SaaS
- * Switcher panel — which writes runtime config that flows into the same
- * options — produces an on-page output that mirrors the dashboard preview.
+ * The rendered markup intentionally mirrors Weglot's switcher contract
+ * (semantic <aside>, JS-free <input type="checkbox"> dropdown trigger,
+ * unique-id-per-render, full ARIA, data-l / data-code-language /
+ * data-name-language attributes) so the same CSS / JS hooks that work
+ * with Weglot can be reused, and so two switchers on the same page do
+ * not share open/closed state.
  */
 class LanguageSwitcher
 {
     private Options $options;
     private SiteRouting $routing;
 
-    /** ISO 639-1 → display label */
+    /**
+     * ISO 639-1 → native display label. Matches the dashboard "full name"
+     * column so server-rendered output and SaaS preview agree.
+     */
     private const LANGUAGE_LABELS = [
         'de' => 'Deutsch',
         'en' => 'English',
@@ -40,7 +46,7 @@ class LanguageSwitcher
 
     public function __construct(Options $options, SiteRouting $routing)
     {
-        $this->options  = $options;
+        $this->options = $options;
         $this->routing = $routing;
     }
 
@@ -50,8 +56,6 @@ class LanguageSwitcher
         add_action('deepglot_language_switcher', [$this, 'renderAction']);
         add_action('wp_enqueue_scripts', [$this, 'enqueueStyles']);
 
-        // Auto-inject runs from the footer so the switcher always appears
-        // even when a theme has no shortcode / do_action call.
         if ($this->options->shouldAutoInjectSwitcher()) {
             add_action('wp_footer', [$this, 'renderAction']);
         }
@@ -91,57 +95,33 @@ class LanguageSwitcher
             return '';
         }
 
-        $requestUri  = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host        = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
-        $activeLang  = $this->routing->detectLanguage($requestUri, $host) ?? $this->options->getSourceLanguage();
-        $sourceLang  = $this->options->getSourceLanguage();
-        $targetLangs = $this->options->getTargetLanguages();
-
+        $requestUri   = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $host         = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $activeLang   = $this->routing->detectLanguage($requestUri, $host) ?? $this->options->getSourceLanguage();
+        $sourceLang   = $this->options->getSourceLanguage();
+        $targetLangs  = $this->options->getTargetLanguages();
         $canonicalPath = $this->routing->getCanonicalPath($requestUri);
 
-        // Style: option default, overridable via shortcode att for backward
-        // compatibility with templates that already inline a style choice.
         $style = $this->options->getSwitcherDefaultStyle();
         if (isset($atts['style']) && in_array($atts['style'], Options::SWITCHER_STYLES, true)) {
             $style = $atts['style'];
         }
 
-        $flagStyle    = $this->options->getSwitcherFlagStyle();
-        $labelFormat  = $this->options->getSwitcherLabelFormat();
-        $showLabel    = $this->options->shouldShowSwitcherLabel();
+        $flagStyle     = $this->options->getSwitcherFlagStyle();
+        $labelFormat   = $this->options->getSwitcherLabelFormat();
+        $showLabel     = $this->options->shouldShowSwitcherLabel();
         $languageOrder = $this->options->getSwitcherLanguageOrder();
-        $customCss    = $this->options->getSwitcherCustomCss();
+        $position      = $this->options->getSwitcherPosition();
+        $customCss     = $this->options->getSwitcherCustomCss();
+        $autoRedirect  = $this->options->shouldAutoRedirect();
 
-        $configured  = array_values(array_unique(array_merge([$sourceLang], $targetLangs)));
+        $configured   = array_values(array_unique(array_merge([$sourceLang], $targetLangs)));
         $orderedLangs = $this->orderLanguages($configured, $languageOrder);
 
-        $items = '';
-        foreach ($orderedLangs as $lang) {
-            $href   = $this->routing->buildHrefForLanguage($canonicalPath, $lang);
-            $label  = $this->labelFor($lang, $labelFormat);
-            $active = ($lang === $activeLang) ? ' class="deepglot-active"' : '';
-
-            $flagSpan = ($flagStyle !== 'none')
-                ? sprintf(
-                    '<span class="deepglot-flag deepglot-flag--%s" aria-hidden="true"></span>',
-                    esc_attr($lang)
-                )
-                : '';
-
-            $labelClass = $showLabel
-                ? 'deepglot-label'
-                : 'deepglot-label deepglot-label--sr-only';
-
-            $items .= sprintf(
-                '<li%s><a href="%s" hreflang="%s">%s<span class="%s">%s</span></a></li>',
-                $active,
-                esc_attr($href),
-                esc_attr($lang),
-                $flagSpan,
-                esc_attr($labelClass),
-                esc_html($label)
-            );
-        }
+        // Unique id per render so multiple switchers on the same page do
+        // not share the checkbox open/closed state. Uses uniqid() because
+        // wp_rand() can collide under heavy parallel rendering.
+        $uniqId = 'dg' . uniqid('', true);
 
         $wrapperClasses = [
             'deepglot-switcher',
@@ -151,14 +131,103 @@ class LanguageSwitcher
         if (!$showLabel) {
             $wrapperClasses[] = 'deepglot-switcher--no-label';
         }
+        if ($position !== 'inline') {
+            $wrapperClasses[] = 'deepglot-switcher--' . $position;
+        }
 
-        $css = $this->renderCustomCss($customCss);
+        // Always-visible trigger: the current language. Wrapped in a
+        // <label for="{uniqId}"> so clicking it toggles the checkbox
+        // that drives the dropdown — no JavaScript required for the
+        // open/close interaction.
+        $activeLabelText = $this->labelFor($activeLang, $labelFormat);
+        $activeNative    = self::LANGUAGE_LABELS[$activeLang] ?? strtoupper($activeLang);
 
-        return $css . sprintf(
-            '<nav class="%s" aria-label="%s"><ul>%s</ul></nav>',
+        $labelClass = $showLabel
+            ? 'deepglot-label'
+            : 'deepglot-label deepglot-label--sr-only';
+
+        $activeFlagSpan = $this->flagSpan($activeLang, $flagStyle);
+
+        $current = sprintf(
+            '<input id="%s" class="deepglot-choice" type="checkbox" aria-hidden="true" tabindex="-1">'
+            . '<label for="%s" class="deepglot-current %s" data-l="%s">'
+            . '%s<span class="%s">%s</span>'
+            . '</label>',
+            esc_attr($uniqId),
+            esc_attr($uniqId),
+            'deepglot-flag-' . esc_attr($flagStyle) . ' deepglot-lang-' . esc_attr($activeLang),
+            esc_attr($activeLang),
+            $activeFlagSpan,
+            esc_attr($labelClass),
+            esc_html($activeLabelText)
+        );
+
+        $items = '<ul role="none">';
+        foreach ($orderedLangs as $lang) {
+            $isActive = ($lang === $activeLang);
+            $href     = $this->routing->buildHrefForLanguage($canonicalPath, $lang);
+
+            if ($autoRedirect) {
+                $href = $this->appendExplicitMarker($href);
+            }
+
+            $label    = $this->labelFor($lang, $labelFormat);
+            $native   = self::LANGUAGE_LABELS[$lang] ?? strtoupper($lang);
+            $flagSpan = $this->flagSpan($lang, $flagStyle);
+
+            $liClasses = [
+                'deepglot-li',
+                'deepglot-lang-' . $lang,
+            ];
+            if ($isActive) {
+                $liClasses[] = 'deepglot-active';
+            }
+
+            $items .= sprintf(
+                '<li class="%s" role="option" data-l="%s" data-code-language="%s" data-name-language="%s">'
+                . '<a href="%s" hreflang="%s" role="option" data-deepglot-no-translate '
+                . 'title="%s" class="deepglot-lang-link deepglot-lang-link--%s">'
+                . '%s<span class="%s">%s</span>'
+                . '</a>'
+                . '</li>',
+                esc_attr(implode(' ', $liClasses)),
+                esc_attr($lang),
+                esc_attr($lang),
+                esc_attr($native),
+                esc_attr($href),
+                esc_attr($lang),
+                esc_attr(sprintf(__('Switch language to %s', 'deepglot'), $native)),
+                esc_attr($lang),
+                $flagSpan,
+                esc_attr($labelClass),
+                esc_html($label)
+            );
+        }
+        $items .= '</ul>';
+
+        $css         = $this->renderCustomCss($customCss);
+        $ariaLabel   = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
+        $marker      = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
+
+        return $css . $marker . sprintf(
+            '<aside class="%s" data-deepglot-no-translate tabindex="0" '
+            . 'aria-expanded="false" aria-label="%s">%s%s</aside>',
             esc_attr(implode(' ', $wrapperClasses)),
-            esc_attr__('Language switcher', 'deepglot'),
+            esc_attr($ariaLabel),
+            $current,
             $items
+        );
+    }
+
+    private function flagSpan(string $lang, string $flagStyle): string
+    {
+        if ($flagStyle === 'none') {
+            return '';
+        }
+
+        return sprintf(
+            '<span class="deepglot-flag deepglot-flag--%s" aria-hidden="true"></span>',
+            esc_attr($lang)
         );
     }
 
@@ -183,7 +252,7 @@ class LanguageSwitcher
         }
 
         $configuredSet = array_flip($configured);
-        $ordered = [];
+        $ordered       = [];
 
         foreach ($preferred as $lang) {
             if (isset($configuredSet[$lang]) && !in_array($lang, $ordered, true)) {
@@ -191,9 +260,6 @@ class LanguageSwitcher
             }
         }
 
-        // Anything configured but missing from the preferred list still
-        // gets rendered (deterministically, after the explicit order) so a
-        // forgotten language never disappears silently.
         foreach ($configured as $lang) {
             if (!in_array($lang, $ordered, true)) {
                 $ordered[] = $lang;
@@ -201,6 +267,30 @@ class LanguageSwitcher
         }
 
         return $ordered;
+    }
+
+    /**
+     * Append `deepglot-explicit=1` to a URL so the BrowserRedirector knows
+     * the visitor picked this language deliberately (matches Weglot's
+     * `?wg-choose-original=…` marker).
+     */
+    private function appendExplicitMarker(string $href): string
+    {
+        if ($href === '') {
+            return $href;
+        }
+
+        $separator = (strpos($href, '?') === false) ? '?' : '&';
+        $fragment  = '';
+
+        $hashPos = strpos($href, '#');
+        if ($hashPos !== false) {
+            $fragment = substr($href, $hashPos);
+            $href     = substr($href, 0, $hashPos);
+            $separator = (strpos($href, '?') === false) ? '?' : '&';
+        }
+
+        return $href . $separator . 'deepglot-explicit=1' . $fragment;
     }
 
     /**
