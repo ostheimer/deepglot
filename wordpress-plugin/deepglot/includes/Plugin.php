@@ -2,6 +2,7 @@
 
 namespace Deepglot;
 
+use Deepglot\Admin\NavMenuMetaBox;
 use Deepglot\Admin\SettingsPage;
 use Deepglot\Api\Client;
 use Deepglot\Api\RestApi;
@@ -11,6 +12,7 @@ use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
 use Deepglot\Frontend\LinkRewriter;
+use Deepglot\Frontend\NavMenuSwitcher;
 use Deepglot\Frontend\OutputBuffer;
 use Deepglot\Frontend\RequestRouter;
 use Deepglot\Frontend\WooCommerceEmailTranslator;
@@ -40,12 +42,14 @@ class Plugin
         add_action('deepglot_flush_rewrite_rules', 'flush_rewrite_rules');
 
         $this->container->get(SettingsPage::class)->register();
+        $this->container->get(NavMenuMetaBox::class)->register();
         $this->container->get(RestApi::class)->register();
         $this->container->get(SettingsSync::class)->register();
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
+        $this->container->get(NavMenuSwitcher::class)->register();
         $this->container->get(WooCommerceEmailTranslator::class)->register();
     }
 
@@ -168,6 +172,14 @@ class Plugin
 
         $this->container->singleton(LanguageSwitcher::class, function (Container $c) {
             return new LanguageSwitcher($c->get(Options::class), $c->get(SiteRouting::class));
+        });
+
+        $this->container->singleton(NavMenuSwitcher::class, function (Container $c) {
+            return new NavMenuSwitcher($c->get(Options::class), $c->get(SiteRouting::class));
+        });
+
+        $this->container->singleton(NavMenuMetaBox::class, static function () {
+            return new NavMenuMetaBox();
         });
 
         $this->container->singleton(BrowserRedirector::class, function (Container $c) {
