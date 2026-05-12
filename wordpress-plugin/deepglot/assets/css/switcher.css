@@ -1,5 +1,10 @@
+/* Deepglot language switcher — appearance is driven by admin options,
+   so adding new switcher_* values in Options.php should be paired with
+   a matching block here. */
+
 .deepglot-switcher {
   display: inline-flex;
+  font-family: inherit;
 }
 
 .deepglot-switcher ul {
@@ -13,7 +18,9 @@
 }
 
 .deepglot-switcher li a {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
   padding: 0.25rem 0.5rem;
   text-decoration: none;
   border-radius: 3px;
@@ -23,11 +30,200 @@
   transition: opacity 0.15s;
 }
 
-.deepglot-switcher li a:hover {
+.deepglot-switcher li a:hover,
+.deepglot-switcher li a:focus {
   opacity: 1;
 }
 
 .deepglot-switcher li.deepglot-active a {
   opacity: 1;
   font-weight: 600;
+}
+
+/* -------------------------------------------------------------------------
+   Flag rendering. Flags are emitted by the renderer as
+   <span class="deepglot-flag deepglot-flag--{iso}">.
+   We render the country flag emoji via ::before so we don't need to bundle
+   SVG assets per release; CSS shape + finish modifiers below customise the
+   visual treatment based on switcher_flag_style.
+   ------------------------------------------------------------------------- */
+
+.deepglot-flag {
+  display: inline-block;
+  width: 1.25em;
+  height: 0.9em;
+  line-height: 0.9em;
+  font-size: 1.1em;
+  vertical-align: middle;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+  background: #f3f3f3; /* fallback for emoji-less environments */
+}
+
+.deepglot-flag::before {
+  content: "🏳️";
+  display: block;
+  line-height: 1;
+  transform: translateY(-0.05em);
+}
+
+/* ISO 639-1 → most-recognised flag. Multi-country languages pick a
+   conventional default; admins who want a different flag can override per
+   language via switcher_custom_css. */
+.deepglot-flag--de::before { content: "🇩🇪"; }
+.deepglot-flag--en::before { content: "🇬🇧"; }
+.deepglot-flag--fr::before { content: "🇫🇷"; }
+.deepglot-flag--es::before { content: "🇪🇸"; }
+.deepglot-flag--it::before { content: "🇮🇹"; }
+.deepglot-flag--pt::before { content: "🇵🇹"; }
+.deepglot-flag--nl::before { content: "🇳🇱"; }
+.deepglot-flag--pl::before { content: "🇵🇱"; }
+.deepglot-flag--ru::before { content: "🇷🇺"; }
+.deepglot-flag--ja::before { content: "🇯🇵"; }
+.deepglot-flag--zh::before { content: "🇨🇳"; }
+.deepglot-flag--ar::before { content: "🇸🇦"; }
+.deepglot-flag--cs::before { content: "🇨🇿"; }
+.deepglot-flag--da::before { content: "🇩🇰"; }
+.deepglot-flag--fi::before { content: "🇫🇮"; }
+.deepglot-flag--sv::before { content: "🇸🇪"; }
+.deepglot-flag--no::before { content: "🇳🇴"; }
+.deepglot-flag--tr::before { content: "🇹🇷"; }
+.deepglot-flag--ko::before { content: "🇰🇷"; }
+.deepglot-flag--he::before { content: "🇮🇱"; }
+.deepglot-flag--hu::before { content: "🇭🇺"; }
+.deepglot-flag--ro::before { content: "🇷🇴"; }
+.deepglot-flag--el::before { content: "🇬🇷"; }
+.deepglot-flag--uk::before { content: "🇺🇦"; }
+.deepglot-flag--bg::before { content: "🇧🇬"; }
+.deepglot-flag--hr::before { content: "🇭🇷"; }
+.deepglot-flag--sk::before { content: "🇸🇰"; }
+.deepglot-flag--sl::before { content: "🇸🇮"; }
+.deepglot-flag--th::before { content: "🇹🇭"; }
+.deepglot-flag--vi::before { content: "🇻🇳"; }
+.deepglot-flag--id::before { content: "🇮🇩"; }
+
+/* Rectangle, matte (default). */
+.deepglot-switcher--flag-rectangle_mat .deepglot-flag {
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* Rectangle, glossy — adds a subtle highlight overlay. */
+.deepglot-switcher--flag-rectangle_glossy .deepglot-flag {
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.deepglot-switcher--flag-rectangle_glossy .deepglot-flag::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.0) 55%,
+    rgba(0, 0, 0, 0.10) 100%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Circle, matte. */
+.deepglot-switcher--flag-circle_mat .deepglot-flag,
+.deepglot-switcher--flag-circle_glossy .deepglot-flag {
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.deepglot-switcher--flag-circle_mat .deepglot-flag::before,
+.deepglot-switcher--flag-circle_glossy .deepglot-flag::before {
+  /* Scale the emoji up so the circle is fully covered by flag colour. */
+  transform: scale(1.4) translateY(0);
+  line-height: 1.1em;
+}
+
+.deepglot-switcher--flag-circle_glossy .deepglot-flag {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.deepglot-switcher--flag-circle_glossy .deepglot-flag::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 30% 25%,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.0) 50%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* -------------------------------------------------------------------------
+   Label visibility
+   ------------------------------------------------------------------------- */
+
+.deepglot-label--sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* -------------------------------------------------------------------------
+   Dropdown style
+   The active <li> acts as the trigger; siblings appear on hover / focus.
+   ------------------------------------------------------------------------- */
+
+.deepglot-switcher--dropdown {
+  position: relative;
+}
+
+.deepglot-switcher--dropdown > ul {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  min-width: 8em;
+  padding: 0.25rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.deepglot-switcher--dropdown li {
+  display: none;
+  padding: 0;
+}
+
+.deepglot-switcher--dropdown li.deepglot-active {
+  display: list-item;
+}
+
+.deepglot-switcher--dropdown:hover li,
+.deepglot-switcher--dropdown:focus-within li {
+  display: list-item;
+}
+
+.deepglot-switcher--dropdown li a {
+  display: flex;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0;
+}
+
+.deepglot-switcher--dropdown li.deepglot-active a {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.deepglot-switcher--dropdown li a:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
