@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- OpenAI / Gemini / DeepL
 
 ## Local development
 
@@ -205,8 +205,8 @@ Recommended environment matrix:
   - point both database URLs to Neon `preview`
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
-  - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+  - set `TRANSLATION_PROVIDER=gemini` (or `openai` as fallback)
+  - optionally set `GEMINI_TRANSLATION_MODEL` or `OPENAI_TRANSLATION_MODEL` to override the default (`gemini-3.1-flash-lite-preview` / `gpt-5-mini`)
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -279,9 +279,10 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
-- Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `gemini`, `openai-compatible`, `deepl`, or `mock`.
+- Without an explicit setting, the app prefers `gemini` when `GEMINI_API_KEY` is present, then `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
+- `OPENAI_TRANSLATION_MODEL` controls the OpenAI model and defaults to `gpt-5-mini`.
+- `GEMINI_TRANSLATION_MODEL` controls the Gemini model and defaults to `gemini-3.1-flash-lite-preview`.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 
 ## Test login and demo workspace

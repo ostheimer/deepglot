@@ -200,8 +200,9 @@ Next.js App (Vercel)          WordPress Plugin
 | Billing | Stripe | Industry standard, strong subscription support |
 | UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
 | Email | Resend | Next.js friendly, cost-effective |
-| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
-| Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
+| Translation (Primary) | Gemini provider (`gemini-3.1-flash-lite-preview`) | Fastest, cheapest high-volume path; automatic 429/5xx fallback chain to OpenAI |
+| Translation (Secondary) | OpenAI provider (`gpt-5-mini` default) | Production-quality fallback; model configurable; local `mock` mode for development |
+| Translation (Tertiary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
 | DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
 
