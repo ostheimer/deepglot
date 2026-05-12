@@ -115,10 +115,11 @@ class NavMenuSwitcher
                 continue;
             }
 
-            $isDropdown   = $this->hasModifier($item, self::CLS_DROPDOWN);
-            $isHideCur    = $this->hasModifier($item, self::CLS_HIDE);
-            $parentId     = (int) $item->ID;
-            $baseOrder    = (int) ($item->menu_order ?? $parentId);
+            $isDropdown        = $this->hasModifier($item, self::CLS_DROPDOWN);
+            $isHideCur         = $this->hasModifier($item, self::CLS_HIDE);
+            $markerId          = (int) $item->ID;
+            $markerParentId    = (int) ($item->menu_item_parent ?? 0);
+            $baseOrder         = (int) ($item->menu_order ?? $markerId);
 
             $rendered = $this->renderLangItems(
                 $orderedLangs,
@@ -128,7 +129,8 @@ class NavMenuSwitcher
                 $labelFormat,
                 $isHideCur,
                 $isDropdown,
-                $parentId,
+                $markerId,
+                $markerParentId,
                 $baseOrder
             );
 
@@ -152,19 +154,22 @@ class NavMenuSwitcher
         string $labelFormat,
         bool $hideCurrent,
         bool $dropdown,
-        int $parentMarkerId,
+        int $markerId,
+        int $markerParentId,
         int $baseOrder
     ): array {
         $items = [];
 
-        // In dropdown mode we re-use the marker item itself as the
-        // top-level parent so its existing menu_item_parent / classes
-        // / theme-assigned styling stays intact for nested menus.
+        // Preserve the marker's original position in the menu tree: a
+        // marker nested under another item must keep that parent after
+        // expansion. In dropdown mode the synthetic "active language
+        // parent" slot inherits the marker's parent so submenu layouts
+        // (mobile drawers, megamenus) survive the expansion.
         if ($dropdown) {
             $parent = (object) [
-                'ID'               => $parentMarkerId,
-                'db_id'            => $parentMarkerId,
-                'menu_item_parent' => 0,
+                'ID'               => $markerId,
+                'db_id'            => $markerId,
+                'menu_item_parent' => $markerParentId,
                 'menu_order'       => $baseOrder,
                 'title'            => $hideCurrent
                     ? __('Sprache wählen', 'deepglot')
@@ -181,6 +186,11 @@ class NavMenuSwitcher
             ];
             $items[] = $parent;
         }
+
+        // In list mode each language item replaces the marker at its own
+        // depth — so it inherits the marker's parent. In dropdown mode
+        // the language items become children of the marker itself.
+        $childParent = $dropdown ? $markerId : $markerParentId;
 
         $i = 0;
         foreach ($orderedLangs as $lang) {
@@ -200,9 +210,9 @@ class NavMenuSwitcher
 
             $i++;
             $items[] = (object) [
-                'ID'               => $parentMarkerId * 1000 + $i,
-                'db_id'            => $parentMarkerId * 1000 + $i,
-                'menu_item_parent' => $dropdown ? $parentMarkerId : 0,
+                'ID'               => $markerId * 1000 + $i,
+                'db_id'            => $markerId * 1000 + $i,
+                'menu_item_parent' => $childParent,
                 'menu_order'       => $baseOrder + $i,
                 'title'            => $this->labelFor($lang, $labelFormat),
                 'url'              => $href,

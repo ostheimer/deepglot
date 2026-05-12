@@ -272,4 +272,46 @@ $expanded9 = $switcher9->expand([
 ]);
 navAssert(count($expanded9) === 0, 'Disabled plugin: marker item is removed (no orphan placeholder visible to visitors)');
 
+// 12. Marker that is nested under another menu item must keep that
+// parent relationship after expansion (codex P1 from PR #47):
+//   - LIST mode: every language item inherits the marker's parent.
+//   - DROPDOWN mode: the active-language parent slot inherits the
+//     marker's parent; children attach to the marker's own id.
+// Without this, nested switchers in mobile drawers / megamenus get
+// hoisted to top level and the surrounding submenu collapses.
+$switcherNested = navMakeSwitcher();
+$nestedList = $switcherNested->expand([
+    navItem(7, 'Top item', '/top/'),
+    navItem(8, 'Nested marker', '#deepglot-switcher', [
+        'post_name' => 'deepglot-switcher',
+        'menu_item_parent' => 7,
+    ]),
+]);
+$langItems = array_filter($nestedList, fn($i) => in_array('deepglot-lang', $i->classes ?? [], true));
+navAssert(count($langItems) === 3, 'Nested list mode: 3 language items expanded');
+foreach ($langItems as $item) {
+    navAssert((int) $item->menu_item_parent === 7, 'Nested list mode: language item inherits marker parent (got ' . (int) $item->menu_item_parent . '): ' . $item->title);
+}
+
+$switcherNestedDrop = navMakeSwitcher();
+$nestedDrop = $switcherNestedDrop->expand([
+    navItem(7, 'Top item', '/top/'),
+    navItem(8, 'Nested marker', '#deepglot-switcher', [
+        'post_name' => 'deepglot-switcher',
+        'menu_item_parent' => 7,
+        'classes' => ['deepglot-mode-dropdown'],
+    ]),
+]);
+$dropParents = array_values(array_filter(
+    $nestedDrop,
+    fn($i) => in_array('deepglot-switcher-parent', $i->classes ?? [], true)
+));
+navAssert(count($dropParents) === 1, 'Nested dropdown: exactly one parent slot');
+navAssert((int) $dropParents[0]->menu_item_parent === 7, 'Nested dropdown: parent inherits marker parent (got ' . (int) $dropParents[0]->menu_item_parent . ')');
+$dropChildren = array_filter(
+    $nestedDrop,
+    fn($i) => (int) $i->menu_item_parent === 8
+);
+navAssert(count($dropChildren) === 2, 'Nested dropdown: children still attach to marker id, got ' . count($dropChildren));
+
 fwrite(STDOUT, "NavMenuSwitcherTest: OK\n");
