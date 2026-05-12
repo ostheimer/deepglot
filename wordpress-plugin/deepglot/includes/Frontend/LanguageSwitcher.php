@@ -85,6 +85,20 @@ class LanguageSwitcher
         );
 
         wp_enqueue_style('deepglot-switcher');
+
+        // Tiny progressive-enhancement script: syncs aria-expanded on the
+        // wrapper with the checkbox state so screen readers see the live
+        // open/closed status. CSS still drives the visual toggle; the JS
+        // is purely accessibility metadata.
+        wp_register_script(
+            'deepglot-switcher',
+            DEEPGLOT_PLUGIN_URL . 'assets/js/switcher.js',
+            [],
+            DEEPGLOT_PLUGIN_VERSION,
+            true
+        );
+
+        wp_enqueue_script('deepglot-switcher');
     }
 
     // -------------------------------------------------------------------------
@@ -205,14 +219,26 @@ class LanguageSwitcher
         }
         $items .= '</ul>';
 
-        $css         = $this->renderCustomCss($customCss);
-        $ariaLabel   = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
-        $marker      = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
+        $css       = $this->renderCustomCss($customCss);
+        $ariaLabel = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
+        $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
+
+        // For the dropdown variant the wrapper is an expandable popup
+        // trigger: announce that to assistive tech via aria-haspopup AND
+        // start with aria-expanded="false" (truthful at first paint
+        // because the checkbox is unchecked). switcher.js then keeps
+        // aria-expanded in sync with the checkbox so the announcement
+        // doesn't go stale when the user opens the menu. The inline-list
+        // variant has no popup, so neither attribute is emitted.
+        $popupAttrs = '';
+        if ($style === 'dropdown') {
+            $popupAttrs = ' aria-haspopup="listbox" aria-expanded="false"';
+        }
 
         return $css . $marker . sprintf(
-            '<aside class="%s" data-deepglot-no-translate tabindex="0" '
-            . 'aria-expanded="false" aria-label="%s">%s%s</aside>',
+            '<aside class="%s" data-deepglot-no-translate tabindex="0"%s aria-label="%s">%s%s</aside>',
             esc_attr(implode(' ', $wrapperClasses)),
+            $popupAttrs,
             esc_attr($ariaLabel),
             $current,
             $items

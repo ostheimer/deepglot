@@ -150,10 +150,22 @@ ariaAssert(
     'Switcher <aside> must carry data-deepglot-no-translate'
 );
 
-// 2. ARIA attributes are present on <aside>.
+// 2. ARIA attributes on <aside>: every switcher gets tabindex and an
+// aria-label so it's keyboard-focusable and announced. aria-expanded is
+// only emitted in dropdown mode (where it's meaningful) and is kept in
+// sync with the checkbox state by assets/js/switcher.js — emitting it
+// in list mode would lie to assistive tech about a popup that doesn't
+// exist (codex P2 from PR #46).
 ariaAssert(preg_match('/<aside\b[^>]*\btabindex="0"/', $html) === 1, 'aside needs tabindex="0"');
-ariaAssert(preg_match('/<aside\b[^>]*\baria-expanded="false"/', $html) === 1, 'aside needs aria-expanded="false"');
 ariaAssert(preg_match('/<aside\b[^>]*\baria-label="[^"]+"/', $html) === 1, 'aside needs aria-label');
+ariaAssert(!preg_match('/<aside\b[^>]*\baria-expanded=/', $html), 'List-style switcher must NOT advertise aria-expanded (no popup): ' . substr($html, 0, 200));
+ariaAssert(!preg_match('/<aside\b[^>]*\baria-haspopup=/', $html), 'List-style switcher must NOT advertise aria-haspopup');
+
+// 2b. Dropdown style flips on aria-haspopup="listbox" and the initial
+// aria-expanded="false" (which the JS keeps live).
+$dropHtml = (makeAriaSwitcher(['switcher_default_style' => 'dropdown']))->renderShortcode([]);
+ariaAssert(preg_match('/<aside\b[^>]*\baria-haspopup="listbox"/', $dropHtml) === 1, 'Dropdown variant needs aria-haspopup="listbox"');
+ariaAssert(preg_match('/<aside\b[^>]*\baria-expanded="false"/', $dropHtml) === 1, 'Dropdown variant needs initial aria-expanded="false" (JS syncs to true on open)');
 
 // 3. role attributes are present on UL and LI/A.
 ariaAssert(preg_match('/<ul\b[^>]*\brole="none"/', $html) === 1, '<ul> needs role="none"');
