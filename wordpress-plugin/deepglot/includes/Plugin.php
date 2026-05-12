@@ -14,6 +14,8 @@ use Deepglot\Frontend\LanguageSwitcher;
 use Deepglot\Frontend\LinkRewriter;
 use Deepglot\Frontend\NavMenuSwitcher;
 use Deepglot\Frontend\OutputBuffer;
+use Deepglot\Frontend\SwitcherBlock;
+use Deepglot\Frontend\SwitcherWidget;
 use Deepglot\Frontend\RequestRouter;
 use Deepglot\Frontend\WooCommerceEmailTranslator;
 use Deepglot\Support\SiteRouting;
@@ -50,6 +52,14 @@ class Plugin
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
         $this->container->get(NavMenuSwitcher::class)->register();
+        $this->container->get(SwitcherBlock::class)->register();
+
+        // Classic Widget: bind the LanguageSwitcher before WP calls our
+        // register_widget() callback so the widget's render path has
+        // the dependency it needs (WP instantiates WP_Widget subclasses
+        // itself, with no constructor args).
+        SwitcherWidget::bind($this->container->get(LanguageSwitcher::class));
+        SwitcherWidget::register();
         $this->container->get(WooCommerceEmailTranslator::class)->register();
     }
 
@@ -180,6 +190,10 @@ class Plugin
 
         $this->container->singleton(NavMenuMetaBox::class, static function () {
             return new NavMenuMetaBox();
+        });
+
+        $this->container->singleton(SwitcherBlock::class, function (Container $c) {
+            return new SwitcherBlock($c->get(LanguageSwitcher::class));
         });
 
         $this->container->singleton(BrowserRedirector::class, function (Container $c) {
