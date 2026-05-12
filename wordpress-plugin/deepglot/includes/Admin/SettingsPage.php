@@ -124,6 +124,32 @@ class SettingsPage
         .dg-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
         .dg-help { font-size: 12px; color: #9ca3af; margin-top: 8px; }
         .dg-help a { color: #4f46e5; text-decoration: none; }
+
+        /* Switcher section */
+        .dg-section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 460px; }
+        .dg-section-grid .dg-field { margin-bottom: 0; }
+        .dg-section-grid select { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+
+        /* Drag-and-drop sortable list */
+        .dg-sortable { list-style: none; padding: 0; margin: 8px 0 0; max-width: 460px; }
+        .dg-sortable-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            cursor: grab;
+            user-select: none;
+            font-size: 13px;
+            transition: background .12s, border-color .12s;
+        }
+        .dg-sortable-item:hover { background: #f3f4f6; }
+        .dg-sortable-item.dragging { opacity: 0.4; cursor: grabbing; }
+        .dg-sortable-item.drag-over { border-color: #4f46e5; background: #eef2ff; }
+        .dg-drag-handle { color: #9ca3af; font-size: 14px; line-height: 1; }
+        .dg-sortable-label { font-weight: 600; color: #111827; letter-spacing: 0.5px; }
+        .dg-sortable-native { color: #6b7280; font-weight: 400; margin-left: 4px; }
         </style>
         <?php
     }
@@ -402,7 +428,156 @@ class SettingsPage
                         </div>
                     </div>
 
-                    <div class="dg-actions" style="margin-top:24px;">
+                </div><!-- /.dg-wizard (main) -->
+
+                <?php
+                // ---------------------------------------------------------------
+                // Sprachumschalter / Language switcher appearance section
+                // ---------------------------------------------------------------
+                $allLangs = array_values(array_unique(array_merge(
+                    [(string) ($settings['source_language'] ?? 'de')],
+                    (array) ($settings['target_languages'] ?? [])
+                )));
+                $storedOrder = (array) ($settings['switcher_language_order'] ?? []);
+                $orderedLangs = [];
+                foreach ($storedOrder as $lang) {
+                    if (in_array($lang, $allLangs, true) && !in_array($lang, $orderedLangs, true)) {
+                        $orderedLangs[] = $lang;
+                    }
+                }
+                foreach ($allLangs as $lang) {
+                    if (!in_array($lang, $orderedLangs, true)) {
+                        $orderedLangs[] = $lang;
+                    }
+                }
+                $nativeLabels = [
+                    'de' => 'Deutsch', 'en' => 'English', 'fr' => 'Français', 'es' => 'Español',
+                    'it' => 'Italiano', 'pt' => 'Português', 'nl' => 'Nederlands', 'pl' => 'Polski',
+                    'ru' => 'Русский', 'ja' => '日本語', 'zh' => '中文', 'ar' => 'العربية',
+                ];
+                ?>
+                <div class="dg-wizard" style="margin-top:20px;">
+                    <div class="dg-wizard-header">
+                        <h2><?php esc_html_e('Sprachumschalter', 'deepglot'); ?></h2>
+                        <p><?php esc_html_e('Wie und wo soll der Language-Switcher auf deiner Website erscheinen?', 'deepglot'); ?></p>
+                    </div>
+
+                    <div class="dg-toggle-row">
+                        <input
+                            type="checkbox"
+                            id="dg_switcher_auto_inject"
+                            name="<?php echo esc_attr($optKey); ?>[switcher_auto_inject]"
+                            value="1"
+                            class="dg-toggle"
+                            <?php checked(!empty($settings['switcher_auto_inject'])); ?>
+                        />
+                        <label for="dg_switcher_auto_inject">
+                            <?php esc_html_e('Switcher automatisch im Seitenfooter einfügen', 'deepglot'); ?>
+                        </label>
+                    </div>
+                    <p class="description" style="margin-top:4px;">
+                        <?php esc_html_e('Alternativ: Shortcode [deepglot_switcher] oder PHP do_action(\'deepglot_language_switcher\') in deinem Theme.', 'deepglot'); ?>
+                    </p>
+
+                    <div class="dg-section-grid" style="margin-top:18px;">
+                        <div class="dg-field">
+                            <label for="dg_switcher_style"><?php esc_html_e('Darstellung', 'deepglot'); ?></label>
+                            <select id="dg_switcher_style" name="<?php echo esc_attr($optKey); ?>[switcher_default_style]">
+                                <option value="list" <?php selected(($settings['switcher_default_style'] ?? 'list'), 'list'); ?>>
+                                    <?php esc_html_e('Inline-Liste', 'deepglot'); ?>
+                                </option>
+                                <option value="dropdown" <?php selected(($settings['switcher_default_style'] ?? 'list'), 'dropdown'); ?>>
+                                    <?php esc_html_e('Dropdown', 'deepglot'); ?>
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="dg-field">
+                            <label for="dg_switcher_flag"><?php esc_html_e('Flaggenstil', 'deepglot'); ?></label>
+                            <select id="dg_switcher_flag" name="<?php echo esc_attr($optKey); ?>[switcher_flag_style]">
+                                <option value="rectangle_mat" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'rectangle_mat'); ?>>
+                                    <?php esc_html_e('Rechteckig, matt', 'deepglot'); ?>
+                                </option>
+                                <option value="rectangle_glossy" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'rectangle_glossy'); ?>>
+                                    <?php esc_html_e('Rechteckig, glänzend', 'deepglot'); ?>
+                                </option>
+                                <option value="circle_mat" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'circle_mat'); ?>>
+                                    <?php esc_html_e('Kreis, matt', 'deepglot'); ?>
+                                </option>
+                                <option value="circle_glossy" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'circle_glossy'); ?>>
+                                    <?php esc_html_e('Kreis, glänzend', 'deepglot'); ?>
+                                </option>
+                                <option value="none" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'none'); ?>>
+                                    <?php esc_html_e('Ohne Flagge', 'deepglot'); ?>
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="dg-field">
+                            <label for="dg_switcher_label_format"><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                            <select id="dg_switcher_label_format" name="<?php echo esc_attr($optKey); ?>[switcher_label_format]">
+                                <option value="full_name" <?php selected(($settings['switcher_label_format'] ?? 'full_name'), 'full_name'); ?>>
+                                    <?php esc_html_e('Volle Bezeichnung („Deutsch")', 'deepglot'); ?>
+                                </option>
+                                <option value="iso_code" <?php selected(($settings['switcher_label_format'] ?? 'full_name'), 'iso_code'); ?>>
+                                    <?php esc_html_e('ISO-Code („DE")', 'deepglot'); ?>
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="dg-field" style="display:flex; align-items:flex-end;">
+                            <div class="dg-toggle-row" style="margin-bottom:6px;">
+                                <input
+                                    type="checkbox"
+                                    id="dg_switcher_show_label"
+                                    name="<?php echo esc_attr($optKey); ?>[switcher_show_label]"
+                                    value="1"
+                                    class="dg-toggle"
+                                    <?php checked(!empty($settings['switcher_show_label'])); ?>
+                                />
+                                <label for="dg_switcher_show_label">
+                                    <?php esc_html_e('Bezeichnung sichtbar', 'deepglot'); ?>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dg-field" style="margin-top:18px;">
+                        <label><?php esc_html_e('Reihenfolge der Sprachen', 'deepglot'); ?></label>
+                        <ul id="dg-switcher-order" class="dg-sortable">
+                            <?php foreach ($orderedLangs as $lang) :
+                                $native = $nativeLabels[$lang] ?? '';
+                            ?>
+                                <li class="dg-sortable-item" draggable="true" data-lang="<?php echo esc_attr($lang); ?>">
+                                    <span class="dg-drag-handle" aria-hidden="true">⠿</span>
+                                    <span class="dg-sortable-label"><?php echo esc_html(strtoupper($lang)); ?></span>
+                                    <?php if ($native !== '') : ?>
+                                        <span class="dg-sortable-native"><?php echo esc_html($native); ?></span>
+                                    <?php endif; ?>
+                                    <input
+                                        type="hidden"
+                                        name="<?php echo esc_attr($optKey); ?>[switcher_language_order][]"
+                                        value="<?php echo esc_attr($lang); ?>"
+                                    >
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                        <p class="description"><?php esc_html_e('Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject.', 'deepglot'); ?></p>
+                    </div>
+
+                    <div class="dg-field" style="margin-top:18px;">
+                        <label for="dg_switcher_custom_css"><?php esc_html_e('Eigenes CSS für den Switcher', 'deepglot'); ?></label>
+                        <textarea
+                            id="dg_switcher_custom_css"
+                            name="<?php echo esc_attr($optKey); ?>[switcher_custom_css]"
+                            rows="6"
+                            style="width:100%; max-width:460px; font-family:monospace; font-size:12px;"
+                            placeholder=".deepglot-switcher li a { color: #333; }"
+                        ><?php echo esc_textarea((string) ($settings['switcher_custom_css'] ?? '')); ?></textarea>
+                        <p class="description"><?php esc_html_e('Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann.', 'deepglot'); ?></p>
+                    </div>
+
+                <div class="dg-actions" style="margin-top:24px;">
                         <button type="submit" class="dg-btn-primary">
                             <?php esc_html_e('Einstellungen speichern', 'deepglot'); ?>
                         </button>
@@ -423,6 +598,56 @@ class SettingsPage
 
                 </div><!-- /.dg-wizard -->
             </form>
+
+            <script>
+            (function () {
+                var list = document.getElementById('dg-switcher-order');
+                if (!list) return;
+                var dragging = null;
+
+                list.addEventListener('dragstart', function (event) {
+                    var item = event.target.closest('.dg-sortable-item');
+                    if (!item || !list.contains(item)) return;
+                    dragging = item;
+                    item.classList.add('dragging');
+                    event.dataTransfer.effectAllowed = 'move';
+                    // Firefox needs payload on dataTransfer for dragstart to fire.
+                    try { event.dataTransfer.setData('text/plain', item.dataset.lang || ''); } catch (e) {}
+                });
+
+                list.addEventListener('dragend', function () {
+                    if (dragging) dragging.classList.remove('dragging');
+                    list.querySelectorAll('.drag-over').forEach(function (el) {
+                        el.classList.remove('drag-over');
+                    });
+                    dragging = null;
+                });
+
+                list.addEventListener('dragover', function (event) {
+                    event.preventDefault();
+                    if (!dragging) return;
+                    var target = event.target.closest('.dg-sortable-item');
+                    if (!target || target === dragging || !list.contains(target)) return;
+
+                    list.querySelectorAll('.drag-over').forEach(function (el) {
+                        el.classList.remove('drag-over');
+                    });
+                    target.classList.add('drag-over');
+
+                    var rect = target.getBoundingClientRect();
+                    var midY = rect.top + rect.height / 2;
+                    if (event.clientY < midY) {
+                        list.insertBefore(dragging, target);
+                    } else {
+                        list.insertBefore(dragging, target.nextSibling);
+                    }
+                });
+
+                list.addEventListener('drop', function (event) {
+                    event.preventDefault();
+                });
+            })();
+            </script>
         </div>
         <?php
     }

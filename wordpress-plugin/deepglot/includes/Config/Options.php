@@ -6,6 +6,25 @@ class Options
 {
     public const OPTION_KEY = 'deepglot_settings';
 
+    /** Allowed values for `switcher_default_style`. */
+    public const SWITCHER_STYLES = ['list', 'dropdown'];
+
+    /**
+     * Allowed values for `switcher_flag_style`. Mirrors the Project →
+     * Switcher panel options on the SaaS dashboard so two-way sync stays
+     * unambiguous.
+     */
+    public const SWITCHER_FLAG_STYLES = [
+        'rectangle_mat',
+        'rectangle_glossy',
+        'circle_mat',
+        'circle_glossy',
+        'none',
+    ];
+
+    /** Allowed values for `switcher_label_format`. */
+    public const SWITCHER_LABEL_FORMATS = ['full_name', 'iso_code'];
+
     public static function defaults(): array
     {
         return [
@@ -24,6 +43,16 @@ class Options
             'exclude_regexes' => '',
             'exclude_selectors' => '',
             'runtime_config_synced_at' => 0,
+            // Language-switcher appearance & placement. All opt-in: existing
+            // sites keep their shortcode / theme integration untouched until
+            // the admin explicitly enables auto-inject or customises styles.
+            'switcher_auto_inject' => false,
+            'switcher_default_style' => 'list',
+            'switcher_flag_style' => 'rectangle_mat',
+            'switcher_show_label' => true,
+            'switcher_label_format' => 'full_name',
+            'switcher_language_order' => [],
+            'switcher_custom_css' => '',
         ];
     }
 
@@ -60,7 +89,32 @@ class Options
             'exclude_regexes' => sanitize_textarea_field((string) ($input['exclude_regexes'] ?? '')),
             'exclude_selectors' => sanitize_textarea_field((string) ($input['exclude_selectors'] ?? '')),
             'runtime_config_synced_at' => max(0, (int) ($input['runtime_config_synced_at'] ?? 0)),
+            'switcher_auto_inject' => !empty($input['switcher_auto_inject']),
+            'switcher_default_style' => $this->sanitizeEnum(
+                (string) ($input['switcher_default_style'] ?? 'list'),
+                self::SWITCHER_STYLES,
+                'list'
+            ),
+            'switcher_flag_style' => $this->sanitizeEnum(
+                (string) ($input['switcher_flag_style'] ?? 'rectangle_mat'),
+                self::SWITCHER_FLAG_STYLES,
+                'rectangle_mat'
+            ),
+            'switcher_show_label' => !empty($input['switcher_show_label']),
+            'switcher_label_format' => $this->sanitizeEnum(
+                (string) ($input['switcher_label_format'] ?? 'full_name'),
+                self::SWITCHER_LABEL_FORMATS,
+                'full_name'
+            ),
+            'switcher_language_order' => $this->normalizeLanguageList($input['switcher_language_order'] ?? []),
+            'switcher_custom_css' => trim((string) ($input['switcher_custom_css'] ?? '')),
         ];
+    }
+
+    private function sanitizeEnum(string $value, array $allowed, string $default): string
+    {
+        $normalized = strtolower(trim($value));
+        return in_array($normalized, $allowed, true) ? $normalized : $default;
     }
 
     public function getApiBaseUrl(): string
@@ -177,6 +231,55 @@ class Options
         return $this->lines((string) ($options['exclude_selectors'] ?? ''));
     }
 
+    public function shouldAutoInjectSwitcher(): bool
+    {
+        $options = $this->all();
+        return (bool) ($options['switcher_auto_inject'] ?? false);
+    }
+
+    public function getSwitcherDefaultStyle(): string
+    {
+        $options = $this->all();
+        $value = strtolower(trim((string) ($options['switcher_default_style'] ?? 'list')));
+        return in_array($value, self::SWITCHER_STYLES, true) ? $value : 'list';
+    }
+
+    public function getSwitcherFlagStyle(): string
+    {
+        $options = $this->all();
+        $value = strtolower(trim((string) ($options['switcher_flag_style'] ?? 'rectangle_mat')));
+        return in_array($value, self::SWITCHER_FLAG_STYLES, true) ? $value : 'rectangle_mat';
+    }
+
+    public function shouldShowSwitcherLabel(): bool
+    {
+        $options = $this->all();
+        return (bool) ($options['switcher_show_label'] ?? true);
+    }
+
+    public function getSwitcherLabelFormat(): string
+    {
+        $options = $this->all();
+        $value = strtolower(trim((string) ($options['switcher_label_format'] ?? 'full_name')));
+        return in_array($value, self::SWITCHER_LABEL_FORMATS, true) ? $value : 'full_name';
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getSwitcherLanguageOrder(): array
+    {
+        $options = $this->all();
+        $stored = $options['switcher_language_order'] ?? [];
+        return $this->normalizeLanguageList($stored);
+    }
+
+    public function getSwitcherCustomCss(): string
+    {
+        $options = $this->all();
+        return (string) ($options['switcher_custom_css'] ?? '');
+    }
+
     public function getRuntimeConfigSyncedAt(): int
     {
         $options = $this->all();
@@ -191,14 +294,56 @@ class Options
 
     public function applyRuntimeConfig(array $runtimeConfig): bool
     {
-        $exclusions = is_array($runtimeConfig['exclusions'] ?? null)
-            ? $runtimeConfig['exclusions']
-            : [];
-
         $settings = $this->all();
-        $settings['exclude_urls'] = implode("\n", $this->normalizeStringList($exclusions['urls'] ?? []));
-        $settings['exclude_regexes'] = implode("\n", $this->normalizeStringList($exclusions['regexes'] ?? []));
-        $settings['exclude_selectors'] = implode("\n", $this->normalizeStringList($exclusions['selectors'] ?? []));
+
+        // Only overwrite sub-objects the SaaS actually sent. A partial
+        // runtime payload (e.g. switcher-only) must not silently clobber
+        // exclusion lists that the admin has configured.
+        if (array_key_exists('exclusions', $runtimeConfig) && is_array($runtimeConfig['exclusions'])) {
+            $exclusions = $runtimeConfig['exclusions'];
+            $settings['exclude_urls'] = implode("\n", $this->normalizeStringList($exclusions['urls'] ?? []));
+            $settings['exclude_regexes'] = implode("\n", $this->normalizeStringList($exclusions['regexes'] ?? []));
+            $settings['exclude_selectors'] = implode("\n", $this->normalizeStringList($exclusions['selectors'] ?? []));
+        }
+
+        if (array_key_exists('switcher', $runtimeConfig) && is_array($runtimeConfig['switcher'])) {
+            $switcher = $runtimeConfig['switcher'];
+
+            if (array_key_exists('autoInject', $switcher)) {
+                $settings['switcher_auto_inject'] = !empty($switcher['autoInject']);
+            }
+            if (array_key_exists('defaultStyle', $switcher)) {
+                $settings['switcher_default_style'] = $this->sanitizeEnum(
+                    (string) $switcher['defaultStyle'],
+                    self::SWITCHER_STYLES,
+                    'list'
+                );
+            }
+            if (array_key_exists('flagStyle', $switcher)) {
+                $settings['switcher_flag_style'] = $this->sanitizeEnum(
+                    (string) $switcher['flagStyle'],
+                    self::SWITCHER_FLAG_STYLES,
+                    'rectangle_mat'
+                );
+            }
+            if (array_key_exists('showLabel', $switcher)) {
+                $settings['switcher_show_label'] = !empty($switcher['showLabel']);
+            }
+            if (array_key_exists('labelFormat', $switcher)) {
+                $settings['switcher_label_format'] = $this->sanitizeEnum(
+                    (string) $switcher['labelFormat'],
+                    self::SWITCHER_LABEL_FORMATS,
+                    'full_name'
+                );
+            }
+            if (array_key_exists('languageOrder', $switcher)) {
+                $settings['switcher_language_order'] = $this->normalizeLanguageList($switcher['languageOrder']);
+            }
+            if (array_key_exists('customCss', $switcher)) {
+                $settings['switcher_custom_css'] = trim((string) $switcher['customCss']);
+            }
+        }
+
         $settings['runtime_config_synced_at'] = time();
 
         $GLOBALS['deepglot_applying_runtime_config'] = true;
