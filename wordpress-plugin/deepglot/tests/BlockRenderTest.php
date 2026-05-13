@@ -184,4 +184,25 @@ if ($blockEditorReg !== null) {
     blockAssert($blockEditorReg[3] === DEEPGLOT_PLUGIN_VERSION, 'Editor script registered with plugin version');
 }
 
+// 6. Block honours the alignment attribute (codex P2 from PR #48):
+// because we advertise `supports.align`, the editor's left/center/right
+// choice must reach the frontend as an `align<value>` wrapper class.
+[$_, $alignBlock] = makeBlockEnv();
+
+$plain      = $alignBlock->render([]);
+$leftAlign  = $alignBlock->render(['align' => 'left']);
+$centerAlgn = $alignBlock->render(['align' => 'center']);
+$rightAlgn  = $alignBlock->render(['align' => 'right']);
+
+blockAssert(!str_contains($plain, 'alignleft') && !str_contains($plain, 'aligncenter') && !str_contains($plain, 'alignright'), 'No align attribute → no align class leaks into output');
+blockAssert(str_contains($leftAlign, 'class="wp-block-deepglot-switcher alignleft"'), 'align=left wraps in alignleft class: ' . substr($leftAlign, 0, 200));
+blockAssert(str_contains($centerAlgn, 'aligncenter'), 'align=center adds aligncenter class');
+blockAssert(str_contains($rightAlgn, 'alignright'), 'align=right adds alignright class');
+blockAssert(str_contains($leftAlign, '<aside '), 'Aligned output still contains the switcher <aside>');
+
+// Unknown alignment values are dropped (defense-in-depth against an
+// attacker manipulating the block JSON in a saved post).
+$bogus = $alignBlock->render(['align' => 'underneath" onclick="alert(1)']);
+blockAssert(!str_contains($bogus, 'onclick'), 'Unknown align value is rejected, not echoed into the class attribute');
+
 fwrite(STDOUT, "BlockRenderTest: OK\n");

@@ -60,16 +60,35 @@ class SwitcherBlock
         ]);
     }
 
+    /** Valid alignment values declared via `supports.align`. */
+    private const ALLOWED_ALIGNMENTS = ['left', 'center', 'right'];
+
     /**
-     * Render callback. WP passes block attributes as the first argument,
-     * but our switcher reads everything off Options so attributes are
-     * intentionally ignored — the dashboard / settings page is the
-     * single source of truth for switcher appearance.
+     * Render callback. Switcher appearance (style, flags, order, …) is
+     * driven by Plugin Settings — block attributes are intentionally
+     * ignored for those. The exception is `align`, which the block
+     * advertises via `supports.align`: we must propagate the editor
+     * choice to a wrapper `align<value>` class so theme alignment CSS
+     * actually applies on the frontend.
      *
      * @param array<string,mixed> $attributes
      */
     public function render(array $attributes = []): string
     {
-        return $this->switcher->renderShortcode([]);
+        $body = $this->switcher->renderShortcode([]);
+        if ($body === '') {
+            return '';
+        }
+
+        $align = isset($attributes['align']) ? (string) $attributes['align'] : '';
+        if (!in_array($align, self::ALLOWED_ALIGNMENTS, true)) {
+            return $body;
+        }
+
+        return sprintf(
+            '<div class="wp-block-deepglot-switcher align%s">%s</div>',
+            esc_attr($align),
+            $body
+        );
     }
 }
