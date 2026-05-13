@@ -93,7 +93,7 @@ Next.js App (Vercel)          WordPress Plugin
 | # | Task | Status |
 |---|---|---|
 | 3.1 | DeepL API integration (batch requests, error handling) | ✅ Completed |
-| 3.2 | OpenAI translation provider + configurable provider abstraction (`openai`, `deepl`, `mock`) | ✅ Completed |
+| 3.2 | OpenAI translation provider + configurable provider abstraction (`openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `mock`) | ✅ Completed |
 | 3.3 | Plugin API endpoint (`POST /api/translate`) | ✅ Completed |
 | 3.4 | Caching layer (hash-based, DB lookup before API call) | ✅ Completed |
 | 3.5 | Rate limiting + API key validation | ✅ Completed |
@@ -189,6 +189,23 @@ Next.js App (Vercel)          WordPress Plugin
 
 ---
 
+## Post-Phase-7 Erweiterungen
+
+| Task | Beschreibung | Status |
+|---|---|---|
+| 8.1 | Parallele Batch-Übersetzung über Requests v2 (Client::translateBatches()) | ✅ Abgeschlossen |
+| 8.2 | JSON-LD / Schema.org Translation (JsonLdTranslator.php) | ✅ Abgeschlossen |
+| 8.3 | Neue Billing-Tiers (BUSINESS, PRO, ADVANCED, EXTENDED) mit billing-plans.ts als SSOT | ✅ Abgeschlossen |
+| 8.4 | Pricing-Page mit interaktivem Slider | ✅ Abgeschlossen |
+| 8.5 | Stripe-Setup-Skript (scripts/stripe-setup.ts) | ✅ Abgeschlossen |
+| 8.6 | Accessibility-Attribute-Übersetzung (img alt, aria-label, placeholder, input value) | ✅ Abgeschlossen |
+| 8.7 | Admin UI für Language Switcher | ✅ Abgeschlossen |
+| 8.8 | Weglot-Parity-Switcher mit ARIA-expanded (switcher.js Progressive Enhancement) | ✅ Abgeschlossen |
+| 8.9 | WP Nav-Menu-Integration (NavMenuSwitcher.php) — Plugin v0.4.0 | ✅ Abgeschlossen |
+| 8.10 | Gemini Translation Provider mit automatischer Fallback-Chain | 🔄 In Entwicklung (Branch claude/zealous-dirac-OkA7Z) |
+
+---
+
 ## Technical Decisions
 
 | Area | Decision | Rationale |
@@ -203,7 +220,7 @@ Next.js App (Vercel)          WordPress Plugin
 | Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
-| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
+| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
 
 ---
 
