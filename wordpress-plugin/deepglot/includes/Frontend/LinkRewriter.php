@@ -60,6 +60,13 @@ class LinkRewriter
                 continue;
             }
 
+            // Skip anything inside a `data-deepglot-no-translate` subtree
+            // (language switcher, plugin-owned widgets) — those build
+            // their own per-language hrefs and must not be re-prefixed.
+            if ($this->insideNoTranslateSubtree($node)) {
+                continue;
+            }
+
             // Do not rewrite anchors that already carry a language prefix.
             $existing = $this->routing->detectLanguage($value);
 
@@ -69,6 +76,24 @@ class LinkRewriter
 
             $node->setAttribute($attr, $this->routing->rewriteUrl($value, $language));
         }
+    }
+
+    /**
+     * Walks ancestor-or-self chain looking for an element carrying the
+     * `data-deepglot-no-translate` attribute. Mirrors the same opt-out
+     * semantics HtmlTranslator uses so the switcher / plugin-owned UI
+     * gets consistent treatment across the whole output pipeline.
+     */
+    private function insideNoTranslateSubtree(\DOMNode $node): bool
+    {
+        $cursor = $node;
+        while ($cursor !== null) {
+            if ($cursor instanceof \DOMElement && $cursor->hasAttribute('data-deepglot-no-translate')) {
+                return true;
+            }
+            $cursor = $cursor->parentNode;
+        }
+        return false;
     }
 
     private function rewriteLinkTags(\DOMDocument $doc, string $language): void

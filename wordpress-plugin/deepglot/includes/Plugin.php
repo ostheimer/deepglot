@@ -181,7 +181,11 @@ class Plugin
         });
 
         $this->container->singleton(LanguageSwitcher::class, function (Container $c) {
-            return new LanguageSwitcher($c->get(Options::class), $c->get(SiteRouting::class));
+            return new LanguageSwitcher(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class),
+                $c->get(RequestRouter::class)
+            );
         });
 
         $this->container->singleton(NavMenuSwitcher::class, function (Container $c) {

@@ -117,7 +117,17 @@ function ariaAssert(bool $condition, string $message): void
     }
 }
 
-function makeAriaSwitcher(array $overrides = []): LanguageSwitcher
+/**
+ * Stand-in that mimics what RequestRouter exposes: a getter on the
+ * detected language for the current request, surviving RequestRouter's
+ * own REQUEST_URI mangling.
+ */
+class FakeRequestRouter {
+    public ?string $lang = null;
+    public function getCurrentLanguage(): ?string { return $this->lang; }
+}
+
+function makeAriaSwitcher(array $overrides = [], ?FakeRequestRouter $router = null): LanguageSwitcher
 {
     update_option(Options::OPTION_KEY, array_merge(Options::defaults(), array_merge([
         'enabled' => true,
@@ -136,7 +146,7 @@ function makeAriaSwitcher(array $overrides = []): LanguageSwitcher
     $_SERVER['REQUEST_URI'] = '/';
     $_SERVER['HTTP_HOST']   = 'example.com';
 
-    return new LanguageSwitcher($options, $routing);
+    return new LanguageSwitcher($options, $routing, $router);
 }
 
 // 1. <aside> with data-deepglot-no-translate wraps the entire switcher
@@ -264,5 +274,44 @@ $GLOBALS['_deepglot_actions'] = [];
 makeAriaSwitcher(['switcher_auto_inject' => true])->register();
 $footerCallbacks = $GLOBALS['_deepglot_actions']['wp_footer'] ?? [];
 ariaAssert(count($footerCallbacks) === 1, 'Auto-inject hook still wires up exactly once');
+
+// 18. Regression (2026-05-13 live bug on meinhaushalt.at): RequestRouter
+// strips the language prefix from $_SERVER['REQUEST_URI'] on plugins_loaded,
+// so by the time the switcher renders at wp_footer the URI is already '/'
+// and the previous detection logic incorrectly fell back to the source
+// language. The fix is to read the active language from RequestRouter
+// (which captures it BEFORE the strip), not from $_SERVER.
+$_SERVER['REQUEST_URI'] = '/';   // simulate RequestRouter having stripped /en/
+$_SERVER['HTTP_HOST']   = 'example.com';
+$liveRouter = new FakeRequestRouter();
+$liveRouter->lang = 'en';        // what RequestRouter detected before stripping
+$liveSwitcher = makeAriaSwitcher([], $liveRouter);
+$liveHtml = $liveSwitcher->renderShortcode([]);
+ariaAssert(
+    preg_match('/aria-label="Sprache: English"/', $liveHtml) === 1,
+    'When RequestRouter says active=en, aria-label must say "Sprache: English" even if $_SERVER[REQUEST_URI] was stripped to "/"'
+);
+ariaAssert(
+    preg_match('/<li[^>]*\bdata-l="en"[^>]*\bdeepglot-active\b/', $liveHtml) === 1
+        || preg_match('/<li[^>]*\bdeepglot-active\b[^>]*\bdata-l="en"/', $liveHtml) === 1,
+    'When RequestRouter says active=en, the <li data-l="en"> carries deepglot-active'
+);
+ariaAssert(
+    preg_match('/<li[^>]*\bdata-l="de"[^>]*\bdeepglot-active\b/', $liveHtml) !== 1
+        && preg_match('/\bdeepglot-active\b[^>]*\bdata-l="de"/', $liveHtml) !== 1,
+    'When RequestRouter says active=en, the <li data-l="de"> must NOT be deepglot-active'
+);
+
+// 19. If RequestRouter says current language is null (source language
+// request), fall back to source as before.
+$_SERVER['REQUEST_URI'] = '/';
+$sourceRouter = new FakeRequestRouter();
+$sourceRouter->lang = null;
+$sourceSwitcher = makeAriaSwitcher([], $sourceRouter);
+$sourceHtml = $sourceSwitcher->renderShortcode([]);
+ariaAssert(
+    preg_match('/aria-label="Sprache: Deutsch"/', $sourceHtml) === 1,
+    'RequestRouter null = source language request → aria-label "Sprache: Deutsch"'
+);
 
 fwrite(STDOUT, "LanguageSwitcherAriaTest: OK\n");
