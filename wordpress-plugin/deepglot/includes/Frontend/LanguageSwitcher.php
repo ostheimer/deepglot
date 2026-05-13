@@ -26,6 +26,16 @@ class LanguageSwitcher
     private SiteRouting $routing;
 
     /**
+     * Optional source of truth for the request's active language.
+     * RequestRouter captures the language BEFORE it strips the prefix
+     * from $_SERVER['REQUEST_URI'], so reading it here is the only way
+     * to detect the active language correctly at wp_footer time.
+     * Duck-typed (`object`) so unit tests can pass a tiny stub without
+     * dragging in the full RequestRouter constructor surface.
+     */
+    private ?object $requestRouter;
+
+    /**
      * ISO 639-1 → native display label. Matches the dashboard "full name"
      * column so server-rendered output and SaaS preview agree.
      */
@@ -44,10 +54,11 @@ class LanguageSwitcher
         'ar' => 'العربية',
     ];
 
-    public function __construct(Options $options, SiteRouting $routing)
+    public function __construct(Options $options, SiteRouting $routing, ?object $requestRouter = null)
     {
-        $this->options = $options;
-        $this->routing = $routing;
+        $this->options       = $options;
+        $this->routing       = $routing;
+        $this->requestRouter = $requestRouter;
     }
 
     public function register(): void
@@ -109,11 +120,23 @@ class LanguageSwitcher
             return '';
         }
 
-        $requestUri   = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host         = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
-        $activeLang   = $this->routing->detectLanguage($requestUri, $host) ?? $this->options->getSourceLanguage();
-        $sourceLang   = $this->options->getSourceLanguage();
-        $targetLangs  = $this->options->getTargetLanguages();
+        $requestUri    = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $host          = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $sourceLang    = $this->options->getSourceLanguage();
+        $targetLangs   = $this->options->getTargetLanguages();
+
+        // Active language detection — prefer RequestRouter because it
+        // captures the language BEFORE its plugins_loaded hook strips
+        // the prefix from $_SERVER['REQUEST_URI']. Falling back to
+        // re-detecting from $_SERVER would always see the canonical
+        // (stripped) URI and incorrectly resolve to the source language
+        // on every translated page.
+        $routerLang   = ($this->requestRouter !== null && method_exists($this->requestRouter, 'getCurrentLanguage'))
+            ? $this->requestRouter->getCurrentLanguage()
+            : null;
+        $activeLang   = $routerLang
+            ?? $this->routing->detectLanguage($requestUri, $host)
+            ?? $sourceLang;
         $canonicalPath = $this->routing->getCanonicalPath($requestUri);
 
         $style = $this->options->getSwitcherDefaultStyle();

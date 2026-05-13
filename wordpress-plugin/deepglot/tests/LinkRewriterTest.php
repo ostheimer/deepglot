@@ -59,6 +59,36 @@ function test_rewrites_internal_absolute_link(): void
     assert(strpos($out, '/en/services/') !== false, "Absolute internal link must be rewritten: {$out}");
 }
 
+/**
+ * Regression: when the language switcher renders its own per-language
+ * <a> tags (e.g. href="/" for the source language), LinkRewriter used
+ * to prefix them with the *current* active language too, so the German
+ * link on the English page ended up as /en/. Every <a> nested inside an
+ * ancestor carrying data-deepglot-no-translate must be skipped so the
+ * switcher's hand-built hreflang links survive the rewrite pass.
+ */
+function test_skips_links_inside_deepglot_no_translate_subtree(): void
+{
+    $html = '<aside data-deepglot-no-translate>'
+          . '<a href="/" hreflang="de">Deutsch</a>'
+          . '<a href="/en/" hreflang="en">English</a>'
+          . '</aside>'
+          . '<a href="/blog/">Blog</a>'; // control: outside the subtree, gets prefixed
+
+    $out = rewriteHtml($html, 'en');
+    assert(strpos($out, 'href="/"') !== false, "Switcher's source-language href '/' must NOT be rewritten: {$out}");
+    assert(strpos($out, 'href="/en/"') !== false && substr_count($out, 'href="/en/en/') === 0, "Switcher's already-prefixed href must survive untouched: {$out}");
+    assert(strpos($out, 'href="/en/blog/"') !== false, "Control link outside subtree still gets prefix: {$out}");
+}
+
+function test_skips_nested_links_inside_no_translate_ancestor(): void
+{
+    // The marker is on an outer ancestor, not the immediate parent.
+    $html = '<div data-deepglot-no-translate><nav><ul><li><a href="/about/">About</a></li></ul></nav></div>';
+    $out  = rewriteHtml($html, 'en');
+    assert(strpos($out, 'href="/about/"') !== false && strpos($out, '/en/about/') === false, "Deeply nested <a> inside data-deepglot-no-translate must NOT be rewritten: {$out}");
+}
+
 // ---------------------------------------------------------------------------
 
 $tests = [
@@ -66,6 +96,8 @@ $tests = [
     'test_does_not_rewrite_already_prefixed_link',
     'test_does_not_rewrite_external_link',
     'test_rewrites_internal_absolute_link',
+    'test_skips_links_inside_deepglot_no_translate_subtree',
+    'test_skips_nested_links_inside_no_translate_ancestor',
 ];
 
 $passed = 0;
