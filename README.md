@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- OpenAI / Gemini / DeepL
 
 ## Local development
 
@@ -279,11 +279,11 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
-- Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-5.5`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `gemini`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
+- Without an explicit setting, the app auto-detects by API key: `gemini` when `GEMINI_API_KEY` is present, then `openai` when `OPENAI_API_KEY` is present, then `openrouter` when `OPENROUTER_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, then `ollama` when `OLLAMA_BASE_URL` is set, otherwise `mock` in `development` and `test`.
+- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-5-mini`.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
-- Google Gemini provider support is currently in development (branch `claude/zealous-dirac-OkA7Z`, not yet merged to main).
+- Set `GEMINI_API_KEY` to use Google Gemini as the primary translation provider (recommended for high-volume workloads; default model: `gemini-3.1-flash-lite-preview`).
 
 ## Test login and demo workspace
 
