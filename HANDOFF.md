@@ -22,18 +22,18 @@ This file captures the current project state so work can continue in a new chat 
 
 ## Recent PRs (since original handoff):
 
-- **PR #29-30:** Parallele Batch-Übersetzung (`Client::translateBatches()`)
-- **PR #31:** JSON-LD / Schema.org Translation (`JsonLdTranslator.php`)
-- **PR #32-33:** Billing Plans (BUSINESS, PRO, ADVANCED, EXTENDED tiers; `billing-plans.ts` als SSOT)
-- **PR #34-36:** Pricing-Page mit interaktivem Slider
-- **PR #37-38:** Stripe-Setup-Skript (`scripts/stripe-setup.ts`)
-- **PR #40:** OpenAI-Modell auf `gpt-5.5` aktualisiert
-- **PR #41:** Gemini Translation Provider (auf separatem Branch `claude/zealous-dirac-OkA7Z`, noch nicht auf main)
-- **PR #42:** Accessibility-Attribute-Übersetzung (`img alt`, `aria-label`, `placeholder`, `input value`)
-- **PR #44:** Admin UI für Language Switcher
-- **PR #45:** Plugin Version 0.2.0
-- **PR #46:** Weglot-Parity-Switcher, ARIA-expanded, `switcher.js` Progressive Enhancement
-- **PR #47:** WP Nav-Menu-Integration, `NavMenuSwitcher.php`, Plugin v0.4.0
+- **PR #29-30:** Parallel batch translation (`Client::translateBatches()`)
+- **PR #31:** JSON-LD / Schema.org translation (`JsonLdTranslator.php`)
+- **PR #32-33:** Billing plans (BUSINESS, PRO, ADVANCED, EXTENDED tiers; `billing-plans.ts` as SSOT)
+- **PR #34-36:** Pricing page with interactive slider
+- **PR #37-38:** Stripe setup script (`scripts/stripe-setup.ts`)
+- **PR #40:** Default OpenAI model updated to `gpt-5-mini`
+- **PR #41:** Gemini translation provider integrated (`src/lib/gemini.ts`, automatic fallback chain, `GEMINI_API_KEY`)
+- **PR #42:** Accessibility attribute translation (`img alt`, `aria-label`, `placeholder`, `input value`)
+- **PR #44:** Admin UI for language switcher
+- **PR #45:** Plugin version 0.2.0
+- **PR #46:** Weglot-parity switcher with ARIA-expanded, `switcher.js` progressive enhancement
+- **PR #47:** WP nav-menu integration, `NavMenuSwitcher.php`, Plugin v0.4.0
 
 ## Latest Verified Links
 
@@ -79,4 +79,4 @@ npm run test:e2e
 - Continue with the next roadmap phase only after selecting scope for Phase 8 or deciding to resume Stripe.
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.
-- Review and merge the Gemini provider branch (`claude/zealous-dirac-OkA7Z`) when ready.
+- Gemini translation provider is integrated — configure `GEMINI_API_KEY` in production to activate it as the primary provider.
