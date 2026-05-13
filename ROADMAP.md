@@ -1,7 +1,7 @@
 # Deepglot Roadmap
 
 > Website translation platform without cloud lock-in: SaaS platform + self-hosted option  
-> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / DeepL
+> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / Gemini / DeepL
 
 ---
 
@@ -93,7 +93,7 @@ Next.js App (Vercel)          WordPress Plugin
 | # | Task | Status |
 |---|---|---|
 | 3.1 | DeepL API integration (batch requests, error handling) | ✅ Completed |
-| 3.2 | OpenAI translation provider + configurable provider abstraction (`openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `mock`) | ✅ Completed |
+| 3.2 | OpenAI translation provider + configurable provider abstraction (`openai`, `gemini`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `mock`) | ✅ Completed |
 | 3.3 | Plugin API endpoint (`POST /api/translate`) | ✅ Completed |
 | 3.4 | Caching layer (hash-based, DB lookup before API call) | ✅ Completed |
 | 3.5 | Rate limiting + API key validation | ✅ Completed |
@@ -189,20 +189,20 @@ Next.js App (Vercel)          WordPress Plugin
 
 ---
 
-## Post-Phase-7 Erweiterungen
+## Post-Phase-7 Extensions
 
-| Task | Beschreibung | Status |
+| Task | Description | Status |
 |---|---|---|
-| 8.1 | Parallele Batch-Übersetzung über Requests v2 (Client::translateBatches()) | ✅ Abgeschlossen |
-| 8.2 | JSON-LD / Schema.org Translation (JsonLdTranslator.php) | ✅ Abgeschlossen |
-| 8.3 | Neue Billing-Tiers (BUSINESS, PRO, ADVANCED, EXTENDED) mit billing-plans.ts als SSOT | ✅ Abgeschlossen |
-| 8.4 | Pricing-Page mit interaktivem Slider | ✅ Abgeschlossen |
-| 8.5 | Stripe-Setup-Skript (scripts/stripe-setup.ts) | ✅ Abgeschlossen |
-| 8.6 | Accessibility-Attribute-Übersetzung (img alt, aria-label, placeholder, input value) | ✅ Abgeschlossen |
-| 8.7 | Admin UI für Language Switcher | ✅ Abgeschlossen |
-| 8.8 | Weglot-Parity-Switcher mit ARIA-expanded (switcher.js Progressive Enhancement) | ✅ Abgeschlossen |
-| 8.9 | WP Nav-Menu-Integration (NavMenuSwitcher.php) — Plugin v0.4.0 | ✅ Abgeschlossen |
-| 8.10 | Gemini Translation Provider mit automatischer Fallback-Chain | 🔄 In Entwicklung (Branch claude/zealous-dirac-OkA7Z) |
+| 8.1 | Parallel batch translation via Requests v2 (Client::translateBatches()) | ✅ Completed |
+| 8.2 | JSON-LD / Schema.org translation (JsonLdTranslator.php) | ✅ Completed |
+| 8.3 | New billing tiers (BUSINESS, PRO, ADVANCED, EXTENDED) with billing-plans.ts as SSOT | ✅ Completed |
+| 8.4 | Pricing page with interactive slider | ✅ Completed |
+| 8.5 | Stripe setup script (scripts/stripe-setup.ts) | ✅ Completed |
+| 8.6 | Accessibility attribute translation (img alt, aria-label, placeholder, input value) | ✅ Completed |
+| 8.7 | Admin UI for language switcher | ✅ Completed |
+| 8.8 | Weglot-parity switcher with ARIA-expanded (switcher.js progressive enhancement) | ✅ Completed |
+| 8.9 | WP nav-menu integration (NavMenuSwitcher.php) — Plugin v0.4.0 | ✅ Completed |
+| 8.10 | Gemini translation provider with automatic fallback chain (src/lib/gemini.ts) | ✅ Completed |
 
 ---
 
@@ -217,7 +217,7 @@ Next.js App (Vercel)          WordPress Plugin
 | Billing | Stripe | Industry standard, strong subscription support |
 | UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
 | Email | Resend | Next.js friendly, cost-effective |
-| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
+| Translation (Primary) | OpenAI / Gemini provider abstraction | Low-cost default path (gpt-5-mini / gemini-3.1-flash-lite-preview), model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
 | DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
