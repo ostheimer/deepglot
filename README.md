@@ -279,10 +279,11 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
+- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-5.5`.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
+- Google Gemini provider support is currently in development (branch `claude/zealous-dirac-OkA7Z`, not yet merged to main).
 
 ## Test login and demo workspace
 
