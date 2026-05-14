@@ -40,6 +40,14 @@ class Options
         'fixed-top-left',
     ];
 
+    /** Allowed values for `switcher_responsive_hide`. */
+    public const SWITCHER_RESPONSIVE_HIDE_VALUES = ['none', 'mobile', 'desktop'];
+
+    /** Clamp range for `switcher_responsive_breakpoint` (px). */
+    public const SWITCHER_BREAKPOINT_MIN     = 320;
+    public const SWITCHER_BREAKPOINT_MAX     = 1920;
+    public const SWITCHER_BREAKPOINT_DEFAULT = 768;
+
     public static function defaults(): array
     {
         return [
@@ -69,6 +77,8 @@ class Options
             'switcher_language_order' => [],
             'switcher_custom_css' => '',
             'switcher_position' => 'inline',
+            'switcher_responsive_hide' => 'none',
+            'switcher_responsive_breakpoint' => self::SWITCHER_BREAKPOINT_DEFAULT,
         ];
     }
 
@@ -129,7 +139,33 @@ class Options
                 self::SWITCHER_POSITIONS,
                 'inline'
             ),
+            'switcher_responsive_hide' => $this->sanitizeEnum(
+                (string) ($input['switcher_responsive_hide'] ?? 'none'),
+                self::SWITCHER_RESPONSIVE_HIDE_VALUES,
+                'none'
+            ),
+            'switcher_responsive_breakpoint' => $this->sanitizeBreakpoint(
+                $input['switcher_responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT
+            ),
         ];
+    }
+
+    /**
+     * Clamp a px breakpoint into [320, 1920]. Non-numeric input falls
+     * back to the documented default (768) so a typo in the admin form
+     * can't hide the switcher on every viewport.
+     *
+     * @param mixed $value
+     */
+    private function sanitizeBreakpoint($value): int
+    {
+        if (!is_numeric($value)) {
+            return self::SWITCHER_BREAKPOINT_DEFAULT;
+        }
+        $px = (int) $value;
+        if ($px < self::SWITCHER_BREAKPOINT_MIN) return self::SWITCHER_BREAKPOINT_MIN;
+        if ($px > self::SWITCHER_BREAKPOINT_MAX) return self::SWITCHER_BREAKPOINT_MAX;
+        return $px;
     }
 
     private function sanitizeEnum(string $value, array $allowed, string $default): string
@@ -308,6 +344,19 @@ class Options
         return in_array($value, self::SWITCHER_POSITIONS, true) ? $value : 'inline';
     }
 
+    public function getSwitcherResponsiveHide(): string
+    {
+        $options = $this->all();
+        $value   = strtolower(trim((string) ($options['switcher_responsive_hide'] ?? 'none')));
+        return in_array($value, self::SWITCHER_RESPONSIVE_HIDE_VALUES, true) ? $value : 'none';
+    }
+
+    public function getSwitcherResponsiveBreakpoint(): int
+    {
+        $options = $this->all();
+        return $this->sanitizeBreakpoint($options['switcher_responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT);
+    }
+
     public function getRuntimeConfigSyncedAt(): int
     {
         $options = $this->all();
@@ -376,6 +425,16 @@ class Options
                     self::SWITCHER_POSITIONS,
                     'inline'
                 );
+            }
+            if (array_key_exists('responsiveHide', $switcher)) {
+                $settings['switcher_responsive_hide'] = $this->sanitizeEnum(
+                    (string) $switcher['responsiveHide'],
+                    self::SWITCHER_RESPONSIVE_HIDE_VALUES,
+                    'none'
+                );
+            }
+            if (array_key_exists('responsiveBreakpoint', $switcher)) {
+                $settings['switcher_responsive_breakpoint'] = $this->sanitizeBreakpoint($switcher['responsiveBreakpoint']);
             }
         }
 
