@@ -7,11 +7,28 @@
  * <aside> in sync with that checkbox so assistive tech sees the truthful
  * open/closed state. No interaction is changed.
  *
+ * Only the dropdown variant is a real popup — list-style switchers have
+ * no collapsible region, so we MUST NOT add aria-expanded there. The PHP
+ * renderer already emits aria-haspopup="listbox" + aria-expanded="false"
+ * exclusively in dropdown mode (PR #46 codex P2 fix); this script must
+ * mirror that gate or it ends up adding aria-expanded to list-style
+ * switchers and claiming popup semantics that don't exist.
+ *
  * Event delegation on document so the script works for late-injected
  * switchers too (e.g. fragment caching, ajax navigation, BFcache).
  */
 (function () {
     if (typeof document === 'undefined') return;
+
+    function isDropdownWrapper(node) {
+        if (!node || node.nodeType !== 1) return false;
+        // Either the dropdown modifier class OR an explicit aria-haspopup
+        // signals "this wrapper has a real popup". List-style wrappers
+        // have neither, so they fall through and aria-expanded stays off.
+        if (node.classList && node.classList.contains('deepglot-switcher--dropdown')) return true;
+        if (typeof node.hasAttribute === 'function' && node.hasAttribute('aria-haspopup')) return true;
+        return false;
+    }
 
     function sync(target) {
         if (!target || target.className === undefined) return;
@@ -20,7 +37,10 @@
         var node = target.parentNode;
         while (node && node !== document) {
             if (node.classList && node.classList.contains('deepglot-switcher')) {
-                node.setAttribute('aria-expanded', target.checked ? 'true' : 'false');
+                if (isDropdownWrapper(node)) {
+                    node.setAttribute('aria-expanded', target.checked ? 'true' : 'false');
+                }
+                // List-style wrapper: do nothing — no popup, no expanded state.
                 return;
             }
             node = node.parentNode;
