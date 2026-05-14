@@ -290,8 +290,8 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `gemini`, `deepl`, or `mock`.
-- Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `gemini`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
+- Without an explicit setting, the app auto-detects a provider by checking API keys in order: `gemini` when `GEMINI_API_KEY` is present, then `openai` when `OPENAI_API_KEY` is present, then `openrouter`, `deepl`, `ollama`, and finally `mock` in `development` and `test` (no key needed). If no key is found outside dev/test, the app throws a configuration error.
 - `OPENAI_TRANSLATION_MODEL` controls the OpenAI translation model and defaults to `gpt-5-mini`.
 - `GEMINI_API_KEY`, `GEMINI_TRANSLATION_MODEL`, and `GEMINI_BASE_URL` configure the Gemini provider (default model: `gemini-3.1-flash-lite-preview`).
 - `TRANSLATION_FALLBACK_PROVIDERS` configures the automatic failover chain on quota or server errors (default: `gemini,openai`).
