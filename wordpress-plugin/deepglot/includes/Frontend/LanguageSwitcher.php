@@ -242,7 +242,11 @@ class LanguageSwitcher
         }
         $items .= '</ul>';
 
-        $css       = $this->renderCustomCss($customCss);
+        $css           = $this->renderCustomCss($customCss);
+        $responsiveCss = $this->renderResponsiveCss(
+            $this->options->getSwitcherResponsiveHide(),
+            $this->options->getSwitcherResponsiveBreakpoint()
+        );
         $ariaLabel = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
 
@@ -258,7 +262,7 @@ class LanguageSwitcher
             $popupAttrs = ' aria-haspopup="listbox" aria-expanded="false"';
         }
 
-        return $css . $marker . sprintf(
+        return $css . $responsiveCss . $marker . sprintf(
             '<aside class="%s" data-deepglot-no-translate tabindex="0"%s aria-label="%s">%s%s</aside>',
             esc_attr(implode(' ', $wrapperClasses)),
             $popupAttrs,
@@ -266,6 +270,31 @@ class LanguageSwitcher
             $current,
             $items
         );
+    }
+
+    /**
+     * Emit a scoped @media rule that hides the switcher above (desktop)
+     * or below (mobile) the configured breakpoint. The cutoff for
+     * `desktop` is breakpoint+1 so the breakpoint itself counts as the
+     * last mobile width — matches the common `max-width: 768px` /
+     * `min-width: 769px` convention site themes already use.
+     */
+    private function renderResponsiveCss(string $hide, int $breakpoint): string
+    {
+        if ($hide === 'none') {
+            return '';
+        }
+
+        if ($hide === 'mobile') {
+            $mediaQuery = '@media (max-width: ' . $breakpoint . 'px)';
+        } else { // 'desktop'
+            $mediaQuery = '@media (min-width: ' . ($breakpoint + 1) . 'px)';
+        }
+
+        return '<style class="deepglot-switcher__responsive-css">'
+            . $mediaQuery
+            . ' { .deepglot-switcher { display: none !important; } }'
+            . '</style>';
     }
 
     private function flagSpan(string $lang, string $flagStyle): string

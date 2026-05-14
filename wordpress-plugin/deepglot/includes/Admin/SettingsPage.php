@@ -526,6 +526,38 @@ class SettingsPage
                         </div>
 
                         <div class="dg-field">
+                            <label for="dg_switcher_responsive"><?php esc_html_e('Anzeigegerät', 'deepglot'); ?></label>
+                            <select id="dg_switcher_responsive" name="<?php echo esc_attr($optKey); ?>[switcher_responsive_hide]">
+                                <option value="none" <?php selected(($settings['switcher_responsive_hide'] ?? 'none'), 'none'); ?>>
+                                    <?php esc_html_e('Auf allen Geräten zeigen', 'deepglot'); ?>
+                                </option>
+                                <option value="mobile" <?php selected(($settings['switcher_responsive_hide'] ?? 'none'), 'mobile'); ?>>
+                                    <?php esc_html_e('Nur Desktop (auf Mobile ausblenden)', 'deepglot'); ?>
+                                </option>
+                                <option value="desktop" <?php selected(($settings['switcher_responsive_hide'] ?? 'none'), 'desktop'); ?>>
+                                    <?php esc_html_e('Nur Mobile (auf Desktop ausblenden)', 'deepglot'); ?>
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="dg-field">
+                            <label for="dg_switcher_breakpoint"><?php esc_html_e('Mobile-Breakpoint (px)', 'deepglot'); ?></label>
+                            <input
+                                id="dg_switcher_breakpoint"
+                                type="number"
+                                min="320"
+                                max="1920"
+                                step="1"
+                                name="<?php echo esc_attr($optKey); ?>[switcher_responsive_breakpoint]"
+                                value="<?php echo esc_attr((string) ($settings['switcher_responsive_breakpoint'] ?? 768)); ?>"
+                                style="width:120px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"
+                            />
+                            <p class="description" style="margin-top:4px; font-size:12px;">
+                                <?php esc_html_e('Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile".', 'deepglot'); ?>
+                            </p>
+                        </div>
+
+                        <div class="dg-field">
                             <label for="dg_switcher_position"><?php esc_html_e('Position auf der Seite', 'deepglot'); ?></label>
                             <select id="dg_switcher_position" name="<?php echo esc_attr($optKey); ?>[switcher_position]">
                                 <option value="inline" <?php selected(($settings['switcher_position'] ?? 'inline'), 'inline'); ?>>
