@@ -247,7 +247,8 @@ class LanguageSwitcher
             $this->options->getSwitcherResponsiveHide(),
             $this->options->getSwitcherResponsiveBreakpoint()
         );
-        $ariaLabel = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
+        $customFlags   = $this->renderCustomFlagsCss($this->options->getSwitcherCustomFlags());
+        $ariaLabel     = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
 
         // For the dropdown variant the wrapper is an expandable popup
@@ -262,7 +263,7 @@ class LanguageSwitcher
             $popupAttrs = ' aria-haspopup="listbox" aria-expanded="false"';
         }
 
-        return $css . $responsiveCss . $marker . sprintf(
+        return $css . $responsiveCss . $customFlags . $marker . sprintf(
             '<aside class="%s" data-deepglot-no-translate tabindex="0"%s aria-label="%s">%s%s</aside>',
             esc_attr(implode(' ', $wrapperClasses)),
             $popupAttrs,
@@ -295,6 +296,64 @@ class LanguageSwitcher
             . $mediaQuery
             . ' { .deepglot-switcher { display: none !important; } }'
             . '</style>';
+    }
+
+    /**
+     * Emit a scoped <style> block with per-language flag overrides.
+     * Emoji values become `::before { content: "🇺🇸" }` overrides;
+     * HTTPS URLs become `background-image: url("…")` with the default
+     * emoji ::before reset to empty so the default flag does not stack
+     * on top of the custom image.
+     *
+     * Values are already CSS-string-safe by sanitizeCustomFlags (no
+     * quotes / braces / angle brackets reach this method).
+     *
+     * @param array<string,string> $customFlags
+     */
+    private function renderCustomFlagsCss(array $customFlags): string
+    {
+        if (empty($customFlags)) {
+            return '';
+        }
+
+        $rules = '';
+        foreach ($customFlags as $lang => $value) {
+            $langSafe = preg_replace('/[^a-z0-9_-]/i', '', $lang);
+            if ($langSafe === '') {
+                continue;
+            }
+
+            if ($this->looksLikeUrl($value)) {
+                $rules .= sprintf(
+                    '.deepglot-flag--%s{background-image:url("%s");background-size:cover;background-position:center;}.deepglot-flag--%s::before{content:"";}',
+                    $langSafe,
+                    $value,
+                    $langSafe
+                );
+            } else {
+                $rules .= sprintf(
+                    '.deepglot-flag--%s::before{content:"%s";}',
+                    $langSafe,
+                    $value
+                );
+            }
+        }
+
+        if ($rules === '') {
+            return '';
+        }
+
+        return '<style class="deepglot-switcher__custom-flags">' . $rules . '</style>';
+    }
+
+    /**
+     * Treat values starting with http(s):// or // as image URLs;
+     * everything else (emoji, abbreviation, single character) is
+     * inlined as ::before content.
+     */
+    private function looksLikeUrl(string $value): bool
+    {
+        return (bool) preg_match('#^(https?:)?//#i', $value);
     }
 
     private function flagSpan(string $lang, string $flagStyle): string

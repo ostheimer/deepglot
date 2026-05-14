@@ -79,8 +79,16 @@ class Options
             'switcher_position' => 'inline',
             'switcher_responsive_hide' => 'none',
             'switcher_responsive_breakpoint' => self::SWITCHER_BREAKPOINT_DEFAULT,
+            // Per-language flag overrides: assoc array<lang, emoji|url>.
+            // Empty by default → render keeps the canonical default flag
+            // per language (e.g. `en` → 🇬🇧). Admin can override for
+            // regional audiences (`en` → 🇺🇸).
+            'switcher_custom_flags' => [],
         ];
     }
+
+    /** Max characters per custom flag value — caps inline CSS size. */
+    public const SWITCHER_CUSTOM_FLAG_MAX_LEN = 256;
 
     public function all(): array
     {
@@ -147,6 +155,11 @@ class Options
             'switcher_responsive_breakpoint' => $this->sanitizeBreakpoint(
                 $input['switcher_responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT
             ),
+            'switcher_custom_flags' => $this->sanitizeCustomFlags(
+                $input['switcher_custom_flags'] ?? [],
+                $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de')),
+                $targetLanguages
+            ),
         ];
     }
 
@@ -166,6 +179,56 @@ class Options
         if ($px < self::SWITCHER_BREAKPOINT_MIN) return self::SWITCHER_BREAKPOINT_MIN;
         if ($px > self::SWITCHER_BREAKPOINT_MAX) return self::SWITCHER_BREAKPOINT_MAX;
         return $px;
+    }
+
+    /**
+     * Filter custom flag overrides down to:
+     *   - keys that are valid ISO language codes AND part of the
+     *     configured (source ∪ targets) language set
+     *   - values that are non-empty, under SWITCHER_CUSTOM_FLAG_MAX_LEN
+     *     chars, and free of CSS string break-out characters (`"`, `'`,
+     *     `;`, `{`, `}`, `<`)
+     *
+     * @param mixed   $value
+     * @param string  $sourceLang
+     * @param string[] $targetLangs
+     * @return array<string,string>
+     */
+    private function sanitizeCustomFlags($value, string $sourceLang, array $targetLangs): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $configured = array_flip(array_merge([$sourceLang], $targetLangs));
+        $clean = [];
+
+        foreach ($value as $lang => $flag) {
+            $lang = $this->sanitizeLanguage((string) $lang);
+            if ($lang === '' || !isset($configured[$lang])) {
+                continue;
+            }
+
+            $flag = trim((string) $flag);
+            if ($flag === '') {
+                continue;
+            }
+
+            // Strip characters that could break out of a CSS string or
+            // url() context. Real flag values (emoji or https URLs)
+            // never need any of these characters.
+            $flag = str_replace(['"', "'", ';', '{', '}', '<', '>', '\\'], '', $flag);
+
+            if (mb_strlen($flag) > self::SWITCHER_CUSTOM_FLAG_MAX_LEN) {
+                $flag = mb_substr($flag, 0, self::SWITCHER_CUSTOM_FLAG_MAX_LEN);
+            }
+
+            if ($flag !== '') {
+                $clean[$lang] = $flag;
+            }
+        }
+
+        return $clean;
     }
 
     private function sanitizeEnum(string $value, array $allowed, string $default): string
@@ -337,6 +400,19 @@ class Options
         return (string) ($options['switcher_custom_css'] ?? '');
     }
 
+    /**
+     * Per-language flag overrides: assoc array<lang, emoji|url>.
+     * Already sanitised + scoped to configured languages by sanitize().
+     *
+     * @return array<string,string>
+     */
+    public function getSwitcherCustomFlags(): array
+    {
+        $options = $this->all();
+        $stored  = $options['switcher_custom_flags'] ?? [];
+        return is_array($stored) ? $stored : [];
+    }
+
     public function getSwitcherPosition(): string
     {
         $options = $this->all();
@@ -435,6 +511,13 @@ class Options
             }
             if (array_key_exists('responsiveBreakpoint', $switcher)) {
                 $settings['switcher_responsive_breakpoint'] = $this->sanitizeBreakpoint($switcher['responsiveBreakpoint']);
+            }
+            if (array_key_exists('customFlags', $switcher)) {
+                $settings['switcher_custom_flags'] = $this->sanitizeCustomFlags(
+                    $switcher['customFlags'],
+                    (string) ($settings['source_language'] ?? 'de'),
+                    is_array($settings['target_languages'] ?? null) ? $settings['target_languages'] : []
+                );
             }
         }
 
