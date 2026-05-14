@@ -51,21 +51,54 @@ jsAssert(
 );
 
 // 3. The setAttribute call lives inside an if-block that references
-// the gate symbol. Static structural check: between the gate symbol
-// and the next setAttribute call there is no `}` (closing block) that
-// would put setAttribute outside the gate.
-$gatePos = strpos($js, 'isDropdownWrapper(');
-jsAssert($gatePos !== false, 'A helper named isDropdownWrapper() should encapsulate the gate so reviewers can verify the contract in one place');
-
-$setAttrPos = strpos($js, 'aria-expanded', $gatePos);
+// the gate symbol. To check this structurally without a real JS
+// parser:
+//   a) anchor at an actual `if (isDropdownWrapper(...))` guard call
+//      (NOT the helper definition or a JSDoc mention — those don't
+//      gate anything),
+//   b) find the FIRST real `setAttribute('aria-expanded'` after that
+//      guard (NOT a mere comment containing the words),
+//   c) walk the bytes between to verify the running brace depth stays
+//      positive — meaning setAttribute is nested inside the gate's
+//      `{ … }` block, not after its closing brace.
+//
+// Codex (PR #51) flagged the prior version of this test using
+// `strpos($js, 'aria-expanded', $gatePos)`, which matched the first
+// `aria-expanded` token after `isDropdownWrapper(`. That token lived
+// inside a JSDoc comment ABOVE the real setAttribute, so $between
+// stopped too early and the brace-balance assertion became a no-op —
+// a future regression moving setAttribute outside the if-block would
+// still have passed.
+$gateCallPattern = '/\bif\s*\(\s*isDropdownWrapper\s*\(/';
+preg_match_all($gateCallPattern, $js, $gateMatches, PREG_OFFSET_CAPTURE);
 jsAssert(
-    $setAttrPos !== false,
-    'setAttribute("aria-expanded", …) is reachable after the gate is consulted'
+    !empty($gateMatches[0]),
+    'Must contain at least one `if (isDropdownWrapper(...))` guard expression so the gate is actually used in code, not only declared'
 );
-$between = substr($js, $gatePos, $setAttrPos - $gatePos);
+$gateCallPos = end($gateMatches[0])[1];
+
+$setAttrPattern = '/setAttribute\s*\(\s*[\'"]aria-expanded[\'"]/';
+preg_match($setAttrPattern, $js, $setAttrMatch, PREG_OFFSET_CAPTURE, $gateCallPos);
 jsAssert(
-    substr_count($between, '}') <= substr_count($between, '{'),
-    'aria-expanded setAttribute() must sit inside the if(isDropdownWrapper) block, not after its closing brace'
+    !empty($setAttrMatch[0]),
+    'A real setAttribute("aria-expanded", ...) call must be reachable after the if (isDropdownWrapper(...)) guard'
+);
+$setAttrPos = $setAttrMatch[0][1];
+
+$between = substr($js, $gateCallPos, $setAttrPos - $gateCallPos);
+$depth   = 0;
+$dropped = false;
+for ($i = 0, $n = strlen($between); $i < $n; $i++) {
+    $c = $between[$i];
+    if ($c === '{') $depth++;
+    elseif ($c === '}') {
+        $depth--;
+        if ($depth < 0) { $dropped = true; break; }
+    }
+}
+jsAssert(
+    !$dropped && $depth > 0,
+    'aria-expanded setAttribute() must sit inside the if(isDropdownWrapper) block (brace depth between gate and call must stay strictly positive)'
 );
 
 fwrite(STDOUT, "SwitcherJsAriaTest: OK\n");
