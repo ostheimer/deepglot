@@ -622,6 +622,41 @@ class SettingsPage
                     </div>
 
                     <div class="dg-field" style="margin-top:18px;">
+                        <label><?php esc_html_e('Eigene Flaggen pro Sprache (optional)', 'deepglot'); ?></label>
+                        <?php
+                        $customFlags = (array) ($settings['switcher_custom_flags'] ?? []);
+                        ?>
+                        <table style="border-collapse:collapse; max-width:460px; width:100%;">
+                            <?php foreach ($orderedLangs as $lang) :
+                                $native = $nativeLabels[$lang] ?? '';
+                                $value  = isset($customFlags[$lang]) ? (string) $customFlags[$lang] : '';
+                            ?>
+                                <tr>
+                                    <td style="padding:4px 8px 4px 0; font-size:13px; color:#374151; white-space:nowrap; min-width:90px;">
+                                        <strong><?php echo esc_html(strtoupper($lang)); ?></strong>
+                                        <?php if ($native !== '') : ?>
+                                            <span style="color:#9ca3af; font-weight:400;"><?php echo esc_html($native); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="padding:4px 0;">
+                                        <input
+                                            type="text"
+                                            name="<?php echo esc_attr($optKey); ?>[switcher_custom_flags][<?php echo esc_attr($lang); ?>]"
+                                            value="<?php echo esc_attr($value); ?>"
+                                            placeholder="🇺🇸  oder  https://example.com/flag.svg"
+                                            maxlength="256"
+                                            style="width:100%; padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"
+                                        />
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table>
+                        <p class="description" style="margin-top:6px; font-size:12px;">
+                            <?php esc_html_e('Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt.', 'deepglot'); ?>
+                        </p>
+                    </div>
+
+                    <div class="dg-field" style="margin-top:18px;">
                         <label for="dg_switcher_custom_css"><?php esc_html_e('Eigenes CSS für den Switcher', 'deepglot'); ?></label>
                         <textarea
                             id="dg_switcher_custom_css"
