@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- OpenAI / Gemini / DeepL
 
 ## Local development
 
@@ -101,15 +101,26 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The first plugin scaffold lives in `wordpress-plugin/deepglot`.
+The plugin lives in `wordpress-plugin/deepglot` and is the primary integration layer for translating WordPress sites through the Deepglot SaaS backend.
 
-Current contents:
+Current plugin version: **0.5.2**
 
-- Bootstrap file with the plugin header
-- Autoloader and a lightweight service container
-- Admin settings page under `Settings -> Deepglot`
-- Prepared API client
-- First testable URL language logic
+Features:
+
+- Bootstrap file with plugin header, autoloader, and a lightweight service container
+- Output-buffer pipeline: HTML captured → text nodes extracted → batch API request → translated HTML returned
+- Full translation of text nodes plus body accessibility attributes (`img alt`, `aria-label`, `placeholder`, submit button copy); respects `translate="no"` and `exclude_selectors`
+- Link replacement for `<a>`, `<form>`, and `<link rel=canonical>` elements
+- `hreflang` tags and SEO metadata
+- Language switcher via shortcode `[deepglot_switcher]`, action hook, Gutenberg block (`deepglot/switcher`), and classic `WP_Widget` — all render identical markup
+- Admin settings page under `Settings → Deepglot` with style, flag finish, drag-and-drop language order, floating position, and scoped custom CSS
+- Nav-menu integration: drop the switcher into any WP Appearance → Menus position with dropdown and hide-current modifier classes
+- Browser-language auto redirect
+- WooCommerce email translation
+- Guided 3-step setup wizard on first activation
+- REST API v1 for CRUD settings, status, and test-connection (with auth and rate limiting)
+- Local translation cache via WordPress transients
+- Deepglot API client (HTTP requests to the Next.js backend)
 
 Local plugin test:
 
@@ -206,7 +217,7 @@ Recommended environment matrix:
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
   - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-5-mini`
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -279,9 +290,11 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `gemini`, `deepl`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
+- `OPENAI_TRANSLATION_MODEL` controls the OpenAI translation model and defaults to `gpt-5-mini`.
+- `GEMINI_API_KEY`, `GEMINI_TRANSLATION_MODEL`, and `GEMINI_BASE_URL` configure the Gemini provider (default model: `gemini-3.1-flash-lite-preview`).
+- `TRANSLATION_FALLBACK_PROVIDERS` configures the automatic failover chain on quota or server errors (default: `gemini,openai`).
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 
 ## Test login and demo workspace

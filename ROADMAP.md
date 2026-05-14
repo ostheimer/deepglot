@@ -1,7 +1,7 @@
 # Deepglot Roadmap
 
 > Website translation platform without cloud lock-in: SaaS platform + self-hosted option  
-> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / DeepL
+> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / Gemini / DeepL
 
 ---
 
@@ -189,6 +189,25 @@ Next.js App (Vercel)          WordPress Plugin
 
 ---
 
+## Phase 8 - Pricing UX, Provider Resilience, and Plugin Maturity
+
+| # | Task | Status |
+|---|---|---|
+| 8.1 | Usage-slider pricing UX: single live-updating plan card driven by word-volume slider through all seven tiers, replacing the static four-card grid | ✅ Completed |
+| 8.2 | Unified `<PricingGrid>` on the marketing home page and dedicated `/pricing` route — eliminates the duplicate static pricing dataset | ✅ Completed |
+| 8.3 | Centralize FREE word limit in `BILLING_PLANS` and introduce `getEffectiveWordsLimit` to soft-cap PAST_DUE / INACTIVE / CANCELED subscriptions at the FREE ceiling | ✅ Completed |
+| 8.4 | Switch default OpenAI translation model to `gpt-5-mini` — approximately 15× cost reduction for web translation workloads ($0.25/$2 vs $5/$30 per 1M input/output tokens) | ✅ Completed |
+| 8.5 | Google Gemini translation provider (`gemini-3.1-flash-lite-preview`) with automatic 429/5xx failover chain configurable via `TRANSLATION_FALLBACK_PROVIDERS` (default: `gemini,openai`) | ✅ Completed |
+| 8.6 | WordPress plugin: accessibility-attribute translation pass for `img alt`, `aria-label`, `placeholder`, and submit button copy; respects `translate="no"` and `exclude_selectors` | ✅ Completed |
+| 8.7 | WordPress plugin v0.2.0: real admin UI for the language switcher — style (list/dropdown), four flag finishes (rectangle/circle × mat/glossy + none), drag-and-drop language order, scoped custom CSS | ✅ Completed |
+| 8.8 | WordPress plugin v0.3.0: Weglot-parity `<aside>` switcher — CSS-driven dropdown via checkbox+label trick, ARIA (`aria-haspopup`, `aria-expanded`), `switcher_position` option, `switcher.js` progressive `aria-expanded` sync, `data-deepglot-no-translate` opt-out for `HtmlTranslator` | ✅ Completed |
+| 8.9 | WordPress plugin v0.4.0: nav-menu integration — drop the switcher into any WP Appearance → Menus position via `NavMenuSwitcher`; dropdown and hide-current modifier classes; marker hierarchy preserved for nested placements | ✅ Completed |
+| 8.10 | WordPress plugin v0.5.0: Gutenberg block (`deepglot/switcher`) with alignment attribute support and classic `WP_Widget`; both delegate to `LanguageSwitcher::renderShortcode` so all placement methods render identical markup | ✅ Completed |
+| 8.11 | WordPress plugin v0.5.1: fix active-language detection before `REQUEST_URI` strip via injected `RequestRouter`; `LinkRewriter` skips `data-deepglot-no-translate` subtrees so switcher hand-built hrefs survive the rewrite pass | ✅ Completed |
+| 8.12 | WordPress plugin v0.5.2: gate `aria-expanded` on dropdown wrapper only via `isDropdownWrapper` helper; list-style wrappers no longer claim expandable/collapsed state to assistive technology | ✅ Completed |
+
+---
+
 ## Technical Decisions
 
 | Area | Decision | Rationale |
@@ -200,10 +219,11 @@ Next.js App (Vercel)          WordPress Plugin
 | Billing | Stripe | Industry standard, strong subscription support |
 | UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
 | Email | Resend | Next.js friendly, cost-effective |
-| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
-| Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
+| Translation (Primary) | OpenAI `gpt-5-mini` | Low-cost default path, model configurable, local `mock` mode for development |
+| Translation (Secondary) | Gemini `gemini-3.1-flash-lite-preview` | Failover provider on quota/rate-limit errors; direct option via `TRANSLATION_PROVIDER=gemini` |
+| Translation (Tertiary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
-| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
+| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
 
 ---
 
