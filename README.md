@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- OpenAI / Gemini / DeepL
 
 ## Local development
 
@@ -101,20 +101,51 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The first plugin scaffold lives in `wordpress-plugin/deepglot`.
+The plugin lives in `wordpress-plugin/deepglot` and is currently at **version 0.7.0**.
 
-Current contents:
+Core capabilities:
 
-- Bootstrap file with the plugin header
-- Autoloader and a lightweight service container
-- Admin settings page under `Settings -> Deepglot`
-- Prepared API client
-- First testable URL language logic
+- Bootstrap file, autoloader, and lightweight service container
+- Output-buffer pipeline: WordPress renders HTML → buffer captures → strings extracted → batch API call → localized output returned
+- HTML, JSON, and XML parser with accessibility-attribute translation (`<img alt>`, `aria-label`, `placeholder`, submit button copy)
+- Link rewriter for internal `<a>`, `<form>`, and `<link rel=canonical>` elements; skips subtrees marked `data-deepglot-no-translate`
+- `hreflang` tags and canonical URL management
+- Deepglot API client with local WordPress transient cache
+- RequestRouter for language prefix detection and URL rewriting
+- BrowserRedirector for browser-language auto-redirect (explicit pick marker via `?deepglot-explicit=1`)
+- REST API v1 (CRUD settings, status, test-connection) with auth and rate limiting
+- WooCommerce email translation
+
+Language switcher (v0.7.0):
+
+- Semantic `<aside data-deepglot-no-translate>` with checkbox-driven CSS dropdown and `aria-expanded` JS sync
+- Placement: auto-inject via `switcher_position` (inline | fixed-bottom-right | fixed-bottom-left | fixed-top-right | fixed-top-left), shortcode `[deepglot_switcher]`, action hook, Gutenberg block `deepglot/switcher`, or classic WP_Widget
+- WP nav-menu integration: drop switcher into any registered menu via Appearance → Menus with dropdown and hide-current modifiers
+- `switcher_responsive_hide` (none | mobile | desktop) + `switcher_responsive_breakpoint` (default 768 px)
+- `switcher_custom_flags` assoc array for per-language emoji or image URL overrides
+
+Admin settings:
+
+- General (toggles, website type, industry)
+- Language model (provider, model selection)
+- Language switcher (style, flags, order, CSS, responsive, custom flags)
+- Translation exclusions (excluded URLs, blocks, selectors)
+- Setup (API key display, installation guide)
+- WordPress settings (email, search, AMP)
+- Project members (table, roles, invitations)
+
+Guided 3-step setup wizard on first activation.
 
 Local plugin test:
 
 ```bash
 php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
+```
+
+Full PHP test suite:
+
+```bash
+npm run test:wp
 ```
 
 ## Deployment
@@ -206,7 +237,7 @@ Recommended environment matrix:
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
   - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-5-mini`
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -279,9 +310,11 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, `gemini`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
+- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-5-mini`.
+- `GEMINI_API_KEY`, `GEMINI_TRANSLATION_MODEL` (defaults to `gemini-3.1-flash-lite-preview`), and `GEMINI_BASE_URL` configure the Gemini provider.
+- `TRANSLATION_FALLBACK_PROVIDERS` (comma-separated, optional) defines the failover chain when the primary provider returns a quota error or a 5xx response. The default chain is `gemini,openai`.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 
 ## Test login and demo workspace
