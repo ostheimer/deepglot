@@ -189,6 +189,24 @@ Next.js App (Vercel)          WordPress Plugin
 
 ---
 
+## Phase 8 - WordPress Plugin v2 (Weglot-Parity Features)
+
+| # | Task | Status |
+|---|---|---|
+| 8.1 | Admin UI for language switcher: list/dropdown style, four flag finishes (rect/circle × mat/glossy + none), drag-and-drop language order, scoped custom CSS, `applyRuntimeConfig` switcher sub-object | ✅ Completed |
+| 8.2 | Weglot-parity switcher: semantic `<aside>`, JS-free CSS dropdown, ARIA (`aria-expanded`, `aria-haspopup`), `switcher_position` option (inline / fixed-*), auto-redirect explicit marker | ✅ Completed |
+| 8.3 | WP nav-menu integration: place switcher in any registered menu (Appearance → Menus), dropdown and hide-current modifiers, proper menu_item_parent inheritance | ✅ Completed |
+| 8.4 | Gutenberg block `deepglot/switcher` (server-rendered, alignment support) + classic WP_Widget | ✅ Completed |
+| 8.5 | Bug fix: switcher active language via RequestRouter injection before URL strip; skip plugin-owned links in link rewriter via `data-deepglot-no-translate` | ✅ Completed |
+| 8.6 | Bug fix: gate `aria-expanded` behind dropdown check so list-style switchers do not claim expandability to assistive tech | ✅ Completed |
+| 8.7 | Responsive hide: `switcher_responsive_hide` (none\|mobile\|desktop) + `switcher_responsive_breakpoint` (default 768 px, clamped [320, 1920]) | ✅ Completed |
+| 8.8 | Per-language custom flag override: `switcher_custom_flags` assoc array (emoji string or image URL), XSS-hardened sanitisation (length cap, strip break-out chars, orphan-language filtering) | ✅ Completed |
+| 8.9 | Accessibility attribute translation: `<img alt>`, `<a title>`, `aria-label`, `placeholder`, `<optgroup label>`, submit/button/reset `value`; honours `translate="no"` and `exclude_selectors` | ✅ Completed |
+| 8.10 | Gemini translation provider (Gemini 3.1 Flash-Lite, `gemini-3.1-flash-lite-preview`) + automatic 429/5xx fallback chain (`TRANSLATION_FALLBACK_PROVIDERS`) | ✅ Completed |
+| 8.11 | Switch default OpenAI translation model from `gpt-5.5` to `gpt-5-mini` (15× cost reduction at equivalent quality for web copy) | ✅ Completed |
+
+---
+
 ## Technical Decisions
 
 | Area | Decision | Rationale |
@@ -200,10 +218,11 @@ Next.js App (Vercel)          WordPress Plugin
 | Billing | Stripe | Industry standard, strong subscription support |
 | UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
 | Email | Resend | Next.js friendly, cost-effective |
-| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
-| Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
+| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model `gpt-5-mini`, configurable per workspace; local `mock` mode for development |
+| Translation (Secondary) | Gemini provider | First fallback in the automatic 429/5xx chain; `gemini-3.1-flash-lite-preview` is twice as fast and comparably priced to equivalent OpenAI tiers |
+| Translation (Tertiary) | DeepL provider | Optional quality-focused fallback; configurable via `TRANSLATION_FALLBACK_PROVIDERS` |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
-| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
+| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
 
 ---
 
