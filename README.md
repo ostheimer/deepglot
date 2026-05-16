@@ -308,14 +308,22 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 ## Translation providers
 
-The translation flow now uses a provider abstraction:
+The translation flow uses a provider abstraction. `TRANSLATION_PROVIDER` accepts:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, `gemini`, or `mock`.
-- Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-5-mini`.
-- `GEMINI_API_KEY`, `GEMINI_TRANSLATION_MODEL` (defaults to `gemini-3.1-flash-lite-preview`), and `GEMINI_BASE_URL` configure the Gemini provider.
-- `TRANSLATION_FALLBACK_PROVIDERS` (comma-separated, optional) defines the failover chain when the primary provider returns a quota error or a 5xx response. The default chain is `gemini,openai`.
-- `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
+| Value | Key env var | Notes |
+|---|---|---|
+| `openai` | `OPENAI_API_KEY` | Default model `gpt-5-mini`; override with `OPENAI_TRANSLATION_MODEL` and `OPENAI_BASE_URL` |
+| `gemini` | `GEMINI_API_KEY` | Default model `gemini-3.1-flash-lite-preview`; override with `GEMINI_TRANSLATION_MODEL` and `GEMINI_BASE_URL` |
+| `openrouter` | `OPENROUTER_API_KEY` | Default model `openai/gpt-5-mini`; override with `OPENROUTER_TRANSLATION_MODEL` and `OPENROUTER_BASE_URL` |
+| `ollama` | `OLLAMA_BASE_URL` | Default model `llama3.3`; override with `OLLAMA_TRANSLATION_MODEL`. Useful for local or private deployments |
+| `openai-compatible` | `TRANSLATION_API_KEY` | Bring-your-own gateway; set `TRANSLATION_BASE_URL` and `TRANSLATION_MODEL`. Aliases: `custom`, `compatible` |
+| `deepl` | `DEEPL_API_KEY` | Quality-focused option; no model selection needed |
+| `mock` | — | Returns visibly marked output; intended for local development and tests |
+
+Without an explicit `TRANSLATION_PROVIDER`, the app auto-selects based on which key is present:
+`GEMINI_API_KEY` → `gemini` · `OPENAI_API_KEY` → `openai` · `OPENROUTER_API_KEY` → `openrouter` · `DEEPL_API_KEY` → `deepl` · `OLLAMA_BASE_URL` → `ollama` · otherwise `mock` in `development` and `test`.
+
+`TRANSLATION_FALLBACK_PROVIDERS` (comma-separated, optional) defines the failover chain when the primary provider returns a quota error or 5xx response. The default chain is `gemini,openai`.
 
 ## Test login and demo workspace
 
