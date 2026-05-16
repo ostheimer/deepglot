@@ -33,6 +33,11 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
   const [pending, setPending] = useState<string | null>(null);
 
   const interval = yearly ? "yearly" : "monthly";
+  // An org already on a paid tier has a live Stripe subscription. Plan changes
+  // must go through the billing portal so Stripe swaps the existing
+  // subscription (with proration) — starting a fresh Checkout would create a
+  // second subscription and double-bill the customer.
+  const onPaidPlan = currentPlan !== "FREE";
 
   async function handleUpgrade(plan: BillingPlanKey) {
     setPending(plan);
@@ -146,17 +151,24 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
               ) : (
                 <button
                   type="button"
-                  onClick={() => handleUpgrade(key)}
+                  onClick={() =>
+                    onPaidPlan ? handlePortal() : handleUpgrade(key)
+                  }
                   disabled={pending !== null}
                   className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {pending === key
+                  {(onPaidPlan && pending === "__portal") ||
+                  pending === key
                     ? locale === "de"
                       ? "Weiterleiten…"
                       : "Redirecting..."
-                    : locale === "de"
-                      ? "Auswählen"
-                      : "Select"}
+                    : onPaidPlan
+                      ? locale === "de"
+                        ? "Im Portal ändern"
+                        : "Change in portal"
+                      : locale === "de"
+                        ? "Auswählen"
+                        : "Select"}
                 </button>
               )}
             </li>
