@@ -4,26 +4,35 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { stripe } from "@/lib/stripe";
 import { CancelSubscriptionButton } from "@/components/abonnement/cancel-subscription-button";
-import { Button } from "@/components/ui/button";
+import { PlanSwitcher } from "@/components/abonnement/plan-switcher";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import {
+  BILLING_PLANS,
+  BILLING_PLAN_KEYS,
+  type BillingPlanKey,
+} from "@/lib/billing-plans";
 
 export const metadata = { title: "Plan-Übersicht – Deepglot" };
 
-const PLAN_FEATURES: Record<string, { languages: number; projects: number; words: number; requests: number; price: number }> = {
-  FREE:         { languages: 1,  projects: 1,  words: 10_000,      requests: 1_000,       price: 0 },
-  STARTER:      { languages: 3,  projects: 3,  words: 100_000,     requests: 50_000,      price: 19 },
-  PROFESSIONAL: { languages: 10, projects: 10, words: 1_000_000,   requests: 1_000_000,   price: 99 },
-  ENTERPRISE:   { languages: 50, projects: 50, words: 10_000_000,  requests: 10_000_000,  price: 289 },
-};
+function normalizePlan(plan: string | null | undefined): BillingPlanKey {
+  if (plan === "PROFESSIONAL") return "PRO";
+  return (BILLING_PLAN_KEYS as readonly string[]).includes(plan ?? "")
+    ? (plan as BillingPlanKey)
+    : "FREE";
+}
 
-const PLAN_LABELS: Record<string, string> = {
-  FREE: "Free",
-  STARTER: "Starter",
-  PROFESSIONAL: "Advanced",
-  ENTERPRISE: "Enterprise",
+const STATUS_BADGE: Record<
+  string,
+  { de: string; en: string; variant: "default" | "outline" | "destructive" }
+> = {
+  ACTIVE: { de: "Aktiv", en: "Active", variant: "default" },
+  TRIALING: { de: "Testphase", en: "Trial", variant: "default" },
+  PAST_DUE: { de: "Zahlung überfällig", en: "Past due", variant: "destructive" },
+  CANCELED: { de: "Gekündigt", en: "Canceled", variant: "outline" },
+  INACTIVE: { de: "Inaktiv", en: "Inactive", variant: "outline" },
 };
 
 type PlanUebersichtPageProps = {
@@ -48,103 +57,97 @@ export default async function PlanUebersichtPage({
 
   const org = membership?.organization;
   const sub = org?.subscription;
-  const plan = org?.plan ?? "FREE";
-  const features = PLAN_FEATURES[plan] ?? PLAN_FEATURES.FREE;
+  const planKey = normalizePlan(org?.plan);
+  const plan = BILLING_PLANS[planKey];
+  const status = sub?.status ?? "INACTIVE";
+  const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.INACTIVE;
 
-  // Next invoice date from Stripe
+  const hasStripeCustomer =
+    !!sub?.stripeCustomerId && !sub.stripeCustomerId.startsWith("free_");
+
+  // Next invoice date from Stripe (best effort — never blocks the page).
   let nextInvoiceDate: string | null = null;
-  let nextInvoiceAmount: number | null = null;
-
   if (sub?.stripeSubscriptionId) {
     try {
-      const stripeSub = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
-      const items = stripeSub.items.data;
-      const periodEnd = items[0]?.current_period_end;
+      const stripeSub = await stripe.subscriptions.retrieve(
+        sub.stripeSubscriptionId
+      );
+      const periodEnd = stripeSub.items.data[0]?.current_period_end;
       if (periodEnd) {
-        nextInvoiceDate = new Date(periodEnd * 1000).toLocaleDateString(getIntlLocale(locale), {
-          year: "numeric", month: "2-digit", day: "2-digit",
-        });
+        nextInvoiceDate = new Date(periodEnd * 1000).toLocaleDateString(
+          getIntlLocale(locale),
+          { year: "numeric", month: "2-digit", day: "2-digit" }
+        );
       }
-      nextInvoiceAmount = features.price;
     } catch {
-      // Stripe not configured or subscription not found
+      // Stripe not configured or subscription not found.
     }
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+    <div className="space-y-5">
+      <h1 className="text-2xl font-bold text-gray-900">
         {locale === "de" ? "Plan-Übersicht" : "Plan overview"}
       </h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-8">
-        <p className="text-sm text-gray-600 mb-3">
-          {locale === "de" ? "Dein aktueller Plan ist:" : "Your current plan is:"}
-        </p>
-
-        <h2 className="text-lg font-bold text-indigo-600 mb-2">
-          {PLAN_LABELS[plan]} {plan !== "FREE" ? locale === "de" ? "(Monatlich)" : "(Monthly)" : ""}
-        </h2>
-
-        {nextInvoiceDate && nextInvoiceAmount !== null && (
-          <p className="text-sm text-gray-600 mb-4">
-            {locale === "de"
-              ? `Deine nächste Rechnung beträgt €${nextInvoiceAmount.toFixed(2)} am ${nextInvoiceDate}`
-              : `Your next invoice is €${nextInvoiceAmount.toFixed(2)} on ${nextInvoiceDate}`}
-          </p>
-        )}
-
-        {/* Features list */}
-        <ul className="space-y-1.5 mb-5">
-          <li className="text-sm text-gray-700">
-            {features.languages} {locale === "de" ? "übersetzte Sprachen" : "translated languages"}
-          </li>
-          <li className="text-sm text-gray-700">
-            {features.projects} {locale === "de" ? "Projekte" : "projects"}
-          </li>
-          <li className="text-sm text-gray-700">
-            {formatNumber(features.words, locale)} {locale === "de" ? "übersetzte Wörter" : "translated words"}
-          </li>
-          <li className="text-sm text-gray-700">
-            {formatNumber(features.requests, locale)} {locale === "de" ? "Übersetzungs-Anfragen/Monat" : "translation requests/month"}
-          </li>
-        </ul>
-
-        <p className="text-sm text-gray-600 mb-6">
-          {locale === "de" ? "Überprüfe deine" : "Review your"}{" "}
-          <Link href={withLocalePrefix("/subscription/usage", locale)} className="text-indigo-600 hover:underline">
-            {locale === "de" ? "Plan-Nutzung für alle Projekte." : "plan usage across all projects."}
-          </Link>
-        </p>
-
-        {/* Auto-upgrade */}
-        <div className="flex items-start justify-between gap-4 py-5 border-t border-gray-100">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900">Auto-Upgrade</p>
-            <p className="text-sm text-gray-500 mt-0.5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">
               {locale === "de"
-                ? "Automatische Planwechsel sind noch nicht verfügbar, weil Stripe-Live-Abrechnung bewusst verschoben ist."
-                : "Automatic plan changes are not available yet because Stripe live billing is intentionally postponed."}
+                ? "Dein aktueller Plan ist:"
+                : "Your current plan is:"}
             </p>
+            <h2 className="text-lg font-bold text-indigo-600">{plan.name}</h2>
           </div>
-          <Badge variant="outline" className="shrink-0">
-            {locale === "de" ? "Aus" : "Off"}
+          <Badge variant={statusBadge.variant} className="shrink-0">
+            {locale === "de" ? statusBadge.de : statusBadge.en}
           </Badge>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between pt-5 border-t border-gray-100">
+        {nextInvoiceDate && (
+          <p className="text-sm text-gray-600 mt-3">
+            {locale === "de"
+              ? `Deine nächste Rechnung ist am ${nextInvoiceDate}`
+              : `Your next invoice is on ${nextInvoiceDate}`}
+          </p>
+        )}
+
+        <ul className="space-y-1.5 mt-5">
+          <li className="text-sm text-gray-700">
+            {plan.languagesLimit}{" "}
+            {locale === "de" ? "übersetzte Sprachen" : "translated languages"}
+          </li>
+          <li className="text-sm text-gray-700">
+            {plan.projectsLimit} {locale === "de" ? "Projekte" : "projects"}
+          </li>
+          <li className="text-sm text-gray-700">
+            {formatNumber(plan.wordsLimit, locale)}{" "}
+            {locale === "de" ? "übersetzte Wörter / Monat" : "translated words / month"}
+          </li>
+        </ul>
+
+        <p className="text-sm text-gray-600 mt-5">
+          {locale === "de" ? "Überprüfe deine" : "Review your"}{" "}
+          <Link
+            href={withLocalePrefix("/subscription/usage", locale)}
+            className="text-indigo-600 hover:underline"
+          >
+            {locale === "de"
+              ? "Plan-Nutzung für alle Projekte."
+              : "plan usage across all projects."}
+          </Link>
+        </p>
+
+        <div className="flex items-center justify-between pt-5 mt-5 border-t border-gray-100">
           <CancelSubscriptionButton
             subscriptionId={sub?.stripeSubscriptionId ?? null}
-            plan={plan}
+            plan={planKey}
           />
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
-            <Link href={withLocalePrefix("/pricing", locale)}>
-              {locale === "de" ? "Plan wechseln" : "Change plan"}
-            </Link>
-          </Button>
         </div>
       </div>
+
+      <PlanSwitcher currentPlan={planKey} hasStripeCustomer={hasStripeCustomer} />
     </div>
   );
 }

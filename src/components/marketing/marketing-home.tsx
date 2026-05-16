@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
+import { getViewerBillingContext } from "@/lib/billing-viewer";
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { formatNumber } from "@/lib/locale-formatting";
 import {
@@ -202,10 +203,11 @@ function buildHeroFooter(locale: SiteLocale): string {
     : `${freeWords} words/month for free · No credit card required`;
 }
 
-export function MarketingHome({ locale }: MarketingHomeProps) {
+export async function MarketingHome({ locale }: MarketingHomeProps) {
   const copy = MARKETING_COPY[locale];
   const heroFooter = buildHeroFooter(locale);
   const signupHref = getMarketingPath(locale, "signup");
+  const viewer = await getViewerBillingContext();
 
   return (
     <div className="min-h-screen bg-white">
@@ -320,7 +322,7 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
             home page reuses it instead of maintaining a separate teaser grid
             that would inevitably drift out of sync with the canonical pricing.
           */}
-          <PricingGrid locale={locale} />
+          <PricingGrid locale={locale} viewer={viewer} />
         </div>
       </section>
 

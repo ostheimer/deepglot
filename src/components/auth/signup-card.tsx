@@ -17,7 +17,12 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { BILLING_PLANS } from "@/lib/billing-plans";
+import {
+  BILLING_PLANS,
+  type BillingInterval,
+  type BillingPlanKey,
+} from "@/lib/billing-plans";
+import { startCheckout } from "@/lib/billing-client";
 import {
   getMarketingPath,
   withLocalePrefix,
@@ -81,11 +86,16 @@ const COPY = {
 type SignupCardProps = {
   canUseGitHubLogin: boolean;
   canUseGoogleLogin: boolean;
+  /** When set, the user is sent to Stripe Checkout right after sign-up. */
+  checkoutPlan?: BillingPlanKey;
+  checkoutInterval?: BillingInterval;
 };
 
 export function SignupCard({
   canUseGitHubLogin,
   canUseGoogleLogin,
+  checkoutPlan,
+  checkoutInterval = "monthly",
 }: SignupCardProps) {
   const locale = useLocale();
   const copy = COPY[locale];
@@ -114,12 +124,28 @@ export function SignupCard({
         return;
       }
 
-      await signIn("credentials", {
+      const result = await signIn("credentials", {
         email,
         password,
-        callbackUrl: dashboardPath,
-        redirect: true,
+        redirect: false,
       });
+
+      if (result?.error) {
+        toast.error(copy.registerFailed);
+        return;
+      }
+
+      if (checkoutPlan) {
+        try {
+          await startCheckout(checkoutPlan, checkoutInterval);
+          return;
+        } catch {
+          // Account exists; fall through to the dashboard where the user can
+          // retry the upgrade from the subscription page.
+        }
+      }
+
+      window.location.href = dashboardPath;
     } catch {
       toast.error(copy.networkError);
     } finally {

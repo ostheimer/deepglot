@@ -3,6 +3,7 @@ import { Globe } from "lucide-react";
 
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
+import { getViewerBillingContext } from "@/lib/billing-viewer";
 import {
   getMarketingPath,
   withLocalePrefix,
@@ -30,9 +31,10 @@ type PricingPageProps = {
   locale: SiteLocale;
 };
 
-export function PricingPage({ locale }: PricingPageProps) {
+export async function PricingPage({ locale }: PricingPageProps) {
   const copy = PAGE_COPY[locale];
   const homeHref = getMarketingPath(locale, "home");
+  const viewer = await getViewerBillingContext();
 
   return (
     <div className="min-h-screen bg-white">
@@ -45,7 +47,7 @@ export function PricingPage({ locale }: PricingPageProps) {
         <p className="text-lg text-gray-500">{copy.description}</p>
       </div>
 
-      <PricingGrid locale={locale} />
+      <PricingGrid locale={locale} viewer={viewer} />
 
       <footer className="mt-20 border-t border-gray-100 py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:flex-row">

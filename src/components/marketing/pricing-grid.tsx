@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import {
   BILLING_PLANS,
@@ -12,6 +14,8 @@ import {
   formatYearlyMonthlyEquivalentCents,
   type BillingPlanKey,
 } from "@/lib/billing-plans";
+import { openBillingPortal, startCheckout } from "@/lib/billing-client";
+import type { ViewerBillingContext } from "@/lib/billing-viewer";
 
 /**
  * Marketing-friendly capabilities advertised per tier. Each cell mirrors the
@@ -137,6 +141,11 @@ const PRICING_COPY = {
     faq: "Questions about the plans?",
     faqCta: "Talk to us",
     faqSuffix: "and we will help you choose the right setup.",
+    currentPlan: "Current plan",
+    managePlan: "Manage plan",
+    upgradeCta: "Upgrade",
+    redirecting: "Redirecting…",
+    checkoutError: "Could not start checkout. Please try again.",
   },
   de: {
     monthly: "Monatlich",
@@ -164,6 +173,11 @@ const PRICING_COPY = {
     faq: "Fragen zu den Plänen?",
     faqCta: "Schreib uns",
     faqSuffix: "wir helfen gerne.",
+    currentPlan: "Aktueller Plan",
+    managePlan: "Plan verwalten",
+    upgradeCta: "Upgraden",
+    redirecting: "Weiterleiten…",
+    checkoutError: "Checkout konnte nicht gestartet werden. Bitte erneut versuchen.",
   },
 } as const;
 
@@ -185,18 +199,24 @@ function centsToWholeEuros(cents: number | null | undefined): number | null {
 
 type PricingGridProps = {
   locale: SiteLocale;
+  /** Auth/plan state of the page viewer; omitted on statically rendered pages. */
+  viewer?: ViewerBillingContext;
 };
 
-export function PricingGrid({ locale }: PricingGridProps) {
+export function PricingGrid({ locale, viewer }: PricingGridProps) {
   // The slider lets visitors land on a tier interactively. The default index
   // points at PRO so the marketing-recommended plan is what greets every
   // visitor before they touch the slider.
   const defaultIndex = Math.max(BILLING_PLAN_KEYS.indexOf("PRO"), 0);
   const [tierIndex, setTierIndex] = useState(defaultIndex);
   const [yearly, setYearly] = useState(false);
+  const [ctaLoading, setCtaLoading] = useState(false);
 
   const copy = PRICING_COPY[locale];
   const signupHref = getMarketingPath(locale, "signup");
+  const loggedIn = viewer?.loggedIn ?? false;
+  const viewerPlan = viewer?.plan ?? null;
+  const interval = yearly ? "yearly" : "monthly";
   const enterpriseMailto = "mailto:office@ostheimer.at?subject=Deepglot%20Enterprise";
 
   const tierKey = BILLING_PLAN_KEYS[tierIndex];
@@ -212,6 +232,101 @@ export function PricingGrid({ locale }: PricingGridProps) {
   const yearlyTotalEuros = centsToWholeEuros(computeYearlyTotalCents(tierKey));
 
   const displayedEuros = yearly ? yearlyMonthlyEuros : monthlyEuros;
+
+  const ctaClass = `block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
+    tier.highlight
+      ? "bg-indigo-600 hover:bg-indigo-700"
+      : "bg-gray-900 hover:bg-black"
+  }`;
+
+  async function handleCheckout() {
+    setCtaLoading(true);
+    try {
+      await startCheckout(tierKey, interval);
+    } catch {
+      toast.error(copy.checkoutError);
+      setCtaLoading(false);
+    }
+  }
+
+  async function handlePortal() {
+    setCtaLoading(true);
+    try {
+      await openBillingPortal();
+    } catch {
+      toast.error(copy.checkoutError);
+      setCtaLoading(false);
+    }
+  }
+
+  function renderCta() {
+    if (isEnterprise) {
+      return (
+        <a
+          href={enterpriseMailto}
+          className="block w-full rounded-xl bg-gray-900 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-black"
+        >
+          {copy.enterpriseCta}
+        </a>
+      );
+    }
+
+    if (!loggedIn) {
+      const href = isFree
+        ? signupHref
+        : `${signupHref}?plan=${tierKey}&interval=${interval}`;
+      return (
+        <Link href={href} className={ctaClass}>
+          {isFree ? copy.primaryCta : copy.paidCta}
+        </Link>
+      );
+    }
+
+    if (viewerPlan === tierKey) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="block w-full cursor-default rounded-xl border border-gray-200 bg-gray-50 py-3 text-center text-sm font-semibold text-gray-500"
+        >
+          {copy.currentPlan}
+        </button>
+      );
+    }
+
+    // Free tier card for a logged-in user already on a paid plan: route them
+    // to the portal to downgrade rather than offering a meaningless sign-up.
+    if (isFree) {
+      return (
+        <button
+          type="button"
+          onClick={handlePortal}
+          disabled={ctaLoading}
+          className={`${ctaClass} disabled:opacity-60`}
+        >
+          {ctaLoading ? copy.redirecting : copy.managePlan}
+        </button>
+      );
+    }
+
+    // Paid tier. FREE (or org-less) viewers go straight to Checkout; viewers
+    // already on another paid plan switch tiers through the billing portal.
+    const onFreeOrNoPlan = viewerPlan === "FREE" || viewerPlan === null;
+    return (
+      <button
+        type="button"
+        onClick={onFreeOrNoPlan ? handleCheckout : handlePortal}
+        disabled={ctaLoading}
+        className={`${ctaClass} disabled:opacity-60`}
+      >
+        {ctaLoading
+          ? copy.redirecting
+          : onFreeOrNoPlan
+            ? copy.paidCta
+            : copy.managePlan}
+      </button>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pb-20">
@@ -371,27 +486,7 @@ export function PricingGrid({ locale }: PricingGridProps) {
           ))}
         </ul>
 
-        <div className="mt-8">
-          {isEnterprise ? (
-            <a
-              href={enterpriseMailto}
-              className="block w-full rounded-xl bg-gray-900 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-black"
-            >
-              {copy.enterpriseCta}
-            </a>
-          ) : (
-            <Link
-              href={signupHref}
-              className={`block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
-                tier.highlight
-                  ? "bg-indigo-600 hover:bg-indigo-700"
-                  : "bg-gray-900 hover:bg-black"
-              }`}
-            >
-              {isFree ? copy.primaryCta : copy.paidCta}
-            </Link>
-          )}
-        </div>
+        <div className="mt-8">{renderCta()}</div>
       </div>
 
       {/* Enterprise hint -------------------------------------------------- */}
