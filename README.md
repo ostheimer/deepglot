@@ -48,6 +48,13 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/pricing`
   - `/login`
   - `/signup`
+  - `/forgot-password` — password reset request
+  - `/reset-password` — password reset form
+  - `/accept-invite` — accept a project invitation
+  - `/docs` — public documentation
+  - `/agb` — terms of service (public legal page)
+  - `/datenschutz` — privacy policy (public legal page)
+  - `/impressum` — legal notice (public legal page)
   - `/dashboard`
   - `/projects`
   - `/subscription`
@@ -279,10 +286,27 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
 - `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
+
+Provider-specific configuration:
+
+- `openai`: requires `OPENAI_API_KEY`. Optionally set `OPENAI_BASE_URL` and `OPENAI_TRANSLATION_MODEL`.
+- `openrouter`: requires `OPENROUTER_API_KEY`. Optionally set `OPENROUTER_BASE_URL` and `OPENROUTER_TRANSLATION_MODEL`.
+- `ollama`: requires `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL`. Intended for local/self-hosted deployments (no cloud API key needed).
+- `openai-compatible`: requires `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL`. Use this for any OpenAI-compatible gateway or endpoint not covered by the named providers above.
+- `deepl`: requires `DEEPL_API_KEY`.
+- `mock`: no credentials required. Returns visibly marked placeholder output.
+
+## Billing
+
+> **Warning: Billing status:** Stripe Live is provisioned (5 products, EUR) but the checkout flow is not yet implemented
+> (`/api/billing/checkout` is missing). Users cannot currently subscribe via the UI.
+> Tracking: Issue [#56](https://github.com/ostheimer/deepglot/issues/56). The billing portal, cancellation, and address update work for existing subscriptions.
+
+The plan name `PROFESSIONAL` is deprecated and has been renamed to `PRO`. Historical database rows may still contain `PROFESSIONAL`.
 
 ## Test login and demo workspace
 

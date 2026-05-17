@@ -113,9 +113,9 @@ Runtime configuration:
 
 ## Stripe Acceptance
 
-Stripe live billing acceptance is postponed as an external dependency until live/test billing configuration is intentionally created. Do not create products, prices, webhooks, customers, checkout sessions, or subscriptions as part of normal engineering work.
+Stripe Live Mode is provisioned (acct_1GRyA0FAiA6nPZyW, EUR, Webhook + Restricted Key configured, 5 products/10 prices verified via `acceptance:stripe --mode live`). The Checkout UI flow (Issue [#56](https://github.com/ostheimer/deepglot/issues/56)) is not yet implemented — Live billing acceptance tests therefore remain suspended until the Checkout flow is complete.
 
-When Stripe is resumed, run env-only validation for test mode and read-only API validation for live mode:
+When the Checkout flow is ready, run env-only validation for test mode and read-only API validation for live mode:
 
 ```bash
 npm run acceptance:stripe -- --mode test --env-file .env.local --env-only

@@ -1,5 +1,9 @@
 # Reference Plugin Analysis for a WordPress Translation Solution
 
+> **Note:** This document is a historical reference analysis from March 2026 (before implementation began).
+> The "Next implementation steps" listed in Section 9 are fully implemented (Phases 3–6).
+> For the current implementation status see ROADMAP.md.
+
 > Analysis date: March 2026  
 > Goal: a solid foundation for a custom WordPress translation plugin without cloud lock-in
 
@@ -118,6 +122,8 @@ The analysis suggests these prioritized decisions for Deepglot:
 ---
 
 ## 9. Next implementation steps
+
+> **Note:** All items below have been fully implemented in Phases 3–6. This section is preserved for historical reference only.
 
 - Integrate URL and language logic directly into the frontend flow
 - Build parser and string extraction on top of DiDOM
