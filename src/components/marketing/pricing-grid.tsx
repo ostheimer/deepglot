@@ -6,7 +6,11 @@ import { Check } from "lucide-react";
 
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { getIntlLocale } from "@/lib/locale-formatting";
-import { localizeCopy, uiText } from "@/lib/static-copy";
+import {
+  formatCompactWordCount,
+  getDateTimeFieldLabel,
+} from "@/lib/marketing-formatting";
+import { localizeCopy } from "@/lib/static-copy";
 import {
   BILLING_PLANS,
   BILLING_PLAN_KEYS,
@@ -119,9 +123,6 @@ const PRICING_COPY = {
     monthly: "Monthly",
     yearly: "Yearly",
     yearlySavings: "2 months free",
-    priceSuffix: "/mo.",
-    yearlyPriceSuffix: "/mo. billed yearly",
-    yearlyTotalSuffix: "/year",
     enterprisePrice: "Custom pricing",
     primaryCta: "Start free",
     paidCta: "Try for free",
@@ -144,9 +145,6 @@ const PRICING_COPY = {
     monthly: "Monatlich",
     yearly: "Jährlich",
     yearlySavings: "2 Monate gratis",
-    priceSuffix: "/Mo.",
-    yearlyPriceSuffix: "/Mo., jährlich abgerechnet",
-    yearlyTotalSuffix: "/Jahr",
     enterprisePrice: "Preis auf Anfrage",
     primaryCta: "Kostenlos starten",
     paidCta: "Kostenlos testen",
@@ -171,17 +169,29 @@ const PRICING_COPY = {
 
 function formatWordCount(value: number, locale: SiteLocale): string {
   if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    return `${millions.toLocaleString(getIntlLocale(locale), {
-      maximumFractionDigits: 1,
-    })}${uiText(locale, "M", " Mio.")}`;
+    return formatCompactWordCount(value, locale);
   }
+
   return value.toLocaleString(getIntlLocale(locale));
 }
 
 function centsToWholeEuros(cents: number | null | undefined): number | null {
   if (typeof cents !== "number") return null;
   return Math.round(cents / 100);
+}
+
+function formatPriceSuffix(
+  locale: SiteLocale,
+  yearly: boolean,
+  yearlyLabel: string
+): string {
+  const monthLabel = getDateTimeFieldLabel(locale, "month");
+
+  if (!yearly) {
+    return `/${monthLabel}`;
+  }
+
+  return `/${monthLabel}, ${yearlyLabel.toLocaleLowerCase(getIntlLocale(locale))}`;
 }
 
 type PricingGridProps = {
@@ -213,6 +223,10 @@ export function PricingGrid({ locale }: PricingGridProps) {
   const yearlyTotalEuros = centsToWholeEuros(computeYearlyTotalCents(tierKey));
 
   const displayedEuros = yearly ? yearlyMonthlyEuros : monthlyEuros;
+  const priceSuffix = formatPriceSuffix(locale, yearly, copy.yearly);
+  const yearlyTotalSuffix = `/${getDateTimeFieldLabel(locale, "year")}`;
+  const lowerLanguagesLabel = copy.languagesLabel.toLocaleLowerCase(getIntlLocale(locale));
+  const lowerProjectsLabel = copy.projectsLabel.toLocaleLowerCase(getIntlLocale(locale));
 
   return (
     <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pb-20">
@@ -333,7 +347,7 @@ export function PricingGrid({ locale }: PricingGridProps) {
               )}
             </div>
             <p className="mt-1 text-sm text-gray-600">
-              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {copy.languagesLabel.toLowerCase()} · {tier.projectsLimit} {copy.projectsLabel.toLowerCase()}
+              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {lowerLanguagesLabel} · {tier.projectsLimit} {lowerProjectsLabel}
             </p>
           </div>
 
@@ -349,13 +363,13 @@ export function PricingGrid({ locale }: PricingGridProps) {
                 <p className="text-4xl font-extrabold text-gray-900">
                   €{displayedEuros}
                   <span className="text-sm font-normal text-gray-500">
-                    {yearly ? copy.yearlyPriceSuffix : copy.priceSuffix}
+                    {priceSuffix}
                   </span>
                 </p>
                 {yearly && yearlyTotalEuros !== null && yearlyTotalEuros > 0 && (
                   <p className="mt-1 text-xs text-gray-500">
                     €{yearlyTotalEuros}
-                    {copy.yearlyTotalSuffix} · {copy.yearlySavingsHint}
+                    {yearlyTotalSuffix} · {copy.yearlySavingsHint}
                   </p>
                 )}
               </>

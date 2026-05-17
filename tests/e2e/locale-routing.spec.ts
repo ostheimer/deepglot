@@ -152,6 +152,15 @@ test.describe("locale routing", () => {
     await expectLocaleCookie(page, "de");
   });
 
+  test("localizes Bulgarian marketing pricing units", async ({ page }) => {
+    await page.goto("/bg");
+
+    await expect(page.getByText("EUR 69/month", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("200k words", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/EUR 69\/месец/)).toBeVisible();
+    await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(2);
+  });
+
   test("maps login and signup pages to the matching locale", async ({ page }) => {
     await page.goto("/login");
 
