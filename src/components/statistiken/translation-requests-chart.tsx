@@ -12,6 +12,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatNumber, getDateFnsLocale } from "@/lib/locale-formatting";
+import { uiText } from "@/lib/static-copy";
 
 interface ChartDataPoint {
   date: string; // ISO date string
@@ -42,7 +43,7 @@ function CustomTooltip({
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm">
       <p className="font-semibold text-gray-900 mb-1">
-        {format(date, locale === "de" ? "dd. MMM yyyy" : "MMM dd, yyyy", {
+        {format(date, uiText(locale, "MMM dd, yyyy", "dd. MMM yyyy"), {
           locale: getDateFnsLocale(locale),
         })}
       </p>
@@ -62,16 +63,12 @@ export function TranslationRequestsChart({
 }: TranslationRequestsChartProps) {
   const locale = useLocale();
   const chartLabel =
-    locale === "de"
-      ? "Übersetzungsanfragen im Zeitverlauf"
-      : "Translation requests over time";
+    uiText(locale, "Translation requests over time", "Übersetzungsanfragen im Zeitverlauf");
 
   if (data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-        {locale === "de"
-          ? "Keine Daten für den gewählten Zeitraum vorhanden."
-          : "No data available for the selected period."}
+        {uiText(locale, "No data available for the selected period.", "Keine Daten für den gewählten Zeitraum vorhanden.")}
       </div>
     );
   }
@@ -80,12 +77,12 @@ export function TranslationRequestsChart({
     try {
       const date = parseISO(value);
       if (granularity === "day") {
-        return format(date, locale === "de" ? "dd. MMM" : "MMM dd", {
+        return format(date, uiText(locale, "MMM dd", "dd. MMM"), {
           locale: getDateFnsLocale(locale),
         });
       }
       if (granularity === "week") {
-        return format(date, locale === "de" ? "'KW' w" : "'Wk' w", {
+        return format(date, uiText(locale, "'Wk' w", "'KW' w"), {
           locale: getDateFnsLocale(locale),
         });
       }

@@ -12,11 +12,13 @@ import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { getCookieLocale } from "@/lib/request-locale";
 import { recordTranslationBatch } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export const runtime = "nodejs";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 function countWords(text: string) {

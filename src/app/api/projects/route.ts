@@ -4,9 +4,11 @@ import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import { generateApiKey } from "@/lib/api-keys";
 import { z } from "zod";
+import { uiText } from "@/lib/static-copy";
+import type { SiteLocale } from "@/lib/site-locale";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 export async function POST(req: NextRequest) {
@@ -106,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     // Automatically create a default API key so the user can start using the
     // plugin immediately without an extra step.
-    const defaultKeyName = locale === "de" ? "WordPress Plugin" : "WordPress plugin";
+    const defaultKeyName = uiText(locale, "WordPress plugin", "WordPress Plugin");
     const { rawKey, apiKey } = await generateApiKey({
       projectId: project.id,
       name: defaultKeyName,

@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocale } from "@/components/providers/locale-provider";
-import { getMarketingPath } from "@/lib/site-locale";
+import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import { localizeCopy, uiText } from "@/lib/static-copy";
 
 type InviteStatusResponse = {
   status: "valid" | "expired" | "accepted" | "not_found";
@@ -103,14 +104,14 @@ const COPY = {
   },
 } as const;
 
-function roleLabel(role: "ADMIN" | "TRANSLATOR", locale: "en" | "de") {
+function roleLabel(role: "ADMIN" | "TRANSLATOR", locale: SiteLocale) {
   if (role === "ADMIN") return "Admin";
-  return locale === "de" ? "Übersetzer" : "Translator";
+  return uiText(locale, "Translator", "Übersetzer");
 }
 
 export function AcceptInviteCard({ token }: { token: string }) {
   const locale = useLocale();
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const [status, setStatus] = useState<InviteStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [isSubmitting, setIsSubmitting] = useState(false);

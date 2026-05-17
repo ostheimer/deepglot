@@ -17,6 +17,7 @@ import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export const metadata = { title: "Übersicht – Deepglot" };
 
@@ -161,7 +162,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="min-h-full">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {locale === "de" ? "Übersicht" : "Overview"}
+        {uiText(locale, "Overview", "Übersicht")}
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_280px] gap-6">
@@ -172,7 +173,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-900">
-                {locale === "de" ? "Plan-Nutzung" : "Plan usage"}
+                {uiText(locale, "Plan usage", "Plan-Nutzung")}
               </h2>
             </div>
             <div className="px-5 py-4 space-y-4">
@@ -180,20 +181,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                    {locale === "de" ? "Aktueller Plan" : "Current plan"}
+                    {uiText(locale, "Current plan", "Aktueller Plan")}
                   </p>
                   <p className="text-sm font-semibold text-indigo-700 mt-0.5">
                     {PLAN_LABELS[plan] ?? plan}{" "}
                     {plan !== "FREE" && (
                       <span className="text-gray-400 font-normal text-xs">
-                        {locale === "de" ? "(Monatlich)" : "(Monthly)"}
+                        {uiText(locale, "(Monthly)", "(Monatlich)")}
                       </span>
                     )}
                   </p>
                 </div>
                 <Button asChild variant="outline" size="xs">
                   <Link href={withLocalePrefix("/subscription", locale)}>
-                    {locale === "de" ? "Plan verwalten" : "Manage plan"}
+                    {uiText(locale, "Manage plan", "Plan verwalten")}
                   </Link>
                 </Button>
               </div>
@@ -207,7 +208,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     <HelpCircle className="h-3 w-3 text-gray-400" />
                   </p>
                   <p className="text-xs text-gray-500">
-                    {locale === "de" ? "AUS (Nicht empfohlen)" : "OFF (Not recommended)"}
+                    {uiText(locale, "OFF (Not recommended)", "AUS (Nicht empfohlen)")}
                   </p>
                 </div>
               </div>
@@ -216,7 +217,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                    {locale === "de" ? "Wörter-Nutzung" : "Word usage"}
+                    {uiText(locale, "Word usage", "Wörter-Nutzung")}
                   </p>
                 </div>
                 <p className="text-sm font-semibold text-indigo-700 mb-1.5">
@@ -236,7 +237,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div>
                 <div className="flex items-center gap-1 mb-1.5">
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                    {locale === "de" ? "Übersetzungs-Anfragen" : "Translation requests"}
+                    {uiText(locale, "Translation requests", "Übersetzungs-Anfragen")}
                   </p>
                   <HelpCircle className="h-3 w-3 text-gray-400" />
                 </div>
@@ -252,9 +253,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1.5 leading-tight">
-                  {locale === "de"
-                    ? "Anfragen-Zähler wird am 1. jedes Monats zurückgesetzt."
-                    : "The request counter resets on the first day of each month."}
+                  {uiText(locale, "The request counter resets on the first day of each month.", "Anfragen-Zähler wird am 1. jedes Monats zurückgesetzt.")}
                 </p>
               </div>
             </div>
@@ -263,7 +262,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="px-5 py-4 border-t border-gray-100">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  {locale === "de" ? "Benutzer" : "Users"}
+                  {uiText(locale, "Users", "Benutzer")}
                 </p>
                 <span className="text-xs text-gray-500">
                   {usersCount} / {usersLimit}
@@ -302,27 +301,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden p-5 text-white min-h-[120px]">
             <div className="relative z-10 max-w-[55%]">
               <p className="text-sm font-bold leading-tight">
-                {locale === "de"
-                  ? "Übersetzt deine Inhalte schnell und datenschutzkonform – ohne Cloud-Lock-in."
-                  : "Translate your content quickly and privately without cloud lock-in."}
+                {uiText(locale, "Translate your content quickly and privately without cloud lock-in.", "Übersetzt deine Inhalte schnell und datenschutzkonform – ohne Cloud-Lock-in.")}
               </p>
               <p className="text-xs text-gray-300 mt-1.5">
-                {locale === "de"
-                  ? "Deepglot kombiniert günstige LLMs und optionale Premium-Provider, während deine Daten unter deiner Kontrolle bleiben."
-                  : "Deepglot combines low-cost LLMs with optional premium providers while your data stays under your control."}
+                {uiText(locale, "Deepglot combines low-cost LLMs with optional premium providers while your data stays under your control.", "Deepglot kombiniert günstige LLMs und optionale Premium-Provider, während deine Daten unter deiner Kontrolle bleiben.")}
               </p>
               <div className="flex gap-2 mt-3">
                 <Link
                   href={withLocalePrefix("/projects/new", locale)}
                   className="rounded bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 transition-colors hover:bg-gray-100"
                 >
-                  {locale === "de" ? "Projekt erstellen" : "Create project"}
+                  {uiText(locale, "Create project", "Projekt erstellen")}
                 </Link>
                 <Link
                   href={withLocalePrefix("/subscription", locale)}
                   className="rounded border border-white/30 px-3 py-1.5 text-xs text-white transition-colors hover:bg-white/10"
                 >
-                  {locale === "de" ? "Mehr erfahren" : "Learn more"}
+                  {uiText(locale, "Learn more", "Mehr erfahren")}
                 </Link>
               </div>
             </div>
@@ -348,7 +343,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <Button asChild className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs gap-1.5">
                 <Link href={withLocalePrefix("/projects/new", locale)}>
                   <Plus className="h-3.5 w-3.5" />
-                  {locale === "de" ? "Projekt erstellen" : "Create project"}
+                  {uiText(locale, "Create project", "Projekt erstellen")}
                 </Link>
               </Button>
             </div>
@@ -397,17 +392,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="bg-white border border-dashed border-gray-300 rounded-xl py-14 text-center">
                 <Globe className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                 <p className="text-sm font-medium text-gray-600">
-                  {locale === "de" ? "Noch kein Projekt" : "No project yet"}
+                  {uiText(locale, "No project yet", "Noch kein Projekt")}
                 </p>
                 <p className="text-xs text-gray-400 mt-1 mb-4 max-w-xs mx-auto">
-                  {locale === "de"
-                    ? "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin."
-                    : "Create your first project and connect your WordPress plugin."}
+                  {uiText(locale, "Create your first project and connect your WordPress plugin.", "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.")}
                 </p>
                 <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
                   <Link href={withLocalePrefix("/projects/new", locale)}>
                     <Plus className="h-4 w-4" />
-                    {locale === "de" ? "Erstes Projekt erstellen" : "Create first project"}
+                    {uiText(locale, "Create first project", "Erstes Projekt erstellen")}
                   </Link>
                 </Button>
               </div>
@@ -419,7 +412,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   href={withLocalePrefix("/projects", locale)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
-                  {locale === "de" ? "Alle Projekte anzeigen" : "View all projects"}
+                  {uiText(locale, "View all projects", "Alle Projekte anzeigen")}
                 </Link>
               </div>
             )}
@@ -432,7 +425,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900">
-                {locale === "de" ? "Aktivität" : "Activity"}
+                {uiText(locale, "Activity", "Aktivität")}
               </h2>
             </div>
 
@@ -475,12 +468,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             ) : (
               <div className="px-5 py-10 text-center">
                 <p className="text-xs text-gray-400">
-                  {locale === "de" ? "Noch keine Aktivitäten" : "No activity yet"}
+                  {uiText(locale, "No activity yet", "Noch keine Aktivitäten")}
                 </p>
                 <p className="mt-2 text-xs text-gray-400">
-                  {locale === "de"
-                    ? "Sobald Projekte, Glossare oder Ausnahmen genutzt werden, erscheint die Aktivität hier."
-                    : "Activity will appear here as soon as projects, glossary rules, or exclusions are used."}
+                  {uiText(locale, "Activity will appear here as soon as projects, glossary rules, or exclusions are used.", "Sobald Projekte, Glossare oder Ausnahmen genutzt werden, erscheint die Aktivität hier.")}
                 </p>
               </div>
             )}
@@ -491,7 +482,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   href={withLocalePrefix("/projects", locale)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
-                  {locale === "de" ? "Alle Projekte anzeigen" : "View all projects"}
+                  {uiText(locale, "View all projects", "Alle Projekte anzeigen")}
                 </Link>
               </div>
             )}
@@ -504,15 +495,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div>
                 <p className="text-sm font-semibold text-gray-900">Support</p>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  {locale === "de"
-                    ? "Deepglot Support ist montags bis freitags von 9–17 Uhr erreichbar."
-                    : "Deepglot support is available Monday to Friday from 9 a.m. to 5 p.m."}
+                  {uiText(locale, "Deepglot support is available Monday to Friday from 9 a.m. to 5 p.m.", "Deepglot Support ist montags bis freitags von 9–17 Uhr erreichbar.")}
                 </p>
                 <a
                   href="mailto:office@ostheimer.at?subject=Deepglot%20Support"
                   className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-2"
                 >
-                  {locale === "de" ? "Support kontaktieren" : "Contact support"}
+                  {uiText(locale, "Contact support", "Support kontaktieren")}
                   <HelpCircle className="h-3 w-3" />
                 </a>
               </div>

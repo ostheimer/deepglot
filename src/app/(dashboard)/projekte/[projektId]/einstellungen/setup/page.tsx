@@ -7,6 +7,7 @@ import Link from "next/link";
 import { requireProjectManagement } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -31,7 +32,7 @@ export default async function SetupPage({ params }: PageProps) {
   return (
     <div className="max-w-2xl space-y-5">
       <h2 className="text-xl font-bold text-gray-900">
-        {locale === "de" ? "Setup" : "Setup"}
+        {uiText(locale, "Setup", "Setup")}
       </h2>
 
       {/* API Key section */}
@@ -41,9 +42,7 @@ export default async function SetupPage({ params }: PageProps) {
           API-Key
         </h3>
         <p className="text-sm text-gray-500 mb-4">
-          {locale === "de"
-            ? "Verwende diesen API-Key, um Deepglot in deine Website zu integrieren."
-            : "Use this API key to integrate Deepglot into your website."}
+          {uiText(locale, "Use this API key to integrate Deepglot into your website.", "Verwende diesen API-Key, um Deepglot in deine Website zu integrieren.")}
         </p>
 
         {apiKey ? (
@@ -54,30 +53,28 @@ export default async function SetupPage({ params }: PageProps) {
               </div>
               <CreateApiKeyDialog
                 projectId={projektId}
-                label={locale === "de" ? "Neuen Schlüssel erstellen" : "Create new key"}
+                label={uiText(locale, "Create new key", "Neuen Schlüssel erstellen")}
                 variant="outline"
               />
             </div>
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              {locale === "de"
-                ? "⚠️ Der vollständige API-Key wird nur einmal beim Erstellen angezeigt. Wenn du ihn verloren hast, erstelle einen neuen."
-                : "⚠️ The full API key is shown only once when it is created. If you lose it, create a new one."}
+              {uiText(locale, "⚠️ The full API key is shown only once when it is created. If you lose it, create a new one.", "⚠️ Der vollständige API-Key wird nur einmal beim Erstellen angezeigt. Wenn du ihn verloren hast, erstelle einen neuen.")}
             </p>
           </div>
         ) : (
           <div className="text-center py-6 border border-dashed border-gray-200 rounded-lg">
             <p className="text-sm text-gray-500 mb-3">
-              {locale === "de" ? "Noch kein API-Key vorhanden." : "No API key yet."}
+              {uiText(locale, "No API key yet.", "Noch kein API-Key vorhanden.")}
             </p>
             <div className="flex items-center justify-center gap-3">
               <CreateApiKeyDialog
                 projectId={projektId}
-                label={locale === "de" ? "API-Key erstellen" : "Create API key"}
+                label={uiText(locale, "Create API key", "API-Key erstellen")}
               />
               <Button asChild variant="outline" size="sm">
                 <Link href={withLocalePrefix(`/projects/${projektId}/api-keys`, locale)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  {locale === "de" ? "Zur Verwaltung" : "Open manager"}
+                  {uiText(locale, "Open manager", "Zur Verwaltung")}
                 </Link>
               </Button>
             </div>
@@ -88,45 +85,37 @@ export default async function SetupPage({ params }: PageProps) {
       {/* Installation guide */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-4">
-          {locale === "de" ? "WordPress Plugin einrichten" : "Set up the WordPress plugin"}
+          {uiText(locale, "Set up the WordPress plugin", "WordPress Plugin einrichten")}
         </h3>
         <ol className="space-y-4">
           {[
             {
               step: 1,
-              title: locale === "de" ? "Plugin herunterladen" : "Download plugin",
-              desc: locale === "de"
-                ? "Der Plugin-Quellcode ist im Deepglot-Repository verfügbar. Ein gebautes Installer-ZIP wird noch nicht automatisch bereitgestellt."
-                : "The plugin source is available in the Deepglot repository. A built installer ZIP is not published automatically yet.",
+              title: uiText(locale, "Download plugin", "Plugin herunterladen"),
+              desc: uiText(locale, "The plugin source is available in the Deepglot repository. A built installer ZIP is not published automatically yet.", "Der Plugin-Quellcode ist im Deepglot-Repository verfügbar. Ein gebautes Installer-ZIP wird noch nicht automatisch bereitgestellt."),
               action: (
                 <Button asChild variant="outline" size="sm">
                   <Link href={pluginSourceUrl} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    {locale === "de" ? "Plugin-Quelle öffnen" : "Open plugin source"}
+                    {uiText(locale, "Open plugin source", "Plugin-Quelle öffnen")}
                   </Link>
                 </Button>
               ),
             },
             {
               step: 2,
-              title: locale === "de" ? "Plugin aktivieren" : "Activate plugin",
-              desc: locale === "de"
-                ? "Gehe in WordPress zu Plugins → Installierte Plugins und aktiviere Deepglot."
-                : "Open Plugins → Installed Plugins in WordPress and activate Deepglot.",
+              title: uiText(locale, "Activate plugin", "Plugin aktivieren"),
+              desc: uiText(locale, "Open Plugins → Installed Plugins in WordPress and activate Deepglot.", "Gehe in WordPress zu Plugins → Installierte Plugins und aktiviere Deepglot."),
             },
             {
               step: 3,
-              title: locale === "de" ? "API-Key eintragen" : "Add API key",
-              desc: locale === "de"
-                ? "Navigiere zu Einstellungen → Deepglot und trage deinen API-Key ein."
-                : "Navigate to Settings → Deepglot and add your API key.",
+              title: uiText(locale, "Add API key", "API-Key eintragen"),
+              desc: uiText(locale, "Navigate to Settings → Deepglot and add your API key.", "Navigiere zu Einstellungen → Deepglot und trage deinen API-Key ein."),
             },
             {
               step: 4,
-              title: locale === "de" ? "Sprachen konfigurieren" : "Configure languages",
-              desc: locale === "de"
-                ? "Wähle die Zielsprachen aus und speichere die Einstellungen. Deine Website wird automatisch übersetzt."
-                : "Choose target languages and save your settings. Your website will be translated automatically.",
+              title: uiText(locale, "Configure languages", "Sprachen konfigurieren"),
+              desc: uiText(locale, "Choose target languages and save your settings. Your website will be translated automatically.", "Wähle die Zielsprachen aus und speichere die Einstellungen. Deine Website wird automatisch übersetzt."),
             },
           ].map((item) => (
             <li key={item.step} className="flex gap-4">
@@ -146,12 +135,12 @@ export default async function SetupPage({ params }: PageProps) {
       {/* Code snippet */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-3">
-          {locale === "de" ? "Manuelle Integration (ohne WordPress)" : "Manual integration (without WordPress)"}
+          {uiText(locale, "Manual integration (without WordPress)", "Manuelle Integration (ohne WordPress)")}
         </h3>
         <p className="text-sm text-gray-500 mb-3">
-          {locale === "de" ? "Für andere Plattformen: Füge dieses Script in den" : "For other platforms, add this script to the"}{" "}
+          {uiText(locale, "For other platforms, add this script to the", "Für andere Plattformen: Füge dieses Script in den")}{" "}
           <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">&lt;head&gt;</code>{" "}
-          {locale === "de" ? "deiner Website ein." : "of your website."}
+          {uiText(locale, "of your website.", "deiner Website ein.")}
         </p>
         <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto">
           <code>{`<script>

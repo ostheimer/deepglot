@@ -7,12 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
 import { BILLING_PLANS } from "@/lib/billing-plans";
-import { formatNumber } from "@/lib/locale-formatting";
-import {
-  getMarketingPath,
-  withLocalePrefix,
-  type SiteLocale,
-} from "@/lib/site-locale";
+import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
+import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import { localizeCopy, uiText } from "@/lib/static-copy";
 
 const FEATURE_ICONS = {
   fast: Zap,
@@ -33,14 +30,15 @@ const FEATURE_ICONS = {
 function formatHeroWords(value: number, locale: SiteLocale): string {
   if (value >= 1_000_000) {
     const millions = value / 1_000_000;
-    return locale === "de"
-      ? `${millions.toLocaleString("de-AT", { maximumFractionDigits: 1 })} Mio.`
-      : `${millions.toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
+    const suffix = uiText(locale, "M", " Mio.");
+    return `${millions.toLocaleString(getIntlLocale(locale), {
+      maximumFractionDigits: 1,
+    })}${suffix}`;
   }
   if (value >= 1_000) {
     return `${Math.round(value / 1_000)}k`;
   }
-  return value.toLocaleString(locale === "de" ? "de-AT" : "en-US");
+  return value.toLocaleString(getIntlLocale(locale));
 }
 
 const PRO_PLAN = BILLING_PLANS.PRO;
@@ -197,13 +195,15 @@ type MarketingHomeProps = {
 
 function buildHeroFooter(locale: SiteLocale): string {
   const freeWords = formatNumber(BILLING_PLANS.FREE.wordsLimit, locale);
-  return locale === "de"
-    ? `${freeWords} Wörter/Monat kostenlos · Keine Kreditkarte erforderlich`
-    : `${freeWords} words/month for free · No credit card required`;
+  return uiText(
+    locale,
+    "{words} words/month for free · No credit card required",
+    "{words} Wörter/Monat kostenlos · Keine Kreditkarte erforderlich"
+  ).replace("{words}", freeWords);
 }
 
 export function MarketingHome({ locale }: MarketingHomeProps) {
-  const copy = MARKETING_COPY[locale];
+  const copy = localizeCopy(locale, MARKETING_COPY);
   const heroFooter = buildHeroFooter(locale);
   const signupHref = getMarketingPath(locale, "signup");
 
@@ -217,17 +217,8 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
             {copy.badge}
           </Badge>
           <h1 className="mb-6 text-5xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-            {locale === "en" ? (
-              <>
-                Translate your WordPress site{" "}
-                <span className="text-indigo-600">{copy.heroHighlight}</span>
-              </>
-            ) : (
-              <>
-                Übersetze deine WordPress-Site{" "}
-                <span className="text-indigo-600">{copy.heroHighlight}</span>
-              </>
-            )}
+            {copy.heroTitle.replace(copy.heroHighlight, "").trim()}{" "}
+            <span className="text-indigo-600">{copy.heroHighlight}</span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-xl leading-relaxed text-gray-600">
             {copy.heroDescription}
@@ -339,19 +330,19 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
           </Link>
           <div className="flex gap-6 text-sm text-gray-500">
             <Link
-              href={withLocalePrefix("/datenschutz", locale)}
+              href={getMarketingPath(locale, "privacy")}
               className="transition-colors hover:text-gray-900"
             >
               {copy.footer.privacy}
             </Link>
             <Link
-              href={withLocalePrefix("/impressum", locale)}
+              href={getMarketingPath(locale, "legalNotice")}
               className="transition-colors hover:text-gray-900"
             >
               {copy.footer.legal}
             </Link>
             <Link
-              href={withLocalePrefix("/agb", locale)}
+              href={getMarketingPath(locale, "terms")}
               className="transition-colors hover:text-gray-900"
             >
               {copy.footer.terms}

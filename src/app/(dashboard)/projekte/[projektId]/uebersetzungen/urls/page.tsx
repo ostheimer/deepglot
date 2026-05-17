@@ -11,6 +11,7 @@ import {
   buildProjectQueryHref,
   normalizeProjectLang,
 } from "@/lib/dashboard-query";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -60,7 +61,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">
-          {locale === "de" ? "Übersetzungen nach URLs" : "Translations by URL"}
+          {uiText(locale, "Translations by URL", "Übersetzungen nach URLs")}
         </h2>
         <div className="flex gap-2 items-center">
           {/* Language filter */}
@@ -90,9 +91,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
       </div>
 
       <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {locale === "de"
-          ? "Neu übersetzen und Löschen sind hier noch nicht verfügbar. Öffne die URL, um die aktuelle Ausgabe auf der Website zu prüfen."
-          : "Retranslate and delete actions are not available here yet. Open the URL to inspect the current site output."}
+        {uiText(locale, "Retranslate and delete actions are not available here yet. Open the URL to inspect the current site output.", "Neu übersetzen und Löschen sind hier noch nicht verfügbar. Öffne die URL, um die aktuelle Ausgabe auf der Website zu prüfen.")}
       </p>
 
       {/* Search */}
@@ -102,16 +101,16 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
           <Input
             name="q"
             defaultValue={q}
-            placeholder={locale === "de" ? "URL suchen..." : "Search URL..."}
+            placeholder={uiText(locale, "Search URL...", "URL suchen...")}
             className="pl-9 h-9"
           />
           <input type="hidden" name="lang" value={activeLang} />
         </form>
         <span className="text-sm text-gray-500">
-          {formatNumber(total, locale)} {locale === "de" ? "Ergebnisse" : "results"}
+          {formatNumber(total, locale)} {uiText(locale, "results", "Ergebnisse")}
         </span>
         <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
-          <span>{locale === "de" ? "Sortiert nach: Meiste Anfragen" : "Sorted by: most requests"}</span>
+          <span>{uiText(locale, "Sorted by: most requests", "Sortiert nach: Meiste Anfragen")}</span>
         </div>
       </div>
 
@@ -135,9 +134,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                 ? locale === "de"
                   ? `Keine URLs gefunden für "${q}"`
                   : `No URLs found for "${q}"`
-                : locale === "de"
-                  ? "Noch keine URL-Übersetzungsanfragen. Richte das WordPress-Plugin ein, um anzufangen."
-                  : "No URL translation requests yet. Set up the WordPress plugin to get started."}
+                : uiText(locale, "No URL translation requests yet. Set up the WordPress plugin to get started.", "Noch keine URL-Übersetzungsanfragen. Richte das WordPress-Plugin ein, um anzufangen.")}
             </p>
           </div>
         ) : (
@@ -159,7 +156,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex text-gray-400 transition-colors hover:text-indigo-600"
-                    title={locale === "de" ? "URL öffnen" : "Open URL"}
+                    title={uiText(locale, "Open URL", "URL öffnen")}
                     aria-label={locale === "de" ? `${record.urlPath} öffnen` : `Open ${record.urlPath}`}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -175,7 +172,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                 <span className="text-sm text-indigo-600 font-medium">0%</span>
 
                 <span className="text-xs text-gray-400">
-                  {locale === "de" ? "Nur Ansicht" : "Read-only"}
+                  {uiText(locale, "Read-only", "Nur Ansicht")}
                 </span>
               </div>
             );
@@ -187,7 +184,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-500">
-            {locale === "de" ? "Seite" : "Page"} {page} {locale === "de" ? "von" : "of"} {totalPages}
+            {uiText(locale, "Page", "Seite")} {page} {locale === "de" ? "von" : "of"} {totalPages}
           </p>
           <div className="flex gap-2">
             {page > 1 && (
@@ -199,7 +196,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                     q,
                   })}
                 >
-                  {locale === "de" ? "Zurück" : "Previous"}
+                  {uiText(locale, "Previous", "Zurück")}
                 </Link>
               </Button>
             )}
@@ -212,7 +209,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                     q,
                   })}
                 >
-                  {locale === "de" ? "Weiter" : "Next"}
+                  {uiText(locale, "Next", "Weiter")}
                 </Link>
               </Button>
             )}

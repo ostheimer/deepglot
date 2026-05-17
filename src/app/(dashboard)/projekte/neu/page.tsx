@@ -11,6 +11,7 @@ import { Globe, X, Plus } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getPopularLanguageOptions, getLanguageName } from "@/lib/language-names";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export default function NeuesProjektPage() {
   const locale = useLocale();
@@ -32,9 +33,7 @@ export default function NeuesProjektPage() {
     e.preventDefault();
     if (selectedLangs.length === 0) {
       toast.error(
-        locale === "de"
-          ? "Wähle mindestens eine Übersetzungssprache"
-          : "Choose at least one translation language"
+        uiText(locale, "Choose at least one translation language", "Wähle mindestens eine Übersetzungssprache")
       );
       return;
     }
@@ -49,7 +48,7 @@ export default function NeuesProjektPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? (locale === "de" ? "Projekt konnte nicht erstellt werden" : "Could not create project"));
+        toast.error(data.error ?? (uiText(locale, "Could not create project", "Projekt konnte nicht erstellt werden")));
         return;
       }
 
@@ -62,7 +61,7 @@ export default function NeuesProjektPage() {
         );
       }
 
-      toast.success(locale === "de" ? "Projekt erfolgreich erstellt" : "Project created successfully");
+      toast.success(uiText(locale, "Project created successfully", "Projekt erfolgreich erstellt"));
       router.push(withLocalePrefix(`/projects/${data.projectId}/api-keys`, locale));
     } finally {
       setIsLoading(false);
@@ -73,12 +72,10 @@ export default function NeuesProjektPage() {
     <div className="max-w-2xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
-          {locale === "de" ? "Neues Projekt" : "New project"}
+          {uiText(locale, "New project", "Neues Projekt")}
         </h1>
         <p className="text-gray-600 mt-1">
-          {locale === "de"
-            ? "Verbinde deine Website mit Deepglot und starte die Übersetzung."
-            : "Connect your website to Deepglot and start translating."}
+          {uiText(locale, "Connect your website to Deepglot and start translating.", "Verbinde deine Website mit Deepglot und starte die Übersetzung.")}
         </p>
       </div>
 
@@ -87,15 +84,15 @@ export default function NeuesProjektPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Globe className="h-4 w-4 text-indigo-600" />
-              {locale === "de" ? "Website-Informationen" : "Website information"}
+              {uiText(locale, "Website information", "Website-Informationen")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">{locale === "de" ? "Projektname" : "Project name"}</Label>
+              <Label htmlFor="name">{uiText(locale, "Project name", "Projektname")}</Label>
               <Input
                 id="name"
-                placeholder={locale === "de" ? "z.B. Meine Unternehmenswebsite" : "e.g. My company website"}
+                placeholder={uiText(locale, "e.g. My company website", "z.B. Meine Unternehmenswebsite")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -111,9 +108,7 @@ export default function NeuesProjektPage() {
                 required
               />
               <p className="text-xs text-gray-500">
-                {locale === "de"
-                  ? "Ohne https:// – z.B. example.com oder sub.example.com"
-                  : "Without https://, e.g. example.com or sub.example.com"}
+                {uiText(locale, "Without https://, e.g. example.com or sub.example.com", "Ohne https:// – z.B. example.com oder sub.example.com")}
               </p>
             </div>
           </CardContent>
@@ -121,11 +116,11 @@ export default function NeuesProjektPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{locale === "de" ? "Sprachen" : "Languages"}</CardTitle>
+            <CardTitle className="text-base">{uiText(locale, "Languages", "Sprachen")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{locale === "de" ? "Originalsprache der Website" : "Original website language"}</Label>
+              <Label>{uiText(locale, "Original website language", "Originalsprache der Website")}</Label>
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={originalLang}
@@ -140,11 +135,9 @@ export default function NeuesProjektPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{locale === "de" ? "Übersetzungssprachen" : "Translation languages"}</Label>
+              <Label>{uiText(locale, "Translation languages", "Übersetzungssprachen")}</Label>
               <p className="text-xs text-gray-500">
-                {locale === "de"
-                  ? "Wähle die Sprachen, in die du übersetzen möchtest."
-                  : "Choose the languages you want to translate into."}
+                {uiText(locale, "Choose the languages you want to translate into.", "Wähle die Sprachen, in die du übersetzen möchtest.")}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 {popularLanguages.filter((l) => l.code !== originalLang).map(
@@ -193,7 +186,7 @@ export default function NeuesProjektPage() {
             onClick={() => router.back()}
             disabled={isLoading}
           >
-            {locale === "de" ? "Abbrechen" : "Cancel"}
+            {uiText(locale, "Cancel", "Abbrechen")}
           </Button>
           <Button
             type="submit"
@@ -201,12 +194,8 @@ export default function NeuesProjektPage() {
             disabled={isLoading}
           >
             {isLoading
-              ? locale === "de"
-                ? "Wird erstellt..."
-                : "Creating..."
-              : locale === "de"
-                ? "Projekt erstellen"
-                : "Create project"}
+              ? uiText(locale, "Creating...", "Wird erstellt...")
+              : uiText(locale, "Create project", "Projekt erstellen")}
           </Button>
         </div>
       </form>

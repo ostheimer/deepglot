@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { getMarketingPath, withLocalePrefix } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 
 const COPY = {
   en: {
@@ -84,7 +85,7 @@ export function LoginCard({
   callbackUrl,
 }: LoginCardProps) {
   const locale = useLocale();
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const dashboardPath = callbackUrl ?? withLocalePrefix("/dashboard", locale);
   const [isLoading, setIsLoading] = useState(false);
   const [isTestLoginLoading, setIsTestLoginLoading] = useState(false);

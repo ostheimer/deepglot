@@ -5,9 +5,9 @@ import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
 import {
   getMarketingPath,
-  withLocalePrefix,
   type SiteLocale,
 } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 
 const PAGE_COPY = {
   en: {
@@ -31,7 +31,7 @@ type PricingPageProps = {
 };
 
 export function PricingPage({ locale }: PricingPageProps) {
-  const copy = PAGE_COPY[locale];
+  const copy = localizeCopy(locale, PAGE_COPY);
   const homeHref = getMarketingPath(locale, "home");
 
   return (
@@ -57,13 +57,13 @@ export function PricingPage({ locale }: PricingPageProps) {
             </span>
           </Link>
           <div className="flex gap-6 text-sm text-gray-400">
-            <Link href={withLocalePrefix("/datenschutz", locale)} className="hover:text-gray-700">
+            <Link href={getMarketingPath(locale, "privacy")} className="hover:text-gray-700">
               {copy.footerPrivacy}
             </Link>
-            <Link href={withLocalePrefix("/impressum", locale)} className="hover:text-gray-700">
+            <Link href={getMarketingPath(locale, "legalNotice")} className="hover:text-gray-700">
               {copy.footerLegal}
             </Link>
-            <Link href={withLocalePrefix("/agb", locale)} className="hover:text-gray-700">
+            <Link href={getMarketingPath(locale, "terms")} className="hover:text-gray-700">
               {copy.footerTerms}
             </Link>
           </div>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 import { getLanguageName } from "@/lib/language-names";
+import { uiText } from "@/lib/static-copy";
 
 type VisualEditorLauncherProps = {
   projectId: string;
@@ -38,9 +39,7 @@ export function VisualEditorLauncher({
       if (!response.ok || !data.launchUrl) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "Editor konnte nicht gestartet werden"
-              : "Could not start editor")
+            (uiText(locale, "Could not start editor", "Editor konnte nicht gestartet werden"))
         );
         return;
       }
@@ -69,7 +68,7 @@ export function VisualEditorLauncher({
         onClick={() => void startEditor()}
       >
         <ExternalLink className="mr-2 h-4 w-4" />
-        {locale === "de" ? "Bearbeitung starten" : "Start editing"}
+        {uiText(locale, "Start editing", "Bearbeitung starten")}
       </Button>
     </div>
   );

@@ -1,4 +1,4 @@
-import { stripLocalePrefix, withLocalePrefix } from "@/lib/site-locale";
+import { getDocumentLocale, toCanonicalExternalPath, withLocalePrefix } from "@/lib/site-locale";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -19,7 +19,8 @@ function matchesPrefix(pathname: string, prefix: string) {
 }
 
 export function getAuthRedirect(pathname: string, isLoggedIn: boolean) {
-  const { locale, pathname: normalizedPathname } = stripLocalePrefix(pathname);
+  const locale = getDocumentLocale(pathname);
+  const normalizedPathname = toCanonicalExternalPath(pathname, "en");
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
     matchesPrefix(normalizedPathname, prefix)
   );

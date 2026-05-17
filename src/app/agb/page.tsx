@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { uiText } from "@/lib/static-copy";
 
 type TermsPageProps = {
   searchParams: LocaleSearchParams;
@@ -18,34 +19,26 @@ export default async function TermsPage({ searchParams }: TermsPageProps) {
   return (
     <SimpleMarketingPage
       locale={locale}
-      eyebrow={locale === "de" ? "Rechtliches" : "Legal"}
+      eyebrow={uiText(locale, "Legal", "Rechtliches")}
       title={locale === "de" ? "AGB" : "Terms"}
       description={
-        locale === "de"
-          ? "Grundlagen für die Nutzung von Deepglot."
-          : "Basic terms for using Deepglot."
+        uiText(locale, "Basic terms for using Deepglot.", "Grundlagen für die Nutzung von Deepglot.")
       }
       sections={[
         {
-          title: locale === "de" ? "Nutzung" : "Usage",
+          title: uiText(locale, "Usage", "Nutzung"),
           body:
-            locale === "de"
-              ? "Deepglot stellt Softwarefunktionen für Website-Übersetzungen, Projektverwaltung und WordPress-Integration bereit."
-              : "Deepglot provides software features for website translation, project management, and WordPress integration.",
+            uiText(locale, "Deepglot provides software features for website translation, project management, and WordPress integration.", "Deepglot stellt Softwarefunktionen für Website-Übersetzungen, Projektverwaltung und WordPress-Integration bereit."),
         },
         {
-          title: locale === "de" ? "Abrechnung" : "Billing",
+          title: uiText(locale, "Billing", "Abrechnung"),
           body:
-            locale === "de"
-              ? "Kostenpflichtige Pläne und Abrechnung werden vor der Live-Schaltung der Stripe-Zahlungsflüsse finalisiert."
-              : "Paid plans and billing will be finalized before the Stripe payment flows are enabled.",
+            uiText(locale, "Paid plans and billing will be finalized before the Stripe payment flows are enabled.", "Kostenpflichtige Pläne und Abrechnung werden vor der Live-Schaltung der Stripe-Zahlungsflüsse finalisiert."),
         },
         {
-          title: locale === "de" ? "Support" : "Support",
+          title: uiText(locale, "Support", "Support"),
           body:
-            locale === "de"
-              ? "Support-Anfragen können an office@ostheimer.at gesendet werden."
-              : "Support requests can be sent to office@ostheimer.at.",
+            uiText(locale, "Support requests can be sent to office@ostheimer.at.", "Support-Anfragen können an office@ostheimer.at gesendet werden."),
         },
       ]}
     />

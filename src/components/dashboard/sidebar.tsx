@@ -15,7 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
-import { getMarketingPath } from "@/lib/site-locale";
+import { getMarketingPath, withLocalePrefix } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = {
@@ -54,15 +55,15 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({ user }: DashboardSidebarProps) {
   const locale = useLocale();
-  const copy = COPY[locale];
-  const navItems = NAV_ITEMS[locale];
+  const copy = localizeCopy(locale, COPY);
+  const navItems = localizeCopy(locale, NAV_ITEMS);
   const pathname = usePathname();
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
       {/* Logo */}
       <Link
-        href={locale === "de" ? "/de/dashboard" : "/dashboard"}
+        href={withLocalePrefix("/dashboard", locale)}
         className="h-16 flex items-center gap-2 px-6 border-b border-gray-100 hover:bg-gray-50"
         aria-label="Deepglot dashboard"
       >
@@ -73,7 +74,7 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
-          const localizedHref = locale === "de" ? `/de${item.href}` : item.href;
+          const localizedHref = withLocalePrefix(item.href, locale);
           const isActive = pathname === localizedHref || pathname.startsWith(`${localizedHref}/`);
           return (
             <Link key={item.href} href={localizedHref}>

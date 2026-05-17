@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 type SimpleMarketingPageProps = {
   locale: SiteLocale;
@@ -53,9 +54,7 @@ export function SimpleMarketingPage({
 
         <div className="mt-12 rounded-2xl bg-gray-50 p-6 text-sm text-gray-600">
           <p>
-            {locale === "de"
-              ? "Fragen? Schreib uns unter "
-              : "Questions? Contact us at "}
+            {uiText(locale, "Questions? Contact us at ", "Fragen? Schreib uns unter ")}
             <a
               href="mailto:office@ostheimer.at"
               className="font-medium text-indigo-600 hover:underline"
@@ -69,7 +68,7 @@ export function SimpleMarketingPage({
               href={getMarketingPath(locale, "home")}
               className="font-medium text-indigo-600 hover:underline"
             >
-              {locale === "de" ? "Zurück zur Startseite" : "Back to homepage"}
+              {uiText(locale, "Back to homepage", "Zurück zur Startseite")}
             </Link>
           </p>
         </div>
