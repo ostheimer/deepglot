@@ -6,6 +6,7 @@ import {
   getLegacyPublicRedirect,
   getMarketingPath,
   getLocalizedPathname,
+  SITE_LOCALES,
   toCanonicalExternalPath,
   toInternalPath,
 } from "@/lib/site-locale";
@@ -88,6 +89,27 @@ test("keeps localized route segment mappings unambiguous", () => {
 test("does not throw for malformed percent-encoded path segments", () => {
   assert.equal(toInternalPath("/de/%E0%A4%A"), "/%E0%A4%A");
   assert.equal(toCanonicalExternalPath("/de/%E0%A4%A"), "/%E0%A4%A");
+});
+
+test("round-trips localized app paths back to their internal routes", () => {
+  const appPaths = [
+    "/dashboard",
+    "/settings",
+    "/projects/123/settings",
+    "/projects/123/settings/setup",
+    "/projects/123/settings/language-model",
+    "/subscription/overview",
+  ];
+
+  for (const locale of SITE_LOCALES) {
+    for (const pathname of appPaths) {
+      assert.equal(
+        toInternalPath(getLocalizedPathname(pathname, locale)),
+        toInternalPath(pathname),
+        `${locale} ${pathname}`
+      );
+    }
+  }
 });
 
 test("returns legacy redirects for moved german routes", () => {
