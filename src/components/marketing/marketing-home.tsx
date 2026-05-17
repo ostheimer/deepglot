@@ -7,7 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
 import { BILLING_PLANS } from "@/lib/billing-plans";
-import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
+import { formatNumber } from "@/lib/locale-formatting";
+import {
+  formatCompactWords,
+  getDateTimeFieldLabel,
+} from "@/lib/marketing-formatting";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { localizeCopy, uiText } from "@/lib/static-copy";
 
@@ -20,29 +24,12 @@ const FEATURE_ICONS = {
   selfHosted: Globe,
 } as const;
 
-/**
- * Compact marketing word-count formatter. The hero comparison cards are
- * small and headline-style, so they use short forms ("200k", "1 Mio.")
- * instead of the slider's spelled-out "200,000". Both pull from the same
- * BILLING_PLANS source of truth, so the copy can never claim a volume or
- * price that contradicts the actual plan.
- */
-function formatHeroWords(value: number, locale: SiteLocale): string {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    const suffix = uiText(locale, "M", " Mio.");
-    return `${millions.toLocaleString(getIntlLocale(locale), {
-      maximumFractionDigits: 1,
-    })}${suffix}`;
-  }
-  if (value >= 1_000) {
-    return `${Math.round(value / 1_000)}k`;
-  }
-  return value.toLocaleString(getIntlLocale(locale));
-}
-
 const PRO_PLAN = BILLING_PLANS.PRO;
 const PRO_PLAN_EUROS = Math.round((PRO_PLAN.monthlyPriceCents ?? 0) / 100);
+
+function formatMonthlyEuroPrice(amount: number, locale: SiteLocale): string {
+  return `EUR ${amount}/${getDateTimeFieldLabel(locale, "month")}`;
+}
 
 const MARKETING_COPY = {
   en: {
@@ -62,8 +49,8 @@ const MARKETING_COPY = {
     heroPrimaryCta: "Get started for free",
     heroSecondaryCta: "View on GitHub",
     comparison: [
-      { label: "Typical SaaS solution", price: "from EUR 99/month", words: `${formatHeroWords(PRO_PLAN.wordsLimit, "en")} words`, highlight: false },
-      { label: `Deepglot ${PRO_PLAN.name}`, price: `EUR ${PRO_PLAN_EUROS}/month`, words: `${formatHeroWords(PRO_PLAN.wordsLimit, "en")} words`, highlight: true },
+      { label: "Typical SaaS solution", highlight: false },
+      { label: "Deepglot", highlight: true },
     ],
     comparisonBadge: "30% off the same volume",
     featuresHeading: "Everything you need. Nothing that traps you.",
@@ -133,8 +120,8 @@ const MARKETING_COPY = {
     heroPrimaryCta: "Kostenlos loslegen",
     heroSecondaryCta: "GitHub ansehen",
     comparison: [
-      { label: "Typische SaaS-Lösung", price: "ab EUR 99/Monat", words: `${formatHeroWords(PRO_PLAN.wordsLimit, "de")} Wörter`, highlight: false },
-      { label: `Deepglot ${PRO_PLAN.name}`, price: `EUR ${PRO_PLAN_EUROS}/Monat`, words: `${formatHeroWords(PRO_PLAN.wordsLimit, "de")} Wörter`, highlight: true },
+      { label: "Typische SaaS-Lösung", highlight: false },
+      { label: "Deepglot", highlight: true },
     ],
     comparisonBadge: "30% günstiger bei gleicher Wortmenge",
     featuresHeading: "Alles was du brauchst. Nichts was dich fesselt.",
@@ -206,6 +193,7 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
   const copy = localizeCopy(locale, MARKETING_COPY);
   const heroFooter = buildHeroFooter(locale);
   const signupHref = getMarketingPath(locale, "signup");
+  const comparisonWords = formatCompactWords(PRO_PLAN.wordsLimit, locale);
 
   return (
     <div className="min-h-screen bg-white">
@@ -244,27 +232,36 @@ export function MarketingHome({ locale }: MarketingHomeProps) {
       <section className="bg-gray-50 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-6 text-center md:grid-cols-4">
-            {copy.comparison.map((item) => (
-              <div
-                key={item.label}
-                className={`col-span-2 rounded-xl p-6 ${
-                  item.highlight
-                    ? "bg-indigo-600 text-white"
-                    : "border border-gray-200 bg-white text-gray-900"
-                }`}
-              >
-                <p className={`mb-2 text-sm font-medium ${item.highlight ? "text-indigo-200" : "text-gray-500"}`}>
-                  {item.label}
-                </p>
-                <p className="mb-1 text-3xl font-bold">{item.price}</p>
-                <p className={`text-sm ${item.highlight ? "text-indigo-200" : "text-gray-500"}`}>
-                  {item.words}
-                </p>
-                {item.highlight && (
-                  <Badge className="mt-3 bg-white text-indigo-600">{copy.comparisonBadge}</Badge>
-                )}
-              </div>
-            ))}
+            {copy.comparison.map((item) => {
+              const price = item.highlight
+                ? formatMonthlyEuroPrice(PRO_PLAN_EUROS, locale)
+                : uiText(locale, "from EUR 99/month", "ab EUR 99/Monat");
+              const label = item.highlight
+                ? `${item.label} ${PRO_PLAN.name}`
+                : item.label;
+
+              return (
+                <div
+                  key={label}
+                  className={`col-span-2 rounded-xl p-6 ${
+                    item.highlight
+                      ? "bg-indigo-600 text-white"
+                      : "border border-gray-200 bg-white text-gray-900"
+                  }`}
+                >
+                  <p className={`mb-2 text-sm font-medium ${item.highlight ? "text-indigo-200" : "text-gray-500"}`}>
+                    {label}
+                  </p>
+                  <p className="mb-1 text-3xl font-bold">{price}</p>
+                  <p className={`text-sm ${item.highlight ? "text-indigo-200" : "text-gray-500"}`}>
+                    {comparisonWords}
+                  </p>
+                  {item.highlight && (
+                    <Badge className="mt-3 bg-white text-indigo-600">{copy.comparisonBadge}</Badge>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
