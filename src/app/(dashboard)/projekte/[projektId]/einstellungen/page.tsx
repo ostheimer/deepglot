@@ -7,6 +7,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { getLanguageName } from "@/lib/language-names";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 import { requireProjectManagement } from "@/lib/project-page-access";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -41,15 +42,15 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
   const websiteUrlId = "website-url";
   const originalLanguageId = "original-language";
   const openWebsiteLabel =
-    locale === "de" ? "Website in neuem Tab öffnen" : "Open website in a new tab";
+    uiText(locale, "Open website in a new tab", "Website in neuem Tab öffnen");
   const translationMemoryLabel =
-    locale === "de" ? "Übersetzungsgedächtnis (Beta)" : "Translation memory (beta)";
+    uiText(locale, "Translation memory (beta)", "Übersetzungsgedächtnis (Beta)");
 
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-900">
-          {locale === "de" ? "Allgemein" : "General"}
+          {uiText(locale, "General", "Allgemein")}
         </h2>
       </div>
 
@@ -70,7 +71,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 htmlFor={projectNameId}
                 className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
               >
-                {locale === "de" ? "Projektname" : "Project name"}
+                {uiText(locale, "Project name", "Projektname")}
               </Label>
               <Input
                 id={projectNameId}
@@ -115,12 +116,10 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               htmlFor={originalLanguageId}
               className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
             >
-              {locale === "de" ? "Originalsprache" : "Original language"}
+              {uiText(locale, "Original language", "Originalsprache")}
             </Label>
             <p className="text-xs text-gray-500">
-              {locale === "de"
-                ? "Muss mit der Originalsprache deiner Website übereinstimmen."
-                : "Must match the original language of your website."}
+              {uiText(locale, "Must match the original language of your website.", "Muss mit der Originalsprache deiner Website übereinstimmen.")}
             </p>
             <select
               id={originalLanguageId}
@@ -138,28 +137,22 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
 
         {/* Toggles */}
         <SettingsToggle
-          label={locale === "de" ? "Auto-Weiterleitung" : "Automatic redirect"}
-          description={locale === "de"
-            ? "Aktiviere die automatische Weiterleitung, um Besucher basierend auf ihrer Browser-Sprache umzuleiten."
-            : "Redirect visitors automatically based on their browser language."}
+          label={uiText(locale, "Automatic redirect", "Auto-Weiterleitung")}
+          description={uiText(locale, "Redirect visitors automatically based on their browser language.", "Aktiviere die automatische Weiterleitung, um Besucher basierend auf ihrer Browser-Sprache umzuleiten.")}
           defaultChecked={s?.autoSwitch ?? false}
           disabled
           className="border-x border-gray-200"
         />
         <SettingsToggle
-          label={locale === "de" ? "KI-Übersetzungshinweis anzeigen" : "Show AI translation notice"}
-          description={locale === "de"
-            ? "Fügt deiner Website einen Hinweis hinzu, dass bestimmte Inhalte durch KI übersetzt wurden."
-            : "Adds a notice to your website that some content was translated with AI."}
+          label={uiText(locale, "Show AI translation notice", "KI-Übersetzungshinweis anzeigen")}
+          description={uiText(locale, "Adds a notice to your website that some content was translated with AI.", "Fügt deiner Website einen Hinweis hinzu, dass bestimmte Inhalte durch KI übersetzt wurden.")}
           defaultChecked={s?.displayAiNotice ?? false}
           disabled
           className="border-x border-gray-200"
         />
         <SettingsToggle
-          label={locale === "de" ? "Automatische Inhaltsübersetzung" : "Automatic content translation"}
-          description={locale === "de"
-            ? "Wenn aktiviert (Standard), erkennt und übersetzt Deepglot Inhalte automatisch. Wenn deaktiviert, musst du erkannte Inhalte manuell freigeben."
-            : "When enabled, Deepglot detects and translates content automatically. When disabled, you approve detected content manually."}
+          label={uiText(locale, "Automatic content translation", "Automatische Inhaltsübersetzung")}
+          description={uiText(locale, "When enabled, Deepglot detects and translates content automatically. When disabled, you approve detected content manually.", "Wenn aktiviert (Standard), erkennt und übersetzt Deepglot Inhalte automatisch. Wenn deaktiviert, musst du erkannte Inhalte manuell freigeben.")}
           defaultChecked={s?.automaticTranslation ?? true}
           disabled
           className="border-x border-gray-200"
@@ -171,9 +164,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                 {translationMemoryLabel}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {locale === "de"
-                  ? "Das Übersetzungsgedächtnis ist ab dem Professional-Plan verfügbar."
-                  : "Translation memory is available starting with the Professional plan."}
+                {uiText(locale, "Translation memory is available starting with the Professional plan.", "Das Übersetzungsgedächtnis ist ab dem Professional-Plan verfügbar.")}
               </p>
             </div>
             <div className="relative">
@@ -191,23 +182,21 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
         {/* Website type + Industry */}
         <section className="bg-white border border-gray-200 rounded-b-xl p-6">
           <p className="text-sm text-gray-500 mb-5">
-            {locale === "de"
-              ? "Fülle diese Informationen aus, um von verbesserten automatischen Übersetzungen zu profitieren. Der Typ und die Branche deiner Website helfen uns, die Übersetzung an deinen Fall anzupassen."
-              : "Fill out this information to improve automatic translations. Your website type and industry help us adapt translations to your use case."}
+            {uiText(locale, "Fill out this information to improve automatic translations. Your website type and industry help us adapt translations to your use case.", "Fülle diese Informationen aus, um von verbesserten automatischen Übersetzungen zu profitieren. Der Typ und die Branche deiner Website helfen uns, die Übersetzung an deinen Fall anzupassen.")}
           </p>
           <div className="grid grid-cols-2 gap-8">
             <div>
               <p className="text-sm font-semibold text-gray-900 mb-3">
-                {locale === "de" ? "Was möchtest du aufbauen?" : "What are you building?"}
+                {uiText(locale, "What are you building?", "Was möchtest du aufbauen?")}
               </p>
               <p className="text-xs text-gray-500 mb-3">
-                {locale === "de" ? "Wähle den Typ deiner Website" : "Choose your website type"}
+                {uiText(locale, "Choose your website type", "Wähle den Typ deiner Website")}
               </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-not-allowed">
                   <input type="radio" name="websiteType" value="" defaultChecked={!s?.websiteType} disabled
                     className="h-3.5 w-3.5 text-indigo-600" />
-                  <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
+                  <span className="text-sm text-gray-700">{uiText(locale, "Not specified", "Keine Angabe")}</span>
                 </label>
                 {WEBSITE_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-not-allowed">
@@ -221,16 +210,16 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-900 mb-3">
-                {locale === "de" ? "Worum geht es auf deiner Website?" : "What is your website about?"}
+                {uiText(locale, "What is your website about?", "Worum geht es auf deiner Website?")}
               </p>
               <p className="text-xs text-gray-500 mb-3">
-                {locale === "de" ? "Wähle die Branche" : "Choose the industry"}
+                {uiText(locale, "Choose the industry", "Wähle die Branche")}
               </p>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-not-allowed">
                   <input type="radio" name="industryType" value="" defaultChecked={!s?.industryType} disabled
                     className="h-3.5 w-3.5 text-indigo-600" />
-                  <span className="text-sm text-gray-700">{locale === "de" ? "Keine Angabe" : "Not specified"}</span>
+                  <span className="text-sm text-gray-700">{uiText(locale, "Not specified", "Keine Angabe")}</span>
                 </label>
                 {INDUSTRY_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-not-allowed">

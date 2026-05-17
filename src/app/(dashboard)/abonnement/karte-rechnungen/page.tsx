@@ -8,6 +8,7 @@ import { BillingAddressForm } from "@/components/abonnement/billing-address-form
 import { getRequestLocale } from "@/lib/request-locale";
 import { getIntlLocale } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export const metadata = { title: "Karte & Rechnungen – Deepglot" };
 
@@ -93,14 +94,14 @@ export default async function KarteRechnungenPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {locale === "de" ? "Karte & Rechnungen" : "Billing & invoices"}
+        {uiText(locale, "Billing & invoices", "Karte & Rechnungen")}
       </h1>
 
       <div className="space-y-5">
         {/* Payment Method */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4">
-            {locale === "de" ? "Zahlungsmethoden" : "Payment methods"}
+            {uiText(locale, "Payment methods", "Zahlungsmethoden")}
           </h2>
 
           {cardLast4 ? (
@@ -119,13 +120,13 @@ export default async function KarteRechnungenPage() {
                       : `${formatCardBrand(cardBrand ?? "")} ending in ${cardLast4}`}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {locale === "de" ? "Läuft ab" : "Expires"} {String(cardExpMonth).padStart(2, "0")}/{cardExpYear}
+                    {uiText(locale, "Expires", "Läuft ab")} {String(cardExpMonth).padStart(2, "0")}/{cardExpYear}
                   </p>
                 </div>
               </div>
               <PortalButton
                 stripeCustomerId={stripeCustomerId}
-                label={locale === "de" ? "Karte ändern" : "Change card"}
+                label={uiText(locale, "Change card", "Karte ändern")}
               />
             </div>
           ) : (
@@ -133,12 +134,12 @@ export default async function KarteRechnungenPage() {
               <div className="flex items-center gap-3 text-gray-500">
                 <CreditCard className="h-5 w-5" />
                 <p className="text-sm">
-                  {locale === "de" ? "Keine Zahlungsmethode hinterlegt" : "No payment method saved"}
+                  {uiText(locale, "No payment method saved", "Keine Zahlungsmethode hinterlegt")}
                 </p>
               </div>
               <PortalButton
                 stripeCustomerId={stripeCustomerId}
-                label={locale === "de" ? "Karte hinzufügen" : "Add card"}
+                label={uiText(locale, "Add card", "Karte hinzufügen")}
               />
             </div>
           )}
@@ -147,12 +148,10 @@ export default async function KarteRechnungenPage() {
         {/* Billing Address */}
         <div className="bg-white border border-gray-200 rounded-xl p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-1">
-            {locale === "de" ? "Rechnungsinformationen" : "Billing details"}
+            {uiText(locale, "Billing details", "Rechnungsinformationen")}
           </h2>
           <p className="text-xs text-gray-500 mb-5">
-            {locale === "de"
-              ? "Bestehende Rechnungen können nicht geändert werden – nur zukünftige Rechnungen sind betroffen."
-              : "Existing invoices cannot be changed. Only future invoices will be affected."}
+            {uiText(locale, "Existing invoices cannot be changed. Only future invoices will be affected.", "Bestehende Rechnungen können nicht geändert werden – nur zukünftige Rechnungen sind betroffen.")}
           </p>
           <BillingAddressForm />
         </div>
@@ -162,15 +161,15 @@ export default async function KarteRechnungenPage() {
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="text-base font-semibold text-gray-900">
-                {locale === "de" ? "Rechnungshistorie" : "Invoice history"}
+                {uiText(locale, "Invoice history", "Rechnungshistorie")}
               </h2>
             </div>
             <div className="divide-y divide-gray-100">
               {/* Table header */}
               <div className="grid grid-cols-[1fr_100px_100px_80px_80px] gap-4 px-6 py-2.5 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <span>{locale === "de" ? "Rechnungsnummer" : "Invoice number"}</span>
-                <span>{locale === "de" ? "Datum" : "Date"}</span>
-                <span>{locale === "de" ? "Betrag" : "Amount"}</span>
+                <span>{uiText(locale, "Invoice number", "Rechnungsnummer")}</span>
+                <span>{uiText(locale, "Date", "Datum")}</span>
+                <span>{uiText(locale, "Amount", "Betrag")}</span>
                 <span>Status</span>
                 <span>PDF</span>
               </div>
@@ -188,9 +187,7 @@ export default async function KarteRechnungenPage() {
                     }`}
                   >
                     {inv.status === "paid"
-                      ? locale === "de"
-                        ? "Bezahlt"
-                        : "Paid"
+                      ? uiText(locale, "Paid", "Bezahlt")
                       : inv.status}
                   </span>
                   {inv.pdf ? (

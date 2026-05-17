@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getIntlLocale } from "@/lib/locale-formatting";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
+import { uiText } from "@/lib/static-copy";
 
 type Delivery = {
   id: string;
@@ -93,47 +95,41 @@ export function ProjectWebhooksManager({
 
   const copy = useMemo(
     () => ({
-      title: locale === "de" ? "Webhooks" : "Webhooks",
+      title: uiText(locale, "Webhooks", "Webhooks"),
       description:
-        locale === "de"
-          ? "Projektbezogene Events werden signiert ausgeliefert und automatisch erneut versucht."
-          : "Project-scoped events are delivered with signatures and automatic retries.",
-      add: locale === "de" ? "Webhook hinzufügen" : "Add webhook",
-      edit: locale === "de" ? "Webhook bearbeiten" : "Edit webhook",
+        uiText(locale, "Project-scoped events are delivered with signatures and automatic retries.", "Projektbezogene Events werden signiert ausgeliefert und automatisch erneut versucht."),
+      add: uiText(locale, "Add webhook", "Webhook hinzufügen"),
+      edit: uiText(locale, "Edit webhook", "Webhook bearbeiten"),
       url: "URL",
-      save: locale === "de" ? "Speichern" : "Save",
-      cancel: locale === "de" ? "Abbrechen" : "Cancel",
-      sendTest: locale === "de" ? "Test senden" : "Send test",
+      save: uiText(locale, "Save", "Speichern"),
+      cancel: uiText(locale, "Cancel", "Abbrechen"),
+      sendTest: uiText(locale, "Send test", "Test senden"),
       rotateSecret:
-        locale === "de" ? "Secret rotieren" : "Rotate secret",
-      delete: locale === "de" ? "Löschen" : "Delete",
+        uiText(locale, "Rotate secret", "Secret rotieren"),
+      delete: uiText(locale, "Delete", "Löschen"),
       noEndpoints:
-        locale === "de"
-          ? "Noch keine Webhook-Endpunkte konfiguriert."
-          : "No webhook endpoints configured yet.",
+        uiText(locale, "No webhook endpoints configured yet.", "Noch keine Webhook-Endpunkte konfiguriert."),
       recentDeliveries:
-        locale === "de" ? "Letzte Zustellungen" : "Recent deliveries",
-      active: locale === "de" ? "Aktiv" : "Enabled",
+        uiText(locale, "Recent deliveries", "Letzte Zustellungen"),
+      active: uiText(locale, "Enabled", "Aktiv"),
       processorHealth:
-        locale === "de" ? "Processor-Status" : "Processor health",
-      lastRun: locale === "de" ? "Letzter Lauf" : "Last run",
+        uiText(locale, "Processor health", "Processor-Status"),
+      lastRun: uiText(locale, "Last run", "Letzter Lauf"),
       noRun:
-        locale === "de"
-          ? "Noch kein Cron-Lauf erfasst."
-          : "No cron run recorded yet.",
+        uiText(locale, "No cron run recorded yet.", "Noch kein Cron-Lauf erfasst."),
       pendingDue:
-        locale === "de" ? "Fällige Zustellungen" : "Due deliveries",
+        uiText(locale, "Due deliveries", "Fällige Zustellungen"),
       failedDeliveries:
-        locale === "de" ? "Fehlgeschlagen" : "Failed deliveries",
-      delivered: locale === "de" ? "Zugestellt" : "Delivered",
+        uiText(locale, "Failed deliveries", "Fehlgeschlagen"),
+      delivered: uiText(locale, "Delivered", "Zugestellt"),
     }),
     [locale]
   );
 
   function formatDateTime(value: string | Date | null) {
-    if (!value) return locale === "de" ? "Nie" : "Never";
+    if (!value) return uiText(locale, "Never", "Nie");
 
-    return new Intl.DateTimeFormat(locale === "de" ? "de-AT" : "en", {
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(value));
@@ -212,9 +208,7 @@ export function ProjectWebhooksManager({
       if (!response.ok || !data.endpoint) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "Webhook konnte nicht gespeichert werden"
-              : "Could not save webhook")
+            (uiText(locale, "Could not save webhook", "Webhook konnte nicht gespeichert werden"))
         );
         return;
       }
@@ -226,7 +220,7 @@ export function ProjectWebhooksManager({
       resetDialog(false);
       router.refresh();
       toast.success(
-        locale === "de" ? "Webhook gespeichert" : "Webhook saved"
+        uiText(locale, "Webhook saved", "Webhook gespeichert")
       );
     });
   }
@@ -284,7 +278,7 @@ export function ProjectWebhooksManager({
       if (!response.ok) {
         toast.error(
           data.error ??
-            (locale === "de" ? "Webhook-Aktion fehlgeschlagen" : "Webhook action failed")
+            (uiText(locale, "Webhook action failed", "Webhook-Aktion fehlgeschlagen"))
         );
         return;
       }
@@ -300,16 +294,10 @@ export function ProjectWebhooksManager({
       router.refresh();
       toast.success(
         action === "test"
-          ? locale === "de"
-            ? "Test versendet"
-            : "Test sent"
+          ? uiText(locale, "Test sent", "Test versendet")
           : action === "rotate"
-            ? locale === "de"
-              ? "Secret aktualisiert"
-              : "Secret rotated"
-            : locale === "de"
-              ? "Webhook gelöscht"
-              : "Webhook deleted"
+            ? uiText(locale, "Secret rotated", "Secret aktualisiert")
+            : uiText(locale, "Webhook deleted", "Webhook gelöscht")
       );
     });
   }
@@ -383,7 +371,7 @@ export function ProjectWebhooksManager({
           </div>
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs font-semibold uppercase text-gray-500">
-              {locale === "de" ? "Cron-Dauer" : "Cron duration"}
+              {uiText(locale, "Cron duration", "Cron-Dauer")}
             </p>
             <p className="mt-1 text-2xl font-bold text-gray-900">
               {health.latestProcessorRun
@@ -422,9 +410,7 @@ export function ProjectWebhooksManager({
                     <Badge variant={endpoint.enabled ? "default" : "secondary"}>
                       {endpoint.enabled
                         ? copy.active
-                        : locale === "de"
-                          ? "Pausiert"
-                          : "Paused"}
+                        : uiText(locale, "Paused", "Pausiert")}
                     </Badge>
                     {endpoint.eventTypes.map((eventType) => (
                       <Badge key={eventType} variant="outline">
@@ -457,7 +443,7 @@ export function ProjectWebhooksManager({
                     size="sm"
                     onClick={() => openEditDialog(endpoint)}
                   >
-                    {locale === "de" ? "Bearbeiten" : "Edit"}
+                    {uiText(locale, "Edit", "Bearbeiten")}
                   </Button>
                   <Button
                     type="button"
@@ -498,9 +484,7 @@ export function ProjectWebhooksManager({
                 </p>
                 {endpoint.deliveries.length === 0 ? (
                   <p className="text-sm text-gray-400">
-                    {locale === "de"
-                      ? "Noch keine Zustellungen."
-                      : "No deliveries yet."}
+                    {uiText(locale, "No deliveries yet.", "Noch keine Zustellungen.")}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -514,15 +498,13 @@ export function ProjectWebhooksManager({
                         <span>
                           {delivery.responseStatus
                             ? `HTTP ${delivery.responseStatus}`
-                            : locale === "de"
-                              ? "Kein Status"
-                              : "No status"}
+                            : uiText(locale, "No status", "Kein Status")}
                         </span>
                         <span>#{delivery.attemptCount}</span>
                         <span>
                           {delivery.status === "PENDING"
-                            ? `${locale === "de" ? "Nächster Versuch" : "Next retry"}: ${formatDateTime(delivery.nextAttemptAt)}`
-                            : `${locale === "de" ? "Zuletzt" : "Last"}: ${formatDateTime(delivery.lastAttemptAt)}`}
+                            ? `${uiText(locale, "Next retry", "Nächster Versuch")}: ${formatDateTime(delivery.nextAttemptAt)}`
+                            : `${uiText(locale, "Last", "Zuletzt")}: ${formatDateTime(delivery.lastAttemptAt)}`}
                         </span>
                         {delivery.errorMessage && (
                           <span className="md:col-span-5 text-red-700">
@@ -544,9 +526,7 @@ export function ProjectWebhooksManager({
           <DialogHeader>
             <DialogTitle>{form.id ? copy.edit : copy.add}</DialogTitle>
             <DialogDescription>
-              {locale === "de"
-                ? "Deepglot signiert jede Zustellung mit Timestamp und HMAC-Signatur."
-                : "Deepglot signs every delivery with a timestamp and HMAC signature."}
+              {uiText(locale, "Deepglot signs every delivery with a timestamp and HMAC signature.", "Deepglot signiert jede Zustellung mit Timestamp und HMAC-Signatur.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -574,7 +554,7 @@ export function ProjectWebhooksManager({
 
             <div className="space-y-2">
               <Label>
-                {locale === "de" ? "Events" : "Events"}
+                {uiText(locale, "Events", "Events")}
               </Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 {PROJECT_WEBHOOK_EVENT_TYPES.map((eventType) => (

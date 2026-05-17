@@ -5,13 +5,15 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { getCheckoutCancelUrl, getCheckoutSuccessUrl } from "@/lib/billing";
 import { getCookieLocale } from "@/lib/request-locale";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 import {
   BILLING_PLAN_KEYS,
   getStripePriceIdFromEnv,
 } from "@/lib/billing-plans";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 const checkoutSchema = z.object({

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 import {
   BILLING_PLANS,
   BILLING_PLAN_KEYS,
@@ -87,16 +88,14 @@ export default async function PlanUebersichtPage({
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold text-gray-900">
-        {locale === "de" ? "Plan-Übersicht" : "Plan overview"}
+        {uiText(locale, "Plan overview", "Plan-Übersicht")}
       </h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-8">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm text-gray-600 mb-1">
-              {locale === "de"
-                ? "Dein aktueller Plan ist:"
-                : "Your current plan is:"}
+              {uiText(locale, "Your current plan is:", "Dein aktueller Plan ist:")}
             </p>
             <h2 className="text-lg font-bold text-indigo-600">{plan.name}</h2>
           </div>
@@ -107,35 +106,43 @@ export default async function PlanUebersichtPage({
 
         {nextInvoiceDate && (
           <p className="text-sm text-gray-600 mt-3">
-            {locale === "de"
-              ? `Deine nächste Rechnung ist am ${nextInvoiceDate}`
-              : `Your next invoice is on ${nextInvoiceDate}`}
+            {uiText(
+              locale,
+              `Your next invoice is on ${nextInvoiceDate}`,
+              `Deine nächste Rechnung ist am ${nextInvoiceDate}`
+            )}
           </p>
         )}
 
         <ul className="space-y-1.5 mt-5">
           <li className="text-sm text-gray-700">
             {plan.languagesLimit}{" "}
-            {locale === "de" ? "übersetzte Sprachen" : "translated languages"}
+            {uiText(locale, "translated languages", "übersetzte Sprachen")}
           </li>
           <li className="text-sm text-gray-700">
-            {plan.projectsLimit} {locale === "de" ? "Projekte" : "projects"}
+            {plan.projectsLimit} {uiText(locale, "projects", "Projekte")}
           </li>
           <li className="text-sm text-gray-700">
             {formatNumber(plan.wordsLimit, locale)}{" "}
-            {locale === "de" ? "übersetzte Wörter / Monat" : "translated words / month"}
+            {uiText(
+              locale,
+              "translated words / month",
+              "übersetzte Wörter / Monat"
+            )}
           </li>
         </ul>
 
         <p className="text-sm text-gray-600 mt-5">
-          {locale === "de" ? "Überprüfe deine" : "Review your"}{" "}
+          {uiText(locale, "Review your", "Überprüfe deine")}{" "}
           <Link
             href={withLocalePrefix("/subscription/usage", locale)}
             className="text-indigo-600 hover:underline"
           >
-            {locale === "de"
-              ? "Plan-Nutzung für alle Projekte."
-              : "plan usage across all projects."}
+            {uiText(
+              locale,
+              "plan usage across all projects.",
+              "Plan-Nutzung für alle Projekte."
+            )}
           </Link>
         </p>
 

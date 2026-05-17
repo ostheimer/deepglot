@@ -1,0 +1,442 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Deepglot 0.7.0\n"
+"Report-Msgid-Bugs-To: https://deepglot.ai\n"
+"POT-Creation-Date: 2026-05-17 00:00+0000\n"
+"PO-Revision-Date: 2026-05-17 00:00+0000\n"
+"Last-Translator: Deepglot Machine Translation\n"
+"Language-Team: Deepglot\n"
+"Language: fi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Deepglot i18n generator\n"
+
+#. Plugin Name of the plugin
+#: deepglot.php
+#: includes/Admin/SettingsPage.php:34
+#: includes/Admin/SettingsPage.php:35
+msgid "Deepglot"
+msgstr "Deepglot"
+
+#. Plugin URI of the plugin
+#: deepglot.php
+msgid "https://deepglot.ai"
+msgstr "https://deepglot.ai"
+
+#. Description of the plugin
+#: deepglot.php
+msgid "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API."
+msgstr "Kääntää WordPress sisällön Deepglot:n ja yhteensopivan käännössovellusliittymän avulla."
+
+#. Author of the plugin
+#: deepglot.php
+msgid "Andreas Ostheimer"
+msgstr "Andreas Ostheimer"
+
+#. Author URI of the plugin
+#: deepglot.php
+msgid "https://www.ostheimer.at"
+msgstr "https://www.ostheimer.at"
+
+#: includes/Admin/NavMenuMetaBox.php:26
+#: includes/Frontend/SwitcherBlock.php:58
+#: includes/Frontend/SwitcherWidget.php:25
+#: assets/js/block-switcher.js:19
+msgid "Deepglot Sprachschalter"
+msgstr "Deepglot Kielen vaihto"
+
+#: includes/Admin/NavMenuMetaBox.php:41
+msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
+msgstr "Lisää kielenvaihtomerkinnän, joka laajenee automaattisesti yhdeksi kieleksi katsottaessa."
+
+#: includes/Admin/NavMenuMetaBox.php:44
+msgid "Anzeige-Modus"
+msgstr "Näyttötila"
+
+#: includes/Admin/NavMenuMetaBox.php:49
+msgid "Liste (jede Sprache als eigener Menüpunkt)"
+msgstr "Luettelo (jokainen kieli erillisenä valikkokohtana)"
+
+#: includes/Admin/NavMenuMetaBox.php:55
+msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
+msgstr "Pudotusvalikko (aktiivinen kieli ylätasona, vaihtoehdot alivalikkona)"
+
+#: includes/Admin/NavMenuMetaBox.php:61
+msgid "Aktive Sprache aus der Liste ausblenden"
+msgstr "Piilota aktiivinen kieli luettelosta"
+
+#: includes/Admin/NavMenuMetaBox.php:71
+msgid "Zum Menü hinzufügen"
+msgstr "Lisää valikkoon"
+
+#: includes/Admin/NavMenuMetaBox.php:98
+msgid "Sprachschalter"
+msgstr "Äänikytkin"
+
+#: includes/Admin/SettingsPage.php:171
+msgid "Aktiv"
+msgstr "Aktiivinen"
+
+#: includes/Admin/SettingsPage.php:174
+msgid "Deaktiviert"
+msgstr "Ei käytössä"
+
+#: includes/Admin/SettingsPage.php:177
+msgid "Einrichtung erforderlich"
+msgstr "Asennus vaaditaan"
+
+#: includes/Admin/SettingsPage.php:194
+msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
+msgstr "Tervetuloa Deepglot! Ota käännös käyttöön verkkosivustossasi noudattamalla alla olevia kolmea vaihetta."
+
+#: includes/Admin/SettingsPage.php:205
+msgid "Deepglot einrichten"
+msgstr "Määritä Deepglot"
+
+#: includes/Admin/SettingsPage.php:206
+msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
+msgstr "Tarvitset vain API-Key Deepglot kojelaudalta - se kestää alle kaksi minuuttia."
+
+#: includes/Admin/SettingsPage.php:218
+msgid "API-Key eintragen"
+msgstr "Kirjoita API-Key"
+
+#: includes/Admin/SettingsPage.php:221
+msgid "Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgstr "Luo ilmainen tili osoitteessa deepglot.app, luo projekti verkkosivustollesi ja kopioi API-Key."
+
+#: includes/Admin/SettingsPage.php:224
+msgid "Zum Dashboard – API-Key erstellen"
+msgstr "Siirry kojelautaan – luo API-Key"
+
+#: includes/Admin/SettingsPage.php:229
+msgid "API-Key"
+msgstr "API-Key"
+
+#: includes/Admin/SettingsPage.php:240
+msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
+msgstr "Löydät koko avaimen kohdasta Asetukset → API-Keys projektissasi Deepglot."
+
+#: includes/Admin/SettingsPage.php:244
+msgid "Backend-URL"
+msgstr "Taustaohjelma URL"
+
+#: includes/Admin/SettingsPage.php:252
+msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
+msgstr "Oletus: https://deepglot.ai/api – muutos vain kohteelle Self-Hosting."
+
+#: includes/Admin/SettingsPage.php:264
+msgid "Sprachen konfigurieren"
+msgstr "Määritä kielet"
+
+#: includes/Admin/SettingsPage.php:266
+msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
+msgstr "Määritä alkuperäinen kieli ja haluamasi käännöskielet."
+
+#: includes/Admin/SettingsPage.php:270
+msgid "Originalsprache"
+msgstr "Alkuperäinen kieli"
+
+#: includes/Admin/SettingsPage.php:281
+msgid "Zielsprachen"
+msgstr "Kohdekielet"
+
+#: includes/Admin/SettingsPage.php:289
+msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
+msgstr "Pilkuilla erotetut ISO-639-1 koodit, esim. B. fi, fr, it"
+
+#: includes/Admin/SettingsPage.php:301
+msgid "Übersetzung aktivieren"
+msgstr "Ota käännös käyttöön"
+
+#: includes/Admin/SettingsPage.php:303
+msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
+msgstr "Kun API-Key ja kielet on tallennettu, ota automaattinen käännös käyttöön tässä."
+
+#: includes/Admin/SettingsPage.php:315
+msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
+msgstr "Aktivoi Deepglot kaikille käyttöliittymäpyynnöille"
+
+#. translators: %1$s: source language, %2$s: target languages
+#: includes/Admin/SettingsPage.php:324
+msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
+msgstr "Aktiivinen – sivut on käännetty kielestä %1$s muotoon %2$s /%3$s/ihre-seite/"
+
+#: includes/Admin/SettingsPage.php:344
+msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
+msgstr "Uudelleenohjaa kävijät automaattisesti selaimen kielen perusteella (valinnainen)"
+
+#: includes/Admin/SettingsPage.php:353
+msgid "Erweiterte Einstellungen ausblenden"
+msgstr "Piilota lisäasetukset"
+
+#: includes/Admin/SettingsPage.php:353
+#: includes/Admin/SettingsPage.php:354
+msgid "Erweiterte Einstellungen anzeigen"
+msgstr "Näytä lisäasetukset"
+
+#: includes/Admin/SettingsPage.php:358
+msgid "Ausgeschlossene URLs"
+msgstr "Poissuljettu URLs"
+
+#: includes/Admin/SettingsPage.php:360
+msgid "Eine URL oder ein Muster pro Zeile."
+msgstr "Yksi URL tai kuvio riviä kohden."
+
+#: includes/Admin/SettingsPage.php:363
+msgid "Routing-Modus"
+msgstr "Reititystila"
+
+#: includes/Admin/SettingsPage.php:366
+msgid "Pfad-Präfix (/en/meine-seite)"
+msgstr "Polun etuliite (/en/meine-seite)"
+
+#: includes/Admin/SettingsPage.php:369
+msgid "Subdomains (en.example.com)"
+msgstr "Aliverkkotunnukset (en.example.com)"
+
+#: includes/Admin/SettingsPage.php:372
+msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
+msgstr "Polun etuliite pysyy oletuksena. Aliverkkotunnuksissa jokainen aktiivinen kohdekieli tarvitsee isännän."
+
+#: includes/Admin/SettingsPage.php:375
+msgid "Domain-Zuordnungen"
+msgstr "Verkkotunnusten kartoitukset"
+
+#: includes/Admin/SettingsPage.php:383
+msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
+msgstr "Muoto: sprachcode=host, yksi tehtävä riviä kohden."
+
+#: includes/Admin/SettingsPage.php:395
+msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
+msgstr "Käännä WooCommerce ja wp_mail sähköpostit"
+
+#: includes/Admin/SettingsPage.php:408
+msgid "Suche in der Besuchersprache ausführen"
+msgstr "Suorita haku vierailijan kielellä"
+
+#: includes/Admin/SettingsPage.php:421
+msgid "AMP-Seiten übersetzen"
+msgstr "Käännä AMP-sivuja"
+
+#: includes/Admin/SettingsPage.php:425
+msgid "Ausgeschlossene CSS-Selektoren"
+msgstr "Poissuljettu CSS valitsimia"
+
+#: includes/Admin/SettingsPage.php:427
+msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
+msgstr "Yksi CSS luokka, tunnus tai valitsin riviä kohden."
+
+#: includes/Admin/SettingsPage.php:461
+msgid "Sprachumschalter"
+msgstr "Kielen vaihtaja"
+
+#: includes/Admin/SettingsPage.php:462
+msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
+msgstr "Miten ja missä Language-Switcher pitäisi näkyä verkkosivustollasi?"
+
+#: includes/Admin/SettingsPage.php:475
+msgid "Switcher automatisch im Seitenfooter einfügen"
+msgstr "Lisää automaattisesti Switcher sivun alatunnisteeseen"
+
+#: includes/Admin/SettingsPage.php:479
+msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
+msgstr "Vaihtoehtoisesti: Shortcode [deepglot_switcher] tai PHP do_action('deepglot_language_switcher') teemassasi."
+
+#: includes/Admin/SettingsPage.php:484
+msgid "Darstellung"
+msgstr "Esittely"
+
+#: includes/Admin/SettingsPage.php:487
+msgid "Inline-Liste"
+msgstr "Sisäänrakennettu luettelo"
+
+#: includes/Admin/SettingsPage.php:490
+msgid "Dropdown"
+msgstr "Pudota alas"
+
+#: includes/Admin/SettingsPage.php:496
+msgid "Flaggenstil"
+msgstr "Lipun tyyli"
+
+#: includes/Admin/SettingsPage.php:499
+msgid "Rechteckig, matt"
+msgstr "Suorakaiteen muotoinen, matta"
+
+#: includes/Admin/SettingsPage.php:502
+msgid "Rechteckig, glänzend"
+msgstr "Suorakaiteen muotoinen, kiiltävä"
+
+#: includes/Admin/SettingsPage.php:505
+msgid "Kreis, matt"
+msgstr "Pyöreä, matta"
+
+#: includes/Admin/SettingsPage.php:508
+msgid "Kreis, glänzend"
+msgstr "Pyöreä, kiiltävä"
+
+#: includes/Admin/SettingsPage.php:511
+msgid "Ohne Flagge"
+msgstr "Ilman lippua"
+
+#: includes/Admin/SettingsPage.php:517
+msgid "Sprachbezeichnung"
+msgstr "Kielen merkintä"
+
+#: includes/Admin/SettingsPage.php:520
+msgid "Volle Bezeichnung („Deutsch\")"
+msgstr "Koko nimi (\"saksa\")"
+
+#: includes/Admin/SettingsPage.php:523
+msgid "ISO-Code („DE\")"
+msgstr "ISO-Code (\"DE\")"
+
+#: includes/Admin/SettingsPage.php:529
+msgid "Anzeigegerät"
+msgstr "Näyttölaite"
+
+#: includes/Admin/SettingsPage.php:532
+msgid "Auf allen Geräten zeigen"
+msgstr "Näytä kaikilla laitteilla"
+
+#: includes/Admin/SettingsPage.php:535
+msgid "Nur Desktop (auf Mobile ausblenden)"
+msgstr "Vain pöytäkone (piilota mobiililaitteella)"
+
+#: includes/Admin/SettingsPage.php:538
+msgid "Nur Mobile (auf Desktop ausblenden)"
+msgstr "Vain mobiili (piilota työpöydällä)"
+
+#: includes/Admin/SettingsPage.php:544
+msgid "Mobile-Breakpoint (px)"
+msgstr "Mobiili keskeytyspiste (px)"
+
+#: includes/Admin/SettingsPage.php:556
+msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
+msgstr "Oletusarvo 768 px. Tämän leveyden alapuolella oleva sivu katsotaan \"mobiiliksi\"."
+
+#: includes/Admin/SettingsPage.php:561
+msgid "Position auf der Seite"
+msgstr "Sijainti sivulla"
+
+#: includes/Admin/SettingsPage.php:564
+msgid "Inline (an der eingebetteten Stelle)"
+msgstr "Upotettu (upotettuun paikkaan)"
+
+#: includes/Admin/SettingsPage.php:567
+msgid "Floating: rechts unten"
+msgstr "Kelluva: alhaalla oikealla"
+
+#: includes/Admin/SettingsPage.php:570
+msgid "Floating: links unten"
+msgstr "Kelluva: alhaalla vasemmalla"
+
+#: includes/Admin/SettingsPage.php:573
+msgid "Floating: rechts oben"
+msgstr "Kelluva: ylhäällä oikealla"
+
+#: includes/Admin/SettingsPage.php:576
+msgid "Floating: links oben"
+msgstr "Kelluva: ylhäällä vasemmalla"
+
+#: includes/Admin/SettingsPage.php:580
+msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
+msgstr "\"Kelluva\" kiinnittää Switcher:n nurkkaan position:fixed ja rullaa sen mukana. Yhdessä Auto-Inject = Weglot oletuskäyttäytymisen kanssa."
+
+#: includes/Admin/SettingsPage.php:595
+msgid "Bezeichnung sichtbar"
+msgstr "Nimitys näkyvissä"
+
+#: includes/Admin/SettingsPage.php:602
+msgid "Reihenfolge der Sprachen"
+msgstr "Kielten järjestys"
+
+#: includes/Admin/SettingsPage.php:621
+msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
+msgstr "Järjestä uudelleen vetämällä ja pudottamalla. Toimii sekä Shortcode että automaattisessa ruiskutuksessa."
+
+#: includes/Admin/SettingsPage.php:625
+msgid "Eigene Flaggen pro Sprache (optional)"
+msgstr "Omat liput kielikohtaisesti (valinnainen)"
+
+#: includes/Admin/SettingsPage.php:655
+msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
+msgstr "Jätä tyhjäksi = oletuslippu. Emojit (esim. 🇺🇸 EN→US-markkinoille) tai erikoismerkit URL - SVG/PNG. CSS poistetaan automaattisesti."
+
+#: includes/Admin/SettingsPage.php:660
+msgid "Eigenes CSS für den Switcher"
+msgstr "Oma CSS Switcher:lle"
+
+#: includes/Admin/SettingsPage.php:668
+msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
+msgstr "Lisätty välittömästi ennen Switcher -tunnistetta <style>. \"<\" poistetaan automaattisesti, joten komentosarjatunnistetta ei voida lisätä."
+
+#: includes/Admin/SettingsPage.php:673
+msgid "Einstellungen speichern"
+msgstr "Tallenna asetukset"
+
+#. translators: %s: dashboard url
+#: includes/Admin/SettingsPage.php:684
+msgid "Hilfe & Dokumentation: %s"
+msgstr "Ohje ja dokumentaatio: %s"
+
+#: includes/Api/Client.php:198
+#: includes/Api/Client.php:304
+msgid "Deepglot API Fehler."
+msgstr "Deepglot API-virhe."
+
+#: includes/Api/Client.php:219
+#: includes/Sync/SettingsSync.php:48
+msgid "Kein API-Key für die Synchronisierung vorhanden."
+msgstr "Synkronointia varten ei ole API-Key."
+
+#: includes/Api/Client.php:263
+msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+msgstr "Ajonaikaiselle määritykselle ei ole API-Key."
+
+#: includes/Api/RestApi.php:203
+msgid "Kein API-Key angegeben."
+msgstr "Ei määritetty API-Key."
+
+#: includes/Api/RestApi.php:242
+msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgstr "Tarvitset järjestelmänvalvojan oikeudet tähän toimintoon."
+
+#. translators: %d: seconds until reset
+#: includes/Api/RestApi.php:281
+msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
+msgstr "Liikaa pyyntöjä. Odota %d sekuntia."
+
+#: includes/Frontend/LanguageSwitcher.php:236
+msgid "Switch language to %s"
+msgstr "Vaihda kieleksi %s"
+
+#: includes/Frontend/LanguageSwitcher.php:251
+msgid "Sprache: %s"
+msgstr "Kieli: %s"
+
+#: includes/Frontend/NavMenuSwitcher.php:175
+msgid "Sprache wählen"
+msgstr "Valitse kieli"
+
+#: includes/Frontend/SwitcherBlock.php:61
+msgid "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen."
+msgstr "Näyttää Deepglot kielenvalitsimen — tyylit/Flagge/Reihenfolge noudattavat laajennuksen asetuksia."
+
+#: includes/Frontend/SwitcherWidget.php:26
+msgid "Sprachumschalter in einer Widget-Area anzeigen."
+msgstr "Näytä kielenvaihtaja widget-alueella."
+
+#: includes/Frontend/SwitcherWidget.php:83
+msgid "Titel:"
+msgstr "Otsikko:"
+
+#: includes/Sync/SettingsSync.php:52
+msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
+msgstr "Synkronointiin ei ole määritetty kohdekieliä."
+
+#: assets/js/block-switcher.js:20
+msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
+msgstr "Näyttää Deepglot kielenvalitsimen. Tyyli, lippu ja järjestys noudattavat laajennuksen asetuksia."

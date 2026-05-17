@@ -9,6 +9,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getLanguageName } from "@/lib/language-names";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -56,7 +57,7 @@ export default async function SprachenPage({ params }: PageProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">
-          {locale === "de" ? "Übersetzungen nach Sprachen" : "Translations by language"}
+          {uiText(locale, "Translations by language", "Übersetzungen nach Sprachen")}
         </h2>
         <div className="flex gap-2">
           <AddLanguageDialog
@@ -68,22 +69,20 @@ export default async function SprachenPage({ params }: PageProps) {
       </div>
 
       <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {locale === "de"
-          ? "Sprachen entfernen und weitere Sammelaktionen sind hier noch nicht verfügbar. Du kannst Zielsprachen hinzufügen oder die URL-Ansicht pro Sprache öffnen."
-          : "Removing languages and bulk actions are not available here yet. You can add target languages or open the URL view for each language."}
+        {uiText(locale, "Removing languages and bulk actions are not available here yet. You can add target languages or open the URL view for each language.", "Sprachen entfernen und weitere Sammelaktionen sind hier noch nicht verfügbar. Du kannst Zielsprachen hinzufügen oder die URL-Ansicht pro Sprache öffnen.")}
       </p>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {/* Table Header */}
         <div className="grid grid-cols-[2fr_1.5fr_1.5fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "VON / NACH" : "FROM / TO"}
+            {uiText(locale, "FROM / TO", "VON / NACH")}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "ÜBERSETZTE WÖRTER GESAMT" : "TOTAL TRANSLATED WORDS"}
+            {uiText(locale, "TOTAL TRANSLATED WORDS", "ÜBERSETZTE WÖRTER GESAMT")}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "MANUELL ÜBERSETZT" : "MANUAL SHARE"}
+            {uiText(locale, "MANUAL SHARE", "MANUELL ÜBERSETZT")}
           </span>
           <span></span>
         </div>
@@ -93,7 +92,7 @@ export default async function SprachenPage({ params }: PageProps) {
           <div className="px-6 py-12 text-center">
             <Flag className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 text-sm">
-              {locale === "de" ? "Noch keine Übersetzungssprachen konfiguriert." : "No translation languages configured yet."}
+              {uiText(locale, "No translation languages configured yet.", "Noch keine Übersetzungssprachen konfiguriert.")}
             </p>
           </div>
         ) : (
@@ -120,7 +119,7 @@ export default async function SprachenPage({ params }: PageProps) {
                   </span>
                   {!lang.isActive && (
                     <Badge variant="outline" className="text-xs text-gray-400">
-                      {locale === "de" ? "Inaktiv" : "Inactive"}
+                      {uiText(locale, "Inactive", "Inaktiv")}
                     </Badge>
                   )}
                 </div>
@@ -147,7 +146,7 @@ export default async function SprachenPage({ params }: PageProps) {
                 <div className="flex items-center gap-2">
                   <Button asChild variant="outline" size="sm" className="text-xs h-7">
                     <Link href={`${translationsBase}/urls?lang=${lang.langCode}`}>
-                      {locale === "de" ? "URLs öffnen" : "Open URLs"}
+                      {uiText(locale, "Open URLs", "URLs öffnen")}
                     </Link>
                   </Button>
                 </div>

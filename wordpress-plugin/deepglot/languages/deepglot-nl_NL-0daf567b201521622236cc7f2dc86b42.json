@@ -1,0 +1,21 @@
+{
+    "translation-revision-date": "2026-05-17 00:00+0000",
+    "generator": "WP-CLI\/2.11.0",
+    "source": "assets\/js\/block-switcher.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "nl_NL",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Deepglot Sprachschalter": [
+                "Deepglot Taalschakelaar"
+            ],
+            "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
+                "Toont de taalwissel Deepglot. Stijl, vlag en volgorde volgen de plugin-instellingen."
+            ]
+        }
+    }
+}

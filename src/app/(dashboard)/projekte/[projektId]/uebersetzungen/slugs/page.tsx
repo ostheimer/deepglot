@@ -10,6 +10,7 @@ import {
 } from "@/lib/dashboard-query";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -58,7 +59,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">
-          {locale === "de" ? "URL Slugs für" : "URL slugs for"}{" "}
+          {uiText(locale, "URL slugs for", "URL Slugs für")}{" "}
           <span className="text-indigo-600">
             {activeLang.charAt(0).toUpperCase() + activeLang.slice(1)}
           </span>
@@ -66,9 +67,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       </div>
 
       <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {locale === "de"
-          ? "Slug-Bearbeitung ist hier noch nicht verfügbar. Das Plugin erkennt Slugs automatisch; Import und Export bleiben der sichere Weg für manuelle Slug-Änderungen."
-          : "Slug editing is not available here yet. The plugin detects slugs automatically; import and export remain the safe path for manual slug changes."}
+        {uiText(locale, "Slug editing is not available here yet. The plugin detects slugs automatically; import and export remain the safe path for manual slug changes.", "Slug-Bearbeitung ist hier noch nicht verfügbar. Das Plugin erkennt Slugs automatisch; Import und Export bleiben der sichere Weg für manuelle Slug-Änderungen.")}
       </p>
 
       {/* Language selector */}
@@ -102,13 +101,13 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
           <Input
             name="q"
             defaultValue={q}
-            placeholder={locale === "de" ? "Slug suchen..." : "Search slug..."}
+            placeholder={uiText(locale, "Search slug...", "Slug suchen...")}
             className="pl-9 h-9"
           />
           <input type="hidden" name="lang" value={activeLang} />
         </form>
         <span className="text-sm text-gray-500">
-          {formatNumber(total, locale)} {locale === "de" ? "Ergebnisse" : "results"}
+          {formatNumber(total, locale)} {uiText(locale, "results", "Ergebnisse")}
         </span>
       </div>
 
@@ -116,10 +115,10 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="grid grid-cols-[2fr_2fr] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "ORIGINAL-SLUG" : "ORIGINAL SLUG"}
+            {uiText(locale, "ORIGINAL SLUG", "ORIGINAL-SLUG")}
           </span>
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "ÜBERSETZTER SLUG" : "TRANSLATED SLUG"}
+            {uiText(locale, "TRANSLATED SLUG", "ÜBERSETZTER SLUG")}
           </span>
         </div>
 
@@ -130,9 +129,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                 ? locale === "de"
                   ? `Keine Slugs gefunden für "${q}"`
                   : `No slugs found for "${q}"`
-                : locale === "de"
-                  ? "Keine URL-Slugs gefunden. Das Plugin extrahiert Slugs automatisch beim ersten Seitenaufruf."
-                  : "No URL slugs found. The plugin extracts slugs automatically the first time a page is opened."}
+                : uiText(locale, "No URL slugs found. The plugin extracts slugs automatically the first time a page is opened.", "Keine URL-Slugs gefunden. Das Plugin extrahiert Slugs automatisch beim ersten Seitenaufruf.")}
             </p>
           </div>
         ) : (
@@ -157,7 +154,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                   <p className="text-sm font-medium text-gray-900">{slug.translatedSlug}</p>
                 ) : (
                   <p className="text-sm text-gray-400">
-                    {locale === "de" ? "Wird automatisch generiert" : "Generated automatically"}
+                    {uiText(locale, "Generated automatically", "Wird automatisch generiert")}
                   </p>
                 )}
               </div>
@@ -170,7 +167,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-500">
-            {locale === "de" ? "Seite" : "Page"} {page} {locale === "de" ? "von" : "of"} {totalPages}
+            {uiText(locale, "Page", "Seite")} {page} {locale === "de" ? "von" : "of"} {totalPages}
           </p>
           <div className="flex gap-2">
             {page > 1 && (
@@ -182,7 +179,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                     q,
                   })}
                 >
-                  {locale === "de" ? "Zurück" : "Previous"}
+                  {uiText(locale, "Previous", "Zurück")}
                 </Link>
               </Button>
             )}
@@ -195,7 +192,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                     q,
                   })}
                 >
-                  {locale === "de" ? "Weiter" : "Next"}
+                  {uiText(locale, "Next", "Weiter")}
                 </Link>
               </Button>
             )}

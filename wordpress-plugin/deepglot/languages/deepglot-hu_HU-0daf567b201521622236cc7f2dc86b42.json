@@ -1,0 +1,21 @@
+{
+    "translation-revision-date": "2026-05-17 00:00+0000",
+    "generator": "WP-CLI\/2.11.0",
+    "source": "assets\/js\/block-switcher.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "hu_HU",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Deepglot Sprachschalter": [
+                "Deepglot Nyelvv\u00e1lt\u00e1s"
+            ],
+            "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
+                "Megjelen\u00edti a Deepglot nyelvkapcsol\u00f3t. A st\u00edlus, a megjel\u00f6l\u00e9s \u00e9s a sorrend a be\u00e9p\u00fcl\u0151 modul be\u00e1ll\u00edt\u00e1sait k\u00f6veti."
+            ]
+        }
+    }
+}

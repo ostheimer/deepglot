@@ -1,73 +1,46 @@
-import type { SiteLocale } from "@/lib/site-locale";
+import { SITE_LOCALE_METADATA, type SiteLocale } from "@/lib/site-locale";
 
-const LANGUAGE_LABELS = {
-  en: {
-    en: "English",
-    de: "German",
-    fr: "French",
-    es: "Spanish",
-    it: "Italian",
-    nl: "Dutch",
-    pl: "Polish",
-    pt: "Portuguese",
-    ru: "Russian",
-    zh: "Chinese",
-    ja: "Japanese",
-    ar: "Arabic",
-    tr: "Turkish",
-    sv: "Swedish",
-    da: "Danish",
-    fi: "Finnish",
-    no: "Norwegian",
-    cs: "Czech",
-    hu: "Hungarian",
-    ro: "Romanian",
-    sk: "Slovak",
-    hr: "Croatian",
-  },
-  de: {
-    en: "Englisch",
-    de: "Deutsch",
-    fr: "Französisch",
-    es: "Spanisch",
-    it: "Italienisch",
-    nl: "Niederländisch",
-    pl: "Polnisch",
-    pt: "Portugiesisch",
-    ru: "Russisch",
-    zh: "Chinesisch",
-    ja: "Japanisch",
-    ar: "Arabisch",
-    tr: "Türkisch",
-    sv: "Schwedisch",
-    da: "Dänisch",
-    fi: "Finnisch",
-    no: "Norwegisch",
-    cs: "Tschechisch",
-    hu: "Ungarisch",
-    ro: "Rumänisch",
-    sk: "Slowakisch",
-    hr: "Kroatisch",
-  },
-} as const;
+export const EU_LANGUAGE_CODES = [
+  "bg",
+  "hr",
+  "cs",
+  "da",
+  "nl",
+  "en",
+  "et",
+  "fi",
+  "fr",
+  "de",
+  "el",
+  "hu",
+  "ga",
+  "it",
+  "lv",
+  "lt",
+  "mt",
+  "pl",
+  "pt",
+  "ro",
+  "sk",
+  "sl",
+  "es",
+  "sv",
+] as const;
 
 export function getLanguageName(code: string, locale: SiteLocale) {
-  return LANGUAGE_LABELS[locale][code as keyof typeof LANGUAGE_LABELS.en] ?? code.toUpperCase();
+  try {
+    const names = new Intl.DisplayNames([SITE_LOCALE_METADATA[locale].intlLocale], {
+      type: "language",
+    });
+    return names.of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
 }
 
 export function getPopularLanguageOptions(locale: SiteLocale) {
-  return [
-    "en",
-    "fr",
-    "es",
-    "it",
-    "nl",
-    "pl",
-    "pt",
-    "ru",
-    "zh",
-    "ja",
-    "ar",
-    "tr",
-  ].map((code) => ({ code, name: getLanguageName(code, locale) }));
+  return EU_LANGUAGE_CODES.map((code) => ({
+    code,
+    name: getLanguageName(code, locale),
+  }));
 }

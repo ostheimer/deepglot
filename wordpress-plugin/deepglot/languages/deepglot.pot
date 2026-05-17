@@ -1,0 +1,443 @@
+# Copyright (C) 2026 Andreas Ostheimer
+# This file is distributed under the same license as the Deepglot plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: Deepglot 0.7.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/deepglot\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-05-16T23:18:32+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.11.0\n"
+"X-Domain: deepglot\n"
+
+#. Plugin Name of the plugin
+#: deepglot.php
+#: includes/Admin/SettingsPage.php:34
+#: includes/Admin/SettingsPage.php:35
+msgid "Deepglot"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: deepglot.php
+msgid "https://deepglot.ai"
+msgstr ""
+
+#. Description of the plugin
+#: deepglot.php
+msgid "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API."
+msgstr ""
+
+#. Author of the plugin
+#: deepglot.php
+msgid "Andreas Ostheimer"
+msgstr ""
+
+#. Author URI of the plugin
+#: deepglot.php
+msgid "https://www.ostheimer.at"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:26
+#: includes/Frontend/SwitcherBlock.php:58
+#: includes/Frontend/SwitcherWidget.php:25
+#: assets/js/block-switcher.js:19
+msgid "Deepglot Sprachschalter"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:41
+msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:44
+msgid "Anzeige-Modus"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:49
+msgid "Liste (jede Sprache als eigener Menüpunkt)"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:55
+msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:61
+msgid "Aktive Sprache aus der Liste ausblenden"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:71
+msgid "Zum Menü hinzufügen"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:98
+msgid "Sprachschalter"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:171
+msgid "Aktiv"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:174
+msgid "Deaktiviert"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:177
+msgid "Einrichtung erforderlich"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:194
+msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:205
+msgid "Deepglot einrichten"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:206
+msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:218
+msgid "API-Key eintragen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:221
+msgid "Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:224
+msgid "Zum Dashboard – API-Key erstellen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:229
+msgid "API-Key"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:240
+msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:244
+msgid "Backend-URL"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:252
+msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:264
+msgid "Sprachen konfigurieren"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:266
+msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:270
+msgid "Originalsprache"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:281
+msgid "Zielsprachen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:289
+msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:301
+msgid "Übersetzung aktivieren"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:303
+msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:315
+msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
+msgstr ""
+
+#. translators: %1$s: source language, %2$s: target languages
+#: includes/Admin/SettingsPage.php:324
+msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:344
+msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:353
+msgid "Erweiterte Einstellungen ausblenden"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:353
+#: includes/Admin/SettingsPage.php:354
+msgid "Erweiterte Einstellungen anzeigen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:358
+msgid "Ausgeschlossene URLs"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:360
+msgid "Eine URL oder ein Muster pro Zeile."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:363
+msgid "Routing-Modus"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:366
+msgid "Pfad-Präfix (/en/meine-seite)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:369
+msgid "Subdomains (en.example.com)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:372
+msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:375
+msgid "Domain-Zuordnungen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:383
+msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:395
+msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:408
+msgid "Suche in der Besuchersprache ausführen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:421
+msgid "AMP-Seiten übersetzen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:425
+msgid "Ausgeschlossene CSS-Selektoren"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:427
+msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:461
+msgid "Sprachumschalter"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:462
+msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:475
+msgid "Switcher automatisch im Seitenfooter einfügen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:479
+msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:484
+msgid "Darstellung"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:487
+msgid "Inline-Liste"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:490
+msgid "Dropdown"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:496
+msgid "Flaggenstil"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:499
+msgid "Rechteckig, matt"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:502
+msgid "Rechteckig, glänzend"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:505
+msgid "Kreis, matt"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:508
+msgid "Kreis, glänzend"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:511
+msgid "Ohne Flagge"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:517
+msgid "Sprachbezeichnung"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:520
+msgid "Volle Bezeichnung („Deutsch\")"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:523
+msgid "ISO-Code („DE\")"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:529
+msgid "Anzeigegerät"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:532
+msgid "Auf allen Geräten zeigen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:535
+msgid "Nur Desktop (auf Mobile ausblenden)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:538
+msgid "Nur Mobile (auf Desktop ausblenden)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:544
+msgid "Mobile-Breakpoint (px)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:556
+msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:561
+msgid "Position auf der Seite"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:564
+msgid "Inline (an der eingebetteten Stelle)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:567
+msgid "Floating: rechts unten"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:570
+msgid "Floating: links unten"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:573
+msgid "Floating: rechts oben"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:576
+msgid "Floating: links oben"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:580
+msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:595
+msgid "Bezeichnung sichtbar"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:602
+msgid "Reihenfolge der Sprachen"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:621
+msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:625
+msgid "Eigene Flaggen pro Sprache (optional)"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:655
+msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:660
+msgid "Eigenes CSS für den Switcher"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:668
+msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:673
+msgid "Einstellungen speichern"
+msgstr ""
+
+#. translators: %s: dashboard url
+#: includes/Admin/SettingsPage.php:684
+msgid "Hilfe & Dokumentation: %s"
+msgstr ""
+
+#: includes/Api/Client.php:198
+#: includes/Api/Client.php:304
+msgid "Deepglot API Fehler."
+msgstr ""
+
+#: includes/Api/Client.php:219
+#: includes/Sync/SettingsSync.php:48
+msgid "Kein API-Key für die Synchronisierung vorhanden."
+msgstr ""
+
+#: includes/Api/Client.php:263
+msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+msgstr ""
+
+#: includes/Api/RestApi.php:203
+msgid "Kein API-Key angegeben."
+msgstr ""
+
+#: includes/Api/RestApi.php:242
+msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgstr ""
+
+#. translators: %d: seconds until reset
+#: includes/Api/RestApi.php:281
+msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
+msgstr ""
+
+#: includes/Frontend/LanguageSwitcher.php:236
+msgid "Switch language to %s"
+msgstr ""
+
+#: includes/Frontend/LanguageSwitcher.php:251
+msgid "Sprache: %s"
+msgstr ""
+
+#: includes/Frontend/NavMenuSwitcher.php:175
+msgid "Sprache wählen"
+msgstr ""
+
+#: includes/Frontend/SwitcherBlock.php:61
+msgid "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen."
+msgstr ""
+
+#: includes/Frontend/SwitcherWidget.php:26
+msgid "Sprachumschalter in einer Widget-Area anzeigen."
+msgstr ""
+
+#: includes/Frontend/SwitcherWidget.php:83
+msgid "Titel:"
+msgstr ""
+
+#: includes/Sync/SettingsSync.php:52
+msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
+msgstr ""
+
+#: assets/js/block-switcher.js:20
+msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
+msgstr ""

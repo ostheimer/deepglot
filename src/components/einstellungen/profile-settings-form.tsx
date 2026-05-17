@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SiteLocale } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 
 const COPY = {
   en: {
@@ -47,7 +48,7 @@ export function ProfileSettingsForm({
   firstName,
   lastName,
 }: ProfileSettingsFormProps) {
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(

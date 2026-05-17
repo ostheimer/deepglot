@@ -13,6 +13,11 @@ async function expectLocaleCookie(page: Page, locale: "en" | "de") {
     .toBe(locale);
 }
 
+async function switchMarketingLanguage(page: Page, languageName: string) {
+  await page.getByRole("button", { name: "Language" }).click();
+  await page.getByRole("menuitem", { name: new RegExp(languageName, "i") }).click();
+}
+
 test.describe("locale routing", () => {
   test("switches the marketing homepage between canonical English and German URLs", async ({
     page,
@@ -26,7 +31,7 @@ test.describe("locale routing", () => {
       })
     ).toBeVisible();
 
-    await page.getByTitle("Deutsch").click();
+    await switchMarketingLanguage(page, "Deutsch");
 
     await expect(page).toHaveURL(/\/de$/);
     await expect(
@@ -34,10 +39,12 @@ test.describe("locale routing", () => {
         name: /Übersetze deine WordPress-Site/i,
       })
     ).toBeVisible();
-    await expect(page.getByTitle("Deutsch")).toHaveAttribute("aria-current", "true");
+    await page.getByRole("button", { name: "Language" }).click();
+    await expect(page.getByRole("menuitem", { name: /Deutsch/i })).toHaveAttribute("aria-current", "true");
+    await page.keyboard.press("Escape");
     await expectLocaleCookie(page, "de");
 
-    await page.getByTitle("English").click();
+    await switchMarketingLanguage(page, "English");
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
@@ -97,19 +104,19 @@ test.describe("locale routing", () => {
 
     await page.goto("/");
     await page.getByRole("link", { name: "Privacy" }).click();
-    await expect(page).toHaveURL(/\/datenschutz$/);
+    await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
 
     await page.goto("/");
     await page.getByRole("link", { name: "Legal Notice" }).click();
-    await expect(page).toHaveURL(/\/impressum$/);
+    await expect(page).toHaveURL(/\/legal-notice$/);
     await expect(
       page.getByRole("heading", { name: "Legal Notice" })
     ).toBeVisible();
 
     await page.goto("/");
     await page.getByRole("link", { name: "Terms" }).click();
-    await expect(page).toHaveURL(/\/agb$/);
+    await expect(page).toHaveURL(/\/terms$/);
     await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
   });
 
@@ -118,7 +125,7 @@ test.describe("locale routing", () => {
   }) => {
     await page.goto("/#plugin");
 
-    await page.getByTitle("Deutsch").click();
+    await switchMarketingLanguage(page, "Deutsch");
 
     await expect(page).toHaveURL(/\/de#plugin$/);
     await expect(page.locator("#plugin")).toBeVisible();
@@ -134,15 +141,24 @@ test.describe("locale routing", () => {
       })
     ).toBeVisible();
 
-    await page.getByTitle("Deutsch").click();
+    await switchMarketingLanguage(page, "Deutsch");
 
-    await expect(page).toHaveURL(/\/de\/pricing\?utm=e2e$/);
+    await expect(page).toHaveURL(/\/de\/preise\?utm=e2e$/);
     await expect(
       page.getByRole("heading", {
         name: "Einfache, faire Preise",
       })
     ).toBeVisible();
     await expectLocaleCookie(page, "de");
+  });
+
+  test("localizes Bulgarian marketing pricing units", async ({ page }) => {
+    await page.goto("/bg");
+
+    await expect(page.getByText("EUR 69/month", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("200k words", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/EUR 69\/месец/)).toBeVisible();
+    await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(2);
   });
 
   test("maps login and signup pages to the matching locale", async ({ page }) => {
@@ -155,9 +171,9 @@ test.describe("locale routing", () => {
       })
     ).toBeVisible();
 
-    await page.getByTitle("Deutsch").click();
+    await switchMarketingLanguage(page, "Deutsch");
 
-    await expect(page).toHaveURL(/\/de\/login$/);
+    await expect(page).toHaveURL(/\/de\/anmelden$/);
     await expect(
       page.getByText("Willkommen zurück", {
         exact: true,
@@ -166,7 +182,7 @@ test.describe("locale routing", () => {
 
     await page.getByRole("link", { name: "Kostenlos starten" }).click();
 
-    await expect(page).toHaveURL(/\/de\/signup$/);
+    await expect(page).toHaveURL(/\/de\/registrieren$/);
     await expect(
       page.locator("[data-slot='card-title']").filter({
         hasText: "Konto erstellen",
@@ -199,7 +215,7 @@ test.describe("locale routing", () => {
   }) => {
     await page.goto("/preise");
 
-    await expect(page).toHaveURL(/\/de\/pricing$/);
+    await expect(page).toHaveURL(/\/de\/preise$/);
     await expect(
       page.getByRole("heading", {
         name: "Einfache, faire Preise",
@@ -208,7 +224,7 @@ test.describe("locale routing", () => {
 
     await page.goto("/anmelden");
 
-    await expect(page).toHaveURL(/\/de\/login$/);
+    await expect(page).toHaveURL(/\/de\/anmelden$/);
     await expect(
       page.getByText("Willkommen zurück", {
         exact: true,
@@ -217,7 +233,7 @@ test.describe("locale routing", () => {
 
     await page.goto("/registrieren");
 
-    await expect(page).toHaveURL(/\/de\/signup$/);
+    await expect(page).toHaveURL(/\/de\/registrieren$/);
     await expect(
       page.locator("[data-slot='card-title']").filter({
         hasText: "Konto erstellen",
@@ -239,7 +255,7 @@ test.describe("locale routing", () => {
 
     await page.goto("/de/projects");
 
-    await expect(page).toHaveURL(/\/de\/login$/);
+    await expect(page).toHaveURL(/\/de\/anmelden$/);
     await expect(
       page.getByText("Willkommen zurück", {
         exact: true,

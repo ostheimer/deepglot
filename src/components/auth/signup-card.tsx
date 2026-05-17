@@ -23,19 +23,22 @@ import {
   type BillingPlanKey,
 } from "@/lib/billing-plans";
 import { startCheckout } from "@/lib/billing-client";
+import { getIntlLocale } from "@/lib/locale-formatting";
 import {
   getMarketingPath,
   withLocalePrefix,
   type SiteLocale,
 } from "@/lib/site-locale";
+import { localizeCopy, uiText } from "@/lib/static-copy";
 
 function buildDescription(locale: SiteLocale): string {
   const freeWords = BILLING_PLANS.FREE.wordsLimit.toLocaleString(
-    locale === "de" ? "de-DE" : "en-US"
+    getIntlLocale(locale)
   );
-  return locale === "de"
-    ? `Starte kostenlos mit ${freeWords} Wörtern pro Monat`
-    : `Start for free with ${freeWords} words per month`;
+  return uiText(locale, "Start for free with {words} words per month", "Starte kostenlos mit {words} Wörtern pro Monat").replace(
+    "{words}",
+    freeWords
+  );
 }
 
 const COPY = {
@@ -98,7 +101,7 @@ export function SignupCard({
   checkoutInterval = "monthly",
 }: SignupCardProps) {
   const locale = useLocale();
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const description = buildDescription(locale);
   const dashboardPath = withLocalePrefix("/dashboard", locale);
   const [isLoading, setIsLoading] = useState(false);
@@ -247,14 +250,14 @@ export function SignupCard({
         <p className="text-center text-xs text-gray-500">
           {copy.termsPrefix}{" "}
           <Link
-            href={withLocalePrefix("/agb", locale)}
+            href={getMarketingPath(locale, "terms")}
             className="underline hover:text-gray-700"
           >
             {copy.terms}
           </Link>{" "}
-          {locale === "de" ? "und der" : "and"}{" "}
+          {uiText(locale, "and", "und der")}{" "}
           <Link
-            href={withLocalePrefix("/datenschutz", locale)}
+            href={getMarketingPath(locale, "privacy")}
             className="underline hover:text-gray-700"
           >
             {copy.privacy}

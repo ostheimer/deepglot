@@ -7,6 +7,12 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import { getIntlLocale } from "@/lib/locale-formatting";
+import {
+  formatCompactWordCount,
+  getDateTimeFieldLabel,
+} from "@/lib/marketing-formatting";
+import { localizeCopy } from "@/lib/static-copy";
 import {
   BILLING_PLANS,
   BILLING_PLAN_KEYS,
@@ -24,7 +30,7 @@ import type { ViewerBillingContext } from "@/lib/billing-viewer";
  */
 const PLAN_FEATURES: Record<
   BillingPlanKey,
-  Record<SiteLocale, string[]>
+  { en: string[]; de: string[] }
 > = {
   FREE: {
     en: ["AI translation", "Glossary", "1 project · 1 language", "Community support"],
@@ -121,9 +127,6 @@ const PRICING_COPY = {
     monthly: "Monthly",
     yearly: "Yearly",
     yearlySavings: "2 months free",
-    priceSuffix: "/mo.",
-    yearlyPriceSuffix: "/mo. billed yearly",
-    yearlyTotalSuffix: "/year",
     enterprisePrice: "Custom pricing",
     primaryCta: "Start free",
     paidCta: "Try for free",
@@ -151,9 +154,6 @@ const PRICING_COPY = {
     monthly: "Monatlich",
     yearly: "Jährlich",
     yearlySavings: "2 Monate gratis",
-    priceSuffix: "/Mo.",
-    yearlyPriceSuffix: "/Mo., jährlich abgerechnet",
-    yearlyTotalSuffix: "/Jahr",
     enterprisePrice: "Preis auf Anfrage",
     primaryCta: "Kostenlos starten",
     paidCta: "Kostenlos testen",
@@ -183,18 +183,29 @@ const PRICING_COPY = {
 
 function formatWordCount(value: number, locale: SiteLocale): string {
   if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    if (locale === "de") {
-      return `${millions.toLocaleString("de-AT", { maximumFractionDigits: 1 })} Mio.`;
-    }
-    return `${millions.toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
+    return formatCompactWordCount(value, locale);
   }
-  return value.toLocaleString(locale === "de" ? "de-AT" : "en-US");
+
+  return value.toLocaleString(getIntlLocale(locale));
 }
 
 function centsToWholeEuros(cents: number | null | undefined): number | null {
   if (typeof cents !== "number") return null;
   return Math.round(cents / 100);
+}
+
+function formatPriceSuffix(
+  locale: SiteLocale,
+  yearly: boolean,
+  yearlyLabel: string
+): string {
+  const monthLabel = getDateTimeFieldLabel(locale, "month");
+
+  if (!yearly) {
+    return `/${monthLabel}`;
+  }
+
+  return `/${monthLabel}, ${yearlyLabel.toLocaleLowerCase(getIntlLocale(locale))}`;
 }
 
 type PricingGridProps = {
@@ -212,7 +223,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
   const [yearly, setYearly] = useState(false);
   const [ctaLoading, setCtaLoading] = useState(false);
 
-  const copy = PRICING_COPY[locale];
+  const copy = localizeCopy(locale, PRICING_COPY);
   const signupHref = getMarketingPath(locale, "signup");
   const loggedIn = viewer?.loggedIn ?? false;
   const viewerPlan = viewer?.plan ?? null;
@@ -221,7 +232,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
 
   const tierKey = BILLING_PLAN_KEYS[tierIndex];
   const tier = BILLING_PLANS[tierKey];
-  const features = PLAN_FEATURES[tierKey][locale];
+  const features = localizeCopy(locale, PLAN_FEATURES[tierKey]);
   const isFree = tierKey === "FREE";
   const isEnterprise = tierKey === "ENTERPRISE";
 
@@ -232,6 +243,10 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
   const yearlyTotalEuros = centsToWholeEuros(computeYearlyTotalCents(tierKey));
 
   const displayedEuros = yearly ? yearlyMonthlyEuros : monthlyEuros;
+  const priceSuffix = formatPriceSuffix(locale, yearly, copy.yearly);
+  const yearlyTotalSuffix = `/${getDateTimeFieldLabel(locale, "year")}`;
+  const lowerLanguagesLabel = copy.languagesLabel.toLocaleLowerCase(getIntlLocale(locale));
+  const lowerProjectsLabel = copy.projectsLabel.toLocaleLowerCase(getIntlLocale(locale));
 
   const ctaClass = `block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
     tier.highlight
@@ -447,7 +462,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
               )}
             </div>
             <p className="mt-1 text-sm text-gray-600">
-              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {copy.languagesLabel.toLowerCase()} · {tier.projectsLimit} {copy.projectsLabel.toLowerCase()}
+              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {lowerLanguagesLabel} · {tier.projectsLimit} {lowerProjectsLabel}
             </p>
           </div>
 
@@ -463,13 +478,13 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
                 <p className="text-4xl font-extrabold text-gray-900">
                   €{displayedEuros}
                   <span className="text-sm font-normal text-gray-500">
-                    {yearly ? copy.yearlyPriceSuffix : copy.priceSuffix}
+                    {priceSuffix}
                   </span>
                 </p>
                 {yearly && yearlyTotalEuros !== null && yearlyTotalEuros > 0 && (
                   <p className="mt-1 text-xs text-gray-500">
                     €{yearlyTotalEuros}
-                    {copy.yearlyTotalSuffix} · {copy.yearlySavingsHint}
+                    {yearlyTotalSuffix} · {copy.yearlySavingsHint}
                   </p>
                 )}
               </>

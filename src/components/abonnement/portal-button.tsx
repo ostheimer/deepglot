@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
+import { uiText } from "@/lib/static-copy";
 
 interface Props {
   stripeCustomerId: string | null;
@@ -28,7 +29,7 @@ export function PortalButton({ stripeCustomerId, label }: Props) {
       disabled={loading || !stripeCustomerId}
       className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
     >
-      {loading ? (locale === "de" ? "Weiterleiten…" : "Redirecting...") : label}
+      {loading ? (uiText(locale, "Redirecting...", "Weiterleiten…")) : label}
     </button>
   );
 }

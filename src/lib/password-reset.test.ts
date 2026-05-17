@@ -42,7 +42,15 @@ test("builds localized reset URLs", () => {
       locale: "de",
       baseUrl: "https://deepglot.ai",
     }),
-    "https://deepglot.ai/de/reset-password?token=abc123"
+    "https://deepglot.ai/de/passwort-zuruecksetzen?token=abc123"
+  );
+  assert.equal(
+    buildPasswordResetUrl({
+      token: "abc123",
+      locale: "fr",
+      baseUrl: "https://deepglot.ai",
+    }),
+    "https://deepglot.ai/fr/nouveau-mot-de-passe?token=abc123"
   );
 });
 

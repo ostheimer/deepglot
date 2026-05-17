@@ -29,6 +29,7 @@ import {
   type ProjectAccessContext,
 } from "@/lib/project-access-policy";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 interface ProjectSidebarProps {
   project: {
@@ -45,43 +46,43 @@ interface ProjectSidebarProps {
 export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
   const locale = useLocale();
   const pathname = usePathname();
-  const base = withLocalePrefix(`/projects/${project.id}`, locale);
+  const projectPath = (suffix = "") => withLocalePrefix(`/projects/${project.id}${suffix}`, locale);
   const canManage = canManageProject(access);
   const canViewAnalytics = canAccessProjectArea(access, "analytics");
 
   const nav = [
     {
-      label: locale === "de" ? "Übersetzungen" : "Translations",
+      label: uiText(locale, "Translations", "Übersetzungen"),
       items: [
-        { href: `${base}/translations/languages`, label: locale === "de" ? "Sprachen" : "Languages", icon: Languages },
-        { href: `${base}/translations/urls`, label: "URLs", icon: Globe },
-        { href: `${base}/translations/visual`, label: locale === "de" ? "Visueller Editor" : "Visual Editor", icon: Paintbrush },
-        { href: `${base}/translations/glossary`, label: locale === "de" ? "Glossar" : "Glossary", icon: BookOpen },
-        { href: `${base}/translations/import-export`, label: "Import & Export", icon: Download },
-        { href: `${base}/translations/slugs`, label: "URL Slugs", icon: Link2 },
+        { href: projectPath("/translations/languages"), label: uiText(locale, "Languages", "Sprachen"), icon: Languages },
+        { href: projectPath("/translations/urls"), label: "URLs", icon: Globe },
+        { href: projectPath("/translations/visual"), label: uiText(locale, "Visual Editor", "Visueller Editor"), icon: Paintbrush },
+        { href: projectPath("/translations/glossary"), label: uiText(locale, "Glossary", "Glossar"), icon: BookOpen },
+        { href: projectPath("/translations/import-export"), label: "Import & Export", icon: Download },
+        { href: projectPath("/translations/slugs"), label: "URL Slugs", icon: Link2 },
       ],
     },
     {
-      label: locale === "de" ? "Statistiken" : "Analytics",
+      label: uiText(locale, "Analytics", "Statistiken"),
       hidden: !canViewAnalytics,
       items: [
-        { href: `${base}/stats/requests`, label: locale === "de" ? "Übersetzungsanfragen" : "Translation Requests", icon: BarChart2 },
-        { href: `${base}/stats/page-views`, label: locale === "de" ? "Seitenaufrufe" : "Page Views", icon: Eye },
+        { href: projectPath("/stats/requests"), label: uiText(locale, "Translation Requests", "Übersetzungsanfragen"), icon: BarChart2 },
+        { href: projectPath("/stats/page-views"), label: uiText(locale, "Page Views", "Seitenaufrufe"), icon: Eye },
       ],
     },
     {
-      label: locale === "de" ? "Einstellungen" : "Settings",
+      label: uiText(locale, "Settings", "Einstellungen"),
       hidden: !canManage,
       items: [
-        { href: `${base}/settings`, label: locale === "de" ? "Allgemein" : "General", icon: Settings },
-        { href: `${base}/settings/language-model`, label: locale === "de" ? "Sprachmodell" : "Language Model", icon: Cpu, badge: locale === "de" ? "Neu" : "New" },
-        { href: `${base}/settings/switcher`, label: locale === "de" ? "Sprachauswahl" : "Language Switcher", icon: Globe },
-        { href: `${base}/settings/exclusions`, label: locale === "de" ? "Ausnahmen" : "Exclusions", icon: ShieldOff },
-        { href: `${base}/settings/setup`, label: "Setup", icon: Wrench },
-        { href: `${base}/settings/wordpress`, label: "WordPress", icon: Plug },
-        { href: `${base}/settings/webhooks`, label: "Webhooks", icon: Plug },
-        { href: `${base}/settings/members`, label: locale === "de" ? "Projektmitglieder" : "Project Members", icon: Users },
-        { href: `${base}/api-keys`, label: "API Keys", icon: Key },
+        { href: projectPath("/settings"), label: uiText(locale, "General", "Allgemein"), icon: Settings },
+        { href: projectPath("/settings/language-model"), label: uiText(locale, "Language Model", "Sprachmodell"), icon: Cpu, badge: uiText(locale, "New", "Neu") },
+        { href: projectPath("/settings/switcher"), label: uiText(locale, "Language Switcher", "Sprachauswahl"), icon: Globe },
+        { href: projectPath("/settings/exclusions"), label: uiText(locale, "Exclusions", "Ausnahmen"), icon: ShieldOff },
+        { href: projectPath("/settings/setup"), label: "Setup", icon: Wrench },
+        { href: projectPath("/settings/wordpress"), label: "WordPress", icon: Plug },
+        { href: projectPath("/settings/webhooks"), label: "Webhooks", icon: Plug },
+        { href: projectPath("/settings/members"), label: uiText(locale, "Project Members", "Projektmitglieder"), icon: Users },
+        { href: projectPath("/api-keys"), label: "API Keys", icon: Key },
       ],
     },
   ];
@@ -95,7 +96,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
           className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 mb-4 transition-colors"
         >
           <ArrowLeft className="h-3 w-3" />
-          {locale === "de" ? "Alle Projekte" : "All Projects"}
+          {uiText(locale, "All Projects", "Alle Projekte")}
         </Link>
         <div>
           <p className="font-semibold text-gray-900 text-sm truncate">{project.name}</p>

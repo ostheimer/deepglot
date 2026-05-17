@@ -1,0 +1,442 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Deepglot 0.7.0\n"
+"Report-Msgid-Bugs-To: https://deepglot.ai\n"
+"POT-Creation-Date: 2026-05-17 00:00+0000\n"
+"PO-Revision-Date: 2026-05-17 00:00+0000\n"
+"Last-Translator: Deepglot Machine Translation\n"
+"Language-Team: Deepglot\n"
+"Language: mt_MT\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Deepglot i18n generator\n"
+
+#. Plugin Name of the plugin
+#: deepglot.php
+#: includes/Admin/SettingsPage.php:34
+#: includes/Admin/SettingsPage.php:35
+msgid "Deepglot"
+msgstr "Deepglot"
+
+#. Plugin URI of the plugin
+#: deepglot.php
+msgid "https://deepglot.ai"
+msgstr "https://deepglot.ai"
+
+#. Description of the plugin
+#: deepglot.php
+msgid "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API."
+msgstr "Tittraduċi kontenut WordPress billi tuża Deepglot u API ta' traduzzjoni kompatibbli."
+
+#. Author of the plugin
+#: deepglot.php
+msgid "Andreas Ostheimer"
+msgstr "Andreas Ostheimer"
+
+#. Author URI of the plugin
+#: deepglot.php
+msgid "https://www.ostheimer.at"
+msgstr "https://www.ostheimer.at"
+
+#: includes/Admin/NavMenuMetaBox.php:26
+#: includes/Frontend/SwitcherBlock.php:58
+#: includes/Frontend/SwitcherWidget.php:25
+#: assets/js/block-switcher.js:19
+msgid "Deepglot Sprachschalter"
+msgstr "Deepglot Swiċċ tal-lingwa"
+
+#: includes/Admin/NavMenuMetaBox.php:41
+msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
+msgstr "Iżżid dħul ta' swiċċ tal-lingwa li jespandi awtomatikament f'entrata waħda għal kull lingwa meta jaraha."
+
+#: includes/Admin/NavMenuMetaBox.php:44
+msgid "Anzeige-Modus"
+msgstr "Modalità tal-wiri"
+
+#: includes/Admin/NavMenuMetaBox.php:49
+msgid "Liste (jede Sprache als eigener Menüpunkt)"
+msgstr "Lista (kull lingwa bħala oġġett tal-menu separat)"
+
+#: includes/Admin/NavMenuMetaBox.php:55
+msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
+msgstr "Dropdown (lingwa attiva bħala ġenitur, alternattivi bħala submenu)"
+
+#: includes/Admin/NavMenuMetaBox.php:61
+msgid "Aktive Sprache aus der Liste ausblenden"
+msgstr "Aħbi l-lingwa attiva mil-lista"
+
+#: includes/Admin/NavMenuMetaBox.php:71
+msgid "Zum Menü hinzufügen"
+msgstr "Żid mal-menu"
+
+#: includes/Admin/NavMenuMetaBox.php:98
+msgid "Sprachschalter"
+msgstr "Swiċċ tal-vuċi"
+
+#: includes/Admin/SettingsPage.php:171
+msgid "Aktiv"
+msgstr "Attiva"
+
+#: includes/Admin/SettingsPage.php:174
+msgid "Deaktiviert"
+msgstr "B'diżabilità"
+
+#: includes/Admin/SettingsPage.php:177
+msgid "Einrichtung erforderlich"
+msgstr "Setup meħtieġ"
+
+#: includes/Admin/SettingsPage.php:194
+msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
+msgstr "Merħba għal Deepglot! Segwi t-tliet passi hawn taħt biex tippermetti t-traduzzjoni fuq il-websajt tiegħek."
+
+#: includes/Admin/SettingsPage.php:205
+msgid "Deepglot einrichten"
+msgstr "Imwaqqaf Deepglot"
+
+#: includes/Admin/SettingsPage.php:206
+msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
+msgstr "Kulma għandek bżonn huwa API-Key mid-dashboard Deepglot - tieħu inqas minn żewġ minuti."
+
+#: includes/Admin/SettingsPage.php:218
+msgid "API-Key eintragen"
+msgstr "Daħħal API-Key"
+
+#: includes/Admin/SettingsPage.php:221
+msgid "Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgstr "Oħloq kont b'xejn fuq deepglot.app, oħloq proġett għall-websajt tiegħek u kkopja l-API-Key."
+
+#: includes/Admin/SettingsPage.php:224
+msgid "Zum Dashboard – API-Key erstellen"
+msgstr "Mur fid-dashboard – oħloq API-Key"
+
+#: includes/Admin/SettingsPage.php:229
+msgid "API-Key"
+msgstr "API-Key"
+
+#: includes/Admin/SettingsPage.php:240
+msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
+msgstr "Tista' ssib iċ-ċavetta sħiħa taħt Settings → API-Keys fil-proġett Deepglot tiegħek."
+
+#: includes/Admin/SettingsPage.php:244
+msgid "Backend-URL"
+msgstr "Backend URL"
+
+#: includes/Admin/SettingsPage.php:252
+msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
+msgstr "Default: https://deepglot.ai/api – bidla biss għal Self-Hosting."
+
+#: includes/Admin/SettingsPage.php:264
+msgid "Sprachen konfigurieren"
+msgstr "Ikkonfigura l-lingwi"
+
+#: includes/Admin/SettingsPage.php:266
+msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
+msgstr "Speċifika l-lingwa oriġinali u l-lingwi tat-traduzzjoni mixtieqa."
+
+#: includes/Admin/SettingsPage.php:270
+msgid "Originalsprache"
+msgstr "Lingwa oriġinali"
+
+#: includes/Admin/SettingsPage.php:281
+msgid "Zielsprachen"
+msgstr "Lingwi fil-mira"
+
+#: includes/Admin/SettingsPage.php:289
+msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
+msgstr "Kodiċi ISO-639-1 separati bil-virgola, eż. B. en, fr, it"
+
+#: includes/Admin/SettingsPage.php:301
+msgid "Übersetzung aktivieren"
+msgstr "Ippermetti t-traduzzjoni"
+
+#: includes/Admin/SettingsPage.php:303
+msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
+msgstr "Ladarba API-Key u l-lingwi jiġu ssejvjati, ippermetti t-traduzzjoni awtomatika hawn."
+
+#: includes/Admin/SettingsPage.php:315
+msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
+msgstr "Attiva Deepglot għat-talbiet kollha tal-frontend"
+
+#. translators: %1$s: source language, %2$s: target languages
+#: includes/Admin/SettingsPage.php:324
+msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
+msgstr "Attiva – il-paġni huma tradotti minn %1$s għal %2$s taħt /%3$s/ihre-seite/"
+
+#: includes/Admin/SettingsPage.php:344
+msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
+msgstr "Idderieġi l-viżitaturi awtomatikament abbażi tal-lingwa tal-browser (mhux obbligatorju)"
+
+#: includes/Admin/SettingsPage.php:353
+msgid "Erweiterte Einstellungen ausblenden"
+msgstr "Aħbi settings avvanzati"
+
+#: includes/Admin/SettingsPage.php:353
+#: includes/Admin/SettingsPage.php:354
+msgid "Erweiterte Einstellungen anzeigen"
+msgstr "Uri settings avvanzati"
+
+#: includes/Admin/SettingsPage.php:358
+msgid "Ausgeschlossene URLs"
+msgstr "Esklużi URLs"
+
+#: includes/Admin/SettingsPage.php:360
+msgid "Eine URL oder ein Muster pro Zeile."
+msgstr "URL jew mudell wieħed għal kull linja."
+
+#: includes/Admin/SettingsPage.php:363
+msgid "Routing-Modus"
+msgstr "Modalità tar-rotot"
+
+#: includes/Admin/SettingsPage.php:366
+msgid "Pfad-Präfix (/en/meine-seite)"
+msgstr "Prefiss tal-passaġġ (/en/meine-seite)"
+
+#: includes/Admin/SettingsPage.php:369
+msgid "Subdomains (en.example.com)"
+msgstr "Sottodominji (en.example.com)"
+
+#: includes/Admin/SettingsPage.php:372
+msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
+msgstr "Il-prefiss tal-mogħdija jibqa' default. Għas-sottodominji, kull lingwa fil-mira attiva teħtieġ ospitanti."
+
+#: includes/Admin/SettingsPage.php:375
+msgid "Domain-Zuordnungen"
+msgstr "Mappings tad-dominju"
+
+#: includes/Admin/SettingsPage.php:383
+msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
+msgstr "Format: sprachcode=host, assenjazzjoni waħda għal kull linja."
+
+#: includes/Admin/SettingsPage.php:395
+msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
+msgstr "Ittraduċi emails WooCommerce u wp_mail"
+
+#: includes/Admin/SettingsPage.php:408
+msgid "Suche in der Besuchersprache ausführen"
+msgstr "Esegwi t-tfittxija fil-lingwa tal-viżitatur"
+
+#: includes/Admin/SettingsPage.php:421
+msgid "AMP-Seiten übersetzen"
+msgstr "Ittraduċi paġni AMP"
+
+#: includes/Admin/SettingsPage.php:425
+msgid "Ausgeschlossene CSS-Selektoren"
+msgstr "Esklużi CSS seletturi"
+
+#: includes/Admin/SettingsPage.php:427
+msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
+msgstr "Klassi waħda CSS, ID jew selettur għal kull linja."
+
+#: includes/Admin/SettingsPage.php:461
+msgid "Sprachumschalter"
+msgstr "Switcher tal-lingwa"
+
+#: includes/Admin/SettingsPage.php:462
+msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
+msgstr "Kif u fejn għandu jidher il-Language-Switcher fuq il-websajt tiegħek?"
+
+#: includes/Admin/SettingsPage.php:475
+msgid "Switcher automatisch im Seitenfooter einfügen"
+msgstr "Daħħal awtomatikament Switcher fil-footer tal-paġna"
+
+#: includes/Admin/SettingsPage.php:479
+msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
+msgstr "Alternattivament: Shortcode [deepglot_switcher] jew PHP do_action('deepglot_language_switcher') fit-tema tiegħek."
+
+#: includes/Admin/SettingsPage.php:484
+msgid "Darstellung"
+msgstr "Preżentazzjoni"
+
+#: includes/Admin/SettingsPage.php:487
+msgid "Inline-Liste"
+msgstr "Lista inline"
+
+#: includes/Admin/SettingsPage.php:490
+msgid "Dropdown"
+msgstr "Drop down"
+
+#: includes/Admin/SettingsPage.php:496
+msgid "Flaggenstil"
+msgstr "Stil tal-bandiera"
+
+#: includes/Admin/SettingsPage.php:499
+msgid "Rechteckig, matt"
+msgstr "Rettangolari, matt"
+
+#: includes/Admin/SettingsPage.php:502
+msgid "Rechteckig, glänzend"
+msgstr "Rettangolari, tleqq"
+
+#: includes/Admin/SettingsPage.php:505
+msgid "Kreis, matt"
+msgstr "Ċirku, matte"
+
+#: includes/Admin/SettingsPage.php:508
+msgid "Kreis, glänzend"
+msgstr "Ċirku, tleqq"
+
+#: includes/Admin/SettingsPage.php:511
+msgid "Ohne Flagge"
+msgstr "Mingħajr bandiera"
+
+#: includes/Admin/SettingsPage.php:517
+msgid "Sprachbezeichnung"
+msgstr "Deżinjazzjoni tal-lingwa"
+
+#: includes/Admin/SettingsPage.php:520
+msgid "Volle Bezeichnung („Deutsch\")"
+msgstr "Isem sħiħ (“Ġermaniż”)"
+
+#: includes/Admin/SettingsPage.php:523
+msgid "ISO-Code („DE\")"
+msgstr "ISO-Code (“DE”)"
+
+#: includes/Admin/SettingsPage.php:529
+msgid "Anzeigegerät"
+msgstr "Apparat tal-wiri"
+
+#: includes/Admin/SettingsPage.php:532
+msgid "Auf allen Geräten zeigen"
+msgstr "Uri fuq l-apparati kollha"
+
+#: includes/Admin/SettingsPage.php:535
+msgid "Nur Desktop (auf Mobile ausblenden)"
+msgstr "Desktop biss (ħbi fuq il-mowbajl)"
+
+#: includes/Admin/SettingsPage.php:538
+msgid "Nur Mobile (auf Desktop ausblenden)"
+msgstr "Mobbli biss (ħbi fuq id-desktop)"
+
+#: includes/Admin/SettingsPage.php:544
+msgid "Mobile-Breakpoint (px)"
+msgstr "Punt ta' waqfa mobbli (px)"
+
+#: includes/Admin/SettingsPage.php:556
+msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
+msgstr "Default 768 px. Taħt din il-wisa', paġna titqies bħala \"mobbli\"."
+
+#: includes/Admin/SettingsPage.php:561
+msgid "Position auf der Seite"
+msgstr "Pożizzjoni fuq il-paġna"
+
+#: includes/Admin/SettingsPage.php:564
+msgid "Inline (an der eingebetteten Stelle)"
+msgstr "Inline (fil-post inkorporat)"
+
+#: includes/Admin/SettingsPage.php:567
+msgid "Floating: rechts unten"
+msgstr "F'wiċċ l-ilma: qiegħ il-lemin"
+
+#: includes/Admin/SettingsPage.php:570
+msgid "Floating: links unten"
+msgstr "F'wiċċ l-ilma: qiegħ xellug"
+
+#: includes/Admin/SettingsPage.php:573
+msgid "Floating: rechts oben"
+msgstr "F'wiċċ l-ilma: fuq il-lemin"
+
+#: includes/Admin/SettingsPage.php:576
+msgid "Floating: links oben"
+msgstr "F'wiċċ l-ilma: fuq ix-xellug"
+
+#: includes/Admin/SettingsPage.php:580
+msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
+msgstr "\"Foating\" pins il-Switcher mal-kantuniera b'pożizzjoni:fissa u tiskrollja magħha. Flimkien ma 'Awto-Inject = Weglot imġieba default."
+
+#: includes/Admin/SettingsPage.php:595
+msgid "Bezeichnung sichtbar"
+msgstr "Denominazzjoni viżibbli"
+
+#: includes/Admin/SettingsPage.php:602
+msgid "Reihenfolge der Sprachen"
+msgstr "Ordni tal-lingwi"
+
+#: includes/Admin/SettingsPage.php:621
+msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
+msgstr "Irranġa mill-ġdid billi tuża drag & drop. Jaħdem kemm f'Shortcode kif ukoll f'injezzjoni awtomatika."
+
+#: includes/Admin/SettingsPage.php:625
+msgid "Eigene Flaggen pro Sprache (optional)"
+msgstr "Bnadar proprji għal kull lingwa (mhux obbligatorju)"
+
+#: includes/Admin/SettingsPage.php:655
+msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
+msgstr "Ħalli vojt = bandiera default. Emoji (eż. 🇺🇸 għas-suq EN→US) jew URL sa SVG/PNG. CSS karattri speċjali jitneħħew awtomatikament."
+
+#: includes/Admin/SettingsPage.php:660
+msgid "Eigenes CSS für den Switcher"
+msgstr "Proprju CSS għall-Switcher"
+
+#: includes/Admin/SettingsPage.php:668
+msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
+msgstr "Imdaħħal immedjatament qabel il-Switcher bħala t-tikketta <style>. \"<\" titneħħa awtomatikament sabiex l-ebda tag b'kitba ma tkun tista' tiddaħħal."
+
+#: includes/Admin/SettingsPage.php:673
+msgid "Einstellungen speichern"
+msgstr "Issejvja s-settings"
+
+#. translators: %s: dashboard url
+#: includes/Admin/SettingsPage.php:684
+msgid "Hilfe & Dokumentation: %s"
+msgstr "Għajnuna u Dokumentazzjoni: %s"
+
+#: includes/Api/Client.php:198
+#: includes/Api/Client.php:304
+msgid "Deepglot API Fehler."
+msgstr "Deepglot żball tal-API."
+
+#: includes/Api/Client.php:219
+#: includes/Sync/SettingsSync.php:48
+msgid "Kein API-Key für die Synchronisierung vorhanden."
+msgstr "Ma teżistix API-Key għas-sinkronizzazzjoni."
+
+#: includes/Api/Client.php:263
+msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+msgstr "Ma jeżistix API-Key għall-konfigurazzjoni tar-runtime."
+
+#: includes/Api/RestApi.php:203
+msgid "Kein API-Key angegeben."
+msgstr "Nru API-Key speċifikat."
+
+#: includes/Api/RestApi.php:242
+msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgstr "Għandek bżonn drittijiet ta' amministratur għal din l-azzjoni."
+
+#. translators: %d: seconds until reset
+#: includes/Api/RestApi.php:281
+msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
+msgstr "Wisq talbiet. Jekk jogħġbok stenna %d sekondi."
+
+#: includes/Frontend/LanguageSwitcher.php:236
+msgid "Switch language to %s"
+msgstr "Aqleb il-lingwa għal %s"
+
+#: includes/Frontend/LanguageSwitcher.php:251
+msgid "Sprache: %s"
+msgstr "Lingwa: %s"
+
+#: includes/Frontend/NavMenuSwitcher.php:175
+msgid "Sprache wählen"
+msgstr "Agħżel il-lingwa"
+
+#: includes/Frontend/SwitcherBlock.php:61
+msgid "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen."
+msgstr "Juri l-iswiċċ tal-lingwa Deepglot — stili/Flagge/Reihenfolge isegwu s-settings tal-plugin."
+
+#: includes/Frontend/SwitcherWidget.php:26
+msgid "Sprachumschalter in einer Widget-Area anzeigen."
+msgstr "Uri swiċċjar tal-lingwa f'żona tal-widget."
+
+#: includes/Frontend/SwitcherWidget.php:83
+msgid "Titel:"
+msgstr "Titolu:"
+
+#: includes/Sync/SettingsSync.php:52
+msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
+msgstr "L-ebda lingwa mira kkonfigurata għas-sinkronizzazzjoni."
+
+#: assets/js/block-switcher.js:20
+msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
+msgstr "Juri l-iswiċċ tal-lingwa Deepglot. L-istil, il-bandiera u l-ordni jsegwu s-settings tal-plugin."

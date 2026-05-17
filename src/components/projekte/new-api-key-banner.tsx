@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Key } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { CopyApiKeyButton } from "@/components/projekte/copy-api-key-button";
+import { uiText } from "@/lib/static-copy";
 
 interface Props {
   projectId: string;
@@ -51,14 +52,10 @@ export function NewApiKeyBanner({ projectId }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-emerald-900">
-            {locale === "de"
-              ? "Projekt erstellt – API-Key ist bereit"
-              : "Project created – API key is ready"}
+            {uiText(locale, "Project created – API key is ready", "Projekt erstellt – API-Key ist bereit")}
           </p>
           <p className="mt-1 text-sm text-emerald-700">
-            {locale === "de"
-              ? "Dieser Schlüssel wird nur einmal angezeigt. Kopiere ihn jetzt und trage ihn in dein WordPress-Plugin ein."
-              : "This key is shown only once. Copy it now and paste it into your WordPress plugin."}
+            {uiText(locale, "This key is shown only once. Copy it now and paste it into your WordPress plugin.", "Dieser Schlüssel wird nur einmal angezeigt. Kopiere ihn jetzt und trage ihn in dein WordPress-Plugin ein.")}
           </p>
 
           <div className="mt-3 flex items-center gap-2">

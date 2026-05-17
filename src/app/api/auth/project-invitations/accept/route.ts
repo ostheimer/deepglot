@@ -7,9 +7,11 @@ import { db } from "@/lib/db";
 import { hashProjectInvitationToken } from "@/lib/project-invitations";
 import { getCookieLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 function sanitizeInvitation(invitation: NonNullable<Awaited<ReturnType<typeof loadInvitation>>>) {

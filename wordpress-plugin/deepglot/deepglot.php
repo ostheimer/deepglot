@@ -7,6 +7,7 @@
  * Author: Andreas Ostheimer
  * Author URI: https://www.ostheimer.at
  * Text Domain: deepglot
+ * Domain Path: /languages
  * Requires at least: 6.0
  * Requires PHP: 7.4
  */

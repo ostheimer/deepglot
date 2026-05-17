@@ -10,6 +10,8 @@ import {
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 const webhookEndpointSchema = z.object({
   url: z.string().trim().url().optional(),
@@ -22,8 +24,8 @@ const webhookEndpointSchema = z.object({
   rotateSecret: z.boolean().optional(),
 });
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 async function loadEndpoint(projektId: string, id: string) {

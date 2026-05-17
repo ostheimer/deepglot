@@ -5,17 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
+import { uiText } from "@/lib/static-copy";
 
 export function BillingAddressForm() {
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const countries = [
-    { code: "AT", label: locale === "de" ? "Österreich" : "Austria" },
-    { code: "DE", label: locale === "de" ? "Deutschland" : "Germany" },
-    { code: "CH", label: locale === "de" ? "Schweiz" : "Switzerland" },
+    { code: "AT", label: uiText(locale, "Austria", "Österreich") },
+    { code: "DE", label: uiText(locale, "Germany", "Deutschland") },
+    { code: "CH", label: uiText(locale, "Switzerland", "Schweiz") },
     { code: "US", label: "USA" },
-    { code: "GB", label: locale === "de" ? "Großbritannien" : "United Kingdom" },
+    { code: "GB", label: uiText(locale, "United Kingdom", "Großbritannien") },
   ];
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -44,22 +45,22 @@ export function BillingAddressForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          {locale === "de" ? "Firmenname / Name" : "Company / Name"}
+          {uiText(locale, "Company / Name", "Firmenname / Name")}
         </Label>
         <Input
           name="billingName"
-          placeholder={locale === "de" ? "z.B. Mustermann GmbH" : "e.g. Example Inc."}
+          placeholder={uiText(locale, "e.g. Example Inc.", "z.B. Mustermann GmbH")}
           className="max-w-xl"
         />
       </div>
 
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          {locale === "de" ? "Adresse" : "Address"}
+          {uiText(locale, "Address", "Adresse")}
         </Label>
         <Input
           name="address"
-          placeholder={locale === "de" ? "Straße und Hausnummer" : "Street and number"}
+          placeholder={uiText(locale, "Street and number", "Straße und Hausnummer")}
           className="max-w-xl"
         />
       </div>
@@ -67,9 +68,9 @@ export function BillingAddressForm() {
       <div className="grid grid-cols-3 gap-4 max-w-xl">
         <div className="col-span-1 space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "Stadt" : "City"}
+            {uiText(locale, "City", "Stadt")}
           </Label>
-          <Input name="city" placeholder={locale === "de" ? "Wien" : "Vienna"} />
+          <Input name="city" placeholder={uiText(locale, "Vienna", "Wien")} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -79,7 +80,7 @@ export function BillingAddressForm() {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "Land" : "Country"}
+            {uiText(locale, "Country", "Land")}
           </Label>
           <select
             name="country"
@@ -97,14 +98,14 @@ export function BillingAddressForm() {
 
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          {locale === "de" ? "USt-IdNr. (nur für Unternehmen)" : "VAT number (companies only)"}
+          {uiText(locale, "VAT number (companies only)", "USt-IdNr. (nur für Unternehmen)")}
         </Label>
         <Input name="vatNumber" placeholder="ATU12345678" className="max-w-xs" />
       </div>
 
       {success && (
         <p className="text-sm text-green-600">
-          {locale === "de" ? "Rechnungsinformationen gespeichert." : "Billing details saved."}
+          {uiText(locale, "Billing details saved.", "Rechnungsinformationen gespeichert.")}
         </p>
       )}
 
@@ -114,7 +115,7 @@ export function BillingAddressForm() {
           disabled={loading}
           className="bg-indigo-600 hover:bg-indigo-700 h-9 px-5 text-sm"
         >
-          {loading ? (locale === "de" ? "Speichern…" : "Saving...") : locale === "de" ? "Speichern" : "Save"}
+          {loading ? (uiText(locale, "Saving...", "Speichern…")) : uiText(locale, "Save", "Speichern")}
         </Button>
       </div>
     </form>

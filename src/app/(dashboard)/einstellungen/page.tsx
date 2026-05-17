@@ -9,6 +9,7 @@ import { PasswordChangeForm } from "@/components/einstellungen/password-change-f
 import { ProfileSettingsForm } from "@/components/einstellungen/profile-settings-form";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export const metadata = { title: "Konto-Einstellungen" };
 
@@ -53,13 +54,13 @@ export default async function EinstellungenPage({
   return (
     <div className="max-w-3xl space-y-8">
       <h1 className="sr-only">
-        {locale === "de" ? "Konto-Einstellungen" : "Account settings"}
+        {uiText(locale, "Account settings", "Konto-Einstellungen")}
       </h1>
 
       {/* ── My Account ──────────────────────────────────── */}
       <section>
         <h2 className="text-xl font-bold text-gray-900 mb-4">
-          {locale === "de" ? "Mein Konto" : "My account"}
+          {uiText(locale, "My account", "Mein Konto")}
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
           {/* Avatar */}
@@ -77,13 +78,11 @@ export default async function EinstellungenPage({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
               >
-                {locale === "de" ? "Zu Gravatar" : "Open Gravatar"}
+                {uiText(locale, "Open Gravatar", "Zu Gravatar")}
                 <ExternalLink className="h-3 w-3" />
               </a>
               <p className="text-xs text-gray-500 mt-1 max-w-xs">
-                {locale === "de"
-                  ? "Deepglot verwendet aktuell deinen Gravatar. Direkte Uploads sind noch nicht verfügbar."
-                  : "Deepglot currently uses your Gravatar. Direct uploads are not available yet."}
+                {uiText(locale, "Deepglot currently uses your Gravatar. Direct uploads are not available yet.", "Deepglot verwendet aktuell deinen Gravatar. Direkte Uploads sind noch nicht verfügbar.")}
               </p>
             </div>
           </div>
@@ -100,7 +99,7 @@ export default async function EinstellungenPage({
       {/* ── Account Security ────────────────────────────── */}
       <section>
         <h2 className="text-xl font-bold text-gray-900 mb-4">
-          {locale === "de" ? "Kontosicherheit" : "Account security"}
+          {uiText(locale, "Account security", "Kontosicherheit")}
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <PasswordChangeForm hasPassword={!!user?.password} />
@@ -110,16 +109,14 @@ export default async function EinstellungenPage({
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900">
-                    {locale === "de" ? "Zwei-Faktor-Authentifizierung" : "Two-factor authentication"}
+                    {uiText(locale, "Two-factor authentication", "Zwei-Faktor-Authentifizierung")}
                   </p>
                   <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
-                    {locale === "de"
-                      ? "2FA benötigt ein eigenes Enrollment und Recovery-Konzept. Bis das umgesetzt ist, kann diese Einstellung nicht geändert werden."
-                      : "2FA needs a dedicated enrollment and recovery flow. This setting cannot be changed until that work is implemented."}
+                    {uiText(locale, "2FA needs a dedicated enrollment and recovery flow. This setting cannot be changed until that work is implemented.", "2FA benötigt ein eigenes Enrollment und Recovery-Konzept. Bis das umgesetzt ist, kann diese Einstellung nicht geändert werden.")}
                   </p>
                 </div>
                 <Badge variant="outline" className="shrink-0 text-xs">
-                  {locale === "de" ? "Geplant" : "Planned"}
+                  {uiText(locale, "Planned", "Geplant")}
                 </Badge>
               </div>
             </div>
@@ -130,33 +127,31 @@ export default async function EinstellungenPage({
       {/* ── Notifications ───────────────────────────────── */}
       <section>
         <h2 className="text-xl font-bold text-gray-900 mb-4">
-          {locale === "de" ? "Benachrichtigungen" : "Notifications"}
+          {uiText(locale, "Notifications", "Benachrichtigungen")}
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="p-5">
             <p className="text-sm font-medium text-gray-900">
-              {locale === "de" ? "Einstellungen sind noch nicht konfigurierbar" : "Preferences are not configurable yet"}
+              {uiText(locale, "Preferences are not configurable yet", "Einstellungen sind noch nicht konfigurierbar")}
             </p>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">
-              {locale === "de"
-                ? "Deepglot sendet weiterhin wichtige Konto-, Sicherheits- und Projekt-E-Mails. Optionale Benachrichtigungen werden erst angezeigt, wenn sie dauerhaft gespeichert werden können."
-                : "Deepglot will continue to send important account, security, and project emails. Optional notification controls will appear once they can be persisted."}
+              {uiText(locale, "Deepglot will continue to send important account, security, and project emails. Optional notification controls will appear once they can be persisted.", "Deepglot sendet weiterhin wichtige Konto-, Sicherheits- und Projekt-E-Mails. Optionale Benachrichtigungen werden erst angezeigt, wenn sie dauerhaft gespeichert werden können.")}
             </p>
           </div>
 
           <div className="border-t border-gray-100 divide-y divide-gray-100">
             {[
               {
-                label: locale === "de" ? "Konto- und Sicherheitshinweise" : "Account and security notices",
-                status: locale === "de" ? "Immer aktiv" : "Always on",
+                label: uiText(locale, "Account and security notices", "Konto- und Sicherheitshinweise"),
+                status: uiText(locale, "Always on", "Immer aktiv"),
               },
               {
-                label: locale === "de" ? "Projekt- und Workspace-Aktivität" : "Project and workspace activity",
-                status: locale === "de" ? "Geplant" : "Planned",
+                label: uiText(locale, "Project and workspace activity", "Projekt- und Workspace-Aktivität"),
+                status: uiText(locale, "Planned", "Geplant"),
               },
               {
-                label: locale === "de" ? "Produkt-Updates" : "Product updates",
-                status: locale === "de" ? "Geplant" : "Planned",
+                label: uiText(locale, "Product updates", "Produkt-Updates"),
+                status: uiText(locale, "Planned", "Geplant"),
               },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-4">
@@ -171,7 +166,7 @@ export default async function EinstellungenPage({
           {memberships.length > 0 && (
             <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {locale === "de" ? "Workspace-Hinweis" : "Workspace note"}
+                {uiText(locale, "Workspace note", "Workspace-Hinweis")}
               </p>
               <div className="mt-3 space-y-3">
                 {memberships.map((m) => (
@@ -184,9 +179,7 @@ export default async function EinstellungenPage({
                     <p className="text-xs leading-relaxed text-gray-500">
                       <span className="font-semibold text-gray-700">{m.organization.name}</span>
                       {" - "}
-                      {locale === "de"
-                        ? "eigene Workspace-Benachrichtigungen werden erst aktiviert, wenn es ein dauerhaftes Präferenzmodell gibt."
-                        : "workspace-specific notification controls will be enabled once a persisted preference model exists."}
+                      {uiText(locale, "workspace-specific notification controls will be enabled once a persisted preference model exists.", "eigene Workspace-Benachrichtigungen werden erst aktiviert, wenn es ein dauerhaftes Präferenzmodell gibt.")}
                     </p>
                   </div>
                 ))}
@@ -204,18 +197,16 @@ export default async function EinstellungenPage({
             Workspaces
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              {locale === "de"
-                ? "Workspace-Erstellung und Verwaltung werden hier angezeigt, sobald die Persistenz dafür umgesetzt ist."
-                : "Workspace creation and management will appear here once persistence for those actions is implemented."}
+              {uiText(locale, "Workspace creation and management will appear here once persistence for those actions is implemented.", "Workspace-Erstellung und Verwaltung werden hier angezeigt, sobald die Persistenz dafür umgesetzt ist.")}
             </p>
           </div>
           <Button
             disabled
             className="bg-indigo-600 hover:bg-indigo-600 gap-1.5 h-8 px-4 text-sm opacity-50"
-            title={locale === "de" ? "Noch nicht verfügbar" : "Not available yet"}
+            title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
           >
             <Plus className="h-3.5 w-3.5" />
-            {locale === "de" ? "Erstellen" : "Create"}
+            {uiText(locale, "Create", "Erstellen")}
           </Button>
         </div>
 
@@ -240,7 +231,7 @@ export default async function EinstellungenPage({
           {memberships.length === 0 ? (
             <div className="px-5 py-12 text-center">
               <p className="text-sm text-gray-400">
-                {locale === "de" ? "Noch kein Workspace vorhanden." : "No workspace yet."}
+                {uiText(locale, "No workspace yet.", "Noch kein Workspace vorhanden.")}
               </p>
             </div>
           ) : (
@@ -267,7 +258,7 @@ export default async function EinstellungenPage({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  {locale === "de" ? "Persönlich" : "Personal"}
+                  {uiText(locale, "Personal", "Persönlich")}
                 </span>
 
                 {/* Plan */}
@@ -284,9 +275,7 @@ export default async function EinstellungenPage({
                     ? "Admin"
                     : m.role === "ADMIN"
                       ? "Admin"
-                      : locale === "de"
-                        ? "Mitglied"
-                        : "Member"}
+                      : uiText(locale, "Member", "Mitglied")}
                 </span>
 
                 {/* Projects count */}
@@ -314,7 +303,7 @@ export default async function EinstellungenPage({
                         ? `${m.organization.name} ansehen - noch nicht verfügbar`
                         : `View ${m.organization.name} - not available yet`
                     }
-                    title={locale === "de" ? "Noch nicht verfügbar" : "Not available yet"}
+                    title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
                     className="h-7 w-7 p-0 opacity-40"
                   >
                     <Eye className="h-3.5 w-3.5 text-gray-400" />
@@ -328,7 +317,7 @@ export default async function EinstellungenPage({
                         ? `${m.organization.name} bearbeiten - noch nicht verfügbar`
                         : `Edit ${m.organization.name} - not available yet`
                     }
-                    title={locale === "de" ? "Noch nicht verfügbar" : "Not available yet"}
+                    title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
                     className="h-7 w-7 p-0 opacity-40"
                   >
                     <Pencil className="h-3.5 w-3.5 text-gray-400" />

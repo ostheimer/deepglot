@@ -1,12 +1,14 @@
 import { formatDistanceToNow } from "date-fns";
-import { de, enUS } from "date-fns/locale";
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { getDateFnsLocale } from "@/lib/locale-formatting";
 import { getProjectUrl } from "@/lib/project-url";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 type RuntimeSyncBannerProps = {
-  locale: "en" | "de";
+  locale: SiteLocale;
   domain: string;
   runtimeSyncedAt?: Date | null;
 };
@@ -23,7 +25,7 @@ export function RuntimeSyncBanner({
   const syncedLabel = runtimeSyncedAt
     ? formatDistanceToNow(runtimeSyncedAt, {
         addSuffix: true,
-        locale: locale === "de" ? de : enUS,
+        locale: getDateFnsLocale(locale),
       })
     : null;
 
@@ -31,26 +33,22 @@ export function RuntimeSyncBanner({
     <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="text-sm font-semibold text-blue-900">
-          {locale === "de"
-            ? "WordPress ist die Quelle für Runtime-Einstellungen"
-            : "WordPress is the source of truth for runtime settings"}
+          {uiText(locale, "WordPress is the source of truth for runtime settings", "WordPress ist die Quelle für Runtime-Einstellungen")}
         </p>
         <p className="mt-1 text-sm text-blue-700">
           {runtimeSyncedAt
-            ? locale === "de"
-              ? `Zuletzt synchronisiert ${syncedLabel}. Änderungen werden im Plugin gespeichert und hier gespiegelt.`
-              : `Last synced ${syncedLabel}. Changes are saved in the plugin and mirrored here.`
-            : locale === "de"
-              ? "Noch keine Plugin-Synchronisierung empfangen. Speichere die Einstellungen im WordPress-Plugin, um den Spiegelstand zu aktualisieren."
-              : "No plugin sync received yet. Save the settings in the WordPress plugin to update the mirrored state."}
+            ? uiText(
+                locale,
+                "Last synced {time}. Changes are saved in the plugin and mirrored here.",
+                "Zuletzt synchronisiert {time}. Änderungen werden im Plugin gespeichert und hier gespiegelt."
+              ).replace("{time}", syncedLabel ?? "")
+            : uiText(locale, "No plugin sync received yet. Save the settings in the WordPress plugin to update the mirrored state.", "Noch keine Plugin-Synchronisierung empfangen. Speichere die Einstellungen im WordPress-Plugin, um den Spiegelstand zu aktualisieren.")}
         </p>
       </div>
       <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
         <a href={wpSettingsUrl} target="_blank" rel="noreferrer">
           <ExternalLink className="mr-2 h-4 w-4" />
-          {locale === "de"
-            ? "WordPress-Einstellungen öffnen"
-            : "Open WordPress settings"}
+          {uiText(locale, "Open WordPress settings", "WordPress-Einstellungen öffnen")}
         </a>
       </Button>
     </div>

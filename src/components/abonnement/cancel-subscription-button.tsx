@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useLocale } from "@/components/providers/locale-provider";
+import { uiText } from "@/lib/static-copy";
 
 interface Props {
   subscriptionId: string | null;
@@ -34,7 +35,7 @@ export function CancelSubscriptionButton({ subscriptionId, plan }: Props) {
   if (plan === "FREE") {
     return (
       <span className="text-sm text-gray-400 cursor-default">
-        {locale === "de" ? "Kein aktives Abonnement" : "No active subscription"}
+        {uiText(locale, "No active subscription", "Kein aktives Abonnement")}
       </span>
     );
   }
@@ -43,34 +44,28 @@ export function CancelSubscriptionButton({ subscriptionId, plan }: Props) {
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <button className="text-sm text-gray-600 hover:text-gray-900 underline-offset-2 hover:underline transition-colors">
-          {locale === "de" ? "Abonnement kündigen (oder pausieren)" : "Cancel subscription (or pause)"}
+          {uiText(locale, "Cancel subscription (or pause)", "Abonnement kündigen (oder pausieren)")}
         </button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {locale === "de" ? "Abonnement wirklich kündigen?" : "Cancel subscription?"}
+            {uiText(locale, "Cancel subscription?", "Abonnement wirklich kündigen?")}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {locale === "de"
-              ? "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
-              : "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan."}
+            {uiText(locale, "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.", "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{locale === "de" ? "Abbrechen" : "Cancel"}</AlertDialogCancel>
+          <AlertDialogCancel>{uiText(locale, "Cancel", "Abbrechen")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCancel}
             disabled={loading}
             className="bg-red-600 hover:bg-red-700 text-white"
           >
             {loading
-              ? locale === "de"
-                ? "Kündigen…"
-                : "Cancelling..."
-              : locale === "de"
-                ? "Abonnement kündigen"
-                : "Cancel subscription"}
+              ? uiText(locale, "Cancelling...", "Kündigen…")
+              : uiText(locale, "Cancel subscription", "Abonnement kündigen")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

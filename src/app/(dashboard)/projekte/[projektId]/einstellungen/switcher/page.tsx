@@ -7,6 +7,7 @@ import { getLanguageName } from "@/lib/language-names";
 import { requireProjectManagement } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
+import { localizeCopy, uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -49,15 +50,14 @@ export default async function SwitcherPage({ params }: PageProps) {
   const s = project.settings;
   const flagStyleId = "switcher-flag-style";
   const customCssId = "switcher-custom-css";
+  const flagTypes = localizeCopy(locale, FLAG_TYPES);
   const originalEditLabel =
-    locale === "de"
-      ? "Darstellung der Originalsprache bearbeiten"
-      : "Edit original language appearance";
+    uiText(locale, "Edit original language appearance", "Darstellung der Originalsprache bearbeiten");
 
   return (
     <div className="max-w-3xl space-y-5">
       <h2 className="text-xl font-bold text-gray-900">
-        {locale === "de" ? "Sprachauswahl" : "Language switcher"}
+        {uiText(locale, "Language switcher", "Sprachauswahl")}
       </h2>
 
       <RuntimeSyncBanner
@@ -69,12 +69,10 @@ export default async function SwitcherPage({ params }: PageProps) {
       {/* Appearance & position */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-1">
-          {locale === "de" ? "Erscheinungsbild und Position" : "Appearance and position"}
+          {uiText(locale, "Appearance and position", "Erscheinungsbild und Position")}
         </h3>
         <p className="text-sm text-gray-500 mb-4">
-          {locale === "de"
-            ? "Die Sprachauswahl wird auf deiner WordPress-Seite konfiguriert. Die Werte in Deepglot sind nur ein Spiegel der Plugin-Konfiguration."
-            : "The language switcher is configured on your WordPress site. Values in Deepglot are read-only mirrors of the plugin configuration."}
+          {uiText(locale, "The language switcher is configured on your WordPress site. Values in Deepglot are read-only mirrors of the plugin configuration.", "Die Sprachauswahl wird auf deiner WordPress-Seite konfiguriert. Die Werte in Deepglot sind nur ein Spiegel der Plugin-Konfiguration.")}
         </p>
       </section>
 
@@ -82,40 +80,34 @@ export default async function SwitcherPage({ params }: PageProps) {
       <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="p-5 border-b border-gray-100">
           <h3 className="text-base font-semibold text-gray-900">
-            {locale === "de" ? "Erweiterte Optionen" : "Advanced options"}
+            {uiText(locale, "Advanced options", "Erweiterte Optionen")}
           </h3>
           <p className="text-sm text-gray-500 mt-0.5">
-            {locale === "de"
-              ? "Diese Optionen werden aus WordPress gespiegelt und hier schreibgeschützt angezeigt."
-              : "These options are mirrored from WordPress and shown here as read-only values."}
+            {uiText(locale, "These options are mirrored from WordPress and shown here as read-only values.", "Diese Optionen werden aus WordPress gespiegelt und hier schreibgeschützt angezeigt.")}
           </p>
         </div>
 
         <SettingsToggle
-          label={locale === "de" ? "Sprachname anzeigen" : "Show language name"}
-          description={locale === "de" ? "Zeige den Namen der Sprache an." : "Display the language name."}
+          label={uiText(locale, "Show language name", "Sprachname anzeigen")}
+          description={uiText(locale, "Display the language name.", "Zeige den Namen der Sprache an.")}
           defaultChecked={s?.switcherDisplayName ?? true}
           disabled
         />
         <SettingsToggle
-          label={locale === "de" ? "Vollständigen Sprachnamen anzeigen" : "Show full language name"}
-          description={locale === "de"
-            ? "Vollständiger Name (z.B. Deutsch) anstatt Sprachcode (z.B. DE)."
-            : "Use the full name (e.g. German) instead of the language code (e.g. DE)."}
+          label={uiText(locale, "Show full language name", "Vollständigen Sprachnamen anzeigen")}
+          description={uiText(locale, "Use the full name (e.g. German) instead of the language code (e.g. DE).", "Vollständiger Name (z.B. Deutsch) anstatt Sprachcode (z.B. DE).")}
           defaultChecked={s?.switcherFullName ?? true}
           disabled
         />
         <SettingsToggle
-          label={locale === "de" ? "Länderflaggen anzeigen" : "Show country flags"}
-          description={locale === "de" ? "Zeige Flaggen im Sprachauswähler an." : "Display flags in the language switcher."}
+          label={uiText(locale, "Show country flags", "Länderflaggen anzeigen")}
+          description={uiText(locale, "Display flags in the language switcher.", "Zeige Flaggen im Sprachauswähler an.")}
           defaultChecked={s?.switcherFlags ?? true}
           disabled
         />
         <SettingsToggle
-          label={locale === "de" ? "Als Dropdown-Menü" : "Use dropdown mode"}
-          description={locale === "de"
-            ? "Zeige den Sprachauswähler als aufklappbares Dropdown an."
-            : "Render the language switcher as an expandable dropdown."}
+          label={uiText(locale, "Use dropdown mode", "Als Dropdown-Menü")}
+          description={uiText(locale, "Render the language switcher as an expandable dropdown.", "Zeige den Sprachauswähler als aufklappbares Dropdown an.")}
           defaultChecked={s?.switcherDropdown ?? true}
           disabled
         />
@@ -127,7 +119,7 @@ export default async function SwitcherPage({ params }: PageProps) {
               htmlFor={flagStyleId}
               className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
             >
-              {locale === "de" ? "Flaggen-Typ" : "Flag style"}
+              {uiText(locale, "Flag style", "Flaggen-Typ")}
             </Label>
             <select
               id={flagStyleId}
@@ -135,12 +127,12 @@ export default async function SwitcherPage({ params }: PageProps) {
               disabled
               className="flex h-9 w-64 rounded-md border border-input bg-white px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {FLAG_TYPES[locale].map((t) => (
+              {flagTypes.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
             <p className="text-xs text-gray-400">
-              {locale === "de" ? "Art der Länderflaggen." : "Style of country flags."}
+              {uiText(locale, "Style of country flags.", "Art der Länderflaggen.")}
             </p>
           </div>
 
@@ -150,7 +142,7 @@ export default async function SwitcherPage({ params }: PageProps) {
               htmlFor={customCssId}
               className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
             >
-              {locale === "de" ? "Benutzerdefiniertes CSS" : "Custom CSS"}
+              {uiText(locale, "Custom CSS", "Benutzerdefiniertes CSS")}
             </Label>
             <textarea
               id={customCssId}
@@ -160,9 +152,7 @@ export default async function SwitcherPage({ params }: PageProps) {
               className="w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
             />
             <p className="text-xs text-gray-400">
-              {locale === "de"
-                ? "CSS das auf den Sprachauswähler oder deine Website angewendet wird."
-                : "CSS applied to the language switcher or your website."}
+              {uiText(locale, "CSS applied to the language switcher or your website.", "CSS das auf den Sprachauswähler oder deine Website angewendet wird.")}
             </p>
           </div>
 
@@ -172,12 +162,10 @@ export default async function SwitcherPage({ params }: PageProps) {
       {/* Languages appearance */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-1">
-          {locale === "de" ? "Sprachdarstellung" : "Language appearance"}
+          {uiText(locale, "Language appearance", "Sprachdarstellung")}
         </h3>
         <p className="text-sm text-gray-500 mb-4">
-          {locale === "de"
-            ? "Die Reihenfolge, Flaggen und Namen werden aus der WordPress-Konfiguration gespiegelt."
-            : "Language order, flags, and names are mirrored from the WordPress configuration."}
+          {uiText(locale, "Language order, flags, and names are mirrored from the WordPress configuration.", "Die Reihenfolge, Flaggen und Namen werden aus der WordPress-Konfiguration gespiegelt.")}
         </p>
 
         <div className="border border-gray-100 rounded-lg overflow-hidden">
@@ -190,7 +178,7 @@ export default async function SwitcherPage({ params }: PageProps) {
                 {getLanguageName(project.originalLang, locale)}
               </span>
               <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                {locale === "de" ? "Original" : "Original"}
+                {uiText(locale, "Original", "Original")}
               </span>
             </div>
             <button
@@ -241,7 +229,7 @@ export default async function SwitcherPage({ params }: PageProps) {
 
           {project.languages.length === 0 && (
             <div className="px-4 py-6 text-center text-sm text-gray-400">
-              {locale === "de" ? "Noch keine Übersetzungssprachen konfiguriert." : "No translation languages configured yet."}
+              {uiText(locale, "No translation languages configured yet.", "Noch keine Übersetzungssprachen konfiguriert.")}
             </div>
           )}
         </div>

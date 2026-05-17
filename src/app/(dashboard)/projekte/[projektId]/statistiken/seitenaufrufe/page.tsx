@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getRequestLocale } from "@/lib/request-locale";
 import { EnablePageViewsButton } from "@/components/projekte/enable-page-views-button";
 import { requireProjectAreaAccess } from "@/lib/project-page-access";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -46,7 +47,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-6">
-        {locale === "de" ? "Seitenaufrufe" : "Page views"}
+        {uiText(locale, "Page views", "Seitenaufrufe")}
       </h2>
 
       {!isActivated ? (
@@ -76,26 +77,24 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
           </div>
 
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {locale === "de" ? "Seitenaufrufe noch nicht aktiviert." : "Page views are not enabled yet."}
+            {uiText(locale, "Page views are not enabled yet.", "Seitenaufrufe noch nicht aktiviert.")}
           </h3>
           <p className="text-gray-500 text-sm mb-8 max-w-sm">
-            {locale === "de"
-              ? "Aktiviere die Seitenaufruf-Statistiken um erweiterte Daten darüber zu erhalten, welche übersetzten Seiten am häufigsten besucht werden."
-              : "Enable page-view analytics to see which translated pages are visited most often."}
+            {uiText(locale, "Enable page-view analytics to see which translated pages are visited most often.", "Aktiviere die Seitenaufruf-Statistiken um erweiterte Daten darüber zu erhalten, welche übersetzten Seiten am häufigsten besucht werden.")}
           </p>
 
           <EnablePageViewsButton projectId={projektId} />
 
           <div className="mt-8 border border-gray-100 rounded-xl p-5 text-left max-w-sm w-full">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              {locale === "de" ? "Was du mit Seitenaufrufen erhältst:" : "What you get with page views:"}
+              {uiText(locale, "What you get with page views:", "Was du mit Seitenaufrufen erhältst:")}
             </p>
             <ul className="space-y-2 text-sm text-gray-600">
               {[
-                locale === "de" ? "Anzahl der Aufrufe pro übersetzter Seite" : "View count per translated page",
-                locale === "de" ? "Vergleich Original vs. übersetzte Versionen" : "Compare original vs translated versions",
-                locale === "de" ? "Zeitlicher Verlauf nach Tag/Woche/Monat" : "Trend over day/week/month",
-                locale === "de" ? "Meistbesuchte übersetzte URLs" : "Most visited translated URLs",
+                uiText(locale, "View count per translated page", "Anzahl der Aufrufe pro übersetzter Seite"),
+                uiText(locale, "Compare original vs translated versions", "Vergleich Original vs. übersetzte Versionen"),
+                uiText(locale, "Trend over day/week/month", "Zeitlicher Verlauf nach Tag/Woche/Monat"),
+                uiText(locale, "Most visited translated URLs", "Meistbesuchte übersetzte URLs"),
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
@@ -110,7 +109,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {locale === "de" ? "Erfasste URLs" : "Tracked URLs"}
+                {uiText(locale, "Tracked URLs", "Erfasste URLs")}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900">
                 {totalTrackedUrls}
@@ -118,7 +117,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {locale === "de" ? "Gesamte Aufrufe" : "Total views"}
+                {uiText(locale, "Total views", "Gesamte Aufrufe")}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900">
                 {totalRequests}
@@ -126,7 +125,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {locale === "de" ? "Zuletzt gesehen" : "Last seen"}
+                {uiText(locale, "Last seen", "Zuletzt gesehen")}
               </p>
               <p className="mt-2 text-sm font-semibold text-gray-900">
                 {latestSeenAt
@@ -134,9 +133,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                       dateStyle: "medium",
                       timeStyle: "short",
                     }).format(latestSeenAt)
-                  : locale === "de"
-                    ? "Noch keine Daten"
-                    : "No data yet"}
+                  : uiText(locale, "No data yet", "Noch keine Daten")}
               </p>
             </div>
           </div>
@@ -145,14 +142,16 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">
-                  {locale === "de"
-                    ? "Top uebersetzte Seiten"
-                    : "Top translated pages"}
+                  {uiText(locale, "Top translated pages", "Top übersetzte Seiten")}
                 </h3>
                 <p className="mt-1 text-xs text-gray-500">
-                  {locale === "de"
-                    ? `Aktuell ${totalWords} Woerter ueber ${totalTrackedUrls} URLs erfasst`
-                    : `Currently tracking ${totalWords} words across ${totalTrackedUrls} URLs`}
+                  {uiText(
+                    locale,
+                    "Currently tracking {words} words across {urls} URLs",
+                    "Aktuell {words} Wörter über {urls} URLs erfasst"
+                  )
+                    .replace("{words}", String(totalWords))
+                    .replace("{urls}", String(totalTrackedUrls))}
                 </p>
               </div>
             </div>
@@ -169,7 +168,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                         {entry.urlPath}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
-                        {locale === "de" ? "Sprache" : "Language"}:{" "}
+                        {uiText(locale, "Language", "Sprache")}:{" "}
                         <span className="font-medium uppercase text-gray-700">
                           {entry.langTo}
                         </span>
@@ -180,7 +179,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                         {entry.requestCount}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {locale === "de" ? "Aufrufe" : "Views"}
+                        {uiText(locale, "Views", "Aufrufe")}
                       </p>
                     </div>
                     <div className="text-right">
@@ -188,7 +187,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                         {entry.wordCount}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {locale === "de" ? "Woerter" : "Words"}
+                        {uiText(locale, "Words", "Wörter")}
                       </p>
                     </div>
                   </div>
@@ -197,14 +196,10 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
             ) : (
               <div className="px-5 py-12 text-center">
                 <p className="text-sm font-medium text-gray-600">
-                  {locale === "de"
-                    ? "Seitenaufrufe sind aktiviert, aber es wurden noch keine Daten gesammelt."
-                    : "Page views are enabled, but no data has been collected yet."}
+                  {uiText(locale, "Page views are enabled, but no data has been collected yet.", "Seitenaufrufe sind aktiviert, aber es wurden noch keine Daten gesammelt.")}
                 </p>
                 <p className="mt-2 text-xs text-gray-400">
-                  {locale === "de"
-                    ? "Sobald dein Plugin uebersetzte URLs meldet, erscheinen sie hier."
-                    : "Translated URLs will appear here as soon as your plugin starts reporting them."}
+                  {uiText(locale, "Translated URLs will appear here as soon as your plugin starts reporting them.", "Sobald dein Plugin übersetzte URLs meldet, erscheinen sie hier.")}
                 </p>
               </div>
             )}

@@ -4,9 +4,11 @@ import { db } from "@/lib/db";
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { getCookieLocale } from "@/lib/request-locale";
 import { z } from "zod";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 export async function POST(req: NextRequest) {

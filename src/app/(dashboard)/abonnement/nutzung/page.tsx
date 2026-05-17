@@ -5,6 +5,7 @@ import { UsageCharts } from "@/components/abonnement/usage-charts";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { startOfMonth } from "date-fns";
+import { uiText } from "@/lib/static-copy";
 
 export const metadata = { title: "Nutzung – Deepglot" };
 
@@ -100,7 +101,7 @@ export default async function NutzungPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {locale === "de" ? "Nutzung" : "Usage"}
+        {uiText(locale, "Usage", "Nutzung")}
       </h1>
 
       <UsageCharts

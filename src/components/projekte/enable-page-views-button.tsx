@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
+import { uiText } from "@/lib/static-copy";
 
 type EnablePageViewsButtonProps = {
   projectId: string;
@@ -32,17 +33,13 @@ export function EnablePageViewsButton({
       if (!response.ok) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "Seitenaufrufe konnten nicht aktiviert werden"
-              : "Could not enable page views")
+            (uiText(locale, "Could not enable page views", "Seitenaufrufe konnten nicht aktiviert werden"))
         );
         return;
       }
 
       toast.success(
-        locale === "de"
-          ? "Seitenaufrufe aktiviert"
-          : "Page views enabled"
+        uiText(locale, "Page views enabled", "Seitenaufrufe aktiviert")
       );
       router.refresh();
     } finally {
@@ -58,12 +55,8 @@ export function EnablePageViewsButton({
     >
       <BarChart3 className="mr-2 h-4 w-4" />
       {isLoading
-        ? locale === "de"
-          ? "Aktiviert..."
-          : "Enabling..."
-        : locale === "de"
-          ? "Aktivieren"
-          : "Enable"}
+        ? uiText(locale, "Enabling...", "Aktiviert...")
+        : uiText(locale, "Enable", "Aktivieren")}
     </Button>
   );
 }

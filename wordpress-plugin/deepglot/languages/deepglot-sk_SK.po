@@ -1,0 +1,442 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Deepglot 0.7.0\n"
+"Report-Msgid-Bugs-To: https://deepglot.ai\n"
+"POT-Creation-Date: 2026-05-17 00:00+0000\n"
+"PO-Revision-Date: 2026-05-17 00:00+0000\n"
+"Last-Translator: Deepglot Machine Translation\n"
+"Language-Team: Deepglot\n"
+"Language: sk_SK\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Deepglot i18n generator\n"
+
+#. Plugin Name of the plugin
+#: deepglot.php
+#: includes/Admin/SettingsPage.php:34
+#: includes/Admin/SettingsPage.php:35
+msgid "Deepglot"
+msgstr "Deepglot"
+
+#. Plugin URI of the plugin
+#: deepglot.php
+msgid "https://deepglot.ai"
+msgstr "https://deepglot.ai"
+
+#. Description of the plugin
+#: deepglot.php
+msgid "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API."
+msgstr "Prekladá obsah WordPress pomocou Deepglot a kompatibilného prekladového API."
+
+#. Author of the plugin
+#: deepglot.php
+msgid "Andreas Ostheimer"
+msgstr "Andreas Osheimer"
+
+#. Author URI of the plugin
+#: deepglot.php
+msgid "https://www.ostheimer.at"
+msgstr "https://www.ostheimer.at"
+
+#: includes/Admin/NavMenuMetaBox.php:26
+#: includes/Frontend/SwitcherBlock.php:58
+#: includes/Frontend/SwitcherWidget.php:25
+#: assets/js/block-switcher.js:19
+msgid "Deepglot Sprachschalter"
+msgstr "Deepglot Prepínač jazyka"
+
+#: includes/Admin/NavMenuMetaBox.php:41
+msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
+msgstr "Pridá položku prepínania jazykov, ktorá sa pri prezeraní automaticky rozšíri na jednu položku pre každý jazyk."
+
+#: includes/Admin/NavMenuMetaBox.php:44
+msgid "Anzeige-Modus"
+msgstr "Režim zobrazenia"
+
+#: includes/Admin/NavMenuMetaBox.php:49
+msgid "Liste (jede Sprache als eigener Menüpunkt)"
+msgstr "Zoznam (každý jazyk ako samostatná položka ponuky)"
+
+#: includes/Admin/NavMenuMetaBox.php:55
+msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
+msgstr "Rozbaľovacia ponuka (aktívny jazyk ako rodič, alternatívy ako podponuka)"
+
+#: includes/Admin/NavMenuMetaBox.php:61
+msgid "Aktive Sprache aus der Liste ausblenden"
+msgstr "Skryť aktívny jazyk zo zoznamu"
+
+#: includes/Admin/NavMenuMetaBox.php:71
+msgid "Zum Menü hinzufügen"
+msgstr "Pridať do menu"
+
+#: includes/Admin/NavMenuMetaBox.php:98
+msgid "Sprachschalter"
+msgstr "Hlasový spínač"
+
+#: includes/Admin/SettingsPage.php:171
+msgid "Aktiv"
+msgstr "Aktívne"
+
+#: includes/Admin/SettingsPage.php:174
+msgid "Deaktiviert"
+msgstr "Zakázané"
+
+#: includes/Admin/SettingsPage.php:177
+msgid "Einrichtung erforderlich"
+msgstr "Vyžaduje sa nastavenie"
+
+#: includes/Admin/SettingsPage.php:194
+msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
+msgstr "Vitajte v Deepglot! Ak chcete povoliť preklad na svojom webe, postupujte podľa troch krokov nižšie."
+
+#: includes/Admin/SettingsPage.php:205
+msgid "Deepglot einrichten"
+msgstr "Nastaviť Deepglot"
+
+#: includes/Admin/SettingsPage.php:206
+msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
+msgstr "Všetko, čo potrebujete, je API-Key z hlavného panela Deepglot – trvá to menej ako dve minúty."
+
+#: includes/Admin/SettingsPage.php:218
+msgid "API-Key eintragen"
+msgstr "Zadajte API-Key"
+
+#: includes/Admin/SettingsPage.php:221
+msgid "Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgstr "Vytvorte si bezplatný účet na deepglot.app, vytvorte projekt pre svoj web a skopírujte API-Key."
+
+#: includes/Admin/SettingsPage.php:224
+msgid "Zum Dashboard – API-Key erstellen"
+msgstr "Prejdite na informačný panel – vytvorte API-Key"
+
+#: includes/Admin/SettingsPage.php:229
+msgid "API-Key"
+msgstr "API-Key"
+
+#: includes/Admin/SettingsPage.php:240
+msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
+msgstr "Úplný kľúč nájdete v časti Nastavenia → API-Keys vo svojom projekte Deepglot."
+
+#: includes/Admin/SettingsPage.php:244
+msgid "Backend-URL"
+msgstr "Backend URL"
+
+#: includes/Admin/SettingsPage.php:252
+msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
+msgstr "Predvolená hodnota: https://deepglot.ai/api – zmena iba pre Self-Hosting."
+
+#: includes/Admin/SettingsPage.php:264
+msgid "Sprachen konfigurieren"
+msgstr "Konfigurovať jazyky"
+
+#: includes/Admin/SettingsPage.php:266
+msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
+msgstr "Zadajte pôvodný jazyk a požadované jazyky prekladu."
+
+#: includes/Admin/SettingsPage.php:270
+msgid "Originalsprache"
+msgstr "Pôvodný jazyk"
+
+#: includes/Admin/SettingsPage.php:281
+msgid "Zielsprachen"
+msgstr "Cieľové jazyky"
+
+#: includes/Admin/SettingsPage.php:289
+msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
+msgstr "Čiarkami oddelené ISO-639-1 kódy, napr. B. en, fr, it"
+
+#: includes/Admin/SettingsPage.php:301
+msgid "Übersetzung aktivieren"
+msgstr "Povoliť preklad"
+
+#: includes/Admin/SettingsPage.php:303
+msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
+msgstr "Po uložení API-Key a jazykov povoľte automatický preklad tu."
+
+#: includes/Admin/SettingsPage.php:315
+msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
+msgstr "Aktivujte Deepglot pre všetky požiadavky klientskeho rozhrania"
+
+#. translators: %1$s: source language, %2$s: target languages
+#: includes/Admin/SettingsPage.php:324
+msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
+msgstr "Aktívne – stránky sú preložené z %1$s do %2$s pod /%3$s/ihre-seite/"
+
+#: includes/Admin/SettingsPage.php:344
+msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
+msgstr "Automaticky presmerovať návštevníkov na základe jazyka prehliadača (voliteľné)"
+
+#: includes/Admin/SettingsPage.php:353
+msgid "Erweiterte Einstellungen ausblenden"
+msgstr "Skryť rozšírené nastavenia"
+
+#: includes/Admin/SettingsPage.php:353
+#: includes/Admin/SettingsPage.php:354
+msgid "Erweiterte Einstellungen anzeigen"
+msgstr "Zobraziť rozšírené nastavenia"
+
+#: includes/Admin/SettingsPage.php:358
+msgid "Ausgeschlossene URLs"
+msgstr "Vylúčené URLs"
+
+#: includes/Admin/SettingsPage.php:360
+msgid "Eine URL oder ein Muster pro Zeile."
+msgstr "Jeden URL alebo vzor na riadok."
+
+#: includes/Admin/SettingsPage.php:363
+msgid "Routing-Modus"
+msgstr "Režim smerovania"
+
+#: includes/Admin/SettingsPage.php:366
+msgid "Pfad-Präfix (/en/meine-seite)"
+msgstr "Predpona cesty (/en/meine-seite)"
+
+#: includes/Admin/SettingsPage.php:369
+msgid "Subdomains (en.example.com)"
+msgstr "Subdomény (en.example.com)"
+
+#: includes/Admin/SettingsPage.php:372
+msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
+msgstr "Predpona cesty zostáva predvolená. Pre subdomény potrebuje každý aktívny cieľový jazyk hostiteľa."
+
+#: includes/Admin/SettingsPage.php:375
+msgid "Domain-Zuordnungen"
+msgstr "Mapovania domén"
+
+#: includes/Admin/SettingsPage.php:383
+msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
+msgstr "Formát: sprachcode=host, jedno priradenie na riadok."
+
+#: includes/Admin/SettingsPage.php:395
+msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
+msgstr "Prekladajte e-maily WooCommerce a wp_mail"
+
+#: includes/Admin/SettingsPage.php:408
+msgid "Suche in der Besuchersprache ausführen"
+msgstr "Vykonajte vyhľadávanie v jazyku návštevníka"
+
+#: includes/Admin/SettingsPage.php:421
+msgid "AMP-Seiten übersetzen"
+msgstr "Preložiť stránky AMP"
+
+#: includes/Admin/SettingsPage.php:425
+msgid "Ausgeschlossene CSS-Selektoren"
+msgstr "Vylúčené selektory CSS"
+
+#: includes/Admin/SettingsPage.php:427
+msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
+msgstr "Jedna trieda CSS, ID alebo selektor na riadok."
+
+#: includes/Admin/SettingsPage.php:461
+msgid "Sprachumschalter"
+msgstr "Prepínač jazykov"
+
+#: includes/Admin/SettingsPage.php:462
+msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
+msgstr "Ako a kde by sa malo Language-Switcher zobraziť na vašej webovej lokalite?"
+
+#: includes/Admin/SettingsPage.php:475
+msgid "Switcher automatisch im Seitenfooter einfügen"
+msgstr "Automaticky vložiť Switcher do päty strany"
+
+#: includes/Admin/SettingsPage.php:479
+msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
+msgstr "Prípadne: Shortcode [deepglot_switcher] alebo PHP do_action('deepglot_language_switcher') vo vašej téme."
+
+#: includes/Admin/SettingsPage.php:484
+msgid "Darstellung"
+msgstr "Prezentácia"
+
+#: includes/Admin/SettingsPage.php:487
+msgid "Inline-Liste"
+msgstr "Vložený zoznam"
+
+#: includes/Admin/SettingsPage.php:490
+msgid "Dropdown"
+msgstr "Rozbaľte sa"
+
+#: includes/Admin/SettingsPage.php:496
+msgid "Flaggenstil"
+msgstr "Štýl vlajky"
+
+#: includes/Admin/SettingsPage.php:499
+msgid "Rechteckig, matt"
+msgstr "Obdĺžnikové, matné"
+
+#: includes/Admin/SettingsPage.php:502
+msgid "Rechteckig, glänzend"
+msgstr "Obdĺžnikové, lesklé"
+
+#: includes/Admin/SettingsPage.php:505
+msgid "Kreis, matt"
+msgstr "Kruhový, matný"
+
+#: includes/Admin/SettingsPage.php:508
+msgid "Kreis, glänzend"
+msgstr "Kruh, lesklý"
+
+#: includes/Admin/SettingsPage.php:511
+msgid "Ohne Flagge"
+msgstr "Bez vlajky"
+
+#: includes/Admin/SettingsPage.php:517
+msgid "Sprachbezeichnung"
+msgstr "Označenie jazyka"
+
+#: includes/Admin/SettingsPage.php:520
+msgid "Volle Bezeichnung („Deutsch\")"
+msgstr "Celé meno („nemčina“)"
+
+#: includes/Admin/SettingsPage.php:523
+msgid "ISO-Code („DE\")"
+msgstr "ISO-Code (“DE”)"
+
+#: includes/Admin/SettingsPage.php:529
+msgid "Anzeigegerät"
+msgstr "Zobrazovacie zariadenie"
+
+#: includes/Admin/SettingsPage.php:532
+msgid "Auf allen Geräten zeigen"
+msgstr "Zobraziť na všetkých zariadeniach"
+
+#: includes/Admin/SettingsPage.php:535
+msgid "Nur Desktop (auf Mobile ausblenden)"
+msgstr "Iba počítač (skryť v mobile)"
+
+#: includes/Admin/SettingsPage.php:538
+msgid "Nur Mobile (auf Desktop ausblenden)"
+msgstr "Len pre mobilné zariadenia (skryť na počítači)"
+
+#: includes/Admin/SettingsPage.php:544
+msgid "Mobile-Breakpoint (px)"
+msgstr "Prestávka pre mobilné zariadenia (px)"
+
+#: includes/Admin/SettingsPage.php:556
+msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
+msgstr "Predvolená hodnota je 768 px. Pod touto šírkou sa stránka považuje za „mobilnú“."
+
+#: includes/Admin/SettingsPage.php:561
+msgid "Position auf der Seite"
+msgstr "Pozícia na stránke"
+
+#: includes/Admin/SettingsPage.php:564
+msgid "Inline (an der eingebetteten Stelle)"
+msgstr "Inline (na vloženom mieste)"
+
+#: includes/Admin/SettingsPage.php:567
+msgid "Floating: rechts unten"
+msgstr "Plávajúce: vpravo dole"
+
+#: includes/Admin/SettingsPage.php:570
+msgid "Floating: links unten"
+msgstr "Plávajúce: vľavo dole"
+
+#: includes/Admin/SettingsPage.php:573
+msgid "Floating: rechts oben"
+msgstr "Plávajúce: vpravo hore"
+
+#: includes/Admin/SettingsPage.php:576
+msgid "Floating: links oben"
+msgstr "Plávajúce: vľavo hore"
+
+#: includes/Admin/SettingsPage.php:580
+msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
+msgstr "\"Plávajúce\" pripne Switcher do rohu s position:fixed a posúva sa s ním. V kombinácii s automatickým vstrekovaním = Weglot predvolené správanie."
+
+#: includes/Admin/SettingsPage.php:595
+msgid "Bezeichnung sichtbar"
+msgstr "Označenie viditeľné"
+
+#: includes/Admin/SettingsPage.php:602
+msgid "Reihenfolge der Sprachen"
+msgstr "Poradie jazykov"
+
+#: includes/Admin/SettingsPage.php:621
+msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
+msgstr "Zmeňte usporiadanie pomocou drag & drop. Funguje v režime Shortcode aj pri automatickom vstrekovaní."
+
+#: includes/Admin/SettingsPage.php:625
+msgid "Eigene Flaggen pro Sprache (optional)"
+msgstr "Vlastné vlajky pre jazyk (voliteľné)"
+
+#: includes/Admin/SettingsPage.php:655
+msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
+msgstr "Nechajte prázdne = predvolený príznak. Emoji (napr. 🇺🇸 pre EN→US trh) alebo špeciálne znaky URL až SVG/PNG. CSS sa automaticky odstránia."
+
+#: includes/Admin/SettingsPage.php:660
+msgid "Eigenes CSS für den Switcher"
+msgstr "Vlastniť CSS pre Switcher"
+
+#: includes/Admin/SettingsPage.php:668
+msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
+msgstr "Vložené bezprostredne pred značku Switcher ako značka <style>. \"<\" sa automaticky odstráni, takže nie je možné vložiť žiadnu značku skriptu."
+
+#: includes/Admin/SettingsPage.php:673
+msgid "Einstellungen speichern"
+msgstr "Uložiť nastavenia"
+
+#. translators: %s: dashboard url
+#: includes/Admin/SettingsPage.php:684
+msgid "Hilfe & Dokumentation: %s"
+msgstr "Pomocník a dokumentácia: %s"
+
+#: includes/Api/Client.php:198
+#: includes/Api/Client.php:304
+msgid "Deepglot API Fehler."
+msgstr "Chyba rozhrania API Deepglot."
+
+#: includes/Api/Client.php:219
+#: includes/Sync/SettingsSync.php:48
+msgid "Kein API-Key für die Synchronisierung vorhanden."
+msgstr "Neexistuje žiadny API-Key na synchronizáciu."
+
+#: includes/Api/Client.php:263
+msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+msgstr "Pre konfiguráciu runtime neexistuje žiadny API-Key."
+
+#: includes/Api/RestApi.php:203
+msgid "Kein API-Key angegeben."
+msgstr "Nie je zadané žiadne API-Key."
+
+#: includes/Api/RestApi.php:242
+msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgstr "Pre túto akciu potrebujete administrátorské práva."
+
+#. translators: %d: seconds until reset
+#: includes/Api/RestApi.php:281
+msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
+msgstr "Príliš veľa žiadostí. Počkajte %d sekúnd."
+
+#: includes/Frontend/LanguageSwitcher.php:236
+msgid "Switch language to %s"
+msgstr "Prepnúť jazyk na %s"
+
+#: includes/Frontend/LanguageSwitcher.php:251
+msgid "Sprache: %s"
+msgstr "Jazyk: %s"
+
+#: includes/Frontend/NavMenuSwitcher.php:175
+msgid "Sprache wählen"
+msgstr "Vyberte jazyk"
+
+#: includes/Frontend/SwitcherBlock.php:61
+msgid "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen."
+msgstr "Zobrazuje prepínač jazyka Deepglot – štýly/Flagge/Reihenfolge sa riadia nastaveniami doplnku."
+
+#: includes/Frontend/SwitcherWidget.php:26
+msgid "Sprachumschalter in einer Widget-Area anzeigen."
+msgstr "Zobraziť prepínač jazykov v oblasti miniaplikácií."
+
+#: includes/Frontend/SwitcherWidget.php:83
+msgid "Titel:"
+msgstr "názov:"
+
+#: includes/Sync/SettingsSync.php:52
+msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
+msgstr "Na synchronizáciu nie sú nakonfigurované žiadne cieľové jazyky."
+
+#: assets/js/block-switcher.js:20
+msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
+msgstr "Zobrazuje prepínač jazyka Deepglot. Štýl, príznak a poradie sa riadia nastaveniami pluginu."

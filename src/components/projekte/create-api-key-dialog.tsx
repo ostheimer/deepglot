@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { uiText } from "@/lib/static-copy";
 
 type CreatedApiKey = {
   id: string;
@@ -43,48 +44,35 @@ export function CreateApiKeyDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(
-    locale === "de" ? "WordPress Plugin" : "WordPress plugin"
+    uiText(locale, "WordPress plugin", "WordPress Plugin")
   );
   const [createdApiKey, setCreatedApiKey] = useState<CreatedApiKey | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const copy = useMemo(
-    () =>
-      locale === "de"
-        ? {
-            buttonLabel: label ?? "API-Key erstellen",
-            title: "API-Key erstellen",
-            description:
-              "Erstelle einen neuen Schluessel fuer dein WordPress-Plugin oder andere Integrationen.",
-            nameLabel: "Name",
-            namePlaceholder: "z. B. WordPress Plugin",
-            cancel: "Abbrechen",
-            submit: "API-Key erstellen",
-            submitting: "API-Key wird erstellt...",
-            success: "API-Key erstellt",
-            error: "API-Key konnte nicht erstellt werden",
-            rawKeyTitle: "Vollstaendiger API-Key",
-            rawKeyHint:
-              "Kopiere diesen Schluessel jetzt. Er wird aus Sicherheitsgruenden nur einmal vollstaendig angezeigt.",
-            done: "Fertig",
-          }
-        : {
-            buttonLabel: label ?? "Create API key",
-            title: "Create API key",
-            description:
-              "Create a new key for your WordPress plugin or other integrations.",
-            nameLabel: "Name",
-            namePlaceholder: "e.g. WordPress plugin",
-            cancel: "Cancel",
-            submit: "Create API key",
-            submitting: "Creating API key...",
-            success: "API key created",
-            error: "Could not create API key",
-            rawKeyTitle: "Full API key",
-            rawKeyHint:
-              "Copy this key now. For security reasons it is shown in full only once.",
-            done: "Done",
-          },
+    () => ({
+      buttonLabel: label ?? uiText(locale, "Create API key", "API-Key erstellen"),
+      title: uiText(locale, "Create API key", "API-Key erstellen"),
+      description: uiText(
+        locale,
+        "Create a new key for your WordPress plugin or other integrations.",
+        "Erstelle einen neuen Schlüssel für dein WordPress-Plugin oder andere Integrationen."
+      ),
+      nameLabel: "Name",
+      namePlaceholder: uiText(locale, "e.g. WordPress plugin", "z. B. WordPress Plugin"),
+      cancel: uiText(locale, "Cancel", "Abbrechen"),
+      submit: uiText(locale, "Create API key", "API-Key erstellen"),
+      submitting: uiText(locale, "Creating API key...", "API-Key wird erstellt..."),
+      success: uiText(locale, "API key created", "API-Key erstellt"),
+      error: uiText(locale, "Could not create API key", "API-Key konnte nicht erstellt werden"),
+      rawKeyTitle: uiText(locale, "Full API key", "Vollständiger API-Key"),
+      rawKeyHint: uiText(
+        locale,
+        "Copy this key now. For security reasons it is shown in full only once.",
+        "Kopiere diesen Schlüssel jetzt. Er wird aus Sicherheitsgründen nur einmal vollständig angezeigt."
+      ),
+      done: uiText(locale, "Done", "Fertig"),
+    }),
     [label, locale]
   );
 
@@ -93,7 +81,7 @@ export function CreateApiKeyDialog({
     setOpen(nextOpen);
     if (nextOpen) {
       setCreatedApiKey(null);
-      setName(locale === "de" ? "WordPress Plugin" : "WordPress plugin");
+      setName(uiText(locale, "WordPress plugin", "WordPress Plugin"));
     }
     if (shouldRefresh) {
       router.refresh();

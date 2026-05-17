@@ -45,6 +45,14 @@ class SwitcherBlock
             );
         }
 
+        if (function_exists('wp_set_script_translations')) {
+            wp_set_script_translations(
+                'deepglot-switcher-block',
+                'deepglot',
+                DEEPGLOT_PLUGIN_DIR . 'languages'
+            );
+        }
+
         register_block_type('deepglot/switcher', [
             'api_version'     => 3,
             'title'           => __('Deepglot Sprachschalter', 'deepglot'),

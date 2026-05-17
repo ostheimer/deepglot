@@ -19,12 +19,14 @@ import {
   getRateLimitConfig,
 } from "@/lib/rate-limit";
 import { getCookieLocale } from "@/lib/request-locale";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
-function successMessage(locale: "en" | "de") {
+function successMessage(locale: SiteLocale) {
   return t(
     locale,
     "Wenn ein Konto mit dieser E-Mail-Adresse existiert, senden wir dir einen Link zum Zurücksetzen.",

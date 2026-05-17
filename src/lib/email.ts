@@ -1,7 +1,7 @@
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 const CLOUDFLARE_EMAIL_API_BASE_URL =
   "https://api.cloudflare.com/client/v4/accounts";
-
-type EmailLocale = "en" | "de";
 
 export type CloudflareEmailConfig = {
   accountId: string;
@@ -42,38 +42,26 @@ export function buildCloudflareEmailApiUrl(accountId: string) {
   return `${CLOUDFLARE_EMAIL_API_BASE_URL}/${encodeURIComponent(accountId)}/email/sending/send`;
 }
 
-function getPasswordResetEmailCopy(locale: EmailLocale) {
+function getPasswordResetEmailCopy(locale: SiteLocale) {
   const subject =
-    locale === "de"
-      ? "Passwort für Deepglot zurücksetzen"
-      : "Reset your Deepglot password";
+    uiText(locale, "Reset your Deepglot password", "Passwort für Deepglot zurücksetzen");
   const intro =
-    locale === "de"
-      ? "Du hast angefordert, dein Deepglot-Passwort zurückzusetzen."
-      : "You requested to reset your Deepglot password.";
-  const action = locale === "de" ? "Passwort zurücksetzen" : "Reset password";
+    uiText(locale, "You requested to reset your Deepglot password.", "Du hast angefordert, dein Deepglot-Passwort zurückzusetzen.");
+  const action = uiText(locale, "Reset password", "Passwort zurücksetzen");
   const expiry =
-    locale === "de"
-      ? "Der Link ist 60 Minuten gültig. Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren."
-      : "This link is valid for 60 minutes. If you did not request this, you can ignore this email.";
+    uiText(locale, "This link is valid for 60 minutes. If you did not request this, you can ignore this email.", "Der Link ist 60 Minuten gültig. Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.");
 
   return { subject, intro, action, expiry };
 }
 
-function getProjectInvitationEmailCopy(locale: EmailLocale) {
+function getProjectInvitationEmailCopy(locale: SiteLocale) {
   const subject =
-    locale === "de"
-      ? "Einladung zu einem Deepglot-Projekt"
-      : "Invitation to a Deepglot project";
+    uiText(locale, "Invitation to a Deepglot project", "Einladung zu einem Deepglot-Projekt");
   const intro =
-    locale === "de"
-      ? "Du wurdest eingeladen, an einem Deepglot-Projekt mitzuarbeiten."
-      : "You have been invited to collaborate on a Deepglot project.";
-  const action = locale === "de" ? "Einladung annehmen" : "Accept invitation";
+    uiText(locale, "You have been invited to collaborate on a Deepglot project.", "Du wurdest eingeladen, an einem Deepglot-Projekt mitzuarbeiten.");
+  const action = uiText(locale, "Accept invitation", "Einladung annehmen");
   const expiry =
-    locale === "de"
-      ? "Der Link ist 7 Tage gültig. Wenn du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren."
-      : "This link is valid for 7 days. If you did not expect this invitation, you can ignore this email.";
+    uiText(locale, "This link is valid for 7 days. If you did not expect this invitation, you can ignore this email.", "Der Link ist 7 Tage gültig. Wenn du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.");
 
   return { subject, intro, action, expiry };
 }
@@ -87,7 +75,7 @@ export function buildPasswordResetEmailPayload({
   to: string;
   from: string;
   resetUrl: string;
-  locale: EmailLocale;
+  locale: SiteLocale;
 }) {
   const copy = getPasswordResetEmailCopy(locale);
 
@@ -122,19 +110,20 @@ export function buildProjectInvitationEmailPayload({
   to: string;
   from: string;
   inviteUrl: string;
-  locale: EmailLocale;
+  locale: SiteLocale;
   projectName: string;
   inviterName?: string | null;
 }) {
   const copy = getProjectInvitationEmailCopy(locale);
-  const projectLine =
-    locale === "de"
-      ? `Projekt: ${projectName}`
-      : `Project: ${projectName}`;
+  const projectLine = uiText(locale, "Project: {project}", "Projekt: {project}").replace(
+    "{project}",
+    projectName
+  );
   const inviterLine = inviterName
-    ? locale === "de"
-      ? `Eingeladen von: ${inviterName}`
-      : `Invited by: ${inviterName}`
+    ? uiText(locale, "Invited by: {name}", "Eingeladen von: {name}").replace(
+        "{name}",
+        inviterName
+      )
     : null;
 
   return {
@@ -180,7 +169,7 @@ export async function sendPasswordResetEmail({
 }: {
   to: string;
   resetUrl: string;
-  locale: EmailLocale;
+  locale: SiteLocale;
 }) {
   const config = getCloudflareEmailConfig();
 
@@ -227,7 +216,7 @@ export async function sendProjectInvitationEmail({
 }: {
   to: string;
   inviteUrl: string;
-  locale: EmailLocale;
+  locale: SiteLocale;
   projectName: string;
   inviterName?: string | null;
 }) {

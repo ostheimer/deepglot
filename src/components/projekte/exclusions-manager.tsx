@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ExclusionType } from "@/lib/exclusions";
+import { uiText } from "@/lib/static-copy";
 
 type Exclusion = {
   id: string;
@@ -79,63 +80,49 @@ export function ExclusionsManager({
 
   const copy = useMemo(
     () => ({
-      title: locale === "de" ? "Ausnahmen" : "Exclusions",
+      title: uiText(locale, "Exclusions", "Ausnahmen"),
       description:
-        locale === "de"
-          ? "Lege fest, welche URLs oder HTML-Blöcke nicht übersetzt werden. Die WordPress-Erweiterung synchronisiert diese Regeln automatisch."
-          : "Choose which URLs or HTML blocks are not translated. The WordPress plugin syncs these rules automatically.",
-      add: locale === "de" ? "Regel hinzufügen" : "Add rule",
-      edit: locale === "de" ? "Regel bearbeiten" : "Edit rule",
-      search: locale === "de" ? "Ausnahmen suchen..." : "Search exclusions...",
-      allTypes: locale === "de" ? "Alle Typen" : "All types",
-      type: locale === "de" ? "Typ" : "Type",
-      value: locale === "de" ? "Wert" : "Value",
-      behavior: locale === "de" ? "Verhalten" : "Behavior",
-      created: locale === "de" ? "Erstellt" : "Created",
-      actions: locale === "de" ? "Aktionen" : "Actions",
-      save: locale === "de" ? "Speichern" : "Save",
-      cancel: locale === "de" ? "Abbrechen" : "Cancel",
-      delete: locale === "de" ? "Löschen" : "Delete",
+        uiText(locale, "Choose which URLs or HTML blocks are not translated. The WordPress plugin syncs these rules automatically.", "Lege fest, welche URLs oder HTML-Blöcke nicht übersetzt werden. Die WordPress-Erweiterung synchronisiert diese Regeln automatisch."),
+      add: uiText(locale, "Add rule", "Regel hinzufügen"),
+      edit: uiText(locale, "Edit rule", "Regel bearbeiten"),
+      search: uiText(locale, "Search exclusions...", "Ausnahmen suchen..."),
+      allTypes: uiText(locale, "All types", "Alle Typen"),
+      type: uiText(locale, "Type", "Typ"),
+      value: uiText(locale, "Value", "Wert"),
+      behavior: uiText(locale, "Behavior", "Verhalten"),
+      created: uiText(locale, "Created", "Erstellt"),
+      actions: uiText(locale, "Actions", "Aktionen"),
+      save: uiText(locale, "Save", "Speichern"),
+      cancel: uiText(locale, "Cancel", "Abbrechen"),
+      delete: uiText(locale, "Delete", "Löschen"),
       deleteTitle:
-        locale === "de" ? "Ausnahmeregel löschen?" : "Delete exclusion rule?",
+        uiText(locale, "Delete exclusion rule?", "Ausnahmeregel löschen?"),
       deleteDescription:
-        locale === "de"
-          ? "Diese Regel wird aus dem Dashboard entfernt und beim nächsten Plugin-Sync nicht mehr angewendet."
-          : "This rule will be removed from the dashboard and no longer applied after the next plugin sync.",
+        uiText(locale, "This rule will be removed from the dashboard and no longer applied after the next plugin sync.", "Diese Regel wird aus dem Dashboard entfernt und beim nächsten Plugin-Sync nicht mehr angewendet."),
       empty:
-        locale === "de"
-          ? "Noch keine Ausnahmeregeln vorhanden."
-          : "No exclusion rules yet.",
+        uiText(locale, "No exclusion rules yet.", "Noch keine Ausnahmeregeln vorhanden."),
       noResults:
-        locale === "de"
-          ? "Keine Ausnahmen passen zur Suche."
-          : "No exclusions match the current search.",
+        uiText(locale, "No exclusions match the current search.", "Keine Ausnahmen passen zur Suche."),
       valueHint:
-        locale === "de"
-          ? "CSS-Klassen und IDs können mit oder ohne . beziehungsweise # eingegeben werden."
-          : "CSS classes and IDs can be entered with or without . or #.",
+        uiText(locale, "CSS classes and IDs can be entered with or without . or #.", "CSS-Klassen und IDs können mit oder ohne . beziehungsweise # eingegeben werden."),
       saved:
-        locale === "de" ? "Ausnahmeregel gespeichert" : "Exclusion rule saved",
+        uiText(locale, "Exclusion rule saved", "Ausnahmeregel gespeichert"),
       removed:
-        locale === "de" ? "Ausnahmeregel gelöscht" : "Exclusion rule deleted",
+        uiText(locale, "Exclusion rule deleted", "Ausnahmeregel gelöscht"),
       saveFailed:
-        locale === "de"
-          ? "Ausnahmeregel konnte nicht gespeichert werden"
-          : "Could not save exclusion rule",
+        uiText(locale, "Could not save exclusion rule", "Ausnahmeregel konnte nicht gespeichert werden"),
       deleteFailed:
-        locale === "de"
-          ? "Ausnahmeregel konnte nicht gelöscht werden"
-          : "Could not delete exclusion rule",
+        uiText(locale, "Could not delete exclusion rule", "Ausnahmeregel konnte nicht gelöscht werden"),
     }),
     [locale]
   );
 
   const typeLabels = useMemo(
     () => ({
-      URL: locale === "de" ? "URL enthält" : "URL contains",
-      REGEX: locale === "de" ? "Regex" : "Regex",
-      CSS_CLASS: locale === "de" ? "CSS-Klasse" : "CSS class",
-      CSS_ID: locale === "de" ? "CSS-ID" : "CSS ID",
+      URL: uiText(locale, "URL contains", "URL enthält"),
+      REGEX: uiText(locale, "Regex", "Regex"),
+      CSS_CLASS: uiText(locale, "CSS class", "CSS-Klasse"),
+      CSS_ID: uiText(locale, "CSS ID", "CSS-ID"),
     }),
     [locale]
   );
@@ -143,21 +130,13 @@ export function ExclusionsManager({
   const behaviorLabels = useMemo(
     () => ({
       URL:
-        locale === "de"
-          ? "Die übersetzte Route wird übersprungen."
-          : "The translated route is skipped.",
+        uiText(locale, "The translated route is skipped.", "Die übersetzte Route wird übersprungen."),
       REGEX:
-        locale === "de"
-          ? "Die übersetzte Route wird per Regex übersprungen."
-          : "The translated route is skipped by regex.",
+        uiText(locale, "The translated route is skipped by regex.", "Die übersetzte Route wird per Regex übersprungen."),
       CSS_CLASS:
-        locale === "de"
-          ? "Text in Elementen mit dieser Klasse bleibt unverändert."
-          : "Text inside elements with this class stays unchanged.",
+        uiText(locale, "Text inside elements with this class stays unchanged.", "Text in Elementen mit dieser Klasse bleibt unverändert."),
       CSS_ID:
-        locale === "de"
-          ? "Text im Element mit dieser ID bleibt unverändert."
-          : "Text inside the element with this ID stays unchanged.",
+        uiText(locale, "Text inside the element with this ID stays unchanged.", "Text im Element mit dieser ID bleibt unverändert."),
     }),
     [locale]
   );

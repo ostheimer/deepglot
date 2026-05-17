@@ -1,0 +1,21 @@
+{
+    "translation-revision-date": "2026-05-17 00:00+0000",
+    "generator": "WP-CLI\/2.11.0",
+    "source": "assets\/js\/block-switcher.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "sv_SE",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Deepglot Sprachschalter": [
+                "Deepglot Spr\u00e5kv\u00e4xling"
+            ],
+            "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
+                "Visar spr\u00e5kv\u00e4xeln Deepglot. Stil, flagga och ordning f\u00f6ljer plugininst\u00e4llningarna."
+            ]
+        }
+    }
+}

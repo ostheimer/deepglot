@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { uiText } from "@/lib/static-copy";
 
 type DocsPageProps = {
   searchParams: LocaleSearchParams;
@@ -19,40 +20,28 @@ export default async function DocsPage({ searchParams }: DocsPageProps) {
     <SimpleMarketingPage
       locale={locale}
       active="docs"
-      eyebrow={locale === "de" ? "Dokumentation" : "Documentation"}
-      title={locale === "de" ? "Deepglot einrichten" : "Set up Deepglot"}
+      eyebrow={uiText(locale, "Documentation", "Dokumentation")}
+      title={uiText(locale, "Set up Deepglot", "Deepglot einrichten")}
       description={
-        locale === "de"
-          ? "Die wichtigsten Schritte für den Start mit Deepglot und dem WordPress-Plugin."
-          : "The essential setup path for Deepglot and the WordPress plugin."
+        uiText(locale, "The essential setup path for Deepglot and the WordPress plugin.", "Die wichtigsten Schritte für den Start mit Deepglot und dem WordPress-Plugin.")
       }
       sections={[
         {
-          title: locale === "de" ? "1. Projekt erstellen" : "1. Create a project",
+          title: uiText(locale, "1. Create a project", "1. Projekt erstellen"),
           body:
-            locale === "de"
-              ? "Lege im Dashboard ein Projekt an, wähle Quell- und Zielsprachen und kopiere den API-Key."
-              : "Create a dashboard project, choose source and target languages, and copy the API key.",
+            uiText(locale, "Create a dashboard project, choose source and target languages, and copy the API key.", "Lege im Dashboard ein Projekt an, wähle Quell- und Zielsprachen und kopiere den API-Key."),
         },
         {
           title:
-            locale === "de"
-              ? "2. WordPress-Plugin verbinden"
-              : "2. Connect the WordPress plugin",
+            uiText(locale, "2. Connect the WordPress plugin", "2. WordPress-Plugin verbinden"),
           body:
-            locale === "de"
-              ? "Installiere das Plugin in WordPress, füge den API-Key ein und nutze den Verbindungstest."
-              : "Install the plugin in WordPress, paste the API key, and run the connection test.",
+            uiText(locale, "Install the plugin in WordPress, paste the API key, and run the connection test.", "Installiere das Plugin in WordPress, füge den API-Key ein und nutze den Verbindungstest."),
         },
         {
           title:
-            locale === "de"
-              ? "3. Übersetzungen prüfen"
-              : "3. Verify translations",
+            uiText(locale, "3. Verify translations", "3. Übersetzungen prüfen"),
           body:
-            locale === "de"
-              ? "Öffne die Sprach-URL, prüfe Navigation, hreflang und Cache-Verhalten, bevor du weitere Sprachen aktivierst."
-              : "Open the translated language URL and verify navigation, hreflang, and cache behavior before enabling more languages.",
+            uiText(locale, "Open the translated language URL and verify navigation, hreflang, and cache behavior before enabling more languages.", "Öffne die Sprach-URL, prüfe Navigation, hreflang und Cache-Verhalten, bevor du weitere Sprachen aktivierst."),
         },
       ]}
     />
