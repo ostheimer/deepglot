@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
+import { buildMarketingMetadata } from "@/lib/marketing-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -8,10 +9,22 @@ type LegalNoticePageProps = {
   searchParams: LocaleSearchParams;
 };
 
-export const metadata: Metadata = {
-  title: "Legal Notice",
-  description: "Deepglot legal notice.",
-};
+export async function generateMetadata({
+  searchParams,
+}: LegalNoticePageProps): Promise<Metadata> {
+  const locale = await getPageLocale(searchParams);
+
+  return buildMarketingMetadata({
+    locale,
+    route: "legalNotice",
+    title: uiText(locale, "Legal Notice", "Impressum"),
+    description: uiText(
+      locale,
+      "Operator information for Deepglot.",
+      "Angaben zum Betreiber von Deepglot."
+    ),
+  });
+}
 
 export default async function LegalNoticePage({
   searchParams,

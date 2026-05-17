@@ -5,12 +5,18 @@ import { stripe } from "@/lib/stripe";
 import { CreditCard } from "lucide-react";
 import { PortalButton } from "@/components/abonnement/portal-button";
 import { BillingAddressForm } from "@/components/abonnement/billing-address-form";
+import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getIntlLocale } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
-export const metadata = { title: "Karte & Rechnungen – Deepglot" };
+export function generateMetadata() {
+  return buildDashboardTitleMetadata(
+    "Billing & invoices",
+    "Karte & Rechnungen"
+  );
+}
 
 export default async function KarteRechnungenPage() {
   const locale = await getRequestLocale();

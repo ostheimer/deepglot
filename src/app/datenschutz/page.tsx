@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
+import { buildMarketingMetadata } from "@/lib/marketing-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -8,10 +9,22 @@ type PrivacyPageProps = {
   searchParams: LocaleSearchParams;
 };
 
-export const metadata: Metadata = {
-  title: "Privacy",
-  description: "Deepglot privacy information.",
-};
+export async function generateMetadata({
+  searchParams,
+}: PrivacyPageProps): Promise<Metadata> {
+  const locale = await getPageLocale(searchParams);
+
+  return buildMarketingMetadata({
+    locale,
+    route: "privacy",
+    title: uiText(locale, "Privacy", "Datenschutz"),
+    description: uiText(
+      locale,
+      "This page summarizes which data Deepglot processes for product operation, support, and billing.",
+      "Diese Seite fasst zusammen, welche Daten Deepglot für Betrieb, Support und Abrechnung verarbeitet."
+    ),
+  });
+}
 
 export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
   const locale = await getPageLocale(searchParams);

@@ -161,6 +161,39 @@ test.describe("locale routing", () => {
     await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(2);
   });
 
+  test("localizes marketing metadata and legal page titles", async ({
+    page,
+    request,
+  }) => {
+    const hydrationErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        const text = message.text();
+        if (text.includes("hydration") || text.includes("React error #418")) {
+          hydrationErrors.push(text);
+        }
+      }
+    });
+
+    await page.goto("/hr/dokumentacija");
+
+    await expect(page).toHaveTitle(/Dokumentacija \| Deepglot/);
+
+    await page.goto("/es/terminos");
+
+    const response = await request.get("/es/terminos");
+    const html = await response.text();
+    expect(html).toContain(">ES<");
+    expect(html).toContain('rel="canonical" href="https://deepglot.ai/es/terminos"');
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Términos" })
+    ).toBeVisible();
+    await expect(page).toHaveTitle(/Términos \| Deepglot/);
+    await expect(page.getByRole("button", { name: "Language" })).toContainText("ES");
+    expect(hydrationErrors).toEqual([]);
+  });
+
   test("maps login and signup pages to the matching locale", async ({ page }) => {
     await page.goto("/login");
 

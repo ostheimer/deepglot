@@ -7,11 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Eye, Pencil, Plus } from "lucide-react";
 import { PasswordChangeForm } from "@/components/einstellungen/password-change-form";
 import { ProfileSettingsForm } from "@/components/einstellungen/profile-settings-form";
+import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
-export const metadata = { title: "Konto-Einstellungen" };
+export function generateMetadata() {
+  return buildDashboardTitleMetadata("Account settings", "Konto-Einstellungen");
+}
 
 const PLAN_LABELS: Record<string, string> = {
   FREE: "Free",

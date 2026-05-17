@@ -3,12 +3,14 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { LocaleProvider } from "@/components/providers/locale-provider";
+import { CANONICAL_APP_HOST } from "@/lib/canonical-host";
 import { getRequestLocale } from "@/lib/request-locale";
 
 const inter = Inter({ subsets: ["latin"] });
+const canonicalAppOrigin = `https://${CANONICAL_APP_HOST}`;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://deepglot.com"),
+  metadataBase: new URL(canonicalAppOrigin),
   title: {
     default: "Deepglot",
     template: "%s | Deepglot",
@@ -25,7 +27,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://deepglot.com",
+    url: canonicalAppOrigin,
     siteName: "Deepglot",
   },
 };

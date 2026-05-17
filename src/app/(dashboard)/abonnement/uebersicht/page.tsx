@@ -6,6 +6,7 @@ import { stripe } from "@/lib/stripe";
 import { CancelSubscriptionButton } from "@/components/abonnement/cancel-subscription-button";
 import { PlanSwitcher } from "@/components/abonnement/plan-switcher";
 import { Badge } from "@/components/ui/badge";
+import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
@@ -16,7 +17,9 @@ import {
   type BillingPlanKey,
 } from "@/lib/billing-plans";
 
-export const metadata = { title: "Plan-Übersicht – Deepglot" };
+export function generateMetadata() {
+  return buildDashboardTitleMetadata("Plan overview", "Plan-Übersicht");
+}
 
 function normalizePlan(plan: string | null | undefined): BillingPlanKey {
   if (plan === "PROFESSIONAL") return "PRO";

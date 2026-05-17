@@ -2,10 +2,13 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ProjectsTable, type ProjectRow } from "@/components/projekte/projects-table";
+import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 
-export const metadata = { title: "Projekte – Deepglot" };
+export function generateMetadata() {
+  return buildDashboardTitleMetadata("Projects", "Projekte");
+}
 
 type ProjektePageProps = {
   searchParams: LocaleSearchParams;

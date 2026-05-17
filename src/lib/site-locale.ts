@@ -1241,6 +1241,17 @@ function mapSegments(pathname: string, segmentMap: Record<string, string>) {
   return `/${mapped.join("/")}`;
 }
 
+function decodePathSegments(pathname: string) {
+  if (pathname === "/") return "/";
+
+  const decoded = pathname
+    .split("/")
+    .filter(Boolean)
+    .map(safeDecodePathSegment);
+
+  return `/${decoded.join("/")}`;
+}
+
 function safeDecodePathSegment(segment: string) {
   try {
     return decodeURIComponent(segment);
@@ -1299,12 +1310,13 @@ export function getLegacyPublicRedirect(pathname: string) {
       : locale;
   const canonicalBasePath = toCanonicalExternalPath(pathname, legacyLocale);
   const canonicalLocalizedPath = withLocalePrefix(canonicalBasePath, legacyLocale);
+  const comparableWithoutLocale = decodePathSegments(withoutLocale);
   const currentLocalizedPath =
     locale === DEFAULT_MARKETING_LOCALE
-      ? withoutLocale
-      : withoutLocale === "/"
+      ? comparableWithoutLocale
+      : comparableWithoutLocale === "/"
         ? `/${locale}`
-        : `/${locale}${withoutLocale}`;
+        : `/${locale}${comparableWithoutLocale}`;
 
   if (canonicalLocalizedPath === currentLocalizedPath) {
     return null;
