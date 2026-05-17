@@ -4,6 +4,7 @@ import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 
 type MarketingNavProps = {
   locale: SiteLocale;
@@ -36,7 +37,7 @@ function navLinkClass(isActive: boolean) {
 }
 
 export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
-  const copy = NAV_COPY[locale];
+  const copy = localizeCopy(locale, NAV_COPY);
   const homeHref = getMarketingPath(locale, "home");
   const pricingHref = getMarketingPath(locale, "pricing");
   const docsHref = getMarketingPath(locale, "docs");

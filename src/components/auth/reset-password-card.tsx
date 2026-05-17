@@ -16,6 +16,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getMarketingPath } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 
 const COPY = {
   en: {
@@ -50,7 +51,7 @@ const COPY = {
 
 export function ResetPasswordCard({ token }: { token: string }) {
   const locale = useLocale();
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
+import { uiText } from "@/lib/static-copy";
 
 type DeleteApiKeyButtonProps = {
   apiKeyId: string;
@@ -45,15 +46,13 @@ export function DeleteApiKeyButton({
       if (!response.ok) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "API-Key konnte nicht geloescht werden"
-              : "Could not delete API key")
+            (uiText(locale, "Could not delete API key", "API-Key konnte nicht gelöscht werden"))
         );
         return;
       }
 
       toast.success(
-        locale === "de" ? "API-Key geloescht" : "API key deleted"
+        uiText(locale, "API key deleted", "API-Key gelöscht")
       );
       router.refresh();
     } finally {
@@ -71,17 +70,15 @@ export function DeleteApiKeyButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {locale === "de" ? "API-Key loeschen?" : "Delete API key?"}
+            {uiText(locale, "Delete API key?", "API-Key löschen?")}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {locale === "de"
-              ? "Der Schluessel kann danach nicht mehr fuer dein Plugin verwendet werden."
-              : "The key can no longer be used by your plugin afterwards."}
+            {uiText(locale, "The key can no longer be used by your plugin afterwards.", "Der Schlüssel kann danach nicht mehr für dein Plugin verwendet werden.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>
-            {locale === "de" ? "Abbrechen" : "Cancel"}
+            {uiText(locale, "Cancel", "Abbrechen")}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
@@ -89,12 +86,8 @@ export function DeleteApiKeyButton({
             className="bg-red-600 text-white hover:bg-red-700"
           >
             {isLoading
-              ? locale === "de"
-                ? "Loeschen..."
-                : "Deleting..."
-              : locale === "de"
-                ? "API-Key loeschen"
-                : "Delete API key"}
+              ? uiText(locale, "Deleting...", "Löschen...")
+              : uiText(locale, "Delete API key", "API-Key löschen")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

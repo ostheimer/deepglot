@@ -4,6 +4,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { Badge } from "@/components/ui/badge";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 import { requireProjectManagement } from "@/lib/project-page-access";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -34,7 +35,7 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
   return (
     <div className="max-w-3xl space-y-5">
       <h2 className="text-xl font-bold text-gray-900 mb-6">
-        {locale === "de" ? "WordPress-Einstellungen" : "WordPress settings"}
+        {uiText(locale, "WordPress settings", "WordPress-Einstellungen")}
       </h2>
 
       <RuntimeSyncBanner
@@ -47,44 +48,30 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
         {[
           {
             label:
-              locale === "de"
-                ? "E-Mails übersetzen"
-                : "Translate emails",
+              uiText(locale, "Translate emails", "E-Mails übersetzen"),
             value: s?.translateEmails ?? false,
             description:
-              locale === "de"
-                ? "WooCommerce- und wp_mail-E-Mails folgen der im Plugin gespeicherten Runtime-Konfiguration."
-                : "WooCommerce and wp_mail emails follow the runtime configuration stored in the plugin.",
+              uiText(locale, "WooCommerce and wp_mail emails follow the runtime configuration stored in the plugin.", "WooCommerce- und wp_mail-E-Mails folgen der im Plugin gespeicherten Runtime-Konfiguration."),
           },
           {
             label:
-              locale === "de"
-                ? "Suche übersetzen"
-                : "Translate search",
+              uiText(locale, "Translate search", "Suche übersetzen"),
             value: s?.translateSearch ?? false,
             description:
-              locale === "de"
-                ? "Suchanfragen werden in der aktuellen Besuchersprache verarbeitet."
-                : "Search requests are handled in the visitor's current language.",
+              uiText(locale, "Search requests are handled in the visitor's current language.", "Suchanfragen werden in der aktuellen Besuchersprache verarbeitet."),
           },
           {
-            label: locale === "de" ? "AMP übersetzen" : "Translate AMP",
+            label: uiText(locale, "Translate AMP", "AMP übersetzen"),
             value: s?.translateAmp ?? false,
             description:
-              locale === "de"
-                ? "AMP-Seiten werden nur übersetzt, wenn die Plugin-Option aktiv ist."
-                : "AMP pages are translated only when the plugin option is enabled.",
+              uiText(locale, "AMP pages are translated only when the plugin option is enabled.", "AMP-Seiten werden nur übersetzt, wenn die Plugin-Option aktiv ist."),
           },
           {
             label:
-              locale === "de"
-                ? "Browser-Weiterleitung"
-                : "Browser redirect",
+              uiText(locale, "Browser redirect", "Browser-Weiterleitung"),
             value: s?.autoSwitch ?? false,
             description:
-              locale === "de"
-                ? "Erstbesucher werden optional anhand von Accept-Language weitergeleitet."
-                : "First-time visitors can optionally be redirected from Accept-Language.",
+              uiText(locale, "First-time visitors can optionally be redirected from Accept-Language.", "Erstbesucher werden optional anhand von Accept-Language weitergeleitet."),
           },
         ].map((item) => (
           <div
@@ -104,12 +91,8 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
                 }
               >
                 {item.value
-                  ? locale === "de"
-                    ? "Aktiv"
-                    : "Enabled"
-                  : locale === "de"
-                    ? "Aus"
-                    : "Off"}
+                  ? uiText(locale, "Enabled", "Aktiv")
+                  : uiText(locale, "Off", "Aus")}
               </Badge>
             </div>
           </div>
@@ -118,23 +101,17 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h3 className="text-base font-semibold text-gray-900">
-          {locale === "de" ? "Routing & Domains" : "Routing & domains"}
+          {uiText(locale, "Routing & domains", "Routing & Domains")}
         </h3>
         <p className="mt-1 text-sm text-gray-500">
-          {locale === "de"
-            ? "Pfad-Präfix ist Standard. Für Subdomains muss jede aktive Zielsprache einem Host zugeordnet sein."
-            : "Path-prefix is the default. Subdomain mode requires a host mapping for every active target language."}
+          {uiText(locale, "Path-prefix is the default. Subdomain mode requires a host mapping for every active target language.", "Pfad-Präfix ist Standard. Für Subdomains muss jede aktive Zielsprache einem Host zugeordnet sein.")}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Badge className="bg-indigo-50 text-indigo-700">
             {s?.routingMode === "SUBDOMAIN"
-              ? locale === "de"
-                ? "Subdomains"
-                : "Subdomains"
-              : locale === "de"
-                ? "Pfad-Präfix"
-                : "Path prefix"}
+              ? uiText(locale, "Subdomains", "Subdomains")
+              : uiText(locale, "Path prefix", "Pfad-Präfix")}
           </Badge>
           <Badge variant="outline">{project.originalLang.toUpperCase()}</Badge>
           {project.languages.map((language) => (
@@ -146,7 +123,7 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
 
         <div className="mt-5 overflow-hidden rounded-lg border border-gray-100">
           <div className="grid grid-cols-[120px_1fr] gap-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            <span>{locale === "de" ? "Sprache" : "Language"}</span>
+            <span>{uiText(locale, "Language", "Sprache")}</span>
             <span>Host</span>
           </div>
           {project.languages.map((language) => {
@@ -164,7 +141,7 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
                 </span>
                 <span className="text-gray-600">
                   {mapping?.host ??
-                    (locale === "de" ? "Keine Zuordnung" : "No mapping")}
+                    (uiText(locale, "No mapping", "Keine Zuordnung"))}
                 </span>
               </div>
             );

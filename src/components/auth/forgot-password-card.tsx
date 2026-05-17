@@ -15,6 +15,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getMarketingPath } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 
 const COPY = {
   en: {
@@ -46,7 +47,7 @@ const COPY = {
 
 export function ForgotPasswordCard() {
   const locale = useLocale();
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);

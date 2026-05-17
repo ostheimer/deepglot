@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useLocale } from "@/components/providers/locale-provider";
 import { getMarketingPath } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export function AccountDeleteButton() {
   const locale = useLocale();
@@ -34,34 +35,28 @@ export function AccountDeleteButton() {
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <button className="text-sm text-red-500 hover:text-red-700 hover:underline transition-colors">
-          {locale === "de" ? "Konto löschen" : "Delete account"}
+          {uiText(locale, "Delete account", "Konto löschen")}
         </button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {locale === "de" ? "Konto wirklich löschen?" : "Delete account?"}
+            {uiText(locale, "Delete account?", "Konto wirklich löschen?")}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {locale === "de"
-              ? "Diese Aktion kann nicht rückgängig gemacht werden. Alle deine Projekte, Übersetzungen und API-Schlüssel werden dauerhaft gelöscht."
-              : "This action cannot be undone. All of your projects, translations, and API keys will be permanently deleted."}
+            {uiText(locale, "This action cannot be undone. All of your projects, translations, and API keys will be permanently deleted.", "Diese Aktion kann nicht rückgängig gemacht werden. Alle deine Projekte, Übersetzungen und API-Schlüssel werden dauerhaft gelöscht.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{locale === "de" ? "Abbrechen" : "Cancel"}</AlertDialogCancel>
+          <AlertDialogCancel>{uiText(locale, "Cancel", "Abbrechen")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={loading}
             className="bg-red-600 hover:bg-red-700 text-white"
           >
             {loading
-              ? locale === "de"
-                ? "Löschen…"
-                : "Deleting..."
-              : locale === "de"
-                ? "Konto löschen"
-                : "Delete account"}
+              ? uiText(locale, "Deleting...", "Löschen…")
+              : uiText(locale, "Delete account", "Konto löschen")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

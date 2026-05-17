@@ -24,6 +24,7 @@ import {
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatNumber } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export type ProjectRow = {
   id: string;
@@ -80,9 +81,7 @@ export function ProjectsTable({ projects }: Props) {
   async function handleDelete(id: string) {
     if (
       !confirm(
-        locale === "de"
-          ? "Projekt wirklich löschen? Alle Übersetzungen gehen verloren."
-          : "Delete this project? All translations will be lost."
+        uiText(locale, "Delete this project? All translations will be lost.", "Projekt wirklich löschen? Alle Übersetzungen gehen verloren.")
       )
     ) {
       return;
@@ -115,14 +114,14 @@ export function ProjectsTable({ projects }: Props) {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{locale === "de" ? "Projekte" : "Projects"}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{uiText(locale, "Projects", "Projekte")}</h1>
         <div className="flex items-center gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
               type="text"
-              placeholder={locale === "de" ? "Projekt suchen" : "Search project"}
+              placeholder={uiText(locale, "Search project", "Projekt suchen")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9 pr-4 h-9 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-52"
@@ -135,19 +134,13 @@ export function ProjectsTable({ projects }: Props) {
               <button className="flex items-center gap-2 h-9 px-3 text-sm border border-gray-200 rounded-lg bg-white hover:bg-gray-50 transition-colors">
                 <ArrowUp className="h-3.5 w-3.5 text-gray-500" />
                 <span className="text-gray-700">
-                  {locale === "de" ? "Sortieren nach" : "Sort by"}{" "}
+                  {uiText(locale, "Sort by", "Sortieren nach")}{" "}
                   <span className="font-medium">
                     {sortKey === "name"
-                      ? locale === "de"
-                        ? "Name"
-                        : "Name"
+                      ? uiText(locale, "Name", "Name")
                       : sortKey === "totalWords"
-                        ? locale === "de"
-                          ? "Wörter"
-                          : "Words"
-                        : locale === "de"
-                          ? "Sprachen"
-                          : "Languages"}
+                        ? uiText(locale, "Words", "Wörter")
+                        : uiText(locale, "Languages", "Sprachen")}
                   </span>
                 </span>
                 <ArrowDown className="h-3 w-3 text-gray-400" />
@@ -158,10 +151,10 @@ export function ProjectsTable({ projects }: Props) {
                 Name {renderSortIcon("name")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleSort("totalWords")}>
-                {locale === "de" ? "Gesamtwörter" : "Total words"} {renderSortIcon("totalWords")}
+                {uiText(locale, "Total words", "Gesamtwörter")} {renderSortIcon("totalWords")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toggleSort("languagesCount")}>
-                {locale === "de" ? "Sprachen" : "Languages"} {renderSortIcon("languagesCount")}
+                {uiText(locale, "Languages", "Sprachen")} {renderSortIcon("languagesCount")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -170,7 +163,7 @@ export function ProjectsTable({ projects }: Props) {
           <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-2 h-9">
             <Link href={withLocalePrefix("/projects/new", locale)}>
               <Plus className="h-4 w-4" />
-              {locale === "de" ? "Projekt erstellen" : "Create project"}
+              {uiText(locale, "Create project", "Projekt erstellen")}
             </Link>
           </Button>
         </div>
@@ -181,17 +174,15 @@ export function ProjectsTable({ projects }: Props) {
         <div className="border border-dashed border-gray-300 rounded-xl py-20 text-center">
           <Globe className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-base font-semibold text-gray-700 mb-1">
-            {locale === "de" ? "Noch kein Projekt" : "No project yet"}
+            {uiText(locale, "No project yet", "Noch kein Projekt")}
           </h3>
           <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
-            {locale === "de"
-              ? "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin."
-              : "Create your first project and connect your WordPress plugin."}
+            {uiText(locale, "Create your first project and connect your WordPress plugin.", "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.")}
           </p>
           <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-2">
             <Link href={withLocalePrefix("/projects/new", locale)}>
               <Plus className="h-4 w-4" />
-              {locale === "de" ? "Erstes Projekt erstellen" : "Create first project"}
+              {uiText(locale, "Create first project", "Erstes Projekt erstellen")}
             </Link>
           </Button>
         </div>
@@ -219,19 +210,19 @@ export function ProjectsTable({ projects }: Props) {
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("totalWords")}
             >
-              {locale === "de" ? "Gesamtwörter" : "Total words"} {renderSortIcon("totalWords")}
+              {uiText(locale, "Total words", "Gesamtwörter")} {renderSortIcon("totalWords")}
             </button>
             <button
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("languagesCount")}
             >
-              {locale === "de" ? "Sprachen" : "Languages"} {renderSortIcon("languagesCount")}
+              {uiText(locale, "Languages", "Sprachen")} {renderSortIcon("languagesCount")}
             </button>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {locale === "de" ? "Mitglieder" : "Members"}
+              {uiText(locale, "Members", "Mitglieder")}
             </span>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {locale === "de" ? "Manuelle Übersetzungen" : "Manual translations"}
+              {uiText(locale, "Manual translations", "Manuelle Übersetzungen")}
             </span>
             <span />
           </div>
@@ -240,7 +231,7 @@ export function ProjectsTable({ projects }: Props) {
           {filtered.length === 0 ? (
             <div className="px-5 py-12 text-center">
               <p className="text-sm text-gray-400">
-                {locale === "de" ? "Keine Ergebnisse für" : "No results for"} <span>&quot;{query}&quot;</span>
+                {uiText(locale, "No results for", "Keine Ergebnisse für")} <span>&quot;{query}&quot;</span>
               </p>
             </div>
           ) : (
@@ -342,13 +333,13 @@ export function ProjectsTable({ projects }: Props) {
                         <DropdownMenuItem asChild>
                           <Link href={withLocalePrefix(`/projects/${project.id}/translations/languages`, locale)} className="flex items-center gap-2">
                             <ExternalLink className="h-3.5 w-3.5" />
-                            {locale === "de" ? "Öffnen" : "Open"}
+                            {uiText(locale, "Open", "Öffnen")}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href={withLocalePrefix(`/projects/${project.id}/settings`, locale)} className="flex items-center gap-2">
                             <Settings className="h-3.5 w-3.5" />
-                            {locale === "de" ? "Einstellungen" : "Settings"}
+                            {uiText(locale, "Settings", "Einstellungen")}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -358,12 +349,8 @@ export function ProjectsTable({ projects }: Props) {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           {deletingId === project.id
-                            ? locale === "de"
-                              ? "Löschen…"
-                              : "Deleting..."
-                            : locale === "de"
-                              ? "Löschen"
-                              : "Delete"}
+                            ? uiText(locale, "Deleting...", "Löschen…")
+                            : uiText(locale, "Delete", "Löschen")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

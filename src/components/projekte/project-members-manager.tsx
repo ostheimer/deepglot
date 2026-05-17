@@ -19,6 +19,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocale } from "@/components/providers/locale-provider";
+import { getIntlLocale } from "@/lib/locale-formatting";
+import type { SiteLocale } from "@/lib/site-locale";
+import { localizeCopy, uiText } from "@/lib/static-copy";
 
 type ProjectRole = "ADMIN" | "TRANSLATOR";
 
@@ -166,17 +169,17 @@ function getInitial(email: string) {
   return email.charAt(0).toUpperCase();
 }
 
-function formatDate(value: string | Date, locale: "en" | "de") {
-  return new Date(value).toLocaleDateString(locale === "de" ? "de-AT" : "en-US", {
+function formatDate(value: string | Date, locale: SiteLocale) {
+  return new Date(value).toLocaleDateString(getIntlLocale(locale), {
     year: "numeric",
     month: "short",
     day: "2-digit",
   });
 }
 
-function roleLabel(role: ProjectRole, locale: "en" | "de") {
+function roleLabel(role: ProjectRole, locale: SiteLocale) {
   if (role === "ADMIN") return "Admin";
-  return locale === "de" ? "Übersetzer" : "Translator";
+  return uiText(locale, "Translator", "Übersetzer");
 }
 
 export function ProjectMembersManager({
@@ -187,7 +190,7 @@ export function ProjectMembersManager({
   organizationAdmins,
 }: ProjectMembersManagerProps) {
   const locale = useLocale();
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [members, setMembers] = useState(initialMembers);

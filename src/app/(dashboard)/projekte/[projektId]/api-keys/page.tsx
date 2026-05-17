@@ -10,6 +10,7 @@ import { requireProjectManagement } from "@/lib/project-page-access";
 import { CreateApiKeyDialog } from "@/components/projekte/create-api-key-dialog";
 import { DeleteApiKeyButton } from "@/components/projekte/delete-api-key-button";
 import { NewApiKeyBanner } from "@/components/projekte/new-api-key-banner";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -35,17 +36,15 @@ export default async function ApiKeysPage({ params }: PageProps) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900">
-            {locale === "de" ? "API-Keys" : "API keys"}
+            {uiText(locale, "API keys", "API-Keys")}
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            {locale === "de"
-              ? "API-Keys verbinden dein WordPress-Plugin mit Deepglot"
-              : "API keys connect your WordPress plugin to Deepglot"}
+            {uiText(locale, "API keys connect your WordPress plugin to Deepglot", "API-Keys verbinden dein WordPress-Plugin mit Deepglot")}
           </p>
         </div>
         <CreateApiKeyDialog
           projectId={projektId}
-          label={locale === "de" ? "Neuen API-Key erstellen" : "Create new API key"}
+          label={uiText(locale, "Create new API key", "Neuen API-Key erstellen")}
         />
       </div>
 
@@ -56,16 +55,14 @@ export default async function ApiKeysPage({ params }: PageProps) {
               <Key className="h-6 w-6 text-gray-400" />
             </div>
             <h3 className="font-medium text-gray-900 mb-2">
-              {locale === "de" ? "Noch kein API-Key" : "No API key yet"}
+              {uiText(locale, "No API key yet", "Noch kein API-Key")}
             </h3>
             <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
-              {locale === "de"
-                ? "Erstelle einen API-Key und trage ihn in deinem WordPress-Plugin ein."
-                : "Create an API key and add it to your WordPress plugin."}
+              {uiText(locale, "Create an API key and add it to your WordPress plugin.", "Erstelle einen API-Key und trage ihn in deinem WordPress-Plugin ein.")}
             </p>
             <CreateApiKeyDialog
               projectId={projektId}
-              label={locale === "de" ? "Ersten API-Key erstellen" : "Create first API key"}
+              label={uiText(locale, "Create first API key", "Ersten API-Key erstellen")}
             />
           </CardContent>
         </Card>
@@ -78,7 +75,7 @@ export default async function ApiKeysPage({ params }: PageProps) {
               {locale === "de" ? "ERSTELLT" : "CREATED"}
             </span>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {locale === "de" ? "ZULETZT GENUTZT" : "LAST USED"}
+              {uiText(locale, "LAST USED", "ZULETZT GENUTZT")}
             </span>
             <span></span>
           </div>
@@ -92,7 +89,7 @@ export default async function ApiKeysPage({ params }: PageProps) {
                 <p className="text-sm font-medium text-gray-900">{apiKey.name}</p>
                 {!apiKey.isActive && (
                   <Badge variant="outline" className="text-xs text-gray-400">
-                    {locale === "de" ? "Inaktiv" : "Inactive"}
+                    {uiText(locale, "Inactive", "Inaktiv")}
                   </Badge>
                 )}
               </div>
@@ -102,26 +99,22 @@ export default async function ApiKeysPage({ params }: PageProps) {
                   {apiKey.keyPrefix}••••••••
                 </code>
                 <p className="text-xs text-gray-400">
-                  {locale === "de"
-                    ? "Vollstaendiger Schluessel war nur bei der Erstellung sichtbar."
-                    : "The full key was visible only when it was created."}
+                  {uiText(locale, "The full key was visible only when it was created.", "Vollständiger Schlüssel war nur bei der Erstellung sichtbar.")}
                 </p>
               </div>
 
               <span className="text-sm text-gray-500">
-                {format(apiKey.createdAt, locale === "de" ? "dd.MM.yyyy" : "MM/dd/yyyy", {
+                {format(apiKey.createdAt, uiText(locale, "MM/dd/yyyy", "dd.MM.yyyy"), {
                   locale: getDateFnsLocale(locale),
                 })}
               </span>
 
               <span className="text-sm text-gray-500">
                 {apiKey.lastUsedAt
-                  ? format(apiKey.lastUsedAt, locale === "de" ? "dd.MM.yyyy" : "MM/dd/yyyy", {
+                  ? format(apiKey.lastUsedAt, uiText(locale, "MM/dd/yyyy", "dd.MM.yyyy"), {
                       locale: getDateFnsLocale(locale),
                     })
-                  : locale === "de"
-                    ? "Noch nie"
-                    : "Never"}
+                  : uiText(locale, "Never", "Noch nie")}
               </span>
 
               <DeleteApiKeyButton apiKeyId={apiKey.id} projectId={projektId} />
@@ -134,22 +127,20 @@ export default async function ApiKeysPage({ params }: PageProps) {
       <Card className="mt-6 bg-gray-50 border-gray-200">
         <CardContent className="py-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            {locale === "de" ? "WordPress Plugin einrichten" : "Set up the WordPress plugin"}
+            {uiText(locale, "Set up the WordPress plugin", "WordPress Plugin einrichten")}
           </h3>
           <ol className="space-y-2 text-sm text-gray-600">
             <li className="flex gap-2">
               <span className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-medium">1</span>
-              {locale === "de"
-                ? "Plugin von WordPress.org herunterladen und installieren"
-                : "Download and install the plugin from WordPress.org"}
+              {uiText(locale, "Download and install the plugin from WordPress.org", "Plugin von WordPress.org herunterladen und installieren")}
             </li>
             <li className="flex gap-2">
               <span className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-medium">2</span>
-              {locale === "de" ? "In WordPress: Einstellungen → Deepglot" : "In WordPress: Settings → Deepglot"}
+              {uiText(locale, "In WordPress: Settings → Deepglot", "In WordPress: Einstellungen → Deepglot")}
             </li>
             <li className="flex gap-2">
               <span className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-medium">3</span>
-              {locale === "de" ? "API-Key eintragen und Sprachen konfigurieren" : "Add the API key and configure languages"}
+              {uiText(locale, "Add the API key and configure languages", "API-Key eintragen und Sprachen konfigurieren")}
             </li>
           </ol>
         </CardContent>

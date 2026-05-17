@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import {
   DEFAULT_MARKETING_LOCALE,
   SITE_LOCALE_COOKIE,
+  isSiteLocale,
   type SiteLocale,
 } from "@/lib/site-locale";
 
@@ -12,17 +13,17 @@ export type LocaleSearchParams = SearchParamsLike | Promise<SearchParamsLike>;
 
 export async function getRequestLocale(): Promise<SiteLocale> {
   const cookieLocale = (await cookies()).get(SITE_LOCALE_COOKIE)?.value;
-  if (cookieLocale === "de") {
-    return "de";
+  if (isSiteLocale(cookieLocale)) {
+    return cookieLocale;
   }
 
   const headerLocale = (await headers()).get("x-deepglot-locale");
-  return headerLocale === "de" ? "de" : DEFAULT_MARKETING_LOCALE;
+  return isSiteLocale(headerLocale) ? headerLocale : DEFAULT_MARKETING_LOCALE;
 }
 
 export async function getCookieLocale(): Promise<SiteLocale> {
   const value = (await cookies()).get(SITE_LOCALE_COOKIE)?.value;
-  return value === "de" ? "de" : DEFAULT_MARKETING_LOCALE;
+  return isSiteLocale(value) ? value : DEFAULT_MARKETING_LOCALE;
 }
 
 export async function getPageLocale(
@@ -33,12 +34,8 @@ export async function getPageLocale(
     const rawLocale = resolved.__locale;
     const locale = Array.isArray(rawLocale) ? rawLocale[0] : rawLocale;
 
-    if (locale === "de") {
-      return "de";
-    }
-
-    if (locale === "en") {
-      return "en";
+    if (isSiteLocale(locale)) {
+      return locale;
     }
   }
 

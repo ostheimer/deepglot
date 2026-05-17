@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 import { getLanguageName } from "@/lib/language-names";
+import { uiText } from "@/lib/static-copy";
 
 type ImportConfig = {
   asset: "translations" | "glossary" | "slugs";
@@ -36,33 +37,27 @@ export function ImportExportPanel({
   const poLanguageSelectId = "po-target-language";
 
   const copy = {
-    title: locale === "de" ? "Import & Export" : "Import & export",
+    title: uiText(locale, "Import & export", "Import & Export"),
     description:
-      locale === "de"
-        ? "CSV deckt Übersetzungen, Glossarregeln und URL-Slugs ab. PO-Dateien unterstützen Übersetzungen pro Zielsprache."
-        : "CSV covers translations, glossary rules, and URL slugs. PO files support translations per target language.",
-    import: locale === "de" ? "Importieren" : "Import",
-    export: locale === "de" ? "Exportieren" : "Export",
+      uiText(locale, "CSV covers translations, glossary rules, and URL slugs. PO files support translations per target language.", "CSV deckt Übersetzungen, Glossarregeln und URL-Slugs ab. PO-Dateien unterstützen Übersetzungen pro Zielsprache."),
+    import: uiText(locale, "Import", "Importieren"),
+    export: uiText(locale, "Export", "Exportieren"),
     translations:
-      locale === "de" ? "Übersetzungen" : "Translations",
-    glossary: locale === "de" ? "Glossarregeln" : "Glossary rules",
-    slugs: locale === "de" ? "URL-Slugs" : "URL slugs",
+      uiText(locale, "Translations", "Übersetzungen"),
+    glossary: uiText(locale, "Glossary rules", "Glossarregeln"),
+    slugs: uiText(locale, "URL slugs", "URL-Slugs"),
     chooseLanguage:
-      locale === "de" ? "Zielsprache für PO" : "Target language for PO",
+      uiText(locale, "Target language for PO", "Zielsprache für PO"),
     importSuccess:
-      locale === "de" ? "Import erfolgreich abgeschlossen" : "Import finished successfully",
+      uiText(locale, "Import finished successfully", "Import erfolgreich abgeschlossen"),
     csvHint:
-      locale === "de"
-        ? "CSV mit festen englischen Spaltenüberschriften."
-        : "CSV with fixed English column headers.",
+      uiText(locale, "CSV with fixed English column headers.", "CSV mit festen englischen Spaltenüberschriften."),
     poHint:
       locale === "de"
         ? `PO-Dateien immer pro Zielsprache. Ausgangssprache: ${getLanguageName(originalLang, locale)}.`
         : `PO files are always per target language. Source language: ${getLanguageName(originalLang, locale)}.`,
     noPoLanguages:
-      locale === "de"
-        ? "Füge zuerst eine aktive Zielsprache hinzu, bevor du PO-Dateien importierst oder exportierst."
-        : "Add an active target language before importing or exporting PO files.",
+      uiText(locale, "Add an active target language before importing or exporting PO files.", "Füge zuerst eine aktive Zielsprache hinzu, bevor du PO-Dateien importierst oder exportierst."),
   };
 
   function openImport(config: ImportConfig) {
@@ -112,7 +107,7 @@ export function ImportExportPanel({
       if (!response.ok) {
         toast.error(
           data.error ??
-            (locale === "de" ? "Import fehlgeschlagen" : "Import failed")
+            (uiText(locale, "Import failed", "Import fehlgeschlagen"))
         );
         return;
       }
@@ -130,9 +125,7 @@ export function ImportExportPanel({
     {
       title: `${copy.translations} CSV`,
       description:
-        locale === "de"
-          ? "Importiert oder exportiert alle gespeicherten Übersetzungen als CSV."
-          : "Import or export all stored translations as CSV.",
+        uiText(locale, "Import or export all stored translations as CSV.", "Importiert oder exportiert alle gespeicherten Übersetzungen als CSV."),
       hint: copy.csvHint,
       asset: "translations" as const,
       format: "csv" as const,
@@ -140,9 +133,7 @@ export function ImportExportPanel({
     {
       title: copy.glossary,
       description:
-        locale === "de"
-          ? "Pflegt Glossarregeln als CSV mit Zeilenvalidierung und Upserts."
-          : "Manage glossary rules as CSV with row validation and upserts.",
+        uiText(locale, "Manage glossary rules as CSV with row validation and upserts.", "Pflegt Glossarregeln als CSV mit Zeilenvalidierung und Upserts."),
       hint: copy.csvHint,
       asset: "glossary" as const,
       format: "csv" as const,
@@ -150,9 +141,7 @@ export function ImportExportPanel({
     {
       title: copy.slugs,
       description:
-        locale === "de"
-          ? "Importiert oder exportiert URL-Slugs als CSV."
-          : "Import or export URL slugs as CSV.",
+        uiText(locale, "Import or export URL slugs as CSV.", "Importiert oder exportiert URL-Slugs als CSV."),
       hint: copy.csvHint,
       asset: "slugs" as const,
       format: "csv" as const,
@@ -217,9 +206,7 @@ export function ImportExportPanel({
               {copy.translations} PO
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              {locale === "de"
-                ? "PO-Import schreibt manuelle Übersetzungen als autoritative Overrides."
-                : "PO import writes manual translations as authoritative overrides."}
+              {uiText(locale, "PO import writes manual translations as authoritative overrides.", "PO-Import schreibt manuelle Übersetzungen als autoritative Overrides.")}
             </p>
             <p className="mt-3 text-xs text-gray-400">{copy.poHint}</p>
           </div>

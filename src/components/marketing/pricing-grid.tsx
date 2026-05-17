@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import { getIntlLocale } from "@/lib/locale-formatting";
+import { localizeCopy, uiText } from "@/lib/static-copy";
 import {
   BILLING_PLANS,
   BILLING_PLAN_KEYS,
@@ -20,7 +22,7 @@ import {
  */
 const PLAN_FEATURES: Record<
   BillingPlanKey,
-  Record<SiteLocale, string[]>
+  { en: string[]; de: string[] }
 > = {
   FREE: {
     en: ["AI translation", "Glossary", "1 project · 1 language", "Community support"],
@@ -170,12 +172,11 @@ const PRICING_COPY = {
 function formatWordCount(value: number, locale: SiteLocale): string {
   if (value >= 1_000_000) {
     const millions = value / 1_000_000;
-    if (locale === "de") {
-      return `${millions.toLocaleString("de-AT", { maximumFractionDigits: 1 })} Mio.`;
-    }
-    return `${millions.toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
+    return `${millions.toLocaleString(getIntlLocale(locale), {
+      maximumFractionDigits: 1,
+    })}${uiText(locale, "M", " Mio.")}`;
   }
-  return value.toLocaleString(locale === "de" ? "de-AT" : "en-US");
+  return value.toLocaleString(getIntlLocale(locale));
 }
 
 function centsToWholeEuros(cents: number | null | undefined): number | null {
@@ -195,13 +196,13 @@ export function PricingGrid({ locale }: PricingGridProps) {
   const [tierIndex, setTierIndex] = useState(defaultIndex);
   const [yearly, setYearly] = useState(false);
 
-  const copy = PRICING_COPY[locale];
+  const copy = localizeCopy(locale, PRICING_COPY);
   const signupHref = getMarketingPath(locale, "signup");
   const enterpriseMailto = "mailto:office@ostheimer.at?subject=Deepglot%20Enterprise";
 
   const tierKey = BILLING_PLAN_KEYS[tierIndex];
   const tier = BILLING_PLANS[tierKey];
-  const features = PLAN_FEATURES[tierKey][locale];
+  const features = localizeCopy(locale, PLAN_FEATURES[tierKey]);
   const isFree = tierKey === "FREE";
   const isEnterprise = tierKey === "ENTERPRISE";
 

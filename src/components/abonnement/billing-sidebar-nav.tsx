@@ -6,6 +6,7 @@ import { FileText, CreditCard, Activity } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { cn } from "@/lib/utils";
+import { uiText } from "@/lib/static-copy";
 
 export function BillingSidebarNav() {
   const locale = useLocale();
@@ -13,17 +14,17 @@ export function BillingSidebarNav() {
   const items = [
     {
       href: withLocalePrefix("/subscription/overview", locale),
-      label: locale === "de" ? "Plan-Übersicht" : "Plan Overview",
+      label: uiText(locale, "Plan Overview", "Plan-Übersicht"),
       icon: FileText,
     },
     {
       href: withLocalePrefix("/subscription/billing", locale),
-      label: locale === "de" ? "Karte & Rechnungen" : "Billing & Invoices",
+      label: uiText(locale, "Billing & Invoices", "Karte & Rechnungen"),
       icon: CreditCard,
     },
     {
       href: withLocalePrefix("/subscription/usage", locale),
-      label: locale === "de" ? "Nutzung" : "Usage",
+      label: uiText(locale, "Usage", "Nutzung"),
       icon: Activity,
     },
   ];

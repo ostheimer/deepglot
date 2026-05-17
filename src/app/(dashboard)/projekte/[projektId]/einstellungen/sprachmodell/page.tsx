@@ -6,12 +6,14 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userCanManageProject } from "@/lib/project-access";
 import { getRequestLocale } from "@/lib/request-locale";
+import { withLocalePrefix } from "@/lib/site-locale";
 import {
   TRANSLATION_PROVIDERS,
   getProviderLabel,
   getRecommendedModels,
   resolveTranslationProviderConfig,
 } from "@/lib/translation-config";
+import { uiText } from "@/lib/static-copy";
 
 type SprachmodellPageProps = {
   params: Promise<{ projektId: string }>;
@@ -21,7 +23,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
   const locale = await getRequestLocale();
   const session = await auth();
   if (!session?.user?.id) {
-    redirect(locale === "de" ? "/de/login" : "/login");
+    redirect(withLocalePrefix("/login", locale));
   }
 
   const { projektId } = await params;
@@ -44,15 +46,13 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
     <div className="max-w-3xl space-y-6">
       <div>
         <p className="text-sm font-medium text-indigo-600">
-          {locale === "de" ? "Anbieter & Modell" : "Provider & model"}
+          {uiText(locale, "Provider & model", "Anbieter & Modell")}
         </p>
         <h2 className="mt-1 text-2xl font-bold text-gray-900">
-          {locale === "de" ? "Sprachmodell" : "Language model"}
+          {uiText(locale, "Language model", "Sprachmodell")}
         </h2>
         <p className="mt-2 text-sm text-gray-500">
-          {locale === "de"
-            ? "Konfiguriere OpenAI, OpenRouter, Ollama, DeepL oder jeden OpenAI-kompatiblen Anbieter pro Projekt."
-            : "Configure OpenAI, OpenRouter, Ollama, DeepL, or any OpenAI-compatible provider per project."}
+          {uiText(locale, "Configure OpenAI, OpenRouter, Ollama, DeepL, or any OpenAI-compatible provider per project.", "Konfiguriere OpenAI, OpenRouter, Ollama, DeepL oder jeden OpenAI-kompatiblen Anbieter pro Projekt.")}
         </p>
       </div>
 
@@ -60,34 +60,28 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <Sparkles className="h-5 w-5 text-indigo-600" />
           <p className="mt-3 text-sm font-semibold text-gray-900">
-            {locale === "de" ? "Aktuelle OpenAI-Serie" : "Current OpenAI series"}
+            {uiText(locale, "Current OpenAI series", "Aktuelle OpenAI-Serie")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {locale === "de"
-              ? "Standard: gpt-5-mini für beste Kosten/Qualität. Pro/Flagship-Modelle wie gpt-5.5 sind opt-in."
-              : "Default: gpt-5-mini for best cost/quality. Pro/flagship models like gpt-5.5 are opt-in."}
+            {uiText(locale, "Default: gpt-5-mini for best cost/quality. Pro/flagship models like gpt-5.5 are opt-in.", "Standard: gpt-5-mini für beste Kosten/Qualität. Pro/Flagship-Modelle wie gpt-5.5 sind opt-in.")}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <Cpu className="h-5 w-5 text-indigo-600" />
           <p className="mt-3 text-sm font-semibold text-gray-900">
-            {locale === "de" ? "Gateway-fähig" : "Gateway-ready"}
+            {uiText(locale, "Gateway-ready", "Gateway-fähig")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {locale === "de"
-              ? "OpenRouter, Ollama, LiteLLM, LM Studio oder eigene OpenAI-kompatible Endpoints."
-              : "OpenRouter, Ollama, LiteLLM, LM Studio, or custom OpenAI-compatible endpoints."}
+            {uiText(locale, "OpenRouter, Ollama, LiteLLM, LM Studio, or custom OpenAI-compatible endpoints.", "OpenRouter, Ollama, LiteLLM, LM Studio oder eigene OpenAI-kompatible Endpoints.")}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <ShieldCheck className="h-5 w-5 text-indigo-600" />
           <p className="mt-3 text-sm font-semibold text-gray-900">
-            {locale === "de" ? "Schlüssel geschützt" : "Protected keys"}
+            {uiText(locale, "Protected keys", "Schlüssel geschützt")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {locale === "de"
-              ? "Projekt-API-Keys werden verschlüsselt gespeichert."
-              : "Project API keys are stored encrypted at rest."}
+            {uiText(locale, "Project API keys are stored encrypted at rest.", "Projekt-API-Keys werden verschlüsselt gespeichert.")}
           </p>
         </div>
       </div>

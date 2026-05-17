@@ -3,9 +3,11 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
+import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
-function t(locale: "en" | "de", deText: string, enText: string) {
-  return locale === "de" ? deText : enText;
+function t(locale: SiteLocale, deText: string, enText: string) {
+  return uiText(locale, enText, deText);
 }
 
 export async function GET(

@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getLanguageName } from "@/lib/language-names";
+import { uiText } from "@/lib/static-copy";
 
 interface GlossaryRule {
   id: string;
@@ -80,34 +81,26 @@ export function GlossaryTable({
   );
 
   const copy = {
-    title: locale === "de" ? "Glossar" : "Glossary",
-    addRule: locale === "de" ? "Glossarregel hinzufügen" : "Add glossary rule",
-    editRule: locale === "de" ? "Glossarregel bearbeiten" : "Edit glossary rule",
-    importFile: locale === "de" ? "Datei importieren" : "Import file",
-    exportFile: locale === "de" ? "CSV exportieren" : "Export CSV",
-    save: locale === "de" ? "Speichern" : "Save",
-    cancel: locale === "de" ? "Abbrechen" : "Cancel",
-    originalTerm: locale === "de" ? "Originalbegriff" : "Original term",
+    title: uiText(locale, "Glossary", "Glossar"),
+    addRule: uiText(locale, "Add glossary rule", "Glossarregel hinzufügen"),
+    editRule: uiText(locale, "Edit glossary rule", "Glossarregel bearbeiten"),
+    importFile: uiText(locale, "Import file", "Datei importieren"),
+    exportFile: uiText(locale, "Export CSV", "CSV exportieren"),
+    save: uiText(locale, "Save", "Speichern"),
+    cancel: uiText(locale, "Cancel", "Abbrechen"),
+    originalTerm: uiText(locale, "Original term", "Originalbegriff"),
     translatedTerm:
-      locale === "de" ? "Übersetzter Begriff" : "Translated term",
-    sourceLanguage: locale === "de" ? "Ausgangssprache" : "Source language",
-    targetLanguage: locale === "de" ? "Zielsprache" : "Target language",
+      uiText(locale, "Translated term", "Übersetzter Begriff"),
+    sourceLanguage: uiText(locale, "Source language", "Ausgangssprache"),
+    targetLanguage: uiText(locale, "Target language", "Zielsprache"),
     caseSensitive:
-      locale === "de"
-        ? "Groß-/Kleinschreibung beachten"
-        : "Match case-sensitively",
+      uiText(locale, "Match case-sensitively", "Groß-/Kleinschreibung beachten"),
     neverTranslate:
-      locale === "de"
-        ? "Nicht übersetzen"
-        : "Never translate this term",
+      uiText(locale, "Never translate this term", "Nicht übersetzen"),
     empty:
-      locale === "de"
-        ? "Noch keine Glossarregeln vorhanden."
-        : "No glossary rules yet.",
+      uiText(locale, "No glossary rules yet.", "Noch keine Glossarregeln vorhanden."),
     description:
-      locale === "de"
-        ? "Glossarregeln werden vor der Provider-Übersetzung geschützt. Manuelle Übersetzungen haben weiterhin Vorrang."
-        : "Glossary rules are protected before provider translation. Manual translations still take precedence.",
+      uiText(locale, "Glossary rules are protected before provider translation. Manual translations still take precedence.", "Glossarregeln werden vor der Provider-Übersetzung geschützt. Manuelle Übersetzungen haben weiterhin Vorrang."),
   };
 
   function resetForm(nextOpen: boolean) {
@@ -180,9 +173,7 @@ export function GlossaryTable({
       if (!response.ok || !data.rule) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "Glossarregel konnte nicht gespeichert werden"
-              : "Could not save glossary rule")
+            (uiText(locale, "Could not save glossary rule", "Glossarregel konnte nicht gespeichert werden"))
         );
         return;
       }
@@ -194,9 +185,7 @@ export function GlossaryTable({
       resetForm(false);
       router.refresh();
       toast.success(
-        locale === "de"
-          ? "Glossarregel gespeichert"
-          : "Glossary rule saved"
+        uiText(locale, "Glossary rule saved", "Glossarregel gespeichert")
       );
     });
   }
@@ -221,9 +210,7 @@ export function GlossaryTable({
       if (!response.ok) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "Glossarregel konnte nicht gelöscht werden"
-              : "Could not delete glossary rule")
+            (uiText(locale, "Could not delete glossary rule", "Glossarregel konnte nicht gelöscht werden"))
         );
         return;
       }
@@ -231,9 +218,7 @@ export function GlossaryTable({
       setRules((current) => current.filter((item) => item.id !== rule.id));
       router.refresh();
       toast.success(
-        locale === "de"
-          ? "Glossarregel gelöscht"
-          : "Glossary rule deleted"
+        uiText(locale, "Glossary rule deleted", "Glossarregel gelöscht")
       );
     });
   }
@@ -257,9 +242,7 @@ export function GlossaryTable({
       if (!response.ok) {
         toast.error(
           data.error ??
-            (locale === "de"
-              ? "Glossar konnte nicht importiert werden"
-              : "Could not import glossary")
+            (uiText(locale, "Could not import glossary", "Glossar konnte nicht importiert werden"))
         );
         return;
       }
@@ -328,10 +311,10 @@ export function GlossaryTable({
             Original
           </span>
           <span className="text-xs font-semibold tracking-wider text-gray-500 uppercase">
-            {locale === "de" ? "Übersetzung" : "Translation"}
+            {uiText(locale, "Translation", "Übersetzung")}
           </span>
           <span className="text-xs font-semibold tracking-wider text-gray-500 uppercase">
-            {locale === "de" ? "Sprache" : "Language"}
+            {uiText(locale, "Language", "Sprache")}
           </span>
           <span />
         </div>
@@ -353,9 +336,7 @@ export function GlossaryTable({
                 <div className="mt-1 flex flex-wrap gap-2">
                   {rule.caseSensitive && (
                     <Badge variant="outline" className="text-xs">
-                      {locale === "de"
-                        ? "Groß-/Kleinschreibung"
-                        : "Case-sensitive"}
+                      {uiText(locale, "Case-sensitive", "Groß-/Kleinschreibung")}
                     </Badge>
                   )}
                   {rule.originalTerm === rule.translatedTerm && (
@@ -410,9 +391,7 @@ export function GlossaryTable({
           <DialogHeader>
             <DialogTitle>{form.id ? copy.editRule : copy.addRule}</DialogTitle>
             <DialogDescription>
-              {locale === "de"
-                ? "Verwende denselben Zielbegriff wie den Originalbegriff, um einen Ausdruck nie zu übersetzen."
-                : "Use the same target term as the original term to keep a phrase untranslated."}
+              {uiText(locale, "Use the same target term as the original term to keep a phrase untranslated.", "Verwende denselben Zielbegriff wie den Originalbegriff, um einen Ausdruck nie zu übersetzen.")}
             </DialogDescription>
           </DialogHeader>
 

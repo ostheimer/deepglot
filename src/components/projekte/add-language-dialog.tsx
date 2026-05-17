@@ -14,6 +14,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { getLanguageName } from "@/lib/language-names";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { uiText } from "@/lib/static-copy";
 
 const ALL_LANGUAGE_CODES = [
   "en", "fr", "es", "it", "nl", "pl", "pt", "ru", "zh", "ja",
@@ -54,7 +55,7 @@ export function AddLanguageDialog({
 
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? (locale === "de" ? "Fehler beim Hinzufügen" : "Could not add languages"));
+        toast.error(data.error ?? (uiText(locale, "Could not add languages", "Fehler beim Hinzufügen")));
         return;
       }
 
@@ -76,24 +77,20 @@ export function AddLanguageDialog({
       <DialogTrigger asChild>
         <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
           <Plus className="mr-2 h-4 w-4" />
-          {locale === "de" ? "Sprache hinzufügen" : "Add language"}
+          {uiText(locale, "Add language", "Sprache hinzufügen")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{locale === "de" ? "Übersetzungssprachen hinzufügen" : "Add translation languages"}</DialogTitle>
+          <DialogTitle>{uiText(locale, "Add translation languages", "Übersetzungssprachen hinzufügen")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            {locale === "de"
-              ? "Wähle die Sprachen, in die du deine Website übersetzen möchtest."
-              : "Choose the languages you want to translate your website into."}
+            {uiText(locale, "Choose the languages you want to translate your website into.", "Wähle die Sprachen, in die du deine Website übersetzen möchtest.")}
           </p>
           {available.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-6">
-              {locale === "de"
-                ? "Alle verfügbaren Sprachen sind bereits hinzugefügt."
-                : "All available languages have already been added."}
+              {uiText(locale, "All available languages have already been added.", "Alle verfügbaren Sprachen sind bereits hinzugefügt.")}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -127,7 +124,7 @@ export function AddLanguageDialog({
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              {locale === "de" ? "Abbrechen" : "Cancel"}
+              {uiText(locale, "Cancel", "Abbrechen")}
             </Button>
             <Button
               className="bg-indigo-600 hover:bg-indigo-700"
@@ -135,9 +132,7 @@ export function AddLanguageDialog({
               disabled={selected.length === 0 || isLoading}
             >
               {isLoading
-                ? locale === "de"
-                  ? "Wird hinzugefügt..."
-                  : "Adding..."
+                ? uiText(locale, "Adding...", "Wird hinzugefügt...")
                 : locale === "de"
                   ? `${selected.length > 0 ? selected.length + " " : ""}Sprache${selected.length !== 1 ? "n" : ""} hinzufügen`
                   : `Add ${selected.length > 0 ? `${selected.length} ` : ""}language${selected.length !== 1 ? "s" : ""}`}

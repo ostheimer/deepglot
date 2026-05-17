@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export const metadata = { title: "Plan-Übersicht – Deepglot" };
 
@@ -74,16 +75,16 @@ export default async function PlanUebersichtPage({
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {locale === "de" ? "Plan-Übersicht" : "Plan overview"}
+        {uiText(locale, "Plan overview", "Plan-Übersicht")}
       </h1>
 
       <div className="bg-white border border-gray-200 rounded-xl p-8">
         <p className="text-sm text-gray-600 mb-3">
-          {locale === "de" ? "Dein aktueller Plan ist:" : "Your current plan is:"}
+          {uiText(locale, "Your current plan is:", "Dein aktueller Plan ist:")}
         </p>
 
         <h2 className="text-lg font-bold text-indigo-600 mb-2">
-          {PLAN_LABELS[plan]} {plan !== "FREE" ? locale === "de" ? "(Monatlich)" : "(Monthly)" : ""}
+          {PLAN_LABELS[plan]} {plan !== "FREE" ? uiText(locale, "(Monthly)", "(Monatlich)") : ""}
         </h2>
 
         {nextInvoiceDate && nextInvoiceAmount !== null && (
@@ -97,23 +98,23 @@ export default async function PlanUebersichtPage({
         {/* Features list */}
         <ul className="space-y-1.5 mb-5">
           <li className="text-sm text-gray-700">
-            {features.languages} {locale === "de" ? "übersetzte Sprachen" : "translated languages"}
+            {features.languages} {uiText(locale, "translated languages", "übersetzte Sprachen")}
           </li>
           <li className="text-sm text-gray-700">
-            {features.projects} {locale === "de" ? "Projekte" : "projects"}
+            {features.projects} {uiText(locale, "projects", "Projekte")}
           </li>
           <li className="text-sm text-gray-700">
-            {formatNumber(features.words, locale)} {locale === "de" ? "übersetzte Wörter" : "translated words"}
+            {formatNumber(features.words, locale)} {uiText(locale, "translated words", "übersetzte Wörter")}
           </li>
           <li className="text-sm text-gray-700">
-            {formatNumber(features.requests, locale)} {locale === "de" ? "Übersetzungs-Anfragen/Monat" : "translation requests/month"}
+            {formatNumber(features.requests, locale)} {uiText(locale, "translation requests/month", "Übersetzungs-Anfragen/Monat")}
           </li>
         </ul>
 
         <p className="text-sm text-gray-600 mb-6">
-          {locale === "de" ? "Überprüfe deine" : "Review your"}{" "}
+          {uiText(locale, "Review your", "Überprüfe deine")}{" "}
           <Link href={withLocalePrefix("/subscription/usage", locale)} className="text-indigo-600 hover:underline">
-            {locale === "de" ? "Plan-Nutzung für alle Projekte." : "plan usage across all projects."}
+            {uiText(locale, "plan usage across all projects.", "Plan-Nutzung für alle Projekte.")}
           </Link>
         </p>
 
@@ -122,13 +123,11 @@ export default async function PlanUebersichtPage({
           <div className="min-w-0">
             <p className="text-sm font-medium text-gray-900">Auto-Upgrade</p>
             <p className="text-sm text-gray-500 mt-0.5">
-              {locale === "de"
-                ? "Automatische Planwechsel sind noch nicht verfügbar, weil Stripe-Live-Abrechnung bewusst verschoben ist."
-                : "Automatic plan changes are not available yet because Stripe live billing is intentionally postponed."}
+              {uiText(locale, "Automatic plan changes are not available yet because Stripe live billing is intentionally postponed.", "Automatische Planwechsel sind noch nicht verfügbar, weil Stripe-Live-Abrechnung bewusst verschoben ist.")}
             </p>
           </div>
           <Badge variant="outline" className="shrink-0">
-            {locale === "de" ? "Aus" : "Off"}
+            {uiText(locale, "Off", "Aus")}
           </Badge>
         </div>
 
@@ -140,7 +139,7 @@ export default async function PlanUebersichtPage({
           />
           <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
             <Link href={withLocalePrefix("/pricing", locale)}>
-              {locale === "de" ? "Plan wechseln" : "Change plan"}
+              {uiText(locale, "Change plan", "Plan wechseln")}
             </Link>
           </Button>
         </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
+import { uiText } from "@/lib/static-copy";
 
 type LegalNoticePageProps = {
   searchParams: LocaleSearchParams;
@@ -20,28 +21,24 @@ export default async function LegalNoticePage({
   return (
     <SimpleMarketingPage
       locale={locale}
-      eyebrow={locale === "de" ? "Rechtliches" : "Legal"}
-      title={locale === "de" ? "Impressum" : "Legal Notice"}
+      eyebrow={uiText(locale, "Legal", "Rechtliches")}
+      title={uiText(locale, "Legal Notice", "Impressum")}
       description={
-        locale === "de"
-          ? "Angaben zum Betreiber von Deepglot."
-          : "Operator information for Deepglot."
+        uiText(locale, "Operator information for Deepglot.", "Angaben zum Betreiber von Deepglot.")
       }
       sections={[
         {
-          title: locale === "de" ? "Betreiber" : "Operator",
+          title: uiText(locale, "Operator", "Betreiber"),
           body: "Andreas Ostheimer, Ostheimer Online-Marketing, Austria.",
         },
         {
-          title: locale === "de" ? "Kontakt" : "Contact",
+          title: uiText(locale, "Contact", "Kontakt"),
           body: "office@ostheimer.at",
         },
         {
-          title: locale === "de" ? "Haftung" : "Liability",
+          title: uiText(locale, "Liability", "Haftung"),
           body:
-            locale === "de"
-              ? "Diese Angaben dienen als technische Platzhalterseite für die Deepglot-Webanwendung und werden vor dem kommerziellen Launch final juristisch geprüft."
-              : "This information is a technical placeholder page for the Deepglot web app and will receive final legal review before commercial launch.",
+            uiText(locale, "This information is a technical placeholder page for the Deepglot web app and will receive final legal review before commercial launch.", "Diese Angaben dienen als technische Platzhalterseite für die Deepglot-Webanwendung und werden vor dem kommerziellen Launch final juristisch geprüft."),
         },
       ]}
     />

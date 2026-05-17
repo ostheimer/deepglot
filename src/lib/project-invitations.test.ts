@@ -37,7 +37,15 @@ test("builds localized invitation URLs", () => {
       locale: "de",
       baseUrl: "https://deepglot.ai",
     }),
-    "https://deepglot.ai/de/accept-invite?token=abc123"
+    "https://deepglot.ai/de/einladung-annehmen?token=abc123"
+  );
+  assert.equal(
+    buildProjectInvitationUrl({
+      token: "abc123",
+      locale: "fr",
+      baseUrl: "https://deepglot.ai",
+    }),
+    "https://deepglot.ai/fr/accepter-invitation?token=abc123"
   );
 });
 

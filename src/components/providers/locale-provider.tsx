@@ -3,7 +3,7 @@
 import { createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
 
-import type { SiteLocale } from "@/lib/site-locale";
+import { getDocumentLocale, type SiteLocale } from "@/lib/site-locale";
 
 const LocaleContext = createContext<SiteLocale>("en");
 
@@ -17,8 +17,7 @@ export function LocaleProvider({
   const pathname = usePathname();
   const currentPathname =
     typeof window === "undefined" ? pathname : window.location.pathname;
-  const derivedLocale =
-    currentPathname === "/de" || currentPathname.startsWith("/de/") ? "de" : locale;
+  const derivedLocale = getDocumentLocale(currentPathname || "/") || locale;
 
   return <LocaleContext.Provider value={derivedLocale}>{children}</LocaleContext.Provider>;
 }

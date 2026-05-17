@@ -11,6 +11,7 @@ import {
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatNumber } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 const PIE_COLORS = ["#8b5cf6", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#a78bfa"];
 
@@ -68,11 +69,9 @@ export function UsageCharts({
   const locale = useLocale();
   const wordsPercent = wordsLimit > 0 ? Math.min((totalWords / wordsLimit) * 100, 100) : 0;
   const wordsChartLabel =
-    locale === "de" ? "Wörter-Nutzung nach Projekt" : "Word usage by project";
+    uiText(locale, "Word usage by project", "Wörter-Nutzung nach Projekt");
   const requestsChartLabel =
-    locale === "de"
-      ? "Übersetzungsanfragen nach Projekt"
-      : "Translation requests by project";
+    uiText(locale, "Translation requests by project", "Übersetzungsanfragen nach Projekt");
 
   return (
     <div className="space-y-5">
@@ -82,7 +81,7 @@ export function UsageCharts({
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-semibold text-gray-900">
-              {locale === "de" ? "Gesamte Wörter-Nutzung" : "Total word usage"}
+              {uiText(locale, "Total word usage", "Gesamte Wörter-Nutzung")}
             </p>
             <p className="text-sm font-semibold text-indigo-600">
               {formatNumber(totalWords, locale)} / {formatNumber(wordsLimit, locale)}
@@ -126,7 +125,7 @@ export function UsageCharts({
           ) : (
             <div className="h-[220px] flex items-center justify-center">
               <p className="text-sm text-gray-400">
-                {locale === "de" ? "Noch keine Wörter übersetzt" : "No translated words yet"}
+                {uiText(locale, "No translated words yet", "Noch keine Wörter übersetzt")}
               </p>
             </div>
           )}
@@ -136,7 +135,7 @@ export function UsageCharts({
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-5">
             <p className="text-sm font-semibold text-gray-900">
-              {locale === "de" ? "Übersetzungs-Anfragen gesamt" : "Total translation requests"}
+              {uiText(locale, "Total translation requests", "Übersetzungs-Anfragen gesamt")}
             </p>
             <p className="text-sm font-semibold text-indigo-600">
               {formatNumber(totalRequests, locale)} / {formatNumber(requestsLimit, locale)}
@@ -172,7 +171,7 @@ export function UsageCharts({
           ) : (
             <div className="h-[220px] flex items-center justify-center">
               <p className="text-sm text-gray-400">
-                {locale === "de" ? "Noch keine Anfragen" : "No requests yet"}
+                {uiText(locale, "No requests yet", "Noch keine Anfragen")}
               </p>
             </div>
           )}
@@ -183,7 +182,7 @@ export function UsageCharts({
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">
-            {locale === "de" ? "Projekte" : "Projects"}
+            {uiText(locale, "Projects", "Projekte")}
           </h2>
           <span className="text-sm text-indigo-600 font-medium">
             {projectCount} / {projectsLimit}
@@ -193,13 +192,13 @@ export function UsageCharts({
         {/* Table header */}
         <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_100px] gap-3 px-6 py-2.5 bg-gray-50 border-b border-gray-200">
           {[
-            locale === "de" ? "Projektname" : "Project name",
+            uiText(locale, "Project name", "Projektname"),
             "Website",
-            locale === "de" ? "Wörter" : "Words",
-            locale === "de" ? "Anfragen" : "Requests",
-            locale === "de" ? "Sprachen" : "Languages",
-            locale === "de" ? "Mitglieder" : "Members",
-            locale === "de" ? "Aktionen" : "Actions",
+            uiText(locale, "Words", "Wörter"),
+            uiText(locale, "Requests", "Anfragen"),
+            uiText(locale, "Languages", "Sprachen"),
+            uiText(locale, "Members", "Mitglieder"),
+            uiText(locale, "Actions", "Aktionen"),
           ].map(
             (h) => (
               <span key={h} className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -212,7 +211,7 @@ export function UsageCharts({
         {projectRows.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm text-gray-400">
-              {locale === "de" ? "Noch keine Projekte" : "No projects yet"}
+              {uiText(locale, "No projects yet", "Noch keine Projekte")}
             </p>
           </div>
         ) : (
@@ -255,7 +254,7 @@ export function UsageCharts({
                   href={withLocalePrefix(`/projects/${p.id}/translations/languages`, locale)}
                   className="text-xs text-indigo-600 hover:underline"
                 >
-                  {locale === "de" ? "Details anzeigen" : "View details"}
+                  {uiText(locale, "View details", "Details anzeigen")}
                 </Link>
               </div>
             ))}

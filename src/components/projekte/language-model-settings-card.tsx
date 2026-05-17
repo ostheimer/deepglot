@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SiteLocale } from "@/lib/site-locale";
+import { localizeCopy } from "@/lib/static-copy";
 import type { TranslationProviderName } from "@/lib/translation-types";
 
 type ProviderOption = {
@@ -119,7 +120,7 @@ export function LanguageModelSettingsCard({
   initialEffective: EffectiveSettings;
   providers: ProviderOption[];
 }) {
-  const copy = COPY[locale];
+  const copy = localizeCopy(locale, COPY);
   const [provider, setProvider] = useState(initialSettings.provider ?? "");
   const [model, setModel] = useState(initialSettings.model ?? "");
   const [baseUrl, setBaseUrl] = useState(initialSettings.baseUrl ?? "");

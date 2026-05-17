@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocale } from "@/components/providers/locale-provider";
+import { uiText } from "@/lib/static-copy";
 
 interface Props {
   hasPassword: boolean;
@@ -29,9 +30,7 @@ export function PasswordChangeForm({ hasPassword }: Props) {
 
     if (newPassword !== confirmPassword) {
       setError(
-        locale === "de"
-          ? "Die neuen Passwörter stimmen nicht überein."
-          : "The new passwords do not match."
+        uiText(locale, "The new passwords do not match.", "Die neuen Passwörter stimmen nicht überein.")
       );
       setLoading(false);
       return;
@@ -45,7 +44,7 @@ export function PasswordChangeForm({ hasPassword }: Props) {
 
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? (locale === "de" ? "Ein Fehler ist aufgetreten." : "Something went wrong."));
+      setError(data.error ?? (uiText(locale, "Something went wrong.", "Ein Fehler ist aufgetreten.")));
     } else {
       setSuccess(true);
       form.reset();
@@ -58,12 +57,12 @@ export function PasswordChangeForm({ hasPassword }: Props) {
       {hasPassword && (
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "Aktuelles Passwort" : "Current password"}
+            {uiText(locale, "Current password", "Aktuelles Passwort")}
           </Label>
           <Input
             name="currentPassword"
             type="password"
-            placeholder={locale === "de" ? "Aktuelles Passwort eingeben" : "Enter current password"}
+            placeholder={uiText(locale, "Enter current password", "Aktuelles Passwort eingeben")}
             className="max-w-md"
           />
         </div>
@@ -72,24 +71,24 @@ export function PasswordChangeForm({ hasPassword }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "Neues Passwort" : "New password"}
+            {uiText(locale, "New password", "Neues Passwort")}
           </Label>
           <Input
             name="newPassword"
             type="password"
-            placeholder={locale === "de" ? "Neues Passwort eingeben" : "Enter new password"}
+            placeholder={uiText(locale, "Enter new password", "Neues Passwort eingeben")}
             required
             minLength={8}
           />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "Passwort bestätigen" : "Confirm password"}
+            {uiText(locale, "Confirm password", "Passwort bestätigen")}
           </Label>
           <Input
             name="confirmPassword"
             type="password"
-            placeholder={locale === "de" ? "Neues Passwort bestätigen" : "Confirm new password"}
+            placeholder={uiText(locale, "Confirm new password", "Neues Passwort bestätigen")}
             required
           />
         </div>
@@ -98,7 +97,7 @@ export function PasswordChangeForm({ hasPassword }: Props) {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {success && (
         <p className="text-sm text-green-600">
-          {locale === "de" ? "Passwort erfolgreich geändert." : "Password updated successfully."}
+          {uiText(locale, "Password updated successfully.", "Passwort erfolgreich geändert.")}
         </p>
       )}
 
@@ -109,12 +108,8 @@ export function PasswordChangeForm({ hasPassword }: Props) {
           className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm"
         >
           {loading
-            ? locale === "de"
-              ? "Speichern…"
-              : "Saving..."
-            : locale === "de"
-              ? "Passwort ändern"
-              : "Change password"}
+            ? uiText(locale, "Saving...", "Speichern…")
+            : uiText(locale, "Change password", "Passwort ändern")}
         </Button>
       </div>
     </form>

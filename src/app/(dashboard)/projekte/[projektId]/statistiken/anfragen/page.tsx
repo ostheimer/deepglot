@@ -16,6 +16,7 @@ import {
 import { formatNumber } from "@/lib/locale-formatting";
 import { requireProjectAreaAccess } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
+import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -76,7 +77,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
     .map((key) => ({
       date: key,
       requests: sumByBucket.get(key) ?? 0,
-      langPair: locale === "de" ? "Wörter" : "Words",
+      langPair: uiText(locale, "Words", "Wörter"),
     }));
 
   const totalWords = batchLogs.reduce((sum, log) => sum + log.totalWords, 0);
@@ -113,16 +114,16 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
   });
 
   const zeitraumOptions = [
-    { value: "7", label: locale === "de" ? "Letzte 7 Tage" : "Last 7 days" },
-    { value: "30", label: locale === "de" ? "Letzte 30 Tage" : "Last 30 days" },
-    { value: "90", label: locale === "de" ? "Letzte 90 Tage" : "Last 90 days" },
+    { value: "7", label: uiText(locale, "Last 7 days", "Letzte 7 Tage") },
+    { value: "30", label: uiText(locale, "Last 30 days", "Letzte 30 Tage") },
+    { value: "90", label: uiText(locale, "Last 90 days", "Letzte 90 Tage") },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">
-          {locale === "de" ? "Übersetzungsanfragen" : "Translation requests"}
+          {uiText(locale, "Translation requests", "Übersetzungsanfragen")}
         </h2>
 
         <AnalyticsRangeSelector
@@ -142,9 +143,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
                 <span className="text-indigo-600">{formatNumber(totalWords, locale)}</span>
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                {locale === "de"
-                  ? "Übersetztes Volumen für den gewählten Zeitraum"
-                  : "Translated volume for the selected period"}
+                {uiText(locale, "Translated volume for the selected period", "Übersetztes Volumen für den gewählten Zeitraum")}
               </p>
             </div>
 
@@ -180,19 +179,19 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                label: locale === "de" ? "Batches" : "Batches",
+                label: uiText(locale, "Batches", "Batches"),
                 value: totalRequests,
               },
               {
-                label: locale === "de" ? "Manuelle Bearbeitungen" : "Manual edits",
+                label: uiText(locale, "Manual edits", "Manuelle Bearbeitungen"),
                 value: manualEditVolume,
               },
               {
-                label: locale === "de" ? "Importiertes Volumen" : "Imported volume",
+                label: uiText(locale, "Imported volume", "Importiertes Volumen"),
                 value: importActivity,
               },
               {
-                label: locale === "de" ? "Provider-Wörter" : "Provider words",
+                label: uiText(locale, "Provider words", "Provider-Wörter"),
                 value: providerMix.provider,
               },
             ].map((item) => (
@@ -215,24 +214,24 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
         <div className="space-y-6">
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">
-              {locale === "de" ? "Mix" : "Mix"}
+              {uiText(locale, "Mix", "Mix")}
             </h3>
             <div className="space-y-3">
               {[
                 {
-                  label: locale === "de" ? "Cache" : "Cache",
+                  label: uiText(locale, "Cache", "Cache"),
                   value: providerMix.cached,
                 },
                 {
-                  label: locale === "de" ? "Manuell" : "Manual",
+                  label: uiText(locale, "Manual", "Manuell"),
                   value: providerMix.manual,
                 },
                 {
-                  label: locale === "de" ? "Glossar" : "Glossary",
+                  label: uiText(locale, "Glossary", "Glossar"),
                   value: providerMix.glossary,
                 },
                 {
-                  label: locale === "de" ? "Provider" : "Provider",
+                  label: uiText(locale, "Provider", "Provider"),
                   value: providerMix.provider,
                 },
               ].map((item) => (
@@ -260,12 +259,12 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
 
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">
-              {locale === "de" ? "Sprachpaare" : "Language pairs"}
+              {uiText(locale, "Language pairs", "Sprachpaare")}
             </h3>
             <div className="space-y-2">
               {pairBreakdown.length === 0 ? (
                 <p className="text-sm text-gray-400">
-                  {locale === "de" ? "Noch keine Daten." : "No data yet."}
+                  {uiText(locale, "No data yet.", "Noch keine Daten.")}
                 </p>
               ) : (
                 pairBreakdown.slice(0, 6).map(([pair, value]) => (
@@ -282,12 +281,12 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
 
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">
-              {locale === "de" ? "Top-URLs" : "Top URLs"}
+              {uiText(locale, "Top URLs", "Top-URLs")}
             </h3>
 
             {topUrls.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">
-                {locale === "de" ? "Noch keine Anfragen registriert." : "No requests recorded yet."}
+                {uiText(locale, "No requests recorded yet.", "Noch keine Anfragen registriert.")}
               </p>
             ) : (
               <div className="space-y-1">

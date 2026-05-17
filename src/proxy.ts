@@ -8,7 +8,9 @@ import {
   getDocumentLocale,
   getLegacyPublicRedirect,
   SITE_LOCALE_COOKIE,
+  isSiteLocale,
   toInternalPath,
+  type SiteLocale,
 } from "@/lib/site-locale";
 
 const { auth } = NextAuth(authConfig);
@@ -18,7 +20,7 @@ type ProxyRequest = {
   nextUrl: URL;
 };
 
-function upsertCookieHeader(headerValue: string | null, locale: "en" | "de") {
+function upsertCookieHeader(headerValue: string | null, locale: SiteLocale) {
   const parts = (headerValue ?? "")
     .split(/;\s*/)
     .filter(Boolean)
@@ -28,7 +30,7 @@ function upsertCookieHeader(headerValue: string | null, locale: "en" | "de") {
   return parts.join("; ");
 }
 
-function withLocaleCookie(response: NextResponse, locale: "en" | "de") {
+function withLocaleCookie(response: NextResponse, locale: SiteLocale) {
   response.cookies.set(SITE_LOCALE_COOKIE, locale, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
@@ -67,8 +69,7 @@ export default auth((req) => {
   }
 
   const localeParam = nextUrl.searchParams.get("__locale");
-  const isInternalLocaleRewrite =
-    localeParam === "de" || localeParam === "en";
+  const isInternalLocaleRewrite = isSiteLocale(localeParam);
   const locale =
     isInternalLocaleRewrite
       ? localeParam
