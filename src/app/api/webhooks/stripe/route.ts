@@ -120,8 +120,39 @@ function getSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
   return typeof sub === "string" ? sub : sub.id;
 }
 
+/**
+ * Fallback organization resolver for checkout sessions whose metadata is
+ * missing the organizationId (e.g. Payment Links created outside the app).
+ * Prefers `client_reference_id` (the app sets it to the user id), then the
+ * Stripe customer already stored on a subscription row.
+ */
+async function resolveOrganizationId(
+  session: Stripe.Checkout.Session
+): Promise<string | null> {
+  const userId = session.client_reference_id ?? session.metadata?.userId;
+  if (userId) {
+    const membership = await db.organizationMember.findFirst({
+      where: { userId },
+      select: { organizationId: true },
+    });
+    if (membership) return membership.organizationId;
+  }
+
+  if (typeof session.customer === "string") {
+    const sub = await db.subscription.findUnique({
+      where: { stripeCustomerId: session.customer },
+      select: { organizationId: true },
+    });
+    if (sub) return sub.organizationId;
+  }
+
+  return null;
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  const organizationId = session.metadata?.organizationId;
+  const organizationId =
+    session.metadata?.organizationId ??
+    (await resolveOrganizationId(session));
   if (!organizationId) return;
 
   const stripeSubscription = await stripe.subscriptions.retrieve(

@@ -201,7 +201,7 @@ test("throws a clear error when no billing portal base URL is configured", () =>
 
     assert.throws(() => getBillingPortalReturnUrl(), {
       message:
-        "Missing AUTH_URL, NEXT_PUBLIC_APP_URL, or Vercel system URL for the billing portal return URL.",
+        "Missing AUTH_URL, NEXT_PUBLIC_APP_URL, or Vercel system URL for billing redirect URLs.",
     });
   } finally {
     restoreEnv(
