@@ -13,7 +13,6 @@ import {
 import {
   SITE_LOCALE_METADATA,
   getLocalizedPathname,
-  getDocumentLocale,
   SITE_LOCALES,
   type SiteLocale,
 } from "@/lib/site-locale";
@@ -28,7 +27,7 @@ export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
   const searchParams = useSearchParams();
   const currentPathname =
     typeof window === "undefined" ? pathname : window.location.pathname;
-  const currentLocale: SiteLocale = getDocumentLocale(currentPathname || "/") || locale;
+  const currentLocale: SiteLocale = locale;
 
   function getTargetUrl(targetLocale: SiteLocale) {
     const targetPath = getLocalizedPathname(currentPathname, targetLocale);

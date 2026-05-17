@@ -2,12 +2,15 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { UsageCharts } from "@/components/abonnement/usage-charts";
+import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { startOfMonth } from "date-fns";
 import { uiText } from "@/lib/static-copy";
 
-export const metadata = { title: "Nutzung – Deepglot" };
+export function generateMetadata() {
+  return buildDashboardTitleMetadata("Usage", "Nutzung");
+}
 
 const PLAN_LIMITS: Record<string, { words: number; requests: number; languages: number; projects: number; users: number }> = {
   FREE:         { words: 10_000,    requests: 1_000,      languages: 1,  projects: 1,  users: 1 },

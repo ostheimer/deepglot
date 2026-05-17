@@ -14,12 +14,15 @@ import {
   Clock,
 } from "lucide-react";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
+import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
-export const metadata = { title: "Übersicht – Deepglot" };
+export function generateMetadata() {
+  return buildDashboardTitleMetadata("Overview", "Übersicht");
+}
 
 // Users limit per plan
 const PLAN_USERS_LIMIT: Record<string, number> = {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
+import { buildMarketingMetadata } from "@/lib/marketing-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -8,10 +9,22 @@ type DocsPageProps = {
   searchParams: LocaleSearchParams;
 };
 
-export const metadata: Metadata = {
-  title: "Documentation",
-  description: "Deepglot setup and product documentation.",
-};
+export async function generateMetadata({
+  searchParams,
+}: DocsPageProps): Promise<Metadata> {
+  const locale = await getPageLocale(searchParams);
+
+  return buildMarketingMetadata({
+    locale,
+    route: "docs",
+    title: uiText(locale, "Documentation", "Dokumentation"),
+    description: uiText(
+      locale,
+      "The essential setup path for Deepglot and the WordPress plugin.",
+      "Die wichtigsten Schritte für den Start mit Deepglot und dem WordPress-Plugin."
+    ),
+  });
+}
 
 export default async function DocsPage({ searchParams }: DocsPageProps) {
   const locale = await getPageLocale(searchParams);

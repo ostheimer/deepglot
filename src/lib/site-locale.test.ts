@@ -91,6 +91,17 @@ test("does not throw for malformed percent-encoded path segments", () => {
   assert.equal(toCanonicalExternalPath("/de/%E0%A4%A"), "/%E0%A4%A");
 });
 
+test("does not redirect percent-encoded canonical localized paths", () => {
+  assert.equal(
+    getLegacyPublicRedirect("/bg/%D0%B4%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F"),
+    null
+  );
+  assert.equal(
+    getLegacyPublicRedirect("/el/%CE%BF%CF%81%CE%BF%CE%B9"),
+    null
+  );
+});
+
 test("round-trips localized app paths back to their internal routes", () => {
   const appPaths = [
     "/dashboard",
