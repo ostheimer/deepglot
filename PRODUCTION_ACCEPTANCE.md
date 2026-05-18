@@ -53,7 +53,7 @@ The smoke test verifies:
 | Visual editor | Token creation, backend token verification, WordPress editor boot, segment selection, save, reload persistence, and invalid-token rejection work | ✅ Automated Phase 6 acceptance passed |
 | Analytics | Translation volume, language mix, provider/cache/manual/glossary mix, top URLs, and import activity are log-backed | ✅ Automated Phase 6 Playwright acceptance passed |
 | Webhooks | Endpoint CRUD, signing, test delivery, cron processing, retries, and final failure states work | ✅ Automated Phase 6 Playwright and webhook observability acceptance passed |
-| Billing | Plan, usage, customer portal, cancellation, and Stripe webhook handling work in the intended mode | ⏸️ Postponed - Stripe live billing acceptance is an external dependency |
+| Billing | Subscription checkout, plan, usage, customer portal, cancellation, and Stripe webhook handling work in the intended mode | 🔄 Stripe Live provisioned (ROADMAP 8.5 ✅); checkout end-to-end implemented (ROADMAP 8.1 ✅); full live acceptance run pending |
 
 ## WordPress Acceptance
 

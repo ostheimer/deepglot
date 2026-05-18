@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- OpenAI / DeepL / Gemini
 
 ## Local development
 
@@ -62,6 +62,11 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/de/subscription`
   - `/de/settings`
 - Legacy German routes such as `/preise`, `/anmelden`, `/registrieren`, and `/projekte/...` redirect to their canonical `/de/...` equivalents.
+- Legal and documentation routes are available under:
+  - `/docs`
+  - `/agb`
+  - `/datenschutz`
+  - `/impressum`
 
 Internally, the Next.js app still uses the existing route folders, while `src/proxy.ts` rewrites the external English path structure to the current implementation. The proxy also forwards the active locale through the request context and syncs the locale cookie so localized `/de/...` routes behave consistently during full-page navigation and auth redirects.
 
@@ -206,7 +211,7 @@ Recommended environment matrix:
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
   - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-5-mini`
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -279,9 +284,11 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow now uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `gemini`, `deepl`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
+- `OPENAI_TRANSLATION_MODEL` controls the OpenAI model and defaults to `gpt-5-mini`.
+- `GEMINI_API_KEY` and `GEMINI_TRANSLATION_MODEL` configure the Gemini translation provider.
+- `TRANSLATION_FALLBACK_PROVIDERS` accepts a comma-separated provider list (e.g. `deepl,mock`). When the primary provider fails, the app retries each fallback in order before returning an error.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 
 ## Test login and demo workspace

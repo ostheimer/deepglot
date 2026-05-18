@@ -1,7 +1,7 @@
 # Deepglot Roadmap
 
 > Website translation platform without cloud lock-in: SaaS platform + self-hosted option  
-> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / DeepL
+> Stack: Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · NextAuth v5 · Neon (PostgreSQL) · Prisma · Stripe · OpenAI / DeepL / Gemini
 
 ---
 
@@ -195,7 +195,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 
 | ID | Description | Status |
 |---|---|---|
-| 8.1 | **Stripe Checkout end-to-end** ([#56](https://github.com/ostheimer/deepglot/issues/56)). Stripe Live is fully provisioned (5 products, 10 prices, webhook `we_1TWxSGFAiA6nPZyWHZzIW2eg`, 13 prod env vars, `acceptance:stripe --mode live` PASS) but there is **no UI path for a logged-in user to subscribe**: no `/api/billing/checkout`, no `/(dashboard)/subscription` page (404), pricing CTA always routes to `/signup`. P1 — blocks all revenue. | ⏳ Open |
+| 8.1 | **Stripe Checkout end-to-end** ([#56](https://github.com/ostheimer/deepglot/issues/56)). Stripe Live is fully provisioned (5 products, 10 prices, webhook `we_1TWxSGFAiA6nPZyWHZzIW2eg`, 13 prod env vars, `acceptance:stripe --mode live` PASS). Full checkout flow implemented: `POST /api/billing/checkout`, `/(dashboard)/subscription` page, and pricing CTA subscription path (PR [#61](https://github.com/ostheimer/deepglot/pull/61), 2026-05-17). | ✅ Completed |
 | 8.2 | **Switcher Weglot-parity remainder** ([#57](https://github.com/ostheimer/deepglot/issues/57)): multi-switcher instances, visual switcher editor (drag-on-live-preview), pre-made templates. Plugin v0.7.0 already live with admin UI / 5 flag styles / nav-menu / Gutenberg block / classic widget / responsive-hide / per-language custom flags. P2. | ⏳ Open |
 | 8.3 | **Strategic Weglot competitive gaps** ([#58](https://github.com/ostheimer/deepglot/issues/58)): in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN. P3, sequence after 8.1. | ⏳ Open |
 | 8.4 | **Housekeeping** ([#59](https://github.com/ostheimer/deepglot/issues/59)): remove dead `DATABASE_*` Neon-integration env vars (orphaned after the 2-dataset disconnect); delete stale `AccessibilityAttributeTranslationTest 2.php` duplicate. P4. | ⏳ Open |
@@ -218,8 +218,9 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | Email | Resend | Next.js friendly, cost-effective |
 | Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
+| Translation (Tertiary) | Gemini provider | Alternative LLM path; supports automatic fallback chain via `TRANSLATION_FALLBACK_PROVIDERS` |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
-| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
+| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
 
 ---
 
