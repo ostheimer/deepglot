@@ -1,24 +1,26 @@
-# Deepglot Handoff - 2026-05-06
+# Deepglot Handoff - 2026-05-17
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `c882439` (`Fix UI navigation and add full audit coverage (#26)`)
-- Open pull requests: none at the time this handoff was written.
+- Latest production commit: `df088bf` (`Localize remaining metadata (#66)`)
+- Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
-## Completed In The Latest Session
+## Completed In The Latest Session (since 2026-05-06)
 
-- Fixed the public marketing navigation so the Deepglot logo links home.
-- Restored the missing `WordPress Plugin` navigation item on the pricing page.
-- Added public documentation/legal routes used by the marketing footer/navigation.
-- Improved dashboard/sidebar link behavior and accessibility labels across visible controls.
-- Added a broad Playwright UI audit that crawls known public and authenticated app routes, checks visible interactive labels, rejects nested interactives, and verifies app-owned internal links.
-- Taught the UI audit to ignore customer-site runtime links when CI seeds the customer domain to the app host, such as translated URL paths and WordPress admin links.
-- Merged PR `#26` into `main` and confirmed production deployment.
+- **Stripe Checkout end-to-end** (PRs #56, #61, 2026-05-17): Logged-in users can now subscribe. `POST /api/billing/checkout` implemented; `/(dashboard)/subscription` pages (`/abonnement/uebersicht`, `/abonnement/nutzung`, `/abonnement/karte-rechnungen`) are live. Pricing CTAs route to the checkout flow instead of `/signup`.
+- **EU-wide localization** (PR #62, 2026-05-17): Extended locale support beyond EN/DE to additional EU language codes. Public routes, auth, and dashboard routes all serve localized variants.
+- **Localized route round-trip regression test** (commit `a9022fb`, 2026-05-17): New Playwright test ensures localized routes correctly round-trip across all supported locales.
+- **Fix localized marketing pricing units** (PR #65, 2026-05-17): Pricing hero claims on localized routes are now sourced from `BILLING_PLANS`, not hardcoded strings. Closes a silent drift risk for the Pro tier price/word-ceiling across locales.
+- **Localize remaining metadata** (PR #66, 2026-05-17): All `<head>` metadata (title, description, OG tags) rendered in the request locale.
+- **Plugin v0.7.0 — per-language custom flag override** (PR #53, 2026-05-14): Each language in the switcher can now use a custom flag image instead of the default emoji/CDN flag.
+- **Plugin v0.6.0 — responsive hide** (PR #52, 2026-05-14): Switcher can be shown only on desktop or only on mobile via a new toggle.
+- **Switcher aria-expanded bug fix** (PR #51, 0.5.2, 2026-05-14): `aria-expanded` attribute is now only added when the dropdown variant is active.
+- **Switcher active-language + skip-plugin-link bugs** (PR #50, 0.5.1, 2026-05-13): Active language now highlighted correctly under stripped `REQUEST_URI`; `LinkRewriter` no longer rewrites the switcher's own `href` attributes.
 
 ## Latest Verified Links
 
@@ -26,15 +28,14 @@ This file captures the current project state so work can continue in a new chat 
 - `https://deepglot.ai/pricing`
 - `https://www.deepglot.ai/api/public/status`
 - `https://www.meinhaushalt.at/en/`
-- `https://github.com/ostheimer/deepglot/pull/26`
 
 ## Verification Status
 
 Latest already-completed checks:
 
-- GitHub Actions `main` CI passed for commit `c882439`.
+- GitHub Actions `main` CI passed for commit `df088bf`.
 - Vercel Production deployment is ready.
-- `npm run smoke:production` passed `7/7` production smoke checks after the deployment.
+- `npm run acceptance:stripe --mode live` PASS.
 
 Run these before starting a new larger implementation branch:
 
@@ -56,11 +57,19 @@ npm run test:e2e
 
 ## Known External Blocks
 
-- Stripe live/test billing acceptance remains postponed until real Stripe live/test keys, webhook secret, and monthly price IDs are intentionally configured.
 - Phase 6 subdomain live QA remains blocked until a real mapped production host is configured through `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
+
+## Open Roadmap Items
+
+- **8.2** Switcher Weglot-parity: multi-switcher instances, visual switcher editor, pre-made templates (P2).
+- **8.3** Strategic Weglot competitive gaps: in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN (P3).
+- **8.4** Housekeeping: dead `DATABASE_*` env vars and stale `AccessibilityAttributeTranslationTest 2.php` (P4).
+- **7.13** Anti-drift guard for marketing copy (`marketing-home.test.ts`).
+- **7.14** Playwright slider-alignment regression test for `pricing-grid.tsx`.
+- **7.15** Stripe webhook end-to-end smoke for subscription-lifecycle events.
 
 ## Recommended Next Work
 
-- Continue with the next roadmap phase only after selecting scope for Phase 8 or deciding to resume Stripe.
+- Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.

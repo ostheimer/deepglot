@@ -21,6 +21,7 @@
 | 0.10 | Repository-level `AGENTS.md` defines a test-first bug workflow before fixes | ✅ Completed |
 | 0.11 | Vercel Production uses Neon `prod` branch; Dev/Preview use Neon `preview` (Variant A: 2 branches) | ✅ Completed |
 | 0.12 | Production is served on the canonical `deepglot.ai` domain with `www` page redirects | ✅ Completed |
+| 0.13 | EU-wide localization: public routes, auth, and dashboard serve additional EU language codes beyond EN/DE; localized route round-trip regression test guards regressions | ✅ Completed |
 
 ---
 
@@ -195,13 +196,16 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 
 | ID | Description | Status |
 |---|---|---|
-| 8.1 | **Stripe Checkout end-to-end** ([#56](https://github.com/ostheimer/deepglot/issues/56)). Stripe Live is fully provisioned (5 products, 10 prices, webhook `we_1TWxSGFAiA6nPZyWHZzIW2eg`, 13 prod env vars, `acceptance:stripe --mode live` PASS) but there is **no UI path for a logged-in user to subscribe**: no `/api/billing/checkout`, no `/(dashboard)/subscription` page (404), pricing CTA always routes to `/signup`. P1 — blocks all revenue. | ⏳ Open |
+| 8.1 | **Stripe Checkout end-to-end** ([#56](https://github.com/ostheimer/deepglot/issues/56), [#61](https://github.com/ostheimer/deepglot/issues/61)). Stripe Live is fully provisioned (5 products, 10 prices, webhook, 13 prod env vars). Logged-in users can now subscribe via `POST /api/billing/checkout` and the `/(dashboard)/subscription` pages (`/abonnement/uebersicht`, `/abonnement/nutzung`, `/abonnement/karte-rechnungen`). Pricing CTAs route to the checkout flow. Implemented 2026-05-17. | ✅ Completed |
 | 8.2 | **Switcher Weglot-parity remainder** ([#57](https://github.com/ostheimer/deepglot/issues/57)): multi-switcher instances, visual switcher editor (drag-on-live-preview), pre-made templates. Plugin v0.7.0 already live with admin UI / 5 flag styles / nav-menu / Gutenberg block / classic widget / responsive-hide / per-language custom flags. P2. | ⏳ Open |
 | 8.3 | **Strategic Weglot competitive gaps** ([#58](https://github.com/ostheimer/deepglot/issues/58)): in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN. P3, sequence after 8.1. | ⏳ Open |
 | 8.4 | **Housekeeping** ([#59](https://github.com/ostheimer/deepglot/issues/59)): remove dead `DATABASE_*` Neon-integration env vars (orphaned after the 2-dataset disconnect); delete stale `AccessibilityAttributeTranslationTest 2.php` duplicate. P4. | ⏳ Open |
 | 8.5 | Stripe Live Mode provisioning (account `acct_1GRyA0FAiA6nPZyW` "Ostheimer OG", EUR, livemode), webhook + restricted `rk_live_*` key + 13 production env vars, verified via `acceptance:stripe --mode live`. | ✅ Completed |
 | 8.6 | Clean 2-dataset Neon topology made real: disconnected Vercel↔Neon per-preview auto-branching, set static `DEEPGLOT_DATABASE_URL` per scope (Production→`prod` 59 MB real data, Preview+Development→`main` 31 MB test data), pruned 55→2 branches, verified Production unaffected (HTTP 200 + Stripe live PASS + redeploy). Implements the "Variant A: 2 branches" decision below. | ✅ Completed |
 | 8.7 | WP plugin language-switcher suite shipped to v0.7.0 and deployed to meinhaushalt.at: admin UI, list/dropdown, 5 flag styles, drag order, 4 fixed/floating positions, JS-free checkbox dropdown, full ARIA, nav-menu integration, Gutenberg block, classic widget, responsive-hide, per-language custom flags. Two P1 render bugs (wrong active language under stripped REQUEST_URI; LinkRewriter rewriting switcher's own hrefs) caught via Playwright visual test, fixed in PR #50. | ✅ Completed |
+| 8.8 | **EU-wide localization** ([#62](https://github.com/ostheimer/deepglot/issues/62)). Extended locale support beyond EN/DE to additional EU language codes. Public routes, auth pages, dashboard routes, and marketing metadata serve localized variants. Playwright localized route round-trip regression test added. Completed 2026-05-17. | ✅ Completed |
+| 8.9 | **Localize remaining metadata** ([#66](https://github.com/ostheimer/deepglot/issues/66)). All remaining `<head>` metadata (title, description, OG tags) now rendered in the request locale across all supported locales. Completed 2026-05-17. | ✅ Completed |
+| 8.10 | **Fix localized marketing pricing units** ([#65](https://github.com/ostheimer/deepglot/issues/65)). Pricing page word-ceiling and price display for localized routes sourced from `BILLING_PLANS` instead of hardcoded strings, preventing the Pro tier hero claim from silently drifting across locales. Completed 2026-05-17. | ✅ Completed |
 
 ---
 
@@ -219,7 +223,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
-| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README “Setting up the Neon production branch”. |
+| DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
 
 ---
 
