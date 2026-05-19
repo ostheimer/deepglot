@@ -6,7 +6,7 @@ This file captures the current project state so work can continue in a new chat 
 
 - Branch: `main`
 - Latest production commit: `df088bf` (`Localize remaining metadata (#66)`)
-- Open pull requests: none at the time this handoff was written.
+- Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
