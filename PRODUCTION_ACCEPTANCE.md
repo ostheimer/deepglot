@@ -53,7 +53,7 @@ The smoke test verifies:
 | Visual editor | Token creation, backend token verification, WordPress editor boot, segment selection, save, reload persistence, and invalid-token rejection work | ✅ Automated Phase 6 acceptance passed |
 | Analytics | Translation volume, language mix, provider/cache/manual/glossary mix, top URLs, and import activity are log-backed | ✅ Automated Phase 6 Playwright acceptance passed |
 | Webhooks | Endpoint CRUD, signing, test delivery, cron processing, retries, and final failure states work | ✅ Automated Phase 6 Playwright and webhook observability acceptance passed |
-| Billing | Plan, usage, customer portal, cancellation, and Stripe webhook handling work in the intended mode | ⏸️ Postponed - Stripe live billing acceptance is an external dependency |
+| Billing | Plan, usage, customer portal, cancellation, Stripe Checkout, and webhook handling work in the intended mode | ✅ Completed — Stripe Live provisioned 2026-05-17; 5 products, 10 prices, restricted live key, and webhook active; `acceptance:stripe --mode live` passed (Phase 8.1, 8.5) |
 
 ## WordPress Acceptance
 
@@ -170,10 +170,10 @@ Neon and Stripe acceptance scripts are now repeatable and non-destructive by def
 
 - `npm run acceptance:neon -- --env-file .env.production.local` passed as a dry run and would create a restore-drill branch from `prod`.
 - `npm run acceptance:neon -- --env-file .env.production.local --create` passed on 2026-05-01. It created and validated temporary branch `restore-drill-prod-20260501195333` from `prod`; Neon set it to expire at `2026-05-02T19:53:33.429Z`.
-- `npm run acceptance:stripe -- --mode live --env-file .env.production.local` is postponed until live Stripe keys, webhook secret, and monthly price IDs are intentionally configured.
-- `npm run acceptance:stripe -- --mode test --env-file .env.local --env-only` is postponed until test Stripe keys, webhook secret, and monthly price IDs are intentionally configured.
+- `npm run acceptance:stripe -- --mode live --env-file .env.production.local` passed 2026-05-17 after Stripe Live provisioning (Phase 8.5). All five products and 10 prices were verified.
+- `npm run acceptance:stripe -- --mode test --env-file .env.local --env-only` validates test-mode keys and price IDs without creating any Stripe objects.
 
-Stripe live billing acceptance is not active engineering work right now. These checks do not create paid Stripe objects; once Stripe is resumed, the live API check remains read-only and validates price objects plus webhook endpoint registration.
+These checks do not create paid Stripe objects; the live API check is read-only and validates price objects plus webhook endpoint registration.
 
 `npm run acceptance:production` is the default post-deploy wrapper. It runs the smoke suite, Neon dry-run/readiness, Stripe live/test readiness, rate-limit config readiness, webhook processor readiness, SaaS acceptance, and Phase 6 acceptance. JSON and JUnit reports can be written with `--json output/production-acceptance.json --junit output/production-acceptance.xml`. The wrapper exits successfully when only external live checks are blocked; use `--strict` to make blocked or skipped checks fail CI.
 
