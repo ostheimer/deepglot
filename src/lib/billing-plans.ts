@@ -181,6 +181,22 @@ export function formatYearlyMonthlyEquivalentCents(
   return Math.round(yearly / 12);
 }
 
+/**
+ * Customer-facing one-line description for a paid plan's Stripe Product. Shown
+ * on the hosted Stripe Checkout page, so it must stay in sync with the limits
+ * the app actually enforces — derive everything from BILLING_PLANS rather than
+ * hardcoding numbers in the setup script. Numbers use US-locale thousands
+ * separators because Stripe Checkout renders in the customer's locale and a
+ * stable English source string is preferable to ad-hoc formatting drift.
+ */
+export function formatStripeProductDescription(key: BillingPlanKey): string {
+  const plan = BILLING_PLANS[key];
+  const words = plan.wordsLimit.toLocaleString("en-US");
+  const languages = `${plan.languagesLimit} ${plan.languagesLimit === 1 ? "language" : "languages"}`;
+  const projects = `${plan.projectsLimit} ${plan.projectsLimit === 1 ? "project" : "projects"}`;
+  return `${words} words/month · ${languages} · ${projects}`;
+}
+
 export function getStripePriceIdFromEnv(
   key: BillingPlanKey,
   interval: BillingInterval,

@@ -5,6 +5,7 @@ import {
   BILLING_PLAN_KEYS,
   BILLING_PLANS,
   computeYearlyTotalCents,
+  formatStripeProductDescription,
   formatYearlyMonthlyEquivalentCents,
   getEffectiveWordsLimit,
   getStripePriceIdFromEnv,
@@ -130,6 +131,62 @@ describe("billing-plans", () => {
       getEffectiveWordsLimit({ status: "PAST_DUE", wordsLimit: freeLimit }),
       freeLimit
     );
+  });
+
+  it("derives the Stripe product description from BILLING_PLANS so Checkout cannot drift from enforced limits", () => {
+    // Customer-visible string on the Stripe Checkout page — must match the
+    // limits the app enforces. The format is "<words>/month · <n> languages
+    // · <n> projects" with US-locale thousands separators; the singular form
+    // applies to FREE (1 language, 1 project) and every paid tier is plural.
+    assert.equal(
+      formatStripeProductDescription("STARTER"),
+      "25,000 words/month · 2 languages · 2 projects"
+    );
+    assert.equal(
+      formatStripeProductDescription("PRO"),
+      "200,000 words/month · 5 languages · 5 projects"
+    );
+    assert.equal(
+      formatStripeProductDescription("BUSINESS"),
+      "50,000 words/month · 3 languages · 3 projects"
+    );
+    assert.equal(
+      formatStripeProductDescription("ADVANCED"),
+      "1,000,000 words/month · 10 languages · 10 projects"
+    );
+    assert.equal(
+      formatStripeProductDescription("EXTENDED"),
+      "5,000,000 words/month · 20 languages · 25 projects"
+    );
+    // FREE exercises the singular pluralization branch.
+    assert.equal(
+      formatStripeProductDescription("FREE"),
+      "10,000 words/month · 1 language · 1 project"
+    );
+  });
+
+  it("formatStripeProductDescription stays mechanically derived from BILLING_PLANS for every plan", () => {
+    // Belt-and-suspenders: even if someone edits BILLING_PLANS in the future,
+    // the description must contain the current numeric limits verbatim. This
+    // catches a class of bug where someone updates the limit but forgets to
+    // re-run the Stripe setup script — at least the local string will reflect
+    // the new value, so the next run will write through to Stripe.
+    for (const key of BILLING_PLAN_KEYS) {
+      const plan = BILLING_PLANS[key];
+      const description = formatStripeProductDescription(key);
+      assert.ok(
+        description.includes(plan.wordsLimit.toLocaleString("en-US")),
+        `${key} description must include the words limit ${plan.wordsLimit}`
+      );
+      assert.ok(
+        description.includes(`${plan.languagesLimit} language`),
+        `${key} description must include the languages count`
+      );
+      assert.ok(
+        description.includes(`${plan.projectsLimit} project`),
+        `${key} description must include the projects count`
+      );
+    }
   });
 
   it("never advertises any limit as 'unlimited' or 'unbegrenzt'", () => {
