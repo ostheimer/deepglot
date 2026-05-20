@@ -1,6 +1,6 @@
 # Deepglot
 
-Deepglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
+Deeglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
 
 ## Author
 
@@ -41,7 +41,7 @@ npm run test:e2e
 
 ## Public routing
 
-Deepglot now uses English as the canonical URL structure across the public site and the app:
+Deeglot now uses English as the canonical URL structure across the public site and the app:
 
 - Canonical English routes:
   - `/`
@@ -101,17 +101,31 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The first plugin scaffold lives in `wordpress-plugin/deepglot`.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.7.0**, deployed live on `meinhaushalt.at`.
 
-Current contents:
+Features:
 
-- Bootstrap file with the plugin header
-- Autoloader and a lightweight service container
-- Admin settings page under `Settings -> Deepglot`
-- Prepared API client
-- First testable URL language logic
+- PHP autoloader and lightweight service container
+- URL language resolver and request router (path-prefix and subdomain routing)
+- OutputBuffer + HTML translator using DOMDocument — no external PHP dependencies
+- JSON-LD and accessibility attribute translation
+- Deepglot API client (HTTP requests to the Next.js backend)
+- WordPress transient-based translation cache (no custom table needed)
+- Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
+- hreflang SEO tags and `<html lang>` switching
+- Language switcher: shortcode `[deepglot_switcher]`, action hook, 5 flag styles, list/dropdown mode, 4 fixed/floating positions, per-language custom flags, responsive hide
+- Gutenberg block for language switcher
+- Classic widget for language switcher
+- WordPress nav-menu integration
+- Admin settings page with 7-section tab UI (General, Language Model, Switcher, Exclusions, Setup, WordPress Settings, Members)
+- Guided 3-step setup wizard on first activation
+- REST API v1 at `/wp-json/deepglot/v1/` for settings CRUD, status, and test-connection
+- WooCommerce order email translation
+- Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
+- Subdomain support (`de.example.com`)
+- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
-Local plugin test:
+Run the PHP test suite locally:
 
 ```bash
 php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
@@ -249,7 +263,7 @@ The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readin
 
 ## Self-hosting
 
-Deepglot now includes a first self-hosted setup:
+Deeglot now includes a first self-hosted setup:
 
 - `Dockerfile` builds the Next.js app for production use.
 - `docker-compose.yml` starts the app together with PostgreSQL.
@@ -277,12 +291,16 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 ## Translation providers
 
-The translation flow now uses a provider abstraction:
+The translation flow uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the low-cost LLM model and defaults to `gpt-4o-mini`.
+- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5.5`).
+- `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
+- `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
+- `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
+- Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
 
 ## Test login and demo workspace
 

@@ -32,7 +32,7 @@ Next.js App (Vercel)          WordPress Plugin
 ├── Landing / Marketing  ←──  Install WP plugin
 │   ├── EN on `/` and `/pricing`
 │   └── DE on `/de` and `/de/pricing`
-├── Auth (NextAuth v5)        ↓
+├── Auth (NextAuth v5)         ↓
 │   ├── EN on `/login` and `/signup`
 │   └── DE on `/de/login` and `/de/signup`
 ├── Dashboard            ←──  API key from dashboard
@@ -222,7 +222,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | Email | Resend | Next.js friendly, cost-effective |
 | Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
-| WP HTML Parser | DiDOM | Modern, actively maintained, Composer-ready |
+| WP HTML Parser | DOMDocument (PHP native) | No external dependencies, available in all WordPress environments, used in HtmlTranslator and OutputBuffer |
 | DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
 
 ---

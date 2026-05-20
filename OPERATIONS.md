@@ -20,7 +20,7 @@ Expected behavior:
 
 ## Rate-Limit Monitoring
 
-Deepglot stores rate-limit buckets in Postgres so limits are shared across Vercel instances.
+Deeglot stores rate-limit buckets in Postgres so limits are shared across Vercel instances.
 
 Defaults:
 
@@ -113,9 +113,9 @@ Runtime configuration:
 
 ## Stripe Acceptance
 
-Stripe live billing acceptance is postponed as an external dependency until live/test billing configuration is intentionally created. Do not create products, prices, webhooks, customers, checkout sessions, or subscriptions as part of normal engineering work.
+Stripe is fully provisioned in live mode (account `acct_1GRyA0FAiA6nPZyW`, EUR). Five products with 10 prices (STARTER / BUSINESS / PRO / ADVANCED / EXTENDED × monthly and yearly), a webhook endpoint, and a restricted `rk_live_*` key are active in Vercel Production. `POST /api/billing/checkout` and the subscription pages (`/abonnement/*`) are live as of 2026-05-17 (Phase 8.1, 8.5). Do not create ad-hoc Stripe objects outside the defined plan structure.
 
-When Stripe is resumed, run env-only validation for test mode and read-only API validation for live mode:
+Run env-only validation for test mode and read-only API validation for live mode:
 
 ```bash
 npm run acceptance:stripe -- --mode test --env-file .env.local --env-only
@@ -143,7 +143,7 @@ Default behavior is non-destructive:
 - Runs the production smoke suite.
 - Runs the Neon restore-drill dry run.
 - Reports Neon live restore-drill branch creation as blocked until `NEON_API_KEY` is available.
-- Reports Stripe live/test acceptance as blocked or postponed until the required Stripe keys, webhook secret, and monthly price IDs exist.
+- Runs Stripe live/test acceptance; reports blocked only when Stripe keys, webhook secret, or monthly price IDs are absent from the environment.
 - Reports rate-limit and webhook processor readiness.
 - Runs SaaS acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 - Runs Phase 6 acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
