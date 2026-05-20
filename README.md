@@ -1,6 +1,6 @@
 # Deepglot
 
-Deeglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
+Deepglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
 
 ## Author
 
@@ -41,7 +41,7 @@ npm run test:e2e
 
 ## Public routing
 
-Deeglot now uses English as the canonical URL structure across the public site and the app:
+Deepglot now uses English as the canonical URL structure across the public site and the app:
 
 - Canonical English routes:
   - `/`
@@ -263,7 +263,7 @@ The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readin
 
 ## Self-hosting
 
-Deeglot now includes a first self-hosted setup:
+Deepglot now includes a first self-hosted setup:
 
 - `Dockerfile` builds the Next.js app for production use.
 - `docker-compose.yml` starts the app together with PostgreSQL.

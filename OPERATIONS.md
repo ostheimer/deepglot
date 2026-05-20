@@ -20,7 +20,7 @@ Expected behavior:
 
 ## Rate-Limit Monitoring
 
-Deeglot stores rate-limit buckets in Postgres so limits are shared across Vercel instances.
+Deepglot stores rate-limit buckets in Postgres so limits are shared across Vercel instances.
 
 Defaults:
 
