@@ -21,6 +21,8 @@ import { existsSync, readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import type Stripe from "stripe";
 
+import { BILLING_PLANS, formatStripeProductDescription } from "@/lib/billing-plans";
+
 const args = process.argv.slice(2);
 const modeIndex = args.indexOf("--mode");
 const mode: "test" | "live" =
@@ -70,19 +72,27 @@ const appUrl =
 
 const webhookUrl = new URL("/api/webhooks/stripe", appUrl).toString();
 
+const PAID_PLAN_KEYS = ["STARTER", "BUSINESS", "PRO", "ADVANCED", "EXTENDED"] as const;
+
 const PAID_PLAN_INPUT: Array<{
-  key: string;
+  key: (typeof PAID_PLAN_KEYS)[number];
   name: string;
   monthlyCents: number;
   yearlyCents: number;
   description: string;
-}> = [
-  { key: "STARTER", name: "Deepglot Starter", monthlyCents: 1300, yearlyCents: 13_000, description: "10,000 words/month, 1 language, 2 projects." },
-  { key: "BUSINESS", name: "Deepglot Business", monthlyCents: 2500, yearlyCents: 25_000, description: "50,000 words/month, 3 languages, 3 projects." },
-  { key: "PRO", name: "Deepglot Pro", monthlyCents: 6900, yearlyCents: 69_000, description: "200,000 words/month, 5 languages, 5 projects." },
-  { key: "ADVANCED", name: "Deepglot Advanced", monthlyCents: 25_900, yearlyCents: 259_000, description: "1,000,000 words/month, 10 languages, 10 projects." },
-  { key: "EXTENDED", name: "Deepglot Extended", monthlyCents: 59_900, yearlyCents: 599_000, description: "5,000,000 words/month, 20 languages, 25 projects." },
-];
+}> = PAID_PLAN_KEYS.map((key) => {
+  const plan = BILLING_PLANS[key];
+  if (plan.monthlyPriceCents === null || plan.yearlyPriceCents === null) {
+    throw new Error(`Paid plan ${key} has no monthly/yearly price configured in BILLING_PLANS.`);
+  }
+  return {
+    key,
+    name: `Deepglot ${plan.name}`,
+    monthlyCents: plan.monthlyPriceCents,
+    yearlyCents: plan.yearlyPriceCents,
+    description: formatStripeProductDescription(key),
+  };
+});
 
 const WEBHOOK_EVENTS = [
   "checkout.session.completed",
