@@ -117,10 +117,13 @@ The analysis suggests these prioritized decisions for Deepglot:
 
 ---
 
-## 9. Next implementation steps
+## 9. Implementation outcome
 
-- Integrate URL and language logic directly into the frontend flow
-- Build parser and string extraction on top of DiDOM
-- Add a local cache table for already translated segments
-- Harden link replacement and SEO output
-- Expand tests for HTML, JSON, and XML cases
+> **Note:** This section was originally a forward-looking list. The plugin is now implemented. The decisions taken are recorded here for reference.
+
+- URL and language logic is integrated directly into the frontend flow via `UrlLanguageResolver` and `RequestRouter`.
+- The HTML parser uses **DOMDocument** (PHP native, no external dependencies) instead of the DiDOM library considered during analysis. DOMDocument is available in all WordPress environments and sufficient for the plugin's use cases.
+- The local cache uses WordPress transients — no custom database table is needed.
+- Link replacement handles HTML (`<a>`, `<form>`, `<link rel=canonical>`), JSON-LD attributes, and accessibility attributes separately.
+- SEO output includes `hreflang` tags, `<html lang>` switching, and canonical URL management.
+- The test suite covers URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect edge cases, and WooCommerce email translation (20+ PHP unit tests).
