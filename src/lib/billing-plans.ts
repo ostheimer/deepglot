@@ -181,20 +181,68 @@ export function formatYearlyMonthlyEquivalentCents(
   return Math.round(yearly / 12);
 }
 
+export type StripeDescriptionLocale = "de" | "en";
+
 /**
- * Customer-facing one-line description for a paid plan's Stripe Product. Shown
- * on the hosted Stripe Checkout page, so it must stay in sync with the limits
- * the app actually enforces — derive everything from BILLING_PLANS rather than
- * hardcoding numbers in the setup script. Numbers use US-locale thousands
- * separators because Stripe Checkout renders in the customer's locale and a
- * stable English source string is preferable to ad-hoc formatting drift.
+ * Per-tier marketing tagline appended to the Stripe Product description.
+ * Lives next to BILLING_PLANS so adding a new plan forces an editor to
+ * supply both locales — Stripe Checkout renders the description verbatim,
+ * so silently falling back to one locale would regress the customer-facing
+ * copy on the other.
  */
-export function formatStripeProductDescription(key: BillingPlanKey): string {
+const STRIPE_PRODUCT_TAGLINES: Record<
+  StripeDescriptionLocale,
+  Record<BillingPlanKey, string>
+> = {
+  de: {
+    FREE: "kostenlos zum Ausprobieren.",
+    STARTER: "KI-Übersetzung für kleine Websites.",
+    BUSINESS: "für wachsende Online-Shops und Blogs.",
+    PRO: "für Marken mit professionellem Auftritt.",
+    ADVANCED: "für skalierende E-Commerce-Plattformen.",
+    EXTENDED: "Enterprise-Volumen für Marken-Konglomerate.",
+    ENTERPRISE: "Volumen nach Vereinbarung.",
+  },
+  en: {
+    FREE: "free tier to try Deepglot.",
+    STARTER: "AI translation for small websites.",
+    BUSINESS: "for growing online shops and blogs.",
+    PRO: "for brands with a professional presence.",
+    ADVANCED: "for scaling e-commerce platforms.",
+    EXTENDED: "enterprise-scale volume for brand conglomerates.",
+    ENTERPRISE: "custom volume on contract.",
+  },
+};
+
+/**
+ * Customer-facing one-line description for a billing plan's Stripe Product.
+ * Shown on the hosted Stripe Checkout page, so it must stay in sync with the
+ * limits the app actually enforces — derive everything from BILLING_PLANS
+ * rather than hardcoding numbers in the setup script.
+ *
+ * Default locale is `"de"` because Deepglot is German-first; passing nothing
+ * matches the hand-curated descriptions on the existing live products, so
+ * re-running `scripts/stripe-setup.ts --mode live` never silently swaps the
+ * customer-facing copy from German to English.
+ */
+export function formatStripeProductDescription(
+  key: BillingPlanKey,
+  locale: StripeDescriptionLocale = "de"
+): string {
   const plan = BILLING_PLANS[key];
+  const tagline = STRIPE_PRODUCT_TAGLINES[locale][key];
+
+  if (locale === "de") {
+    const words = plan.wordsLimit.toLocaleString("de-DE");
+    const languages = `${plan.languagesLimit} ${plan.languagesLimit === 1 ? "Sprache" : "Sprachen"}`;
+    const projects = `${plan.projectsLimit} ${plan.projectsLimit === 1 ? "Projekt" : "Projekte"}`;
+    return `${words} Wörter / Monat, ${languages}, ${projects} — ${tagline}`;
+  }
+
   const words = plan.wordsLimit.toLocaleString("en-US");
   const languages = `${plan.languagesLimit} ${plan.languagesLimit === 1 ? "language" : "languages"}`;
   const projects = `${plan.projectsLimit} ${plan.projectsLimit === 1 ? "project" : "projects"}`;
-  return `${words} words/month · ${languages} · ${projects}`;
+  return `${words} words/month · ${languages} · ${projects} · ${tagline}`;
 }
 
 export function getStripePriceIdFromEnv(
