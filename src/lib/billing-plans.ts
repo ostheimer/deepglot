@@ -28,6 +28,23 @@ export const BILLING_PLAN_KEYS = [
 
 export type BillingPlanKey = (typeof BILLING_PLAN_KEYS)[number];
 
+/**
+ * Normalizes persisted plan strings (including the deprecated PROFESSIONAL alias)
+ * to a canonical {@link BillingPlanKey} for limit lookups.
+ */
+export function resolveBillingPlanKey(plan: string | null | undefined): BillingPlanKey {
+  if (plan === "PROFESSIONAL") return "PRO";
+  if ((BILLING_PLAN_KEYS as readonly string[]).includes(plan ?? "")) {
+    return plan as BillingPlanKey;
+  }
+  return "FREE";
+}
+
+/** Project ceiling for an organization plan value stored on `Organization.plan`. */
+export function getProjectsLimitForPlan(plan: string | null | undefined): number {
+  return BILLING_PLANS[resolveBillingPlanKey(plan)].projectsLimit;
+}
+
 export type BillingInterval = "monthly" | "yearly";
 
 export type BillingPlan = {

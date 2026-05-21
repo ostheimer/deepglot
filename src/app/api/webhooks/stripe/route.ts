@@ -1,30 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { BILLING_PLANS, BILLING_PLAN_KEYS } from "@/lib/billing-plans";
+import {
+  BILLING_PLANS,
+  BILLING_PLAN_KEYS,
+  findPlanKeyByStripePriceId,
+} from "@/lib/billing-plans";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
-
-/**
- * Stripe-priceId → Plan map. Kept for callers that prefer a direct lookup;
- * `findPlanKeyByStripePriceId` is the canonical resolver because it iterates
- * both monthly and yearly env keys.
- */
-const STRIPE_PLAN_MAP: Record<string, Plan> = BILLING_PLAN_KEYS.reduce(
-  (accumulator, key) => {
-    const plan = BILLING_PLANS[key];
-    for (const interval of ["monthly", "yearly"] as const) {
-      const envKey = plan.stripePriceIdEnvKeys[interval];
-      if (!envKey) continue;
-      const value = process.env[envKey];
-      if (value && value.trim() !== "") {
-        accumulator[value] = key;
-      }
-    }
-    return accumulator;
-  },
-  {} as Record<string, Plan>
-);
 
 const WORDS_LIMIT_MAP: Record<Plan, number> = {
   ...(BILLING_PLAN_KEYS.reduce(
@@ -160,7 +143,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   );
 
   const priceId = stripeSubscription.items.data[0]?.price.id;
-  const plan = STRIPE_PLAN_MAP[priceId] ?? "STARTER";
+  const plan = priceId ? findPlanKeyByStripePriceId(priceId) : "FREE";
 
   await db.subscription.upsert({
     where: { organizationId },
@@ -235,8 +218,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const priceId = subscription.items.data[0]?.price.id;
-  const plan = STRIPE_PLAN_MAP[priceId] ?? "FREE";
+  const plan = priceId ? findPlanKeyByStripePriceId(priceId) : "FREE";
   const status = mapStripeStatus(subscription.status);
+
+  const dbSubscription = await db.subscription.findUnique({
+    where: { stripeSubscriptionId: subscription.id },
+    select: { organizationId: true },
+  });
+  if (!dbSubscription) return;
 
   await db.subscription.update({
     where: { stripeSubscriptionId: subscription.id },
@@ -247,6 +236,11 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       wordsLimit: WORDS_LIMIT_MAP[plan],
       stripeCurrentPeriodEnd: getPeriodEnd(subscription),
     },
+  });
+
+  await db.organization.update({
+    where: { id: dbSubscription.organizationId },
+    data: { plan },
   });
 }
 
