@@ -133,59 +133,125 @@ describe("billing-plans", () => {
     );
   });
 
-  it("derives the Stripe product description from BILLING_PLANS so Checkout cannot drift from enforced limits", () => {
-    // Customer-visible string on the Stripe Checkout page — must match the
-    // limits the app enforces. The format is "<words>/month · <n> languages
-    // · <n> projects" with US-locale thousands separators; the singular form
-    // applies to FREE (1 language, 1 project) and every paid tier is plural.
-    assert.equal(
-      formatStripeProductDescription("STARTER"),
-      "25,000 words/month · 2 languages · 2 projects"
-    );
-    assert.equal(
-      formatStripeProductDescription("PRO"),
-      "200,000 words/month · 5 languages · 5 projects"
-    );
-    assert.equal(
-      formatStripeProductDescription("BUSINESS"),
-      "50,000 words/month · 3 languages · 3 projects"
-    );
-    assert.equal(
-      formatStripeProductDescription("ADVANCED"),
-      "1,000,000 words/month · 10 languages · 10 projects"
-    );
-    assert.equal(
-      formatStripeProductDescription("EXTENDED"),
-      "5,000,000 words/month · 20 languages · 25 projects"
-    );
-    // FREE exercises the singular pluralization branch.
-    assert.equal(
-      formatStripeProductDescription("FREE"),
-      "10,000 words/month · 1 language · 1 project"
-    );
+  it("defaults to German so re-running scripts/stripe-setup.ts --mode live never swaps the customer-facing locale", () => {
+    // The hand-curated descriptions on the existing live products are German.
+    // Default-arg parity protects against a refactor accidentally pushing the
+    // English variant to live.
+    for (const key of BILLING_PLAN_KEYS) {
+      assert.equal(
+        formatStripeProductDescription(key),
+        formatStripeProductDescription(key, "de")
+      );
+    }
   });
 
-  it("formatStripeProductDescription stays mechanically derived from BILLING_PLANS for every plan", () => {
-    // Belt-and-suspenders: even if someone edits BILLING_PLANS in the future,
-    // the description must contain the current numeric limits verbatim. This
-    // catches a class of bug where someone updates the limit but forgets to
-    // re-run the Stripe setup script — at least the local string will reflect
-    // the new value, so the next run will write through to Stripe.
-    for (const key of BILLING_PLAN_KEYS) {
-      const plan = BILLING_PLANS[key];
-      const description = formatStripeProductDescription(key);
-      assert.ok(
-        description.includes(plan.wordsLimit.toLocaleString("en-US")),
-        `${key} description must include the words limit ${plan.wordsLimit}`
-      );
-      assert.ok(
-        description.includes(`${plan.languagesLimit} language`),
-        `${key} description must include the languages count`
-      );
-      assert.ok(
-        description.includes(`${plan.projectsLimit} project`),
-        `${key} description must include the projects count`
-      );
+  it("renders the German Stripe product description for STARTER from BILLING_PLANS values", () => {
+    const starter = BILLING_PLANS.STARTER;
+    const description = formatStripeProductDescription("STARTER", "de");
+
+    // Numeric facts derive from BILLING_PLANS — no hardcoded magic numbers.
+    assert.ok(
+      description.includes(starter.wordsLimit.toLocaleString("de-DE")),
+      `STARTER de description must include ${starter.wordsLimit.toLocaleString("de-DE")}`
+    );
+    assert.ok(description.includes(`${starter.languagesLimit} Sprachen`));
+    assert.ok(description.includes(`${starter.projectsLimit} Projekte`));
+    assert.ok(description.includes("Wörter / Monat"));
+    // Hand-curated tagline still present so Checkout copy stays >= today.
+    assert.match(description, /kleine Websites/);
+  });
+
+  it("renders the English Stripe product description for STARTER from BILLING_PLANS values", () => {
+    const starter = BILLING_PLANS.STARTER;
+    const description = formatStripeProductDescription("STARTER", "en");
+
+    assert.ok(
+      description.includes(starter.wordsLimit.toLocaleString("en-US")),
+      `STARTER en description must include ${starter.wordsLimit.toLocaleString("en-US")}`
+    );
+    assert.ok(description.includes(`${starter.languagesLimit} languages`));
+    assert.ok(description.includes(`${starter.projectsLimit} projects`));
+    assert.ok(description.includes("words/month"));
+    assert.match(description, /small websites/);
+  });
+
+  it("renders the German Stripe product description for PRO from BILLING_PLANS values", () => {
+    const pro = BILLING_PLANS.PRO;
+    const description = formatStripeProductDescription("PRO", "de");
+
+    assert.ok(
+      description.includes(pro.wordsLimit.toLocaleString("de-DE")),
+      `PRO de description must include ${pro.wordsLimit.toLocaleString("de-DE")}`
+    );
+    assert.ok(description.includes(`${pro.languagesLimit} Sprachen`));
+    assert.ok(description.includes(`${pro.projectsLimit} Projekte`));
+    assert.match(description, /professionellem Auftritt/);
+  });
+
+  it("renders the English Stripe product description for PRO from BILLING_PLANS values", () => {
+    const pro = BILLING_PLANS.PRO;
+    const description = formatStripeProductDescription("PRO", "en");
+
+    assert.ok(
+      description.includes(pro.wordsLimit.toLocaleString("en-US")),
+      `PRO en description must include ${pro.wordsLimit.toLocaleString("en-US")}`
+    );
+    assert.ok(description.includes(`${pro.languagesLimit} languages`));
+    assert.ok(description.includes(`${pro.projectsLimit} projects`));
+    assert.match(description, /professional presence/);
+  });
+
+  it("exercises the singular pluralization branch on FREE in both locales", () => {
+    const free = BILLING_PLANS.FREE;
+    assert.equal(free.languagesLimit, 1);
+    assert.equal(free.projectsLimit, 1);
+
+    const de = formatStripeProductDescription("FREE", "de");
+    assert.ok(de.includes(`${free.languagesLimit} Sprache,`));
+    assert.ok(de.includes(`${free.projectsLimit} Projekt `));
+
+    const en = formatStripeProductDescription("FREE", "en");
+    assert.ok(en.includes(`${free.languagesLimit} language `));
+    assert.ok(en.includes(`${free.projectsLimit} project `));
+  });
+
+  it("formatStripeProductDescription stays mechanically derived from BILLING_PLANS for every plan in both locales", () => {
+    // Even if someone edits BILLING_PLANS in the future, both locale outputs
+    // must contain the current numeric limits verbatim. This catches the bug
+    // where someone bumps a limit but forgets to re-run the Stripe setup
+    // script — at least the local string reflects the new value, so the next
+    // run writes through to Stripe.
+    const localeSpec = {
+      de: {
+        numberLocale: "de-DE",
+        languageNoun: (n: number) => (n === 1 ? "Sprache" : "Sprachen"),
+        projectNoun: (n: number) => (n === 1 ? "Projekt" : "Projekte"),
+      },
+      en: {
+        numberLocale: "en-US",
+        languageNoun: (n: number) => (n === 1 ? "language" : "languages"),
+        projectNoun: (n: number) => (n === 1 ? "project" : "projects"),
+      },
+    } as const;
+
+    for (const locale of ["de", "en"] as const) {
+      const spec = localeSpec[locale];
+      for (const key of BILLING_PLAN_KEYS) {
+        const plan = BILLING_PLANS[key];
+        const description = formatStripeProductDescription(key, locale);
+        assert.ok(
+          description.includes(plan.wordsLimit.toLocaleString(spec.numberLocale)),
+          `${key} ${locale} description must include the words limit ${plan.wordsLimit}`
+        );
+        assert.ok(
+          description.includes(`${plan.languagesLimit} ${spec.languageNoun(plan.languagesLimit)}`),
+          `${key} ${locale} description must include the languages count`
+        );
+        assert.ok(
+          description.includes(`${plan.projectsLimit} ${spec.projectNoun(plan.projectsLimit)}`),
+          `${key} ${locale} description must include the projects count`
+        );
+      }
     }
   });
 

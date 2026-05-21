@@ -12,16 +12,39 @@
  * STRIPE_WEBHOOK_SECRET that the operator can paste into
  * `.env.production.local` (or push to Vercel).
  *
+ * Flags:
+ *   --mode test|live          Default `test`. Refuses to run if the key prefix
+ *                             does not match the chosen mode.
+ *   --app-url <url>           Override the webhook base URL (default reads
+ *                             NEXT_PUBLIC_APP_URL / AUTH_URL / falls back to
+ *                             https://deepglot.ai).
+ *   --lang de|en              Locale for the Stripe Product description shown
+ *                             on the hosted Checkout page. Default `de`
+ *                             because Deepglot is German-first and the live
+ *                             products today carry hand-curated German copy;
+ *                             re-running --mode live with the default never
+ *                             swaps Checkout from German to English.
+ *   --dry-run                 Read-only. Lists every product/price/webhook
+ *                             change the script would make and prints a
+ *                             before/after diff for each, but never calls
+ *                             stripe.*.create() or stripe.*.update().
+ *
  * Usage:
  *   STRIPE_SECRET_KEY=rk_test_… node --import tsx scripts/stripe-setup.ts
  *   STRIPE_SECRET_KEY=rk_test_… node --import tsx scripts/stripe-setup.ts --mode live
+ *   STRIPE_SECRET_KEY=rk_live_… node --import tsx scripts/stripe-setup.ts --mode live --dry-run
+ *   STRIPE_SECRET_KEY=rk_live_… node --import tsx scripts/stripe-setup.ts --mode live --lang en --dry-run
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import type Stripe from "stripe";
 
-import { BILLING_PLANS, formatStripeProductDescription } from "@/lib/billing-plans";
+import {
+  BILLING_PLANS,
+  formatStripeProductDescription,
+  type StripeDescriptionLocale,
+} from "@/lib/billing-plans";
 
 const args = process.argv.slice(2);
 const modeIndex = args.indexOf("--mode");
@@ -31,6 +54,14 @@ const appUrlOverride = (() => {
   const i = args.indexOf("--app-url");
   return i >= 0 ? args[i + 1] : undefined;
 })();
+const langIndex = args.indexOf("--lang");
+const langArg = langIndex >= 0 ? args[langIndex + 1] : undefined;
+if (langArg !== undefined && langArg !== "de" && langArg !== "en") {
+  console.error(`Refusing to run with --lang ${langArg}: must be "de" or "en".`);
+  process.exit(1);
+}
+const lang: StripeDescriptionLocale = langArg === "en" ? "en" : "de";
+const dryRun = args.includes("--dry-run");
 
 const envFiles = [".env.production.local", ".env.local"];
 for (const file of envFiles) {
@@ -90,7 +121,7 @@ const PAID_PLAN_INPUT: Array<{
     name: `Deepglot ${plan.name}`,
     monthlyCents: plan.monthlyPriceCents,
     yearlyCents: plan.yearlyPriceCents,
-    description: formatStripeProductDescription(key),
+    description: formatStripeProductDescription(key, lang),
   };
 });
 
@@ -111,7 +142,9 @@ async function main() {
     typescript: true,
   });
 
-  console.log(`[stripe-setup] mode=${mode} app=${appUrl} webhook=${webhookUrl}`);
+  console.log(
+    `[stripe-setup] mode=${mode} lang=${lang} dryRun=${dryRun} app=${appUrl} webhook=${webhookUrl}`
+  );
   console.log(`[stripe-setup] STRIPE_SECRET_KEY prefix=${apiKey.slice(0, 8)}...`);
 
   const envLines: string[] = [];
@@ -130,17 +163,24 @@ async function main() {
   console.log(`[stripe-setup] webhook endpoint id=${webhook.id} url=${webhook.url}`);
   if (webhook.secret) {
     envLines.push(`STRIPE_WEBHOOK_SECRET="${webhook.secret}"`);
-  } else {
+  } else if (!dryRun) {
     envLines.push(`# STRIPE_WEBHOOK_SECRET cannot be re-read from Stripe after creation;`);
     envLines.push(`# rotate the existing webhook in the dashboard if you need a fresh secret.`);
   }
 
   console.log("");
-  console.log("=== Paste into .env.production.local (and Vercel env): ===");
-  console.log(envLines.join("\n"));
+  if (dryRun) {
+    console.log("=== Dry-run complete. No Stripe state was mutated. ===");
+  } else {
+    console.log("=== Paste into .env.production.local (and Vercel env): ===");
+    console.log(envLines.join("\n"));
+  }
 }
 
-async function ensureProduct(stripe: Stripe, plan: { key: string; name: string; description: string }) {
+async function ensureProduct(
+  stripe: Stripe,
+  plan: { key: string; name: string; description: string }
+): Promise<Stripe.Product> {
   // Match by metadata.plan_key.
   const search = await stripe.products.search({
     query: `metadata['deepglot_plan_key']:'${plan.key}' AND active:'true'`,
@@ -149,17 +189,44 @@ async function ensureProduct(stripe: Stripe, plan: { key: string; name: string; 
 
   if (search.data.length > 0) {
     const found = search.data[0];
-    if (found.name !== plan.name || found.description !== plan.description) {
-      const updated = await stripe.products.update(found.id, {
-        name: plan.name,
-        description: plan.description,
-      });
-      return updated;
+    const nameChanged = found.name !== plan.name;
+    const descriptionChanged = found.description !== plan.description;
+
+    if (!nameChanged && !descriptionChanged) {
+      return found;
     }
-    return found;
+
+    if (dryRun) {
+      console.log(`[dry-run] product ${plan.key} (${found.id}) would change:`);
+      if (nameChanged) {
+        console.log(`  name:        ${JSON.stringify(found.name)}`);
+        console.log(`           ->  ${JSON.stringify(plan.name)}`);
+      }
+      if (descriptionChanged) {
+        console.log(`  description: ${JSON.stringify(found.description)}`);
+        console.log(`           ->  ${JSON.stringify(plan.description)}`);
+      }
+      return found;
+    }
+
+    return await stripe.products.update(found.id, {
+      name: plan.name,
+      description: plan.description,
+    });
   }
 
-  return stripe.products.create({
+  if (dryRun) {
+    console.log(`[dry-run] product ${plan.key} would be created:`);
+    console.log(`  name:        ${JSON.stringify(plan.name)}`);
+    console.log(`  description: ${JSON.stringify(plan.description)}`);
+    return {
+      id: `prod_dryrun_${plan.key}`,
+      name: plan.name,
+      description: plan.description,
+    } as unknown as Stripe.Product;
+  }
+
+  return await stripe.products.create({
     name: plan.name,
     description: plan.description,
     metadata: { deepglot_plan_key: plan.key },
@@ -173,7 +240,22 @@ async function ensurePrice(
   interval: "month" | "year",
   planKey: string,
   intervalLabel: "monthly" | "yearly"
-) {
+): Promise<Stripe.Price> {
+  if (dryRun && productId.startsWith("prod_dryrun_")) {
+    // Product itself does not exist in Stripe yet (would be created by a real
+    // run), so there is nothing to search. Report the create that would
+    // follow and return a synthetic price record so envLines stays meaningful.
+    console.log(
+      `[dry-run] price ${planKey} ${intervalLabel} would be created: ${unitAmount} EUR ${interval}`
+    );
+    return {
+      id: `price_dryrun_${planKey}_${intervalLabel}`,
+      unit_amount: unitAmount,
+      currency: "eur",
+      recurring: { interval },
+    } as unknown as Stripe.Price;
+  }
+
   const search = await stripe.prices.search({
     query: `product:'${productId}' AND active:'true' AND metadata['deepglot_plan_key']:'${planKey}' AND metadata['deepglot_interval']:'${intervalLabel}'`,
     limit: 5,
@@ -192,11 +274,29 @@ async function ensurePrice(
   // Deactivate any old matching price with a different amount.
   for (const price of search.data) {
     if (price.unit_amount !== unitAmount && price.active) {
-      await stripe.prices.update(price.id, { active: false });
+      if (dryRun) {
+        console.log(
+          `[dry-run] price ${planKey} ${intervalLabel} (${price.id}) would be deactivated: ${price.unit_amount} EUR -> ${unitAmount} EUR`
+        );
+      } else {
+        await stripe.prices.update(price.id, { active: false });
+      }
     }
   }
 
-  return stripe.prices.create({
+  if (dryRun) {
+    console.log(
+      `[dry-run] price ${planKey} ${intervalLabel} would be created on product ${productId}: ${unitAmount} EUR ${interval}`
+    );
+    return {
+      id: `price_dryrun_${planKey}_${intervalLabel}`,
+      unit_amount: unitAmount,
+      currency: "eur",
+      recurring: { interval },
+    } as unknown as Stripe.Price;
+  }
+
+  return await stripe.prices.create({
     product: productId,
     unit_amount: unitAmount,
     currency: "eur",
@@ -219,6 +319,14 @@ async function ensureWebhookEndpoint(stripe: Stripe): Promise<Stripe.WebhookEndp
       WEBHOOK_EVENTS.every((event) => match.enabled_events.includes(event));
 
     if (!eventsMatch || match.status !== "enabled") {
+      if (dryRun) {
+        console.log(
+          `[dry-run] webhook ${match.id} (${match.url}) would be updated: events ${JSON.stringify(
+            match.enabled_events
+          )} -> ${JSON.stringify(WEBHOOK_EVENTS)}, status=${match.status} -> enabled`
+        );
+        return { ...match, secret: undefined };
+      }
       const updated = await stripe.webhookEndpoints.update(match.id, {
         enabled_events: enabledEvents,
         disabled: false,
@@ -228,7 +336,18 @@ async function ensureWebhookEndpoint(stripe: Stripe): Promise<Stripe.WebhookEndp
     return { ...match, secret: undefined };
   }
 
-  return stripe.webhookEndpoints.create({
+  if (dryRun) {
+    console.log(`[dry-run] webhook would be created: url=${webhookUrl} events=${JSON.stringify(WEBHOOK_EVENTS)}`);
+    return {
+      id: "we_dryrun",
+      url: webhookUrl,
+      enabled_events: WEBHOOK_EVENTS as unknown as Stripe.WebhookEndpoint["enabled_events"],
+      status: "enabled",
+      secret: undefined,
+    } as unknown as Stripe.WebhookEndpoint & { secret?: string };
+  }
+
+  return await stripe.webhookEndpoints.create({
     url: webhookUrl,
     enabled_events: enabledEvents,
     metadata: { deepglot: "1" },
