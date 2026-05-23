@@ -219,7 +219,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | ORM | Prisma | Type-safe, migrations, strong Next.js integration |
 | Billing | Stripe | Industry standard, strong subscription support |
 | UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
-| Email | Resend | Next.js friendly, cost-effective |
+| Email | Cloudflare Email Sending API | Next.js friendly, cost-effective |
 | Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DOMDocument (PHP native) | No external dependencies, available in all WordPress environments, used in HtmlTranslator and OutputBuffer |

@@ -293,12 +293,13 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
 - `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5.5`).
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
+- **Gemini** (`TRANSLATION_PROVIDER=gemini`): Google Gemini. Set `GEMINI_API_KEY` and optionally `GEMINI_TRANSLATION_MODEL` (default: `gemini-3.1-flash-lite`).
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 - Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
 
@@ -321,6 +322,11 @@ Project pages now support these additional flows:
 - the full API key is shown exactly once after creation
 - page views can be enabled under `Stats -> Page views`
 - the visual editor opens a real target URL with `deepglot_editor=1`
+
+## Additional features
+
+- **Password Reset**: Token-based password reset flow with SHA-256 tokens, 60-minute TTL, localized emails via Cloudflare Email Sending API.
+- **Project Invitations**: Email-based project member invitations with 7-day token expiry.
 
 ## Test coverage
 
