@@ -83,6 +83,24 @@ export async function POST(request: Request) {
     );
   }
 
+  const activeSubscription = organization.subscription;
+  if (
+    activeSubscription?.stripeSubscriptionId &&
+    (activeSubscription.status === "ACTIVE" ||
+      activeSubscription.status === "TRIALING")
+  ) {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Für Planwechsel bitte das Abrechnungsportal verwenden",
+          "Use the billing portal to change your plan"
+        ),
+      },
+      { status: 409 }
+    );
+  }
+
   // Reuse a real Stripe customer when one exists. Free-tier rows carry a
   // synthetic `free_<userId>` placeholder (written at registration) which is
   // not a real Stripe customer and must be replaced.

@@ -28,6 +28,23 @@ export const BILLING_PLAN_KEYS = [
 
 export type BillingPlanKey = (typeof BILLING_PLAN_KEYS)[number];
 
+/** Maps legacy `organization.plan` values to the current billing tier keys. */
+export function normalizeBillingPlanKey(
+  plan: string | null | undefined
+): BillingPlanKey {
+  if (plan === "PROFESSIONAL") return "PRO";
+  return (BILLING_PLAN_KEYS as readonly string[]).includes(plan ?? "")
+    ? (plan as BillingPlanKey)
+    : "FREE";
+}
+
+/** Project ceiling enforced when creating projects for an organization plan. */
+export function getProjectsLimitForPlan(
+  plan: string | null | undefined
+): number {
+  return BILLING_PLANS[normalizeBillingPlanKey(plan)].projectsLimit;
+}
+
 export type BillingInterval = "monthly" | "yearly";
 
 export type BillingPlan = {

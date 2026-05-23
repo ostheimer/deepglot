@@ -8,7 +8,9 @@ import {
   formatStripeProductDescription,
   formatYearlyMonthlyEquivalentCents,
   getEffectiveWordsLimit,
+  getProjectsLimitForPlan,
   getStripePriceIdFromEnv,
+  normalizeBillingPlanKey,
   type BillingPlanKey,
 } from "./billing-plans";
 
@@ -253,6 +255,13 @@ describe("billing-plans", () => {
         );
       }
     }
+  });
+
+  it("resolves project limits from BILLING_PLANS including legacy PROFESSIONAL alias", () => {
+    assert.equal(getProjectsLimitForPlan("PRO"), 5);
+    assert.equal(getProjectsLimitForPlan("PROFESSIONAL"), 5);
+    assert.equal(getProjectsLimitForPlan("UNKNOWN_TIER"), 1);
+    assert.equal(normalizeBillingPlanKey("PROFESSIONAL"), "PRO");
   });
 
   it("never advertises any limit as 'unlimited' or 'unbegrenzt'", () => {
