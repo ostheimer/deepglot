@@ -238,7 +238,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const plan = STRIPE_PLAN_MAP[priceId] ?? "FREE";
   const status = mapStripeStatus(subscription.status);
 
-  await db.subscription.update({
+  const updatedSubscription = await db.subscription.update({
     where: { stripeSubscriptionId: subscription.id },
     data: {
       stripePriceId: priceId,
@@ -247,6 +247,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       wordsLimit: WORDS_LIMIT_MAP[plan],
       stripeCurrentPeriodEnd: getPeriodEnd(subscription),
     },
+    select: { organizationId: true },
+  });
+
+  await db.organization.update({
+    where: { id: updatedSubscription.organizationId },
+    data: { plan },
   });
 }
 
