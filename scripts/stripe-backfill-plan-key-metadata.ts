@@ -139,9 +139,15 @@ async function main() {
 
 async function backfillProducts(stripe: Stripe): Promise<Counters & { matched: Map<PaidPlanKey, Stripe.Product> }> {
   console.log("=== Phase 1: products ===");
-  const list = await stripe.products.list({ active: true, limit: 100 });
+  // Auto-paginate so accounts with >100 active products do not silently miss
+  // a Deepglot product hiding past page 1 and then get reported as
+  // "NO active product found".
+  const allProducts: Stripe.Product[] = [];
+  for await (const product of stripe.products.list({ active: true, limit: 100 })) {
+    allProducts.push(product);
+  }
   const byName = new Map<string, Stripe.Product[]>();
-  for (const product of list.data) {
+  for (const product of allProducts) {
     const bucket = byName.get(product.name) ?? [];
     bucket.push(product);
     byName.set(product.name, bucket);
@@ -226,7 +232,13 @@ async function backfillPrices(
       continue;
     }
 
-    const prices = await stripe.prices.list({ product: product.id, active: true, limit: 20 });
+    // Auto-paginate so products with a long pricing history don't push the
+    // currently-active live price past the first page and trigger a false
+    // "NO active price found" error.
+    const allPrices: Stripe.Price[] = [];
+    for await (const price of stripe.prices.list({ product: product.id, active: true, limit: 100 })) {
+      allPrices.push(price);
+    }
 
     const intervals: Array<{ interval: "month" | "year"; label: "monthly" | "yearly"; expectedCents: number }> = [
       { interval: "month", label: "monthly", expectedCents: plan.monthlyPriceCents },
@@ -234,7 +246,7 @@ async function backfillPrices(
     ];
 
     for (const spec of intervals) {
-      const matches = prices.data.filter(
+      const matches = allPrices.filter(
         (p) =>
           p.recurring?.interval === spec.interval &&
           p.currency === "eur" &&
