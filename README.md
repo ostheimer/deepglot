@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- OpenAI / DeepL / Gemini
 
 ## Local development
 
@@ -81,6 +81,8 @@ The auth configuration is intentionally split:
 
 This separation prevents edge/runtime failures such as `MIDDLEWARE_INVOCATION_FAILED` on Vercel while keeping locale-aware auth redirects stable.
 
+A password reset flow is available from the sign-in page. Email delivery requires `RESEND_API_KEY`.
+
 The authentication entry points are now:
 
 - English: `/login`, `/signup`
@@ -123,7 +125,7 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- 21 PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, parallel batch translation, ARIA label validation, and WooCommerce email
 
 Run the PHP test suite locally:
 
@@ -288,16 +290,20 @@ For server-side return URLs such as the Stripe Billing Portal:
 - `AUTH_URL` is the primary base URL.
 - `NEXT_PUBLIC_APP_URL` is used as a fallback when `AUTH_URL` is not set locally.
 - On Vercel, the app can also fall back to system deployment URLs for Preview and Production environments.
+- `DEEPGLOT_CANONICAL_REDIRECT_HOSTS` is a comma-separated list of additional production-only aliases that redirect page traffic to `deepglot.ai`.
+- `DEEPGLOT_EDITOR_SECRET` is a shared secret required to open the visual editor on any target URL. Without it the `deepglot_editor=1` query parameter is ignored.
+- `RESEND_API_KEY` enables transactional email delivery (password reset, project invitations). Without this key the flows are disabled.
 
 ## Translation providers
 
 The translation flow uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
+- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
 - Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
 - `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5.5`).
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
+- `GEMINI_API_KEY` and `GEMINI_TRANSLATION_MODEL` configure the Google Gemini provider.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 - Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
@@ -321,6 +327,7 @@ Project pages now support these additional flows:
 - the full API key is shown exactly once after creation
 - page views can be enabled under `Stats -> Page views`
 - the visual editor opens a real target URL with `deepglot_editor=1`
+- project members can be managed under `Members`; team members hold an `ADMIN` or `TRANSLATOR` role per project; invitations are sent by email with a token link and expire after 7 days
 
 ## Test coverage
 
