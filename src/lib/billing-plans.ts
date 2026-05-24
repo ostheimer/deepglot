@@ -282,6 +282,37 @@ export function getEffectiveWordsLimit(
   return Math.min(subscription.wordsLimit, freeLimit);
 }
 
+/** Maps legacy Prisma enum values to the current billing plan keys. */
+export function normalizeBillingPlanKey(
+  plan: string | null | undefined
+): BillingPlanKey {
+  if (plan === "PROFESSIONAL") return "PRO";
+  return (BILLING_PLAN_KEYS as readonly string[]).includes(plan ?? "")
+    ? (plan as BillingPlanKey)
+    : "FREE";
+}
+
+/**
+ * Resolves how many projects an organization may create right now.
+ * Uses `organization.plan` (marketing/Stripe source of truth) and applies the
+ * same soft-cap as word limits when the subscription is not billable.
+ */
+export function getEffectiveProjectsLimit(
+  organizationPlan: string | null | undefined,
+  subscription: { status: SubscriptionStatus } | null | undefined
+): number {
+  const planLimit = BILLING_PLANS[normalizeBillingPlanKey(organizationPlan)]
+    .projectsLimit;
+  const freeLimit = BILLING_PLANS.FREE.projectsLimit;
+  if (!subscription) return planLimit;
+
+  if (subscription.status === "ACTIVE" || subscription.status === "TRIALING") {
+    return planLimit;
+  }
+
+  return Math.min(planLimit, freeLimit);
+}
+
 /**
  * Lookup helper used by the Stripe webhook route to resolve a configured
  * Stripe price id back to its plan key. Falls back to FREE so unknown price

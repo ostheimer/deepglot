@@ -8,6 +8,8 @@ import {
   formatStripeProductDescription,
   formatYearlyMonthlyEquivalentCents,
   getEffectiveWordsLimit,
+  getEffectiveProjectsLimit,
+  normalizeBillingPlanKey,
   getStripePriceIdFromEnv,
   type BillingPlanKey,
 } from "./billing-plans";
@@ -93,6 +95,35 @@ describe("billing-plans", () => {
     const wordsLimits = BILLING_PLAN_KEYS.map((key) => BILLING_PLANS[key].wordsLimit);
     const sorted = [...wordsLimits].sort((a, b) => a - b);
     assert.deepEqual(wordsLimits, sorted);
+  });
+
+  it("normalizeBillingPlanKey maps legacy PROFESSIONAL rows to PRO", () => {
+    assert.equal(normalizeBillingPlanKey("PROFESSIONAL"), "PRO");
+    assert.equal(normalizeBillingPlanKey("PRO"), "PRO");
+    assert.equal(normalizeBillingPlanKey("unknown"), "FREE");
+  });
+
+  it("getEffectiveProjectsLimit uses BILLING_PLANS and soft-caps broken billing", () => {
+    const freeLimit = BILLING_PLANS.FREE.projectsLimit;
+    const proLimit = BILLING_PLANS.PRO.projectsLimit;
+
+    assert.equal(getEffectiveProjectsLimit("PRO", null), proLimit);
+    assert.equal(
+      getEffectiveProjectsLimit("PRO", { status: "ACTIVE" }),
+      proLimit
+    );
+    assert.equal(
+      getEffectiveProjectsLimit("PROFESSIONAL", { status: "TRIALING" }),
+      proLimit
+    );
+    assert.equal(
+      getEffectiveProjectsLimit("PRO", { status: "PAST_DUE" }),
+      freeLimit
+    );
+    assert.equal(
+      getEffectiveProjectsLimit("STARTER", { status: "CANCELED" }),
+      freeLimit
+    );
   });
 
   it("getEffectiveWordsLimit grants the full quota only to ACTIVE and TRIALING subscriptions", () => {

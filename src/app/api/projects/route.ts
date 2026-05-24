@@ -6,6 +6,7 @@ import { generateApiKey } from "@/lib/api-keys";
 import { z } from "zod";
 import { uiText } from "@/lib/static-copy";
 import type { SiteLocale } from "@/lib/site-locale";
+import { getEffectiveProjectsLimit } from "@/lib/billing-plans";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
@@ -59,19 +60,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check project limit based on plan
-    const planLimits: Record<string, number> = {
-      FREE: 1,
-      STARTER: 5,
-      PROFESSIONAL: 999,
-      ENTERPRISE: 999,
-    };
-
     const currentProjects = await db.project.count({
       where: { organizationId: membership.organizationId },
     });
 
-    const limit = planLimits[membership.organization.plan] ?? 1;
+    const limit = getEffectiveProjectsLimit(
+      membership.organization.plan,
+      membership.organization.subscription
+    );
     if (currentProjects >= limit) {
       return NextResponse.json(
         {
