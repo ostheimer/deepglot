@@ -187,6 +187,7 @@ Next.js App (Vercel)          WordPress Plugin
 | 7.13 | Anti-drift guard for marketing copy: a `marketing-home.test.ts` (or lint rule) that scans `src/components/marketing/marketing-home.tsx` for hardcoded €/word tokens not sourced from `BILLING_PLANS`, so the Pro tier price and word ceiling can never silently disagree with the canonical plan again (regression of the `EUR 49 / 1M words` hero claim fixed in PR #38). | ⏳ Open |
 | 7.14 | Playwright slider-alignment regression test: drive `src/components/marketing/pricing-grid.tsx` through every `BILLING_PLAN_KEYS` index and assert the thumb's centre pixel is within ±2px of the active tick label's centre. Prevents future flex/absolute layout drifts of the kind fixed in PR #38. | ⏳ Open |
 | 7.15 | Stripe webhook end-to-end smoke for subscription-lifecycle: trigger `customer.subscription.deleted`, `customer.subscription.updated`, and `invoice.payment_failed` in Stripe test mode against `/api/webhooks/stripe` and assert that `Subscription.status`, `plan`, and `wordsLimit` are written as expected, with `getEffectiveWordsLimit` returning the FREE soft-cap for non-ACTIVE/TRIALING statuses. Closes the verification gap behind PR #37's grace-period policy. | ⏳ Open |
+| 7.16 | Project-creation API must read `projectsLimit` from `BILLING_PLANS` (not a stale four-tier map); Stripe webhook uses `findPlanKeyByStripePriceId` consistently. Fixed 2026-05-25 (cron correctness pass). | ✅ Completed |
 
 ---
 
