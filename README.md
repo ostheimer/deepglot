@@ -131,6 +131,8 @@ Run the PHP test suite locally:
 php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
 ```
 
+The plugin architecture was initially guided by an analysis of a reference implementation documented in [reference-plugin-analysis.md](reference-plugin-analysis.md) (March 2026).
+
 ## Deployment
 
 The app is deployed on Vercel. For a local production check:
