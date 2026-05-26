@@ -33,11 +33,20 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
   const [pending, setPending] = useState<string | null>(null);
 
   const interval = yearly ? "yearly" : "monthly";
-  // An org already on a paid tier has a live Stripe subscription. Plan changes
-  // must go through the billing portal so Stripe swaps the existing
-  // subscription (with proration) — starting a fresh Checkout would create a
-  // second subscription and double-bill the customer.
-  const onPaidPlan = currentPlan !== "FREE";
+  // Plan changes route through the billing portal when an org already has a
+  // live Stripe subscription, so Stripe swaps the existing subscription with
+  // proration — starting a fresh Checkout would create a second subscription
+  // and double-bill the customer.
+  //
+  // Branching on the plan key alone is wrong: ENTERPRISE is a paid tier that
+  // is hand-managed without a Stripe relationship (no customer id, no
+  // subscription). Routing those clicks to the portal returns 400 from
+  // /api/billing/portal and surfaces as a misleading "billing portal
+  // unavailable" toast. Use `hasStripeCustomer` so ENTERPRISE — and any
+  // future hand-managed tier — falls through to Checkout, which creates a
+  // real Stripe customer/subscription and lets the user self-service switch
+  // off the bespoke plan.
+  const hasExistingSubscription = hasStripeCustomer;
 
   async function handleUpgrade(plan: BillingPlanKey) {
     setPending(plan);
@@ -152,17 +161,17 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
                 <button
                   type="button"
                   onClick={() =>
-                    onPaidPlan ? handlePortal() : handleUpgrade(key)
+                    hasExistingSubscription ? handlePortal() : handleUpgrade(key)
                   }
                   disabled={pending !== null}
                   className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {(onPaidPlan && pending === "__portal") ||
+                  {(hasExistingSubscription && pending === "__portal") ||
                   pending === key
                     ? locale === "de"
                       ? "Weiterleiten…"
                       : "Redirecting..."
-                    : onPaidPlan
+                    : hasExistingSubscription
                       ? locale === "de"
                         ? "Im Portal ändern"
                         : "Change in portal"
