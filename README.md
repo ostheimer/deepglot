@@ -99,6 +99,16 @@ The `POST /api/translate` route is designed for drop-in compatibility:
   - `GET /api/public/languages`
   - `GET /api/public/languages/is-supported`
 
+## Rate limiting
+
+API rate limits are enforced server-side and shared across all Vercel instances via Postgres-backed buckets (stored in the `RateLimitBucket` table — raw keys and email addresses are never stored, only SHA-256 hashes):
+
+- `POST /api/translate`: 60 requests per minute per API key (configurable via `RATE_LIMIT_TRANSLATE_RPM`)
+- Plugin API-key endpoints: 120 requests per minute per key (`RATE_LIMIT_PLUGIN_RPM`)
+- Password reset: 5 requests per minute per normalized email (`RATE_LIMIT_AUTH_RPM`)
+
+Clients that exceed a limit receive `429 Too Many Requests` with a `Retry-After` header.
+
 ## WordPress plugin
 
 The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.7.0**, deployed live on `meinhaushalt.at`.
