@@ -3,6 +3,8 @@
 > Analysis date: March 2026  
 > Goal: a solid foundation for a custom WordPress translation plugin without cloud lock-in
 
+> **Implementation status (2026-05):** The plugin has been fully built as `wordpress-plugin/deepglot` (v0.7.0, live on meinhaushalt.at). Two decisions diverged from the planned next steps in section 9: (1) PHP's native `DOMDocument` was chosen over DiDOM — zero external dependencies in all WordPress environments. (2) WordPress transients serve as the translation cache — no custom database table required. This document remains useful as architectural context for those design decisions.
+
 ---
 
 ## 1. Architecture overview
@@ -118,6 +120,8 @@ The analysis suggests these prioritized decisions for Deepglot:
 ---
 
 ## 9. Next implementation steps
+
+> **Note:** The steps below were the original plan from March 2026. The plugin has since been implemented. See README.md for the actual architectural choices made (DOMDocument, WordPress transients).
 
 - Integrate URL and language logic directly into the frontend flow
 - Build parser and string extraction on top of DiDOM
