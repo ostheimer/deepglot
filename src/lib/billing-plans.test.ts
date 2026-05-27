@@ -8,7 +8,9 @@ import {
   formatStripeProductDescription,
   formatYearlyMonthlyEquivalentCents,
   getEffectiveWordsLimit,
+  getProjectsLimitForPlan,
   getStripePriceIdFromEnv,
+  resolveBillingPlanKey,
   type BillingPlanKey,
 } from "./billing-plans";
 
@@ -131,6 +133,34 @@ describe("billing-plans", () => {
       getEffectiveWordsLimit({ status: "PAST_DUE", wordsLimit: freeLimit }),
       freeLimit
     );
+  });
+
+  it("resolveBillingPlanKey maps legacy PROFESSIONAL to PRO", () => {
+    assert.equal(resolveBillingPlanKey("PROFESSIONAL"), "PRO");
+    assert.equal(resolveBillingPlanKey("PRO"), "PRO");
+    assert.equal(resolveBillingPlanKey("unknown"), "FREE");
+  });
+
+  it("getProjectsLimitForPlan returns BILLING_PLANS ceilings for every paid tier", () => {
+    assert.equal(getProjectsLimitForPlan("PRO"), BILLING_PLANS.PRO.projectsLimit);
+    assert.equal(
+      getProjectsLimitForPlan("BUSINESS"),
+      BILLING_PLANS.BUSINESS.projectsLimit
+    );
+    assert.equal(
+      getProjectsLimitForPlan("ADVANCED"),
+      BILLING_PLANS.ADVANCED.projectsLimit
+    );
+    assert.equal(
+      getProjectsLimitForPlan("EXTENDED"),
+      BILLING_PLANS.EXTENDED.projectsLimit
+    );
+    assert.equal(
+      getProjectsLimitForPlan("PROFESSIONAL"),
+      BILLING_PLANS.PRO.projectsLimit
+    );
+    // Regression: stale hardcoded map treated unknown PRO as 1 project.
+    assert.equal(getProjectsLimitForPlan("PRO"), 5);
   });
 
   it("defaults to German so re-running scripts/stripe-setup.ts --mode live never swaps the customer-facing locale", () => {
