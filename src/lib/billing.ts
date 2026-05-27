@@ -29,6 +29,33 @@ function getVercelDeploymentBaseUrl(): string | null {
   return normalizeBaseUrl(deploymentHost);
 }
 
+/**
+ * Recognise whether a `subscription.stripeCustomerId` value points at a real
+ * Stripe customer (something the Stripe API will accept) or at one of the
+ * internal placeholder conventions used when the org has no Stripe
+ * relationship yet:
+ *
+ *   - `free_<userId|orgId>`   — written at registration (Free tier) and by
+ *                                the seeded test login.
+ *   - `manual_<orgId>`        — written by hand (or by ad-hoc admin scripts)
+ *                                when an org is flagged onto a non-Stripe
+ *                                tier such as ENTERPRISE.
+ *
+ * Real Stripe customer ids always start with `cus_`. We allowlist that prefix
+ * instead of blacklisting individual placeholder schemes so any future
+ * placeholder (e.g. `comp_`, `trial_`) is treated as non-Stripe by default
+ * and cannot regress into "billing portal unavailable" toasts.
+ *
+ * Returning `false` means: do not call Stripe APIs (portal, subscriptions,
+ * invoices) with this id; route plan changes through Checkout to create a
+ * real customer instead.
+ */
+export function isRealStripeCustomerId(
+  customerId: string | null | undefined
+): boolean {
+  return typeof customerId === "string" && customerId.startsWith("cus_");
+}
+
 export function getAppBaseUrl(): string {
   const baseUrl =
     process.env.AUTH_URL ??

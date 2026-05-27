@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { isRealStripeCustomerId } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -66,8 +67,7 @@ export default async function PlanUebersichtPage({
   const status = sub?.status ?? "INACTIVE";
   const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.INACTIVE;
 
-  const hasStripeCustomer =
-    !!sub?.stripeCustomerId && !sub.stripeCustomerId.startsWith("free_");
+  const hasStripeCustomer = isRealStripeCustomerId(sub?.stripeCustomerId);
 
   // Next invoice date from Stripe (best effort — never blocks the page).
   let nextInvoiceDate: string | null = null;

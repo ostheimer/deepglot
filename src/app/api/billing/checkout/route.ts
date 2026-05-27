@@ -3,7 +3,11 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
-import { getCheckoutCancelUrl, getCheckoutSuccessUrl } from "@/lib/billing";
+import {
+  getCheckoutCancelUrl,
+  getCheckoutSuccessUrl,
+  isRealStripeCustomerId,
+} from "@/lib/billing";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -84,11 +88,12 @@ export async function POST(request: Request) {
   }
 
   // Reuse a real Stripe customer when one exists. Free-tier rows carry a
-  // synthetic `free_<userId>` placeholder (written at registration) which is
-  // not a real Stripe customer and must be replaced.
+  // synthetic `free_<userId>` placeholder (written at registration), and
+  // hand-managed tiers (e.g. ENTERPRISE) carry `manual_<orgId>`. Neither is a
+  // real Stripe customer; use the centralised allowlist of `cus_…` ids so a
+  // new placeholder scheme can't quietly turn into a Stripe API error.
   const existingCustomerId = organization.subscription?.stripeCustomerId;
-  const hasRealCustomer =
-    !!existingCustomerId && !existingCustomerId.startsWith("free_");
+  const hasRealCustomer = isRealStripeCustomerId(existingCustomerId);
 
   let customerId = existingCustomerId;
   if (!hasRealCustomer) {
