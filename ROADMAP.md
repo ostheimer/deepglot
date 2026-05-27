@@ -206,6 +206,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | 8.8 | **EU-wide localization** ([#62](https://github.com/ostheimer/deepglot/issues/62)). Extended locale support beyond EN/DE to additional EU language codes. Public routes, auth pages, dashboard routes, and marketing metadata serve localized variants. Playwright localized route round-trip regression test added. Completed 2026-05-17. | ✅ Completed |
 | 8.9 | **Localize remaining metadata** ([#66](https://github.com/ostheimer/deepglot/issues/66)). All remaining `<head>` metadata (title, description, OG tags) now rendered in the request locale across all supported locales. Completed 2026-05-17. | ✅ Completed |
 | 8.10 | **Fix localized marketing pricing units** ([#65](https://github.com/ostheimer/deepglot/issues/65)). Pricing page word-ceiling and price display for localized routes sourced from `BILLING_PLANS` instead of hardcoded strings, preventing the Pro tier hero claim from silently drifting across locales. Completed 2026-05-17. | ✅ Completed |
+| 8.11 | **Project-create limit drift** (cron investigation 2026-05-27). `POST /api/projects` used a stale `planLimits` map; PRO/BUSINESS/ADVANCED/EXTENDED fell through to `?? 1` and blocked paying customers after the first project. Fixed via `getProjectsLimitForPlan()` in `billing-plans.ts`. | ✅ Completed |
 
 ---
 
