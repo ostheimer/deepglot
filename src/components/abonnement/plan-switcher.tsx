@@ -52,12 +52,12 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
     setPending(plan);
     try {
       await startCheckout(plan, interval);
-    } catch {
-      toast.error(
+    } catch (error) {
+      const fallback =
         locale === "de"
           ? "Checkout konnte nicht gestartet werden."
-          : "Could not start checkout."
-      );
+          : "Could not start checkout.";
+      toast.error(error instanceof Error && error.message ? error.message : fallback);
       setPending(null);
     }
   }
@@ -66,12 +66,16 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
     setPending("__portal");
     try {
       await openBillingPortal();
-    } catch {
-      toast.error(
+    } catch (error) {
+      // Surface the specific server-side reason (e.g. "Stripe customer not
+      // found", "Portal not configured") instead of the previous generic
+      // "billing portal unavailable" — the route now returns these in the
+      // error body so the user/operator knows what to do.
+      const fallback =
         locale === "de"
           ? "Abrechnungsportal nicht verfügbar."
-          : "Billing portal unavailable."
-      );
+          : "Billing portal unavailable.";
+      toast.error(error instanceof Error && error.message ? error.message : fallback);
       setPending(null);
     }
   }
