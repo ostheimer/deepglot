@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getBillingPortalReturnUrl } from "@/lib/billing";
+import {
+  getBillingPortalReturnUrl,
+  isRealStripeCustomerId,
+} from "@/lib/billing";
 
 function restoreEnv(
   authUrl: string | undefined,
@@ -214,4 +217,33 @@ test("throws a clear error when no billing portal base URL is configured", () =>
       originalVercelProductionUrl
     );
   }
+});
+
+test("isRealStripeCustomerId allowlists only cus_ prefixes", () => {
+  // Real Stripe customer ids.
+  assert.equal(isRealStripeCustomerId("cus_PJ8q4xQH6tOKpz"), true);
+  assert.equal(isRealStripeCustomerId("cus_"), true); // boundary: prefix-only
+
+  // Internal placeholders written by the app — must NOT be treated as Stripe
+  // customers, otherwise /api/billing/portal calls Stripe with a synthetic id
+  // and Stripe answers 404 `resource_missing`, surfacing as a confusing
+  // "billing portal unavailable" toast on /subscription/overview.
+  assert.equal(isRealStripeCustomerId("free_clxxxxxxxxxxxxxxxxxx"), false);
+  assert.equal(
+    isRealStripeCustomerId("manual_cmoby1nwu0000687hig18thlb"),
+    false
+  );
+
+  // Missing values must default to "not a real customer" so callers can
+  // short-circuit instead of erroring on null access downstream.
+  assert.equal(isRealStripeCustomerId(null), false);
+  assert.equal(isRealStripeCustomerId(undefined), false);
+  assert.equal(isRealStripeCustomerId(""), false);
+
+  // Defence in depth: anything that isn't `cus_…` is rejected, even if it
+  // looks vaguely Stripe-ish. This keeps the allowlist tight against future
+  // placeholder conventions.
+  assert.equal(isRealStripeCustomerId("Cus_PJ8q4xQH6tOKpz"), false);
+  assert.equal(isRealStripeCustomerId(" cus_PJ8q4xQH6tOKpz"), false);
+  assert.equal(isRealStripeCustomerId("price_1TWwm0FAiA6nPZ"), false);
 });

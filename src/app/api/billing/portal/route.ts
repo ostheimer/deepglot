@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 import { auth } from "@/lib/auth";
-import { getBillingPortalReturnUrl } from "@/lib/billing";
+import {
+  getBillingPortalReturnUrl,
+  isRealStripeCustomerId,
+} from "@/lib/billing";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -29,7 +32,10 @@ export async function POST() {
   });
 
   const customerId = membership?.organization?.subscription?.stripeCustomerId;
-  if (!customerId || customerId.startsWith("free_")) {
+  if (!isRealStripeCustomerId(customerId)) {
+    // Either no customer id at all, or one of the internal placeholders
+    // (`free_…`, `manual_…`, …). Either way, calling Stripe would 404 with
+    // `resource_missing` and the user would see a confusing toast.
     return NextResponse.json(
       {
         error: t(
