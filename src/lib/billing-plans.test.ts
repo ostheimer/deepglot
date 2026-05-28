@@ -8,7 +8,9 @@ import {
   formatStripeProductDescription,
   formatYearlyMonthlyEquivalentCents,
   getEffectiveWordsLimit,
+  getProjectsLimitForPlan,
   getStripePriceIdFromEnv,
+  resolveBillingPlanKey,
   type BillingPlanKey,
 } from "./billing-plans";
 
@@ -51,6 +53,23 @@ describe("billing-plans", () => {
       assert.equal(plan.languagesLimit, expectation.languagesLimit, `${expectation.key} languages`);
       assert.equal(plan.projectsLimit, expectation.projectsLimit, `${expectation.key} projects`);
     }
+  });
+
+  it("resolveBillingPlanKey maps PROFESSIONAL alias and unknown plans safely", () => {
+    assert.equal(resolveBillingPlanKey("PROFESSIONAL"), "PRO");
+    assert.equal(resolveBillingPlanKey("PRO"), "PRO");
+    assert.equal(resolveBillingPlanKey("not-a-plan"), "FREE");
+    assert.equal(resolveBillingPlanKey(null), "FREE");
+  });
+
+  it("getProjectsLimitForPlan returns BILLING_PLANS ceilings for every paid tier", () => {
+    assert.equal(getProjectsLimitForPlan("PRO"), BILLING_PLANS.PRO.projectsLimit);
+    assert.equal(getProjectsLimitForPlan("BUSINESS"), BILLING_PLANS.BUSINESS.projectsLimit);
+    assert.equal(getProjectsLimitForPlan("ADVANCED"), BILLING_PLANS.ADVANCED.projectsLimit);
+    assert.equal(getProjectsLimitForPlan("EXTENDED"), BILLING_PLANS.EXTENDED.projectsLimit);
+    assert.equal(getProjectsLimitForPlan("PROFESSIONAL"), BILLING_PLANS.PRO.projectsLimit);
+    // Regression: stale hardcoded map treated unknown PRO as 1 project.
+    assert.equal(getProjectsLimitForPlan("PRO"), 5);
   });
 
   it("computes yearly billing as monthly * 10 (Weglot-style 2 months free) for paid plans", () => {

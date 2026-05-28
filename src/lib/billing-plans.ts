@@ -153,6 +153,23 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
 };
 
 /**
+ * Normalizes persisted plan strings (including the deprecated PROFESSIONAL alias)
+ * to a canonical {@link BillingPlanKey} for limit lookups.
+ */
+export function resolveBillingPlanKey(plan: string | null | undefined): BillingPlanKey {
+  if (plan === "PROFESSIONAL") return "PRO";
+  if ((BILLING_PLAN_KEYS as readonly string[]).includes(plan ?? "")) {
+    return plan as BillingPlanKey;
+  }
+  return "FREE";
+}
+
+/** Project ceiling for an organization plan value stored on `Organization.plan`. */
+export function getProjectsLimitForPlan(plan: string | null | undefined): number {
+  return BILLING_PLANS[resolveBillingPlanKey(plan)].projectsLimit;
+}
+
+/**
  * Total annual cost when paying yearly, in cents.
  *
  * Follows Weglot's convention `monthlyPriceCents * 10` so the marketing claim
