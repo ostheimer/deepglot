@@ -219,8 +219,8 @@ Recommended environment matrix:
   - point both database URLs to Neon `preview`
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
-  - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+  - set `TRANSLATION_PROVIDER=openai` (or `gemini` when a `GEMINI_API_KEY` is available)
+  - set `OPENAI_TRANSLATION_MODEL=gpt-5-mini` (cost-effective default; override to `gpt-5.5` only for premium quality requirements)
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -293,9 +293,11 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
-- Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5.5`).
+- `TRANSLATION_PROVIDER` accepts `gemini`, `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
+- Without an explicit setting, the app auto-detects the provider in this order: `gemini` (when `GEMINI_API_KEY` is present), then `openai` (`OPENAI_API_KEY`), then `openrouter` (`OPENROUTER_API_KEY`), then `deepl` (`DEEPL_API_KEY`), then `ollama` (`OLLAMA_BASE_URL`), otherwise `mock` in `development` and `test`.
+- `GEMINI_API_KEY`, `GEMINI_TRANSLATION_MODEL` (default: `gemini-3.1-flash-lite-preview`), and `GEMINI_BASE_URL` configure the Gemini provider.
+- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`; `gpt-5.5` works but is significantly more expensive per token).
+- `TRANSLATION_FALLBACK_PROVIDERS` is an optional comma-separated list of provider names (e.g. `gemini,openai`) that the app tries in order when the primary provider returns a 429 or 5xx error.
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
