@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
+import { isRealStripeCustomerId } from "@/lib/billing";
 import { z } from "zod";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   });
 
   const customerId = membership?.organization?.subscription?.stripeCustomerId;
-  if (!customerId) {
+  if (!isRealStripeCustomerId(customerId)) {
     return NextResponse.json({ success: true }); // no Stripe customer yet, silently succeed
   }
 

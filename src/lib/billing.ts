@@ -52,7 +52,7 @@ function getVercelDeploymentBaseUrl(): string | null {
  */
 export function isRealStripeCustomerId(
   customerId: string | null | undefined
-): boolean {
+): customerId is string {
   return typeof customerId === "string" && customerId.startsWith("cus_");
 }
 
