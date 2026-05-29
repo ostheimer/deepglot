@@ -10,6 +10,7 @@ import {
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
+import { WebhookUrlError, parsePublicWebhookUrl } from "@/lib/webhook-url-safety";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -92,6 +93,22 @@ export async function POST(
         error:
           parsed.error.issues[0]?.message ??
           t(locale, "Ungültige Eingabe", "Invalid input"),
+      },
+      { status: 400 }
+    );
+  }
+
+  // Reject private/internal/non-http(s) webhook targets (SSRF guard). The host
+  // is re-checked against its resolved IPs at dispatch time.
+  try {
+    parsePublicWebhookUrl(parsed.data.url);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof WebhookUrlError
+            ? error.message
+            : t(locale, "Ungültige Webhook-URL", "Invalid webhook URL"),
       },
       { status: 400 }
     );
