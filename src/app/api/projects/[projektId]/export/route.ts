@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import {
+  sanitizeFilenamePart,
   serializeGlossaryCsv,
   serializePoTranslations,
   serializeSlugsCsv,
   serializeTranslationsCsv,
 } from "@/lib/import-export";
-import { getAuthenticatedUserId, userHasProjectAccess } from "@/lib/project-access";
+import {
+  canAccessProject,
+  canAccessProjectLanguage,
+  getAuthenticatedUserId,
+  getProjectAccess,
+} from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -31,7 +37,8 @@ export async function GET(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  const access = await getProjectAccess(userId, projektId);
+  if (!access || !canAccessProject(access)) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }
@@ -68,6 +75,22 @@ export async function GET(
       );
     }
 
+    // Translators may only export the language(s) they are assigned to;
+    // managers may export any. Keeps language scoping consistent with the rest
+    // of the project access policy.
+    if (!canAccessProjectLanguage(access, langTo)) {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            `Keine Berechtigung für die Sprache "${langTo}".`,
+            `You are not authorized for the language "${langTo}".`
+          ),
+        },
+        { status: 403 }
+      );
+    }
+
     const translations = await db.translation.findMany({
       where: {
         projectId: projektId,
@@ -86,10 +109,11 @@ export async function GET(
       }
     );
 
+    const filename = `deepglot-translations-${sanitizeFilenamePart(langTo)}.po`;
     return new Response(po, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="deepglot-${asset}-${langTo}.po"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   }
@@ -100,20 +124,24 @@ export async function GET(
       orderBy: [{ langTo: "asc" }, { originalText: "asc" }],
     });
     const csv = serializeTranslationsCsv(
-      translations.map((translation) => ({
-        originalText: translation.originalText,
-        translatedText: translation.translatedText,
-        langFrom: translation.langFrom,
-        langTo: translation.langTo,
-        isManual: translation.isManual,
-        source: translation.source,
-      }))
+      translations
+        .filter((translation) =>
+          canAccessProjectLanguage(access, translation.langTo)
+        )
+        .map((translation) => ({
+          originalText: translation.originalText,
+          translatedText: translation.translatedText,
+          langFrom: translation.langFrom,
+          langTo: translation.langTo,
+          isManual: translation.isManual,
+          source: translation.source,
+        }))
     );
 
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="deepglot-${asset}.csv"`,
+        "Content-Disposition": `attachment; filename="deepglot-translations.csv"`,
       },
     });
   }
@@ -124,19 +152,21 @@ export async function GET(
       orderBy: [{ langTo: "asc" }, { originalTerm: "asc" }],
     });
     const csv = serializeGlossaryCsv(
-      rules.map((rule) => ({
-        originalTerm: rule.originalTerm,
-        translatedTerm: rule.translatedTerm,
-        langFrom: rule.langFrom,
-        langTo: rule.langTo,
-        caseSensitive: rule.caseSensitive,
-      }))
+      rules
+        .filter((rule) => canAccessProjectLanguage(access, rule.langTo))
+        .map((rule) => ({
+          originalTerm: rule.originalTerm,
+          translatedTerm: rule.translatedTerm,
+          langFrom: rule.langFrom,
+          langTo: rule.langTo,
+          caseSensitive: rule.caseSensitive,
+        }))
     );
 
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="deepglot-${asset}.csv"`,
+        "Content-Disposition": `attachment; filename="deepglot-glossary.csv"`,
       },
     });
   }
@@ -147,18 +177,20 @@ export async function GET(
       orderBy: [{ langTo: "asc" }, { originalSlug: "asc" }],
     });
     const csv = serializeSlugsCsv(
-      slugs.map((slug) => ({
-        originalSlug: slug.originalSlug,
-        translatedSlug: slug.translatedSlug ?? "",
-        langTo: slug.langTo,
-        urlCount: slug.urlCount,
-      }))
+      slugs
+        .filter((slug) => canAccessProjectLanguage(access, slug.langTo))
+        .map((slug) => ({
+          originalSlug: slug.originalSlug,
+          translatedSlug: slug.translatedSlug ?? "",
+          langTo: slug.langTo,
+          urlCount: slug.urlCount,
+        }))
     );
 
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="deepglot-${asset}.csv"`,
+        "Content-Disposition": `attachment; filename="deepglot-slugs.csv"`,
       },
     });
   }
