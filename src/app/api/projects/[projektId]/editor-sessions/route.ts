@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { createEditorSessionToken } from "@/lib/editor-session";
+import {
+  canAccessProject,
+  canAccessProjectLanguage,
+  getProjectAccess,
+} from "@/lib/project-access";
 import { getProjectUrl } from "@/lib/project-url";
 
 export const runtime = "nodejs";
@@ -55,15 +60,17 @@ export async function POST(
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const project = await db.project.findFirst({
-    where: {
-      id: projektId,
-      organization: {
-        members: {
-          some: { userId: session.user.id },
-        },
-      },
-    },
+  // Launching the editor grants a 15-minute capability to write translations
+  // for the chosen language, so require real project access (not merely org
+  // membership). The page itself is gated on canAccessProject via the project
+  // layout — match that here so the API can't be used to bypass it.
+  const access = await getProjectAccess(session.user.id, projektId);
+  if (!access || !canAccessProject(access)) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const project = await db.project.findUnique({
+    where: { id: projektId },
     include: {
       languages: {
         where: { isActive: true },
@@ -93,9 +100,27 @@ export async function POST(
     );
   }
 
+  // Only allow launching for a language that is actually an active target of
+  // this project.
+  if (!project.languages.some((language) => language.langCode.toLowerCase() === langTo)) {
+    return NextResponse.json(
+      { error: "That language is not active for this project." },
+      { status: 400 }
+    );
+  }
+
+  // Translators are scoped to their assigned language; managers may edit any.
+  if (!canAccessProjectLanguage(access, langTo)) {
+    return NextResponse.json(
+      { error: "You are not authorized to edit this language." },
+      { status: 403 }
+    );
+  }
+
   const token = createEditorSessionToken({
     projectId: project.id,
     domain: project.domain,
+    langTo,
   });
   const launchUrl = buildEditorLaunchUrl({
     domain: project.domain,

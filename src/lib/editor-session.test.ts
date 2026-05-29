@@ -10,7 +10,7 @@ import {
 test("creates and verifies editor session tokens", () => {
   const secret = "test-editor-secret";
   const token = createEditorSessionToken(
-    { projectId: "proj_123", domain: "example.com", ttlSeconds: 60 },
+    { projectId: "proj_123", domain: "example.com", langTo: "en", ttlSeconds: 60 },
     secret
   );
 
@@ -19,12 +19,13 @@ test("creates and verifies editor session tokens", () => {
   assert.ok(claims);
   assert.equal(claims.projectId, "proj_123");
   assert.equal(claims.domain, "example.com");
+  assert.equal(claims.langTo, "en");
 });
 
 test("rejects tampered editor session tokens", () => {
   const secret = "test-editor-secret";
   const token = createEditorSessionToken(
-    { projectId: "proj_123", domain: "example.com", ttlSeconds: 60 },
+    { projectId: "proj_123", domain: "example.com", langTo: "en", ttlSeconds: 60 },
     secret
   );
 
@@ -36,7 +37,7 @@ test("rejects tampered editor session tokens", () => {
 test("rejects expired editor session tokens", () => {
   const secret = "test-editor-secret";
   const token = createEditorSessionToken(
-    { projectId: "proj_123", domain: "example.com", ttlSeconds: 1 },
+    { projectId: "proj_123", domain: "example.com", langTo: "en", ttlSeconds: 1 },
     secret
   );
 

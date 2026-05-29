@@ -6,6 +6,12 @@ import { verifyEditorSessionToken } from "@/lib/editor-session";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { recordTranslationBatch, upsertTranslatedUrlHit } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
+import {
+  PLUGIN_RATE_LIMIT_SCOPE,
+  buildRateLimitHeaders,
+  consumeRateLimit,
+  getRateLimitConfig,
+} from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -72,6 +78,33 @@ export async function POST(
     );
   }
 
+  // The editor token is bound to a single target language (see
+  // createEditorSessionToken), so it can only write that language. This stops a
+  // language-scoped translator's token from editing other languages.
+  if (parsed.data.langTo !== claims.langTo) {
+    return NextResponse.json(
+      { error: "Editor token is not valid for this language." },
+      { status: 403, headers: corsHeaders(request) }
+    );
+  }
+
+  // Rate-limit editor writes per project. The token rides in the launch URL, so
+  // this bounds the damage if one leaks within its 15-minute lifetime.
+  const rateLimit = await consumeRateLimit({
+    scope: PLUGIN_RATE_LIMIT_SCOPE,
+    subject: `manual-translations:${projektId}`,
+    limit: getRateLimitConfig().pluginPerMinute,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many edits. Please slow down and retry shortly." },
+      {
+        status: 429,
+        headers: { ...corsHeaders(request), ...buildRateLimitHeaders(rateLimit) },
+      }
+    );
+  }
+
   const project = await db.project.findUnique({
     where: { id: projektId },
     include: {
@@ -86,6 +119,15 @@ export async function POST(
         status: 404,
         headers: corsHeaders(request),
       }
+    );
+  }
+
+  // The editor always translates from the project's original language; reject
+  // anything else so a token can't write arbitrary language pairs.
+  if (parsed.data.langFrom !== project.originalLang.toLowerCase()) {
+    return NextResponse.json(
+      { error: "langFrom must match the project's original language." },
+      { status: 400, headers: corsHeaders(request) }
     );
   }
 
