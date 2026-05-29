@@ -8,6 +8,7 @@
     "check:docs-language": "node --import tsx scripts/check-docs-language.ts",
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "test": "node --import tsx --test src/lib/*.test.ts",
