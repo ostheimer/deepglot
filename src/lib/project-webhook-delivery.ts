@@ -6,6 +6,15 @@ import {
   getWebhookNextAttemptAt,
   type ProjectWebhookEventType,
 } from "@/lib/webhooks";
+import {
+  assertWebhookHostResolvesPublic,
+  parsePublicWebhookUrl,
+} from "@/lib/webhook-url-safety";
+
+// Cap the stored response body. The SSRF guard already blocks internal targets;
+// this further limits how much of any response can be read back via the
+// deliveries API.
+const MAX_WEBHOOK_RESPONSE_BODY = 512;
 
 export async function queueProjectWebhookEvent(
   {
@@ -65,13 +74,20 @@ export async function dispatchWebhookDelivery(deliveryId: string) {
   );
 
   try {
-    const response = await fetch(delivery.endpoint.url, {
+    // SSRF guard: re-validate the URL and ensure the host resolves to a public
+    // address right before fetching (defeats DNS rebinding). Redirects are not
+    // followed so a public URL can't bounce into an internal target.
+    const targetUrl = parsePublicWebhookUrl(delivery.endpoint.url);
+    await assertWebhookHostResolvesPublic(targetUrl.hostname);
+
+    const response = await fetch(targetUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...headers,
       },
       body: payloadString,
+      redirect: "manual",
     });
     const responseText = await response.text();
     const wasSuccessful = response.ok;
@@ -81,7 +97,7 @@ export async function dispatchWebhookDelivery(deliveryId: string) {
       endpointId: delivery.endpointId,
       status: wasSuccessful ? "SUCCESS" : "FAILED",
       responseStatus: response.status,
-      responseBody: responseText.slice(0, 5_000),
+      responseBody: responseText.slice(0, MAX_WEBHOOK_RESPONSE_BODY),
       errorMessage: wasSuccessful ? null : `HTTP ${response.status}`,
       attemptCount: delivery.attemptCount + 1,
     });

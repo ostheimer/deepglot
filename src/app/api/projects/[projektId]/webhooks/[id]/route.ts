@@ -10,6 +10,7 @@ import {
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
+import { WebhookUrlError, parsePublicWebhookUrl } from "@/lib/webhook-url-safety";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -76,6 +77,23 @@ export async function PATCH(
       },
       { status: 400 }
     );
+  }
+
+  if (parsed.data.url) {
+    // Reject private/internal/non-http(s) webhook targets (SSRF guard).
+    try {
+      parsePublicWebhookUrl(parsed.data.url);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof WebhookUrlError
+              ? error.message
+              : t(locale, "Ungültige Webhook-URL", "Invalid webhook URL"),
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const existing = await loadEndpoint(projektId, id);
