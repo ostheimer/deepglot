@@ -138,10 +138,11 @@ test.describe("Phase 6 dashboard flows", () => {
     await expect(page.getByText("Failed deliveries")).toBeVisible();
     await page.getByRole("button", { name: "Add webhook" }).click();
 
-    const webhookUrl = new URL(
-      `/api/public/status?e2e=${e2eId("webhook")}`,
-      page.url()
-    ).toString();
+    // The SSRF guard blocks loopback/private targets, so the app's own origin
+    // can't be used as a webhook URL. A public, non-resolving host exercises the
+    // full create -> record-delivery -> manage flow (the delivery is recorded as
+    // failed, which is all this test asserts).
+    const webhookUrl = `https://e2e-webhook.invalid/status?e2e=${e2eId("webhook")}`;
     await page.getByLabel("URL").fill(webhookUrl);
     await page.getByRole("button", { name: "Save" }).click();
 

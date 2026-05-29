@@ -20,18 +20,34 @@ test("flags private/reserved IPv4 ranges, allows public ones", () => {
     "172.31.255.255",
     "192.168.1.1",
     "100.64.0.1", // CGNAT
+    "192.0.0.1", // IETF protocol assignments
+    "192.0.2.7", // TEST-NET-1
+    "198.51.100.7", // TEST-NET-2
+    "203.0.113.9", // TEST-NET-3
+    "198.18.0.1", // benchmarking
+    "192.88.99.1", // 6to4 relay anycast
     "224.0.0.1", // multicast
     "255.255.255.255",
   ]) {
     assert.equal(isPrivateOrReservedIPv4(ip), true, `${ip} should be blocked`);
   }
-  for (const ip of ["8.8.8.8", "1.1.1.1", "172.32.0.1", "203.0.113.9"]) {
+  for (const ip of ["8.8.8.8", "1.1.1.1", "172.32.0.1", "9.9.9.9"]) {
     assert.equal(isPrivateOrReservedIPv4(ip), false, `${ip} should be allowed`);
   }
 });
 
 test("flags private/reserved IPv6, including IPv4-mapped loopback", () => {
-  for (const ip of ["::1", "::", "fc00::1", "fd12:3456::1", "fe80::1", "::ffff:127.0.0.1"]) {
+  for (const ip of [
+    "::1",
+    "::",
+    "fc00::1",
+    "fd12:3456::1",
+    "fe80::1",
+    "::ffff:127.0.0.1",
+    "::ffff:7f00:1", // hexadecimal IPv4-mapped loopback (the P1 bypass)
+    "ff02::1", // multicast
+    "2001:db8::1", // documentation
+  ]) {
     assert.equal(isPrivateOrReservedIPv6(ip), true, `${ip} should be blocked`);
   }
   for (const ip of ["2606:4700:4700::1111", "::ffff:8.8.8.8"]) {
@@ -51,7 +67,7 @@ test("blocks internal hostnames", () => {
 test("parsePublicWebhookUrl accepts public http(s) URLs", () => {
   assert.equal(parsePublicWebhookUrl("https://hooks.example.com/dg").hostname, "hooks.example.com");
   assert.equal(parsePublicWebhookUrl("http://hooks.example.com/dg").protocol, "http:");
-  assert.equal(parsePublicWebhookUrl("https://203.0.113.9/hook").hostname, "203.0.113.9");
+  assert.equal(parsePublicWebhookUrl("https://8.8.8.8/hook").hostname, "8.8.8.8");
 });
 
 test("parsePublicWebhookUrl rejects internal/loopback/metadata/non-http URLs", () => {
@@ -61,6 +77,7 @@ test("parsePublicWebhookUrl rejects internal/loopback/metadata/non-http URLs", (
     "http://169.254.169.254/latest/meta-data/",
     "http://10.0.0.5/x",
     "https://[::1]/x",
+    "https://[::ffff:7f00:1]/x", // hex IPv4-mapped loopback
     "http://db.internal/x",
     "ftp://example.com/x",
     "file:///etc/passwd",
