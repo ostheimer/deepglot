@@ -30,12 +30,61 @@ export type SlugCsvRow = {
   urlCount: number;
 };
 
-function escapeCsvValue(value: string) {
-  if (/[,"\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+/**
+ * Hard cap on how many rows a single import request may contain. Bounds the
+ * work per request so a huge upload can't hold transactions open for minutes or
+ * exhaust memory; larger data sets should be split into multiple files.
+ */
+export const MAX_IMPORT_ROWS = 5000;
+
+/** Split a list into fixed-size chunks (the last chunk may be smaller). */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (size <= 0) {
+    throw new Error("chunk size must be greater than 0");
   }
 
-  return value;
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
+}
+
+/**
+ * Reduce an arbitrary string to filename-safe characters so it can be embedded
+ * in a Content-Disposition header without enabling header/response injection.
+ */
+export function sanitizeFilenamePart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 64);
+}
+
+// Spreadsheet apps (Excel, Sheets, LibreOffice) execute a cell whose text
+// starts with one of these characters as a formula (CSV/formula injection,
+// CWE-1236). We prefix such values with an apostrophe on export so they are
+// treated as text, and strip that apostrophe again on import so files produced
+// by Deepglot still round-trip losslessly.
+const CSV_FORMULA_LEAD = /^[=+\-@\t]/;
+
+function guardCsvFormula(value: string): string {
+  return CSV_FORMULA_LEAD.test(value) ? `'${value}` : value;
+}
+
+function unguardCsvFormula(value: string): string {
+  return value.length > 1 &&
+    value[0] === "'" &&
+    CSV_FORMULA_LEAD.test(value.slice(1))
+    ? value.slice(1)
+    : value;
+}
+
+function escapeCsvValue(value: string) {
+  const guarded = guardCsvFormula(value);
+
+  if (/[,"\n\r]/.test(guarded)) {
+    return `"${guarded.replace(/"/g, '""')}"`;
+  }
+
+  return guarded;
 }
 
 function normalizeBoolean(value: string) {
@@ -103,7 +152,10 @@ function parseCsv(content: string): CsvParseResult {
     rows: dataRows.map((values, rowIndex) => ({
       line: rowIndex + 2,
       values: Object.fromEntries(
-        headers.map((header, valueIndex) => [header, values[valueIndex] ?? ""])
+        headers.map((header, valueIndex) => [
+          header,
+          unguardCsvFormula(values[valueIndex] ?? ""),
+        ])
       ),
     })),
   };
