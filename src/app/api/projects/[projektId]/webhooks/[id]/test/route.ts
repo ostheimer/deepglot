@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { dispatchWebhookDelivery } from "@/lib/project-webhook-delivery";
 import {
   getAuthenticatedUserId,
-  userHasProjectAccess,
+  userCanManageProject,
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -29,7 +29,7 @@ export async function POST(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }
