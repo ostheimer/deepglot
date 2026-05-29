@@ -59,20 +59,25 @@ export function sanitizeFilenamePart(value: string): string {
 }
 
 // Spreadsheet apps (Excel, Sheets, LibreOffice) execute a cell whose text
-// starts with one of these characters as a formula (CSV/formula injection,
+// starts with `= + - @` or a tab as a formula (CSV/formula injection,
 // CWE-1236). We prefix such values with an apostrophe on export so they are
-// treated as text, and strip that apostrophe again on import so files produced
-// by Deepglot still round-trip losslessly.
-const CSV_FORMULA_LEAD = /^[=+\-@\t]/;
+// treated as text, and strip that apostrophe again on import.
+//
+// To keep the round-trip lossless we also guard values that already start with
+// an apostrophe: a stored value like `'=SUM(A1)` is exported as `''=SUM(A1)`
+// and parsed back to `'=SUM(A1)`. Without this, unguarding would strip the
+// user's own leading apostrophe. Guard and unguard therefore use the same
+// character class, which includes the apostrophe itself.
+const CSV_NEEDS_GUARD = /^['=+\-@\t]/;
 
 function guardCsvFormula(value: string): string {
-  return CSV_FORMULA_LEAD.test(value) ? `'${value}` : value;
+  return CSV_NEEDS_GUARD.test(value) ? `'${value}` : value;
 }
 
 function unguardCsvFormula(value: string): string {
   return value.length > 1 &&
     value[0] === "'" &&
-    CSV_FORMULA_LEAD.test(value.slice(1))
+    CSV_NEEDS_GUARD.test(value.slice(1))
     ? value.slice(1)
     : value;
 }

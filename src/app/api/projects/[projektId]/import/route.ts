@@ -52,6 +52,21 @@ class ImportError extends Error {
   }
 }
 
+/**
+ * Run a synchronous parser and convert its errors into a user-facing
+ * ImportError, so actionable messages (e.g. "Invalid CSV headers. Expected …
+ * but received …") reach the client instead of a generic "Import failed".
+ */
+function parseImport<T>(parse: () => T): T {
+  try {
+    return parse();
+  } catch (error) {
+    throw new ImportError(
+      error instanceof Error ? error.message : "Invalid file"
+    );
+  }
+}
+
 function assertRowLimit(count: number, locale: SiteLocale) {
   if (count > MAX_IMPORT_ROWS) {
     throw new ImportError(
@@ -96,17 +111,43 @@ async function projectHasWebhookEndpoints(projectId: string) {
   return count > 0;
 }
 
-/** Run `handler` over every item, chunked into separate short transactions. */
+/**
+ * Run `handler` over every item, chunked into separate short transactions.
+ *
+ * Each chunk commits independently — that is what keeps any single transaction
+ * short. The trade-off is that the whole import is not atomic: if a later chunk
+ * fails, earlier chunks stay committed. Because every write is an upsert keyed
+ * by a stable hash, re-running the import is safe and converges, so on failure
+ * we report how many rows were already written instead of leaving the caller
+ * to guess whether data was mutated.
+ */
 async function writeInChunks<T>(
   items: readonly T[],
+  locale: SiteLocale,
   handler: (item: T, tx: Prisma.TransactionClient) => Promise<void>
 ) {
+  let committed = 0;
   for (const slice of chunk(items, IMPORT_CHUNK_SIZE)) {
-    await db.$transaction(async (tx) => {
-      for (const item of slice) {
-        await handler(item, tx);
-      }
-    }, IMPORT_TX_OPTIONS);
+    try {
+      await db.$transaction(async (tx) => {
+        for (const item of slice) {
+          await handler(item, tx);
+        }
+      }, IMPORT_TX_OPTIONS);
+    } catch (error) {
+      console.error(
+        `[import] chunk failed after ${committed} committed rows:`,
+        error
+      );
+      throw new ImportError(
+        t(
+          locale,
+          `Import nach ${committed} Zeilen abgebrochen. Bereits importierte Zeilen bleiben gespeichert – ein erneuter Import ist sicher und aktualisiert vorhandene Zeilen.`,
+          `Import stopped after ${committed} rows. Rows imported so far are kept — re-running the import is safe and updates existing rows.`
+        )
+      );
+    }
+    committed += slice.length;
   }
 }
 
@@ -132,7 +173,7 @@ async function importTranslationsPo(
     );
   }
 
-  const rows = parsePoTranslations(content);
+  const rows = parseImport(() => parsePoTranslations(content));
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(access, [langTo], locale);
 
@@ -144,7 +185,7 @@ async function importTranslationsPo(
     }
   }
 
-  await writeInChunks(rows, async (row, tx) => {
+  await writeInChunks(rows, locale, async (row, tx) => {
     const originalHash = computeTranslationHash(
       row.originalText,
       project.originalLang,
@@ -228,7 +269,7 @@ async function importTranslationsCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
-  const rows = parseTranslationsCsv(content);
+  const rows = parseImport(() => parseTranslationsCsv(content));
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
     access,
@@ -248,7 +289,7 @@ async function importTranslationsCsv(
     }
   }
 
-  await writeInChunks(rows, async (row, tx) => {
+  await writeInChunks(rows, locale, async (row, tx) => {
     const originalHash = computeTranslationHash(
       row.originalText,
       row.langFrom,
@@ -348,7 +389,7 @@ async function importGlossaryCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
-  const rows = parseGlossaryCsv(content);
+  const rows = parseImport(() => parseGlossaryCsv(content));
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
     access,
@@ -368,7 +409,7 @@ async function importGlossaryCsv(
     }
   }
 
-  await writeInChunks(rows, async (row, tx) => {
+  await writeInChunks(rows, locale, async (row, tx) => {
     const glossaryRule = await tx.glossaryRule.upsert({
       where: {
         projectId_originalTerm_langFrom_langTo: {
@@ -430,7 +471,7 @@ async function importSlugsCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
-  const rows = parseSlugsCsv(content);
+  const rows = parseImport(() => parseSlugsCsv(content));
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
     access,
@@ -450,7 +491,7 @@ async function importSlugsCsv(
     }
   }
 
-  await writeInChunks(rows, async (row, tx) => {
+  await writeInChunks(rows, locale, async (row, tx) => {
     const slug = await tx.urlSlug.upsert({
       where: {
         projectId_originalSlug_langTo: {

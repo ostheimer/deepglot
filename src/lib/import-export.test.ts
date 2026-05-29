@@ -144,6 +144,22 @@ test("guards spreadsheet formula leads on export and round-trips on import", () 
   ]);
 });
 
+test("round-trips a literal apostrophe followed by a formula character", () => {
+  // The rare value "'=SUM(A1)" (apostrophe then formula lead) must survive
+  // export+import unchanged — the export double-guards it, import strips one.
+  const csv = serializeTranslationsCsv([
+    {
+      originalText: "'=SUM(A1)",
+      translatedText: "x",
+      langFrom: "de",
+      langTo: "en",
+      isManual: false,
+      source: "IMPORT",
+    },
+  ]);
+  assert.equal(parseTranslationsCsv(csv)[0].originalText, "'=SUM(A1)");
+});
+
 test("does not strip a leading apostrophe from ordinary text", () => {
   const csv = serializeTranslationsCsv([
     {
