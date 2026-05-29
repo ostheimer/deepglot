@@ -74,10 +74,12 @@ export function buildEditorBootUrl({
   }
 
   const url = new URL(path, config.wordpressUrl);
+  const langTo = path.split("/").filter(Boolean)[0] ?? "en";
   const token = createEditorSessionToken(
     {
       projectId: config.projectId,
       domain: new URL(config.wordpressUrl).hostname,
+      langTo,
       ttlSeconds,
     },
     config.editorSecret

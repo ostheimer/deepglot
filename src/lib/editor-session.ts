@@ -3,6 +3,7 @@ import crypto from "crypto";
 export type EditorSessionClaims = {
   projectId: string;
   domain: string;
+  langTo: string;
   exp: number;
   iat: number;
   nonce: string;
@@ -50,10 +51,12 @@ export function createEditorSessionToken(
   {
     projectId,
     domain,
+    langTo,
     ttlSeconds = 900,
   }: {
     projectId: string;
     domain: string;
+    langTo: string;
     ttlSeconds?: number;
   },
   secret = getEditorSessionSecret()
@@ -62,6 +65,7 @@ export function createEditorSessionToken(
   const claims: EditorSessionClaims = {
     projectId,
     domain,
+    langTo: langTo.toLowerCase(),
     iat: issuedAt,
     exp: issuedAt + ttlSeconds,
     nonce: crypto.randomBytes(8).toString("hex"),
