@@ -13,10 +13,22 @@ test("syncs the organization plan when Stripe updates an existing subscription",
   const originalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   const originalPriceId = process.env.STRIPE_PRICE_PRO_MONTHLY;
 
-  const subscriptionUpdate = t.mock.fn(async () => ({
-    organizationId: "org_123",
-  }));
-  const organizationUpdate = t.mock.fn(async () => ({}));
+  // Type the Prisma `update` args explicitly. A zero-arg mock (`() => ...`)
+  // gives `mock.calls[i].arguments` the empty-tuple type `[]`, so indexing
+  // `arguments[0]` fails to type-check (TS2493); a typed parameter makes it a
+  // one-element tuple that the assertions below can read.
+  const subscriptionUpdate = t.mock.fn(
+    async (_args: {
+      where: { stripeSubscriptionId: string };
+      data: Record<string, unknown>;
+      select?: { organizationId: true };
+    }) => ({
+      organizationId: "org_123",
+    })
+  );
+  const organizationUpdate = t.mock.fn(
+    async (_args: { where: { id: string }; data: { plan: string } }) => ({})
+  );
 
   globalForPrisma.prisma = {
     subscription: {
