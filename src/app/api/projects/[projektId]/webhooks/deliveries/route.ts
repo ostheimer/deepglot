@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   getAuthenticatedUserId,
-  userHasProjectAccess,
+  userCanManageProject,
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { normalizeWebhookDeliveryStatus } from "@/lib/webhook-processor";
@@ -37,7 +37,7 @@ export async function GET(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }

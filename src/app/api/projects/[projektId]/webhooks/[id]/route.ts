@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   getAuthenticatedUserId,
-  userHasProjectAccess,
+  userCanManageProject,
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
@@ -58,7 +58,7 @@ export async function PATCH(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }
@@ -125,7 +125,7 @@ export async function DELETE(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }

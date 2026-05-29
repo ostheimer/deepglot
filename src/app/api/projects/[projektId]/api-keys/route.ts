@@ -3,28 +3,13 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { generateApiKey } from "@/lib/api-keys";
-import { db } from "@/lib/db";
+import { userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
-}
-
-async function verifyAccess(userId: string, projektId: string) {
-  return db.project.findFirst({
-    where: {
-      id: projektId,
-      organization: {
-        members: {
-          some: {
-            userId,
-          },
-        },
-      },
-    },
-  });
 }
 
 export async function POST(
@@ -41,8 +26,8 @@ export async function POST(
   }
 
   const { projektId } = await params;
-  const project = await verifyAccess(session.user.id, projektId);
-  if (!project) {
+  // Creating an API key mints a real project credential — management only.
+  if (!(await userCanManageProject(session.user.id, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }

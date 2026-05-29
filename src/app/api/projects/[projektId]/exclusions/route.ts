@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { normalizeExclusionInput } from "@/lib/exclusions";
-import { getAuthenticatedUserId, userHasProjectAccess } from "@/lib/project-access";
+import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -33,7 +33,7 @@ export async function GET(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }
@@ -69,7 +69,7 @@ export async function POST(
     );
   }
 
-  if (!(await userHasProjectAccess(userId, projektId))) {
+  if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
       { status: 404 }
