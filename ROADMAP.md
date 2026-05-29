@@ -219,8 +219,8 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | ORM | Prisma | Type-safe, migrations, strong Next.js integration |
 | Billing | Stripe | Industry standard, strong subscription support |
 | UI | Tailwind CSS + shadcn/ui | Fast, customizable, accessible |
-| Email | Resend | Next.js friendly, cost-effective |
-| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development |
+| Email | Cloudflare Email Sending | Integrated with existing Cloudflare infrastructure (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`) |
+| Translation (Primary) | OpenAI provider abstraction | Low-cost default path, model configurable, local `mock` mode for development; `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock` |
 | Translation (Secondary) | DeepL provider | Optional quality-focused fallback for production-sensitive content |
 | WP HTML Parser | DOMDocument (PHP native) | No external dependencies, available in all WordPress environments, used in HtmlTranslator and OutputBuffer |
 | DB topology (Vercel + Neon) | Variant A: 2 branches | Neon `preview` → Vercel Development + Preview; Neon `prod` → Vercel Production only. See README "Setting up the Neon production branch". |
