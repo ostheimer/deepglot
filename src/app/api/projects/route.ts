@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import { generateApiKey } from "@/lib/api-keys";
+import { getProjectsLimitForPlan } from "@/lib/billing-plans";
 import { z } from "zod";
 import { uiText } from "@/lib/static-copy";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -59,19 +60,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check project limit based on plan
-    const planLimits: Record<string, number> = {
-      FREE: 1,
-      STARTER: 5,
-      PROFESSIONAL: 999,
-      ENTERPRISE: 999,
-    };
-
     const currentProjects = await db.project.count({
       where: { organizationId: membership.organizationId },
     });
 
-    const limit = planLimits[membership.organization.plan] ?? 1;
+    const limit = getProjectsLimitForPlan(membership.organization.plan);
     if (currentProjects >= limit) {
       return NextResponse.json(
         {
