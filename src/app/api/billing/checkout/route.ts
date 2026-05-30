@@ -87,6 +87,28 @@ export async function POST(request: Request) {
     );
   }
 
+  // Defence in depth: a plan change for an org with a live subscription must go
+  // through the billing portal (Stripe swaps the subscription with proration).
+  // The plan-switcher UI already routes those clicks to the portal; this stops a
+  // direct Checkout call from creating a *second* paid subscription.
+  const existingSubscription = organization.subscription;
+  if (
+    existingSubscription?.stripeSubscriptionId &&
+    (existingSubscription.status === "ACTIVE" ||
+      existingSubscription.status === "TRIALING")
+  ) {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Für Planwechsel bitte das Abrechnungsportal verwenden",
+          "Use the billing portal to change your plan"
+        ),
+      },
+      { status: 409 }
+    );
+  }
+
   // Reuse a real Stripe customer when one exists. Free-tier rows carry a
   // synthetic `free_<userId>` placeholder (written at registration), and
   // hand-managed tiers (e.g. ENTERPRISE) carry `manual_<orgId>`. Neither is a
