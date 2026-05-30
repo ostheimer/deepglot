@@ -121,10 +121,10 @@ The analysis suggests these prioritized decisions for Deepglot:
 
 ## 9. Next implementation steps
 
-> **Note:** The steps below were planning items from March 2026 and are fully completed. They are kept here for historical reference only.
+> **Note:** The steps below were planning items from March 2026. All are complete, though two were implemented with a different technical approach than originally planned. They are kept here for historical reference only.
 
 - Integrate URL and language logic directly into the frontend flow
-- Build parser and string extraction on top of DiDOM
-- Add a local cache table for already translated segments
+- Build parser and string extraction on top of DiDOM — *superseded: implemented with native PHP **DOMDocument** (no external library required)*
+- Add a local cache table for already translated segments — *superseded: implemented with **WordPress transients** (`_transient_dg_*`), no custom DB table needed*
 - Harden link replacement and SEO output
 - Expand tests for HTML, JSON, and XML cases
