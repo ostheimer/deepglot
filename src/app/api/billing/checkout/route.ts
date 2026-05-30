@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import {
+  blocksNewCheckoutForExistingSubscription,
   getCheckoutCancelUrl,
   getCheckoutSuccessUrl,
   isRealStripeCustomerId,
@@ -92,11 +93,7 @@ export async function POST(request: Request) {
   // The plan-switcher UI already routes those clicks to the portal; this stops a
   // direct Checkout call from creating a *second* paid subscription.
   const existingSubscription = organization.subscription;
-  if (
-    existingSubscription?.stripeSubscriptionId &&
-    (existingSubscription.status === "ACTIVE" ||
-      existingSubscription.status === "TRIALING")
-  ) {
+  if (blocksNewCheckoutForExistingSubscription(existingSubscription)) {
     return NextResponse.json(
       {
         error: t(

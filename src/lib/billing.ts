@@ -91,3 +91,28 @@ export function getCheckoutSuccessUrl(): string {
 export function getCheckoutCancelUrl(): string {
   return new URL("/pricing?checkout=cancelled", getAppBaseUrl()).toString();
 }
+
+/** Minimal subscription shape for checkout duplicate guards. */
+export type ExistingSubscriptionForCheckout = {
+  stripeSubscriptionId: string | null | undefined;
+  status: string | null | undefined;
+};
+
+/**
+ * Whether `POST /api/billing/checkout` must refuse to start a new Stripe
+ * Checkout session. Orgs with an existing Stripe subscription id in a
+ * non-terminal state must change plans via the billing portal (proration) —
+ * a fresh Checkout would create a second paid subscription.
+ *
+ * PAST_DUE is included: the Stripe subscription still exists while payment
+ * is retried; only CANCELED/INACTIVE rows may start Checkout again.
+ */
+export function blocksNewCheckoutForExistingSubscription(
+  subscription: ExistingSubscriptionForCheckout | null | undefined
+): boolean {
+  if (!subscription?.stripeSubscriptionId) {
+    return false;
+  }
+  const { status } = subscription;
+  return status === "ACTIVE" || status === "TRIALING" || status === "PAST_DUE";
+}

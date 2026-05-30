@@ -207,6 +207,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | 8.9 | **Localize remaining metadata** ([#66](https://github.com/ostheimer/deepglot/issues/66)). All remaining `<head>` metadata (title, description, OG tags) now rendered in the request locale across all supported locales. Completed 2026-05-17. | ✅ Completed |
 | 8.10 | **Fix localized marketing pricing units** ([#65](https://github.com/ostheimer/deepglot/issues/65)). Pricing page word-ceiling and price display for localized routes sourced from `BILLING_PLANS` instead of hardcoded strings, preventing the Pro tier hero claim from silently drifting across locales. Completed 2026-05-17. | ✅ Completed |
 | 8.11 | **Enforce project limits from `BILLING_PLANS` on `POST /api/projects`**. Stale inline `planLimits` map omitted PRO/BUSINESS/ADVANCED/EXTENDED (fallback `?? 1`), blocking paying customers after their first project. Fixed 2026-05-28 via `getProjectsLimitForPlan()`. | ✅ Completed |
+| 8.12 | **Block duplicate Checkout for PAST_DUE subscriptions**. `POST /api/billing/checkout` only rejected ACTIVE/TRIALING; PAST_DUE orgs could start a second Stripe subscription via direct API. Extended guard via `blocksNewCheckoutForExistingSubscription()` (portal for plan changes). Fixed 2026-05-30. | ✅ Completed |
 
 ---
 

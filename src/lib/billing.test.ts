@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import {
+  blocksNewCheckoutForExistingSubscription,
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
 } from "@/lib/billing";
@@ -247,6 +248,71 @@ test("isRealStripeCustomerId allowlists only cus_ prefixes", () => {
   assert.equal(isRealStripeCustomerId("Cus_PJ8q4xQH6tOKpz"), false);
   assert.equal(isRealStripeCustomerId(" cus_PJ8q4xQH6tOKpz"), false);
   assert.equal(isRealStripeCustomerId("price_1TWwm0FAiA6nPZ"), false);
+});
+
+test("blocksNewCheckoutForExistingSubscription blocks ACTIVE, TRIALING, and PAST_DUE with a Stripe subscription id", () => {
+  const subId = "sub_123";
+
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: subId,
+      status: "ACTIVE",
+    }),
+    true
+  );
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: subId,
+      status: "TRIALING",
+    }),
+    true
+  );
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: subId,
+      status: "PAST_DUE",
+    }),
+    true
+  );
+});
+
+test("blocksNewCheckoutForExistingSubscription allows Checkout after cancel or without a subscription id", () => {
+  assert.equal(blocksNewCheckoutForExistingSubscription(null), false);
+  assert.equal(blocksNewCheckoutForExistingSubscription(undefined), false);
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: null,
+      status: "ACTIVE",
+    }),
+    false
+  );
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: "sub_old",
+      status: "CANCELED",
+    }),
+    false
+  );
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: "sub_old",
+      status: "INACTIVE",
+    }),
+    false
+  );
+});
+
+test("checkout route uses blocksNewCheckoutForExistingSubscription for duplicate-subscription guard", () => {
+  const checkoutRoute = readFileSync(
+    "src/app/api/billing/checkout/route.ts",
+    "utf8"
+  );
+
+  assert.match(checkoutRoute, /blocksNewCheckoutForExistingSubscription/);
+  assert.doesNotMatch(
+    checkoutRoute,
+    /existingSubscription\.status === "ACTIVE"\s*\|\|\s*existingSubscription\.status === "TRIALING"/
+  );
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
