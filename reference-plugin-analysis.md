@@ -3,6 +3,8 @@
 > Analysis date: March 2026  
 > Goal: a solid foundation for a custom WordPress translation plugin without cloud lock-in
 
+> **Status (Mai 2026):** Dieses Dokument ist eine historische Planungsanalyse aus der Konzeptphase. Alle in Abschnitt 9 beschriebenen Implementierungsschritte sind vollständig abgeschlossen. Der WordPress-Plugin-Stand ist **v0.7.0** (live auf `meinhaushalt.at`) und unterstützt alle beschriebenen Kernmechanismen einschließlich OutputBuffer, DOMDocument-Parser, API-Client, Transient-Cache, LinkRewriter, hreflang, Language Switcher, REST API und WooCommerce-Integration. Für den aktuellen Stand siehe `wordpress-plugin/deepglot/` und `README.md`.
+
 ---
 
 ## 1. Architecture overview
@@ -118,6 +120,8 @@ The analysis suggests these prioritized decisions for Deepglot:
 ---
 
 ## 9. Next implementation steps
+
+> **Hinweis:** Die nachfolgenden Schritte waren Planungspunkte aus März 2026 und sind vollständig abgeschlossen. Sie werden hier nur als historische Referenz beibehalten.
 
 - Integrate URL and language logic directly into the frontend flow
 - Build parser and string extraction on top of DiDOM
