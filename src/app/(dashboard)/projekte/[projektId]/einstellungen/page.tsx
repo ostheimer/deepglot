@@ -124,10 +124,11 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
             <select
               id={originalLanguageId}
               disabled
+              defaultValue={project.originalLang}
               className="flex h-9 w-48 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-70"
             >
               {["de", "en", "fr", "es", "it"].map((code) => (
-                <option key={code} value={code} selected={project.originalLang === code}>
+                <option key={code} value={code}>
                   {getLanguageName(code, locale)}
                 </option>
               ))}

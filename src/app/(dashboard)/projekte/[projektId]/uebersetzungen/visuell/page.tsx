@@ -7,6 +7,11 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { VisualEditorLauncher } from "@/components/projekte/visual-editor-launcher";
 import { uiText } from "@/lib/static-copy";
+import {
+  canAccessProjectLanguage,
+  getAuthenticatedUserId,
+  getProjectAccess,
+} from "@/lib/project-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -22,6 +27,22 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
   });
 
   if (!project) notFound();
+
+  // Only offer languages this user can actually launch an editor for: active,
+  // non-original target languages within their access scope (managers: all; a
+  // scoped translator: just their assigned language). This mirrors the
+  // editor-sessions API gate, so the dropdown never offers a language the API
+  // would reject.
+  const userId = await getAuthenticatedUserId();
+  const access = userId ? await getProjectAccess(userId, projektId) : null;
+  const launchableLanguages = project.languages
+    .filter(
+      (language) =>
+        language.isActive &&
+        language.langCode !== project.originalLang &&
+        canAccessProjectLanguage(access, language.langCode)
+    )
+    .map((language) => ({ id: language.id, langCode: language.langCode }));
 
   return (
     <div>
@@ -42,7 +63,7 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
         <div className="space-y-3">
           <VisualEditorLauncher
             projectId={projektId}
-            languages={project.languages}
+            languages={launchableLanguages}
           />
           <Button asChild variant="outline">
             <Link href={withLocalePrefix(`/projects/${projektId}/settings/setup`, locale)}>
