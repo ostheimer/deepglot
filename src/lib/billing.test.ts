@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import {
   getBillingPortalReturnUrl,
@@ -246,4 +247,27 @@ test("isRealStripeCustomerId allowlists only cus_ prefixes", () => {
   assert.equal(isRealStripeCustomerId("Cus_PJ8q4xQH6tOKpz"), false);
   assert.equal(isRealStripeCustomerId(" cus_PJ8q4xQH6tOKpz"), false);
   assert.equal(isRealStripeCustomerId("price_1TWwm0FAiA6nPZ"), false);
+});
+
+test("Stripe customer API call sites guard internal placeholder customer ids", () => {
+  const cardAndInvoicesPage = readFileSync(
+    "src/app/(dashboard)/abonnement/karte-rechnungen/page.tsx",
+    "utf8"
+  );
+  const billingAddressRoute = readFileSync(
+    "src/app/api/billing/address/route.ts",
+    "utf8"
+  );
+
+  assert.match(cardAndInvoicesPage, /isRealStripeCustomerId/);
+  assert.doesNotMatch(
+    cardAndInvoicesPage,
+    /const stripeCustomerId: string \| null = sub\?\.stripeCustomerId \?\? null;/
+  );
+
+  assert.match(billingAddressRoute, /isRealStripeCustomerId/);
+  assert.doesNotMatch(
+    billingAddressRoute,
+    /const customerId = membership\?\.organization\?\.subscription\?\.stripeCustomerId;\s+if \(!customerId\)/
+  );
 });

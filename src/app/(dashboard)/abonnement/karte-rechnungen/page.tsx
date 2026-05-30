@@ -10,6 +10,7 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { getIntlLocale } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { isRealStripeCustomerId } from "@/lib/billing";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata(
@@ -37,7 +38,10 @@ export default async function KarteRechnungenPage() {
   let cardLast4: string | null = null;
   let cardExpMonth: number | null = null;
   let cardExpYear: number | null = null;
-  const stripeCustomerId: string | null = sub?.stripeCustomerId ?? null;
+  const subscriptionStripeCustomerId = sub?.stripeCustomerId ?? null;
+  const stripeCustomerId = isRealStripeCustomerId(subscriptionStripeCustomerId)
+    ? subscriptionStripeCustomerId
+    : null;
 
   if (stripeCustomerId) {
     try {
