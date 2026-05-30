@@ -101,6 +101,11 @@ export function ProjectWebhooksManager({
       add: uiText(locale, "Add webhook", "Webhook hinzufügen"),
       edit: uiText(locale, "Edit webhook", "Webhook bearbeiten"),
       url: "URL",
+      urlHint: uiText(
+        locale,
+        "Must be a public HTTP(S) endpoint. Internal/private targets (localhost, 127.0.0.1, 10.x, 169.254.x, *.internal …) are rejected and redirects are not followed.",
+        "Muss ein öffentlicher HTTP(S)-Endpunkt sein. Interne/private Ziele (localhost, 127.0.0.1, 10.x, 169.254.x, *.internal …) werden abgelehnt, Redirects werden nicht gefolgt."
+      ),
       save: uiText(locale, "Save", "Speichern"),
       cancel: uiText(locale, "Cancel", "Abbrechen"),
       sendTest: uiText(locale, "Send test", "Test senden"),
@@ -540,6 +545,7 @@ export function ProjectWebhooksManager({
                 onChange={(event) => updateForm("url", event.target.value)}
                 placeholder="https://example.com/webhooks/deepglot"
               />
+              <p className="text-xs text-gray-500">{copy.urlHint}</p>
             </div>
 
             <label className="flex items-center gap-2">
