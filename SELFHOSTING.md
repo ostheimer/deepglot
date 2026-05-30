@@ -6,6 +6,8 @@ Deepglot can run as a standalone Docker Compose stack with the Next.js app and P
 
 - Docker 28 or newer
 - Docker Compose
+- Node.js 22.x (matches the `node:22-bookworm-slim` base image used in the Dockerfile)
+- PostgreSQL 16 (Alpine) — provided automatically by `docker-compose.yml`
 
 ## Quick start
 

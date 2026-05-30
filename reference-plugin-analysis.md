@@ -1,3 +1,5 @@
+> **Historical document (March 2026):** This is an analysis document created before implementation. Section 9 recommended DiDOM; the actual implementation uses PHP-native DOMDocument (no external PHP dependencies). See README.md for the current plugin architecture.
+
 # Reference Plugin Analysis for a WordPress Translation Solution
 
 > Analysis date: March 2026  

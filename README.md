@@ -63,7 +63,7 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/de/settings`
 - Legacy German routes such as `/preise`, `/anmelden`, `/registrieren`, and `/projekte/...` redirect to their canonical `/de/...` equivalents.
 
-Internally, the Next.js app still uses the existing route folders, while `src/proxy.ts` rewrites the external English path structure to the current implementation. The proxy also forwards the active locale through the request context and syncs the locale cookie so localized `/de/...` routes behave consistently during full-page navigation and auth redirects.
+Internally, the Next.js app still uses the existing route folders (e.g. `/projekte`, `/abonnement`, `/einstellungen`), while `src/proxy.ts` rewrites the external English path structure (`/projects`, `/subscription`, `/settings`) to the current internal implementation. The proxy also forwards the active locale through the request context and syncs the locale cookie so localized `/de/...` routes behave consistently during full-page navigation and auth redirects.
 
 ## Locale switching
 
@@ -220,7 +220,7 @@ Recommended environment matrix:
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
   - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5.5`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-5-mini`
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -293,9 +293,9 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 The translation flow uses a provider abstraction:
 
-- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, or `mock`.
-- Without an explicit setting, the app prefers `openai` when `OPENAI_API_KEY` is present, then `deepl` when `DEEPL_API_KEY` is present, otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5.5`).
+- `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
+- Without an explicit `TRANSLATION_PROVIDER`, the app auto-selects by the first credential present, in this order: `gemini` (`GEMINI_API_KEY`) → `openai` (`OPENAI_API_KEY`) → `openrouter` (`OPENROUTER_API_KEY`) → `deepl` (`DEEPL_API_KEY`) → `ollama` (`OLLAMA_BASE_URL`), otherwise `mock` in `development` and `test`.
+- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`).
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
@@ -337,6 +337,12 @@ The current lightweight test suite covers:
 - translation provider selection and mock translations in `src/lib/translation.ts`
 - markdown documentation language checks in `src/lib/docs-language.ts`
 - end-to-end locale switching, query preservation, legacy German redirects, and locale-aware auth redirects via Playwright in `tests/e2e/locale-routing.spec.ts`
+- end-to-end account settings flows via Playwright in `tests/e2e/account-settings.spec.ts`
+- full UI navigation audit via Playwright in `tests/e2e/full-ui-audit.spec.ts`
+- phase 6 dashboard features (glossary, import/export, analytics, webhooks, visual editor) via Playwright in `tests/e2e/phase-6-dashboard.spec.ts`
+- project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
+- translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
+- subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
 
 ## Documentation guardrail
 
