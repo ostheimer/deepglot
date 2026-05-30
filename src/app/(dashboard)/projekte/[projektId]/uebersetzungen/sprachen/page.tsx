@@ -10,6 +10,10 @@ import { formatNumber } from "@/lib/locale-formatting";
 import { getLanguageName } from "@/lib/language-names";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import {
+  getAuthenticatedUserId,
+  userCanManageProject,
+} from "@/lib/project-access";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -27,6 +31,14 @@ export default async function SprachenPage({ params }: PageProps) {
   });
 
   if (!project) notFound();
+
+  // Adding/removing languages is management-gated at the API (see
+  // languages/route.ts). Mirror that in the UI so translators don't see an
+  // "Add language" control that the API would reject with a 404.
+  const viewerId = await getAuthenticatedUserId();
+  const canManageLanguages = viewerId
+    ? await userCanManageProject(viewerId, projektId)
+    : false;
 
   // Get word counts per language pair from the DB
   const wordCountsByLang = await db.translation.groupBy({
@@ -59,17 +71,21 @@ export default async function SprachenPage({ params }: PageProps) {
         <h2 className="text-xl font-bold text-gray-900">
           {uiText(locale, "Translations by language", "Übersetzungen nach Sprachen")}
         </h2>
-        <div className="flex gap-2">
-          <AddLanguageDialog
-            projectId={projektId}
-            originalLang={project.originalLang}
-            existingLangs={project.languages.map((l) => l.langCode)}
-          />
-        </div>
+        {canManageLanguages && (
+          <div className="flex gap-2">
+            <AddLanguageDialog
+              projectId={projektId}
+              originalLang={project.originalLang}
+              existingLangs={project.languages.map((l) => l.langCode)}
+            />
+          </div>
+        )}
       </div>
 
       <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {uiText(locale, "Removing languages and bulk actions are not available here yet. You can add target languages or open the URL view for each language.", "Sprachen entfernen und weitere Sammelaktionen sind hier noch nicht verfügbar. Du kannst Zielsprachen hinzufügen oder die URL-Ansicht pro Sprache öffnen.")}
+        {canManageLanguages
+          ? uiText(locale, "Removing languages and bulk actions are not available here yet. You can add target languages or open the URL view for each language.", "Sprachen entfernen und weitere Sammelaktionen sind hier noch nicht verfügbar. Du kannst Zielsprachen hinzufügen oder die URL-Ansicht pro Sprache öffnen.")
+          : uiText(locale, "Only project managers can add or remove languages. You can open the URL view for each language.", "Nur Projekt-Manager können Sprachen hinzufügen oder entfernen. Du kannst die URL-Ansicht pro Sprache öffnen.")}
       </p>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
