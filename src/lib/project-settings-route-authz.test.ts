@@ -58,6 +58,10 @@ const MANAGEMENT_ROUTES: ReadonlyArray<{
     methods: ["POST"],
   },
   { file: "language-model/route.ts", methods: ["GET", "PATCH"] },
+  // Activating/removing a target language changes what gets translated (word
+  // usage / billing), so both writes are management-gated even though the
+  // Languages page itself is in the (translator-visible) translations area.
+  { file: "languages/route.ts", methods: ["POST", "DELETE"] },
 ];
 
 /**
