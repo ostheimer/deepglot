@@ -34,6 +34,7 @@ For database access, the app now auto-selects the Prisma Neon adapter only for r
 npm run dev
 npm run build
 npm run lint
+npm run typecheck
 npm test
 npm run check:docs-language
 npm run test:e2e
@@ -157,6 +158,7 @@ Recommended database topology:
 The verification stage currently runs:
 
 - `npm run check:docs-language`
+- `npm run typecheck`
 - `npm test`
 - `npm run build`
 - `npm run test:e2e`
