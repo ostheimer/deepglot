@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { encryptSecret } from "@/lib/secret-encryption";
 import {
   DEFAULT_OPENAI_TRANSLATION_MODEL,
+  DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   normalizeTranslationProvider,
   resolveTranslationProviderConfig,
   serializeLanguageModelApiResponse,
@@ -19,7 +21,7 @@ test("normalizes translation provider aliases", () => {
   assert.equal(normalizeTranslationProvider("unknown"), null);
 });
 
-test("uses GPT-5.5 as the OpenAI default translation model", () => {
+test("uses GPT-5-mini as the OpenAI default translation model", () => {
   const config = resolveTranslationProviderConfig({
     env: { TRANSLATION_PROVIDER: "openai", OPENAI_API_KEY: "key" },
   });
@@ -27,6 +29,24 @@ test("uses GPT-5.5 as the OpenAI default translation model", () => {
   assert.equal(config.provider, "openai");
   assert.equal(config.model, DEFAULT_OPENAI_TRANSLATION_MODEL);
   assert.equal(config.model, "gpt-5-mini");
+});
+
+test(".env.example translation model values match runtime defaults", () => {
+  const envExample = readFileSync(".env.example", "utf8");
+  const envValue = (name: string) => {
+    const match = envExample.match(new RegExp(`^${name}="([^"]*)"$`, "m"));
+    assert.ok(match, `.env.example should define ${name}`);
+    return match[1];
+  };
+
+  assert.equal(
+    envValue("OPENAI_TRANSLATION_MODEL"),
+    DEFAULT_OPENAI_TRANSLATION_MODEL
+  );
+  assert.equal(
+    envValue("OPENROUTER_TRANSLATION_MODEL"),
+    DEFAULT_OPENROUTER_TRANSLATION_MODEL
+  );
 });
 
 test("prefers project language model settings over environment defaults", () => {
