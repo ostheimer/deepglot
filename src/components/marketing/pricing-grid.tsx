@@ -178,46 +178,42 @@ const PRICING_COPY = {
 } as const;
 
 /**
- * Singular / plural noun forms for the plan spec line ("2 languages · 2 projects").
- * Kept as a self-contained per-locale table so the count-correct, correctly-cased
- * label renders for every site locale — independent of the machine-translated
- * STATIC_MESSAGES catalogue, which only carries the plural dashboard strings.
- * German keeps its capitalised nouns; every other locale uses lowercase forms
- * that read naturally mid-sentence. Counts above one use the plural form; a few
- * languages (Hungarian, Swedish, Danish) share one form for both.
+ * Singular / plural noun forms for the plan spec line ("2 languages · 2 projects"),
+ * keyed by Unicode CLDR plural category. The render picks the category with
+ * Intl.PluralRules(locale).select(count), so counts inflect correctly even where
+ * a language has more than the English one/other split (e.g. Polish "5 jezykow",
+ * Czech "5 jazyku", Slovenian dual "2 jezika"). Forms come from the
+ * professionally translated plan feature bullets, so German keeps its capitalised
+ * nouns and every other locale uses its natural lowercase form. "other" is always
+ * present as the fallback when a count maps to a category not listed here.
  */
-type PlanSpecNouns = {
-  languageOne: string;
-  languageOther: string;
-  projectOne: string;
-  projectOther: string;
-};
+type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
 
-const PLAN_SPEC_NOUNS: Record<SiteLocale, PlanSpecNouns> = {
-  en: { languageOne: "language", languageOther: "languages", projectOne: "project", projectOther: "projects" },
-  bg: { languageOne: "език", languageOther: "езици", projectOne: "проект", projectOther: "проекти" },
-  hr: { languageOne: "jezik", languageOther: "jezici", projectOne: "projekt", projectOther: "projekti" },
-  cs: { languageOne: "jazyk", languageOther: "jazyky", projectOne: "projekt", projectOther: "projekty" },
-  da: { languageOne: "sprog", languageOther: "sprog", projectOne: "projekt", projectOther: "projekter" },
-  nl: { languageOne: "taal", languageOther: "talen", projectOne: "project", projectOther: "projecten" },
-  et: { languageOne: "keel", languageOther: "keelt", projectOne: "projekt", projectOther: "projekti" },
-  fi: { languageOne: "kieli", languageOther: "kieltä", projectOne: "projekti", projectOther: "projektia" },
-  fr: { languageOne: "langue", languageOther: "langues", projectOne: "projet", projectOther: "projets" },
-  de: { languageOne: "Sprache", languageOther: "Sprachen", projectOne: "Projekt", projectOther: "Projekte" },
-  el: { languageOne: "γλώσσα", languageOther: "γλώσσες", projectOne: "έργο", projectOther: "έργα" },
-  hu: { languageOne: "nyelv", languageOther: "nyelv", projectOne: "projekt", projectOther: "projekt" },
-  ga: { languageOne: "teanga", languageOther: "teangacha", projectOne: "tionscadal", projectOther: "tionscadail" },
-  it: { languageOne: "lingua", languageOther: "lingue", projectOne: "progetto", projectOther: "progetti" },
-  lv: { languageOne: "valoda", languageOther: "valodas", projectOne: "projekts", projectOther: "projekti" },
-  lt: { languageOne: "kalba", languageOther: "kalbos", projectOne: "projektas", projectOther: "projektai" },
-  mt: { languageOne: "lingwa", languageOther: "lingwi", projectOne: "proġett", projectOther: "proġetti" },
-  pl: { languageOne: "język", languageOther: "języki", projectOne: "projekt", projectOther: "projekty" },
-  pt: { languageOne: "idioma", languageOther: "idiomas", projectOne: "projeto", projectOther: "projetos" },
-  ro: { languageOne: "limbă", languageOther: "limbi", projectOne: "proiect", projectOther: "proiecte" },
-  sk: { languageOne: "jazyk", languageOther: "jazyky", projectOne: "projekt", projectOther: "projekty" },
-  sl: { languageOne: "jezik", languageOther: "jeziki", projectOne: "projekt", projectOther: "projekti" },
-  es: { languageOne: "idioma", languageOther: "idiomas", projectOne: "proyecto", projectOther: "proyectos" },
-  sv: { languageOne: "språk", languageOther: "språk", projectOne: "projekt", projectOther: "projekt" },
+const PLAN_SPEC_NOUNS: Record<SiteLocale, { language: PluralForms; project: PluralForms }> = {
+  en: { language: { one: "language", other: "languages" }, project: { one: "project", other: "projects" } },
+  bg: { language: { one: "език", other: "езика" }, project: { one: "проект", other: "проекта" } },
+  hr: { language: { one: "jezik", few: "jezika", other: "jezika" }, project: { one: "projekt", few: "projekta", other: "projekata" } },
+  cs: { language: { one: "jazyk", few: "jazyky", other: "jazyků" }, project: { one: "projekt", few: "projekty", other: "projektů" } },
+  da: { language: { one: "sprog", other: "sprog" }, project: { one: "projekt", other: "projekter" } },
+  nl: { language: { one: "taal", other: "talen" }, project: { one: "project", other: "projecten" } },
+  et: { language: { one: "keel", other: "keelt" }, project: { one: "projekt", other: "projekti" } },
+  fi: { language: { one: "kieli", other: "kieltä" }, project: { one: "projekti", other: "projektia" } },
+  fr: { language: { one: "langue", other: "langues" }, project: { one: "projet", other: "projets" } },
+  de: { language: { one: "Sprache", other: "Sprachen" }, project: { one: "Projekt", other: "Projekte" } },
+  el: { language: { one: "γλώσσα", other: "γλώσσες" }, project: { one: "έργο", other: "έργα" } },
+  hu: { language: { one: "nyelv", other: "nyelv" }, project: { one: "projekt", other: "projekt" } },
+  ga: { language: { one: "teanga", two: "theanga", few: "theanga", many: "dteanga", other: "teanga" }, project: { one: "tionscadal", two: "thionscadal", few: "thionscadal", many: "dtionscadal", other: "tionscadal" } },
+  it: { language: { one: "lingua", other: "lingue" }, project: { one: "progetto", other: "progetti" } },
+  lv: { language: { zero: "valodas", one: "valoda", other: "valodas" }, project: { zero: "projekti", one: "projekts", other: "projekti" } },
+  lt: { language: { one: "kalba", few: "kalbos", other: "kalbų" }, project: { one: "projektas", few: "projektai", other: "projektų" } },
+  mt: { language: { one: "lingwa", two: "lingwi", few: "lingwi", other: "lingwa" }, project: { one: "proġett", two: "proġetti", few: "proġetti", other: "proġett" } },
+  pl: { language: { one: "język", few: "języki", many: "języków", other: "języków" }, project: { one: "projekt", few: "projekty", many: "projektów", other: "projektów" } },
+  pt: { language: { one: "idioma", other: "idiomas" }, project: { one: "projeto", other: "projetos" } },
+  ro: { language: { one: "limbă", few: "limbi", other: "de limbi" }, project: { one: "proiect", few: "proiecte", other: "de proiecte" } },
+  sk: { language: { one: "jazyk", few: "jazyky", other: "jazykov" }, project: { one: "projekt", few: "projekty", other: "projektov" } },
+  sl: { language: { one: "jezik", two: "jezika", few: "jeziki", other: "jezikov" }, project: { one: "projekt", two: "projekta", few: "projekti", other: "projektov" } },
+  es: { language: { one: "idioma", other: "idiomas" }, project: { one: "proyecto", other: "proyectos" } },
+  sv: { language: { one: "språk", other: "språk" }, project: { one: "projekt", other: "projekt" } },
 };
 
 function formatWordCount(value: number, locale: SiteLocale): string {
@@ -284,15 +280,15 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
   const displayedEuros = yearly ? yearlyMonthlyEuros : monthlyEuros;
   const priceSuffix = formatPriceSuffix(locale, yearly, copy.yearly);
   const yearlyTotalSuffix = `/${getDateTimeFieldLabel(locale, "year")}`;
-  // Pick the singular form for a count of exactly 1 so the FREE tier reads
-  // "1 language · 1 project" rather than "1 languages · 1 projects". The forms
-  // come from PLAN_SPEC_NOUNS (one table for every locale) so the label is
-  // count-correct and correctly cased without depending on STATIC_MESSAGES.
+  // Inflect the language/project nouns for the exact slider count using the
+  // locale's CLDR plural rules, so "1 Sprache" / "2 Sprachen" / "5 jazyku" all
+  // read correctly. Forms live in PLAN_SPEC_NOUNS; "other" is the fallback.
+  const pluralRules = new Intl.PluralRules(getIntlLocale(locale));
   const nouns = PLAN_SPEC_NOUNS[locale];
-  const languagesLabel =
-    tier.languagesLimit === 1 ? nouns.languageOne : nouns.languageOther;
-  const projectsLabel =
-    tier.projectsLimit === 1 ? nouns.projectOne : nouns.projectOther;
+  const pickNoun = (forms: PluralForms, count: number) =>
+    forms[pluralRules.select(count)] ?? forms.other;
+  const languagesLabel = pickNoun(nouns.language, tier.languagesLimit);
+  const projectsLabel = pickNoun(nouns.project, tier.projectsLimit);
 
   const ctaClass = `block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
     tier.highlight
