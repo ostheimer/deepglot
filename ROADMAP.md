@@ -220,6 +220,7 @@ Captured at the close of the 2026-05 working session. Each open item has a track
 | 8.22 | **Hide language add control from non-managers on Languages page** ([#106](https://github.com/ostheimer/deepglot/pull/106)). UI control for adding languages now only visible to managers, mirroring the API gate from PR #103. Completed 2026-05-30. | ✅ Completed |
 | 8.23 | **Block new Checkout when org already has live subscription** ([#108](https://github.com/ostheimer/deepglot/pull/108)). `POST /api/billing/checkout` now returns HTTP 409 when the org already has an ACTIVE or TRIALING subscription, directing to the billing portal instead. Prevents double-billing. Completed 2026-05-30. | ✅ Completed |
 | 8.24 | **Regression test for Languages-page management gating** ([#109](https://github.com/ostheimer/deepglot/pull/109)). Source-level guardrail asserting `AddLanguageDialog` renders only for managers; prevents silent regressions of the auth gate added in PR #103. Completed 2026-05-30. | ✅ Completed |
+| 8.25 | **Block duplicate Checkout for PAST_DUE subscriptions** ([#110](https://github.com/ostheimer/deepglot/pull/110)). #108 only rejected ACTIVE/TRIALING; PAST_DUE orgs could start a second Stripe subscription via direct API. Extended guard via `blocksNewCheckoutForExistingSubscription()` (portal for plan changes). Completed 2026-05-30. | ✅ Completed |
 
 ---
 
