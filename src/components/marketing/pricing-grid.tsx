@@ -132,8 +132,6 @@ const PRICING_COPY = {
     paidCta: "Try for free",
     enterpriseCta: "Contact sales",
     sliderLabel: "Translated words per month",
-    languagesLabel: "Translation languages",
-    projectsLabel: "Projects",
     wordsLabel: "words / month",
     yearlySavingsHint: "− 2 months free",
     billingToggleLabel: "Toggle yearly billing",
@@ -159,8 +157,6 @@ const PRICING_COPY = {
     paidCta: "Kostenlos testen",
     enterpriseCta: "Kontakt aufnehmen",
     sliderLabel: "Übersetzte Wörter pro Monat",
-    languagesLabel: "Übersetzungssprachen",
-    projectsLabel: "Projekte",
     wordsLabel: "Wörter / Monat",
     yearlySavingsHint: "− 2 Monate gratis",
     billingToggleLabel: "Jährliche Abrechnung umschalten",
@@ -180,6 +176,49 @@ const PRICING_COPY = {
     checkoutError: "Checkout konnte nicht gestartet werden. Bitte erneut versuchen.",
   },
 } as const;
+
+/**
+ * Singular / plural noun forms for the plan spec line ("2 languages · 2 projects").
+ * Kept as a self-contained per-locale table so the count-correct, correctly-cased
+ * label renders for every site locale — independent of the machine-translated
+ * STATIC_MESSAGES catalogue, which only carries the plural dashboard strings.
+ * German keeps its capitalised nouns; every other locale uses lowercase forms
+ * that read naturally mid-sentence. Counts above one use the plural form; a few
+ * languages (Hungarian, Swedish, Danish) share one form for both.
+ */
+type PlanSpecNouns = {
+  languageOne: string;
+  languageOther: string;
+  projectOne: string;
+  projectOther: string;
+};
+
+const PLAN_SPEC_NOUNS: Record<SiteLocale, PlanSpecNouns> = {
+  en: { languageOne: "language", languageOther: "languages", projectOne: "project", projectOther: "projects" },
+  bg: { languageOne: "език", languageOther: "езици", projectOne: "проект", projectOther: "проекти" },
+  hr: { languageOne: "jezik", languageOther: "jezici", projectOne: "projekt", projectOther: "projekti" },
+  cs: { languageOne: "jazyk", languageOther: "jazyky", projectOne: "projekt", projectOther: "projekty" },
+  da: { languageOne: "sprog", languageOther: "sprog", projectOne: "projekt", projectOther: "projekter" },
+  nl: { languageOne: "taal", languageOther: "talen", projectOne: "project", projectOther: "projecten" },
+  et: { languageOne: "keel", languageOther: "keelt", projectOne: "projekt", projectOther: "projekti" },
+  fi: { languageOne: "kieli", languageOther: "kieltä", projectOne: "projekti", projectOther: "projektia" },
+  fr: { languageOne: "langue", languageOther: "langues", projectOne: "projet", projectOther: "projets" },
+  de: { languageOne: "Sprache", languageOther: "Sprachen", projectOne: "Projekt", projectOther: "Projekte" },
+  el: { languageOne: "γλώσσα", languageOther: "γλώσσες", projectOne: "έργο", projectOther: "έργα" },
+  hu: { languageOne: "nyelv", languageOther: "nyelv", projectOne: "projekt", projectOther: "projekt" },
+  ga: { languageOne: "teanga", languageOther: "teangacha", projectOne: "tionscadal", projectOther: "tionscadail" },
+  it: { languageOne: "lingua", languageOther: "lingue", projectOne: "progetto", projectOther: "progetti" },
+  lv: { languageOne: "valoda", languageOther: "valodas", projectOne: "projekts", projectOther: "projekti" },
+  lt: { languageOne: "kalba", languageOther: "kalbos", projectOne: "projektas", projectOther: "projektai" },
+  mt: { languageOne: "lingwa", languageOther: "lingwi", projectOne: "proġett", projectOther: "proġetti" },
+  pl: { languageOne: "język", languageOther: "języki", projectOne: "projekt", projectOther: "projekty" },
+  pt: { languageOne: "idioma", languageOther: "idiomas", projectOne: "projeto", projectOther: "projetos" },
+  ro: { languageOne: "limbă", languageOther: "limbi", projectOne: "proiect", projectOther: "proiecte" },
+  sk: { languageOne: "jazyk", languageOther: "jazyky", projectOne: "projekt", projectOther: "projekty" },
+  sl: { languageOne: "jezik", languageOther: "jeziki", projectOne: "projekt", projectOther: "projekti" },
+  es: { languageOne: "idioma", languageOther: "idiomas", projectOne: "proyecto", projectOther: "proyectos" },
+  sv: { languageOne: "språk", languageOther: "språk", projectOne: "projekt", projectOther: "projekt" },
+};
 
 function formatWordCount(value: number, locale: SiteLocale): string {
   if (value >= 1_000_000) {
@@ -245,8 +284,15 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
   const displayedEuros = yearly ? yearlyMonthlyEuros : monthlyEuros;
   const priceSuffix = formatPriceSuffix(locale, yearly, copy.yearly);
   const yearlyTotalSuffix = `/${getDateTimeFieldLabel(locale, "year")}`;
-  const lowerLanguagesLabel = copy.languagesLabel.toLocaleLowerCase(getIntlLocale(locale));
-  const lowerProjectsLabel = copy.projectsLabel.toLocaleLowerCase(getIntlLocale(locale));
+  // Pick the singular form for a count of exactly 1 so the FREE tier reads
+  // "1 language · 1 project" rather than "1 languages · 1 projects". The forms
+  // come from PLAN_SPEC_NOUNS (one table for every locale) so the label is
+  // count-correct and correctly cased without depending on STATIC_MESSAGES.
+  const nouns = PLAN_SPEC_NOUNS[locale];
+  const languagesLabel =
+    tier.languagesLimit === 1 ? nouns.languageOne : nouns.languageOther;
+  const projectsLabel =
+    tier.projectsLimit === 1 ? nouns.projectOne : nouns.projectOther;
 
   const ctaClass = `block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
     tier.highlight
@@ -462,7 +508,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
               )}
             </div>
             <p className="mt-1 text-sm text-gray-600">
-              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {lowerLanguagesLabel} · {tier.projectsLimit} {lowerProjectsLabel}
+              {formatWordCount(tier.wordsLimit, locale)} {copy.wordsLabel} · {tier.languagesLimit} {languagesLabel} · {tier.projectsLimit} {projectsLabel}
             </p>
           </div>
 
