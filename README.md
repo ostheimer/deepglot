@@ -54,9 +54,9 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/subscription`
   - `/settings`
   - Legal pages (German statutory requirements):
-    - `/agb` (Terms of Service)
-    - `/datenschutz` (Privacy Policy)
-    - `/impressum` (Legal Notice)
+    - `/terms` (Terms of Service)
+    - `/privacy` (Privacy Policy)
+    - `/legal-notice` (Legal Notice)
 - German localized routes use the same path structure under `/de`:
   - `/de`
   - `/de/pricing`
@@ -356,12 +356,11 @@ The current lightweight test suite covers:
 Deepglot uses a `Plan` enum in the database schema with the following values:
 
 - `FREE` — default plan for new users
-- `STARTER`, `BASIC`, `PRO`, `ADVANCED`, `EXTENDED` — active billing tiers
-- `BUSINESS` — active billing tier
-- `ENTERPRISE` — reserved; present in schema but not exposed in the current billing UI or `BILLING_PLANS` configuration
-- `PROFESSIONAL` — deprecated; migrated to `BASIC`
+- `STARTER`, `BUSINESS`, `PRO`, `ADVANCED`, `EXTENDED` — active paid billing tiers
+- `ENTERPRISE` — active tier with custom pricing; limits are 20 million words, 50 languages, and 100 projects; excluded from self-serve plan switching in the dashboard
+- `PROFESSIONAL` — deprecated; normalized to `PRO` by `resolveBillingPlanKey()`
 
-Active plan limits and prices are configured via the `BILLING_PLANS` environment or defaults. The `ENTERPRISE` plan exists in the schema for future use but has no defined limits yet.
+Active plan limits and prices are configured in `src/lib/billing-plans.ts`. Stripe price IDs are supplied via `STRIPE_PRICE_*` environment variables (e.g. `STRIPE_PRICE_STARTER_MONTHLY`).
 
 ## Documentation guardrail
 
