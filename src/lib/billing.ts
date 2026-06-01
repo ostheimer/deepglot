@@ -104,8 +104,10 @@ export type ExistingSubscriptionForCheckout = {
  * non-terminal state must change plans via the billing portal (proration) —
  * a fresh Checkout would create a second paid subscription.
  *
- * PAST_DUE is included: the Stripe subscription still exists while payment
- * is retried; only CANCELED/INACTIVE rows may start Checkout again.
+ * PAST_DUE and INACTIVE are included: any non-null `stripeSubscriptionId`
+ * means Stripe still has (or is retrying) a subscription — a fresh Checkout
+ * would create a second paid subscription. Only `CANCELED` (written after
+ * `customer.subscription.deleted`) may start Checkout again.
  */
 export function blocksNewCheckoutForExistingSubscription(
   subscription: ExistingSubscriptionForCheckout | null | undefined
@@ -113,6 +115,5 @@ export function blocksNewCheckoutForExistingSubscription(
   if (!subscription?.stripeSubscriptionId) {
     return false;
   }
-  const { status } = subscription;
-  return status === "ACTIVE" || status === "TRIALING" || status === "PAST_DUE";
+  return subscription.status !== "CANCELED";
 }

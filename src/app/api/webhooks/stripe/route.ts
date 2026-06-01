@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { BILLING_PLANS, BILLING_PLAN_KEYS } from "@/lib/billing-plans";
+import {
+  BILLING_PLANS,
+  BILLING_PLAN_KEYS,
+  tryResolvePlanKeyByStripePriceId,
+} from "@/lib/billing-plans";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
 
@@ -160,7 +164,27 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   );
 
   const priceId = stripeSubscription.items.data[0]?.price.id;
-  const plan = STRIPE_PLAN_MAP[priceId] ?? "STARTER";
+  const metadataPlan = session.metadata?.plan;
+  let plan: Plan | undefined = tryResolvePlanKeyByStripePriceId(priceId) ?? undefined;
+  if (!plan && metadataPlan && (BILLING_PLAN_KEYS as readonly string[]).includes(metadataPlan)) {
+    plan = metadataPlan as Plan;
+  }
+  if (!plan) {
+    const existing = await db.subscription.findUnique({
+      where: { organizationId },
+      select: { plan: true },
+    });
+    plan = existing?.plan ?? "STARTER";
+    console.warn(
+      "[Stripe Webhook] checkout.session.completed: unknown price id, using fallback plan",
+      priceId,
+      "metadata.plan",
+      metadataPlan,
+      "fallback",
+      plan
+    );
+  }
+  const resolvedPlan: Plan = plan;
 
   await db.subscription.upsert({
     where: { organizationId },
@@ -170,8 +194,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       stripeSubscriptionId: stripeSubscription.id,
       stripePriceId: priceId,
       status: "ACTIVE",
-      plan,
-      wordsLimit: WORDS_LIMIT_MAP[plan],
+      plan: resolvedPlan,
+      wordsLimit: WORDS_LIMIT_MAP[resolvedPlan],
       stripeCurrentPeriodEnd: getPeriodEnd(stripeSubscription),
     },
     update: {
@@ -179,15 +203,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       stripeSubscriptionId: stripeSubscription.id,
       stripePriceId: priceId,
       status: "ACTIVE",
-      plan,
-      wordsLimit: WORDS_LIMIT_MAP[plan],
+      plan: resolvedPlan,
+      wordsLimit: WORDS_LIMIT_MAP[resolvedPlan],
       stripeCurrentPeriodEnd: getPeriodEnd(stripeSubscription),
     },
   });
 
   await db.organization.update({
     where: { id: organizationId },
-    data: { plan },
+    data: { plan: resolvedPlan },
   });
 }
 
@@ -235,25 +259,43 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const priceId = subscription.items.data[0]?.price.id;
-  const plan = STRIPE_PLAN_MAP[priceId] ?? "FREE";
+  const resolvedPlanKey = tryResolvePlanKeyByStripePriceId(priceId);
   const status = mapStripeStatus(subscription.status);
+
+  const updateData: {
+    stripePriceId?: string;
+    status: SubscriptionStatus;
+    stripeCurrentPeriodEnd: Date | null;
+    plan?: Plan;
+    wordsLimit?: number;
+  } = {
+    stripePriceId: priceId,
+    status,
+    stripeCurrentPeriodEnd: getPeriodEnd(subscription),
+  };
+
+  if (resolvedPlanKey) {
+    updateData.plan = resolvedPlanKey;
+    updateData.wordsLimit = WORDS_LIMIT_MAP[resolvedPlanKey];
+  } else if (priceId) {
+    console.warn(
+      "[Stripe Webhook] customer.subscription.updated: unknown price id, keeping existing plan",
+      priceId
+    );
+  }
 
   const updatedSubscription = await db.subscription.update({
     where: { stripeSubscriptionId: subscription.id },
-    data: {
-      stripePriceId: priceId,
-      plan,
-      status,
-      wordsLimit: WORDS_LIMIT_MAP[plan],
-      stripeCurrentPeriodEnd: getPeriodEnd(subscription),
-    },
-    select: { organizationId: true },
+    data: updateData,
+    select: { organizationId: true, plan: true },
   });
 
-  await db.organization.update({
-    where: { id: updatedSubscription.organizationId },
-    data: { plan },
-  });
+  if (resolvedPlanKey) {
+    await db.organization.update({
+      where: { id: updatedSubscription.organizationId },
+      data: { plan: resolvedPlanKey },
+    });
+  }
 }
 
 function mapStripeStatus(status: Stripe.Subscription.Status): SubscriptionStatus {

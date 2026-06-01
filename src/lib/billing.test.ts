@@ -250,33 +250,22 @@ test("isRealStripeCustomerId allowlists only cus_ prefixes", () => {
   assert.equal(isRealStripeCustomerId("price_1TWwm0FAiA6nPZ"), false);
 });
 
-test("blocksNewCheckoutForExistingSubscription blocks ACTIVE, TRIALING, and PAST_DUE with a Stripe subscription id", () => {
+test("blocksNewCheckoutForExistingSubscription blocks any live Stripe subscription id except CANCELED", () => {
   const subId = "sub_123";
 
-  assert.equal(
-    blocksNewCheckoutForExistingSubscription({
-      stripeSubscriptionId: subId,
-      status: "ACTIVE",
-    }),
-    true
-  );
-  assert.equal(
-    blocksNewCheckoutForExistingSubscription({
-      stripeSubscriptionId: subId,
-      status: "TRIALING",
-    }),
-    true
-  );
-  assert.equal(
-    blocksNewCheckoutForExistingSubscription({
-      stripeSubscriptionId: subId,
-      status: "PAST_DUE",
-    }),
-    true
-  );
+  for (const status of ["ACTIVE", "TRIALING", "PAST_DUE", "INACTIVE"] as const) {
+    assert.equal(
+      blocksNewCheckoutForExistingSubscription({
+        stripeSubscriptionId: subId,
+        status,
+      }),
+      true,
+      `expected block for ${status}`
+    );
+  }
 });
 
-test("blocksNewCheckoutForExistingSubscription allows Checkout after cancel or without a subscription id", () => {
+test("blocksNewCheckoutForExistingSubscription allows Checkout only without sub id or after subscription.deleted sync", () => {
   assert.equal(blocksNewCheckoutForExistingSubscription(null), false);
   assert.equal(blocksNewCheckoutForExistingSubscription(undefined), false);
   assert.equal(
@@ -293,12 +282,18 @@ test("blocksNewCheckoutForExistingSubscription allows Checkout after cancel or w
     }),
     false
   );
-  assert.equal(
-    blocksNewCheckoutForExistingSubscription({
-      stripeSubscriptionId: "sub_old",
-      status: "INACTIVE",
-    }),
-    false
+});
+
+test("cancel route does not mark subscription CANCELED before Stripe ends the period", () => {
+  const cancelRoute = readFileSync(
+    "src/app/api/billing/cancel/route.ts",
+    "utf8"
+  );
+
+  assert.match(cancelRoute, /cancel_at_period_end:\s*true/);
+  assert.doesNotMatch(
+    cancelRoute,
+    /data:\s*\{\s*status:\s*"CANCELED"\s*\}/
   );
 });
 

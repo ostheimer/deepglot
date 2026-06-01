@@ -309,6 +309,20 @@ export function findPlanKeyByStripePriceId(
   priceId: string,
   env: Record<string, string | undefined> = process.env
 ): BillingPlanKey {
+  return tryResolvePlanKeyByStripePriceId(priceId, env) ?? "FREE";
+}
+
+/**
+ * Resolves a configured Stripe price id to a plan key, or `null` when the
+ * price is not present in the current environment (e.g. after a price
+ * rotation). Callers must not treat `null` as FREE — that would downgrade
+ * paying customers while Stripe still bills the old price.
+ */
+export function tryResolvePlanKeyByStripePriceId(
+  priceId: string | null | undefined,
+  env: Record<string, string | undefined> = process.env
+): BillingPlanKey | null {
+  if (!priceId) return null;
   for (const key of BILLING_PLAN_KEYS) {
     const plan = BILLING_PLANS[key];
     for (const interval of ["monthly", "yearly"] as const) {
@@ -318,5 +332,5 @@ export function findPlanKeyByStripePriceId(
       }
     }
   }
-  return "FREE";
+  return null;
 }

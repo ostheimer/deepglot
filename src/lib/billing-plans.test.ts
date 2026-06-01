@@ -9,6 +9,7 @@ import {
   formatYearlyMonthlyEquivalentCents,
   getEffectiveWordsLimit,
   getProjectsLimitForPlan,
+  tryResolvePlanKeyByStripePriceId,
   getStripePriceIdFromEnv,
   resolveBillingPlanKey,
   type BillingPlanKey,
@@ -70,6 +71,19 @@ describe("billing-plans", () => {
     assert.equal(getProjectsLimitForPlan("PROFESSIONAL"), BILLING_PLANS.PRO.projectsLimit);
     // Regression: stale hardcoded map treated unknown PRO as 1 project.
     assert.equal(getProjectsLimitForPlan("PRO"), 5);
+  });
+
+  it("tryResolvePlanKeyByStripePriceId returns null for unknown price ids", () => {
+    const env = { STRIPE_PRICE_PRO_MONTHLY: "price_pro_monthly" };
+    assert.equal(
+      tryResolvePlanKeyByStripePriceId("price_pro_monthly", env),
+      "PRO"
+    );
+    assert.equal(
+      tryResolvePlanKeyByStripePriceId("price_legacy_unknown", env),
+      null
+    );
+    assert.equal(tryResolvePlanKeyByStripePriceId(null, env), null);
   });
 
   it("computes yearly billing as monthly * 10 (Weglot-style 2 months free) for paid plans", () => {

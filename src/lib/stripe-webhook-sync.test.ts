@@ -4,52 +4,43 @@ import type { NextRequest } from "next/server";
 import type Stripe from "stripe";
 
 const globalForPrisma = globalThis as unknown as {
-  prisma?: unknown;
+  prisma?: {
+    subscription: { update: ReturnType<typeof test.mock.fn> };
+    organization: { update: ReturnType<typeof test.mock.fn> };
+  };
 };
 
-test("syncs the organization plan when Stripe updates an existing subscription", async (t) => {
-  const originalPrisma = globalForPrisma.prisma;
-  const originalStripeSecret = process.env.STRIPE_SECRET_KEY;
-  const originalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  const originalPriceId = process.env.STRIPE_PRICE_PRO_MONTHLY;
+const subscriptionUpdate = test.mock.fn(
+  async (_args: {
+    where: { stripeSubscriptionId: string };
+    data: Record<string, unknown>;
+    select?: { organizationId: true; plan?: true };
+  }) => ({
+    organizationId: "org_123",
+    plan: "PRO",
+  })
+);
+const organizationUpdate = test.mock.fn(
+  async (_args: { where: { id: string }; data: { plan: string } }) => ({})
+);
 
-  // Type the Prisma `update` args explicitly. A zero-arg mock (`() => ...`)
-  // gives `mock.calls[i].arguments` the empty-tuple type `[]`, so indexing
-  // `arguments[0]` fails to type-check (TS2493); a typed parameter makes it a
-  // one-element tuple that the assertions below can read.
-  const subscriptionUpdate = t.mock.fn(
-    async (_args: {
-      where: { stripeSubscriptionId: string };
-      data: Record<string, unknown>;
-      select?: { organizationId: true };
-    }) => ({
-      organizationId: "org_123",
-    })
-  );
-  const organizationUpdate = t.mock.fn(
-    async (_args: { where: { id: string }; data: { plan: string } }) => ({})
-  );
+globalForPrisma.prisma = {
+  subscription: { update: subscriptionUpdate },
+  organization: { update: organizationUpdate },
+};
 
-  globalForPrisma.prisma = {
-    subscription: {
-      update: subscriptionUpdate,
-    },
-    organization: {
-      update: organizationUpdate,
-    },
-  };
-
+test.before(async () => {
   process.env.STRIPE_SECRET_KEY = "sk_test_deepglot";
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_deepglot";
   process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
+});
 
-  t.after(() => {
-    globalForPrisma.prisma = originalPrisma;
-    restoreEnv("STRIPE_SECRET_KEY", originalStripeSecret);
-    restoreEnv("STRIPE_WEBHOOK_SECRET", originalWebhookSecret);
-    restoreEnv("STRIPE_PRICE_PRO_MONTHLY", originalPriceId);
-  });
+test.after(() => {
+  subscriptionUpdate.mock.resetCalls();
+  organizationUpdate.mock.resetCalls();
+});
 
+test("syncs the organization plan when Stripe updates an existing subscription", async (t) => {
   const { stripe } = await import("@/lib/stripe");
   t.mock.method(stripe.webhooks, "constructEvent", () => ({
     type: "customer.subscription.updated",
@@ -87,11 +78,43 @@ test("syncs the organization plan when Stripe updates an existing subscription",
   });
 });
 
-function restoreEnv(key: string, value: string | undefined) {
-  if (typeof value === "undefined") {
-    delete process.env[key];
-    return;
-  }
+test("customer.subscription.updated keeps existing plan when Stripe price id is unknown", async (t) => {
+  subscriptionUpdate.mock.resetCalls();
+  organizationUpdate.mock.resetCalls();
 
-  process.env[key] = value;
-}
+  const { stripe } = await import("@/lib/stripe");
+  t.mock.method(stripe.webhooks, "constructEvent", () => ({
+    type: "customer.subscription.updated",
+    data: {
+      object: {
+        id: "sub_123",
+        status: "active",
+        items: {
+          data: [
+            {
+              current_period_end: 1_800_000_000,
+              price: { id: "price_rotated_not_in_env" },
+            },
+          ],
+        },
+      },
+    },
+  }) as Stripe.Event);
+
+  const { POST } = await import("@/app/api/webhooks/stripe/route");
+  const response = await POST(
+    new Request("https://deepglot.test/api/webhooks/stripe", {
+      method: "POST",
+      headers: { "stripe-signature": "sig_test" },
+      body: "{}",
+    }) as NextRequest
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(subscriptionUpdate.mock.callCount(), 1);
+  assert.equal(organizationUpdate.mock.callCount(), 0);
+  const updateData = subscriptionUpdate.mock.calls[0].arguments[0].data;
+  assert.equal(updateData.plan, undefined);
+  assert.equal(updateData.wordsLimit, undefined);
+  assert.equal(updateData.status, "ACTIVE");
+});
