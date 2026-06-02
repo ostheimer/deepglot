@@ -94,6 +94,7 @@ GitHub and Google sign-in are only registered when both provider secrets are con
 The `POST /api/translate` route is designed for drop-in compatibility:
 
 - `?api_key=...` is supported
+- `Authorization: Bearer <key>` is supported as an alternative to the query parameter
 - The response includes `from_words` and `to_words`
 - Public endpoints:
   - `GET /api/public/status`
@@ -222,7 +223,7 @@ Recommended environment matrix:
 - `Production`
   - set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the canonical production domain
   - set `TRANSLATION_PROVIDER=openai`
-  - set `OPENAI_TRANSLATION_MODEL=gpt-5-mini`
+  - set `OPENAI_TRANSLATION_MODEL=gpt-4o-mini`
   - point both database URLs to Neon `prod`
 
 Stripe acceptance can be checked without creating charges:
@@ -297,7 +298,7 @@ The translation flow uses a provider abstraction:
 
 - `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
 - Without an explicit `TRANSLATION_PROVIDER`, the app auto-selects by the first credential present, in this order: `gemini` (`GEMINI_API_KEY`) → `openai` (`OPENAI_API_KEY`) → `openrouter` (`OPENROUTER_API_KEY`) → `deepl` (`DEEPL_API_KEY`) → `ollama` (`OLLAMA_BASE_URL`), otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`).
+- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-4o-mini`).
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
