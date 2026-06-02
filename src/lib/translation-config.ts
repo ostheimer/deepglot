@@ -5,16 +5,16 @@ import type { TranslationProviderName } from "@/lib/translation-types";
  * Default OpenAI model used for website translation.
  *
  * Translation is a low-complexity task where Frontier models are wasted
- * budget. gpt-5-mini delivers production-quality DE↔EN at ~1/15 the cost
- * of gpt-5.5 ($0.25 / $2 per 1M tokens vs $5 / $30) with no measurable
+ * budget. gpt-4o-mini delivers production-quality DE↔EN at ~1/15 the cost
+ * of gpt-4o ($0.15 / $0.60 per 1M tokens vs $2.50 / $10) with no measurable
  * quality drop on web copy. Operators that need higher quality can
  * override via `OPENAI_TRANSLATION_MODEL` or switch to a different
  * provider in the project settings.
  */
-export const DEFAULT_OPENAI_TRANSLATION_MODEL = "gpt-5-mini";
+export const DEFAULT_OPENAI_TRANSLATION_MODEL = "gpt-4o-mini";
 export const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 export const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-export const DEFAULT_OPENROUTER_TRANSLATION_MODEL = "openai/gpt-5-mini";
+export const DEFAULT_OPENROUTER_TRANSLATION_MODEL = "openai/gpt-4o-mini";
 export const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_OLLAMA_TRANSLATION_MODEL = "llama3.3";
 /**
@@ -129,7 +129,7 @@ export function getRecommendedModels(provider: TranslationProviderName) {
     case "openai":
       return [
         // Default for translation — best $/quality ratio.
-        "gpt-5-mini",
+        "gpt-4o-mini",
         "gpt-4.1-nano",
         "gpt-5.4-mini",
         "gpt-5.4",
@@ -147,7 +147,7 @@ export function getRecommendedModels(provider: TranslationProviderName) {
       ];
     case "openrouter":
       return [
-        "openai/gpt-5-mini",
+        "openai/gpt-4o-mini",
         "openai/gpt-5.4-mini",
         "anthropic/claude-sonnet-4.6",
         "google/gemini-3-pro",

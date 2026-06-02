@@ -63,7 +63,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
             {uiText(locale, "Current OpenAI series", "Aktuelle OpenAI-Serie")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {uiText(locale, "Default: gpt-5-mini for best cost/quality. Pro/flagship models like gpt-5.5 are opt-in.", "Standard: gpt-5-mini für beste Kosten/Qualität. Pro/Flagship-Modelle wie gpt-5.5 sind opt-in.")}
+            {uiText(locale, "Default: gpt-4o-mini for best cost/quality. Pro/flagship models like gpt-5.5 are opt-in.", "Standard: gpt-4o-mini für beste Kosten/Qualität. Pro/Flagship-Modelle wie gpt-5.5 sind opt-in.")}
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">

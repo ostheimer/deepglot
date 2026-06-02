@@ -21,14 +21,14 @@ test("normalizes translation provider aliases", () => {
   assert.equal(normalizeTranslationProvider("unknown"), null);
 });
 
-test("uses GPT-5-mini as the OpenAI default translation model", () => {
+test("uses gpt-4o-mini as the OpenAI default translation model", () => {
   const config = resolveTranslationProviderConfig({
     env: { TRANSLATION_PROVIDER: "openai", OPENAI_API_KEY: "key" },
   });
 
   assert.equal(config.provider, "openai");
   assert.equal(config.model, DEFAULT_OPENAI_TRANSLATION_MODEL);
-  assert.equal(config.model, "gpt-5-mini");
+  assert.equal(config.model, "gpt-4o-mini");
 });
 
 test(".env.example translation model values match runtime defaults", () => {
