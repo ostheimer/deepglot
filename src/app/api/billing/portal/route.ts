@@ -3,6 +3,7 @@ import Stripe from "stripe";
 
 import { auth } from "@/lib/auth";
 import {
+  canManageOrganizationBilling,
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
 } from "@/lib/billing";
@@ -30,6 +31,13 @@ export async function POST() {
     where: { userId: session.user.id },
     include: { organization: { include: { subscription: true } } },
   });
+
+  if (!canManageOrganizationBilling(membership?.role)) {
+    return NextResponse.json(
+      { error: t(locale, "Keine Berechtigung", "Not allowed") },
+      { status: 403 }
+    );
+  }
 
   const customerId = membership?.organization?.subscription?.stripeCustomerId;
   if (!isRealStripeCustomerId(customerId)) {

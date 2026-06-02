@@ -105,7 +105,9 @@ export type ExistingSubscriptionForCheckout = {
  * a fresh Checkout would create a second paid subscription.
  *
  * PAST_DUE is included: the Stripe subscription still exists while payment
- * is retried; only CANCELED/INACTIVE rows may start Checkout again.
+ * is retried. INACTIVE with a subscription id usually means an incomplete
+ * Checkout attempt — a second session would create another Stripe subscription.
+ * Only CANCELED (and rows without a subscription id) may start Checkout again.
  */
 export function blocksNewCheckoutForExistingSubscription(
   subscription: ExistingSubscriptionForCheckout | null | undefined
@@ -114,5 +116,20 @@ export function blocksNewCheckoutForExistingSubscription(
     return false;
   }
   const { status } = subscription;
-  return status === "ACTIVE" || status === "TRIALING" || status === "PAST_DUE";
+  if (status === "CANCELED") {
+    return false;
+  }
+  return (
+    status === "ACTIVE" ||
+    status === "TRIALING" ||
+    status === "PAST_DUE" ||
+    status === "INACTIVE"
+  );
+}
+
+/** Only org owners/admins may change billing (checkout, portal, cancel, address). */
+export function canManageOrganizationBilling(
+  role: "OWNER" | "ADMIN" | "MEMBER" | undefined
+): boolean {
+  return role === "OWNER" || role === "ADMIN";
 }

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 import {
   blocksNewCheckoutForExistingSubscription,
+  canManageOrganizationBilling,
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
 } from "@/lib/billing";
@@ -274,6 +275,13 @@ test("blocksNewCheckoutForExistingSubscription blocks ACTIVE, TRIALING, and PAST
     }),
     true
   );
+  assert.equal(
+    blocksNewCheckoutForExistingSubscription({
+      stripeSubscriptionId: subId,
+      status: "INACTIVE",
+    }),
+    true
+  );
 });
 
 test("blocksNewCheckoutForExistingSubscription allows Checkout after cancel or without a subscription id", () => {
@@ -298,8 +306,40 @@ test("blocksNewCheckoutForExistingSubscription allows Checkout after cancel or w
       stripeSubscriptionId: "sub_old",
       status: "INACTIVE",
     }),
-    false
+    true
   );
+});
+
+test("canManageOrganizationBilling allows only OWNER and ADMIN", () => {
+  assert.equal(canManageOrganizationBilling("OWNER"), true);
+  assert.equal(canManageOrganizationBilling("ADMIN"), true);
+  assert.equal(canManageOrganizationBilling("MEMBER"), false);
+  assert.equal(canManageOrganizationBilling(undefined), false);
+});
+
+test("cancel route does not set CANCELED before Stripe ends the subscription", () => {
+  const cancelRoute = readFileSync(
+    "src/app/api/billing/cancel/route.ts",
+    "utf8"
+  );
+
+  assert.match(cancelRoute, /cancel_at_period_end:\s*true/);
+  assert.doesNotMatch(
+    cancelRoute,
+    /data:\s*\{\s*status:\s*["']CANCELED["']/
+  );
+});
+
+test("billing mutation routes require org OWNER or ADMIN", () => {
+  for (const routePath of [
+    "src/app/api/billing/cancel/route.ts",
+    "src/app/api/billing/checkout/route.ts",
+    "src/app/api/billing/portal/route.ts",
+    "src/app/api/billing/address/route.ts",
+  ]) {
+    const source = readFileSync(routePath, "utf8");
+    assert.match(source, /canManageOrganizationBilling/);
+  }
 });
 
 test("checkout route uses blocksNewCheckoutForExistingSubscription for duplicate-subscription guard", () => {

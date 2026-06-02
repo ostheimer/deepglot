@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
+import { canManageOrganizationBilling } from "@/lib/billing";
 import { stripe } from "@/lib/stripe";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -25,6 +26,13 @@ export async function POST() {
     include: { organization: { include: { subscription: true } } },
   });
 
+  if (!canManageOrganizationBilling(membership?.role)) {
+    return NextResponse.json(
+      { error: t(locale, "Keine Berechtigung", "Not allowed") },
+      { status: 403 }
+    );
+  }
+
   const sub = membership?.organization?.subscription;
   if (!sub?.stripeSubscriptionId) {
     return NextResponse.json(
@@ -33,14 +41,13 @@ export async function POST() {
     );
   }
 
-  // Cancel at period end (not immediately)
+  // Cancel at period end (not immediately). Local status stays ACTIVE until
+  // Stripe ends the subscription; `customer.subscription.deleted` (or an
+  // `updated` webhook) writes CANCELED. Setting CANCELED here would
+  // soft-cap words immediately via getEffectiveWordsLimit() while the
+  // customer is still in a paid period.
   await stripe.subscriptions.update(sub.stripeSubscriptionId, {
     cancel_at_period_end: true,
-  });
-
-  await db.subscription.update({
-    where: { id: sub.id },
-    data: { status: "CANCELED" },
   });
 
   return NextResponse.json({ success: true });

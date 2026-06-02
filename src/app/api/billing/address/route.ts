@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
-import { isRealStripeCustomerId } from "@/lib/billing";
+import { canManageOrganizationBilling, isRealStripeCustomerId } from "@/lib/billing";
 import { z } from "zod";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -46,6 +46,13 @@ export async function POST(request: Request) {
     where: { userId: session.user.id },
     include: { organization: { include: { subscription: true } } },
   });
+
+  if (!canManageOrganizationBilling(membership?.role)) {
+    return NextResponse.json(
+      { error: t(locale, "Keine Berechtigung", "Not allowed") },
+      { status: 403 }
+    );
+  }
 
   const customerId = membership?.organization?.subscription?.stripeCustomerId;
   if (!isRealStripeCustomerId(customerId)) {

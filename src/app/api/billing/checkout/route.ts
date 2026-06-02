@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import {
   blocksNewCheckoutForExistingSubscription,
+  canManageOrganizationBilling,
   getCheckoutCancelUrl,
   getCheckoutSuccessUrl,
   isRealStripeCustomerId,
@@ -73,6 +74,13 @@ export async function POST(request: Request) {
     where: { userId: session.user.id },
     include: { organization: { include: { subscription: true } } },
   });
+
+  if (!canManageOrganizationBilling(membership?.role)) {
+    return NextResponse.json(
+      { error: t(locale, "Keine Berechtigung", "Not allowed") },
+      { status: 403 }
+    );
+  }
 
   const organization = membership?.organization;
   if (!organization) {
