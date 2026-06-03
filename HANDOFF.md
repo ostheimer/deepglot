@@ -5,15 +5,16 @@ This file captures the current project state so work can continue in a new chat 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `414de73` (`Add regression test for Languages-page management gating (#109)`)
+- Latest production commit: `9b2ae7bd` (`fix(billing): Block duplicate Checkout for PAST_DUE subscriptions (#110)`)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
 ## Completed In The Latest Session (since 2026-05-06)
 
-### Security Hardening (2026-05-27 – 2026-05-30)
+### Security Hardening (2026-05-27 – 2026-05-31)
 
+- **Block duplicate Checkout for PAST_DUE subscriptions** (PR #110, 2026-05-31): #108 only rejected ACTIVE/TRIALING; PAST_DUE orgs could start a second Stripe subscription via direct API. Extended guard via `blocksNewCheckoutForExistingSubscription()` (portal for plan changes).
 - **Regression test for Languages-page management gating** (PR #109, 2026-05-30): Source-level guardrail asserting `AddLanguageDialog` renders only for managers; prevents silent regressions of the auth gate added in PR #103.
 - **Block new Checkout when org already has live subscription** (PR #108, 2026-05-30): `POST /api/billing/checkout` now returns HTTP 409 when the org already has an ACTIVE or TRIALING subscription, directing to the billing portal instead. Prevents double-billing.
 - **Require management to add/remove project languages** (PR #103, 2026-05-30): IDOR fix — `DELETE /api/projects/[id]/languages` had no authorization at all; `POST` gated only on org membership. Both now require `userCanManageProject`. Language code validated via Zod.
@@ -51,7 +52,7 @@ This file captures the current project state so work can continue in a new chat 
 
 Latest already-completed checks:
 
-- GitHub Actions `main` CI passed for commit `414de73`.
+- GitHub Actions `main` CI passed for commit `9b2ae7bd`.
 - Vercel Production deployment is ready.
 - `npm run acceptance:stripe --mode live` PASS.
 
