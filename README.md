@@ -53,6 +53,10 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/projects`
   - `/subscription`
   - `/settings`
+  - Legal pages (German statutory requirements):
+    - `/terms` (Terms of Service)
+    - `/privacy` (Privacy Policy)
+    - `/legal-notice` (Legal Notice)
 - German localized routes use the same path structure under `/de`:
   - `/de`
   - `/de/pricing`
@@ -302,6 +306,7 @@ The translation flow uses a provider abstraction:
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
+- The database schema includes `TranslationSource.GOOGLE` as a reserved source identifier. Google Translate is not currently available as a `TRANSLATION_PROVIDER` value and is not configurable via environment variables.
 - Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
 
 ## Test login and demo workspace
@@ -345,6 +350,17 @@ The current lightweight test suite covers:
 - project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
 - translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
 - subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
+
+## Plans and billing tiers
+
+Deepglot uses a `Plan` enum in the database schema with the following values:
+
+- `FREE` — default plan for new users
+- `STARTER`, `BUSINESS`, `PRO`, `ADVANCED`, `EXTENDED` — active paid billing tiers
+- `ENTERPRISE` — active tier with custom pricing; limits are 20 million words, 50 languages, and 100 projects; excluded from self-serve plan switching in the dashboard
+- `PROFESSIONAL` — deprecated; normalized to `PRO` by `resolveBillingPlanKey()`
+
+Active plan limits and prices are configured in `src/lib/billing-plans.ts`. Stripe price IDs are supplied via `STRIPE_PRICE_*` environment variables (e.g. `STRIPE_PRICE_STARTER_MONTHLY`).
 
 ## Documentation guardrail
 
