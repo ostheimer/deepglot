@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import {
   blocksNewCheckoutForExistingSubscription,
+  customerHasBlockingStripeSubscription,
   getCheckoutCancelUrl,
   getCheckoutSuccessUrl,
   isRealStripeCustomerId,
@@ -132,6 +133,24 @@ export async function POST(request: Request) {
       where: { organizationId: organization.id },
       data: { stripeCustomerId: customer.id },
     });
+  }
+
+  // Stripe is authoritative while webhooks have not yet written
+  // `stripeSubscriptionId` (concurrent Checkout tabs / double-submit).
+  if (
+    customerId &&
+    (await customerHasBlockingStripeSubscription(customerId, stripe))
+  ) {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Für Planwechsel bitte das Abrechnungsportal verwenden",
+          "Use the billing portal to change your plan"
+        ),
+      },
+      { status: 409 }
+    );
   }
 
   const checkoutSession = await stripe.checkout.sessions.create({

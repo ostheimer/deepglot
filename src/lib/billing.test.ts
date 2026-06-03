@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 
 import {
   blocksNewCheckoutForExistingSubscription,
+  customerHasBlockingStripeSubscription,
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
+  stripeSubscriptionStatusBlocksCheckout,
 } from "@/lib/billing";
 
 function restoreEnv(
@@ -308,6 +310,57 @@ test("checkout route uses blocksNewCheckoutForExistingSubscription for duplicate
     checkoutRoute,
     /existingSubscription\.status === "ACTIVE"\s*\|\|\s*existingSubscription\.status === "TRIALING"/
   );
+});
+
+test("stripeSubscriptionStatusBlocksCheckout treats terminal Stripe statuses as safe for new Checkout", () => {
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("canceled"), false);
+  assert.equal(
+    stripeSubscriptionStatusBlocksCheckout("incomplete_expired"),
+    false
+  );
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("active"), true);
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("trialing"), true);
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("past_due"), true);
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("incomplete"), true);
+});
+
+test("customerHasBlockingStripeSubscription returns true when Stripe lists a live subscription", async () => {
+  const stripeClient = {
+    subscriptions: {
+      list: async () => ({
+        data: [{ status: "active" }],
+      }),
+    },
+  };
+
+  assert.equal(
+    await customerHasBlockingStripeSubscription("cus_test", stripeClient),
+    true
+  );
+});
+
+test("customerHasBlockingStripeSubscription returns false when only canceled subs exist", async () => {
+  const stripeClient = {
+    subscriptions: {
+      list: async () => ({
+        data: [{ status: "canceled" }, { status: "incomplete_expired" }],
+      }),
+    },
+  };
+
+  assert.equal(
+    await customerHasBlockingStripeSubscription("cus_test", stripeClient),
+    false
+  );
+});
+
+test("checkout route queries Stripe for live subscriptions before creating a session", () => {
+  const checkoutRoute = readFileSync(
+    "src/app/api/billing/checkout/route.ts",
+    "utf8"
+  );
+
+  assert.match(checkoutRoute, /customerHasBlockingStripeSubscription/);
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
