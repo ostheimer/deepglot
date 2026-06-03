@@ -33,14 +33,13 @@ export async function POST() {
     );
   }
 
-  // Cancel at period end (not immediately)
+  // Cancel at period end (not immediately). Do not mark the row CANCELED here —
+  // Stripe keeps billing until period end and `customer.subscription.updated`
+  // still reports `active`. Premature CANCELED would cap word usage at FREE
+  // via getEffectiveWordsLimit() and allow duplicate Checkout while sub_…
+  // remains live.
   await stripe.subscriptions.update(sub.stripeSubscriptionId, {
     cancel_at_period_end: true,
-  });
-
-  await db.subscription.update({
-    where: { id: sub.id },
-    data: { status: "CANCELED" },
   });
 
   return NextResponse.json({ success: true });
