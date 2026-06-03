@@ -1,16 +1,24 @@
-# Deepglot Handoff - 2026-05-31
+# Deepglot Handoff - 2026-06-03
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `414de73` (`Add regression test for Languages-page management gating (#109)`)
+- Latest production commit: `fb06aca` (`docs(readme): legal routes, TranslationSource.GOOGLE, and Plan enum tiers (#114)`)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
 ## Completed In The Latest Session (since 2026-05-06)
+
+### Billing, i18n & Docs (2026-05-31 – 2026-06-03)
+
+- **Subscription cancel keeps paid quota until period end** (PR #115, 2026-06-03): `POST /api/billing/cancel` no longer writes `CANCELED` locally while Stripe still bills via `cancel_at_period_end` (the row stays `ACTIVE` until the `customer.subscription.updated`/`deleted` webhook). Prevents premature FREE soft-capping of word usage and a duplicate-Checkout window. Webhook `subscription.updated` now keeps the existing plan on unknown price ids via `tryResolvePlanKeyByStripePriceId()` instead of silently downgrading.
+- **Block duplicate Checkout for PAST_DUE subscriptions** (PR #110, 2026-05-30): `POST /api/billing/checkout` only rejected ACTIVE/TRIALING; PAST_DUE orgs could start a second Stripe subscription via direct API. Extended guard via `blocksNewCheckoutForExistingSubscription()` — blocks any non-`CANCELED` row that has a `stripeSubscriptionId`; plan changes go through the billing portal.
+- **README documentation audit** (PR #114, 2026-06-03): Documented the public English legal routes (`/terms`, `/privacy`, `/legal-notice`), `TranslationSource.GOOGLE` as a reserved (non-configurable) source, and the `Plan` enum tiers incl. the `PROFESSIONAL` → `PRO` normalization. Also documents `Authorization: Bearer <key>` as an alternative to `?api_key=` on `POST /api/translate`.
+- **Fix singular/plural and casing in pricing plan spec line** (PR #113, 2026-05-31): The selected-plan card spec line now inflects the language/project nouns per locale via Unicode CLDR plural rules (`Intl.PluralRules`), so FREE reads "1 Sprache · 1 Projekt" and Slavic tiers render correct paucal/plural forms across all 24 locales.
+- **Fix OpenRouter example translation model** (PR #112, 2026-05-31): `.env.example` OpenRouter model aligned to `openai/gpt-5-mini` (runtime default); regression test keeps `.env.example` values in sync with `DEFAULT_*` constants. (PR #116, which would have reverted the OpenAI default to `gpt-4o-mini`, was reviewed and closed as a regression.)
 
 ### Security Hardening (2026-05-27 – 2026-05-30)
 
@@ -51,7 +59,7 @@ This file captures the current project state so work can continue in a new chat 
 
 Latest already-completed checks:
 
-- GitHub Actions `main` CI passed for commit `414de73`.
+- GitHub Actions `main` CI passed for commit `fb06aca`.
 - Vercel Production deployment is ready.
 - `npm run acceptance:stripe --mode live` PASS.
 
