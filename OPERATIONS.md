@@ -162,7 +162,7 @@ npx tsx scripts/glossary-bust-meinhaushalt-cache.ts
 ```
 
 - `glossary-rule-meinhaushalt.ts` — applies glossary term substitution rules for the meinhaushalt.at project.
-- `glossary-bust-meinhaushalt-cache.ts` — invalidates the WordPress translation cache for glossary entries. Run this after updating glossary rules so that visitors see updated translations immediately without waiting for the cache TTL to expire.
+- `glossary-bust-meinhaushalt-cache.ts` — deletes the backend `Translation` rows for glossary entries so that fresh translations are generated on the next API request. **This script does not flush the WordPress plugin's transient cache.** Because `HtmlTranslator` reads WordPress transients before calling `/api/translate`, existing transients will continue serving the old translation until they expire (30-day TTL). To make the updated glossary visible to visitors immediately, also flush the plugin's transient cache from the WordPress admin (`Settings → Deepglot → Setup → Clear translation cache`).
 
 ### i18n codemods
 
@@ -187,9 +187,16 @@ npx tsx scripts/i18n-generate-wordpress-plugin-languages.ts
 
 One-time provisioning scripts for initial Stripe account setup. These are not part of the regular acceptance workflow and must not be re-run against an already-provisioned account.
 
+Credentials are read from the environment (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`). The scripts accept `--mode test` (default) or `--mode live`; use `--mode live` when provisioning against the production Stripe account. `--dry-run` prints what would be created without writing to Stripe.
+
 ```bash
-npx tsx scripts/stripe-setup.ts --env-file .env.production.local
-npx tsx scripts/stripe-backfill-plan-key-metadata.ts --env-file .env.production.local
+# Test account (safe to run repeatedly against a test key)
+npx tsx scripts/stripe-setup.ts --mode test
+npx tsx scripts/stripe-backfill-plan-key-metadata.ts --mode test
+
+# Production account (run only once; irreversible)
+npx tsx scripts/stripe-setup.ts --mode live
+npx tsx scripts/stripe-backfill-plan-key-metadata.ts --mode live
 ```
 
 - `stripe-setup.ts` — creates the full Stripe product and price structure (5 products × 10 prices). Run only when provisioning a brand-new Stripe account or a new environment from scratch.
