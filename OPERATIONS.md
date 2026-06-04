@@ -149,3 +149,48 @@ Default behavior is non-destructive:
 - Runs Phase 6 acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 
 Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip SaaS and Phase 6 production HTTP checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
+
+## i18n Development Scripts
+
+The `scripts/` directory contains i18n utility scripts not exposed as `npm run` commands. These are developer tools for maintaining internationalization content and are invoked directly with `npx tsx`.
+
+### Glossary management (meinhaushalt.at)
+
+```bash
+npx tsx scripts/glossary-rule-meinhaushalt.ts
+npx tsx scripts/glossary-bust-meinhaushalt-cache.ts
+```
+
+- `glossary-rule-meinhaushalt.ts` — applies glossary term substitution rules for the meinhaushalt.at project.
+- `glossary-bust-meinhaushalt-cache.ts` — invalidates the WordPress translation cache for glossary entries. Run this after updating glossary rules so that visitors see updated translations immediately without waiting for the cache TTL to expire.
+
+### i18n codemods
+
+```bash
+npx tsx scripts/i18n-codemod-api-copy.ts
+npx tsx scripts/i18n-codemod-simple-copy.ts
+```
+
+One-shot codemods for migrating API-copy and simple-copy strings to the current i18n message format. Run only when performing a deliberate i18n format migration across the codebase.
+
+### Static and plugin language file generation
+
+```bash
+npx tsx scripts/i18n-generate-static-messages.ts
+npx tsx scripts/i18n-generate-wordpress-plugin-languages.ts
+```
+
+- `i18n-generate-static-messages.ts` — regenerates static message catalogues from source.
+- `i18n-generate-wordpress-plugin-languages.ts` — generates the WordPress plugin `.pot` / `.po` locale files for EU language support. Run this after adding or changing any translatable strings inside `wordpress-plugin/deepglot/`.
+
+## Stripe Setup Scripts
+
+One-time provisioning scripts for initial Stripe account setup. These are not part of the regular acceptance workflow and must not be re-run against an already-provisioned account.
+
+```bash
+npx tsx scripts/stripe-setup.ts --env-file .env.production.local
+npx tsx scripts/stripe-backfill-plan-key-metadata.ts --env-file .env.production.local
+```
+
+- `stripe-setup.ts` — creates the full Stripe product and price structure (5 products × 10 prices). Run only when provisioning a brand-new Stripe account or a new environment from scratch.
+- `stripe-backfill-plan-key-metadata.ts` — backfills `plan_key` metadata on existing Stripe prices to align with the `Plan` enum. Run this after adding a new billing tier if the Stripe price was created before the `plan_key` metadata convention was established.
