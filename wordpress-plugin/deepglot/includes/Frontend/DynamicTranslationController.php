@@ -205,16 +205,46 @@ class DynamicTranslationController
 
         if ($referer !== '') {
             $refererHost = wp_parse_url($referer, PHP_URL_HOST);
-            $siteHost    = wp_parse_url(home_url(), PHP_URL_HOST);
 
-            if (is_string($refererHost) && is_string($siteHost)
-                && strcasecmp($refererHost, $siteHost) !== 0
-            ) {
+            if (is_string($refererHost) && !$this->isAllowedHost($refererHost)) {
                 return new WP_Error('rest_forbidden', __('Ungültige Herkunft.', 'deepglot'), ['status' => 403]);
             }
         }
 
         return true;
+    }
+
+    /**
+     * Same-origin host allow-list. Accepts the host the request actually came
+     * in on (so SUBDOMAIN-routed mapped hosts work — there the translated page,
+     * and therefore the relative-URL fetch, lives on the mapped host), the
+     * canonical site host, and every configured subdomain mapping. A cross-site
+     * POST, whose Referer host is none of these, is still rejected.
+     */
+    private function isAllowedHost(string $host): bool
+    {
+        $host = strtolower($host);
+        $allowed = [];
+
+        if (isset($_SERVER['HTTP_HOST'])) {
+            $requestHost = wp_parse_url('http://' . (string) $_SERVER['HTTP_HOST'], PHP_URL_HOST);
+            if (is_string($requestHost)) {
+                $allowed[] = strtolower($requestHost);
+            }
+        }
+
+        $homeHost = wp_parse_url(home_url(), PHP_URL_HOST);
+        if (is_string($homeHost)) {
+            $allowed[] = strtolower($homeHost);
+        }
+
+        foreach ($this->options->getDomainMappings() as $mappedHost) {
+            if (is_string($mappedHost) && $mappedHost !== '') {
+                $allowed[] = strtolower($mappedHost);
+            }
+        }
+
+        return in_array($host, $allowed, true);
     }
 
     /**

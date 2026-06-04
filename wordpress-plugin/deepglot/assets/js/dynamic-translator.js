@@ -8,10 +8,11 @@
  * WordPress REST proxy, so the Deepglot API key never reaches the browser.
  *
  * SEO is unaffected: search engines receive the fully server-translated page
- * and rarely execute this script; it only enhances live human interaction.
+ * and rarely run this script; it only enhances live human interaction.
  *
  * Config arrives via wp_localize_script as `window.deepglotDynamic`. The skip
- * rules come from PHP (TranslationRules) so this file hard-codes no tag list.
+ * rules and translatable-attribute whitelist come from PHP (TranslationRules)
+ * so this file hard-codes no tag/attribute list.
  */
 (function () {
   'use strict';
@@ -31,6 +32,16 @@
   var batchSize = cfg.batchSize || 200;
   var maxTextLength = cfg.maxTextLength || 5000;
 
+  // Element/attribute copy (alt, aria-label, placeholder, option labels, …) so
+  // SPA-injected elements that carry only such an attribute still get localized.
+  var attrMap = cfg.attrMap || {};
+  var inputValueTypes = Object.create(null);
+  (cfg.inputValueTypes || []).forEach(function (type) {
+    inputValueTypes[String(type).toLowerCase()] = true;
+  });
+  var hasAttrTargets =
+    Object.keys(attrMap).length > 0 || Object.keys(inputValueTypes).length > 0;
+
   var classSelectors = [];
   var idSelectors = [];
   (cfg.excludeSelectors || []).forEach(function (selector) {
@@ -42,18 +53,25 @@
     }
   });
 
-  // Mirrors TranslationRules::NUMERIC_PUNCT_PATTERN — purely numeric /
-  // punctuation strings carry no translatable copy.
+  // Mirrors TranslationRules::NUMERIC_PUNCT_PATTERN.
   var NUMERIC_PUNCT = /^[\d\s\p{P}\p{S}]+$/u;
   var WHITESPACE = /^(\s*)([\s\S]*?)(\s*)$/;
 
-  var translated = Object.create(null); // trimmed source  -> translation
-  var inflight = Object.create(null);    // trimmed source  -> awaiting response
-  var processed = new WeakSet();          // text nodes already translated
-  var pending = [];                       // {node, trimmed, prefix, suffix}
+  var translated = Object.create(null); // trimmed source -> translation
+  var inflight = Object.create(null);    // trimmed source -> awaiting response
+  var processedNodes = new WeakSet();     // text nodes already translated
+  var processedAttrs = new WeakMap();     // element -> { attrName: true }
+  var pendingNodes = [];                  // {node, trimmed, prefix, suffix}
+  var pendingAttrs = [];                  // {el, attr, trimmed}
   var flushTimer = null;
   var observer = null;
   var OBSERVE = { childList: true, subtree: true, characterData: true };
+
+  function translatable(trimmed) {
+    return trimmed.length >= minLength &&
+      trimmed.length <= maxTextLength &&
+      !NUMERIC_PUNCT.test(trimmed);
+  }
 
   /** True when the node or any ancestor opts out of translation. */
   function excluded(el) {
@@ -74,30 +92,69 @@
     return false;
   }
 
-  function consider(node) {
-    if (!node || node.nodeType !== 3 || processed.has(node) || !node.data) return;
-    var parts = node.data.match(WHITESPACE);
-    var trimmed = parts ? parts[2] : node.data.trim();
-    if (trimmed.length < minLength || trimmed.length > maxTextLength) return;
-    if (NUMERIC_PUNCT.test(trimmed)) return;
-    if (excluded(node.parentNode)) return;
-    pending.push({
-      node: node,
-      trimmed: trimmed,
+  function splitWhitespace(value) {
+    var parts = String(value).match(WHITESPACE);
+    return {
       prefix: parts ? parts[1] : '',
+      trimmed: parts ? parts[2] : String(value).trim(),
       suffix: parts ? parts[3] : ''
-    });
+    };
   }
 
-  /** Collect translatable text nodes inside a freshly added subtree. */
+  function consider(node) {
+    if (!node || node.nodeType !== 3 || processedNodes.has(node) || !node.data) return;
+    var split = splitWhitespace(node.data);
+    if (!translatable(split.trimmed)) return;
+    if (excluded(node.parentNode)) return;
+    pendingNodes.push({ node: node, trimmed: split.trimmed, prefix: split.prefix, suffix: split.suffix });
+  }
+
+  function attrSeen(el, attr) {
+    var seen = processedAttrs.get(el);
+    return !!(seen && seen[attr]);
+  }
+
+  function markAttr(el, attr) {
+    var seen = processedAttrs.get(el);
+    if (!seen) { seen = Object.create(null); processedAttrs.set(el, seen); }
+    seen[attr] = true;
+  }
+
+  function considerAttr(el, attr) {
+    if (attrSeen(el, attr) || !el.hasAttribute(attr)) return;
+    var trimmed = (el.getAttribute(attr) || '').trim();
+    if (!translatable(trimmed)) return;
+    pendingAttrs.push({ el: el, attr: attr, trimmed: trimmed });
+  }
+
+  function considerElementAttrs(el) {
+    if (!el || el.nodeType !== 1) return;
+    var tag = el.tagName ? el.tagName.toLowerCase() : '';
+    var attrs = attrMap[tag];
+    if (!attrs && tag !== 'input') return;
+    if (excluded(el)) return;
+    if (attrs) {
+      for (var i = 0; i < attrs.length; i++) considerAttr(el, attrs[i]);
+    }
+    // <input value> is UI copy only for button-like types.
+    if (tag === 'input') {
+      var type = (el.getAttribute('type') || '').toLowerCase();
+      if (inputValueTypes[type]) considerAttr(el, 'value');
+    }
+  }
+
+  /** Collect translatable text nodes + attributes inside a fresh subtree. */
   function walk(root) {
     if (!root) return;
     if (root.nodeType === 3) { consider(root); return; }
     if (root.nodeType !== 1 || excluded(root)) return;
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     var node;
-    while ((node = walker.nextNode())) {
-      consider(node);
+    while ((node = walker.nextNode())) consider(node);
+    if (hasAttrTargets) {
+      considerElementAttrs(root);
+      var elements = root.querySelectorAll('*');
+      for (var i = 0; i < elements.length; i++) considerElementAttrs(elements[i]);
     }
   }
 
@@ -107,24 +164,40 @@
     }
   }
 
-  /** Write every pending node whose translation is already known. */
+  /** Write every pending node/attribute whose translation is already known. */
   function applyPending() {
-    if (!pending.length) return;
-    var remaining = [];
+    if (!pendingNodes.length && !pendingAttrs.length) return;
     if (observer) observer.disconnect();
-    for (var i = 0; i < pending.length; i++) {
-      var item = pending[i];
+
+    var remainingNodes = [];
+    for (var i = 0; i < pendingNodes.length; i++) {
+      var item = pendingNodes[i];
       var value = translated[item.trimmed];
-      if (value == null) {
-        remaining.push(item);
-        continue;
-      }
-      if (!processed.has(item.node) && item.node.parentNode) {
+      if (value == null) { remainingNodes.push(item); continue; }
+      if (processedNodes.has(item.node) || !item.node.parentNode) continue;
+      // Skip if the node changed while its translation was in flight — its new
+      // text already has its own pending entry (a characterData mutation), so
+      // we must not overwrite live UI with a stale translation or mark it done.
+      if (splitWhitespace(item.node.data).trimmed === item.trimmed) {
         item.node.data = item.prefix + value + item.suffix;
-        processed.add(item.node);
+        processedNodes.add(item.node);
       }
     }
-    pending = remaining;
+    pendingNodes = remainingNodes;
+
+    var remainingAttrs = [];
+    for (var j = 0; j < pendingAttrs.length; j++) {
+      var attrItem = pendingAttrs[j];
+      var attrValue = translated[attrItem.trimmed];
+      if (attrValue == null) { remainingAttrs.push(attrItem); continue; }
+      if (attrSeen(attrItem.el, attrItem.attr) || !attrItem.el.hasAttribute(attrItem.attr)) continue;
+      if ((attrItem.el.getAttribute(attrItem.attr) || '').trim() === attrItem.trimmed) {
+        attrItem.el.setAttribute(attrItem.attr, attrValue);
+        markAttr(attrItem.el, attrItem.attr);
+      }
+    }
+    pendingAttrs = remainingAttrs;
+
     if (observer && document.body) observer.observe(document.body, OBSERVE);
   }
 
@@ -134,12 +207,13 @@
 
     var need = [];
     var seen = Object.create(null);
-    for (var i = 0; i < pending.length; i++) {
-      var text = pending[i].trimmed;
-      if (translated[text] != null || inflight[text] || seen[text]) continue;
+    function addNeed(text) {
+      if (translated[text] != null || inflight[text] || seen[text]) return;
       seen[text] = true;
       need.push(text);
     }
+    for (var i = 0; i < pendingNodes.length; i++) addNeed(pendingNodes[i].trimmed);
+    for (var j = 0; j < pendingAttrs.length; j++) addNeed(pendingAttrs[j].trimmed);
     if (!need.length) return;
 
     for (var start = 0; start < need.length; start += batchSize) {
@@ -186,7 +260,7 @@
         }
       }
     }
-    if (pending.length) scheduleFlush();
+    if (pendingNodes.length || pendingAttrs.length) scheduleFlush();
   }
 
   function start() {
@@ -196,9 +270,12 @@
     observer.observe(document.body, OBSERVE);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
+  // This script loads in the footer, so document.body already exists: start
+  // immediately to catch content injected before DOMContentLoaded. Only defer
+  // when (unusually) the body is not yet present.
+  if (document.body) {
     start();
+  } else {
+    document.addEventListener('DOMContentLoaded', start);
   }
 })();

@@ -52,6 +52,13 @@ class DynamicAssets
             return;
         }
 
+        // Mirror OutputBuffer::startBuffer(): on an excluded URL the initial
+        // HTML is left untranslated, so dynamic content on that page must not
+        // be translated (or billed) either.
+        if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
+            return;
+        }
+
         $activeLang = $this->detectActiveLanguage();
         $sourceLang = $this->options->getSourceLanguage();
 
@@ -69,7 +76,11 @@ class DynamicAssets
         );
 
         wp_localize_script(self::HANDLE, 'deepglotDynamic', [
-            'endpoint'         => esc_url_raw(rest_url(RestApi::NAMESPACE . DynamicTranslationController::ROUTE)),
+            // Root-relative so the fetch stays same-origin on SUBDOMAIN-routed
+            // pages served from a mapped host (where rest_url()/home_url() still
+            // resolve to the source host). A relative URL resolves against the
+            // current page origin, so the cookie + nonce are actually sent.
+            'endpoint'         => esc_url_raw(wp_make_link_relative(rest_url(RestApi::NAMESPACE . DynamicTranslationController::ROUTE))),
             'nonce'            => wp_create_nonce('wp_rest'),
             'langFrom'         => $sourceLang,
             'langTo'           => $activeLang,
@@ -79,6 +90,8 @@ class DynamicAssets
                 TranslationRules::OWN_SKIP_SELECTORS
             )),
             'noTranslateAttr'  => TranslationRules::NO_TRANSLATE_ATTR,
+            'attrMap'          => TranslationRules::TRANSLATABLE_BODY_ATTRIBUTES,
+            'inputValueTypes'  => TranslationRules::TRANSLATABLE_INPUT_VALUE_TYPES,
             'minLength'        => TranslationRules::MIN_TEXT_LENGTH,
             'batchSize'        => 200,
             'maxTextLength'    => 5000,
@@ -104,5 +117,17 @@ class DynamicAssets
         return $routerLang
             ?? $this->routing->detectLanguage($requestUri, $host)
             ?? $this->options->getSourceLanguage();
+    }
+
+    /** Current request URL, mirroring OutputBuffer::currentRequestUrl(). */
+    private function currentRequestUrl(): string
+    {
+        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+
+        if (function_exists('home_url')) {
+            return home_url($uri);
+        }
+
+        return $uri;
     }
 }

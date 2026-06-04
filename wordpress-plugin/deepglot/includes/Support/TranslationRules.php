@@ -39,6 +39,35 @@ class TranslationRules
         '#deepglot-editor-root',
     ];
 
+    /**
+     * Element/attribute pairs that carry user-facing copy outside the regular
+     * text-node flow (alt text, tooltips, placeholders, ARIA labels, option
+     * labels). The dynamic pass ships these to the browser so SPA-injected
+     * elements that have *only* such an attribute (an icon button with an
+     * aria-label, a search field with just a placeholder) still get localized.
+     *
+     * Drift-guarded against HtmlTranslator::TRANSLATABLE_BODY_ATTRIBUTES by
+     * TranslationRulesTest.
+     */
+    public const TRANSLATABLE_BODY_ATTRIBUTES = [
+        'img' => ['alt'],
+        'a' => ['title', 'aria-label'],
+        'button' => ['title', 'aria-label'],
+        'input' => ['placeholder', 'aria-label'],
+        'textarea' => ['placeholder', 'aria-label'],
+        'select' => ['aria-label'],
+        'label' => ['aria-label'],
+        'optgroup' => ['label'],
+        'option' => ['label'],
+    ];
+
+    /**
+     * `<input value>` is UI copy only for these button-like types; every other
+     * input type carries user data and must never be translated. Drift-guarded
+     * against HtmlTranslator::TRANSLATABLE_INPUT_VALUE_TYPES.
+     */
+    public const TRANSLATABLE_INPUT_VALUE_TYPES = ['submit', 'button', 'reset'];
+
     /** Minimum trimmed length (in characters) for a text node to be worth translating. */
     public const MIN_TEXT_LENGTH = 2;
 
