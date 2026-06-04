@@ -15,7 +15,7 @@ https://www.ostheimer.at
 - NextAuth v5
 - Prisma 7 + Neon PostgreSQL
 - Stripe
-- OpenAI / DeepL
+- 7 Translation Providers (OpenAI, DeepL, Gemini, OpenRouter, Ollama, openai-compatible, mock)
 
 ## Local development
 
