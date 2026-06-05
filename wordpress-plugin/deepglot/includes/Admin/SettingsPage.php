@@ -421,6 +421,19 @@ class SettingsPage
                                 <?php esc_html_e('AMP-Seiten übersetzen', 'deepglot'); ?>
                             </label>
                         </div>
+                        <div class="dg-toggle-row" style="margin-top:14px;">
+                            <input
+                                type="checkbox"
+                                id="dg_enable_dynamic_translation"
+                                name="<?php echo esc_attr($optKey); ?>[enable_dynamic_translation]"
+                                value="1"
+                                class="dg-toggle"
+                                <?php checked(!empty($settings['enable_dynamic_translation'])); ?>
+                            />
+                            <label for="dg_enable_dynamic_translation">
+                                <?php esc_html_e('Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)', 'deepglot'); ?>
+                            </label>
+                        </div>
                         <div class="dg-field">
                             <label for="dg_exclude_selectors"><?php esc_html_e('Ausgeschlossene CSS-Selektoren', 'deepglot'); ?></label>
                             <textarea id="dg_exclude_selectors" name="<?php echo esc_attr($optKey); ?>[exclude_selectors]" rows="4" placeholder=".no-translate&#10;#sidebar"><?php echo esc_textarea($settings['exclude_selectors']); ?></textarea>

@@ -62,6 +62,10 @@ class Options
             'translate_emails' => false,
             'translate_search' => false,
             'translate_amp' => false,
+            // Client-side translation of content added after page load (AJAX,
+            // infinite scroll, SPA widgets). Opt-in: the server-side pass keeps
+            // handling the initial, crawlable HTML on its own.
+            'enable_dynamic_translation' => false,
             'exclude_urls' => '',
             'exclude_regexes' => '',
             'exclude_selectors' => '',
@@ -119,6 +123,7 @@ class Options
             'translate_emails' => !empty($input['translate_emails']),
             'translate_search' => !empty($input['translate_search']),
             'translate_amp' => !empty($input['translate_amp']),
+            'enable_dynamic_translation' => !empty($input['enable_dynamic_translation']),
             'exclude_urls' => sanitize_textarea_field((string) ($input['exclude_urls'] ?? '')),
             'exclude_regexes' => sanitize_textarea_field((string) ($input['exclude_regexes'] ?? '')),
             'exclude_selectors' => sanitize_textarea_field((string) ($input['exclude_selectors'] ?? '')),
@@ -319,6 +324,17 @@ class Options
         $options = $this->all();
 
         return (bool) $options['translate_amp'];
+    }
+
+    /**
+     * Whether the client-side dynamic-content translator is enabled. Opt-in;
+     * gates both the front-end asset and the /translate-dynamic REST endpoint.
+     */
+    public function shouldTranslateDynamicContent(): bool
+    {
+        $options = $this->all();
+
+        return (bool) ($options['enable_dynamic_translation'] ?? false);
     }
 
     /**

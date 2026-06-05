@@ -322,6 +322,7 @@ class RestApi
             'translate_emails'   => 'translate_emails',
             'translate_search'   => 'translate_search',
             'translate_amp'      => 'translate_amp',
+            'enable_dynamic_translation' => 'enable_dynamic_translation',
             'exclude_urls'       => 'exclude_urls',
             'exclude_selectors'  => 'exclude_selectors',
         ];
@@ -461,6 +462,11 @@ class RestApi
                 'type'     => 'boolean',
                 'required' => false,
                 'description' => 'Translate AMP pages.',
+            ],
+            'enable_dynamic_translation' => [
+                'type'     => 'boolean',
+                'required' => false,
+                'description' => 'Translate content added client-side after load (AJAX, SPA).',
             ],
             'exclude_urls' => [
                 'type'              => 'string',

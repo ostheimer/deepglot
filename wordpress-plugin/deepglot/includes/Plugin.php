@@ -8,6 +8,8 @@ use Deepglot\Api\Client;
 use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
 use Deepglot\Frontend\BrowserRedirector;
+use Deepglot\Frontend\DynamicAssets;
+use Deepglot\Frontend\DynamicTranslationController;
 use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
@@ -50,6 +52,8 @@ class Plugin
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(OutputBuffer::class)->register();
+        $this->container->get(DynamicTranslationController::class)->register();
+        $this->container->get(DynamicAssets::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
         $this->container->get(NavMenuSwitcher::class)->register();
         $this->container->get(SwitcherBlock::class)->register();
@@ -177,6 +181,22 @@ class Plugin
                 $c->get(HreflangInjector::class),
                 $c->get(RequestRouter::class),
                 $c->get(SiteRouting::class)
+            );
+        });
+
+        $this->container->singleton(DynamicTranslationController::class, function (Container $c) {
+            return new DynamicTranslationController(
+                $c->get(Options::class),
+                $c->get(Client::class),
+                $c->get(TranslationCache::class)
+            );
+        });
+
+        $this->container->singleton(DynamicAssets::class, function (Container $c) {
+            return new DynamicAssets(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class),
+                $c->get(RequestRouter::class)
             );
         });
 

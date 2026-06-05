@@ -113,6 +113,7 @@ Features:
 - PHP autoloader and lightweight service container
 - URL language resolver and request router (path-prefix and subdomain routing)
 - OutputBuffer + HTML translator using DOMDocument — no external PHP dependencies
+- Optional client-side dynamic-content translator: a MutationObserver re-translates AJAX / infinite-scroll / SPA content added after page load through a same-origin REST proxy (`POST /wp-json/deepglot/v1/translate-dynamic`); opt-in via `enable_dynamic_translation`, cache-first (a missing nonce never spends quota), and SEO-safe because the server pass still renders the initial crawlable HTML
 - JSON-LD and accessibility attribute translation
 - Deepglot API client (HTTP requests to the Next.js backend)
 - WordPress transient-based translation cache (no custom table needed)
