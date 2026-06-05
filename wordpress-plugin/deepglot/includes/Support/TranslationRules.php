@@ -28,6 +28,14 @@ class TranslationRules
     public const NO_TRANSLATE_ATTR = 'data-deepglot-no-translate';
 
     /**
+     * Ancestor tags that block *attribute* translation. Deliberately narrower
+     * than SKIP_TAGS: `<textarea>` text content is never translated, but its
+     * whitelisted `placeholder` / `aria-label` ARE (mirroring the server's
+     * HtmlTranslator::ATTR_SKIP_ANCESTORS, which excludes only these four).
+     */
+    public const ATTR_SKIP_ANCESTORS = ['script', 'style', 'noscript', 'template'];
+
+    /**
      * Plugin-owned subtrees the dynamic pass must never re-translate, as a
      * defence-in-depth complement to NO_TRANSLATE_ATTR: the language switcher
      * already carries the opt-out attribute, the visual editor shell is

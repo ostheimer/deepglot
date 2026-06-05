@@ -91,6 +91,7 @@ class DynamicAssets
             )),
             'noTranslateAttr'  => TranslationRules::NO_TRANSLATE_ATTR,
             'attrMap'          => TranslationRules::TRANSLATABLE_BODY_ATTRIBUTES,
+            'attrSkipTags'     => array_map('strtolower', TranslationRules::ATTR_SKIP_ANCESTORS),
             'inputValueTypes'  => TranslationRules::TRANSLATABLE_INPUT_VALUE_TYPES,
             'minLength'        => TranslationRules::MIN_TEXT_LENGTH,
             'batchSize'        => 200,

@@ -100,6 +100,11 @@ rulesCheck(
         && $serverConstants['TRANSLATABLE_INPUT_VALUE_TYPES'] === TranslationRules::TRANSLATABLE_INPUT_VALUE_TYPES,
     'TranslationRules::TRANSLATABLE_INPUT_VALUE_TYPES has drifted from HtmlTranslator — keep them identical.'
 );
+rulesCheck(
+    isset($serverConstants['ATTR_SKIP_ANCESTORS'])
+        && $serverConstants['ATTR_SKIP_ANCESTORS'] === TranslationRules::ATTR_SKIP_ANCESTORS,
+    'TranslationRules::ATTR_SKIP_ANCESTORS has drifted from HtmlTranslator — keep them identical.'
+);
 
 // isTranslatableText: long enough and not purely numeric/punctuation.
 rulesCheck(TranslationRules::isTranslatableText('Hallo') === true, '"Hallo" should be translatable.');

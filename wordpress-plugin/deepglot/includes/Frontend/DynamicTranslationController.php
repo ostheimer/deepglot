@@ -297,17 +297,19 @@ class DynamicTranslationController
                 continue;
             }
 
-            $trimmed = trim($text);
-
-            if (mb_strlen($trimmed) > self::MAX_TEXT_LENGTH) {
+            if (mb_strlen($text) > self::MAX_TEXT_LENGTH) {
                 continue;
             }
 
-            if (!TranslationRules::isTranslatableText($trimmed)) {
+            // Gate on the trimmed form (length / numeric-only), but key on the
+            // RAW text so the cache key matches the server pass, which caches
+            // the untrimmed DOMText value. A dynamic " Hello " then reuses the
+            // server's existing entry instead of re-translating a trimmed copy.
+            if (!TranslationRules::isTranslatableText(trim($text))) {
                 continue;
             }
 
-            $clean[$trimmed] = true;
+            $clean[$text] = true;
 
             if (count($clean) >= self::MAX_TEXTS) {
                 break;

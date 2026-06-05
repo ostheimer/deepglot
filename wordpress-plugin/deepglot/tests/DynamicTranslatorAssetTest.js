@@ -174,10 +174,12 @@ function createHarness(fetchHandler) {
       skipTags: ['script', 'style', 'pre', 'code', 'textarea', 'noscript', 'svg', 'math'],
       excludeSelectors: [],
       noTranslateAttr: 'data-deepglot-no-translate',
+      attrSkipTags: ['script', 'style', 'noscript', 'template'],
       attrMap: {
         img: ['alt'],
         button: ['title', 'aria-label'],
         input: ['placeholder', 'aria-label'],
+        textarea: ['placeholder', 'aria-label'],
       },
       inputValueTypes: ['submit', 'button', 'reset'],
       minLength: 2,
@@ -198,7 +200,7 @@ function createHarness(fetchHandler) {
     fetch: async (url, options) => {
       const payload = JSON.parse(options.body);
       fetchCalls.push(payload.texts);
-      return fetchHandler(payload.texts);
+      return fetchHandler(payload.texts, options);
     },
   };
 
@@ -208,7 +210,7 @@ function createHarness(fetchHandler) {
     while (timers.length > 0) {
       const callback = timers.shift();
       callback();
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 50; i++) {
         await Promise.resolve();
       }
     }
@@ -305,12 +307,89 @@ async function testEmptyResponsesDropOldPendingItems() {
   assert.equal(other.data, 'Andere');
 }
 
+async function testRootTranslateNoIsIgnored() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    Hello: 'Hallo',
+  }));
+
+  // The server pass stamps <html translate="no"> to block browser auto-
+  // translation; the dynamic pass must NOT treat that root marker as an opt-out
+  // or it would suppress every dynamic node on translated pages.
+  const html = harness.document.createElement('html');
+  html.setAttribute('translate', 'no');
+  harness.document.body.parentNode = html;
+
+  const text = harness.document.createTextNode('Hello');
+  harness.document.body.appendChild(text);
+  await harness.runTimers();
+
+  assert.deepEqual(harness.fetchCalls, [['Hello']]);
+  assert.equal(text.data, 'Hallo');
+}
+
+async function testTextareaPlaceholderIsTranslated() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    Search: 'Suchen',
+  }));
+
+  const textarea = harness.document.createElement('textarea');
+  harness.document.body.appendChild(textarea);
+  textarea.setAttribute('placeholder', 'Search');
+  await harness.runTimers();
+
+  // textarea text content stays untranslated, but its whitelisted placeholder
+  // is translated (attribute exclusion uses the narrower ATTR_SKIP_ANCESTORS).
+  assert.deepEqual(harness.fetchCalls, [['Search']]);
+  assert.equal(textarea.getAttribute('placeholder'), 'Suchen');
+}
+
+async function testStaleNonceRetriesWithoutNonce() {
+  const noncePresence = [];
+  const harness = createHarness(async (texts, options) => {
+    const hasNonce = !!(options.headers && options.headers['X-WP-Nonce']);
+    noncePresence.push(hasNonce);
+    if (hasNonce) {
+      return { ok: false, status: 403, json: async () => ({}) };
+    }
+    return translationResponse(texts, { Cached: 'Zwischengespeichert' });
+  });
+
+  const text = harness.document.createTextNode('Cached');
+  harness.document.body.appendChild(text);
+  await harness.runTimers();
+
+  // First attempt sends the (stale) nonce and is rejected 403 by WP core; the
+  // retry omits it to reach the controller's cache-only fallback.
+  assert.deepEqual(noncePresence, [true, false]);
+  assert.deepEqual(harness.fetchCalls, [['Cached'], ['Cached']]);
+  assert.equal(text.data, 'Zwischengespeichert');
+}
+
+async function testRawWhitespaceKeyIsSent() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    '  Hello  ': '  Hallo  ',
+  }));
+
+  const text = harness.document.createTextNode('  Hello  ');
+  harness.document.body.appendChild(text);
+  await harness.runTimers();
+
+  // The untrimmed value is the cache key, matching the server pass (which keys
+  // on the raw DOMText value) so existing cache entries are reused.
+  assert.deepEqual(harness.fetchCalls, [['  Hello  ']]);
+  assert.equal(text.data, '  Hallo  ');
+}
+
 async function main() {
   const tests = [
     testProcessedTextNodeCanBeTranslatedAfterChanging,
     testAttributeMutationsAreTranslated,
     testContentEditableTextIsSkipped,
     testEmptyResponsesDropOldPendingItems,
+    testRootTranslateNoIsIgnored,
+    testTextareaPlaceholderIsTranslated,
+    testStaleNonceRetriesWithoutNonce,
+    testRawWhitespaceKeyIsSent,
   ];
 
   for (const test of tests) {
