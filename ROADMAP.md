@@ -179,7 +179,7 @@ Next.js App (Vercel)          WordPress Plugin
 | 7.5 | WordPress PHP coverage for subdomain routing, browser redirect edge cases, and WooCommerce email translation | ✅ Completed |
 | 7.6 | Production observability: webhook cron monitoring, failed delivery visibility, and operational runbook | ✅ Completed |
 | 7.7 | Persistent API rate limiting and abuse controls for multi-instance production traffic | ✅ Completed |
-| 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | 🔄 Neon restore drill completed; Stripe live billing acceptance postponed as an external dependency |
+| 7.8 | Neon production backup/restore drill and Stripe live-mode billing acceptance | ✅ Completed — Neon restore drill passed; Stripe live-mode billing acceptance passed 2026-05-17 (see Phase 8.1 and 8.5) |
 | 7.9 | Decide and enforce legacy Vercel alias policy | ✅ Completed |
 | 7.10 | Autonomous Phase 6 acceptance suite and production acceptance integration | ✅ Completed |
 | 7.11 | Autonomous SaaS acceptance for auth, project flow, translation API, and runtime sync | ✅ Completed |
