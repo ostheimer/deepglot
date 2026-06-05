@@ -1,16 +1,23 @@
-# Deepglot Handoff - 2026-06-03
+# Deepglot Handoff - 2026-06-05
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `fb06aca` (`docs(readme): legal routes, TranslationSource.GOOGLE, and Plan enum tiers (#114)`)
+- Latest production commit: `dec4677` (`feat(wp-plugin): client-side dynamic/SPA content translation (#127)`)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
 ## Completed In The Latest Session (since 2026-05-06)
+
+### Dynamic Content Translation (2026-06-05)
+
+- **Client-side dynamic / SPA content translation** (PR #127, plugin v0.8.0, **default OFF**): a `MutationObserver` re-translates content added or changed after page load (AJAX, infinite scroll, cart drawers, SPA widgets) via a same-origin REST proxy `POST /wp-json/deepglot/v1/translate-dynamic`, so the API key never reaches the browser. Cache-first (a missing/stale nonce degrades to cache-only and never spends quota; a 403 retries without the nonce), SEO-safe (the server pass still renders the crawlable HTML), opt-in via `enable_dynamic_translation`. Shared `Support\TranslationRules` keep the JS and PHP extraction rules from drifting (drift-guarded). Closes the largest untracked Weglot gap (#120).
+- **Hardened across three Codex review rounds**, including a P1 where the server's `<html translate="no">` made the dynamic pass a no-op on every translated page; plus `<textarea>` attribute parity, `contenteditable` draft protection, stale-nonce cache-only retry, raw cache-key alignment with the server pass, and attribute-mutation observation.
+- **Codex daily-bug-scan automation** (PR #128) independently fixed the round-2 items and added the `tests/DynamicTranslatorAssetTest.js` fake-DOM regression harness, folded into the branch before the squash merge.
+- **Next step:** live QA on `meinhaushalt.at` with the flag enabled (checklist: `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`), then enable in production and update marketing.
 
 ### Billing, i18n & Docs (2026-05-31 – 2026-06-03)
 

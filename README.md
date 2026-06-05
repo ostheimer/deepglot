@@ -106,7 +106,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.7.0**, deployed live on `meinhaushalt.at`.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.0**, which adds the opt-in client-side dynamic-content translator (default off, pending live QA). **v0.7.0** is the build currently deployed live on `meinhaushalt.at`.
 
 Features:
 
