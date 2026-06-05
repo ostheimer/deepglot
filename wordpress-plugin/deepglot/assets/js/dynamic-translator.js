@@ -59,13 +59,28 @@
 
   var translated = Object.create(null); // trimmed source -> translation
   var inflight = Object.create(null);    // trimmed source -> awaiting response
-  var processedNodes = new WeakSet();     // text nodes already translated
-  var processedAttrs = new WeakMap();     // element -> { attrName: true }
+  var processedNodes = new WeakMap();     // text node -> translated text last written
+  var processedAttrs = new WeakMap();     // element -> { attrName: translated text last written }
   var pendingNodes = [];                  // {node, trimmed, prefix, suffix}
   var pendingAttrs = [];                  // {el, attr, trimmed}
   var flushTimer = null;
   var observer = null;
+  var observedAttrs = Object.create(null);
+  Object.keys(attrMap).forEach(function (tag) {
+    (attrMap[tag] || []).forEach(function (attr) {
+      observedAttrs[attr] = true;
+    });
+  });
+  if (Object.keys(inputValueTypes).length > 0) {
+    observedAttrs.value = true;
+  }
+
   var OBSERVE = { childList: true, subtree: true, characterData: true };
+  var attributeFilter = Object.keys(observedAttrs);
+  if (attributeFilter.length > 0) {
+    OBSERVE.attributes = true;
+    OBSERVE.attributeFilter = attributeFilter;
+  }
 
   function translatable(trimmed) {
     return trimmed.length >= minLength &&
@@ -75,9 +90,15 @@
 
   /** True when the node or any ancestor opts out of translation. */
   function excluded(el) {
+    var contentEditableDecided = false;
     while (el && el.nodeType === 1) {
       var tag = el.tagName ? el.tagName.toLowerCase() : '';
       if (skipTags[tag]) return true;
+      if (!contentEditableDecided && el.hasAttribute('contenteditable')) {
+        var editable = (el.getAttribute('contenteditable') || '').toLowerCase();
+        if (editable === '' || editable === 'true' || editable === 'plaintext-only') return true;
+        if (editable === 'false') contentEditableDecided = true;
+      }
       if (el.hasAttribute(noTranslateAttr)) return true;
       var translate = el.getAttribute('translate');
       if (translate && translate.toLowerCase() === 'no') return true;
@@ -102,27 +123,28 @@
   }
 
   function consider(node) {
-    if (!node || node.nodeType !== 3 || processedNodes.has(node) || !node.data) return;
+    if (!node || node.nodeType !== 3 || !node.data) return;
     var split = splitWhitespace(node.data);
+    if (processedNodes.get(node) === split.trimmed) return;
     if (!translatable(split.trimmed)) return;
     if (excluded(node.parentNode)) return;
     pendingNodes.push({ node: node, trimmed: split.trimmed, prefix: split.prefix, suffix: split.suffix });
   }
 
-  function attrSeen(el, attr) {
+  function attrSeen(el, attr, trimmed) {
     var seen = processedAttrs.get(el);
-    return !!(seen && seen[attr]);
+    return !!(seen && seen[attr] === trimmed);
   }
 
-  function markAttr(el, attr) {
+  function markAttr(el, attr, trimmed) {
     var seen = processedAttrs.get(el);
     if (!seen) { seen = Object.create(null); processedAttrs.set(el, seen); }
-    seen[attr] = true;
+    seen[attr] = trimmed;
   }
 
   function considerAttr(el, attr) {
-    if (attrSeen(el, attr) || !el.hasAttribute(attr)) return;
     var trimmed = (el.getAttribute(attr) || '').trim();
+    if (attrSeen(el, attr, trimmed) || !el.hasAttribute(attr)) return;
     if (!translatable(trimmed)) return;
     pendingAttrs.push({ el: el, attr: attr, trimmed: trimmed });
   }
@@ -174,13 +196,13 @@
       var item = pendingNodes[i];
       var value = translated[item.trimmed];
       if (value == null) { remainingNodes.push(item); continue; }
-      if (processedNodes.has(item.node) || !item.node.parentNode) continue;
+      if (!item.node.parentNode) continue;
       // Skip if the node changed while its translation was in flight — its new
       // text already has its own pending entry (a characterData mutation), so
       // we must not overwrite live UI with a stale translation or mark it done.
       if (splitWhitespace(item.node.data).trimmed === item.trimmed) {
         item.node.data = item.prefix + value + item.suffix;
-        processedNodes.add(item.node);
+        processedNodes.set(item.node, splitWhitespace(item.node.data).trimmed);
       }
     }
     pendingNodes = remainingNodes;
@@ -190,10 +212,10 @@
       var attrItem = pendingAttrs[j];
       var attrValue = translated[attrItem.trimmed];
       if (attrValue == null) { remainingAttrs.push(attrItem); continue; }
-      if (attrSeen(attrItem.el, attrItem.attr) || !attrItem.el.hasAttribute(attrItem.attr)) continue;
+      if (!attrItem.el.hasAttribute(attrItem.attr)) continue;
       if ((attrItem.el.getAttribute(attrItem.attr) || '').trim() === attrItem.trimmed) {
         attrItem.el.setAttribute(attrItem.attr, attrValue);
-        markAttr(attrItem.el, attrItem.attr);
+        markAttr(attrItem.el, attrItem.attr, (attrItem.el.getAttribute(attrItem.attr) || '').trim());
       }
     }
     pendingAttrs = remainingAttrs;
@@ -232,14 +254,21 @@
     }).then(function (response) {
       return response.ok ? response.json() : null;
     }).then(function (data) {
+      var handled = Object.create(null);
       if (data && Array.isArray(data.from_words) && Array.isArray(data.to_words)) {
         for (var i = 0; i < data.from_words.length; i++) {
           var from = data.from_words[i];
           var to = data.to_words[i];
           if (typeof from === 'string' && typeof to === 'string') {
             translated[from] = to;
+            handled[from] = true;
           }
         }
+      }
+      if (data) {
+        texts.forEach(function (text) {
+          if (!handled[text]) translated[text] = text;
+        });
       }
     }).catch(function () {
       // Fail open: leave the source text untouched.
@@ -254,6 +283,8 @@
       var mutation = mutations[i];
       if (mutation.type === 'characterData') {
         consider(mutation.target);
+      } else if (mutation.type === 'attributes') {
+        considerElementAttrs(mutation.target);
       } else if (mutation.addedNodes) {
         for (var j = 0; j < mutation.addedNodes.length; j++) {
           walk(mutation.addedNodes[j]);
