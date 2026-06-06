@@ -149,3 +149,55 @@ Default behavior is non-destructive:
 - Runs Phase 6 acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 
 Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip SaaS and Phase 6 production HTTP checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
+
+## i18n Development Scripts
+
+The `scripts/` directory contains i18n utility scripts not exposed as `npm run` commands. These are developer tools for maintaining internationalization content and are invoked directly with `npx tsx`.
+
+### Glossary management (meinhaushalt.at)
+
+```bash
+npx tsx scripts/glossary-rule-meinhaushalt.ts
+npx tsx scripts/glossary-bust-meinhaushalt-cache.ts
+```
+
+- `glossary-rule-meinhaushalt.ts` — applies glossary term substitution rules for the meinhaushalt.at project.
+- `glossary-bust-meinhaushalt-cache.ts` — deletes the backend `Translation` rows for glossary entries so that fresh translations are generated on the next API request. **This script does not flush the WordPress plugin's transient cache.** Because `HtmlTranslator` reads WordPress transients before calling `/api/translate`, existing transients keep serving the old translation until they expire (30-day TTL). The plugin does not yet expose an admin cache-flush control (`TranslationCache::flush()` exists but is not wired to the UI), so to make the updated glossary visible to visitors immediately, clear the plugin's transients directly — e.g. WP-CLI `wp transient delete --all` or a transient / object-cache cleaner. Otherwise the cached translations clear on their own once the 30-day TTL expires.
+
+### i18n codemods
+
+```bash
+npx tsx scripts/i18n-codemod-api-copy.ts
+npx tsx scripts/i18n-codemod-simple-copy.ts
+```
+
+One-shot codemods for migrating API-copy and simple-copy strings to the current i18n message format. Run only when performing a deliberate i18n format migration across the codebase.
+
+### Static and plugin language file generation
+
+```bash
+npx tsx scripts/i18n-generate-static-messages.ts
+npx tsx scripts/i18n-generate-wordpress-plugin-languages.ts
+```
+
+- `i18n-generate-static-messages.ts` — regenerates static message catalogues from source.
+- `i18n-generate-wordpress-plugin-languages.ts` — generates the WordPress plugin `.pot` / `.po` locale files for EU language support. Run this after adding or changing any translatable strings inside `wordpress-plugin/deepglot/`.
+
+## Stripe Setup Scripts
+
+One-time provisioning scripts for initial Stripe account setup. These are not part of the regular acceptance workflow and must not be re-run against an already-provisioned account.
+
+Credentials are read from the environment (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`). The scripts accept `--mode test` (default) or `--mode live`; use `--mode live` when provisioning against the production Stripe account. `--dry-run` prints what would be created without writing to Stripe.
+
+```bash
+# Test account (safe to run repeatedly against a test key)
+npx tsx scripts/stripe-setup.ts --mode test
+npx tsx scripts/stripe-backfill-plan-key-metadata.ts --mode test
+
+# Production account (run only once; irreversible)
+npx tsx scripts/stripe-setup.ts --mode live
+npx tsx scripts/stripe-backfill-plan-key-metadata.ts --mode live
+```
+
+- `stripe-setup.ts` — creates the full Stripe product and price structure (5 products × 10 prices). Run only when provisioning a brand-new Stripe account or a new environment from scratch.
+- `stripe-backfill-plan-key-metadata.ts` — backfills `plan_key` metadata on existing Stripe prices to align with the `Plan` enum. Run this after adding a new billing tier if the Stripe price was created before the `plan_key` metadata convention was established.
