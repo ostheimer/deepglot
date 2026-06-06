@@ -53,6 +53,7 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/projects`
   - `/subscription`
   - `/settings`
+  - `/docs` (WIP/Draft)
   - Legal pages (German statutory requirements):
     - `/terms` (Terms of Service)
     - `/privacy` (Privacy Policy)
@@ -98,6 +99,7 @@ GitHub and Google sign-in are only registered when both provider secrets are con
 The `POST /api/translate` route is designed for drop-in compatibility:
 
 - `?api_key=...` is supported
+- `Authorization: Bearer <key>` is supported as an alternative to `?api_key=`
 - The response includes `from_words` and `to_words`
 - Public endpoints:
   - `GET /api/public/status`
@@ -131,10 +133,10 @@ Features:
 - Subdomain support (`de.example.com`)
 - 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
-Run the PHP test suite locally:
+Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
 ```bash
-php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
+npm run test:wp
 ```
 
 ## Deployment
@@ -330,6 +332,15 @@ Project pages now support these additional flows:
 - page views can be enabled under `Stats -> Page views`
 - the visual editor opens a real target URL with `deepglot_editor=1`
 
+## i18n automation scripts
+
+Four scripts under `scripts/` automate i18n maintenance tasks:
+
+- `scripts/i18n-codemod-api-copy.ts` — codemod for migrating API copy strings to i18n keys
+- `scripts/i18n-codemod-simple-copy.ts` — codemod for migrating simple inline copy strings to i18n keys
+- `scripts/i18n-generate-static-messages.ts` — generates static message catalogues for all supported locales
+- `scripts/i18n-generate-wordpress-plugin-languages.ts` — generates WordPress `.pot`/`.po` language files for the plugin from the shared i18n source
+
 ## Test coverage
 
 The current lightweight test suite covers:
@@ -344,6 +355,11 @@ The current lightweight test suite covers:
 - project and visual-editor URL generation in `src/lib/project-url.ts`
 - translation provider selection and mock translations in `src/lib/translation.ts`
 - markdown documentation language checks in `src/lib/docs-language.ts`
+- ops and production acceptance readiness checks in `src/lib/ops-acceptance.test.ts`
+- Phase 6 acceptance config, URL builders, and blocked-check classification in `src/lib/phase-6-acceptance.test.ts`
+- SaaS acceptance config, payload builders, and failure classification in `src/lib/saas-acceptance.test.ts`
+- settings-area API route authorization guardrail (management gate on all management methods) in `src/lib/project-settings-route-authz.test.ts`
+- translations language page management gating (AddLanguageDialog only for managers) in `src/lib/project-language-page-authz.test.ts`
 - end-to-end locale switching, query preservation, legacy German redirects, and locale-aware auth redirects via Playwright in `tests/e2e/locale-routing.spec.ts`
 - end-to-end account settings flows via Playwright in `tests/e2e/account-settings.spec.ts`
 - full UI navigation audit via Playwright in `tests/e2e/full-ui-audit.spec.ts`
