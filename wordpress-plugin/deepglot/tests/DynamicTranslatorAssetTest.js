@@ -284,6 +284,22 @@ async function testPropertyOnlyButtonInputValueIsTranslatedOnInsert() {
   assert.equal(input.hasAttribute('value'), false);
 }
 
+async function testPendingTextOptedOutBeforeFlushIsNotSent() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    'Queued text': 'Text in Warteschlange',
+  }));
+
+  const wrapper = harness.document.createElement('div');
+  const text = harness.document.createTextNode('Queued text');
+  wrapper.appendChild(text);
+  harness.document.body.appendChild(wrapper);
+  wrapper.setAttribute('translate', 'no');
+  await harness.runTimers();
+
+  assert.deepEqual(harness.fetchCalls, []);
+  assert.equal(text.data, 'Queued text');
+}
+
 async function testContentEditableTextIsSkipped() {
   const harness = createHarness(async (texts) => translationResponse(texts, {
     'Draft message': 'Entwurf',
@@ -402,6 +418,7 @@ async function main() {
     testProcessedTextNodeCanBeTranslatedAfterChanging,
     testAttributeMutationsAreTranslated,
     testPropertyOnlyButtonInputValueIsTranslatedOnInsert,
+    testPendingTextOptedOutBeforeFlushIsNotSent,
     testContentEditableTextIsSkipped,
     testEmptyResponsesDropOldPendingItems,
     testRootTranslateNoIsIgnored,

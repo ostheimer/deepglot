@@ -174,6 +174,22 @@
     }
   }
 
+  function pendingNodeIsCurrent(item) {
+    return item.node.parentNode &&
+      item.node.data === item.key &&
+      !excludedText(item.node.parentNode);
+  }
+
+  function pendingAttrValue(item) {
+    if (item.prop) return item.el.value == null ? '' : String(item.el.value);
+    if (!item.el.hasAttribute(item.attr)) return null;
+    return item.el.getAttribute(item.attr) || '';
+  }
+
+  function pendingAttrIsCurrent(item) {
+    return !excludedAttr(item.el) && pendingAttrValue(item) === item.key;
+  }
+
   /** Collect translatable text nodes + attributes inside a fresh subtree. */
   function walk(root) {
     if (!root) return;
@@ -206,36 +222,27 @@
     var remainingNodes = [];
     for (var i = 0; i < pendingNodes.length; i++) {
       var item = pendingNodes[i];
+      if (!pendingNodeIsCurrent(item)) continue;
       var value = translated[item.key];
       if (value == null) { remainingNodes.push(item); continue; }
-      if (!item.node.parentNode) continue;
-      // Skip if the node changed while its translation was in flight — its new
-      // value already has its own pending entry, so we must not overwrite live
-      // UI with a stale translation.
-      if (item.node.data === item.key) {
-        item.node.data = value;
-        processedNodes.set(item.node, value);
-      }
+      item.node.data = value;
+      processedNodes.set(item.node, value);
     }
     pendingNodes = remainingNodes;
 
     var remainingAttrs = [];
     for (var j = 0; j < pendingAttrs.length; j++) {
       var attrItem = pendingAttrs[j];
+      if (!pendingAttrIsCurrent(attrItem)) continue;
       var attrValue = translated[attrItem.key];
       if (attrValue == null) { remainingAttrs.push(attrItem); continue; }
       if (attrItem.prop) {
-        if ((attrItem.el.value == null ? '' : String(attrItem.el.value)) === attrItem.key) {
-          attrItem.el.value = attrValue;
-          markAttr(attrItem.el, attrItem.attr, attrValue);
-        }
+        attrItem.el.value = attrValue;
+        markAttr(attrItem.el, attrItem.attr, attrValue);
         continue;
       }
-      if (!attrItem.el.hasAttribute(attrItem.attr)) continue;
-      if ((attrItem.el.getAttribute(attrItem.attr) || '') === attrItem.key) {
-        attrItem.el.setAttribute(attrItem.attr, attrValue);
-        markAttr(attrItem.el, attrItem.attr, attrValue);
-      }
+      attrItem.el.setAttribute(attrItem.attr, attrValue);
+      markAttr(attrItem.el, attrItem.attr, attrValue);
     }
     pendingAttrs = remainingAttrs;
 
