@@ -51,6 +51,7 @@ function createHarness(fetchHandler) {
       this.childNodes = [];
       this.attributes = Object.create(null);
       this.id = '';
+      this.value = '';
       this.classList = new FakeClassList(this);
     }
 
@@ -267,6 +268,22 @@ async function testAttributeMutationsAreTranslated() {
   assert.equal(input.getAttribute('placeholder'), 'Suchen');
 }
 
+async function testPropertyOnlyButtonInputValueIsTranslatedOnInsert() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    Checkout: 'Zur Kasse',
+  }));
+
+  const input = harness.document.createElement('input');
+  input.setAttribute('type', 'submit');
+  input.value = 'Checkout';
+  harness.document.body.appendChild(input);
+  await harness.runTimers();
+
+  assert.deepEqual(harness.fetchCalls, [['Checkout']]);
+  assert.equal(input.value, 'Zur Kasse');
+  assert.equal(input.hasAttribute('value'), false);
+}
+
 async function testContentEditableTextIsSkipped() {
   const harness = createHarness(async (texts) => translationResponse(texts, {
     'Draft message': 'Entwurf',
@@ -384,6 +401,7 @@ async function main() {
   const tests = [
     testProcessedTextNodeCanBeTranslatedAfterChanging,
     testAttributeMutationsAreTranslated,
+    testPropertyOnlyButtonInputValueIsTranslatedOnInsert,
     testContentEditableTextIsSkipped,
     testEmptyResponsesDropOldPendingItems,
     testRootTranslateNoIsIgnored,
