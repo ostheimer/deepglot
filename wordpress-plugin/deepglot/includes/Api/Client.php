@@ -241,6 +241,7 @@ class Client
             'translateEmails' => !empty($settings['translate_emails']),
             'translateSearch' => !empty($settings['translate_search']),
             'translateAmp' => !empty($settings['translate_amp']),
+            'enableDynamicTranslation' => !empty($settings['enable_dynamic_translation']),
             'domainMappings' => $domainMappings,
         ];
 
