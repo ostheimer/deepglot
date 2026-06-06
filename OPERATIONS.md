@@ -162,7 +162,7 @@ npx tsx scripts/glossary-bust-meinhaushalt-cache.ts
 ```
 
 - `glossary-rule-meinhaushalt.ts` — applies glossary term substitution rules for the meinhaushalt.at project.
-- `glossary-bust-meinhaushalt-cache.ts` — deletes the backend `Translation` rows for glossary entries so that fresh translations are generated on the next API request. **This script does not flush the WordPress plugin's transient cache.** Because `HtmlTranslator` reads WordPress transients before calling `/api/translate`, existing transients will continue serving the old translation until they expire (30-day TTL). To make the updated glossary visible to visitors immediately, also flush the plugin's transient cache from the WordPress admin (`Settings → Deepglot → Setup → Clear translation cache`).
+- `glossary-bust-meinhaushalt-cache.ts` — deletes the backend `Translation` rows for glossary entries so that fresh translations are generated on the next API request. **This script does not flush the WordPress plugin's transient cache.** Because `HtmlTranslator` reads WordPress transients before calling `/api/translate`, existing transients keep serving the old translation until they expire (30-day TTL). The plugin does not yet expose an admin cache-flush control (`TranslationCache::flush()` exists but is not wired to the UI), so to make the updated glossary visible to visitors immediately, clear the plugin's transients directly — e.g. WP-CLI `wp transient delete --all` or a transient / object-cache cleaner. Otherwise the cached translations clear on their own once the 30-day TTL expires.
 
 ### i18n codemods
 
