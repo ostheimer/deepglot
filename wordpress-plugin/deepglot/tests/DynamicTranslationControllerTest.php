@@ -36,6 +36,18 @@ if (!function_exists('__')) {
         return true;
     }
 
+    function wp_verify_nonce($nonce, $action = -1) {
+        return $nonce === 'valid-rest-nonce' && $action === 'wp_rest';
+    }
+
+    function wp_parse_url($url, $component = -1) {
+        return parse_url($url, $component);
+    }
+
+    function home_url($path = '/') {
+        return 'https://example.test' . ($path === '/' ? '' : $path);
+    }
+
     function is_wp_error($value) {
         return $value instanceof \WP_Error;
     }
@@ -61,7 +73,59 @@ if (!function_exists('__')) {
     }
 
     if (!class_exists('WP_Error')) {
-        class WP_Error {}
+        class WP_Error
+        {
+            public function __construct(
+                public string $code = '',
+                public string $message = '',
+                public array $data = []
+            ) {
+            }
+        }
+    }
+
+    if (!class_exists('WP_REST_Request')) {
+        class WP_REST_Request
+        {
+            public function __construct(
+                private array $params = [],
+                private array $headers = []
+            ) {
+            }
+
+            public function get_param($key) {
+                return $this->params[$key] ?? null;
+            }
+
+            public function get_header($key) {
+                $key = strtolower((string) $key);
+                foreach ($this->headers as $header => $value) {
+                    if (strtolower((string) $header) === $key) {
+                        return $value;
+                    }
+                }
+                return '';
+            }
+        }
+    }
+
+    if (!class_exists('WP_REST_Response')) {
+        class WP_REST_Response
+        {
+            public function __construct(
+                private mixed $data = null,
+                private int $status = 200
+            ) {
+            }
+
+            public function get_data() {
+                return $this->data;
+            }
+
+            public function get_status(): int {
+                return $this->status;
+            }
+        }
     }
 
     if (!defined('DAY_IN_SECONDS')) {
@@ -182,20 +246,64 @@ $result = $controller->translateTexts(['Hallo'], 'en', false);
 dynCheck($client->callCount === 0, 'Cache-only path must not call the API.');
 dynCheck($result['to_words'] === ['[en] Hallo'], 'Hard-cached pages must still serve cached translations without a nonce.');
 
-// 5. Target language not configured → rejected, no API call.
+// 5. Same-origin valid nonce requests can still translate cache misses.
+configureDynamicOptions();
+$_SERVER['REMOTE_ADDR'] = '198.51.100.22';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Same-origin miss'],
+    'lang_to' => 'en',
+], [
+    'Origin' => 'https://example.test',
+    'X-WP-Nonce' => 'valid-rest-nonce',
+]));
+dynCheck($client->callCount === 1, 'Same-origin valid nonce requests must call the API for cache misses.');
+dynCheck($response->get_data()['to_words'] === ['[en] Same-origin miss'], 'Same-origin API translation must be returned.');
+
+// 6. A scraped nonce without Origin/Referer must not unlock API translations.
+configureDynamicOptions();
+$_SERVER['REMOTE_ADDR'] = '198.51.100.23';
+unset($_SERVER['HTTP_HOST']);
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Remote miss'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+]));
+dynCheck($client->callCount === 0, 'A valid nonce without Origin/Referer must not call the API.');
+dynCheck($response->get_data() === ['from_words' => [], 'to_words' => []], 'Missing Origin/Referer degrades cache misses to empty results.');
+
+// 7. Same-origin cache-only requests still serve cached translations.
+$_SERVER['HTTP_HOST'] = 'example.test';
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache(['Hallo' => '[en] Hallo']));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Hallo'],
+    'lang_to' => 'en',
+], [
+    'Referer' => 'https://example.test/de/',
+]));
+dynCheck($client->callCount === 0, 'Same-origin cache-only request must not call the API.');
+dynCheck($response->get_data()['to_words'] === ['[en] Hallo'], 'Same-origin cache-only request must serve cached translations.');
+
+// 8. Target language not configured → rejected, no API call.
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
 $result = $controller->translateTexts(['Hallo'], 'fr', true);
 dynCheck($client->callCount === 0, 'An unconfigured target language must be rejected before any API call.');
 dynCheck($result === ['from_words' => [], 'to_words' => []], 'Unconfigured target language returns nothing.');
 
-// 6. Target language equals source → rejected.
+// 9. Target language equals source → rejected.
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
 $result = $controller->translateTexts(['Hallo'], 'de', true);
 dynCheck($client->callCount === 0, 'Translating into the source language must be a no-op.');
 
-// 7. Feature disabled → no-op even with a valid nonce.
+// 10. Feature disabled → no-op even with a valid nonce.
 configureDynamicOptions(['enable_dynamic_translation' => false]);
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache(['Hallo' => '[en] Hallo']));
@@ -203,7 +311,7 @@ $result = $controller->translateTexts(['Hallo'], 'en', true);
 dynCheck($client->callCount === 0, 'Disabled feature must not translate.');
 dynCheck($result === ['from_words' => [], 'to_words' => []], 'Disabled feature returns nothing.');
 
-// 8. Oversized request is capped at MAX_TEXTS (200) before hitting the API.
+// 11. Oversized request is capped at MAX_TEXTS (200) before hitting the API.
 configureDynamicOptions();
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));

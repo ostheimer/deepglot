@@ -98,12 +98,14 @@ class DynamicTranslationController
         $texts  = (array) $request->get_param('texts');
         $langTo = (string) $request->get_param('lang_to');
 
-        // A valid same-origin REST nonce is what unlocks the (quota-spending)
-        // API path. Without it we still answer from cache, so hard-cached
-        // anonymous pages keep working without ever burning quota.
+        // A valid same-origin REST nonce plus same-origin request provenance is
+        // what unlocks the (quota-spending) API path. Without both we still
+        // answer from cache, so hard-cached anonymous pages keep working
+        // without ever burning quota.
         $nonceValid = (bool) wp_verify_nonce((string) $request->get_header('X-WP-Nonce'), 'wp_rest');
+        $allowApi   = $nonceValid && $this->hasSameOriginProvenance($request);
 
-        $result = $this->translateTexts($texts, $langTo, $nonceValid);
+        $result = $this->translateTexts($texts, $langTo, $allowApi);
 
         return new WP_REST_Response($result, 200);
     }
@@ -245,6 +247,31 @@ class DynamicTranslationController
         }
 
         return in_array($host, $allowed, true);
+    }
+
+    /**
+     * A public page can expose the REST nonce, so the nonce alone must not
+     * unlock API-backed cache misses. Require browser provenance from an
+     * allowed host before spending quota; missing or foreign provenance falls
+     * back to the cache-only path in handle().
+     */
+    private function hasSameOriginProvenance(WP_REST_Request $request): bool
+    {
+        foreach (['origin', 'referer'] as $header) {
+            $value = trim((string) $request->get_header($header));
+
+            if ($value === '') {
+                continue;
+            }
+
+            $host = wp_parse_url($value, PHP_URL_HOST);
+
+            if (is_string($host) && $this->isAllowedHost($host)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
