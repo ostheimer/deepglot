@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the first MVP scaffold for the Deepglot WordPress plugin.
+This directory contains the Deepglot WordPress plugin (**v0.8.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
 
 ## Author
 
@@ -41,24 +41,38 @@ wordpress-plugin/deepglot/
 
 ## Current scope
 
-This iteration is intentionally a scaffold:
+The plugin ships a complete translation pipeline:
 
-- The admin configuration is already usable.
-- The API client is prepared and can be connected directly to `POST /api/translate`.
-- The frontend already starts output buffering when a target language is active.
-- The actual HTML extraction, translation, cache table, and link replacement follow in the next steps.
+- Admin configuration under `Settings → Deepglot` (API, languages, switcher, exclusions, members).
+- `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
+- `LinkRewriter` rewrites internal links; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
+- A WordPress-transient translation cache, batched + parallel API requests, and path-prefix / subdomain routing.
+- Language switcher (shortcode, Gutenberg block, classic widget, nav-menu), WooCommerce email translation, and browser-language redirect.
+- An opt-in client-side translator for content loaded after page render (see below).
 
 ## Test
 
-If PHP is available locally:
+Run the full plugin suite (PHP unit tests + the dynamic-translator JS regression):
+
+```bash
+npm run test:wp
+```
+
+Or a single PHP test directly:
 
 ```bash
 php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
 ```
 
-## Next plugin steps
+## Dynamic content translation (opt-in)
 
-1. Integrate request URL and language detection directly into the frontend flow.
-2. Connect the HTML parser and string extraction.
-3. Use the API client for real translation requests.
-4. Add the local WordPress cache and link replacement.
+The server-side pass only translates the HTML present at render time. The optional client-side translator (`assets/js/dynamic-translator.js`) extends coverage to content added or changed **after** load — AJAX results, infinite scroll, cart drawers, and SPA widgets.
+
+- **How it works:** a `MutationObserver` collects newly added/changed text nodes and whitelisted attributes (`alt`, `aria-label`, `placeholder`, option / button labels), then translates them through a same-origin WordPress REST proxy — the Deepglot API key never reaches the browser.
+- **Enable it:** `Settings → Deepglot → WordPress settings` → enable the "translate dynamically loaded content" toggle (option `enable_dynamic_translation`, **default off**).
+- **Endpoint:** `POST /wp-json/deepglot/v1/translate-dynamic` — same-origin, nonce-gated, per-IP rate-limited, bot-skipped. It reuses the same `Client` + transient cache as the server pass and returns the `{ from_words, to_words }` contract.
+- **Cache-first / quota-safe:** a missing or stale nonce degrades to cache-only, so project quota is never spent without a valid same-origin nonce; full-page-cached pages still serve cached translations.
+- **SEO-safe:** the initial, crawlable HTML is still produced by the server pass; this layer only enhances live interaction and is skipped for bots.
+- **Extraction parity:** the skip rules and attribute whitelist are shared with the server pass via `Support\TranslationRules` (drift-guarded by `tests/TranslationRulesTest.php`); the shipped asset is covered by `tests/DynamicTranslatorAssetTest.js`.
+
+> Status: implemented in **v0.8.0**, shipped **default off** pending live QA on `meinhaushalt.at`. See [DYNAMIC_TRANSLATION_QA.md](DYNAMIC_TRANSLATION_QA.md) for the verification checklist.
