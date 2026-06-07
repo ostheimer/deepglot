@@ -117,3 +117,66 @@ export function blocksNewCheckoutForExistingSubscription(
   }
   return subscription.status !== "CANCELED";
 }
+
+/** Stripe statuses where a second Checkout would create duplicate billing. */
+const BLOCKING_STRIPE_SUBSCRIPTION_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+  "paused",
+  "incomplete",
+]);
+
+/**
+ * True when Stripe still has a non-terminal subscription for this customer.
+ * Closes the TOCTOU gap where `stripeSubscriptionId` is not in the DB until the
+ * webhook runs but Stripe already has a live (or retrying) subscription.
+ */
+export function stripeSubscriptionStatusBlocksCheckout(
+  status: string
+): boolean {
+  return BLOCKING_STRIPE_SUBSCRIPTION_STATUSES.has(status);
+}
+
+export type StripeSubscriptionListClient = {
+  subscriptions: {
+    list: (params: {
+      customer: string;
+      limit: number;
+      starting_after?: string;
+    }) => Promise<{
+      data: Array<{ id: string; status: string }>;
+      has_more: boolean;
+    }>;
+  };
+};
+
+/**
+ * Ask Stripe whether this customer already has a subscription that must not be
+ * duplicated via a fresh Checkout session. Pages through every subscription —
+ * a blocking one can sit on any page, and a missed page would re-open the
+ * duplicate-billing gap this guard exists to close.
+ */
+export async function customerHasBlockingStripeSubscription(
+  customerId: string,
+  stripeClient: StripeSubscriptionListClient
+): Promise<boolean> {
+  let startingAfter: string | undefined;
+  for (;;) {
+    const page = await stripeClient.subscriptions.list({
+      customer: customerId,
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    if (
+      page.data.some((sub) => stripeSubscriptionStatusBlocksCheckout(sub.status))
+    ) {
+      return true;
+    }
+    if (!page.has_more || page.data.length === 0) {
+      return false;
+    }
+    startingAfter = page.data[page.data.length - 1].id;
+  }
+}

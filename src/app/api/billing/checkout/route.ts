@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import {
   blocksNewCheckoutForExistingSubscription,
+  customerHasBlockingStripeSubscription,
   getCheckoutCancelUrl,
   getCheckoutSuccessUrl,
   isRealStripeCustomerId,
@@ -114,50 +115,88 @@ export async function POST(request: Request) {
   const existingCustomerId = organization.subscription?.stripeCustomerId;
   const hasRealCustomer = isRealStripeCustomerId(existingCustomerId);
 
-  let customerId = existingCustomerId;
-  if (!hasRealCustomer) {
-    const customer = await stripe.customers.create({
-      email: session.user.email ?? undefined,
-      name: session.user.name ?? undefined,
+  // Any Stripe call below can throw (network / API error). Mirror the
+  // billing/portal route and return a clean localized 502 instead of an
+  // unhandled 500. The TOCTOU guard fails closed: a Stripe outage blocks the
+  // new Checkout rather than risk a duplicate paid subscription.
+  try {
+    let customerId = existingCustomerId;
+    if (!hasRealCustomer) {
+      const customer = await stripe.customers.create({
+        email: session.user.email ?? undefined,
+        name: session.user.name ?? undefined,
+        metadata: {
+          organizationId: organization.id,
+          userId: session.user.id,
+        },
+      });
+      customerId = customer.id;
+
+      // Persist immediately so the billing portal and webhook can resolve the
+      // customer even if the user abandons Checkout before completing payment.
+      await db.subscription.update({
+        where: { organizationId: organization.id },
+        data: { stripeCustomerId: customer.id },
+      });
+    }
+
+    // Stripe is authoritative while webhooks have not yet written
+    // `stripeSubscriptionId` (concurrent Checkout tabs / double-submit).
+    if (
+      customerId &&
+      (await customerHasBlockingStripeSubscription(customerId, stripe))
+    ) {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            "Für Planwechsel bitte das Abrechnungsportal verwenden",
+            "Use the billing portal to change your plan"
+          ),
+        },
+        { status: 409 }
+      );
+    }
+
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: session.user.id,
+      allow_promotion_codes: true,
+      locale: locale === "de" ? "de" : "en",
       metadata: {
         organizationId: organization.id,
         userId: session.user.id,
+        plan,
+        interval,
       },
-    });
-    customerId = customer.id;
-
-    // Persist immediately so the billing portal and webhook can resolve the
-    // customer even if the user abandons Checkout before completing payment.
-    await db.subscription.update({
-      where: { organizationId: organization.id },
-      data: { stripeCustomerId: customer.id },
-    });
-  }
-
-  const checkoutSession = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    client_reference_id: session.user.id,
-    allow_promotion_codes: true,
-    locale: locale === "de" ? "de" : "en",
-    metadata: {
-      organizationId: organization.id,
-      userId: session.user.id,
-      plan,
-      interval,
-    },
-    subscription_data: {
-      metadata: {
-        organizationId: organization.id,
-        userId: session.user.id,
+      subscription_data: {
+        metadata: {
+          organizationId: organization.id,
+          userId: session.user.id,
+        },
       },
-    },
-    success_url: getCheckoutSuccessUrl(),
-    cancel_url: getCheckoutCancelUrl(),
-  });
+      success_url: getCheckoutSuccessUrl(),
+      cancel_url: getCheckoutCancelUrl(),
+    });
 
-  if (!checkoutSession.url) {
+    if (!checkoutSession.url) {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            "Checkout konnte nicht gestartet werden",
+            "Could not start checkout"
+          ),
+        },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ url: checkoutSession.url });
+  } catch (error) {
+    console.error("[billing/checkout] Stripe error", error);
     return NextResponse.json(
       {
         error: t(
@@ -169,6 +208,4 @@ export async function POST(request: Request) {
       { status: 502 }
     );
   }
-
-  return NextResponse.json({ url: checkoutSession.url });
 }

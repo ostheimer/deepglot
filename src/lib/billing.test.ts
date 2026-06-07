@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 
 import {
   blocksNewCheckoutForExistingSubscription,
+  customerHasBlockingStripeSubscription,
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
+  stripeSubscriptionStatusBlocksCheckout,
 } from "@/lib/billing";
 
 function restoreEnv(
@@ -308,6 +310,89 @@ test("checkout route uses blocksNewCheckoutForExistingSubscription for duplicate
     checkoutRoute,
     /existingSubscription\.status === "ACTIVE"\s*\|\|\s*existingSubscription\.status === "TRIALING"/
   );
+});
+
+test("stripeSubscriptionStatusBlocksCheckout treats terminal Stripe statuses as safe for new Checkout", () => {
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("canceled"), false);
+  assert.equal(
+    stripeSubscriptionStatusBlocksCheckout("incomplete_expired"),
+    false
+  );
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("active"), true);
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("trialing"), true);
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("past_due"), true);
+  assert.equal(stripeSubscriptionStatusBlocksCheckout("incomplete"), true);
+});
+
+test("customerHasBlockingStripeSubscription returns true when Stripe lists a live subscription", async () => {
+  const stripeClient = {
+    subscriptions: {
+      list: async () => ({
+        data: [{ id: "sub_1", status: "active" }],
+        has_more: false,
+      }),
+    },
+  };
+
+  assert.equal(
+    await customerHasBlockingStripeSubscription("cus_test", stripeClient),
+    true
+  );
+});
+
+test("customerHasBlockingStripeSubscription returns false when only canceled subs exist", async () => {
+  const stripeClient = {
+    subscriptions: {
+      list: async () => ({
+        data: [
+          { id: "sub_1", status: "canceled" },
+          { id: "sub_2", status: "incomplete_expired" },
+        ],
+        has_more: false,
+      }),
+    },
+  };
+
+  assert.equal(
+    await customerHasBlockingStripeSubscription("cus_test", stripeClient),
+    false
+  );
+});
+
+test("checkout route queries Stripe for live subscriptions before creating a session", () => {
+  const checkoutRoute = readFileSync(
+    "src/app/api/billing/checkout/route.ts",
+    "utf8"
+  );
+
+  assert.match(checkoutRoute, /customerHasBlockingStripeSubscription/);
+});
+
+test("customerHasBlockingStripeSubscription pages past the first 100 results", async () => {
+  let calls = 0;
+  const stripeClient = {
+    subscriptions: {
+      list: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            data: [{ id: "sub_old", status: "canceled" }],
+            has_more: true,
+          };
+        }
+        return {
+          data: [{ id: "sub_live", status: "active" }],
+          has_more: false,
+        };
+      },
+    },
+  };
+
+  assert.equal(
+    await customerHasBlockingStripeSubscription("cus_test", stripeClient),
+    true
+  );
+  assert.equal(calls, 2);
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
