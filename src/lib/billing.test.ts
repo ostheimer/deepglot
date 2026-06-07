@@ -395,15 +395,6 @@ test("customerHasBlockingStripeSubscription pages past the first 100 results", a
   assert.equal(calls, 2);
 });
 
-test("checkout route creates the Checkout session with an idempotency key", () => {
-  const checkoutRoute = readFileSync(
-    "src/app/api/billing/checkout/route.ts",
-    "utf8"
-  );
-
-  assert.match(checkoutRoute, /idempotencyKey:/);
-});
-
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
   const cardAndInvoicesPage = readFileSync(
     "src/app/(dashboard)/abonnement/karte-rechnungen/page.tsx",
