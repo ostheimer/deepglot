@@ -179,6 +179,13 @@ export async function POST(request: Request) {
       },
       success_url: getCheckoutSuccessUrl(),
       cancel_url: getCheckoutCancelUrl(),
+    },
+    {
+      // Concurrent double-submit / two tabs for the same plan share one Stripe
+      // Checkout session instead of creating duplicate sessions that could each
+      // complete into a separate paid subscription. Scoped per org+plan+interval
+      // so a deliberate plan change still gets its own session.
+      idempotencyKey: `checkout:${organization.id}:${plan}:${interval}`,
     });
 
     if (!checkoutSession.url) {

@@ -144,21 +144,39 @@ export type StripeSubscriptionListClient = {
     list: (params: {
       customer: string;
       limit: number;
-    }) => Promise<{ data: Array<{ status: string }> }>;
+      starting_after?: string;
+    }) => Promise<{
+      data: Array<{ id: string; status: string }>;
+      has_more: boolean;
+    }>;
   };
 };
 
 /**
  * Ask Stripe whether this customer already has a subscription that must not be
- * duplicated via a fresh Checkout session.
+ * duplicated via a fresh Checkout session. Pages through every subscription —
+ * a blocking one can sit on any page, and a missed page would re-open the
+ * duplicate-billing gap this guard exists to close.
  */
 export async function customerHasBlockingStripeSubscription(
   customerId: string,
   stripeClient: StripeSubscriptionListClient
 ): Promise<boolean> {
-  const { data } = await stripeClient.subscriptions.list({
-    customer: customerId,
-    limit: 100,
-  });
-  return data.some((sub) => stripeSubscriptionStatusBlocksCheckout(sub.status));
+  let startingAfter: string | undefined;
+  for (;;) {
+    const page = await stripeClient.subscriptions.list({
+      customer: customerId,
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    if (
+      page.data.some((sub) => stripeSubscriptionStatusBlocksCheckout(sub.status))
+    ) {
+      return true;
+    }
+    if (!page.has_more || page.data.length === 0) {
+      return false;
+    }
+    startingAfter = page.data[page.data.length - 1].id;
+  }
 }

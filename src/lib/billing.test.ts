@@ -328,7 +328,8 @@ test("customerHasBlockingStripeSubscription returns true when Stripe lists a liv
   const stripeClient = {
     subscriptions: {
       list: async () => ({
-        data: [{ status: "active" }],
+        data: [{ id: "sub_1", status: "active" }],
+        has_more: false,
       }),
     },
   };
@@ -343,7 +344,11 @@ test("customerHasBlockingStripeSubscription returns false when only canceled sub
   const stripeClient = {
     subscriptions: {
       list: async () => ({
-        data: [{ status: "canceled" }, { status: "incomplete_expired" }],
+        data: [
+          { id: "sub_1", status: "canceled" },
+          { id: "sub_2", status: "incomplete_expired" },
+        ],
+        has_more: false,
       }),
     },
   };
@@ -361,6 +366,42 @@ test("checkout route queries Stripe for live subscriptions before creating a ses
   );
 
   assert.match(checkoutRoute, /customerHasBlockingStripeSubscription/);
+});
+
+test("customerHasBlockingStripeSubscription pages past the first 100 results", async () => {
+  let calls = 0;
+  const stripeClient = {
+    subscriptions: {
+      list: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            data: [{ id: "sub_old", status: "canceled" }],
+            has_more: true,
+          };
+        }
+        return {
+          data: [{ id: "sub_live", status: "active" }],
+          has_more: false,
+        };
+      },
+    },
+  };
+
+  assert.equal(
+    await customerHasBlockingStripeSubscription("cus_test", stripeClient),
+    true
+  );
+  assert.equal(calls, 2);
+});
+
+test("checkout route creates the Checkout session with an idempotency key", () => {
+  const checkoutRoute = readFileSync(
+    "src/app/api/billing/checkout/route.ts",
+    "utf8"
+  );
+
+  assert.match(checkoutRoute, /idempotencyKey:/);
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
