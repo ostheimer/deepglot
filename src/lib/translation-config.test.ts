@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 import { encryptSecret } from "@/lib/secret-encryption";
 import {
+  DEFAULT_GEMINI_TRANSLATION_MODEL,
   DEFAULT_OPENAI_TRANSLATION_MODEL,
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   normalizeTranslationProvider,
@@ -46,6 +47,10 @@ test(".env.example translation model values match runtime defaults", () => {
   assert.equal(
     envValue("OPENROUTER_TRANSLATION_MODEL"),
     DEFAULT_OPENROUTER_TRANSLATION_MODEL
+  );
+  assert.equal(
+    envValue("GEMINI_TRANSLATION_MODEL"),
+    DEFAULT_GEMINI_TRANSLATION_MODEL
   );
 });
 
@@ -140,5 +145,22 @@ test("validates missing API keys for hosted providers", () => {
     {
       message: "OpenAI API key is not configured.",
     }
+  );
+});
+
+test("uses the stable Gemini flash-lite as the default translation model", () => {
+  const config = resolveTranslationProviderConfig({
+    env: { TRANSLATION_PROVIDER: "gemini", GEMINI_API_KEY: "key" },
+  });
+
+  assert.equal(config.provider, "gemini");
+  assert.equal(config.model, DEFAULT_GEMINI_TRANSLATION_MODEL);
+  assert.equal(config.model, "gemini-3.1-flash-lite");
+  // Guard against regressing the prod default back onto a preview alias:
+  // Google retires those once the stable ships, which breaks the entire
+  // openai -> gemini fallback chain.
+  assert.ok(
+    !DEFAULT_GEMINI_TRANSLATION_MODEL.endsWith("-preview"),
+    "default Gemini model must be a stable id, not a -preview alias"
   );
 });
