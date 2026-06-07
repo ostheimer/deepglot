@@ -151,6 +151,13 @@
     pendingAttrs.push({ el: el, attr: attr, key: raw });
   }
 
+  function considerInputValue(el) {
+    var raw = el.value == null ? '' : String(el.value);
+    if (attrSeen(el, 'value', raw)) return;
+    if (!translatable(raw.trim())) return;
+    pendingAttrs.push({ el: el, attr: 'value', key: raw, prop: true });
+  }
+
   function considerElementAttrs(el) {
     if (!el || el.nodeType !== 1) return;
     var tag = el.tagName ? el.tagName.toLowerCase() : '';
@@ -162,8 +169,8 @@
     }
     // <input value> is UI copy only for button-like types.
     if (tag === 'input') {
-      var type = (el.getAttribute('type') || '').toLowerCase();
-      if (inputValueTypes[type]) considerAttr(el, 'value');
+      var type = (el.getAttribute('type') || el.type || '').toLowerCase();
+      if (inputValueTypes[type]) considerInputValue(el);
     }
   }
 
@@ -217,6 +224,13 @@
       var attrItem = pendingAttrs[j];
       var attrValue = translated[attrItem.key];
       if (attrValue == null) { remainingAttrs.push(attrItem); continue; }
+      if (attrItem.prop) {
+        if ((attrItem.el.value == null ? '' : String(attrItem.el.value)) === attrItem.key) {
+          attrItem.el.value = attrValue;
+          markAttr(attrItem.el, attrItem.attr, attrValue);
+        }
+        continue;
+      }
       if (!attrItem.el.hasAttribute(attrItem.attr)) continue;
       if ((attrItem.el.getAttribute(attrItem.attr) || '') === attrItem.key) {
         attrItem.el.setAttribute(attrItem.attr, attrValue);
