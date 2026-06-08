@@ -1,14 +1,36 @@
-# Deepglot Handoff - 2026-06-05
+# Deepglot Handoff - 2026-06-08
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `dec4677` (`feat(wp-plugin): client-side dynamic/SPA content translation (#127)`)
+- Latest production commit: `603a78d` (`fix(billing): Stripe live-subscription guard before Checkout — TOCTOU (#131)`)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
+
+## Completed Since Last Handoff (2026-06-06 – 2026-06-07)
+
+### Dynamic Translator Post-Launch Hardening (2026-06-07)
+
+Four hardening commits followed the v0.8.0 dynamic translation release:
+
+- **Guard dynamic API translations by origin** (PR #133): The `/wp-json/deepglot/v1/translate-dynamic` REST endpoint now validates the request origin server-side, enforcing the same-origin constraint independently of the client JS.
+- **Fix property-only input value translation** (PR #134): Input elements whose only translatable content is an attribute value (`placeholder`, `aria-label`) were silently skipped by the dynamic pass. Fixed.
+- **Sync dynamic translation setting** (PR #135): The `enable_dynamic_translation` admin toggle is now included in the plugin settings sync payload so the runtime configuration reflects the current admin choice.
+- **Revalidate pending dynamic exclusions** (PR #136): Dynamic translation queue items now re-check the current exclusion list on each sync cycle, discarding items that match a newly added exclusion rule.
+
+### TOCTOU Billing Race Fix (2026-06-07)
+
+- **PR #131**: `POST /api/billing/checkout` now calls `customerHasBlockingStripeSubscription()` — a paginated, Stripe-authoritative check — before `checkout.sessions.create`, closing the webhook-lag window where a second parallel checkout could create a duplicate paid subscription while `stripeSubscriptionId` was still `null` in the DB. Returns 409 when Stripe already has a blocking subscription. Guard fails closed on Stripe API errors (502).
+
+### Documentation Sync (2026-06-06)
+
+- **PR #130**: Plugin v0.8.0 docs, `DYNAMIC_TRANSLATION_QA.md` live-QA checklist, HANDOFF sync.
+- **PR #132**: README corrections — `npm run test:wp`, `/docs` route, `Authorization: Bearer`, i18n-scripts section, 5 new test-coverage entries.
+- **PR #129**: `.env.selfhost.example` model updated to `gpt-5-mini`; ROADMAP 7.8 marked completed.
+- **PR #126**: OPERATIONS gains `i18n Development Scripts` and `Stripe Setup Scripts` sections; corrected the false claim that an admin cache-flush button exists (`TranslationCache::flush()` is unwired — requires WP-CLI or TTL expiry).
 
 ## Completed In The Latest Session (since 2026-05-06)
 
@@ -104,6 +126,7 @@ npm run test:e2e
 
 ## Recommended Next Work
 
+- **Dynamic translation live QA (P0):** enable `enable_dynamic_translation` on `meinhaushalt.at` and run the checklist in `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`. Once verified, enable by default and update the plugin marketing.
 - Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.
