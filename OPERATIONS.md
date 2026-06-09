@@ -34,6 +34,29 @@ Expected behavior:
 - Bucket subjects are SHA-256 hashes; raw API keys and email addresses are not stored in `RateLimitBucket`.
 - Raising or lowering limits should be done through Vercel environment variables, followed by a production redeploy.
 
+## Duplicate Subscription Alert (Stripe)
+
+`POST /api/billing/checkout` prevents duplicate Checkout sessions (open-session reuse/expire, Stripe live-subscription guard), but a sub-second concurrent race can still let two Checkouts complete (issue #138, "prevent + alert"). When that happens, the `checkout.session.completed` webhook keeps the first subscription and logs the duplicate instead of overwriting the database row:
+
+```text
+[Stripe Webhook] DUPLICATE SUBSCRIPTION for org <orgId> — keeping <sub_kept> ; new subscription is orphaned, cancel/refund it manually: <sub_orphaned>
+```
+
+The orphaned subscription bills the customer in Stripe but is not tracked by the app, so it must be cleaned up manually and promptly:
+
+1. In Vercel, search the production logs for `DUPLICATE SUBSCRIPTION` (route `/api/webhooks/stripe`) and note both subscription ids from the log line.
+2. In the Stripe Dashboard, open the **orphaned** subscription (the `cancel/refund it manually` id) and cancel it immediately.
+3. Refund the orphaned subscription's paid invoice(s) in full.
+4. Verify the kept subscription: the `Subscription` row for the organization still points at the `keeping` id with the expected plan, and the customer has exactly one active subscription left in Stripe.
+5. Inform the customer that the duplicate charge has been refunded.
+
+Expected behavior:
+
+- The log line appears at most once per duplicate completion; webhook redeliveries for the same subscription id are not flagged.
+- The kept subscription and the organization plan are never modified by the duplicate event.
+
+Recommended: configure a Vercel log-based notification (or an external log-drain alert) on the string `DUPLICATE SUBSCRIPTION` so this page does not rely on someone reading logs by chance.
+
 ## Neon Restore Drill
 
 Use the dry-run check before attempting a live branch drill:
