@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import {
   blocksNewCheckoutForExistingSubscription,
+  classifyOpenCheckoutSessions,
   customerHasBlockingStripeSubscription,
   getCheckoutCancelUrl,
   getCheckoutSuccessUrl,
@@ -156,6 +157,30 @@ export async function POST(request: Request) {
         },
         { status: 409 }
       );
+    }
+
+    // #138: prevent duplicate sessions from a double-click / two tabs. Reuse an
+    // open Checkout session for the same plan+interval, and expire any other
+    // open session so a leftover selection can't also complete into a second
+    // paid subscription. (The rare sub-second residual is flagged by the
+    // webhook in handleCheckoutCompleted.)
+    if (customerId) {
+      const openSessions = await stripe.checkout.sessions.list({
+        customer: customerId,
+        status: "open",
+        limit: 100,
+      });
+      const { reuseUrl, expireIds } = classifyOpenCheckoutSessions(
+        openSessions.data,
+        plan,
+        interval
+      );
+      for (const expireId of expireIds) {
+        await stripe.checkout.sessions.expire(expireId);
+      }
+      if (reuseUrl) {
+        return NextResponse.json({ url: reuseUrl });
+      }
     }
 
     const checkoutSession = await stripe.checkout.sessions.create({

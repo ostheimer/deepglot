@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 
 import {
   blocksNewCheckoutForExistingSubscription,
+  checkoutCompletionIsDuplicate,
+  classifyOpenCheckoutSessions,
   customerHasBlockingStripeSubscription,
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
@@ -393,6 +395,78 @@ test("customerHasBlockingStripeSubscription pages past the first 100 results", a
     true
   );
   assert.equal(calls, 2);
+});
+
+test("classifyOpenCheckoutSessions reuses the same plan+interval and expires the rest", () => {
+  const { reuseUrl, expireIds } = classifyOpenCheckoutSessions(
+    [
+      { id: "cs_same", url: "https://stripe/cs_same", metadata: { plan: "PRO", interval: "monthly" } },
+      { id: "cs_other", url: "https://stripe/cs_other", metadata: { plan: "STARTER", interval: "monthly" } },
+      { id: "cs_dupe", url: "https://stripe/cs_dupe", metadata: { plan: "PRO", interval: "monthly" } },
+    ],
+    "PRO",
+    "monthly"
+  );
+  assert.equal(reuseUrl, "https://stripe/cs_same");
+  assert.deepEqual(expireIds, ["cs_other", "cs_dupe"]);
+});
+
+test("classifyOpenCheckoutSessions expires all open sessions when none match the selection", () => {
+  const { reuseUrl, expireIds } = classifyOpenCheckoutSessions(
+    [
+      { id: "cs_a", url: "https://stripe/cs_a", metadata: { plan: "STARTER", interval: "monthly" } },
+      { id: "cs_b", url: "https://stripe/cs_b", metadata: { plan: "PRO", interval: "yearly" } },
+    ],
+    "PRO",
+    "monthly"
+  );
+  assert.equal(reuseUrl, null);
+  assert.deepEqual(expireIds, ["cs_a", "cs_b"]);
+});
+
+test("classifyOpenCheckoutSessions returns nothing to do for an empty list", () => {
+  assert.deepEqual(classifyOpenCheckoutSessions([], "PRO", "monthly"), {
+    reuseUrl: null,
+    expireIds: [],
+  });
+});
+
+test("checkoutCompletionIsDuplicate flags only a different live subscription", () => {
+  assert.equal(checkoutCompletionIsDuplicate(null, "sub_new"), false);
+  assert.equal(
+    checkoutCompletionIsDuplicate({ stripeSubscriptionId: null, status: "ACTIVE" }, "sub_new"),
+    false
+  );
+  assert.equal(
+    checkoutCompletionIsDuplicate({ stripeSubscriptionId: "sub_new", status: "ACTIVE" }, "sub_new"),
+    false
+  );
+  assert.equal(
+    checkoutCompletionIsDuplicate({ stripeSubscriptionId: "sub_old", status: "ACTIVE" }, "sub_new"),
+    true
+  );
+  assert.equal(
+    checkoutCompletionIsDuplicate({ stripeSubscriptionId: "sub_old", status: "CANCELED" }, "sub_new"),
+    false
+  );
+});
+
+test("checkout route reuses/expires open Checkout sessions before creating one", () => {
+  const checkoutRoute = readFileSync(
+    "src/app/api/billing/checkout/route.ts",
+    "utf8"
+  );
+  assert.match(checkoutRoute, /classifyOpenCheckoutSessions/);
+  assert.match(checkoutRoute, /checkout\.sessions\.list/);
+  assert.match(checkoutRoute, /checkout\.sessions\.expire/);
+});
+
+test("stripe webhook flags duplicate completed Checkouts", () => {
+  const webhookRoute = readFileSync(
+    "src/app/api/webhooks/stripe/route.ts",
+    "utf8"
+  );
+  assert.match(webhookRoute, /checkoutCompletionIsDuplicate/);
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
