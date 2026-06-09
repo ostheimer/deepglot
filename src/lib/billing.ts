@@ -180,3 +180,65 @@ export async function customerHasBlockingStripeSubscription(
     startingAfter = page.data[page.data.length - 1].id;
   }
 }
+
+/** A Stripe Checkout session as seen by the open-session de-dup logic. */
+export type OpenCheckoutSession = {
+  id: string;
+  url: string | null;
+  metadata: Record<string, string> | null;
+};
+
+/**
+ * Decide what to do with a customer's currently-open Checkout sessions before
+ * creating a new one (#138). Reuse the first open session for the same
+ * plan+interval — so a double-click / two tabs returns ONE session instead of
+ * creating duplicates — and expire every other open session so a leftover
+ * selection cannot also complete into a second paid subscription.
+ */
+export function classifyOpenCheckoutSessions(
+  sessions: OpenCheckoutSession[],
+  plan: string,
+  interval: string
+): { reuseUrl: string | null; expireIds: string[] } {
+  let reuseUrl: string | null = null;
+  const expireIds: string[] = [];
+
+  for (const session of sessions) {
+    const sameSelection =
+      session.metadata?.plan === plan &&
+      session.metadata?.interval === interval;
+
+    if (sameSelection && session.url && reuseUrl === null) {
+      reuseUrl = session.url;
+    } else if (session.id) {
+      expireIds.push(session.id);
+    }
+  }
+
+  return { reuseUrl, expireIds };
+}
+
+/**
+ * True when a completed Checkout produced a *duplicate* paid subscription: the
+ * org already tracks a different, still-live subscription. Flags the rare
+ * concurrent-Checkout residual (#138) the pre-checkout reuse can't catch, so the
+ * webhook can surface it for manual cancel/refund while keeping the first
+ * subscription. A redelivered webhook for the same subscription is not a
+ * duplicate.
+ */
+export function checkoutCompletionIsDuplicate(
+  existing: { stripeSubscriptionId: string | null; status: string } | null,
+  newStripeSubscriptionId: string
+): boolean {
+  if (!existing?.stripeSubscriptionId) {
+    return false;
+  }
+  if (existing.stripeSubscriptionId === newStripeSubscriptionId) {
+    return false;
+  }
+  return (
+    existing.status === "ACTIVE" ||
+    existing.status === "TRIALING" ||
+    existing.status === "PAST_DUE"
+  );
+}

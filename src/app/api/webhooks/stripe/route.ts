@@ -6,6 +6,7 @@ import {
   BILLING_PLAN_KEYS,
   tryResolvePlanKeyByStripePriceId,
 } from "@/lib/billing-plans";
+import { checkoutCompletionIsDuplicate } from "@/lib/billing";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
 
@@ -185,6 +186,31 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     );
   }
   const resolvedPlan: Plan = plan;
+
+  // #138 safety net: the pre-checkout open-session reuse prevents duplicate
+  // sessions in the common case, but a sub-second concurrent race can still let
+  // two Checkouts complete. If the org already tracks a different live
+  // subscription, this completed Checkout is a duplicate — per the "prevent +
+  // alert" decision we do NOT auto-cancel/refund. Keep the first subscription
+  // (don't overwrite it) and flag the extra one loudly for manual handling; it
+  // is otherwise orphaned (billing in Stripe but not in the DB).
+  const existingForDuplicateCheck = await db.subscription.findUnique({
+    where: { organizationId },
+    select: { stripeSubscriptionId: true, status: true },
+  });
+  if (
+    checkoutCompletionIsDuplicate(existingForDuplicateCheck, stripeSubscription.id)
+  ) {
+    console.error(
+      "[Stripe Webhook] DUPLICATE SUBSCRIPTION for org",
+      organizationId,
+      "— keeping",
+      existingForDuplicateCheck?.stripeSubscriptionId,
+      "; new subscription is orphaned, cancel/refund it manually:",
+      stripeSubscription.id
+    );
+    return;
+  }
 
   await db.subscription.upsert({
     where: { organizationId },
