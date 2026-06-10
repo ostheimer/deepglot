@@ -142,13 +142,14 @@ export function getRecommendedModels(provider: TranslationProviderName) {
       ];
     case "gemini":
       return [
-        // Default for translation — Google's recommended high-volume model.
+        // Default for translation — Google's high-volume, low-cost model (stable).
         "gemini-3.1-flash-lite",
+        // Near-Pro quality at Flash-tier cost & speed (stable) — quality upgrade.
+        "gemini-3.5-flash",
+        // Previous-generation models, still GA.
         "gemini-2.5-flash-lite",
         "gemini-2.5-flash",
-        "gemini-3-flash-preview",
         "gemini-2.5-pro",
-        "gemini-3.1-pro-preview",
       ];
     case "openrouter":
       return [
