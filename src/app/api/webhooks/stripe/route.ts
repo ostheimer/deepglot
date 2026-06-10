@@ -230,15 +230,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       return;
     }
     try {
-      await sendDuplicateSubscriptionAlertEmail({
+      const alert = await sendDuplicateSubscriptionAlertEmail({
         organizationId,
         keptSubscriptionId,
         orphanedSubscriptionId: stripeSubscription.id,
         signal: AbortSignal.timeout(5000),
       });
-      await stripe.subscriptions.update(stripeSubscription.id, {
-        metadata: { [DUPLICATE_ALERT_METADATA_KEY]: new Date().toISOString() },
-      });
+      // Mark only after a real send: an unconfigured mailer returns
+      // { sent: false } without throwing, and writing the marker then would
+      // permanently suppress the alert even after the config is fixed.
+      if (alert.sent) {
+        await stripe.subscriptions.update(stripeSubscription.id, {
+          metadata: { [DUPLICATE_ALERT_METADATA_KEY]: new Date().toISOString() },
+        });
+      }
     } catch (error) {
       console.error(
         "[Stripe Webhook] Duplicate-subscription alert email failed.",
@@ -283,7 +288,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
-  await db.subscription.update({
+  // updateMany tolerates untracked subscriptions (e.g. an orphaned duplicate):
+  // 0 updated rows instead of a thrown not-found error that would make Stripe
+  // retry the invoice event indefinitely.
+  await db.subscription.updateMany({
     where: { stripeSubscriptionId },
     data: {
       status: "ACTIVE",
@@ -296,7 +304,8 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const stripeSubscriptionId = getSubscriptionIdFromInvoice(invoice);
   if (!stripeSubscriptionId) return;
 
-  await db.subscription.update({
+  // See handleInvoicePaid: tolerate untracked subscriptions.
+  await db.subscription.updateMany({
     where: { stripeSubscriptionId },
     data: { status: "PAST_DUE" },
   });
@@ -320,6 +329,23 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  // Untracked subscriptions must be ignored, not updated: an orphaned
+  // duplicate is deliberately kept out of the DB (the alert's metadata write
+  // triggers exactly this event for it), and subscriptions created directly
+  // in Stripe have no row either. An unconditional update would throw and
+  // make Stripe retry the event indefinitely.
+  const tracked = await db.subscription.findUnique({
+    where: { stripeSubscriptionId: subscription.id },
+    select: { organizationId: true },
+  });
+  if (!tracked) {
+    console.warn(
+      "[Stripe Webhook] customer.subscription.updated for untracked subscription, ignoring:",
+      subscription.id
+    );
+    return;
+  }
+
   const priceId = subscription.items.data[0]?.price.id;
   const resolvedPlanKey = tryResolvePlanKeyByStripePriceId(priceId);
   const status = mapStripeStatus(subscription.status);
