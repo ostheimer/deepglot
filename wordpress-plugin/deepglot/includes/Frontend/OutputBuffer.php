@@ -166,6 +166,10 @@ class OutputBuffer
             return;
         }
 
+        // Capture the key the fetch will use so applyRuntimeConfig can discard
+        // the payload if the stored key changed in the meantime (see there).
+        $fetchKey = trim($this->options->getApiKey());
+
         $client = new Client($this->options);
         $runtimeConfig = $client->fetchRuntimeConfig();
 
@@ -174,7 +178,7 @@ class OutputBuffer
             return;
         }
 
-        $this->options->applyRuntimeConfig($runtimeConfig);
+        $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey);
     }
 
     private function currentRequestUrl(): string

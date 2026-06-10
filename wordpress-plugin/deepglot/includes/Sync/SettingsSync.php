@@ -82,13 +82,20 @@ class SettingsSync
             return ['ok' => true, 'skipped' => true];
         }
 
+        // Capture the key the fetch will use (the Client falls back to the
+        // currently cached option) so applyRuntimeConfig can discard the
+        // payload if the stored key changed in the meantime.
+        $fetchKey = $apiKeyOverride !== null
+            ? trim($apiKeyOverride)
+            : trim($this->options->getApiKey());
+
         $runtimeConfig = $this->client->fetchRuntimeConfig($apiKeyOverride, $baseUrlOverride);
 
         if (is_wp_error($runtimeConfig)) {
             return $runtimeConfig;
         }
 
-        $this->options->applyRuntimeConfig($runtimeConfig);
+        $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey);
 
         return $runtimeConfig;
     }

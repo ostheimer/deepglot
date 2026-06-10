@@ -461,7 +461,7 @@ class Options
         return time() - $this->getRuntimeConfigSyncedAt() >= $intervalSeconds;
     }
 
-    public function applyRuntimeConfig(array $runtimeConfig): bool
+    public function applyRuntimeConfig(array $runtimeConfig, ?string $fetchedWithApiKey = null): bool
     {
         // Evict this request's options cache and re-read before merging: the
         // sync rewrites the WHOLE option, and on a busy site a request that
@@ -476,6 +476,18 @@ class Options
         }
 
         $settings = $this->all();
+
+        // The payload was fetched BEFORE the fresh re-read above. If the admin
+        // switched API keys (projects) in between, it belongs to the previous
+        // project — discard it instead of merging another project's
+        // exclusions/switcher into these settings. The sync timestamp stays
+        // untouched, so the next refresh retries with the current key.
+        if (
+            $fetchedWithApiKey !== null
+            && $fetchedWithApiKey !== (string) ($settings['api_key'] ?? '')
+        ) {
+            return false;
+        }
 
         // Only overwrite sub-objects the SaaS actually sent. A partial
         // runtime payload (e.g. switcher-only) must not silently clobber

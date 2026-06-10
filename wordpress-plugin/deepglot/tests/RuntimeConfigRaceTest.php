@@ -116,4 +116,37 @@ raceCheck($stored['enable_dynamic_translation'] === true, 'A stale request cache
 raceCheck($stored['translate_emails'] === true, 'A stale request cache must not revert translate_emails.');
 raceCheck($stored['switcher_default_style'] === 'dropdown', 'A stale request cache must not revert switcher settings.');
 
+// Scenario 2: the payload was fetched with the PREVIOUS project's API key
+// (admin switched projects while this request was in flight). It must be
+// discarded entirely — neither another project's exclusions nor a fresh sync
+// timestamp may be written.
+$GLOBALS['_dgrace_store'][Options::OPTION_KEY] = array_merge(Options::defaults(), [
+    'api_key' => 'dg_live_project_b',
+    'enabled' => true,
+    'exclude_urls' => '/keep-b',
+]);
+$GLOBALS['_dgrace_cache'][Options::OPTION_KEY] = array_merge(Options::defaults(), [
+    'api_key' => 'dg_live_project_a',
+    'enabled' => true,
+]);
+
+$applied = $options->applyRuntimeConfig(
+    ['exclusions' => ['urls' => ['/from-project-a'], 'regexes' => [], 'selectors' => []]],
+    'dg_live_project_a'
+);
+
+$storedB = $GLOBALS['_dgrace_store'][Options::OPTION_KEY];
+raceCheck($applied === false, 'A payload fetched with a stale API key must be discarded.');
+raceCheck($storedB['exclude_urls'] === '/keep-b', 'Another project\'s exclusions must not be merged in.');
+raceCheck(($storedB['runtime_config_synced_at'] ?? 0) === 0, 'A discarded payload must not stamp the sync timestamp.');
+
+// Scenario 3: matching key applies normally.
+$applied = $options->applyRuntimeConfig(
+    ['exclusions' => ['urls' => ['/from-project-b'], 'regexes' => [], 'selectors' => []]],
+    'dg_live_project_b'
+);
+$storedB = $GLOBALS['_dgrace_store'][Options::OPTION_KEY];
+raceCheck($applied === true, 'A payload fetched with the current API key must be applied.');
+raceCheck($storedB['exclude_urls'] === '/from-project-b', 'Matching-key payloads must update exclusions.');
+
 fwrite(STDOUT, "RuntimeConfigRaceTest: OK\n");
