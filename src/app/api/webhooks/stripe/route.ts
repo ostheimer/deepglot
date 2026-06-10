@@ -7,6 +7,7 @@ import {
   tryResolvePlanKeyByStripePriceId,
 } from "@/lib/billing-plans";
 import { checkoutCompletionIsDuplicate } from "@/lib/billing";
+import { sendDuplicateSubscriptionAlertEmail } from "@/lib/email";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
 
@@ -201,14 +202,31 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (
     checkoutCompletionIsDuplicate(existingForDuplicateCheck, stripeSubscription.id)
   ) {
+    const keptSubscriptionId =
+      existingForDuplicateCheck?.stripeSubscriptionId ?? "unknown";
     console.error(
       "[Stripe Webhook] DUPLICATE SUBSCRIPTION for org",
       organizationId,
       "— keeping",
-      existingForDuplicateCheck?.stripeSubscriptionId,
+      keptSubscriptionId,
       "; new subscription is orphaned, cancel/refund it manually:",
       stripeSubscription.id
     );
+    // Alert email so detection does not depend on someone reading logs. A
+    // delivery failure must never fail the webhook — Stripe would retry the
+    // event and re-trigger the alert indefinitely.
+    try {
+      await sendDuplicateSubscriptionAlertEmail({
+        organizationId,
+        keptSubscriptionId,
+        orphanedSubscriptionId: stripeSubscription.id,
+      });
+    } catch (error) {
+      console.error(
+        "[Stripe Webhook] Duplicate-subscription alert email failed.",
+        error
+      );
+    }
     return;
   }
 

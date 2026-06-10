@@ -207,6 +207,120 @@ export async function sendPasswordResetEmail({
   return { sent: true as const, provider: "cloudflare" as const, result: data.result };
 }
 
+/**
+ * Recipient for operational billing alerts (duplicate Stripe subscription
+ * detected by the checkout webhook). Unset/empty disables the alert email;
+ * the webhook then only logs.
+ */
+export function getBillingAlertRecipient(
+  env: Record<string, string | undefined> = process.env
+): string | null {
+  const recipient = env.DEEPGLOT_BILLING_ALERT_EMAIL?.trim();
+
+  return recipient || null;
+}
+
+export function buildDuplicateSubscriptionAlertEmailPayload({
+  to,
+  from,
+  organizationId,
+  keptSubscriptionId,
+  orphanedSubscriptionId,
+}: {
+  to: string;
+  from: string;
+  organizationId: string;
+  keptSubscriptionId: string;
+  orphanedSubscriptionId: string;
+}) {
+  const subject = `Deepglot alert: duplicate Stripe subscription (org ${organizationId})`;
+  const stripeUrl = `https://dashboard.stripe.com/subscriptions/${orphanedSubscriptionId}`;
+  const lines = [
+    "A completed Stripe Checkout created a duplicate paid subscription. The app keeps the first subscription; the new one is billing the customer but is not tracked.",
+    `Organization: ${organizationId}`,
+    `Kept (tracked) subscription: ${keptSubscriptionId}`,
+    `Orphaned subscription — cancel and refund manually: ${orphanedSubscriptionId}`,
+    `Stripe: ${stripeUrl}`,
+    'Runbook: OPERATIONS.md → "Duplicate Subscription Alert (Stripe)"',
+  ];
+
+  return {
+    from,
+    to,
+    subject,
+    text: lines.join("\n\n"),
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <p>${lines[0]}</p>
+        <p style="color:#374151">
+          Organization: <strong>${organizationId}</strong><br>
+          Kept (tracked) subscription: <strong>${keptSubscriptionId}</strong><br>
+          Orphaned subscription — cancel and refund manually: <strong>${orphanedSubscriptionId}</strong>
+        </p>
+        <p>
+          <a href="${stripeUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+            Open in Stripe
+          </a>
+        </p>
+        <p style="color:#4b5563">Runbook: OPERATIONS.md &rarr; &quot;Duplicate Subscription Alert (Stripe)&quot;</p>
+      </div>
+    `,
+  };
+}
+
+/**
+ * Sends the duplicate-subscription operations alert. Returns
+ * `{ sent: false }` when either the Cloudflare email config or the
+ * `DEEPGLOT_BILLING_ALERT_EMAIL` recipient is missing; throws on API errors
+ * (callers must catch — a failed alert must never fail the webhook).
+ */
+export async function sendDuplicateSubscriptionAlertEmail({
+  organizationId,
+  keptSubscriptionId,
+  orphanedSubscriptionId,
+}: {
+  organizationId: string;
+  keptSubscriptionId: string;
+  orphanedSubscriptionId: string;
+}) {
+  const config = getCloudflareEmailConfig();
+  const to = getBillingAlertRecipient();
+
+  if (!config || !to) {
+    return { sent: false, reason: "email_not_configured" as const };
+  }
+
+  const response = await fetch(buildCloudflareEmailApiUrl(config.accountId), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      buildDuplicateSubscriptionAlertEmailPayload({
+        to,
+        from: config.from,
+        organizationId,
+        keptSubscriptionId,
+        orphanedSubscriptionId,
+      })
+    ),
+  });
+  const data = (await response.json().catch(() => null)) as
+    | CloudflareEmailResponse
+    | null;
+
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      `Cloudflare Email Sending failed: ${
+        data ? formatCloudflareEmailError(data) : response.statusText
+      }`
+    );
+  }
+
+  return { sent: true as const, provider: "cloudflare" as const, result: data.result };
+}
+
 export async function sendProjectInvitationEmail({
   to,
   inviteUrl,
