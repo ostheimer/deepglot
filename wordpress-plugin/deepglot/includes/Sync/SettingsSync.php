@@ -82,13 +82,25 @@ class SettingsSync
             return ['ok' => true, 'skipped' => true];
         }
 
+        // Capture key and base URL the fetch will use (the Client falls back
+        // to the currently cached option) so applyRuntimeConfig can discard
+        // the payload if the stored configuration changed in the meantime —
+        // or if this fetch probed a candidate backend that was never saved
+        // (test-connection overrides).
+        $fetchKey = $apiKeyOverride !== null
+            ? trim($apiKeyOverride)
+            : trim($this->options->getApiKey());
+        $fetchBaseUrl = $baseUrlOverride !== null
+            ? untrailingslashit((string) $baseUrlOverride)
+            : untrailingslashit($this->options->getApiBaseUrl());
+
         $runtimeConfig = $this->client->fetchRuntimeConfig($apiKeyOverride, $baseUrlOverride);
 
         if (is_wp_error($runtimeConfig)) {
             return $runtimeConfig;
         }
 
-        $this->options->applyRuntimeConfig($runtimeConfig);
+        $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
 
         return $runtimeConfig;
     }

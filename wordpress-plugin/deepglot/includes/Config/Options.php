@@ -461,9 +461,45 @@ class Options
         return time() - $this->getRuntimeConfigSyncedAt() >= $intervalSeconds;
     }
 
-    public function applyRuntimeConfig(array $runtimeConfig): bool
-    {
+    public function applyRuntimeConfig(
+        array $runtimeConfig,
+        ?string $fetchedWithApiKey = null,
+        ?string $fetchedFromBaseUrl = null
+    ): bool {
+        // Evict this request's options cache and re-read before merging: the
+        // sync rewrites the WHOLE option, and on a busy site a request that
+        // started before an admin save would otherwise write its stale
+        // snapshot back and silently revert the admin's change (observed
+        // live: enable_dynamic_translation flipped off minutes after being
+        // saved). A sub-second write/write race remains theoretically
+        // possible, but the realistic minutes-long window is closed.
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::OPTION_KEY, 'options');
+            wp_cache_delete('alloptions', 'options');
+        }
+
         $settings = $this->all();
+
+        // The payload was fetched BEFORE the fresh re-read above. If it was
+        // fetched with a different API key (admin switched projects) or from a
+        // different backend (admin changed the base URL, or test-connection
+        // probed a candidate backend that was never saved), it belongs to
+        // another project/backend — discard it instead of merging foreign
+        // exclusions/switcher data into these settings. The sync timestamp
+        // stays untouched, so the next refresh retries with the current
+        // configuration.
+        if (
+            $fetchedWithApiKey !== null
+            && $fetchedWithApiKey !== (string) ($settings['api_key'] ?? '')
+        ) {
+            return false;
+        }
+        if (
+            $fetchedFromBaseUrl !== null
+            && untrailingslashit($fetchedFromBaseUrl) !== untrailingslashit((string) ($settings['api_base_url'] ?? ''))
+        ) {
+            return false;
+        }
 
         // Only overwrite sub-objects the SaaS actually sent. A partial
         // runtime payload (e.g. switcher-only) must not silently clobber
