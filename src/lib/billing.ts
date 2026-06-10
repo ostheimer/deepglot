@@ -236,9 +236,5 @@ export function checkoutCompletionIsDuplicate(
   if (existing.stripeSubscriptionId === newStripeSubscriptionId) {
     return false;
   }
-  return (
-    existing.status === "ACTIVE" ||
-    existing.status === "TRIALING" ||
-    existing.status === "PAST_DUE"
-  );
+  return blocksNewCheckoutForExistingSubscription(existing);
 }

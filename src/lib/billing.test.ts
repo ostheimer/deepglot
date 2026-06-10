@@ -446,6 +446,10 @@ test("checkoutCompletionIsDuplicate flags only a different live subscription", (
     true
   );
   assert.equal(
+    checkoutCompletionIsDuplicate({ stripeSubscriptionId: "sub_old", status: "INACTIVE" }, "sub_new"),
+    true
+  );
+  assert.equal(
     checkoutCompletionIsDuplicate({ stripeSubscriptionId: "sub_old", status: "CANCELED" }, "sub_new"),
     false
   );
