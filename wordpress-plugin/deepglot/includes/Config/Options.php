@@ -461,8 +461,11 @@ class Options
         return time() - $this->getRuntimeConfigSyncedAt() >= $intervalSeconds;
     }
 
-    public function applyRuntimeConfig(array $runtimeConfig, ?string $fetchedWithApiKey = null): bool
-    {
+    public function applyRuntimeConfig(
+        array $runtimeConfig,
+        ?string $fetchedWithApiKey = null,
+        ?string $fetchedFromBaseUrl = null
+    ): bool {
         // Evict this request's options cache and re-read before merging: the
         // sync rewrites the WHOLE option, and on a busy site a request that
         // started before an admin save would otherwise write its stale
@@ -477,14 +480,23 @@ class Options
 
         $settings = $this->all();
 
-        // The payload was fetched BEFORE the fresh re-read above. If the admin
-        // switched API keys (projects) in between, it belongs to the previous
-        // project — discard it instead of merging another project's
-        // exclusions/switcher into these settings. The sync timestamp stays
-        // untouched, so the next refresh retries with the current key.
+        // The payload was fetched BEFORE the fresh re-read above. If it was
+        // fetched with a different API key (admin switched projects) or from a
+        // different backend (admin changed the base URL, or test-connection
+        // probed a candidate backend that was never saved), it belongs to
+        // another project/backend — discard it instead of merging foreign
+        // exclusions/switcher data into these settings. The sync timestamp
+        // stays untouched, so the next refresh retries with the current
+        // configuration.
         if (
             $fetchedWithApiKey !== null
             && $fetchedWithApiKey !== (string) ($settings['api_key'] ?? '')
+        ) {
+            return false;
+        }
+        if (
+            $fetchedFromBaseUrl !== null
+            && untrailingslashit($fetchedFromBaseUrl) !== untrailingslashit((string) ($settings['api_base_url'] ?? ''))
         ) {
             return false;
         }
