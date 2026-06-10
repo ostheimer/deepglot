@@ -463,6 +463,18 @@ class Options
 
     public function applyRuntimeConfig(array $runtimeConfig): bool
     {
+        // Evict this request's options cache and re-read before merging: the
+        // sync rewrites the WHOLE option, and on a busy site a request that
+        // started before an admin save would otherwise write its stale
+        // snapshot back and silently revert the admin's change (observed
+        // live: enable_dynamic_translation flipped off minutes after being
+        // saved). A sub-second write/write race remains theoretically
+        // possible, but the realistic minutes-long window is closed.
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::OPTION_KEY, 'options');
+            wp_cache_delete('alloptions', 'options');
+        }
+
         $settings = $this->all();
 
         // Only overwrite sub-objects the SaaS actually sent. A partial
