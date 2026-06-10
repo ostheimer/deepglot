@@ -44,7 +44,7 @@ Expected behavior:
 
 The orphaned subscription bills the customer in Stripe but is not tracked by the app, so it must be cleaned up manually and promptly:
 
-1. In Vercel, search the production logs for `DUPLICATE SUBSCRIPTION` (route `/api/webhooks/stripe`) and note both subscription ids from the log line.
+1. Open the alert email (sent automatically when `DEEPGLOT_BILLING_ALERT_EMAIL` is configured) or search the Vercel production logs for `DUPLICATE SUBSCRIPTION` (route `/api/webhooks/stripe`); both contain the two subscription ids.
 2. In the Stripe Dashboard, open the **orphaned** subscription (the `cancel/refund it manually` id) and cancel it immediately.
 3. Refund the orphaned subscription's paid invoice(s) in full.
 4. Verify the kept subscription: the `Subscription` row for the organization still points at the `keeping` id with the expected plan, and the customer has exactly one active subscription left in Stripe.
@@ -52,10 +52,11 @@ The orphaned subscription bills the customer in Stripe but is not tracked by the
 
 Expected behavior:
 
-- The log line appears at most once per duplicate completion; webhook redeliveries for the same subscription id are not flagged.
+- Redeliveries of the kept subscription's own event are never flagged. Redeliveries of the duplicate event log again, but the alert email is sent at most once per orphaned subscription — a `deepglot_duplicate_alerted` metadata marker on the Stripe subscription dedupes it durably.
 - The kept subscription and the organization plan are never modified by the duplicate event.
+- The alert email never blocks webhook processing — the send is bounded by a 5-second timeout, and a delivery failure is logged while the event still completes.
 
-Recommended: configure a Vercel log-based notification (or an external log-drain alert) on the string `DUPLICATE SUBSCRIPTION` so this page does not rely on someone reading logs by chance.
+The alert email is built in: set `DEEPGLOT_BILLING_ALERT_EMAIL` to the operations recipient (delivery uses the existing Cloudflare email configuration: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`). A Vercel log-based notification on the string `DUPLICATE SUBSCRIPTION` remains useful as a backup in case email delivery fails.
 
 ## Neon Restore Drill
 

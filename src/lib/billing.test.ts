@@ -461,12 +461,17 @@ test("checkout route reuses/expires open Checkout sessions before creating one",
   assert.match(checkoutRoute, /checkout\.sessions\.expire/);
 });
 
-test("stripe webhook flags duplicate completed Checkouts", () => {
+test("stripe webhook flags duplicate completed Checkouts and sends the alert email", () => {
   const webhookRoute = readFileSync(
     "src/app/api/webhooks/stripe/route.ts",
     "utf8"
   );
   assert.match(webhookRoute, /checkoutCompletionIsDuplicate/);
+  assert.match(webhookRoute, /sendDuplicateSubscriptionAlertEmail/);
+  // Alert idempotency: redeliveries dedupe via a Stripe-metadata marker, and
+  // the send is bounded so a stalled provider cannot delay the webhook ack.
+  assert.match(webhookRoute, /deepglot_duplicate_alerted/);
+  assert.match(webhookRoute, /AbortSignal\.timeout/);
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {

@@ -7,6 +7,7 @@ import {
   tryResolvePlanKeyByStripePriceId,
 } from "@/lib/billing-plans";
 import { checkoutCompletionIsDuplicate } from "@/lib/billing";
+import { sendDuplicateSubscriptionAlertEmail } from "@/lib/email";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
 
@@ -30,6 +31,14 @@ const STRIPE_PLAN_MAP: Record<string, Plan> = BILLING_PLAN_KEYS.reduce(
   },
   {} as Record<string, Plan>
 );
+
+/**
+ * Stripe-subscription metadata key marking that the duplicate-subscription
+ * alert email was already sent for this orphaned subscription. Stored on the
+ * Stripe object (not the DB) so webhook redeliveries dedupe durably across
+ * instances without a schema migration.
+ */
+const DUPLICATE_ALERT_METADATA_KEY = "deepglot_duplicate_alerted";
 
 const WORDS_LIMIT_MAP: Record<Plan, number> = {
   ...(BILLING_PLAN_KEYS.reduce(
@@ -201,14 +210,46 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (
     checkoutCompletionIsDuplicate(existingForDuplicateCheck, stripeSubscription.id)
   ) {
+    const keptSubscriptionId =
+      existingForDuplicateCheck?.stripeSubscriptionId ?? "unknown";
     console.error(
       "[Stripe Webhook] DUPLICATE SUBSCRIPTION for org",
       organizationId,
       "— keeping",
-      existingForDuplicateCheck?.stripeSubscriptionId,
+      keptSubscriptionId,
       "; new subscription is orphaned, cancel/refund it manually:",
       stripeSubscription.id
     );
+    // Alert email so detection does not depend on someone reading logs.
+    // Guarantees: (1) at most one email per orphaned subscription — a
+    // metadata marker on the Stripe subscription dedupes event redeliveries
+    // durably and across instances, without a DB migration; (2) a delivery
+    // failure or stalled provider (5s abort) must never fail or delay the
+    // webhook — Stripe would retry the event and re-trigger the alert.
+    if (stripeSubscription.metadata?.[DUPLICATE_ALERT_METADATA_KEY]) {
+      return;
+    }
+    try {
+      const alert = await sendDuplicateSubscriptionAlertEmail({
+        organizationId,
+        keptSubscriptionId,
+        orphanedSubscriptionId: stripeSubscription.id,
+        signal: AbortSignal.timeout(5000),
+      });
+      // Mark only after a real send: an unconfigured mailer returns
+      // { sent: false } without throwing, and writing the marker then would
+      // permanently suppress the alert even after the config is fixed.
+      if (alert.sent) {
+        await stripe.subscriptions.update(stripeSubscription.id, {
+          metadata: { [DUPLICATE_ALERT_METADATA_KEY]: new Date().toISOString() },
+        });
+      }
+    } catch (error) {
+      console.error(
+        "[Stripe Webhook] Duplicate-subscription alert email failed.",
+        error
+      );
+    }
     return;
   }
 
@@ -247,7 +288,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
-  await db.subscription.update({
+  // updateMany tolerates untracked subscriptions (e.g. an orphaned duplicate):
+  // 0 updated rows instead of a thrown not-found error that would make Stripe
+  // retry the invoice event indefinitely.
+  await db.subscription.updateMany({
     where: { stripeSubscriptionId },
     data: {
       status: "ACTIVE",
@@ -260,7 +304,8 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const stripeSubscriptionId = getSubscriptionIdFromInvoice(invoice);
   if (!stripeSubscriptionId) return;
 
-  await db.subscription.update({
+  // See handleInvoicePaid: tolerate untracked subscriptions.
+  await db.subscription.updateMany({
     where: { stripeSubscriptionId },
     data: { status: "PAST_DUE" },
   });
@@ -284,6 +329,23 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  // Untracked subscriptions must be ignored, not updated: an orphaned
+  // duplicate is deliberately kept out of the DB (the alert's metadata write
+  // triggers exactly this event for it), and subscriptions created directly
+  // in Stripe have no row either. An unconditional update would throw and
+  // make Stripe retry the event indefinitely.
+  const tracked = await db.subscription.findUnique({
+    where: { stripeSubscriptionId: subscription.id },
+    select: { organizationId: true },
+  });
+  if (!tracked) {
+    console.warn(
+      "[Stripe Webhook] customer.subscription.updated for untracked subscription, ignoring:",
+      subscription.id
+    );
+    return;
+  }
+
   const priceId = subscription.items.data[0]?.price.id;
   const resolvedPlanKey = tryResolvePlanKeyByStripePriceId(priceId);
   const status = mapStripeStatus(subscription.status);
