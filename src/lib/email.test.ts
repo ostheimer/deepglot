@@ -236,6 +236,7 @@ test("sends duplicate subscription alert through Cloudflare REST API", async (t)
     organizationId: "org_123",
     keptSubscriptionId: "sub_kept",
     orphanedSubscriptionId: "sub_orphaned",
+    signal: AbortSignal.timeout(5000),
   });
 
   assert.equal(result.sent, true);
@@ -244,6 +245,9 @@ test("sends duplicate subscription alert through Cloudflare REST API", async (t)
     requests[0].url,
     "https://api.cloudflare.com/client/v4/accounts/account/email/sending/send"
   );
+  // The abort signal must reach fetch so a stalled provider cannot block the
+  // Stripe webhook past the timeout.
+  assert.ok(requests[0].init?.signal instanceof AbortSignal);
   const body = JSON.parse(String(requests[0].init?.body)) as {
     to: string;
     subject: string;

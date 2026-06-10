@@ -32,6 +32,14 @@ const STRIPE_PLAN_MAP: Record<string, Plan> = BILLING_PLAN_KEYS.reduce(
   {} as Record<string, Plan>
 );
 
+/**
+ * Stripe-subscription metadata key marking that the duplicate-subscription
+ * alert email was already sent for this orphaned subscription. Stored on the
+ * Stripe object (not the DB) so webhook redeliveries dedupe durably across
+ * instances without a schema migration.
+ */
+const DUPLICATE_ALERT_METADATA_KEY = "deepglot_duplicate_alerted";
+
 const WORDS_LIMIT_MAP: Record<Plan, number> = {
   ...(BILLING_PLAN_KEYS.reduce(
     (accumulator, key) => {
@@ -212,14 +220,24 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       "; new subscription is orphaned, cancel/refund it manually:",
       stripeSubscription.id
     );
-    // Alert email so detection does not depend on someone reading logs. A
-    // delivery failure must never fail the webhook — Stripe would retry the
-    // event and re-trigger the alert indefinitely.
+    // Alert email so detection does not depend on someone reading logs.
+    // Guarantees: (1) at most one email per orphaned subscription — a
+    // metadata marker on the Stripe subscription dedupes event redeliveries
+    // durably and across instances, without a DB migration; (2) a delivery
+    // failure or stalled provider (5s abort) must never fail or delay the
+    // webhook — Stripe would retry the event and re-trigger the alert.
+    if (stripeSubscription.metadata?.[DUPLICATE_ALERT_METADATA_KEY]) {
+      return;
+    }
     try {
       await sendDuplicateSubscriptionAlertEmail({
         organizationId,
         keptSubscriptionId,
         orphanedSubscriptionId: stripeSubscription.id,
+        signal: AbortSignal.timeout(5000),
+      });
+      await stripe.subscriptions.update(stripeSubscription.id, {
+        metadata: { [DUPLICATE_ALERT_METADATA_KEY]: new Date().toISOString() },
       });
     } catch (error) {
       console.error(

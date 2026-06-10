@@ -278,10 +278,16 @@ export async function sendDuplicateSubscriptionAlertEmail({
   organizationId,
   keptSubscriptionId,
   orphanedSubscriptionId,
+  signal,
 }: {
   organizationId: string;
   keptSubscriptionId: string;
   orphanedSubscriptionId: string;
+  /**
+   * Bounds the send so a stalled email provider cannot delay acknowledging
+   * the Stripe webhook (which would trigger event retries).
+   */
+  signal?: AbortSignal;
 }) {
   const config = getCloudflareEmailConfig();
   const to = getBillingAlertRecipient();
@@ -292,6 +298,7 @@ export async function sendDuplicateSubscriptionAlertEmail({
 
   const response = await fetch(buildCloudflareEmailApiUrl(config.accountId), {
     method: "POST",
+    signal,
     headers: {
       Authorization: `Bearer ${config.apiToken}`,
       "Content-Type": "application/json",

@@ -52,9 +52,9 @@ The orphaned subscription bills the customer in Stripe but is not tracked by the
 
 Expected behavior:
 
-- The log line appears at most once per duplicate completion; webhook redeliveries for the same subscription id are not flagged.
+- Redeliveries of the kept subscription's own event are never flagged. Redeliveries of the duplicate event log again, but the alert email is sent at most once per orphaned subscription — a `deepglot_duplicate_alerted` metadata marker on the Stripe subscription dedupes it durably.
 - The kept subscription and the organization plan are never modified by the duplicate event.
-- The alert email never blocks webhook processing — a delivery failure is logged and the event still completes.
+- The alert email never blocks webhook processing — the send is bounded by a 5-second timeout, and a delivery failure is logged while the event still completes.
 
 The alert email is built in: set `DEEPGLOT_BILLING_ALERT_EMAIL` to the operations recipient (delivery uses the existing Cloudflare email configuration: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`). A Vercel log-based notification on the string `DUPLICATE SUBSCRIPTION` remains useful as a backup in case email delivery fails.
 

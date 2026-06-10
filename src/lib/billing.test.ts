@@ -468,6 +468,10 @@ test("stripe webhook flags duplicate completed Checkouts and sends the alert ema
   );
   assert.match(webhookRoute, /checkoutCompletionIsDuplicate/);
   assert.match(webhookRoute, /sendDuplicateSubscriptionAlertEmail/);
+  // Alert idempotency: redeliveries dedupe via a Stripe-metadata marker, and
+  // the send is bounded so a stalled provider cannot delay the webhook ack.
+  assert.match(webhookRoute, /deepglot_duplicate_alerted/);
+  assert.match(webhookRoute, /AbortSignal\.timeout/);
 });
 
 test("Stripe customer API call sites guard internal placeholder customer ids", () => {
