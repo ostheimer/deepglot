@@ -121,7 +121,7 @@ The analysis suggests these prioritized decisions for Deepglot:
 
 ## 9. Next implementation steps
 
-> ⚠️ **VERALTET:** Diese Sektion empfiehlt DiDOM als Parser. Die tatsächliche Implementierung nutzt PHP-native DOMDocument. Die DiDOM-Empfehlung ist nicht mehr gültig.
+> ⚠️ **OUTDATED:** This section recommends DiDOM as the parser. The actual implementation uses PHP-native DOMDocument (no external dependency). The DiDOM recommendation is no longer valid.
 
 - Integrate URL and language logic directly into the frontend flow
 - Build parser and string extraction on top of DiDOM
