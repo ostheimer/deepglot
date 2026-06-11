@@ -1,8 +1,14 @@
 # Dynamic Content Translation — Live QA Checklist
 
-Manual verification for the opt-in client-side translator (`assets/js/dynamic-translator.js`, plugin **v0.8.0**) before enabling it in production. The automated `tests/DynamicTranslatorAssetTest.js` covers the logic against a fake DOM; this checklist verifies real browser behavior on a real WordPress site.
+Manual verification for the opt-in client-side translator (`assets/js/dynamic-translator.js`, plugin **v0.8.1**) before enabling it in production. The automated `tests/DynamicTranslatorAssetTest.js` covers the logic against a fake DOM; this checklist verifies real browser behavior on a real WordPress site.
 
 > Target site: `https://www.meinhaushalt.at` (or any staging WP install with the plugin active and at least one target language configured).
+
+## Result — PASSED (2026-06-10, meinhaushalt.at, plugin v0.8.1)
+
+Executed live with the flag enabled. Verified: config + script on translated pages (root-relative endpoint, nonce); injected text translated despite `<html translate="no">`; `img alt` and `textarea placeholder` translated; re-translation after a text change; `contenteditable`, `data-deepglot-no-translate`, and non-root `translate="no"` untouched; session cache answers repeats with zero requests; bot user agents get 403; the anonymous server-rendered output is unchanged (SEO intact); no console errors. Not exercised live: subdomain routing (site uses path-prefix) and the per-IP 429 (covered by unit tests).
+
+The QA surfaced and fixed two production issues: a runtime-sync race that reverted fresh admin saves (v0.8.1, PR #146) and an exhausted monthly word quota that silently returned 402 (limit raised; follow-ups [#147](https://github.com/ostheimer/deepglot/issues/147) and [#148](https://github.com/ostheimer/deepglot/issues/148)).
 
 ## Preconditions
 
