@@ -75,4 +75,4 @@ The server-side pass only translates the HTML present at render time. The option
 - **SEO-safe:** the initial, crawlable HTML is still produced by the server pass; this layer only enhances live interaction and is skipped for bots.
 - **Extraction parity:** the skip rules and attribute whitelist are shared with the server pass via `Support\TranslationRules` (drift-guarded by `tests/TranslationRulesTest.php`); the shipped asset is covered by `tests/DynamicTranslatorAssetTest.js`.
 
-> Status: implemented in **v0.8.0**, shipped **default off** pending live QA on `meinhaushalt.at`. See [DYNAMIC_TRANSLATION_QA.md](DYNAMIC_TRANSLATION_QA.md) for the verification checklist.
+> Status: **live QA passed on 2026-06-10** on `meinhaushalt.at` (plugin v0.8.1, flag enabled there). The toggle remains **off by default** for new installs. See [DYNAMIC_TRANSLATION_QA.md](DYNAMIC_TRANSLATION_QA.md) for the checklist and the recorded result.
