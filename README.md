@@ -38,7 +38,10 @@ npm run typecheck
 npm test
 npm run check:docs-language
 npm run test:e2e
+npm run test:wp
 ```
+
+`npm run test:wp` runs the WordPress plugin PHPUnit test suite (all PHP tests + DynamicTranslatorAssetTest.js).
 
 ## Public routing
 
@@ -131,7 +134,7 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- 25+ PHP unit tests (plus 1 JavaScript test) covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
