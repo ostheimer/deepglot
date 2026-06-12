@@ -6,7 +6,8 @@
  * meinhaushalt.at (2026-06-10): the org had 2 words left, so the plugin's
  * 1-word status ping still returned 200 while real translations were already
  * failing with 402. The status/test-connection ping must use enough words to
- * trip a near-exhausted quota and must classify the 402 distinctly.
+ * trip a near-exhausted quota, must send quota_probe so cache hits cannot mask
+ * exhaustion, and must classify the 402 distinctly.
  */
 
 if (!function_exists('__')) {
@@ -72,8 +73,16 @@ if (!function_exists('__')) {
         ];
 
         $wordCount = dgstatus_payload_word_count(is_array($payload) ? $payload : []);
+        $quotaProbe = is_array($payload) && !empty($payload['quota_probe']);
 
         if ($GLOBALS['_dgstatus_remote_mode'] === 'quota_after_two_words' && $wordCount > 2) {
+            return [
+                'response' => ['code' => 402],
+                'body' => '{"error":"Monthly word quota exhausted"}',
+            ];
+        }
+
+        if ($GLOBALS['_dgstatus_remote_mode'] === 'quota_exhausted_probe' && $quotaProbe) {
             return [
                 'response' => ['code' => 402],
                 'body' => '{"error":"Monthly word quota exhausted"}',
@@ -236,7 +245,21 @@ dgstatusCheck(
     dgstatus_payload_word_count($GLOBALS['_dgstatus_last_post']['payload']) >= 3,
     'Status ping must use enough words to trip a nearly exhausted quota.'
 );
+dgstatusCheck(
+    ($GLOBALS['_dgstatus_last_post']['payload']['quota_probe'] ?? false) === true,
+    'Status ping must send quota_probe so cached probe text cannot hide exhaustion.'
+);
 
+$GLOBALS['_dgstatus_remote_mode'] = 'quota_exhausted_probe';
+$sync = new RestApiQuotaFakeSettingsSync();
+$api = new RestApi(new Options(), $sync);
+$cacheHitStatusResponse = $api->getStatus(new WP_REST_Request());
+$cacheHitStatusData = $cacheHitStatusResponse->get_data();
+
+dgstatusCheck($cacheHitStatusData['connected'] === false, 'Cache-hit quota exhaustion must not report connected=true.');
+dgstatusCheck($cacheHitStatusData['connection_code'] === 'quota_exhausted', 'Cache-hit quota exhaustion must expose a machine-readable code.');
+
+$GLOBALS['_dgstatus_remote_mode'] = 'quota_after_two_words';
 $sync = new RestApiQuotaFakeSettingsSync();
 $api = new RestApi(new Options(), $sync);
 $testResponse = $api->testConnection(new WP_REST_Request([
