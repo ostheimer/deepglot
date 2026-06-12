@@ -100,6 +100,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 - `?api_key=...` is supported
 - `Authorization: Bearer <key>` is supported as an alternative to `?api_key=`
+- Optional `quota_probe: true` in the request body rejects exhausted monthly quotas even when every word is a cache hit (used by the WordPress plugin health ping; normal visitor cache-only traffic is unaffected)
 - The response includes `from_words` and `to_words`
 - Public endpoints:
   - `GET /api/public/status`
