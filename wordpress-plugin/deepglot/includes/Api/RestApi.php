@@ -164,9 +164,10 @@ class RestApi
         $settings  = $this->options->all();
         $connected = false;
         $connError = null;
+        $connCode  = null;
 
         if ($this->options->isConfigured()) {
-            [$connected, $connError] = $this->pingBackend(
+            [$connected, $connError, $connCode] = $this->pingBackend(
                 $settings['api_base_url'],
                 $settings['api_key']
             );
@@ -178,6 +179,7 @@ class RestApi
             'configured'      => $this->options->isConfigured(),
             'connected'       => $connected,
             'connection_error'=> $connError,
+            'connection_code' => $connCode,
             'source_language' => $settings['source_language'],
             'target_languages'=> $settings['target_languages'],
             'api_key_prefix'  => !empty($settings['api_key'])
@@ -204,10 +206,16 @@ class RestApi
             );
         }
 
-        [$ok, $error] = $this->pingBackend($baseUrl, $apiKey);
+        [$ok, $error, $code] = $this->pingBackend($baseUrl, $apiKey);
 
         if (!$ok) {
-            return new WP_REST_Response(['ok' => false, 'error' => $error], 422);
+            $data = ['ok' => false, 'error' => $error];
+
+            if ($code !== null) {
+                $data['code'] = $code;
+            }
+
+            return new WP_REST_Response($data, 422);
         }
 
         $candidateSettings = $this->options->sanitize(array_merge($settings, [
@@ -360,7 +368,7 @@ class RestApi
      * Performs a lightweight liveness check against the Deepglot backend.
      * Sends a minimal translate request and expects a valid JSON response.
      *
-     * @return array{bool, string|null}  [success, error_message]
+     * @return array{bool, string|null, string|null}  [success, error_message, error_code]
      */
     private function pingBackend(string $baseUrl, string $apiKey): array
     {
@@ -373,12 +381,12 @@ class RestApi
             'body'        => wp_json_encode([
                 'l_from' => 'de',
                 'l_to'   => 'en',
-                'words'  => [['w' => 'Test', 't' => 1]],
+                'words'  => [['w' => 'Verbindung jetzt testen', 't' => 1]],
             ]),
         ]);
 
         if (is_wp_error($response)) {
-            return [false, $response->get_error_message()];
+            return [false, $response->get_error_message(), null];
         }
 
         $code = wp_remote_retrieve_response_code($response);
@@ -386,12 +394,20 @@ class RestApi
         $json = json_decode($body, true);
 
         if ($code === 200 && isset($json['to_words'])) {
-            return [true, null];
+            return [true, null, null];
+        }
+
+        if ($code === 402) {
+            return [
+                false,
+                __('Monatliches Wortlimit ausgeschöpft.', 'deepglot'),
+                'quota_exhausted',
+            ];
         }
 
         $detail = isset($json['error']) ? $json['error'] : "HTTP {$code}";
 
-        return [false, $detail];
+        return [false, $detail, null];
     }
 
     /**
