@@ -180,6 +180,13 @@ class RestApi
             'connected'       => $connected,
             'connection_error'=> $connError,
             'connection_code' => $connCode,
+            // True when the quota is exhausted, from EITHER signal: the active
+            // ping above (connCode, which trips even a near-empty quota since
+            // the ping now sends several words) OR a recent real translation
+            // that hit 402 and set this transient (catches partial exhaustion
+            // where the small ping still fits but larger pages no longer do).
+            'quota_exhausted' => $connCode === 'quota_exhausted'
+                                    || (bool) get_transient('deepglot_quota_exhausted'),
             'source_language' => $settings['source_language'],
             'target_languages'=> $settings['target_languages'],
             'api_key_prefix'  => !empty($settings['api_key'])

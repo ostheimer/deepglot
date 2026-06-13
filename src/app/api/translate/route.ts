@@ -149,9 +149,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Skip translation for bots (except human and unknown)
-    // This matches the legacy client behavior - still cache but skip external translation for bots
-    const isBot = bot >= BotType.GOOGLE;
+    // Skip fresh provider calls (and quota) for ALL bot traffic, serving it
+    // from cache only. The threshold is OTHER, not GOOGLE: BotType.OTHER (1) is
+    // "generic crawler/tool", so `>= GOOGLE` wrongly billed every unnamed
+    // crawler as human. Combined with the plugin previously hardcoding bot=0,
+    // crawlers grinding the long-tail archive burned the whole monthly quota
+    // (issue #147). Humans (0) still translate; cache hits are served below
+    // regardless, so bots keep getting already-translated content.
+    const isBot = bot >= BotType.OTHER;
 
     // 4. Validate target language
     const project = apiKeyRecord.project;

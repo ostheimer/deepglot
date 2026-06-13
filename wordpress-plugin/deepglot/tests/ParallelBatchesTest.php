@@ -107,7 +107,7 @@ class DeepglotParallelFakeClient extends Client
 
     public function __construct() {}
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         $this->singleCalls++;
 
@@ -117,7 +117,7 @@ class DeepglotParallelFakeClient extends Client
         ];
     }
 
-    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = ''): array
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0): array
     {
         $results = [];
 

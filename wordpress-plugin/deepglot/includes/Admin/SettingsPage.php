@@ -26,6 +26,37 @@ class SettingsPage
         add_action('admin_menu', [$this, 'registerMenu']);
         add_action('admin_init', [$this, 'registerSettings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueStyles']);
+        add_action('admin_notices', [$this, 'maybeRenderQuotaNotice']);
+    }
+
+    /**
+     * Surfaces an exhausted monthly word quota to operators (issue #148).
+     *
+     * The Client sets the `deepglot_quota_exhausted` transient whenever the
+     * backend answers a translation request with HTTP 402. Without this notice
+     * the failure is invisible — new content silently stays untranslated while
+     * the status card still reports "connected" (the tiny connection ping fits
+     * within any remaining quota). The transient's 1-hour TTL clears the notice
+     * on its own once translations succeed again.
+     */
+    public function maybeRenderQuotaNotice(): void
+    {
+        if (!current_user_can('manage_options') || !get_transient('deepglot_quota_exhausted')) {
+            return;
+        }
+
+        $dashboardUrl = esc_url(self::DASHBOARD_URL . '/abonnement');
+        ?>
+        <div class="notice notice-warning">
+            <p>
+                <strong><?php esc_html_e('Deepglot: Monatliches Wortlimit erreicht.', 'deepglot'); ?></strong>
+                <?php esc_html_e('Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird.', 'deepglot'); ?>
+                <a href="<?php echo $dashboardUrl; ?>" target="_blank" rel="noopener noreferrer">
+                    <?php esc_html_e('Kontingent im Deepglot-Dashboard prüfen', 'deepglot'); ?>
+                </a>
+            </p>
+        </div>
+        <?php
     }
 
     public function registerMenu(): void

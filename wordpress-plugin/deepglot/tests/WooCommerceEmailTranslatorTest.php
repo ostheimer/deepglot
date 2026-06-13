@@ -81,7 +81,7 @@ class DeepglotWooFakeClient extends Client
     {
     }
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         $this->calls[] = compact('texts', 'langFrom', 'langTo', 'requestUrl');
 
@@ -100,7 +100,7 @@ class DeepglotWooFakeHtmlTranslator extends HtmlTranslator
     {
     }
 
-    public function translate(string $html, string $targetLanguage): string
+    public function translate(string $html, string $targetLanguage, string $requestUrl = '', int $bot = 0): string
     {
         $this->calls[] = [
             'html' => $html,

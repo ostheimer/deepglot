@@ -81,6 +81,11 @@ if (!function_exists('__')) {
                 public array $data = []
             ) {
             }
+
+            public function get_error_data()
+            {
+                return $this->data;
+            }
         }
     }
 
@@ -172,7 +177,7 @@ class DynamicFakeClient extends Client
     {
     }
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         $this->callCount++;
         $this->lastTexts = $texts;
@@ -181,6 +186,23 @@ class DynamicFakeClient extends Client
             'from_words' => array_values($texts),
             'to_words'   => array_map(static fn(string $t) => '[' . $langTo . '] ' . $t, array_values($texts)),
         ];
+    }
+}
+
+/** Models a backend that has exhausted the monthly word quota (HTTP 402). */
+class QuotaExhaustedFakeClient extends Client
+{
+    public int $callCount = 0;
+
+    public function __construct()
+    {
+    }
+
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    {
+        $this->callCount++;
+
+        return new WP_Error('deepglot_api_error', 'Monatliches Wortlimit erreicht', ['status' => 402]);
     }
 }
 
@@ -322,5 +344,21 @@ for ($i = 0; $i < 250; $i++) {
 $result = $controller->translateTexts($texts, 'en', true);
 dynCheck($client->callCount === 1, 'Oversized request still results in a single API call.');
 dynCheck(count($client->lastTexts) === 200, 'Request must be capped at 200 strings, got ' . count($client->lastTexts) . '.');
+
+// 12. A 402 (quota exhausted) flags the response so the browser client stops
+//     retrying, while any cached strings still serve.
+configureDynamicOptions();
+$client = new QuotaExhaustedFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache(['Hallo' => '[en] Hallo']));
+$result = $controller->translateTexts(['Hallo', 'Neu'], 'en', true);
+dynCheck($client->callCount === 1, 'A cache miss still calls the API once before the 402 surfaces.');
+dynCheck(($result['quota_exhausted'] ?? false) === true, 'A 402 must set quota_exhausted on the response.');
+dynCheck($result['to_words'] === ['[en] Hallo'], 'Cached strings must still serve when the quota is exhausted.');
+
+// 13. A successful translation must NOT carry the quota_exhausted flag.
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$result = $controller->translateTexts(['Neu'], 'en', true);
+dynCheck(!array_key_exists('quota_exhausted', $result), 'A successful response must not carry quota_exhausted.');
 
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");
