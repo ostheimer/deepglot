@@ -69,6 +69,11 @@
   var pendingAttrs = [];                  // {el, attr, key}
   var flushTimer = null;
   var observer = null;
+  // Set once the proxy reports the monthly word quota is exhausted (HTTP 402
+  // upstream). We keep applying anything already cached but stop sending new
+  // strings for the rest of the session, so a capped site does not hammer the
+  // endpoint on every mutation (issue #148).
+  var quotaExhausted = false;
 
   var observedAttrs = Object.create(null);
   Object.keys(attrMap).forEach(function (tag) {
@@ -262,7 +267,7 @@
     }
     for (var i = 0; i < pendingNodes.length; i++) addNeed(pendingNodes[i].key);
     for (var j = 0; j < pendingAttrs.length; j++) addNeed(pendingAttrs[j].key);
-    if (!need.length) return;
+    if (!need.length || quotaExhausted) return;
 
     for (var start = 0; start < need.length; start += batchSize) {
       var chunk = need.slice(start, start + batchSize);
@@ -273,6 +278,7 @@
 
   /** Record real translations; map anything not returned to itself (no-op). */
   function ingest(texts, data) {
+    if (data && data.quota_exhausted) quotaExhausted = true;
     var handled = Object.create(null);
     if (data && Array.isArray(data.from_words) && Array.isArray(data.to_words)) {
       for (var i = 0; i < data.from_words.length; i++) {

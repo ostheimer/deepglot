@@ -110,7 +110,7 @@ class DeepglotExclusionsFakeClient extends Client
     {
     }
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         $this->lastTexts = $texts;
 

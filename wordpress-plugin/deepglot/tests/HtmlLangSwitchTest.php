@@ -109,6 +109,7 @@ require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
 require_once __DIR__ . '/../includes/Support/SiteRouting.php';
+require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
 require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
 require_once __DIR__ . '/../includes/Frontend/LinkRewriter.php';
@@ -131,7 +132,7 @@ class DeepglotLangFakeClient extends Client
 {
     public function __construct() {}
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         return [
             'from_words' => $texts,

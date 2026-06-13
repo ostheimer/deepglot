@@ -413,6 +413,29 @@ async function testRawWhitespaceKeyIsSent() {
   assert.equal(text.data, '  Hallo  ');
 }
 
+async function testQuotaExhaustedStopsFurtherRequests() {
+  // The proxy reports the monthly quota is exhausted; nothing comes back
+  // translated, and the client must stop sending new strings for the session.
+  const harness = createHarness(async () => jsonResponse({
+    from_words: [],
+    to_words: [],
+    quota_exhausted: true,
+  }));
+
+  const first = harness.document.createTextNode('First string');
+  harness.document.body.appendChild(first);
+  await harness.runTimers();
+  assert.deepEqual(harness.fetchCalls, [['First string']]);
+
+  // New content after the 402 signal must NOT trigger another request; it
+  // simply stays in the source language (fail-open).
+  const second = harness.document.createTextNode('Second string');
+  harness.document.body.appendChild(second);
+  await harness.runTimers();
+  assert.deepEqual(harness.fetchCalls, [['First string']]);
+  assert.equal(second.data, 'Second string');
+}
+
 async function main() {
   const tests = [
     testProcessedTextNodeCanBeTranslatedAfterChanging,
@@ -425,6 +448,7 @@ async function main() {
     testTextareaPlaceholderIsTranslated,
     testStaleNonceRetriesWithoutNonce,
     testRawWhitespaceKeyIsSent,
+    testQuotaExhaustedStopsFurtherRequests,
   ];
 
   for (const test of tests) {

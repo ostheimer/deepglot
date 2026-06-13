@@ -30,12 +30,15 @@ class Client
      * @param  string   $langFrom   ISO 639-1 source language code (e.g. "de").
      * @param  string   $langTo     ISO 639-1 target language code (e.g. "en").
      * @param  string   $requestUrl Optional page URL for analytics.
+     * @param  int      $bot        Legacy bot code (0 human … 6 Yandex); the
+     *                              SaaS exempts bot traffic from the quota and
+     *                              serves it cache-only. See BotDetector.
      * @return array|\WP_Error      On success: ['from_words' => [...], 'to_words' => [...]].
      */
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         return $this->buildTranslateResponse($this->dispatchTranslate(
-            $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl)
+            $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl, $bot)
         ));
     }
 
@@ -51,7 +54,7 @@ class Client
      * @param  array<int|string, string[]> $batches
      * @return array<int|string, array|\WP_Error>
      */
-    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = ''): array
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0): array
     {
         if (empty($batches)) {
             return [];
@@ -64,7 +67,7 @@ class Client
                 continue;
             }
 
-            $payloads[$key] = $this->buildTranslatePayload($batch, $langFrom, $langTo, $requestUrl);
+            $payloads[$key] = $this->buildTranslatePayload($batch, $langFrom, $langTo, $requestUrl, $bot);
         }
 
         if (empty($payloads)) {
@@ -98,14 +101,14 @@ class Client
      * @param  string[] $texts
      * @return array<string, mixed>
      */
-    private function buildTranslatePayload(array $texts, string $langFrom, string $langTo, string $requestUrl): array
+    private function buildTranslatePayload(array $texts, string $langFrom, string $langTo, string $requestUrl, int $bot = 0): array
     {
         return [
             'l_from'      => $langFrom,
             'l_to'        => $langTo,
             'words'       => array_map(static fn(string $word) => ['w' => $word, 't' => 1], $texts),
             'request_url' => $requestUrl,
-            'bot'         => 0,
+            'bot'         => $bot,
         ];
     }
 
@@ -191,6 +194,7 @@ class Client
             $decoded = json_decode($body, true);
 
             if ($statusCode >= 400) {
+                $this->maybeFlagQuotaExhausted($statusCode);
                 $results[$key] = new \WP_Error(
                     'deepglot_api_error',
                     is_array($decoded) && !empty($decoded['error'])
@@ -300,6 +304,8 @@ class Client
         $decoded = json_decode($body, true);
 
         if ($statusCode >= 400) {
+            $this->maybeFlagQuotaExhausted((int) $statusCode);
+
             return new \WP_Error(
                 'deepglot_api_error',
                 is_array($decoded) && !empty($decoded['error']) ? $decoded['error'] : __('Deepglot API Fehler.', 'deepglot'),
@@ -308,5 +314,19 @@ class Client
         }
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * A 402 from the backend means the monthly word quota is exhausted.
+     * Persist a short-lived marker so the admin notice and the status
+     * endpoint can surface it without extra backend calls (issue #148);
+     * re-set on every 402, so the notice clears about an hour after
+     * translations start succeeding again.
+     */
+    private function maybeFlagQuotaExhausted(int $statusCode): void
+    {
+        if ($statusCode === 402 && function_exists('set_transient')) {
+            set_transient('deepglot_quota_exhausted', time(), 3600);
+        }
     }
 }

@@ -4,6 +4,7 @@ namespace Deepglot\Frontend;
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
+use Deepglot\Support\BotDetector;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
@@ -77,13 +78,20 @@ class OutputBuffer
         $editorMode = $this->isEditorMode();
         $editorSegments = [];
 
-        // Step 1: translate text nodes.
+        // Step 1: translate text nodes. Pass the page URL (SaaS URL analytics,
+        // issue #147 found it was always empty) and the visitor's bot code —
+        // the SaaS exempts bot traffic from the word quota and serves it from
+        // its translation cache only, so crawlers grinding the long-tail
+        // archive no longer burn the monthly quota.
+        $requestUrl = $this->currentRequestUrl();
+        $bot = BotDetector::detectCurrentRequest();
+
         if ($editorMode) {
-            $translated = $this->translator->translateForEditor($html, $targetLanguage);
+            $translated = $this->translator->translateForEditor($html, $targetLanguage, $requestUrl);
             $html = $translated['html'];
             $editorSegments = $translated['segments'];
         } else {
-            $html = $this->translator->translate($html, $targetLanguage);
+            $html = $this->translator->translate($html, $targetLanguage, $requestUrl, $bot);
         }
 
         // Steps 2 + 3 need the DOM, so load once.

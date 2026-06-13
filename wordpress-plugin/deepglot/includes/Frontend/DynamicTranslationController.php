@@ -117,7 +117,7 @@ class DynamicTranslationController
      * @param  array<int, mixed> $texts
      * @param  bool              $allowApi  When false (no valid nonce) only
      *                                      cached translations are returned.
-     * @return array{from_words: string[], to_words: string[]}
+     * @return array{from_words: string[], to_words: string[], quota_exhausted?: bool}
      */
     public function translateTexts(array $texts, string $langTo, bool $allowApi): array
     {
@@ -151,12 +151,21 @@ class DynamicTranslationController
         $missing = array_values(array_filter($texts, static fn(string $t) => !isset($cached[$t])));
 
         $fresh = [];
+        $quotaExhausted = false;
 
         if ($allowApi && !empty($missing)) {
             $response = $this->client->translate($missing, $langFrom, $langTo);
 
-            if (!is_wp_error($response)
-                && is_array($response)
+            if (is_wp_error($response)) {
+                $errorData = $response->get_error_data();
+                if (is_array($errorData) && (int) ($errorData['status'] ?? 0) === 402) {
+                    // Monthly word quota exhausted (issue #148): flag it so the
+                    // browser client stops retrying for this session. Cached
+                    // translations below still serve.
+                    $quotaExhausted = true;
+                }
+            } elseif (
+                is_array($response)
                 && isset($response['from_words'], $response['to_words'])
                 && is_array($response['from_words'])
                 && is_array($response['to_words'])
@@ -185,7 +194,13 @@ class DynamicTranslationController
             }
         }
 
-        return ['from_words' => $fromWords, 'to_words' => $toWords];
+        $result = ['from_words' => $fromWords, 'to_words' => $toWords];
+
+        if ($quotaExhausted) {
+            $result['quota_exhausted'] = true;
+        }
+
+        return $result;
     }
 
     // -------------------------------------------------------------------------

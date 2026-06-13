@@ -101,7 +101,7 @@ class DeepglotA11yFakeClient extends Client
 
     public function __construct() {}
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '')
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         foreach ($texts as $text) {
             $this->sentTexts[] = $text;

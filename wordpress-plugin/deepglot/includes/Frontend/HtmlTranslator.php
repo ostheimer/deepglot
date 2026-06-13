@@ -111,24 +111,30 @@ class HtmlTranslator
     /**
      * Translates all text nodes in the given HTML string from the source
      * language to $targetLanguage and returns the modified HTML.
+     *
+     * @param string $requestUrl Page URL for the SaaS URL analytics.
+     * @param int    $bot        Legacy bot code (see BotDetector) — the SaaS
+     *                           exempts bot traffic from the quota and serves
+     *                           it cache-only.
      */
-    public function translate(string $html, string $targetLanguage): string
+    public function translate(string $html, string $targetLanguage, string $requestUrl = '', int $bot = 0): string
     {
-        return $this->translateDocument($html, $targetLanguage, false)['html'];
+        return $this->translateDocument($html, $targetLanguage, false, $requestUrl, $bot)['html'];
     }
 
     /**
      * @return array{html: string, segments: array<int, array<string, string>>}
      */
-    public function translateForEditor(string $html, string $targetLanguage): array
+    public function translateForEditor(string $html, string $targetLanguage, string $requestUrl = ''): array
     {
-        return $this->translateDocument($html, $targetLanguage, true);
+        // The visual editor is always a human session.
+        return $this->translateDocument($html, $targetLanguage, true, $requestUrl, 0);
     }
 
     /**
      * @return array{html: string, segments: array<int, array<string, string>>}
      */
-    private function translateDocument(string $html, string $targetLanguage, bool $annotateSegments): array
+    private function translateDocument(string $html, string $targetLanguage, bool $annotateSegments, string $requestUrl = '', int $bot = 0): array
     {
         if ($html === '') {
             return ['html' => $html, 'segments' => []];
@@ -179,13 +185,13 @@ class HtmlTranslator
         $batches = array_chunk($missing, self::BATCH_SIZE);
 
         if (count($batches) > 1) {
-            $batchResults = $this->client->translateBatches($batches, $sourceLang, $targetLanguage);
+            $batchResults = $this->client->translateBatches($batches, $sourceLang, $targetLanguage, $requestUrl, $bot);
 
             foreach ($batchResults as $result) {
                 $this->mergeTranslateResult($apiResults, $result);
             }
         } elseif (!empty($batches)) {
-            $result = $this->client->translate($batches[0], $sourceLang, $targetLanguage);
+            $result = $this->client->translate($batches[0], $sourceLang, $targetLanguage, $requestUrl, $bot);
             $this->mergeTranslateResult($apiResults, $result);
         }
 
