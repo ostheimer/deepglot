@@ -386,9 +386,10 @@ class RestApi
             'redirection' => 2,
             'headers'     => ['Content-Type' => 'application/json'],
             'body'        => wp_json_encode([
-                'l_from' => 'de',
-                'l_to'   => 'en',
-                'words'  => [['w' => 'Verbindung jetzt testen', 't' => 1]],
+                'l_from'      => 'de',
+                'l_to'        => 'en',
+                'quota_probe' => true,
+                'words'       => [['w' => 'Verbindung jetzt testen', 't' => 1]],
             ]),
         ]);
 
