@@ -108,16 +108,17 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.1**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 also fixes a runtime-sync race that could revert freshly saved admin settings on busy sites.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at`. The client-side dynamic-content translator is **enabled** (live QA passed on 2026-06-10, see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 fixed a runtime-sync race that could revert freshly saved admin settings on busy sites. v0.8.2 adds bot-traffic detection (`BotDetector`) and quota-exhaustion signals.
 
 Features:
 
 - PHP autoloader and lightweight service container
 - URL language resolver and request router (path-prefix and subdomain routing)
 - OutputBuffer + HTML translator using DOMDocument — no external PHP dependencies
+- Bot-traffic detection: `BotDetector` maps visitor user-agent to a bot code and threads it through `OutputBuffer → HtmlTranslator → Client`; bots are served cache-only so crawlers never spend translation quota; the SaaS `isBot` threshold is corrected to `BotType.OTHER` (previously only `GOOGLE` and above were exempt)
 - Optional client-side dynamic-content translator: a MutationObserver re-translates AJAX / infinite-scroll / SPA content added after page load through a same-origin REST proxy (`POST /wp-json/deepglot/v1/translate-dynamic`); opt-in via `enable_dynamic_translation`, cache-first (a missing nonce never spends quota), and SEO-safe because the server pass still renders the initial crawlable HTML
 - JSON-LD and accessibility attribute translation
-- Deepglot API client (HTTP requests to the Next.js backend)
+- Deepglot API client (HTTP requests to the Next.js backend) — passes `request_url` so SaaS per-URL analytics are accurate
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
 - hreflang SEO tags and `<html lang>` switching
@@ -127,11 +128,12 @@ Features:
 - WordPress nav-menu integration
 - Admin settings page with 7-section tab UI (General, Language Model, Switcher, Exclusions, Setup, WordPress Settings, Members)
 - Guided 3-step setup wizard on first activation
-- REST API v1 at `/wp-json/deepglot/v1/` for settings CRUD, status, and test-connection
+- REST API v1 at `/wp-json/deepglot/v1/` for settings CRUD, status, and test-connection; the status endpoint exposes `quota_exhausted` when the plan limit is reached
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- Quota-exhaustion signals: health ping sends real words to catch near-empty quotas (a 1-word ping passed while real pages got 402); 402 classified as `connection_code: quota_exhausted`; `deepglot_quota_exhausted` transient set on first 402; wp-admin notice shown when exhausted; dynamic-translator proxy returns `quota_exhausted` so the browser client stops retrying for the session
+- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, WooCommerce email, and bot detection
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
