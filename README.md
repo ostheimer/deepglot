@@ -389,7 +389,7 @@ Deepglot automatically notifies operators when the monthly word quota approaches
 - **Owner email**: when a translation request causes usage to cross the 90% or 100% threshold, the org owner receives a bilingual email. Emails are sent at most once per org per threshold per month, deduped via the `UsageAlert` table (unique on `organizationId + month + threshold`). A 5-second send timeout prevents email delivery from delaying or failing the translation.
 - **WordPress plugin signals**: a `deepglot_quota_exhausted` transient is set and a wp-admin notice is displayed when the health ping or a live translation request returns 402; the dynamic-translator proxy also returns `quota_exhausted` so the browser client stops retrying for the session.
 
-Configure the owner email recipient via `DEEPGLOT_BILLING_ALERT_EMAIL`; delivery uses the existing Cloudflare Email Sending setup (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`).
+Quota alert emails are sent to the org owner's registered address automatically — no separate recipient env var is needed. Delivery requires the Cloudflare Email Sending setup (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`); when that config is absent, `canSendEmail()` returns false and alerts are silently skipped. (`DEEPGLOT_BILLING_ALERT_EMAIL` is a separate env var used only for the duplicate-subscription operations alert.)
 
 ## Documentation guardrail
 
