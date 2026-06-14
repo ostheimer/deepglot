@@ -123,7 +123,7 @@ export default async function NutzungPage() {
 
       <UsageCharts
         totalWords={totalWords}
-        wordsLimit={limits.words}
+        wordsLimit={effectiveWordsLimit}
         totalRequests={totalRequests}
         requestsLimit={limits.requests}
         pieWordData={pieWordData}
