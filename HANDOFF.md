@@ -5,24 +5,30 @@ This file captures the current project state so work can continue in a new chat 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `f30b021` (`fix(quota): stop bot traffic burning translation quota + surface 402 (#153)`)
+- Latest production commit: `9756310b` (`feat(billing): email the org owner when the word quota nears/hits its limit (#157)`)
 - WordPress plugin **v0.8.2** deployed on `meinhaushalt.at`; dynamic-content translation **enabled** (live QA verified 2026-06-10); v0.8.2 adds `BotDetector` and quota-exhaustion signals
+- SaaS quota warnings fully shipped: dashboard amber/red banner (PR #154) and bilingual owner email at 90%/100% (PR #157, `UsageAlert` table); ROADMAP 8.33 ✅ Completed
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
 ## Completed In The Latest Session (since 2026-05-06)
 
+### SaaS Quota Warnings: Dashboard Banner + Owner Email (2026-06-14)
+
+- **Dashboard warning banner** (ROADMAP 8.33 SaaS, PR #154, 2026-06-14): The subscription usage page now shows an amber banner at ≥90% and a red banner at ≥100% of the org's effective word limit (`getEffectiveWordsLimit`). `quotaUsageLevel()` is a pure unit-tested threshold function; `UsageCharts` uses the same limit so the word-count percentage is consistent. Dashboard half of the SaaS side of #148.
+- **Bilingual owner email at 90%/100% quota** (ROADMAP 8.33 SaaS, PR #157, 2026-06-14): `/api/translate` emails the org owner once per org per month when usage crosses 90% (warning) or 100% (limit reached). Deduped via new `UsageAlert(organizationId, month, threshold)` unique table (claimed before send, rolled back on failure to allow retry). Bilingual email. 5s send timeout; a send failure is logged and never delays or fails the translation. Closes #148. ROADMAP 8.33 ✅ fully closed.
+
 ### Bot Detection & Quota Visibility, v0.8.2 (2026-06-12 – 2026-06-13)
 
 - **Bot-traffic detection** (ROADMAP 8.32, PR #153, plugin v0.8.2, 2026-06-13): New `BotDetector` class maps visitor user-agent to a legacy bot code, threaded `OutputBuffer → HtmlTranslator → Client`. Also passes `request_url` from the plugin to the SaaS — this field was previously empty, causing gaps in per-URL analytics. The SaaS `isBot` threshold corrected from `bot >= GOOGLE` to `bot >= OTHER`, so generic crawlers are now exempt. Bots served cache-only; SEO unaffected. Test-first: `BotDetectorTest`. Closes #147. ROADMAP 8.32 closed.
-- **Quota-exhaustion signals** (ROADMAP 8.33, PRs #152 + #153, plugin v0.8.2, 2026-06-12 + 2026-06-13): Health ping now sends several real words (a 1-word ping was passing while near-empty quota already 402'd real pages). 402 classified as `connection_code: quota_exhausted`. `deepglot_quota_exhausted` transient set on first 402. Status endpoint (`/wp-json/deepglot/v1/status`) exposes `quota_exhausted` from either signal. Plugin shows wp-admin notice when exhausted. Dynamic-translator proxy returns `quota_exhausted` so browser client stops retrying for the session. Closes plugin half of #148. SaaS-side follow-up (proactive owner email + dashboard banner) remains open.
+- **Quota-exhaustion signals** (ROADMAP 8.33 plugin side, PRs #152 + #153, plugin v0.8.2, 2026-06-12 + 2026-06-13): Health ping now sends several real words (a 1-word ping was passing while near-empty quota already 402'd real pages). 402 classified as `connection_code: quota_exhausted`. `deepglot_quota_exhausted` transient set on first 402. Status endpoint (`/wp-json/deepglot/v1/status`) exposes `quota_exhausted` from either signal. Plugin shows wp-admin notice when exhausted. Dynamic-translator proxy returns `quota_exhausted` so browser client stops retrying for the session. Plugin half of #148; SaaS side completed in PRs #154 + #157.
 
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
 
 - **Live QA passed on `meinhaushalt.at`** (2026-06-10, plugin v0.8.1, flag enabled): injected text + accessibility attributes translate, re-translation on change, no-translate/`contenteditable` markers respected, session cache avoids repeat requests, bots 403, SEO output unchanged. Result recorded in `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`; ROADMAP 8.27 closed.
 - **Plugin v0.8.1 — runtime-sync race fix** (PR #146, found live during QA): `applyRuntimeConfig()` no longer writes the request's stale options snapshot back (cache eviction + fresh re-read), and discards payloads fetched with a stale API key or base URL. Test-first: `RuntimeConfigRaceTest` (4 scenarios). Before the fix, frontend traffic silently reverted admin saves — every setting affected.
-- **Quota finding:** the meinhaushalt org had burned its 1M-word month (May >1M too); fresh translations silently returned 402 while status pings stayed green. Limit manually raised 1M → 5M (manual ENTERPRISE subscription, `stripeSubscriptionId IS NULL` verified). Follow-ups addressed by v0.8.2: usage investigation ([#147](https://github.com/ostheimer/deepglot/issues/147)) resolved by BotDetector; 402 visibility ([#148](https://github.com/ostheimer/deepglot/issues/148)) resolved at plugin level.
+- **Quota finding:** the meinhaushalt org had burned its 1M-word month (May >1M too); fresh translations silently returned 402 while status pings stayed green. Limit manually raised 1M → 5M (manual ENTERPRISE subscription, `stripeSubscriptionId IS NULL` verified). Follow-ups fully addressed: #147 (BotDetector, v0.8.2), #148 (quota visibility, v0.8.2 plugin + PRs #154/#157 SaaS).
 - **Email alert on duplicate Stripe subscription** (PR #145): operations email from the `checkout.session.completed` duplicate branch; recipient `DEEPGLOT_BILLING_ALERT_EMAIL` (set in Vercel Production); at-most-once via Stripe-metadata marker written only after a real send; 5s send timeout; untracked-subscription guards in subscription.updated/invoice handlers. OPERATIONS runbook updated (PR #143).
 - **Checkout concurrency closed** (PRs #131 + #142, issues #138): Stripe-authoritative subscription guard (paginated) + open-session reuse/expire + duplicate flagging; ROADMAP 8.28/8.29.
 - **Docs triage:** #132 (test command, routes, test list — trimmed against #130), #129 (self-host model default, Phase 7.8 status), #126 (provider list, i18n/glossary/Stripe script docs — corrected a non-existent admin cache-flush claim).
@@ -81,7 +87,7 @@ This file captures the current project state so work can continue in a new chat 
 
 Latest already-completed checks:
 
-- GitHub Actions `main` CI passed for commit `f30b021`.
+- GitHub Actions `main` CI passed for commit `9756310b`.
 - Vercel Production deployment is ready.
 - `npm run acceptance:stripe --mode live` PASS.
 
@@ -107,22 +113,19 @@ npm run test:e2e
 
 - Phase 6 subdomain live QA remains blocked until a real mapped production host is configured through `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
 - Visual editor token still passed in the launch URL (`?deepglot_editor_token`); moving it out of the URL requires a coordinated WordPress-plugin change (noted in PR #98).
-- SaaS-side quota-exhaustion notifications (proactive owner email + dashboard banner, ROADMAP 8.33 follow-up) not yet implemented.
 
 ## Open Roadmap Items
 
 - **8.2** Switcher Weglot-parity: multi-switcher instances, visual switcher editor, pre-made templates (P2).
 - **8.3** Strategic Weglot competitive gaps: in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN (P3).
 - **8.4** Housekeeping: dead `DATABASE_*` env vars and stale `AccessibilityAttributeTranslationTest 2.php` (P4).
-- **8.33 SaaS follow-up** Proactive owner email + dashboard banner for quota exhaustion (plugin side shipped in v0.8.2; SaaS side open).
 - **7.13** Anti-drift guard for marketing copy (`marketing-home.test.ts`).
 - **7.14** Playwright slider-alignment regression test for `pricing-grid.tsx`.
 - **7.15** Stripe webhook end-to-end smoke for subscription-lifecycle events.
 
 ## Recommended Next Work
 
-- **Update the marketing site**: dynamic/AJAX/SPA content translation, bot-traffic protection, and quota-exhaustion visibility are now live and QA-verified — real Weglot-parity selling points worth highlighting.
-- **SaaS-side quota alerts** (ROADMAP 8.33 follow-up): proactive owner email and dashboard banner for quota exhaustion are not yet implemented on the SaaS side.
+- **Update the marketing site**: dynamic/AJAX/SPA content translation, bot-traffic protection, quota-exhaustion visibility with dashboard banner and owner email are all live — real Weglot-parity selling points worth highlighting.
 - **Continue Phase 8.2/8.3** (Weglot competitive parity: multi-switcher instances, visual switcher editor, translation memory, PDF translation, multilingual sitemap) or **8.4** (Housekeeping: dead env vars, stale test duplicate).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.

@@ -381,6 +381,16 @@ Deepglot uses a `Plan` enum in the database schema with the following values:
 
 Active plan limits and prices are configured in `src/lib/billing-plans.ts`. Stripe price IDs are supplied via `STRIPE_PRICE_*` environment variables (e.g. `STRIPE_PRICE_STARTER_MONTHLY`).
 
+## Quota warnings and alerts
+
+Deepglot automatically notifies operators when the monthly word quota approaches or reaches its limit:
+
+- **Dashboard banner**: the subscription usage page shows an amber warning at ≥90% usage and a red warning at ≥100% (quota exhausted). The threshold is computed by `quotaUsageLevel()` against the effective word limit from the subscription record (`getEffectiveWordsLimit`).
+- **Owner email**: when a translation request causes usage to cross the 90% or 100% threshold, the org owner receives a bilingual email. Emails are sent at most once per org per threshold per month, deduped via the `UsageAlert` table (unique on `organizationId + month + threshold`). A 5-second send timeout prevents email delivery from delaying or failing the translation.
+- **WordPress plugin signals**: a `deepglot_quota_exhausted` transient is set and a wp-admin notice is displayed when the health ping or a live translation request returns 402; the dynamic-translator proxy also returns `quota_exhausted` so the browser client stops retrying for the session.
+
+Configure the owner email recipient via `DEEPGLOT_BILLING_ALERT_EMAIL`; delivery uses the existing Cloudflare Email Sending setup (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`).
+
 ## Documentation guardrail
 
 - Run `npm run check:docs-language` to verify that Markdown documentation stays in English.
