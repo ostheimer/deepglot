@@ -34,3 +34,32 @@ export function quotaUsageLevel(
 
   return "ok";
 }
+
+/**
+ * Percent thresholds the owner quota emails alert on. 90 mirrors the dashboard
+ * QUOTA_WARNING_RATIO; 100 is the hard limit.
+ */
+export const QUOTA_ALERT_THRESHOLDS: readonly number[] = [
+  Math.round(QUOTA_WARNING_RATIO * 100),
+  100,
+];
+
+/**
+ * Returns the alert thresholds an accepted increment newly crossed — those
+ * at-or-below `usedAfter` but strictly above `usedBefore`. Pure and IO-free so
+ * the translate hot path only does DB/email work on the rare crossing request.
+ */
+export function crossedQuotaThresholds(
+  usedBefore: number,
+  usedAfter: number,
+  limit: number,
+): number[] {
+  if (limit <= 0 || usedAfter <= usedBefore) {
+    return [];
+  }
+
+  return QUOTA_ALERT_THRESHOLDS.filter((threshold) => {
+    const cutoff = (threshold / 100) * limit;
+    return usedBefore < cutoff && usedAfter >= cutoff;
+  });
+}

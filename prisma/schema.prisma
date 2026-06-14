@@ -81,6 +81,24 @@ model Organization {
   subscription Subscription?
   usageRecords UsageRecord[]
   translationBatchLogs TranslationBatchLog[]
+  usageAlerts  UsageAlert[]
+}
+
+/// Dedup marker for the monthly word-quota warning emails to the org owner.
+/// One row per (organization, month, threshold) means each threshold (e.g.
+/// 90% and 100%) alerts at most once per billing month; the unique constraint
+/// also blocks concurrent translate requests from double-sending.
+model UsageAlert {
+  id             String   @id @default(cuid())
+  organizationId String
+  month          Int      // YYYYMM, e.g. 202606 — matches UsageRecord.month
+  threshold      Int      // percent of the effective limit, e.g. 90 or 100
+  sentAt         DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, month, threshold])
+  @@index([organizationId, month])
 }
 
 enum Plan {
