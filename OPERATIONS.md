@@ -107,7 +107,16 @@ UPDATE "Subscription" SET "wordsLimit" = <new_limit> WHERE "organizationId" = '<
 After the update:
 
 1. Clear the WordPress plugin transient **first** so that the status endpoint reflects the live ping rather than the stale 402-set value: `wp transient delete deepglot_quota_exhausted` (or `wp transient delete --all`).
-2. Run `npm run smoke:production` and verify `GET /wp-json/deepglot/v1/status` (authenticated, Application Password) no longer returns `quota_exhausted: true`. (The endpoint ORs the live ping result with the existing transient — clearing first ensures an accurate read.)
+2. Verify the quota gate is genuinely open by sending a **fresh, uncached** translation request — `smoke:production` and `GET /wp-json/deepglot/v1/status` alone are not sufficient: if the SaaS has already cached the health-ping phrase `"Verbindung jetzt testen"`, both return clean results without exercising the real quota gate. Send a request with a string not already in the translation cache:
+
+   ```bash
+   curl -X POST https://deepglot.ai/api/translate \
+     -H "Authorization: Bearer <api_key>" \
+     -H "Content-Type: application/json" \
+     -d '{"text":"quota-check-$(date +%s)","from":"de","to":"en","projectId":"<project_id>"}'
+   ```
+
+   A `200` response confirms the effective quota is restored. A `402` response means `wordsLimit` or subscription status was not updated correctly.
 
 ## Neon Restore Drill
 

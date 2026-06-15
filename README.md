@@ -108,7 +108,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 fixed a runtime-sync race that could revert freshly saved admin settings on busy sites. v0.8.2 adds bot-traffic quota protection (crawlers served cache-only, quota unaffected) and proactive quota-exhaustion surfacing to operators (wp-admin notice, dashboard warning/limit-reached banners, and owner email alerts at 90 %/100 % of the monthly word limit).
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 fixed a runtime-sync race that could revert freshly saved admin settings on busy sites. v0.8.2 adds bot-traffic quota protection (crawlers served cache-only, quota-safe on cache hits; cache-poisoning guard for identity mappings on first-visit cache misses is tracked in [#163](https://github.com/ostheimer/deepglot/issues/163)) and proactive quota-exhaustion surfacing to operators (wp-admin notice, dashboard warning/limit-reached banners, and owner email alerts at 90 %/100 % of the monthly word limit).
 
 Features:
 
