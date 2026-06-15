@@ -162,6 +162,15 @@ function formatCloudflareEmailError(response: CloudflareEmailResponse) {
   return message || "Unknown Cloudflare Email Sending error";
 }
 
+function escapeHtmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendPasswordResetEmail({
   to,
   resetUrl,
@@ -310,6 +319,137 @@ export async function sendDuplicateSubscriptionAlertEmail({
         organizationId,
         keptSubscriptionId,
         orphanedSubscriptionId,
+      })
+    ),
+  });
+  const data = (await response.json().catch(() => null)) as
+    | CloudflareEmailResponse
+    | null;
+
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      `Cloudflare Email Sending failed: ${
+        data ? formatCloudflareEmailError(data) : response.statusText
+      }`
+    );
+  }
+
+  return { sent: true as const, provider: "cloudflare" as const, result: data.result };
+}
+
+/**
+ * Owner-facing monthly word-quota warning (#148). Bilingual (EN + DE) because
+ * the org owner's UI locale is not reliably known at send time. `threshold` is
+ * the percent that was crossed (e.g. 90 or 100); at 100 the wording switches
+ * from "approaching" to "reached".
+ */
+export function buildQuotaAlertEmailPayload({
+  to,
+  from,
+  organizationName,
+  threshold,
+  wordsUsed,
+  wordsLimit,
+  dashboardUrl,
+}: {
+  to: string;
+  from: string;
+  organizationName: string;
+  threshold: number;
+  wordsUsed: number;
+  wordsLimit: number;
+  dashboardUrl: string;
+}) {
+  const reached = threshold >= 100;
+  const usedLabel = wordsUsed.toLocaleString("en-US");
+  const limitLabel = wordsLimit.toLocaleString("en-US");
+
+  const subject = reached
+    ? `Deepglot: monthly word limit reached — ${organizationName}`
+    : `Deepglot: ${threshold}% of your monthly word limit used — ${organizationName}`;
+
+  const enLead = reached
+    ? "Your Deepglot organization has reached its monthly word limit. Already-translated content keeps serving, but new or changed text stays in the source language until the quota resets or you upgrade."
+    : `Your Deepglot organization has used ${threshold}% of its monthly word limit. Once it is reached, new or changed content stays in the source language until the quota resets or you upgrade.`;
+  const deLead = reached
+    ? "Deine Deepglot-Organisation hat das monatliche Wortlimit erreicht. Bereits übersetzte Inhalte werden weiter ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird."
+    : `Deine Deepglot-Organisation hat ${threshold}% des monatlichen Wortlimits verbraucht. Sobald es erreicht ist, bleiben neue oder geänderte Inhalte in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird.`;
+
+  const usageLine = `${organizationName}: ${usedLabel} / ${limitLabel} words (${threshold}%)`;
+  const htmlUsageLine = escapeHtmlText(usageLine);
+
+  const text = [
+    enLead,
+    deLead,
+    usageLine,
+    `Usage: ${dashboardUrl}`,
+  ].join("\n\n");
+
+  return {
+    from,
+    to,
+    subject,
+    text,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <p>${enLead}</p>
+        <p style="color:#374151">${deLead}</p>
+        <p style="color:#374151"><strong>${htmlUsageLine}</strong></p>
+        <p>
+          <a href="${dashboardUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+            Open usage / Nutzung öffnen
+          </a>
+        </p>
+      </div>
+    `,
+  };
+}
+
+/**
+ * Sends the owner-facing quota warning. Returns `{ sent: false }` when the
+ * Cloudflare email config is missing; throws on API errors (callers must catch
+ * — a failed alert must never fail the translation request that triggered it).
+ */
+export async function sendQuotaAlertEmail({
+  to,
+  organizationName,
+  threshold,
+  wordsUsed,
+  wordsLimit,
+  dashboardUrl,
+  signal,
+}: {
+  to: string;
+  organizationName: string;
+  threshold: number;
+  wordsUsed: number;
+  wordsLimit: number;
+  dashboardUrl: string;
+  /** Bounds the send so a stalled email provider cannot delay the response. */
+  signal?: AbortSignal;
+}) {
+  const config = getCloudflareEmailConfig();
+
+  if (!config) {
+    return { sent: false, reason: "email_not_configured" as const };
+  }
+
+  const response = await fetch(buildCloudflareEmailApiUrl(config.accountId), {
+    method: "POST",
+    signal,
+    headers: {
+      Authorization: `Bearer ${config.apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      buildQuotaAlertEmailPayload({
+        to,
+        from: config.from,
+        organizationName,
+        threshold,
+        wordsUsed,
+        wordsLimit,
+        dashboardUrl,
       })
     ),
   });

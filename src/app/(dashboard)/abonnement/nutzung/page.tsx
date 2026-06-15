@@ -7,6 +7,8 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { startOfMonth } from "date-fns";
 import { uiText } from "@/lib/static-copy";
+import { getEffectiveWordsLimit } from "@/lib/billing-plans";
+import { QuotaUsageBanner } from "@/components/abonnement/quota-usage-banner";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Usage", "Nutzung");
@@ -83,6 +85,12 @@ export default async function NutzungPage() {
   const totalWords = Array.from(wordMap.values()).reduce((s, v) => s + v, 0);
   const totalRequests = Array.from(reqMap.values()).reduce((s, v) => s + v, 0);
 
+  // Operator visibility for an exhausted/near-exhausted word quota (#148): use
+  // the same effective limit the /api/translate route enforces (which honors a
+  // subscription-level wordsLimit override, not just the plan default) so the
+  // banner threshold matches when translations actually start failing with 402.
+  const effectiveWordsLimit = getEffectiveWordsLimit(org?.subscription);
+
   const projectRows = (org?.projects ?? []).map((p) => ({
     id: p.id,
     name: p.name,
@@ -107,9 +115,15 @@ export default async function NutzungPage() {
         {uiText(locale, "Usage", "Nutzung")}
       </h1>
 
+      <QuotaUsageBanner
+        locale={locale}
+        wordsUsed={totalWords}
+        wordsLimit={effectiveWordsLimit}
+      />
+
       <UsageCharts
         totalWords={totalWords}
-        wordsLimit={limits.words}
+        wordsLimit={effectiveWordsLimit}
         totalRequests={totalRequests}
         requestsLimit={limits.requests}
         pieWordData={pieWordData}

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
+import { crossedQuotaThresholds } from "@/lib/quota-usage";
+import { maybeSendQuotaAlerts } from "@/lib/quota-alert";
 import {
   countWords,
   resolveTranslationProvider,
@@ -283,26 +285,44 @@ export async function POST(req: NextRequest) {
     const wordsLimit = getEffectiveWordsLimit(subscription);
     const currentMonth = getUsageMonthKey();
 
+    // Hoisted so the post-translation block can detect a threshold crossing
+    // for the owner quota alert (#148).
+    let wordsUsedThisMonth = 0;
     if (!isBot && (translatedWords > 0 || quotaProbe)) {
       const usageAggregate = await db.usageRecord.aggregate({
         where: { organizationId: project.organizationId, month: currentMonth },
         _sum: { words: true },
       });
 
-      const wordsUsed = usageAggregate._sum.words ?? 0;
+      wordsUsedThisMonth = usageAggregate._sum.words ?? 0;
 
       if (
         shouldRejectTranslateRequest({
-          wordsUsed,
+          wordsUsed: wordsUsedThisMonth,
           wordsLimit,
           pendingWordCount: translatedWords,
           quotaProbe,
         })
       ) {
+        if (translatedWords > 0) {
+          // Quota is effectively reached: this batch is rejected before it can
+          // increment usage, so usage rarely crosses 100% by increment — the 402
+          // itself is the "reached" signal. Alert the org owner once (#148).
+          await maybeSendQuotaAlerts({
+            organizationId: project.organizationId,
+            organizationName: project.organization.name,
+            month: currentMonth,
+            thresholds: [100],
+            wordsUsed: wordsUsedThisMonth,
+            wordsLimit,
+            signal: AbortSignal.timeout(5_000),
+          });
+        }
+
         return NextResponse.json(
           {
             error: "Monatliches Wortlimit erreicht",
-            used: wordsUsed,
+            used: wordsUsedThisMonth,
             limit: wordsLimit,
           },
           { status: 402 },
@@ -453,6 +473,23 @@ export async function POST(req: NextRequest) {
           timeout: 30_000,
         },
       );
+
+      // The increment just applied may have crossed the 90% warning line —
+      // alert the org owner once (#148). A no-op (no DB/email) unless a
+      // threshold was actually crossed by this request.
+      await maybeSendQuotaAlerts({
+        organizationId: project.organizationId,
+        organizationName: project.organization.name,
+        month: currentMonth,
+        thresholds: crossedQuotaThresholds(
+          wordsUsedThisMonth,
+          wordsUsedThisMonth + translatedWords,
+          wordsLimit,
+        ),
+        wordsUsed: wordsUsedThisMonth + translatedWords,
+        wordsLimit,
+        signal: AbortSignal.timeout(5_000),
+      });
     }
 
     // 8. Fallback for bots or empty untranslated strings.
