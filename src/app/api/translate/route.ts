@@ -28,6 +28,7 @@ import {
   consumeRateLimit,
   getRateLimitConfig,
 } from "@/lib/rate-limit";
+import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 
 export const runtime = "nodejs";
 
@@ -73,6 +74,7 @@ export const BotType = {
  *   request_url?: string,    // URL where request comes from (for stats)
  *   title?: string,          // Page title (for stats)
  *   bot?: number,            // BotType (0=human, 2=Google, etc.)
+ *   quota_probe?: boolean,   // Health-check flag: reject when quota is exhausted even on cache hits
  * }
  *
  * Response (drop-in-compatible):
@@ -140,9 +142,18 @@ export async function POST(req: NextRequest) {
       request_url?: string;
       title?: string;
       bot?: number;
+      quota_probe?: boolean;
     };
 
-    const { l_from, l_to, words, request_url = "", title = "", bot = 0 } = body;
+    const {
+      l_from,
+      l_to,
+      words,
+      request_url = "",
+      title = "",
+      bot = 0,
+      quota_probe: quotaProbe = false,
+    } = body;
 
     if (!words?.length || !l_from || !l_to) {
       return NextResponse.json(
@@ -260,10 +271,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Check usage limits after cache/manual/glossary short-circuiting.
-    // Cache hits bypass this check entirely so an expired or past-due
+    // Cache hits bypass the pending-word check so an expired or past-due
     // subscription still serves already-translated content; only fresh
-    // provider calls are gated. PAST_DUE/INACTIVE/CANCELED are soft-capped
-    // at the FREE-tier ceiling by getEffectiveWordsLimit (grace policy).
+    // provider calls are gated. `quota_probe` is the exception: health checks
+    // must fail when the monthly quota is exhausted even if the probe text is
+    // already cached (meinhaushalt.at 2026-06-10). PAST_DUE/INACTIVE/CANCELED
+    // are soft-capped at the FREE-tier ceiling by getEffectiveWordsLimit.
     const translatedWords = pendingTranslations.reduce(
       (sum, item) => sum + item.wordCount,
       0,
@@ -275,7 +288,7 @@ export async function POST(req: NextRequest) {
     // Hoisted so the post-translation block can detect a threshold crossing
     // for the owner quota alert (#148).
     let wordsUsedThisMonth = 0;
-    if (!isBot && translatedWords > 0) {
+    if (!isBot && (translatedWords > 0 || quotaProbe)) {
       const usageAggregate = await db.usageRecord.aggregate({
         where: { organizationId: project.organizationId, month: currentMonth },
         _sum: { words: true },
@@ -283,19 +296,28 @@ export async function POST(req: NextRequest) {
 
       wordsUsedThisMonth = usageAggregate._sum.words ?? 0;
 
-      if (wordsUsedThisMonth + translatedWords > wordsLimit) {
-        // Quota is effectively reached: this batch is rejected before it can
-        // increment usage, so usage rarely crosses 100% by increment — the 402
-        // itself is the "reached" signal. Alert the org owner once (#148).
-        await maybeSendQuotaAlerts({
-          organizationId: project.organizationId,
-          organizationName: project.organization.name,
-          month: currentMonth,
-          thresholds: [100],
+      if (
+        shouldRejectTranslateRequest({
           wordsUsed: wordsUsedThisMonth,
           wordsLimit,
-          signal: AbortSignal.timeout(5_000),
-        });
+          pendingWordCount: translatedWords,
+          quotaProbe,
+        })
+      ) {
+        if (translatedWords > 0) {
+          // Quota is effectively reached: this batch is rejected before it can
+          // increment usage, so usage rarely crosses 100% by increment — the 402
+          // itself is the "reached" signal. Alert the org owner once (#148).
+          await maybeSendQuotaAlerts({
+            organizationId: project.organizationId,
+            organizationName: project.organization.name,
+            month: currentMonth,
+            thresholds: [100],
+            wordsUsed: wordsUsedThisMonth,
+            wordsLimit,
+            signal: AbortSignal.timeout(5_000),
+          });
+        }
 
         return NextResponse.json(
           {
