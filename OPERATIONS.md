@@ -113,7 +113,7 @@ After the update:
    curl -X POST https://deepglot.ai/api/translate \
      -H "Authorization: Bearer <api_key>" \
      -H "Content-Type: application/json" \
-     -d '{"text":"quota-check-$(date +%s)","from":"de","to":"en","projectId":"<project_id>"}'
+     --data-raw '{"l_from":"de","l_to":"en","words":[{"w":"quota-check-'"$(date +%s)"'","t":1}]}'
    ```
 
    A `200` response confirms the effective quota is restored. A `402` response means `wordsLimit` or subscription status was not updated correctly.
