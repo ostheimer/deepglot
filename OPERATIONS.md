@@ -67,7 +67,7 @@ Deepglot surfaces translation-quota exhaustion at two levels: the SaaS dashboard
 The usage page evaluates `quotaUsageLevel(wordsUsed, wordsLimit)`:
 
 - At ≥ 90 % of `wordsLimit` the usage page shows a **Warning** banner indicating the monthly limit will be reached soon.
-- At ≥ 100 % (or when a 402 has been returned for the org) the usage page shows a **Limit reached** banner.
+- At `wordsUsed >= wordsLimit` (≥ 100 % as recorded) the usage page shows a **Limit reached** banner. Note that large batches may be rejected with 402 before recorded usage reaches 100 %; in that case the proactive owner email and wp-admin notice are the more reliable real-time signal.
 
 ### Proactive owner email alerts
 
@@ -88,19 +88,19 @@ When the SaaS returns 402 for a translation request, the plugin:
 2. Displays a persistent **wp-admin notice** on all admin pages while the transient is active.
 3. Returns `{ quota_exhausted: true }` from the dynamic-translation proxy (`POST /wp-json/deepglot/v1/translate-dynamic`) so the browser client stops retrying for the current browser session.
 
-The public status endpoint (`GET /api/public/status`) exposes `quota_exhausted: true` from either signal — the WordPress transient or a live 402 on the health-ping word — allowing external monitors to detect the condition.
+The WordPress plugin REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quota_exhausted: true` from either signal — the WordPress transient or a live 402 on the health-ping word — allowing external monitors to detect the condition. (The SaaS `GET /api/public/status` endpoint is a bare database health check and does not expose quota state.)
 
 ### Raising the quota
 
-To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `stripeSubscriptionId IS NULL`), update `Organization.wordsLimit` directly in the database:
+To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `stripeSubscriptionId IS NULL`), update `Subscription.wordsLimit` directly in the database:
 
 ```sql
-UPDATE "Organization" SET "wordsLimit" = <new_limit> WHERE id = '<org_id>';
+UPDATE "Subscription" SET "wordsLimit" = <new_limit> WHERE "organizationId" = '<org_id>';
 ```
 
 After the update:
 
-1. Run `npm run smoke:production` to verify `GET /api/public/status` no longer returns `quota_exhausted: true`.
+1. Run `npm run smoke:production` and verify the WordPress plugin status endpoint (`GET /wp-json/deepglot/v1/status`) no longer returns `quota_exhausted: true`.
 2. Clear the WordPress plugin transient to dismiss the wp-admin notice immediately: `wp transient delete deepglot_quota_exhausted` (or flush all transients with `wp transient delete --all`).
 
 ## Neon Restore Drill

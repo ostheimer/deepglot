@@ -16,7 +16,8 @@ This file captures the current project state so work can continue in a new chat 
 ### Bot Detection and Quota Exhaustion Surfacing (after 2026-06-10 — plugin v0.8.2)
 
 - **BotDetector: crawler traffic no longer burns translation quota** (ROADMAP 8.32, closes [#147](https://github.com/ostheimer/deepglot/issues/147)): Investigation of meinhaushalt.at's ~1M words/month found crawlers were billed as human — the plugin hardcoded `bot:0` and the SaaS treated `BotType.OTHER` as human (`bot >= GOOGLE`). New `BotDetector` maps the visitor UA to a legacy bot code, threaded through `OutputBuffer → HtmlTranslator → Client`; the SaaS exemption threshold corrected to `bot >= OTHER`. Bots are served cache-only (SEO unaffected). Test-first: `BotDetectorTest`. Plugin v0.8.2.
-- **Quota exhaustion surfaced to operators** (ROADMAP 8.33, closes [#148](https://github.com/ostheimer/deepglot/issues/148)): Health ping now sends a real word (a 1-word ping passed while near-empty quota already 402'd real pages); 402 classified as `connection_code: quota_exhausted`. Plugin sets `deepglot_quota_exhausted` transient + shows wp-admin notice + dynamic-translator proxy returns `quota_exhausted` so browsers stop retrying for the session. SaaS usage page shows warning banner at ≥90% and "limit reached" banner at ≥100% (`quotaUsageLevel`). Proactive owner email at 90%/100% thresholds, deduped via `UsageAlert(organizationId, month, threshold)` unique table; bounded by a 5s send timeout, never blocks translation. Plugin v0.8.2.
+- **Quota exhaustion surfaced to operators** (ROADMAP 8.33, closes [#148](https://github.com/ostheimer/deepglot/issues/148)): Health ping now sends a real word (a 1-word ping passed while near-empty quota already 402'd real pages); 402 classified as `connection_code: quota_exhausted`. Plugin sets `deepglot_quota_exhausted` transient + shows wp-admin notice + dynamic-translator proxy returns `quota_exhausted` so browsers stop retrying for the session. SaaS usage page shows warning banner at ≥90% and "limit reached" banner at ≥100% as recorded (`wordsUsed >= wordsLimit`). Proactive owner email at 90%/100% thresholds, deduped via `UsageAlert(organizationId, month, threshold)` unique table; bounded by a 5s send timeout, never blocks translation. Plugin v0.8.2.
+- **Follow-up [#163](https://github.com/ostheimer/deepglot/issues/163):** Bot cache-only fallback (8.32) can cache `to_words == from_words` identity mappings in the WordPress transient cache for 30 days. The plugin needs a cache-poisoning guard to prevent serving identity-translated content as if it were a real translation.
 
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
 
@@ -107,6 +108,7 @@ npm run test:e2e
 
 - Phase 6 subdomain live QA remains blocked until a real mapped production host is configured through `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
 - Visual editor token still passed in the launch URL (`?deepglot_editor_token`); moving it out of the URL requires a coordinated WordPress-plugin change (noted in PR #98).
+- [#163](https://github.com/ostheimer/deepglot/issues/163) Bot cache-only fallback (8.32) can cache `to_words == from_words` identity mappings in the WordPress transient cache for 30 days; the plugin needs a cache-poisoning guard.
 
 ## Open Roadmap Items
 
