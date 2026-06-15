@@ -5,7 +5,7 @@ This file captures the current project state so work can continue in a new chat 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `22d946c` (`fix(wp-plugin): runtime sync must not revert fresh admin saves (#146)`); further commits merged for ROADMAP 8.32/8.33 (bot detection + quota exhaustion surfacing)
+- Latest production commit: `9756310` (ROADMAP 8.32/8.33 — BotDetector + quota exhaustion surfacing, plugin v0.8.2; supersedes `22d946c`)
 - WordPress plugin **v0.8.2** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`

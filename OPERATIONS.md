@@ -88,7 +88,11 @@ When the SaaS returns 402 for a translation request, the plugin:
 2. Displays a persistent **wp-admin notice** on all admin pages while the transient is active.
 3. Returns `{ quota_exhausted: true }` from the dynamic-translation proxy (`POST /wp-json/deepglot/v1/translate-dynamic`) so the browser client stops retrying for the current browser session.
 
-The WordPress plugin REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quota_exhausted: true` from either signal — the WordPress transient or a live 402 on the health-ping word — allowing external monitors to detect the condition. (The SaaS `GET /api/public/status` endpoint is a bare database health check and does not expose quota state.)
+The WordPress plugin REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quota_exhausted: true` from either signal — the WordPress transient or a live 402 on the health-ping word. The endpoint is **not public**: it is registered with `permission_callback => checkPermission`, which requires the `manage_options` capability. External monitoring scripts must supply a WordPress Application Password via `Authorization: Basic <base64(user:app-password)>`.
+
+> **Caveat:** `pingBackend()` sends the fixed phrase `"Verbindung jetzt testen"`. Once that phrase is cached by the SaaS, the health-ping can return success without exercising the real quota gate — real uncached translations may still 402. The transient set by a real translation 402 is the more reliable exhaust signal; the status endpoint's `quota_exhausted` field is only fully trustworthy after the transient is cleared (see Raising the quota below).
+
+(The SaaS `GET /api/public/status` endpoint is a bare database health check and does not expose quota state.)
 
 ### Raising the quota
 
@@ -98,10 +102,12 @@ To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `
 UPDATE "Subscription" SET "wordsLimit" = <new_limit> WHERE "organizationId" = '<org_id>';
 ```
 
+> **Note:** `Subscription.wordsLimit` is only fully honoured when the subscription status is `ACTIVE` or `TRIALING`. For `PAST_DUE`, `INACTIVE`, and `CANCELED` subscriptions, `getEffectiveWordsLimit()` caps the effective limit regardless of the stored value — verify the subscription status before raising the limit.
+
 After the update:
 
-1. Run `npm run smoke:production` and verify the WordPress plugin status endpoint (`GET /wp-json/deepglot/v1/status`) no longer returns `quota_exhausted: true`.
-2. Clear the WordPress plugin transient to dismiss the wp-admin notice immediately: `wp transient delete deepglot_quota_exhausted` (or flush all transients with `wp transient delete --all`).
+1. Clear the WordPress plugin transient **first** so that the status endpoint reflects the live ping rather than the stale 402-set value: `wp transient delete deepglot_quota_exhausted` (or `wp transient delete --all`).
+2. Run `npm run smoke:production` and verify `GET /wp-json/deepglot/v1/status` (authenticated, Application Password) no longer returns `quota_exhausted: true`. (The endpoint ORs the live ping result with the existing transient — clearing first ensures an accurate read.)
 
 ## Neon Restore Drill
 
