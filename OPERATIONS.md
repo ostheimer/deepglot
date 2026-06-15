@@ -58,6 +58,51 @@ Expected behavior:
 
 The alert email is built in: set `DEEPGLOT_BILLING_ALERT_EMAIL` to the operations recipient (delivery uses the existing Cloudflare email configuration: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`). A Vercel log-based notification on the string `DUPLICATE SUBSCRIPTION` remains useful as a backup in case email delivery fails.
 
+## Quota Exhaustion Monitoring
+
+Deepglot surfaces translation-quota exhaustion at two levels: the SaaS dashboard and the WordPress plugin admin.
+
+### SaaS dashboard warning banners
+
+The usage page evaluates `quotaUsageLevel(wordsUsed, wordsLimit)`:
+
+- At ≥ 90 % of `wordsLimit` the usage page shows a **Warning** banner indicating the monthly limit will be reached soon.
+- At ≥ 100 % (or when a 402 has been returned for the org) the usage page shows a **Limit reached** banner.
+
+### Proactive owner email alerts
+
+`POST /api/translate` emails the org owner at two thresholds, at most once per org per calendar month per threshold:
+
+- **90 % warning**: the first accepted translation batch that pushes cumulative usage past 90 % triggers a warning email.
+- **100 % limit reached**: the first 402 rejection triggers a "limit reached" email (large batches are rejected before they increment usage, so the 402 is the real "reached" signal).
+
+Deduplication is handled by a `UsageAlert(organizationId, month, threshold)` unique table row (applied additively to the production and preview databases). The email send is bounded by a 5-second timeout and never causes the in-flight translation to fail.
+
+Email delivery uses the same Cloudflare channel as the duplicate-subscription alert: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, and `EMAIL_FROM` must be set in the Vercel Production environment.
+
+### WordPress plugin quota signals
+
+When the SaaS returns 402 for a translation request, the plugin:
+
+1. Sets a `deepglot_quota_exhausted` WordPress transient (expires after 1 hour by default).
+2. Displays a persistent **wp-admin notice** on all admin pages while the transient is active.
+3. Returns `{ quota_exhausted: true }` from the dynamic-translation proxy (`POST /wp-json/deepglot/v1/translate-dynamic`) so the browser client stops retrying for the current browser session.
+
+The public status endpoint (`GET /api/public/status`) exposes `quota_exhausted: true` from either signal — the WordPress transient or a live 402 on the health-ping word — allowing external monitors to detect the condition.
+
+### Raising the quota
+
+To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `stripeSubscriptionId IS NULL`), update `Organization.wordsLimit` directly in the database:
+
+```sql
+UPDATE "Organization" SET "wordsLimit" = <new_limit> WHERE id = '<org_id>';
+```
+
+After the update:
+
+1. Run `npm run smoke:production` to verify `GET /api/public/status` no longer returns `quota_exhausted: true`.
+2. Clear the WordPress plugin transient to dismiss the wp-admin notice immediately: `wp transient delete deepglot_quota_exhausted` (or flush all transients with `wp transient delete --all`).
+
 ## Neon Restore Drill
 
 Use the dry-run check before attempting a live branch drill:
