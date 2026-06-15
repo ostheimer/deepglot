@@ -162,6 +162,15 @@ function formatCloudflareEmailError(response: CloudflareEmailResponse) {
   return message || "Unknown Cloudflare Email Sending error";
 }
 
+function escapeHtmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendPasswordResetEmail({
   to,
   resetUrl,
@@ -367,6 +376,7 @@ export function buildQuotaAlertEmailPayload({
     : `Deine Deepglot-Organisation hat ${threshold}% des monatlichen Wortlimits verbraucht. Sobald es erreicht ist, bleiben neue oder geänderte Inhalte in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird.`;
 
   const usageLine = `${organizationName}: ${usedLabel} / ${limitLabel} words (${threshold}%)`;
+  const htmlUsageLine = escapeHtmlText(usageLine);
 
   const text = [
     enLead,
@@ -384,7 +394,7 @@ export function buildQuotaAlertEmailPayload({
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
         <p>${enLead}</p>
         <p style="color:#374151">${deLead}</p>
-        <p style="color:#374151"><strong>${usageLine}</strong></p>
+        <p style="color:#374151"><strong>${htmlUsageLine}</strong></p>
         <p>
           <a href="${dashboardUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             Open usage / Nutzung öffnen

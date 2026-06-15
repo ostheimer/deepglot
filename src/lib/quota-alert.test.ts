@@ -83,4 +83,19 @@ describe("buildQuotaAlertEmailPayload", () => {
     assert.match(payload.text, /reached its monthly word limit/);
     assert.match(payload.text, /Wortlimit erreicht/);
   });
+
+  it("escapes organization names in the HTML body", () => {
+    const payload = buildQuotaAlertEmailPayload({
+      ...base,
+      organizationName: '<img src="x" onerror="alert(1)"> & "Acme"',
+      threshold: 90,
+    });
+
+    assert.match(payload.text, /<img src="x" onerror="alert\(1\)"> & "Acme"/);
+    assert.doesNotMatch(payload.html, /<img src="x" onerror="alert\(1\)">/);
+    assert.match(
+      payload.html,
+      /&lt;img src=&quot;x&quot; onerror=&quot;alert\(1\)&quot;&gt; &amp; &quot;Acme&quot;/,
+    );
+  });
 });
