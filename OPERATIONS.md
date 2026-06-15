@@ -88,7 +88,13 @@ When the SaaS returns 402 for a translation request, the plugin:
 2. Displays a persistent **wp-admin notice** on all admin pages while the transient is active.
 3. Returns `{ quota_exhausted: true }` from the dynamic-translation proxy (`POST /wp-json/deepglot/v1/translate-dynamic`) so the browser client stops retrying for the current browser session.
 
-The WordPress REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quota_exhausted: true` from either signal — the health-ping `connection_code` or the transient set by a real translation 402 — and can be used by external monitors to detect the condition. (The SaaS `GET /api/public/status` is a bare DB health-check that returns no body and does not expose quota state.)
+The WordPress REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quota_exhausted: true` from either signal — the health-ping `connection_code` or the transient set by a real translation 402.
+
+**Authentication required**: the `/status` route uses `permission_callback => checkPermission` (requires `manage_options`). Unauthenticated requests receive a 403, not quota state. Use a WordPress Application Password in the `Authorization: Basic <base64(user:app-password)>` header.
+
+**Probe-phrase caching caveat**: `pingBackend()` sends a fixed German phrase (`"Verbindung jetzt testen"`). Once that phrase is cached on the SaaS side, `/api/translate` serves it from cache without touching the quota gate — so `connection_code` returns success and `quota_exhausted: false` even when real uncached translations would still receive 402. The transient (set by a real translation 402) is therefore the more reliable signal for external monitoring; the health-ping path is most useful in the minutes immediately after an incident when the phrase has not yet been cached.
+
+(The SaaS `GET /api/public/status` is a bare DB health-check that returns no body and does not expose quota state.)
 
 ### Raising the quota
 
@@ -99,6 +105,14 @@ UPDATE "Subscription" SET "wordsLimit" = <new_limit> WHERE "organizationId" = '<
 ```
 
 (`Organization` has no `wordsLimit` column; the enforced limit is read from `Subscription.wordsLimit` via `getEffectiveWordsLimit`.)
+
+**Status check**: `getEffectiveWordsLimit()` only honours the new `wordsLimit` when `status` is `ACTIVE` or `TRIALING`. For `PAST_DUE`, `INACTIVE` (the Prisma schema default), or `CANCELED` rows the function caps at the FREE-tier ceiling regardless of `wordsLimit`. Verify the subscription status and set it to `ACTIVE` if necessary:
+
+```sql
+SELECT status, "wordsLimit" FROM "Subscription" WHERE "organizationId" = '<org_id>';
+-- If status is not ACTIVE or TRIALING:
+UPDATE "Subscription" SET status = 'ACTIVE' WHERE "organizationId" = '<org_id>';
+```
 
 After the update:
 
