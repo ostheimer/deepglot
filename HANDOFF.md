@@ -21,7 +21,7 @@ This file captures the current project state so work can continue in a new chat 
 
 ### Bot Detection & Quota Visibility, v0.8.2 (2026-06-12 – 2026-06-13)
 
-- **Bot-traffic detection** (ROADMAP 8.32, PR #153, plugin v0.8.2, 2026-06-13): New `BotDetector` class maps visitor user-agent to a legacy bot code, threaded `OutputBuffer → HtmlTranslator → Client`. Also passes `request_url` from the plugin to the SaaS — this field was previously empty, causing gaps in per-URL analytics. The SaaS `isBot` threshold corrected from `bot >= GOOGLE` to `bot >= OTHER`, so generic crawlers are now exempt. Bots served cache-only; SEO unaffected. Test-first: `BotDetectorTest`. Closes #147. ROADMAP 8.32 closed.
+- **Bot-traffic detection** (ROADMAP 8.32, PR #153, plugin v0.8.2, 2026-06-13): New `BotDetector` class maps visitor user-agent to a legacy bot code, threaded `OutputBuffer → HtmlTranslator → Client`. Also passes `request_url` from the plugin to the SaaS — this field was previously empty, causing gaps in per-URL analytics. The SaaS `isBot` threshold corrected from `bot >= GOOGLE` to `bot >= OTHER`, so generic crawlers are now exempt. Bots with a cache hit are served from cache (no quota spending). **Known limitation**: on a bot's first visit to an uncached page the SaaS skips the provider and returns source text; `HtmlTranslator::translateDocument()` then caches those `from_word => from_word` pairs in the WordPress transient cache for 30 days, so subsequent humans see untranslated content until the cache expires or is flushed. Follow-up needed: the plugin should skip `TranslationCache::setMany()` when `to_words` equals `from_words` (cache-poisoning guard). Test-first: `BotDetectorTest`. Closes #147. ROADMAP 8.32 closed.
 - **Quota-exhaustion signals** (ROADMAP 8.33 plugin side, PRs #152 + #153, plugin v0.8.2, 2026-06-12 + 2026-06-13): Health ping now sends several real words (a 1-word ping was passing while near-empty quota already 402'd real pages). 402 classified as `connection_code: quota_exhausted`. `deepglot_quota_exhausted` transient set on first 402. Status endpoint (`/wp-json/deepglot/v1/status`) exposes `quota_exhausted` from either signal. Plugin shows wp-admin notice when exhausted. Dynamic-translator proxy returns `quota_exhausted` so browser client stops retrying for the session. Plugin half of #148; SaaS side completed in PRs #154 + #157.
 
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
@@ -116,6 +116,7 @@ npm run test:e2e
 
 ## Open Roadmap Items
 
+- **8.32 follow-up** Bot cache-poisoning guard (P2): when the SaaS returns `to_words == from_words` (bot first-visit on uncached page), `HtmlTranslator` must skip `TranslationCache::setMany()` to avoid storing source text as the "translation" for 30 days. Until fixed, a bot first-visit poisons the WordPress cache for all subsequent human visitors on that URL.
 - **8.2** Switcher Weglot-parity: multi-switcher instances, visual switcher editor, pre-made templates (P2).
 - **8.3** Strategic Weglot competitive gaps: in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN (P3).
 - **8.4** Housekeeping: dead `DATABASE_*` env vars and stale `AccessibilityAttributeTranslationTest 2.php` (P4).

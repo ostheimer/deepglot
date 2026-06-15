@@ -118,7 +118,7 @@ Features:
 - Bot-traffic detection: `BotDetector` maps visitor user-agent to a bot code and threads it through `OutputBuffer → HtmlTranslator → Client`; bots are served cache-only so crawlers never spend translation quota; the SaaS `isBot` threshold is corrected to `BotType.OTHER` (previously only `GOOGLE` and above were exempt)
 - Optional client-side dynamic-content translator: a MutationObserver re-translates AJAX / infinite-scroll / SPA content added after page load through a same-origin REST proxy (`POST /wp-json/deepglot/v1/translate-dynamic`); opt-in via `enable_dynamic_translation`, cache-first (a missing nonce never spends quota), and SEO-safe because the server pass still renders the initial crawlable HTML
 - JSON-LD and accessibility attribute translation
-- Deepglot API client (HTTP requests to the Next.js backend) — passes `request_url` so SaaS per-URL analytics are accurate
+- Deepglot API client (HTTP requests to the Next.js backend) — passes `request_url` for server-side page-load requests so SaaS per-URL analytics are accurate; dynamic/AJAX requests (`DynamicTranslationController`) currently omit the URL
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
 - hreflang SEO tags and `<html lang>` switching

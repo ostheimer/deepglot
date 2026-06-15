@@ -102,8 +102,8 @@ UPDATE "Subscription" SET "wordsLimit" = <new_limit> WHERE "organizationId" = '<
 
 After the update:
 
-1. Verify the quota is lifted: `GET /wp-json/deepglot/v1/status` should return `quota_exhausted: false` once the next translation request or health ping succeeds.
-2. Clear the WordPress plugin transient to dismiss the wp-admin notice immediately: `wp transient delete deepglot_quota_exhausted` (or flush all transients with `wp transient delete --all`).
+1. Clear the WordPress plugin transient first: `wp transient delete deepglot_quota_exhausted` (or flush all transients with `wp transient delete --all`). This dismisses the wp-admin notice immediately and is required before the status check below is meaningful — the status endpoint ORs the live ping result with the transient, so if the transient is still set it will report `quota_exhausted: true` even after a successful ping.
+2. Verify the quota is lifted: `GET /wp-json/deepglot/v1/status` should return `quota_exhausted: false` once the transient is cleared and the next health ping succeeds (or a real translation request goes through).
 
 ## Neon Restore Drill
 
