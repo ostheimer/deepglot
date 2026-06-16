@@ -131,7 +131,7 @@ Features:
 - REST API v1 at `/wp-json/deepglot/v1/` for settings CRUD, status, and test-connection
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
-- Subdomain support (`de.example.com`)
+- Subdomain support (`de.example.com`) (implemented; live QA pending — requires `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`)
 - 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
@@ -305,10 +305,11 @@ The translation flow uses a provider abstraction:
 
 - `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
 - Without an explicit `TRANSLATION_PROVIDER`, the app auto-selects by the first credential present, in this order: `gemini` (`GEMINI_API_KEY`) → `openai` (`OPENAI_API_KEY`) → `openrouter` (`OPENROUTER_API_KEY`) → `deepl` (`DEEPL_API_KEY`) → `ollama` (`OLLAMA_BASE_URL`), otherwise `mock` in `development` and `test`.
-- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`).
+- `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`). (Note: `gpt-5-mini` is the current production default; verify model availability with your provider before deployment.)
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
+- `GEMINI_API_KEY` configures the Gemini provider; the model is set via `GEMINI_TRANSLATION_MODEL` (e.g. `gemini-3.1-flash-lite-preview`). (Note: verify model availability — this may be a preview model name.)
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 - The database schema includes `TranslationSource.GOOGLE` as a reserved source identifier. Google Translate is not currently available as a `TRANSLATION_PROVIDER` value and is not configurable via environment variables.
 - Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
@@ -361,6 +362,8 @@ The current lightweight test suite covers:
 - SaaS acceptance config, payload builders, and failure classification in `src/lib/saas-acceptance.test.ts`
 - settings-area API route authorization guardrail (management gate on all management methods) in `src/lib/project-settings-route-authz.test.ts`
 - translations language page management gating (AddLanguageDialog only for managers) in `src/lib/project-language-page-authz.test.ts`
+- password reset flow in `src/lib/password-reset.ts`
+- project invitation token lifecycle in `src/lib/project-invitations.ts`
 - end-to-end locale switching, query preservation, legacy German redirects, and locale-aware auth redirects via Playwright in `tests/e2e/locale-routing.spec.ts`
 - end-to-end account settings flows via Playwright in `tests/e2e/account-settings.spec.ts`
 - full UI navigation audit via Playwright in `tests/e2e/full-ui-audit.spec.ts`
@@ -379,6 +382,8 @@ Deepglot uses a `Plan` enum in the database schema with the following values:
 - `PROFESSIONAL` — deprecated; normalized to `PRO` by `resolveBillingPlanKey()`
 
 Active plan limits and prices are configured in `src/lib/billing-plans.ts`. Stripe price IDs are supplied via `STRIPE_PRICE_*` environment variables (e.g. `STRIPE_PRICE_STARTER_MONTHLY`).
+
+When a plan's monthly word quota reaches 90% or 100%, an automatic email warning is sent to the organisation owner (`src/lib/quota-alert.ts`). This requires a configured email provider; the thresholds and behaviour are controlled by environment variables.
 
 ## Documentation guardrail
 
