@@ -1,4 +1,4 @@
-# Deepglot Handoff - 2026-06-10
+# Deepglot Handoff - 2026-06-17
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
@@ -6,12 +6,18 @@ This file captures the current project state so work can continue in a new chat 
 
 - Branch: `main`
 - Latest production commit: `22d946c` (`fix(wp-plugin): runtime sync must not revert fresh admin saves (#146)`)
-- WordPress plugin **v0.8.1** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10)
+- WordPress plugin **v0.8.2** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10); bot UA detection and quota-exhaustion surfacing added in v0.8.2
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
 ## Completed In The Latest Session (since 2026-05-06)
+
+### Bot Detection & Quota Exhaustion (2026-06-10 – 2026-06-17)
+
+- **Bot UA detection — plugin v0.8.2** (ROADMAP 8.32, issue [#147](https://github.com/ostheimer/deepglot/issues/147) closed): Known crawler and bot user-agent patterns (Googlebot, Bingbot, and ~30 others) are now detected on every request. Bots receive cache-only translations — no monthly quota is spent on bot traffic. The `BotDetector` class is test-covered and operates transparently before the translation pipeline.
+- **Quota-exhaustion surfacing — plugin v0.8.2** (ROADMAP 8.33, issue [#148](https://github.com/ostheimer/deepglot/issues/148) closed): When the SaaS backend returns a 402 on a word-count probe, the plugin sets the `deepglot_quota_exhausted` WordPress transient, exposes `quota_exhausted: true` in `GET /wp-json/deepglot/v1/status`, shows a wp-admin notice banner, and makes the dynamic-translator proxy stop retrying until the transient clears. SaaS-side: quota alert banners appear in the dashboard at 90 % and 100 % monthly usage; a monthly owner email is sent at 100 % via the new `UsageAlert` deduplication table.
+- **WP status ping quota-exhaustion detection** (ROADMAP 8.34): The health-ping cron that fires `GET /api/public/status` was not detecting quota exhaustion when all words were already cached (the probe only ran on actual translation calls, not on cache hits). Fixed by injecting `quota_probe: true` into the status-ping payload so the API rejects exhausted quotas even on full-cache responses.
 
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
 
@@ -114,8 +120,8 @@ npm run test:e2e
 
 ## Recommended Next Work
 
+- Update the marketing site: bot-UA-detection and quota-exhaustion surfacing (plugin v0.8.2) are now live and close two major operational gaps — these are real Weglot-parity selling points.
 - Update the marketing site: dynamic/AJAX/SPA content translation is now live and QA-verified — a real Weglot-parity selling point.
-- Investigate the ~1M words/month usage on meinhaushalt.at ([#147](https://github.com/ostheimer/deepglot/issues/147)) and surface quota exhaustion to operators ([#148](https://github.com/ostheimer/deepglot/issues/148)).
 - Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.

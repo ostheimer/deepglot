@@ -109,7 +109,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.1**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 also fixes a runtime-sync race that could revert freshly saved admin settings on busy sites.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 fixed a runtime-sync race that could revert freshly saved admin settings on busy sites. v0.8.2 adds bot UA detection (crawlers are served cache-only translations — no monthly quota is spent on bot traffic) and quota-exhaustion surfacing (`deepglot_quota_exhausted` transient, `quota_exhausted` flag in the public status endpoint, wp-admin notice banner, and the dynamic-translator proxy stops retrying once quota is exhausted).
 
 Features:
 
@@ -132,6 +132,8 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
+- Bot user-agent detection: known crawler and bot UA patterns receive cache-only translations without spending monthly quota
+- Quota-exhaustion surfacing: sets a `deepglot_quota_exhausted` transient, exposes `quota_exhausted` in `GET /wp-json/deepglot/v1/status`, shows a wp-admin notice banner, and makes the dynamic-translator proxy stop retrying when quota is exhausted
 - 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
@@ -379,6 +381,8 @@ Deepglot uses a `Plan` enum in the database schema with the following values:
 - `PROFESSIONAL` — deprecated; normalized to `PRO` by `resolveBillingPlanKey()`
 
 Active plan limits and prices are configured in `src/lib/billing-plans.ts`. Stripe price IDs are supplied via `STRIPE_PRICE_*` environment variables (e.g. `STRIPE_PRICE_STARTER_MONTHLY`).
+
+Quota usage alerts are triggered at 90 % and 100 % of the monthly word limit. A `UsageAlert` table deduplicates alerts per billing period so duplicate notifications are never sent. Operators also receive a monthly owner email at 100 % usage and see an in-dashboard banner when either threshold is crossed.
 
 ## Documentation guardrail
 
