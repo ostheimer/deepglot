@@ -1,6 +1,6 @@
 # Deepglot
 
-Deepglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
+Deeglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
 
 ## Author
 
@@ -42,7 +42,7 @@ npm run test:e2e
 
 ## Public routing
 
-Deepglot now uses English as the canonical URL structure across the public site and the app:
+Deeglot now uses English as the canonical URL structure across the public site and the app:
 
 - Canonical English routes:
   - `/`
@@ -132,7 +132,7 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- 26 PHP unit tests + 1 JS test (27 total) covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, bot detection, quota exhaustion, and WooCommerce email
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
@@ -273,7 +273,7 @@ The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readin
 
 ## Self-hosting
 
-Deepglot now includes a first self-hosted setup:
+Deeglot now includes a first self-hosted setup:
 
 - `Dockerfile` builds the Next.js app for production use.
 - `docker-compose.yml` starts the app together with PostgreSQL.
@@ -371,7 +371,7 @@ The current lightweight test suite covers:
 
 ## Plans and billing tiers
 
-Deepglot uses a `Plan` enum in the database schema with the following values:
+Deeglot uses a `Plan` enum in the database schema with the following values:
 
 - `FREE` — default plan for new users
 - `STARTER`, `BUSINESS`, `PRO`, `ADVANCED`, `EXTENDED` — active paid billing tiers

@@ -13,6 +13,12 @@ This file captures the current project state so work can continue in a new chat 
 
 ## Completed In The Latest Session (since 2026-05-06)
 
+### Bot Traffic, Quota Exhaustion & Plugin v0.8.2 (2026-06-10 – present)
+
+- **8.32 — Bot traffic must not burn translation quota** (ROADMAP 8.32, plugin v0.8.2): investigation of meinhaushalt.at's ~1M words/month found crawlers grinding the long-tail archive were billed as human. New `BotDetector` maps the visitor UA to the legacy bot code, threaded through `OutputBuffer → HtmlTranslator → Client`; the SaaS exemption is corrected to `bot >= OTHER`. Bots are served cache-only; SEO is unaffected. Test-first: `BotDetectorTest`.
+- **8.33 — Surface translation-quota exhaustion to operators** (ROADMAP 8.33, plugin v0.8.2): health ping now sends several words (a 1-word ping passed while near-empty quota already 402'd real pages), classifies 402 as `quota_exhausted`, and sets a `deepglot_quota_exhausted` transient. Status endpoint exposes `quota_exhausted` from either signal; plugin shows a wp-admin notice; dynamic-translator proxy returns `quota_exhausted` so the browser client stops retrying for the session. SaaS dashboard shows warning banner at ≥90% and "limit reached" banner at ≥100%. Proactive owner email once per month per threshold (90%/100%), deduped via new `UsageAlert` table.
+- **8.34 — WP status ping must detect quota exhaustion on cache hits** (ROADMAP 8.34): added optional `quota_probe` flag used by the WP plugin status/test-connection ping; rejects exhausted quotas even on cache hits; visitor cache-only traffic remains allowed.
+
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
 
 - **Live QA passed on `meinhaushalt.at`** (2026-06-10, plugin v0.8.1, flag enabled): injected text + accessibility attributes translate, re-translation on change, no-translate/`contenteditable` markers respected, session cache avoids repeat requests, bots 403, SEO output unchanged. Result recorded in `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`; ROADMAP 8.27 closed.
@@ -107,7 +113,7 @@ npm run test:e2e
 
 - **8.2** Switcher Weglot-parity: multi-switcher instances, visual switcher editor, pre-made templates (P2).
 - **8.3** Strategic Weglot competitive gaps: in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN (P3).
-- **8.4** Housekeeping: dead `DATABASE_*` env vars and stale `AccessibilityAttributeTranslationTest 2.php` (P4).
+- **8.4** Housekeeping: dead `DATABASE_*` env vars and stale `AccessibilityAttributeTranslationTest 2.php` (verify whether duplicate still exists before acting — the repo currently only contains `AccessibilityAttributeTranslationTest.php`) (P4).
 - **7.13** Anti-drift guard for marketing copy (`marketing-home.test.ts`).
 - **7.14** Playwright slider-alignment regression test for `pricing-grid.tsx`.
 - **7.15** Stripe webhook end-to-end smoke for subscription-lifecycle events.
@@ -115,7 +121,6 @@ npm run test:e2e
 ## Recommended Next Work
 
 - Update the marketing site: dynamic/AJAX/SPA content translation is now live and QA-verified — a real Weglot-parity selling point.
-- Investigate the ~1M words/month usage on meinhaushalt.at ([#147](https://github.com/ostheimer/deepglot/issues/147)) and surface quota exhaustion to operators ([#148](https://github.com/ostheimer/deepglot/issues/148)).
 - Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.
