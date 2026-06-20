@@ -26,7 +26,7 @@ npm run dev
 
 The app will then be available at `http://localhost:3000`.
 
-For database access, the app now auto-selects the Prisma Neon adapter only for real Neon hosts. Local PostgreSQL URLs such as `localhost` or `127.0.0.1` automatically use Prisma's default PostgreSQL driver, which makes local fallback databases work without extra code changes.
+For database access, the app now auto-selects the Prisma Neon adapter only for real Neon hosts. Local PostgreSQL URLs such as `localhost` or `127.0.0.1` automatically use Prisma's default PostgreSQL driver (`@prisma/adapter-pg`), which makes local fallback databases work without extra code changes.
 
 ## Important scripts
 
@@ -109,7 +109,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.1**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 also fixes a runtime-sync race that could revert freshly saved admin settings on busy sites.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.2 includes bot-detection improvements (`BotDetector`) that prevent crawler traffic from burning translation quota, and quota-exhaustion surfacing to operators (wp-admin notice, SaaS usage warning banner, and proactive owner email at 90%/100% thresholds).
 
 Features:
 
@@ -132,7 +132,9 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- Bot detector (`BotDetector`) maps visitor User-Agent to bot type; bots are served cache-only so SEO is unaffected and quota is not spent on crawler traffic
+- Quota-exhaustion surfacing: health ping classifies 402 as `quota_exhausted`, a wp-admin notice is shown, and the dynamic-translator proxy stops retrying for the session
+- 30+ PHP unit tests (27 PHP test files + 1 JS fake-DOM harness) covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, WooCommerce email, bot detection, dynamic translation controller, runtime-config race, parallel batches, REST API quota status, language switcher rendering/ARIA/responsive-hide/custom-flags/JS-ARIA/nav-menu/widget/block/settings, metadata translation, HTML lang switching, client settings sync, translation cache, translation rules, and exclusions
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
@@ -369,6 +371,28 @@ The current lightweight test suite covers:
 - translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
 - subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
 
+The WordPress plugin test suite (run via `npm run test:wp`) contains 30+ tests (27 PHP test files + 1 JS fake-DOM harness) covering:
+
+- URL resolution (`UrlLanguageResolverTest`, `SiteRoutingTest`)
+- HTML parsing and link rewriting (`LinkRewriterTest`)
+- JSON-LD translation (`JsonLdTranslationTest`)
+- Accessibility attribute translation (`AccessibilityAttributeTranslationTest`)
+- HTML `<html lang>` / `xml:lang` switching (`HtmlLangSwitchTest`)
+- Metadata translation — `<title>`, `<meta>`, OG tags (`MetadataTranslationTest`)
+- Browser-language redirect edge cases (`BrowserRedirectorTest`)
+- WooCommerce email translation (`WooCommerceEmailTranslatorTest`)
+- Bot detection: `BotDetectorTest` verifies that known crawler User-Agents are classified correctly and that bots are served cache-only
+- Dynamic translation controller and REST proxy (`DynamicTranslationControllerTest`)
+- Client-side dynamic translator asset (JS fake-DOM harness: `DynamicTranslatorAssetTest.js`)
+- Runtime-config race: `RuntimeConfigRaceTest` pins 4 scenarios where `applyRuntimeConfig()` must not revert fresh admin saves
+- Parallel translation batches (`ParallelBatchesTest`)
+- REST API quota status and 402 classification (`RestApiQuotaStatusTest`)
+- Language switcher rendering, ARIA, responsive hide, custom flags, JS-ARIA, nav-menu, widget, block, and settings (`LanguageSwitcherRenderingTest`, `LanguageSwitcherAriaTest`, `SwitcherResponsiveHideTest`, `SwitcherCustomFlagsTest`, `SwitcherJsAriaTest`, `NavMenuSwitcherTest`, `WidgetRenderTest`, `BlockRenderTest`, `SwitcherSettingsTest`)
+- Translation cache (`TranslationCacheTest`)
+- Shared translation extraction rules drift guard (`TranslationRulesTest`)
+- Translation exclusion rules (`ExclusionsTest`)
+- Plugin settings sync shape (`ClientSettingsSyncTest`)
+
 ## Plans and billing tiers
 
 Deepglot uses a `Plan` enum in the database schema with the following values:
@@ -379,6 +403,8 @@ Deepglot uses a `Plan` enum in the database schema with the following values:
 - `PROFESSIONAL` — deprecated; normalized to `PRO` by `resolveBillingPlanKey()`
 
 Active plan limits and prices are configured in `src/lib/billing-plans.ts`. Stripe price IDs are supplied via `STRIPE_PRICE_*` environment variables (e.g. `STRIPE_PRICE_STARTER_MONTHLY`).
+
+The schema also includes a `UsageAlert` model (unique on `organizationId + month + threshold`) that deduplicates the monthly word-quota warning emails sent to the org owner at the 90% and 100% thresholds. This prevents concurrent translation requests from double-sending the alert and is applied additively to both `prod` and `preview` Neon branches.
 
 ## Documentation guardrail
 

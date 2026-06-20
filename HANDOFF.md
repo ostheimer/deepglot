@@ -6,7 +6,7 @@ This file captures the current project state so work can continue in a new chat 
 
 - Branch: `main`
 - Latest production commit: `22d946c` (`fix(wp-plugin): runtime sync must not revert fresh admin saves (#146)`)
-- WordPress plugin **v0.8.1** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10)
+- WordPress plugin **v0.8.2** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10); v0.8.2 adds bot-detection (`BotDetector`) and quota-exhaustion surfacing (8.32/8.33)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
@@ -21,6 +21,11 @@ This file captures the current project state so work can continue in a new chat 
 - **Email alert on duplicate Stripe subscription** (PR #145): operations email from the `checkout.session.completed` duplicate branch; recipient `DEEPGLOT_BILLING_ALERT_EMAIL` (set in Vercel Production); at-most-once via Stripe-metadata marker written only after a real send; 5s send timeout; untracked-subscription guards in subscription.updated/invoice handlers. OPERATIONS runbook updated (PR #143).
 - **Checkout concurrency closed** (PRs #131 + #142, issues #138): Stripe-authoritative subscription guard (paginated) + open-session reuse/expire + duplicate flagging; ROADMAP 8.28/8.29.
 - **Docs triage:** #132 (test command, routes, test list — trimmed against #130), #129 (self-host model default, Phase 7.8 status), #126 (provider list, i18n/glossary/Stripe script docs — corrected a non-existent admin cache-flush claim).
+
+### Bot Detection & Quota Exhaustion (v0.8.2)
+
+- **Bot traffic must not burn translation quota** (PR for 8.32, plugin v0.8.2): new `BotDetector` maps visitor UA to the legacy bot code, threaded `OutputBuffer → HtmlTranslator → Client`; the SaaS exemption corrected to `bot >= OTHER`. Bots served cache-only; SEO unaffected. Test-first: `BotDetectorTest`.
+- **Surface translation-quota exhaustion to operators** (PR for 8.33, plugin v0.8.2): health ping sends several words and classifies 402 as `quota_exhausted`; a real 402 sets a `deepglot_quota_exhausted` transient. Status endpoint exposes `quota_exhausted`, plugin shows wp-admin notice, dynamic-translator proxy stops retrying for the session. SaaS dashboard shows warning/limit-reached banners at ≥90%/≥100% of effective word limit. Proactive owner email deduped via `UsageAlert(organizationId, month, threshold)` unique table.
 
 ### Dynamic Content Translation (2026-06-05)
 
