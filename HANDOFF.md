@@ -1,23 +1,28 @@
-# Deepglot Handoff - 2026-06-10
+# Deepglot Handoff - 2026-06-21
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `22d946c` (`fix(wp-plugin): runtime sync must not revert fresh admin saves (#146)`)
-- WordPress plugin **v0.8.1** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10)
+- Latest production commit: `66f8dca` (`fix(translate): quota_probe erkennt erschöpftes Limit bei Cache-Treffern (#155)`)
+- WordPress plugin **v0.8.2** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10); bot-traffic fix and quota-exhaustion surfacing completed in v0.8.2
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
 ## Completed In The Latest Session (since 2026-05-06)
 
+### Bot Traffic & Quota Exhaustion Fixes (2026-06-10 – 2026-06-21, plugin v0.8.2)
+
+- **Bot traffic no longer burns translation quota** (PRs #153 + #155, plugin v0.8.2, ROADMAP 8.32/8.34, closes [#147](https://github.com/ostheimer/deepglot/issues/147)): Investigation of meinhaushalt.at's ~1M words/month found crawlers were billed as human — plugin hardcoded `bot:0` and SaaS treated `BotType.OTHER` as human. New `BotDetector` maps the visitor UA to the legacy bot code, threaded `OutputBuffer → HtmlTranslator → Client`; SaaS exemption corrected to `bot >= OTHER`. Bots are served cache-only, so SEO is unaffected. Test-first: `BotDetectorTest`. Additionally, `/api/translate` now skips the monthly quota check for cache hits only when `quota_probe` is absent — the WP plugin status/test-connection ping sets `quota_probe: true` so the health-check correctly detects exhausted quotas even when all words are cached (ROADMAP 8.34).
+- **Quota exhaustion surfaced to operators** (PRs #153 + #154 + #157 + #165, plugin v0.8.2, ROADMAP 8.33, closes [#148](https://github.com/ostheimer/deepglot/issues/148)): The health ping now sends several words (a 1-word ping passed while near-empty quota already 402'd real pages). A real 402 sets a `deepglot_quota_exhausted` transient; the plugin shows a wp-admin notice; the dynamic-translator proxy returns `quota_exhausted` so the browser client stops retrying for the session. SaaS dashboard shows a warning banner at ≥90% and a "limit reached" banner at ≥100% (`quotaUsageLevel`). Org owner receives a proactive email once per month per threshold (deduped via `UsageAlert(organizationId, month, threshold)` unique table).
+- **Quota finding resolved:** meinhaushalt org had burned 1M-word months — root cause confirmed as bot traffic (8.32). Limit was manually raised 1M → 5M as immediate relief; the permanent fix is in v0.8.2.
+
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
 
 - **Live QA passed on `meinhaushalt.at`** (2026-06-10, plugin v0.8.1, flag enabled): injected text + accessibility attributes translate, re-translation on change, no-translate/`contenteditable` markers respected, session cache avoids repeat requests, bots 403, SEO output unchanged. Result recorded in `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`; ROADMAP 8.27 closed.
 - **Plugin v0.8.1 — runtime-sync race fix** (PR #146, found live during QA): `applyRuntimeConfig()` no longer writes the request's stale options snapshot back (cache eviction + fresh re-read), and discards payloads fetched with a stale API key or base URL. Test-first: `RuntimeConfigRaceTest` (4 scenarios). Before the fix, frontend traffic silently reverted admin saves — every setting affected.
-- **Quota finding:** the meinhaushalt org had burned its 1M-word month (May >1M too); fresh translations silently returned 402 while status pings stayed green. Limit manually raised 1M → 5M (manual ENTERPRISE subscription, `stripeSubscriptionId IS NULL` verified). Follow-ups: usage investigation ([#147](https://github.com/ostheimer/deepglot/issues/147)), 402 visibility ([#148](https://github.com/ostheimer/deepglot/issues/148)).
 - **Email alert on duplicate Stripe subscription** (PR #145): operations email from the `checkout.session.completed` duplicate branch; recipient `DEEPGLOT_BILLING_ALERT_EMAIL` (set in Vercel Production); at-most-once via Stripe-metadata marker written only after a real send; 5s send timeout; untracked-subscription guards in subscription.updated/invoice handlers. OPERATIONS runbook updated (PR #143).
 - **Checkout concurrency closed** (PRs #131 + #142, issues #138): Stripe-authoritative subscription guard (paginated) + open-session reuse/expire + duplicate flagging; ROADMAP 8.28/8.29.
 - **Docs triage:** #132 (test command, routes, test list — trimmed against #130), #129 (self-host model default, Phase 7.8 status), #126 (provider list, i18n/glossary/Stripe script docs — corrected a non-existent admin cache-flush claim).
@@ -107,15 +112,14 @@ npm run test:e2e
 
 - **8.2** Switcher Weglot-parity: multi-switcher instances, visual switcher editor, pre-made templates (P2).
 - **8.3** Strategic Weglot competitive gaps: in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN (P3).
-- **8.4** Housekeeping: dead `DATABASE_*` env vars and stale `AccessibilityAttributeTranslationTest 2.php` (P4).
+- **8.4** Housekeeping: remove dead `DATABASE_*` Neon-integration env vars (orphaned after the 2-dataset disconnect). Note: the stale `AccessibilityAttributeTranslationTest 2.php` duplicate has already been removed from the repo — only the env-var cleanup remains (P4).
 - **7.13** Anti-drift guard for marketing copy (`marketing-home.test.ts`).
 - **7.14** Playwright slider-alignment regression test for `pricing-grid.tsx`.
 - **7.15** Stripe webhook end-to-end smoke for subscription-lifecycle events.
 
 ## Recommended Next Work
 
-- Update the marketing site: dynamic/AJAX/SPA content translation is now live and QA-verified — a real Weglot-parity selling point.
-- Investigate the ~1M words/month usage on meinhaushalt.at ([#147](https://github.com/ostheimer/deepglot/issues/147)) and surface quota exhaustion to operators ([#148](https://github.com/ostheimer/deepglot/issues/148)).
-- Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping).
+- Update the marketing site: dynamic/AJAX/SPA content translation is now live and QA-verified — a real Weglot-parity selling point. Bot-traffic fix (v0.8.2) also warrants a mention in the plugin changelog/website.
+- Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping: dead env vars).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.
