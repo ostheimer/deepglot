@@ -133,7 +133,7 @@ Features:
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
 - Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
-- Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive owner email via `DEEPGLOT_BILLING_ALERT_EMAIL`
+- Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive email to the organization owner when 90% or 100% of the monthly word limit is reached
 - Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
 - 27+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
