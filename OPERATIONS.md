@@ -225,3 +225,36 @@ npx tsx scripts/stripe-backfill-plan-key-metadata.ts --mode live
 
 - `stripe-setup.ts` — creates the full Stripe product and price structure (5 products × 10 prices). Run only when provisioning a brand-new Stripe account or a new environment from scratch.
 - `stripe-backfill-plan-key-metadata.ts` — backfills `plan_key` metadata on existing Stripe prices to align with the `Plan` enum. Run this after adding a new billing tier if the Stripe price was created before the `plan_key` metadata convention was established.
+
+## Word Quota Alerts
+
+Deepglot sends automatic email alerts when an organization's monthly word quota reaches 90% and 100%.
+
+**Trigger mechanism:**
+- Configured via `DEEPGLOT_BILLING_ALERT_EMAIL` environment variable
+- Alert emails sent via Cloudflare Email Sending
+- Deduplication: `UsageAlert` table prevents duplicate alerts per organization/month/threshold
+
+**UsageAlert table schema:**
+```sql
+-- month: YYYYMM integer, threshold: 90 or 100
+-- Unique constraint: (organizationId, month, threshold)
+```
+
+**Runbook — alert not received / re-trigger alert:**
+1. Verify `DEEPGLOT_BILLING_ALERT_EMAIL` is set in production environment
+2. Check Cloudflare Email Sending logs for delivery failures
+3. To re-trigger an alert (e.g., email bounced): delete the corresponding `UsageAlert` row:
+   ```sql
+   DELETE FROM "UsageAlert" 
+   WHERE "organizationId" = '<org-id>' 
+   AND "month" = <YYYYMM> 
+   AND "threshold" = <90 or 100>;
+   ```
+4. The next quota check will re-send the alert
+
+**Runbook — quota exhausted, translation stopped:**
+- wp-admin shows a notice via `deepglot_quota_exhausted` transient
+- Dynamic Translator stops retries upon `402` response from API
+- To restore translation: upgrade the organization's plan or increase quota limit
+- Enterprise orgs without `stripeSubscriptionId` (e.g., meinhaushalt.at): quota can be adjusted manually in the database

@@ -109,7 +109,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.1**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.1 also fixes a runtime-sync race that could revert freshly saved admin settings on busy sites.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.2 also fixes a runtime-sync race that could revert freshly saved admin settings on busy sites.
 
 Features:
 
@@ -132,7 +132,10 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
+- Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive owner email via `DEEPGLOT_BILLING_ALERT_EMAIL`
+- Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
+- 27+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 

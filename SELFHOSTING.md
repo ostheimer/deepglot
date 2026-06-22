@@ -68,6 +68,23 @@ Rebuild after application changes:
 docker compose up --build -d
 ```
 
+## Email Configuration
+
+Deepglot uses **Cloudflare Email Sending** for transactional emails (billing alerts, quota notifications).
+
+Set these variables in your `.env` file:
+
+```env
+CLOUDFLARE_ACCOUNT_ID="your-account-id"
+CLOUDFLARE_EMAIL_API_TOKEN="your-email-api-token"
+EMAIL_FROM="Deepglot <noreply@yourdomain.com>"
+
+# Optional: receive alerts when word quota reaches 90%/100%
+DEEPGLOT_BILLING_ALERT_EMAIL="admin@yourdomain.com"
+```
+
+Without email configuration, Deepglot functions normally but quota exhaustion alerts will not be sent.
+
 ## Production notes
 
 - Set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the public HTTPS origin before exposing the app.
