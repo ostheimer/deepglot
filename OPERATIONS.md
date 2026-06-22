@@ -230,10 +230,17 @@ npx tsx scripts/stripe-backfill-plan-key-metadata.ts --mode live
 
 Deepglot sends automatic email alerts when an organization's monthly word quota reaches 90% and 100%.
 
-**Trigger mechanism:**
-- Configured via `DEEPGLOT_BILLING_ALERT_EMAIL` environment variable
-- Alert emails sent via Cloudflare Email Sending
-- Deduplication: `UsageAlert` table prevents duplicate alerts per organization/month/threshold
+**How alerts are sent:**
+- Alert emails go to the **organization owner's email address** (the first `OWNER` member of the organization, queried from `OrganizationMember`).
+- Email delivery requires Cloudflare Email Sending to be configured (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, `EMAIL_FROM`).
+- `DEEPGLOT_BILLING_ALERT_EMAIL` is **not** used for quota alerts — it is the recipient for Stripe duplicate-subscription operational alerts only (see the "Duplicate Subscription Alert" section above).
+- Deduplication: the `UsageAlert` table prevents duplicate alerts — one row per `(organizationId, month, threshold)`.
+
+**Alert thresholds:**
+- **90%** — triggered when an accepted translation request crosses the 90% usage boundary during processing.
+- **100%** — triggered when a request is rejected with `402` (hard limit reached).
+
+> **Note:** Thresholds fire only on increment — `crossedQuotaThresholds(usedBefore, usedAfter, limit)` returns thresholds strictly crossed by the current request. An organization already at 95% at the start of processing will not receive a retroactive 90% alert.
 
 **UsageAlert table schema:**
 ```sql
@@ -241,20 +248,26 @@ Deepglot sends automatic email alerts when an organization's monthly word quota 
 -- Unique constraint: (organizationId, month, threshold)
 ```
 
-**Runbook — alert not received / re-trigger alert:**
-1. Verify `DEEPGLOT_BILLING_ALERT_EMAIL` is set in production environment
-2. Check Cloudflare Email Sending logs for delivery failures
-3. To re-trigger an alert (e.g., email bounced): delete the corresponding `UsageAlert` row:
-   ```sql
-   DELETE FROM "UsageAlert" 
-   WHERE "organizationId" = '<org-id>' 
-   AND "month" = <YYYYMM> 
-   AND "threshold" = <90 or 100>;
-   ```
-4. The next quota check will re-send the alert
+**Runbook — alert not received:**
+1. Verify the organization has an `OWNER` member with a valid email address in `OrganizationMember`.
+2. Verify Cloudflare Email Sending is configured: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, and `EMAIL_FROM` must all be set and non-empty.
+3. Check Cloudflare Email Sending logs for delivery failures.
+4. Check whether a `UsageAlert` row already exists — if so, the alert was previously triggered (possibly to a stale owner email address).
+
+**Runbook — re-trigger a bounced alert:**
+Deleting a `UsageAlert` row only enables re-sending when the threshold will be crossed again by a future request:
+- **100% threshold:** if the organization is still at or above 100%, delete the row and the next rejected request will re-trigger the email.
+- **90% threshold:** if current usage is already above 90%, deleting the row is not sufficient — the alert fires only when a request crosses 90% from below. To force a re-send in this case, either temporarily increase the word limit (so the ratio drops below 90%) and then delete the row, or send the email manually via `sendQuotaAlertEmail`.
+
+```sql
+DELETE FROM "UsageAlert"
+WHERE "organizationId" = '<org-id>'
+AND "month" = <YYYYMM>
+AND "threshold" = <90 or 100>;
+```
 
 **Runbook — quota exhausted, translation stopped:**
 - wp-admin shows a notice via `deepglot_quota_exhausted` transient
 - Dynamic Translator stops retries upon `402` response from API
-- To restore translation: upgrade the organization's plan or increase quota limit
+- To restore translation: upgrade the organization's plan or increase the quota limit
 - Enterprise orgs without `stripeSubscriptionId` (e.g., meinhaushalt.at): quota can be adjusted manually in the database

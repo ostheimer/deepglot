@@ -70,20 +70,22 @@ docker compose up --build -d
 
 ## Email Configuration
 
-Deepglot uses **Cloudflare Email Sending** for transactional emails (billing alerts, quota notifications).
+Deepglot uses **Cloudflare Email Sending** for transactional emails (password reset, project invitations, word quota alerts, duplicate-subscription operational alerts).
 
-Set these variables in your `.env` file:
+Set these variables in your `.env.selfhost` file (the file loaded by `docker-compose.yml` via `env_file: .env.selfhost`):
 
 ```env
 CLOUDFLARE_ACCOUNT_ID="your-account-id"
 CLOUDFLARE_EMAIL_API_TOKEN="your-email-api-token"
 EMAIL_FROM="Deepglot <noreply@yourdomain.com>"
 
-# Optional: receive alerts when word quota reaches 90%/100%
+# Optional: receive an alert when a duplicate Stripe subscription is detected
 DEEPGLOT_BILLING_ALERT_EMAIL="admin@yourdomain.com"
 ```
 
-Without email configuration, Deepglot functions normally but quota exhaustion alerts will not be sent.
+Without email configuration, Deepglot functions normally but transactional emails (password reset, quota notices) will not be sent.
+
+> Word quota alerts (90%/100%) go to the **organization owner's email address** automatically — no additional variable needed. `DEEPGLOT_BILLING_ALERT_EMAIL` is only for Stripe duplicate-subscription operational alerts.
 
 ## Production notes
 
