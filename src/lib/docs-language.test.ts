@@ -63,3 +63,11 @@ test("reports file paths for markdown documentation issues", () => {
   assert.equal(report.issues[0].filePath, markdownPath);
   assert.equal(report.issues[0].line, 1);
 });
+
+test("keeps public documentation brand spelling as Deepglot", () => {
+  for (const filePath of ["README.md", "SELFHOSTING.md"]) {
+    const content = fs.readFileSync(path.join(process.cwd(), filePath), "utf8");
+
+    assert.doesNotMatch(content, /\bDeeglot\b/, filePath);
+  }
+});

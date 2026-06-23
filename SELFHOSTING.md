@@ -1,6 +1,6 @@
 # Self-Hosting Deepglot
 
-Deeglot can run as a standalone Docker Compose stack with the Next.js app and PostgreSQL on a single host.
+Deepglot can run as a standalone Docker Compose stack with the Next.js app and PostgreSQL on a single host.
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ The app container waits for PostgreSQL, runs `prisma db push`, and then starts `
 
 ## Email configuration
 
-Deeglot uses the **Cloudflare Email Sending API** for all transactional email. Resend and SMTP are not used — do not set `RESEND_API_KEY`.
+Deepglot uses the **Cloudflare Email Sending API** for all transactional email. Resend and SMTP are not used — do not set `RESEND_API_KEY`.
 
 Without a working email configuration, the following features will **silently fail** (no error is thrown to the user):
 
