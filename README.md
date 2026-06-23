@@ -323,12 +323,13 @@ When the primary provider fails with a quota exhaustion, rate-limit, server erro
 
 ### TranslationSource database values
 
-The `TranslationSource` enum in the database schema records which provider produced each translation:
+The `TranslationSource` enum is a coarse provider bucket, not a precise per-request audit trail. The stored value is computed before any fallback retry happens and reflects the initially selected provider:
 
-- `TranslationSource.OPENAI` is written for both OpenAI **and** Gemini translations, because both providers share the same `translateWithOpenAICompatible()` adapter internally.
+- `TranslationSource.DEEPL` — written only when the primary provider is DeepL.
+- `TranslationSource.MOCK` — written only when the mock provider is active.
+- `TranslationSource.OPENAI` — written for **all other providers**: OpenAI, Gemini, OpenRouter, Ollama, and `openai-compatible`, because all of them share the same `translateWithOpenAICompatible()` adapter internally. Querying this value does not distinguish which of those providers was actually used.
 - `TranslationSource.GOOGLE` is reserved in the schema but is not actively written by any current provider. It does not correspond to any configurable `TRANSLATION_PROVIDER` value.
-- If you query the database and see `OPENAI` as the source for a translation that was produced by Gemini, this is expected behavior.
-- When fallback occurs, the stored `TranslationSource` reflects the originally selected provider, not the fallback that actually served the request. The source value is computed before `translateTexts()` can retry, so a record may show `OPENAI` even when a fallback provider produced the final output.
+- When fallback occurs, the stored source reflects the initially selected provider, not the one that produced the final result. A record can show `OPENAI` even when a different OpenAI-compatible provider (or a fallback) served the response.
 
 ## Test login and demo workspace
 
