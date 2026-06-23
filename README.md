@@ -315,10 +315,10 @@ The translation flow uses a provider abstraction:
 
 ### Fallback provider configuration
 
-When the primary provider fails with a quota exhaustion, rate-limit, server error (5xx), or network timeout, Deepglot can automatically retry with a fallback chain. Auth errors and other 4xx failures are not retried and propagate immediately.
+When the primary provider fails with a quota exhaustion, rate-limit (429), or server error (5xx), Deepglot can automatically retry with a fallback chain. Auth errors, validation errors, and other 4xx failures propagate immediately. Note: connection-level failures (ETIMEDOUT, ECONNRESET) that arrive via Node's native `fetch` are **not** retried — `isProviderFailoverError()` checks `error.message`, but undici reports these as `"fetch failed"` with details in `error.cause`.
 
 - `TRANSLATION_FALLBACK_PROVIDERS` accepts a comma-separated list of provider names (e.g. `gemini,openai`).
-- Default fallback chain when the variable is unset: `gemini,openai` (defined in `src/lib/translation-config.ts`).
+- Default fallback chain when the variable is unset: `gemini,openai` — these providers are only included if they have valid API credentials configured; unconfigured providers are silently skipped (defined in `src/lib/translation-config.ts`).
 - Example: set `TRANSLATION_FALLBACK_PROVIDERS=openai,deepl` to fall back to OpenAI first, then DeepL.
 
 ### TranslationSource database values
