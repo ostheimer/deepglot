@@ -313,6 +313,22 @@ The translation flow uses a provider abstraction:
 - The database schema includes `TranslationSource.GOOGLE` as a reserved source identifier. Google Translate is not currently available as a `TRANSLATION_PROVIDER` value and is not configurable via environment variables.
 - Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
 
+### Fallback provider configuration
+
+When the primary provider fails, Deepglot can automatically retry with a fallback chain:
+
+- `TRANSLATION_FALLBACK_PROVIDERS` accepts a comma-separated list of provider names (e.g. `gemini,openai`).
+- Default fallback chain when the variable is unset: `gemini,openai` (defined in `src/lib/translation-config.ts`).
+- Example: set `TRANSLATION_FALLBACK_PROVIDERS=openai,deepl` to fall back to OpenAI first, then DeepL.
+
+### TranslationSource database values
+
+The `TranslationSource` enum in the database schema records which provider produced each translation:
+
+- `TranslationSource.OPENAI` is written for both OpenAI **and** Gemini translations, because both providers share the same `translateWithOpenAICompatible()` adapter internally.
+- `TranslationSource.GOOGLE` is reserved in the schema but is not actively written by any current provider. It does not correspond to any configurable `TRANSLATION_PROVIDER` value.
+- If you query the database and see `OPENAI` as the source for a translation that was produced by Gemini, this is expected behavior.
+
 ## Test login and demo workspace
 
 The app now includes an instant test login for local work and Preview deployments:

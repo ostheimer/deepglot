@@ -42,6 +42,31 @@ The app container waits for PostgreSQL, runs `prisma db push`, and then starts `
 - OAuth providers stay disabled until their client credentials are set.
 - Stripe placeholders allow the app to boot, but billing should be considered inactive until real Stripe keys and price IDs are configured.
 
+## Email configuration
+
+Deepglot uses the **Cloudflare Email Sending API** for all transactional email. Resend and SMTP are not used — do not set `RESEND_API_KEY`.
+
+Without a working email configuration, the following features will **silently fail** (no error is thrown to the user):
+
+- Password reset
+- Team member invitations
+- Quota warning and limit alerts
+
+Required environment variables in `.env.selfhost`:
+
+```bash
+# Your Cloudflare account ID (found in the Cloudflare dashboard sidebar)
+CLOUDFLARE_ACCOUNT_ID=your-account-id
+
+# An API token with Email > Send permission
+CLOUDFLARE_EMAIL_API_TOKEN=your-email-api-token
+
+# The sender address — must be verified in Cloudflare Email Routing
+EMAIL_FROM=noreply@yourdomain.com
+```
+
+Setup guide: https://developers.cloudflare.com/email-routing/email-workers/send-email-workers/
+
 ## Common operations
 
 View logs:
