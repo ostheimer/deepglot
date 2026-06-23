@@ -1,6 +1,6 @@
 # Self-Hosting Deepglot
 
-Deepglot can run as a standalone Docker Compose stack with the Next.js app and PostgreSQL on a single host.
+Deeglot can run as a standalone Docker Compose stack with the Next.js app and PostgreSQL on a single host.
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ The app container waits for PostgreSQL, runs `prisma db push`, and then starts `
 
 ## Email configuration
 
-Deepglot uses the **Cloudflare Email Sending API** for all transactional email. Resend and SMTP are not used — do not set `RESEND_API_KEY`.
+Deeglot uses the **Cloudflare Email Sending API** for all transactional email. Resend and SMTP are not used — do not set `RESEND_API_KEY`.
 
 Without a working email configuration, the following features will **silently fail** (no error is thrown to the user):
 
@@ -58,14 +58,14 @@ Required environment variables in `.env.selfhost`:
 # Your Cloudflare account ID (found in the Cloudflare dashboard sidebar)
 CLOUDFLARE_ACCOUNT_ID=your-account-id
 
-# An API token with Email > Send permission
+# An API token with Email Sending: Edit permission
 CLOUDFLARE_EMAIL_API_TOKEN=your-email-api-token
 
-# The sender address — must be verified in Cloudflare Email Routing
+# The sender address — must be verified in Cloudflare Email Sending
 EMAIL_FROM=noreply@yourdomain.com
 ```
 
-Setup guide: https://developers.cloudflare.com/email-routing/email-workers/send-email-workers/
+Setup guide: https://developers.cloudflare.com/email-service/api/send-emails/rest-api/
 
 ## Common operations
 

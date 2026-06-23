@@ -1,6 +1,6 @@
 # Deepglot
 
-Deepglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
+Deeglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
 
 ## Author
 
@@ -42,7 +42,7 @@ npm run test:e2e
 
 ## Public routing
 
-Deepglot now uses English as the canonical URL structure across the public site and the app:
+Deeglot now uses English as the canonical URL structure across the public site and the app:
 
 - Canonical English routes:
   - `/`
@@ -273,7 +273,7 @@ The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readin
 
 ## Self-hosting
 
-Deepglot now includes a first self-hosted setup:
+Deeglot now includes a first self-hosted setup:
 
 - `Dockerfile` builds the Next.js app for production use.
 - `docker-compose.yml` starts the app together with PostgreSQL.
@@ -315,7 +315,7 @@ The translation flow uses a provider abstraction:
 
 ### Fallback provider configuration
 
-When the primary provider fails, Deepglot can automatically retry with a fallback chain:
+When the primary provider fails with a quota exhaustion, rate-limit, server error (5xx), or network timeout, Deepglot can automatically retry with a fallback chain. Auth errors and other 4xx failures are not retried and propagate immediately.
 
 - `TRANSLATION_FALLBACK_PROVIDERS` accepts a comma-separated list of provider names (e.g. `gemini,openai`).
 - Default fallback chain when the variable is unset: `gemini,openai` (defined in `src/lib/translation-config.ts`).
@@ -328,6 +328,7 @@ The `TranslationSource` enum in the database schema records which provider produ
 - `TranslationSource.OPENAI` is written for both OpenAI **and** Gemini translations, because both providers share the same `translateWithOpenAICompatible()` adapter internally.
 - `TranslationSource.GOOGLE` is reserved in the schema but is not actively written by any current provider. It does not correspond to any configurable `TRANSLATION_PROVIDER` value.
 - If you query the database and see `OPENAI` as the source for a translation that was produced by Gemini, this is expected behavior.
+- When fallback occurs, the stored `TranslationSource` reflects the originally selected provider, not the fallback that actually served the request. The source value is computed before `translateTexts()` can retry, so a record may show `OPENAI` even when a fallback provider produced the final output.
 
 ## Test login and demo workspace
 
@@ -387,7 +388,7 @@ The current lightweight test suite covers:
 
 ## Plans and billing tiers
 
-Deepglot uses a `Plan` enum in the database schema with the following values:
+Deeglot uses a `Plan` enum in the database schema with the following values:
 
 - `FREE` — default plan for new users
 - `STARTER`, `BUSINESS`, `PRO`, `ADVANCED`, `EXTENDED` — active paid billing tiers
