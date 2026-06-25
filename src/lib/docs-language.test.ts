@@ -63,3 +63,18 @@ test("reports file paths for markdown documentation issues", () => {
   assert.equal(report.issues[0].filePath, markdownPath);
   assert.equal(report.issues[0].line, 1);
 });
+
+test("qualifies cache-only bot SEO caveats in markdown docs", () => {
+  const unsafeBotSeoClaim =
+    /\bbots?\b[^\n.]*\bcache-only\b[^\n.]*(?:\bSEO is unaffected\b|\bSEO unaffected\b)/i;
+  const offenders = collectMarkdownFiles(process.cwd()).flatMap((filePath) => {
+    const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
+
+    return lines
+      .map((line, index) => ({ line, lineNumber: index + 1 }))
+      .filter(({ line }) => unsafeBotSeoClaim.test(line))
+      .map(({ line, lineNumber }) => `${path.relative(process.cwd(), filePath)}:${lineNumber}: ${line.trim()}`);
+  });
+
+  assert.deepEqual(offenders, []);
+});
