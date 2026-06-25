@@ -1,17 +1,27 @@
-# Deepglot Handoff - 2026-06-10
+# Deepglot Handoff - 2026-06-25
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `22d946c` (`fix(wp-plugin): runtime sync must not revert fresh admin saves (#146)`)
-- WordPress plugin **v0.8.1** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10)
+- Latest production commit: `66f8dca` (`fix(translate): quota_probe detects exhausted limit on cache hits (#155)`)
+- WordPress plugin **v0.8.2** deployed on `meinhaushalt.at`; dynamic-content translation **enabled there and live-QA-verified** (2026-06-10); bot-traffic quota fix and quota-exhaustion surfacing shipped 2026-06-13
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
 
-## Completed In The Latest Session (since 2026-05-06)
+## Completed In The Latest Session (since 2026-06-10)
+
+### Quota Visibility & Bot-Traffic Fix — v0.8.2 (2026-06-11 – 2026-06-15)
+
+- **Plugin v0.8.2 — BotDetector + quota exhaustion surfacing** (commit `f30b021`, 2026-06-13, closes [#147](https://github.com/ostheimer/deepglot/issues/147) + plugin side of [#148](https://github.com/ostheimer/deepglot/issues/148)): Investigation of meinhaushalt.at's ~1M words/month found crawlers billed as human (plugin hardcoded `bot:0`; SaaS treated `BotType.OTHER` as human). New `BotDetector` maps the visitor UA to the legacy bot code; bots are now served cache-only (SEO unaffected). Also threads `request_url` (previously empty) through `OutputBuffer → HtmlTranslator → Client`. SaaS correction: `isBot` now checks `bot >= OTHER`. Quota-exhaustion visibility: `deepglot_quota_exhausted` transient + wp-admin notice + status `quota_exhausted` + dynamic-translator proxy returns `quota_exhausted` so the browser stops retrying. Test-first: `BotDetectorTest` + 402 scenarios in controller/JS tests.
+- **Dashboard quota usage warnings** (commit `17d04c2`, 2026-06-14, SaaS side of [#148](https://github.com/ostheimer/deepglot/issues/148)): the usage page now shows an amber banner at ≥90% and a red "limit reached" banner at ≥100% of the org's effective word limit (`getEffectiveWordsLimit`). `UsageCharts` uses the same limit for a consistent percentage. Threshold logic extracted to a pure, unit-tested `quotaUsageLevel()`.
+- **Owner email alert for quota thresholds** (commit `9756310`, 2026-06-14, closes [#148](https://github.com/ostheimer/deepglot/issues/148)): `/api/translate` emails the org owner once per org per month at 90% (accepted increment crosses the warning line) and 100% (request rejected with 402). Deduped via a new `UsageAlert(organizationId, month, threshold)` unique table (applied additively to prod + preview; claimed before send, rolled back on failure to allow retry). Send bounded by 5s timeout; the orchestrator never fails/delays the translation. Bilingual owner email. `UsageAlert` model added to `prisma/schema.prisma`. Threshold math + email payload unit-tested.
+- **Billing quota alert HTML escaping** (commit `047384b`, 2026-06-15, [#165](https://github.com/ostheimer/deepglot/pull/165)): fixes HTML escaping in the quota alert email body introduced in the 8.33 email. Pure bugfix.
+- **quota_probe cache-hit fix** (commit `66f8dca`, 2026-06-15, ROADMAP 8.34): `/api/translate` was skipping the monthly quota check when every word was a cache hit, so the WP plugin health ping could stay green while real translations returned 402. The `quota_probe` flag (used by the WP plugin status/test-connection ping) now rejects exhausted quotas even on cache hits; visitor cache-only traffic remains unaffected.
+
+## Completed In Prior Sessions (since 2026-05-06)
 
 ### Dynamic Translator Live QA, v0.8.1 & Billing Hardening (2026-06-08 – 2026-06-10)
 
@@ -114,8 +124,8 @@ npm run test:e2e
 
 ## Recommended Next Work
 
-- Update the marketing site: dynamic/AJAX/SPA content translation is now live and QA-verified — a real Weglot-parity selling point.
-- Investigate the ~1M words/month usage on meinhaushalt.at ([#147](https://github.com/ostheimer/deepglot/issues/147)) and surface quota exhaustion to operators ([#148](https://github.com/ostheimer/deepglot/issues/148)).
-- Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping).
+- **Update the marketing site**: dynamic/AJAX/SPA content translation is live and QA-verified (Weglot-parity selling point). The marketing update was the remaining step after the 2026-06-10 live QA — still open.
+- **Continue with Phase 8.2/8.3** (Weglot competitive parity) or **8.4** (Housekeeping) as the next feature work.
+- **Run a full production acceptance suite** (`npm run acceptance:production`) to close the gap acknowledged in PRODUCTION_ACCEPTANCE.md — security and quota-visibility PRs 8.12–8.34 have been deployed but no formal acceptance run has been documented since 2026-05-03.
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.
