@@ -132,7 +132,7 @@ Features:
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - Subdomain support (`de.example.com`)
-- 20+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- 27 PHP unit tests plus `DynamicTranslatorAssetTest.js` covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, language switcher rendering, block/widget rendering, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation controller, and runtime-config race conditions
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
@@ -306,6 +306,7 @@ The translation flow uses a provider abstraction:
 - `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
 - Without an explicit `TRANSLATION_PROVIDER`, the app auto-selects by the first credential present, in this order: `gemini` (`GEMINI_API_KEY`) → `openai` (`OPENAI_API_KEY`) → `openrouter` (`OPENROUTER_API_KEY`) → `deepl` (`DEEPL_API_KEY`) → `ollama` (`OLLAMA_BASE_URL`), otherwise `mock` in `development` and `test`.
 - `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`).
+- `GEMINI_TRANSLATION_MODEL` controls the model for the Gemini provider (default: `gemini-3.1-flash-lite-preview` as set in `.env.example`).
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
@@ -368,6 +369,41 @@ The current lightweight test suite covers:
 - project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
 - translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
 - subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
+
+### WordPress plugin PHP test suite
+
+The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 27 PHP unit test files plus one JS asset test, all run via `npm run test:wp`:
+
+| Test file | What it covers |
+|---|---|
+| `AccessibilityAttributeTranslationTest.php` | Translation of ARIA and accessibility attributes |
+| `BlockRenderTest.php` | Gutenberg block rendering for the language switcher |
+| `BotDetectorTest.php` | Bot-traffic detection to skip unnecessary translation |
+| `BrowserRedirectorTest.php` | Browser-language auto-redirect logic and guard conditions |
+| `ClientSettingsSyncTest.php` | Sync of admin settings to the client-side JS config object |
+| `DynamicTranslationControllerTest.php` | REST endpoint for client-side dynamic-content translation |
+| `ExclusionsTest.php` | CSS-selector and URL exclusion rules |
+| `HtmlLangSwitchTest.php` | `<html lang>` attribute switching per active language |
+| `JsonLdTranslationTest.php` | JSON-LD structured-data string translation |
+| `LanguageSwitcherAriaTest.php` | ARIA attributes on the language switcher widget |
+| `LanguageSwitcherRenderingTest.php` | HTML output of the language switcher (all modes and styles) |
+| `LinkRewriterTest.php` | Link rewriting for `<a>`, `<form>`, and `<link rel=canonical>` |
+| `MetadataTranslationTest.php` | `<title>`, `<meta description>`, and OG tag translation |
+| `NavMenuSwitcherTest.php` | WordPress nav-menu integration for the language switcher |
+| `ParallelBatchesTest.php` | Parallel batching of translation API requests |
+| `RestApiQuotaStatusTest.php` | REST endpoint for quota/status health checks |
+| `RuntimeConfigRaceTest.php` | Race-condition guard for runtime admin-settings sync (v0.8.1 fix) |
+| `SiteRoutingTest.php` | Path-prefix and subdomain routing modes |
+| `SwitcherCustomFlagsTest.php` | Per-language custom flag image support |
+| `SwitcherJsAriaTest.php` | JS-driven ARIA state updates on the switcher |
+| `SwitcherResponsiveHideTest.php` | Responsive-hide CSS class behavior |
+| `SwitcherSettingsTest.php` | Admin settings round-trip for all switcher options |
+| `TranslationCacheTest.php` | WordPress transient-based translation cache |
+| `TranslationRulesTest.php` | Per-language translation rule evaluation |
+| `UrlLanguageResolverTest.php` | URL language prefix detection and resolution |
+| `WidgetRenderTest.php` | Classic widget rendering for the language switcher |
+| `WooCommerceEmailTranslatorTest.php` | WooCommerce order email translation |
+| `DynamicTranslatorAssetTest.js` | MutationObserver / client-side dynamic translator (JS) |
 
 ## Plans and billing tiers
 
