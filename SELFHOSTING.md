@@ -74,3 +74,4 @@ docker compose up --build -d
 - Replace the placeholder Stripe keys before using billing features.
 - Switch `TRANSLATION_PROVIDER` to `openai` or `deepl` only after the corresponding API key is configured.
 - Back up the `postgres_data` volume or move PostgreSQL to managed infrastructure before relying on the instance for production data.
+- Configure email sending for password-reset, quota alerts, and duplicate-subscription notifications: `EMAIL_FROM`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN`, and `DEEPGLOT_BILLING_ALERT_EMAIL` must be set. Without these, email features silently fail.
