@@ -120,6 +120,13 @@ PR [#28](https://github.com/ostheimer/deepglot/pull/28) (`Translate head <title>
   - `/wp-json/` and `/sitemap_index.xml` with `Accept-Language: en` → `200`, no language redirect.
   - DE post slug with `Accept-Language: en` → `302` to the same slug under `/en/`.
 
+### meinhaushalt.at Acceptance Run - 2026-06-10 (Plugin v0.8.1)
+
+Plugin v0.8.1 deployed live. Dynamic-content translator enabled on meinhaushalt.at.
+Full QA results documented in [`wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`](./wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md).
+
+Summary: injected text + accessibility attributes translate, re-translation on change, no-translate/`contenteditable` markers respected, session cache avoids repeat requests, bots return 403, SEO output unchanged. ROADMAP 8.27 closed.
+
 ## SaaS Automated Acceptance
 
 Run this suite to verify production SaaS behavior without touching Stripe or WordPress content:
