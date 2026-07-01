@@ -109,7 +109,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**, deployed live on `meinhaushalt.at` with the client-side dynamic-content translator **enabled — live QA passed on 2026-06-10** (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.2 also fixes a runtime-sync race that could revert freshly saved admin settings on busy sites.
+The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.2**. v0.8.2 stops bot traffic from burning translation quota (new `BotDetector` maps the visitor UA to the legacy bot code; bots are served cache-only — crawlers receive cached translations, and uncached URLs fall back to source-language content until a human visit warms the cache; a cache-poisoning guard for identity mappings on first-visit cache misses is tracked in [#163](https://github.com/ostheimer/deepglot/issues/163)), surfaces quota exhaustion to operators (wp-admin notice, plugin status endpoint, dashboard warning/limit banners, owner email alerts at 90%/100%), and makes the dynamic-translator proxy return `quota_exhausted` so the browser stops retrying (closes [#147](https://github.com/ostheimer/deepglot/issues/147) and [#148](https://github.com/ostheimer/deepglot/issues/148)). v0.8.1 (2026-06-10) fixed a runtime-sync race that could revert freshly saved admin settings on busy sites and passed live QA for the dynamic-content translator on `meinhaushalt.at` (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`); a live re-verification of the v0.8.2 bot/quota behavior is still pending.
 
 Features:
 
@@ -131,11 +131,11 @@ Features:
 - REST API v1 at `/wp-json/deepglot/v1/` for settings CRUD, status, and test-connection
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
-- Subdomain support (`de.example.com`)
+- Subdomain support (`de.example.com`) (implemented; live QA pending — requires `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`)
 - Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
 - Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive email to the organization owner when 90% or 100% of the monthly word limit is reached
 - Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
-- 27+ PHP unit tests covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, and WooCommerce email
+- 27 PHP unit tests plus `DynamicTranslatorAssetTest.js` covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, language switcher rendering, block/widget rendering, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation controller, and runtime-config race conditions
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
@@ -309,12 +309,31 @@ The translation flow uses a provider abstraction:
 - `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.
 - Without an explicit `TRANSLATION_PROVIDER`, the app auto-selects by the first credential present, in this order: `gemini` (`GEMINI_API_KEY`) → `openai` (`OPENAI_API_KEY`) → `openrouter` (`OPENROUTER_API_KEY`) → `deepl` (`DEEPL_API_KEY`) → `ollama` (`OLLAMA_BASE_URL`), otherwise `mock` in `development` and `test`.
 - `OPENAI_TRANSLATION_MODEL` controls the model for the OpenAI provider (current production default: `gpt-5-mini`).
+- `GEMINI_API_KEY`, `GEMINI_TRANSLATION_MODEL`, and `GEMINI_BASE_URL` configure the Gemini provider (default model: `gemini-3.1-flash-lite` — the stable id; never point the default at a `-preview` alias, Google retires those once the stable ships).
 - `OPENROUTER_API_KEY` and `OPENROUTER_TRANSLATION_MODEL` configure the OpenRouter gateway.
 - `OLLAMA_BASE_URL` and `OLLAMA_TRANSLATION_MODEL` configure a local Ollama instance.
 - `TRANSLATION_API_KEY`, `TRANSLATION_BASE_URL`, and `TRANSLATION_MODEL` are generic overrides for `openai-compatible` gateways.
 - `mock` is intended for local development and tests and returns visibly marked output instead of real translations.
 - The database schema includes `TranslationSource.GOOGLE` as a reserved source identifier. Google Translate is not currently available as a `TRANSLATION_PROVIDER` value and is not configurable via environment variables.
 - Projects on the Pro plan and above can store their own encrypted provider API key; set `DEEPGLOT_SECRET_ENCRYPTION_KEY` to enable at-rest encryption for per-project keys.
+
+### Fallback provider configuration
+
+When the primary provider fails with a quota exhaustion, rate-limit (429), or server error (5xx), Deepglot automatically retries with a fallback chain. Auth errors, validation errors, and other 4xx failures propagate immediately. Note: connection-level failures (ETIMEDOUT, ECONNRESET) that arrive via Node's native `fetch` are **not** retried — `isProviderFailoverError()` checks `error.message`, but undici reports these as `"fetch failed"` with details in `error.cause`.
+
+- `TRANSLATION_FALLBACK_PROVIDERS` accepts a comma-separated list of provider names (e.g. `gemini,openai`).
+- Default fallback chain when the variable is unset: `gemini,openai` — these providers are only included if they have valid API credentials configured; unconfigured providers are silently skipped (defined in `src/lib/translation-config.ts`).
+- Example: set `TRANSLATION_FALLBACK_PROVIDERS=openai,deepl` to fall back to OpenAI first, then DeepL.
+- Terminal failures (the last provider in the chain fails, or a non-failover error occurs) are logged at error level with the failing provider and the attempted chain; recoverable hops are logged as warnings.
+
+### TranslationSource database values
+
+The `TranslationSource` enum is a coarse provider bucket, not a precise per-request audit trail. The stored value reflects the initially selected provider, not the provider that actually served the response after a fallback:
+
+- `TranslationSource.DEEPL` — written only when the selected provider is DeepL.
+- `TranslationSource.MOCK` — written only when the mock provider is active.
+- `TranslationSource.OPENAI` — written for **all other providers**: OpenAI, Gemini, OpenRouter, Ollama, and `openai-compatible`. The persistence layer only distinguishes `deepl` / `mock` / everything-else, so querying this value does not tell you which of those providers was actually used.
+- `TranslationSource.GOOGLE` is reserved in the schema but is not actively written by any current provider. It does not correspond to any configurable `TRANSLATION_PROVIDER` value.
 
 ## Test login and demo workspace
 
@@ -364,6 +383,8 @@ The current lightweight test suite covers:
 - SaaS acceptance config, payload builders, and failure classification in `src/lib/saas-acceptance.test.ts`
 - settings-area API route authorization guardrail (management gate on all management methods) in `src/lib/project-settings-route-authz.test.ts`
 - translations language page management gating (AddLanguageDialog only for managers) in `src/lib/project-language-page-authz.test.ts`
+- password reset flow in `src/lib/password-reset.test.ts`
+- project invitation token lifecycle in `src/lib/project-invitations.test.ts`
 - end-to-end locale switching, query preservation, legacy German redirects, and locale-aware auth redirects via Playwright in `tests/e2e/locale-routing.spec.ts`
 - end-to-end account settings flows via Playwright in `tests/e2e/account-settings.spec.ts`
 - full UI navigation audit via Playwright in `tests/e2e/full-ui-audit.spec.ts`
@@ -371,6 +392,41 @@ The current lightweight test suite covers:
 - project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
 - translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
 - subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
+
+### WordPress plugin PHP test suite
+
+The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 27 PHP unit test files plus one JS asset test, all run via `npm run test:wp`:
+
+| Test file | What it covers |
+|---|---|
+| `AccessibilityAttributeTranslationTest.php` | Translation of ARIA and accessibility attributes |
+| `BlockRenderTest.php` | Gutenberg block rendering for the language switcher |
+| `BotDetectorTest.php` | Bot-traffic detection to skip unnecessary translation |
+| `BrowserRedirectorTest.php` | Browser-language auto-redirect logic and guard conditions |
+| `ClientSettingsSyncTest.php` | Sync of admin settings to the client-side JS config object |
+| `DynamicTranslationControllerTest.php` | REST endpoint for client-side dynamic-content translation |
+| `ExclusionsTest.php` | CSS-selector and URL exclusion rules |
+| `HtmlLangSwitchTest.php` | `<html lang>` attribute switching per active language |
+| `JsonLdTranslationTest.php` | JSON-LD structured-data string translation |
+| `LanguageSwitcherAriaTest.php` | ARIA attributes on the language switcher widget |
+| `LanguageSwitcherRenderingTest.php` | HTML output of the language switcher (all modes and styles) |
+| `LinkRewriterTest.php` | Link rewriting for `<a>`, `<form>`, and `<link rel=canonical>` |
+| `MetadataTranslationTest.php` | `<title>`, `<meta description>`, and OG tag translation |
+| `NavMenuSwitcherTest.php` | WordPress nav-menu integration for the language switcher |
+| `ParallelBatchesTest.php` | Parallel batching of translation API requests |
+| `RestApiQuotaStatusTest.php` | REST endpoint for quota/status health checks |
+| `RuntimeConfigRaceTest.php` | Race-condition guard for runtime admin-settings sync (v0.8.1 fix) |
+| `SiteRoutingTest.php` | Path-prefix and subdomain routing modes |
+| `SwitcherCustomFlagsTest.php` | Per-language custom flag image support |
+| `SwitcherJsAriaTest.php` | JS-driven ARIA state updates on the switcher |
+| `SwitcherResponsiveHideTest.php` | Responsive-hide CSS class behavior |
+| `SwitcherSettingsTest.php` | Admin settings round-trip for all switcher options |
+| `TranslationCacheTest.php` | WordPress transient-based translation cache |
+| `TranslationRulesTest.php` | Per-language translation rule evaluation |
+| `UrlLanguageResolverTest.php` | URL language prefix detection and resolution |
+| `WidgetRenderTest.php` | Classic widget rendering for the language switcher |
+| `WooCommerceEmailTranslatorTest.php` | WooCommerce order email translation |
+| `DynamicTranslatorAssetTest.js` | MutationObserver / client-side dynamic translator (JS) |
 
 ## Plans and billing tiers
 

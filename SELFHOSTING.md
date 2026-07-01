@@ -70,20 +70,31 @@ docker compose up --build -d
 
 ## Email Configuration
 
-Deepglot uses **Cloudflare Email Sending** for transactional emails (password reset, project invitations, word quota alerts, duplicate-subscription operational alerts).
+Deepglot uses the **Cloudflare Email Sending API** for all transactional email (password reset, project invitations, word quota alerts, duplicate-subscription operational alerts). Resend and SMTP are not used — do not set `RESEND_API_KEY`.
+
+Without a working email configuration, Deepglot functions normally but the following features will **silently fail** (no error is thrown to the user):
+
+- Password reset
+- Team member invitations
+- Quota warning and limit alerts
 
 Set these variables in your `.env.selfhost` file (the file loaded by `docker-compose.yml` via `env_file: .env.selfhost`):
 
 ```env
+# Your Cloudflare account ID (found in the Cloudflare dashboard sidebar)
 CLOUDFLARE_ACCOUNT_ID="your-account-id"
+
+# An API token with "Email Sending: Edit" permission
 CLOUDFLARE_EMAIL_API_TOKEN="your-email-api-token"
+
+# The sender address — must be verified in Cloudflare Email Sending
 EMAIL_FROM="Deepglot <noreply@yourdomain.com>"
 
 # Optional: receive an alert when a duplicate Stripe subscription is detected
 DEEPGLOT_BILLING_ALERT_EMAIL="admin@yourdomain.com"
 ```
 
-Without email configuration, Deepglot functions normally but transactional emails (password reset, quota notices) will not be sent.
+Setup guide: https://developers.cloudflare.com/email-service/api/send-emails/rest-api/
 
 > Word quota alerts (90%/100%) go to the **organization owner's email address** automatically — no additional variable needed. `DEEPGLOT_BILLING_ALERT_EMAIL` is only for Stripe duplicate-subscription operational alerts.
 

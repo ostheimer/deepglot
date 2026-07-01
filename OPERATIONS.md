@@ -271,3 +271,27 @@ AND "threshold" = <90 or 100>;
 - Dynamic Translator stops retries upon `402` response from API
 - To restore translation: upgrade the organization's plan or increase the quota limit
 - Enterprise orgs without `stripeSubscriptionId` (e.g., meinhaushalt.at): quota can be adjusted manually in the database
+
+### WordPress plugin quota signals
+
+When the SaaS returns 402 for a translation request, the plugin:
+
+1. Sets a `deepglot_quota_exhausted` WordPress transient (expires after 1 hour).
+2. Displays a **wp-admin notice** on admin pages while the transient is active.
+3. Returns `quota_exhausted` from the dynamic-translation proxy (`POST /wp-json/deepglot/v1/translate-dynamic`) so the browser client stops retrying for the current session.
+
+The plugin REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quota_exhausted` from either signal — the transient or a live 402 on the health ping. The endpoint is **not public**: it requires the `manage_options` capability (`permission_callback`), so external monitoring must authenticate, e.g. with a WordPress Application Password via `Authorization: Basic <base64(user:app-password)>`.
+
+The status/test-connection ping sends `quota_probe: true`, so the SaaS rejects an exhausted quota even when every pinged word is already cached (ROADMAP 8.34) — the health check cannot be masked by cache hits.
+
+### Raising the quota
+
+To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `stripeSubscriptionId IS NULL`), update `Subscription.wordsLimit` directly in the database:
+
+```sql
+UPDATE "Subscription" SET "wordsLimit" = <new_limit> WHERE "organizationId" = '<org_id>';
+```
+
+> **Note:** `Subscription.wordsLimit` is only fully honoured when the subscription status is `ACTIVE` or `TRIALING`. For other statuses, `getEffectiveWordsLimit()` caps the effective limit regardless of the stored value — verify the subscription status before raising the limit.
+
+After the update, clear the plugin transient so the status endpoint reflects the live ping instead of the stale 402-set value (`wp transient delete deepglot_quota_exhausted`), then re-run the plugin test-connection — the `quota_probe` ping verifies the quota gate is genuinely open even on cache hits.
