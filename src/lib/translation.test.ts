@@ -201,3 +201,68 @@ test("does not retry on auth errors that should surface to the operator", async 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("logs the terminal failure at error level with the full chain when every provider fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  console.warn = (...args) => {
+    warnings.push(args.map((value) => String(value)).join(" "));
+  };
+  console.error = (...args) => {
+    errors.push(args.map((value) => String(value)).join(" "));
+  };
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      return new Response(
+        JSON.stringify({
+          error: { message: "You exceeded your current quota", type: "insufficient_quota" },
+        }),
+        { status: 429 }
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      return new Response("upstream gateway exploded", { status: 502 });
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          }
+        ),
+      /Gemini API error 502/
+    );
+
+    // The recoverable hop (openai -> gemini) stays a warning, but now carries
+    // the full upstream detail instead of a 120-char slice.
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /provider openai failed; falling back to gemini/);
+    assert.match(warnings[0], /chain: openai -> gemini/);
+    assert.match(warnings[0], /insufficient_quota/);
+
+    // The terminal failure (what the caller turns into a 5xx) is logged at
+    // error level with the failing provider, the attempted chain and the full
+    // upstream message — this is the line that was missing during the outage.
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /translation failed via gemini \(last provider in chain\)/);
+    assert.match(errors[0], /chain: openai -> gemini/);
+    assert.match(errors[0], /Gemini API error 502/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
