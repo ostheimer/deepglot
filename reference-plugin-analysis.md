@@ -1,4 +1,12 @@
-> **Historical document (March 2026):** This is an analysis document created before implementation. Section 9 recommended DiDOM; the actual implementation uses PHP-native DOMDocument (no external PHP dependencies). See README.md for the current plugin architecture.
+> **DEPRECATED — DO NOT USE AS IMPLEMENTATION REFERENCE**
+>
+> This document is a historical analysis written in March 2026 **before** implementation began. It does **not** reflect the current state of the Deepglot WordPress plugin. Key recommendations in this document were explicitly rejected during implementation:
+>
+> - **Section 9 recommends DiDOM** — the actual implementation uses PHP-native `DOMDocument` with zero external PHP dependencies.
+> - **Section 9 recommends a custom cache table** — the actual implementation uses WordPress transients (no custom database table).
+> - **Section 8 / Section 9 next steps** are fully superseded by the live codebase in `wordpress-plugin/deepglot/`.
+>
+> For the current plugin architecture, features, and test coverage, refer to the main [README.md](README.md) and the plugin's own [wordpress-plugin/deepglot/README.md](wordpress-plugin/deepglot/README.md).
 
 # Reference Plugin Analysis for a WordPress Translation Solution
 
@@ -120,6 +128,8 @@ The analysis suggests these prioritized decisions for Deepglot:
 ---
 
 ## 9. Next implementation steps
+
+> **Note:** The steps below were pre-implementation proposals. They do **not** reflect what was actually built. See the DEPRECATED notice at the top of this document.
 
 - Integrate URL and language logic directly into the frontend flow
 - Build parser and string extraction on top of DiDOM

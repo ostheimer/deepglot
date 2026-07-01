@@ -2,7 +2,7 @@
 
 This checklist is the release gate for Deepglot production changes after the app is deployed to Vercel and the WordPress plugin is installed on a live site.
 
-> **Note (2026-06):** Since the last documented acceptance run (approximately 2026-05), the Security-Hardening PRs #8.12–#8.27 have been rolled out to production. These cover SSRF-Guard (`webhook-url-safety.ts`), IDOR fixes for project settings and language management routes, CSV-injection protection in import/export, Rate-Limit hardening on manual-translations writes, Visual-Editor session token hardening, and duplicate-Checkout guards. A new full acceptance run against these changes is still pending.
+> **Note (2026-07):** Since the last documented acceptance run (approximately 2026-05), the Security-Hardening and quota-visibility changes #8.12–#8.34 have been rolled out to production. These cover SSRF-Guard (`webhook-url-safety.ts`), IDOR fixes for project settings and language management routes, CSV-injection protection in import/export, Rate-Limit hardening on manual-translations writes, Visual-Editor session token hardening, duplicate-Checkout guards (8.23–8.29), bot-traffic quota exemption (8.32, plugin v0.8.2), operator quota-exhaustion visibility — dashboard banners at ≥90%/≥100%, owner email alerts, wp-admin notice, plugin status endpoint (8.33) — and quota_probe cache-hit detection (8.34). A new full acceptance run against these changes is still pending.
 
 ## Scope
 

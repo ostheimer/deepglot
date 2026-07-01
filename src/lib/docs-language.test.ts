@@ -63,3 +63,29 @@ test("reports file paths for markdown documentation issues", () => {
   assert.equal(report.issues[0].filePath, markdownPath);
   assert.equal(report.issues[0].line, 1);
 });
+
+test("qualifies cache-only bot SEO caveats in markdown docs", () => {
+  // Guard against re-introducing the unqualified "bots served cache-only
+  // (SEO unaffected)" claim: uncached translated URLs fall back to
+  // source-language content for crawlers until a human visit warms the cache.
+  const unsafeBotSeoClaim =
+    /\bbots?\b[^\n.]*\bcache-only\b[^\n.]*(?:\bSEO is unaffected\b|\bSEO unaffected\b)/i;
+  const offenders = collectMarkdownFiles(process.cwd()).flatMap((filePath) => {
+    const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
+
+    return lines
+      .map((line, index) => ({ line, lineNumber: index + 1 }))
+      .filter(({ line }) => unsafeBotSeoClaim.test(line))
+      .map(({ line, lineNumber }) => `${path.relative(process.cwd(), filePath)}:${lineNumber}: ${line.trim()}`);
+  });
+
+  assert.deepEqual(offenders, []);
+});
+
+test("keeps public documentation brand spelling as Deepglot", () => {
+  for (const filePath of ["README.md", "SELFHOSTING.md"]) {
+    const content = fs.readFileSync(path.join(process.cwd(), filePath), "utf8");
+
+    assert.doesNotMatch(content, /\bDeeglot\b/, filePath);
+  }
+});
