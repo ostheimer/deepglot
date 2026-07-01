@@ -42,7 +42,7 @@ export async function translateWithGemini(
   if (!config.apiKey) {
     throw new Error("Gemini API key is not configured.");
   }
-  const model = config.model || "gemini-3.1-flash-lite-preview";
+  const model = config.model || "gemini-3.1-flash-lite";
   const baseUrl = (config.baseUrl || DEFAULT_GEMINI_BASE_URL).replace(/\/+$/, "");
   const url = `${baseUrl}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
 

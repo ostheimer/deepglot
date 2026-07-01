@@ -18,13 +18,18 @@ export const DEFAULT_OPENROUTER_TRANSLATION_MODEL = "openai/gpt-5-mini";
 export const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1";
 export const DEFAULT_OLLAMA_TRANSLATION_MODEL = "llama3.3";
 /**
- * Default Gemini model for translation. Google explicitly recommends
- * `gemini-3.1-flash-lite-preview` for high-volume translation workloads —
- * twice as fast as 2.5-flash-lite, better quality on translation / RAG /
- * data-extraction benchmarks, and still in the cheap tier ($0.25 input /
+ * Default Gemini model for translation. Google recommends the stable
+ * `gemini-3.1-flash-lite` (GA since March 2026) for high-volume translation
+ * workloads — twice as fast as 2.5-flash-lite, better quality on translation /
+ * RAG / data-extraction benchmarks, and still in the cheap tier ($0.25 input /
  * $1.50 output per 1M tokens).
+ *
+ * NB: keep this on the stable model id, never a `-preview` alias. Google
+ * retires preview aliases once the stable ships, and because Gemini is the
+ * default fallback in `buildFallbackProviderChain`, a retired model id makes
+ * the whole openai -> gemini chain fail (every /api/translate call 500s).
  */
-export const DEFAULT_GEMINI_TRANSLATION_MODEL = "gemini-3.1-flash-lite-preview";
+export const DEFAULT_GEMINI_TRANSLATION_MODEL = "gemini-3.1-flash-lite";
 export const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export const TRANSLATION_PROVIDERS = [
@@ -137,13 +142,14 @@ export function getRecommendedModels(provider: TranslationProviderName) {
       ];
     case "gemini":
       return [
-        // Default for translation — Google's recommended high-volume model.
-        "gemini-3.1-flash-lite-preview",
+        // Default for translation — Google's high-volume, low-cost model (stable).
+        "gemini-3.1-flash-lite",
+        // Near-Pro quality at Flash-tier cost & speed (stable) — quality upgrade.
+        "gemini-3.5-flash",
+        // Previous-generation models, still GA.
         "gemini-2.5-flash-lite",
         "gemini-2.5-flash",
-        "gemini-3-flash-preview",
         "gemini-2.5-pro",
-        "gemini-3.1-pro-preview",
       ];
     case "openrouter":
       return [
