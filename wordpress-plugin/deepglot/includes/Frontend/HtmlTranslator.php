@@ -4,6 +4,7 @@ namespace Deepglot\Frontend;
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
+use Deepglot\Support\BotDetector;
 use Deepglot\Support\TranslationCache;
 
 /**
@@ -195,9 +196,24 @@ class HtmlTranslator
             $this->mergeTranslateResult($apiResults, $result);
         }
 
-        // Persist new translations in cache.
-        if (!empty($apiResults)) {
-            $this->cache->setMany($apiResults, $sourceLang, $targetLanguage);
+        // Persist new translations in cache. On bot requests the SaaS is
+        // cache-only: uncached words come back as identity mappings
+        // (to == from), not translations. Persisting those would poison the
+        // 30-day transient cache for later human visitors (#163), so identity
+        // pairs are dropped here for bot traffic. Human/provider-backed
+        // results keep caching identical strings (proper nouns etc.).
+        $cacheable = $apiResults;
+
+        if ($bot >= BotDetector::OTHER) {
+            $cacheable = array_filter(
+                $cacheable,
+                static fn(string $translated, string $original): bool => $translated !== $original,
+                ARRAY_FILTER_USE_BOTH
+            );
+        }
+
+        if (!empty($cacheable)) {
+            $this->cache->setMany($cacheable, $sourceLang, $targetLanguage);
         }
 
         $all = array_merge($cached, $apiResults);
