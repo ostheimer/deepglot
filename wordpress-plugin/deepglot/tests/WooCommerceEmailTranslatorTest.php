@@ -53,6 +53,7 @@ require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
 require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
+require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
 require_once __DIR__ . '/../includes/Frontend/WooCommerceEmailTranslator.php';
 
