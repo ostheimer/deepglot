@@ -217,6 +217,30 @@ Coverage added:
 - Additional known production aliases can be configured with `DEEPGLOT_CANONICAL_REDIRECT_HOSTS`.
 - Vercel Preview and branch deployment URLs remain reachable for PR QA, even when `VERCEL_URL` is present.
 
+## Post-8.34 Re-Verification Checklist
+
+The following commands cover Security-Hardening and quota-visibility changes #8.12–#8.34 that shipped after the last formal acceptance run (2026-05-03). Run these before treating the SaaS Acceptance table above as fully current:
+
+```bash
+# Full production wrapper (smoke + Neon + Stripe + SaaS + Phase 6)
+npm run acceptance:production -- --json output/production-acceptance.json --junit output/production-acceptance.xml
+
+# SaaS-only when Stripe or WordPress checks must be deferred
+npm run acceptance:saas -- --json output/saas.json --junit output/saas.xml
+
+# WordPress plugin v0.8.2 — follow the manual checklist above against meinhaushalt.at
+```
+
+Areas requiring explicit manual verification (not yet covered by automated suites):
+
+- **SSRF guard** (`webhook-url-safety.ts`): a webhook URL pointing to an internal IP (e.g. `http://127.0.0.1/`) must be rejected with `400` before delivery.
+- **IDOR fixes**: project-settings and language-management routes must return `403` when accessed with a different user's project ID.
+- **CSV injection** (import/export): a cell beginning with `=cmd|' /C calc'!A0` must be stored as a literal string, not evaluated or silently dropped.
+- **Duplicate-Checkout guard** (8.23–8.29): submitting Stripe Checkout twice within 60 seconds must surface the deduplication message rather than creating two subscriptions.
+- **Bot-traffic quota exemption** (8.32, plugin v0.8.2): a verified-bot User-Agent must not consume word quota; verify via the plugin status endpoint and the operator dashboard banner.
+- **Quota banners** (8.33): an account at ≥90% word usage must show the dashboard warning banner; an account at ≥100% must show the over-limit banner and trigger an owner alert email.
+- **`quota_probe` cache detection** (8.34): probe requests must not increment quota usage or appear in translation analytics.
+
 ## Exit Criteria
 
 - `npm run smoke:production` passes after the production deployment.

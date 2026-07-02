@@ -103,4 +103,5 @@ Setup guide: https://developers.cloudflare.com/email-service/api/send-emails/res
 - Set `AUTH_URL`, `NEXTAUTH_URL`, and `NEXT_PUBLIC_APP_URL` to the public HTTPS origin before exposing the app.
 - Replace the placeholder Stripe keys before using billing features.
 - Switch `TRANSLATION_PROVIDER` to `openai` or `deepl` only after the corresponding API key is configured.
+- Set `DEEPGLOT_SECRET_ENCRYPTION_KEY` (a 32-byte base64 secret, generated with `openssl rand -base64 32`) to enable at-rest AES-256 encryption of per-project custom provider API keys. Without it, custom API keys are stored unencrypted; the app boots normally but the encryption layer is inactive.
 - Back up the `postgres_data` volume or move PostgreSQL to managed infrastructure before relying on the instance for production data.
