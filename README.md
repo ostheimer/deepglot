@@ -334,6 +334,15 @@ The `TranslationSource` enum is a coarse provider bucket, not a precise per-requ
 - `TranslationSource.OPENAI` — written for **all other providers**: OpenAI, Gemini, OpenRouter, Ollama, and `openai-compatible`. The persistence layer only distinguishes `deepl` / `mock` / everything-else, so querying this value does not tell you which of those providers was actually used.
 - `TranslationSource.GOOGLE` is reserved in the schema but is not actively written by any current provider. It does not correspond to any configurable `TRANSLATION_PROVIDER` value.
 
+### Supported translation languages
+
+The canonical language list lives in `src/lib/supported-languages.ts` and is the single source for the public endpoints (`GET /api/public/languages`, `GET /api/public/languages/is-supported`) and any documentation claim — `supported-languages.test.ts` pins the counts and keeps the dashboard picker within the list.
+
+- **33 languages** are offered by the product and served by the default AI providers (OpenAI, Gemini, OpenRouter, Ollama, openai-compatible).
+- **30 of them** are additionally guaranteed on every configurable provider, including the narrowest (DeepL-class); the three EU additions `hr`, `ga`, and `mt` carry `sharedAcrossProviders: false` and may be unavailable when an organization pins such a provider.
+- The dashboard language picker offers a curated EU-focused subset (`EU_LANGUAGE_CODES`), which is always a subset of the canonical list.
+- Weglot-parity context (#123): Weglot advertises 110+ languages; Deepglot deliberately documents the verified cross-provider set instead of an unverifiable ceiling — LLM providers accept far more codes, but only the canonical list is enforced and tested.
+
 ## Test login and demo workspace
 
 The app now includes an instant test login for local work and Preview deployments:
