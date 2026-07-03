@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, Code, Globe, Lock, Zap } from "lucide-react";
+import { ArrowRight, Bell, Check, Code, Globe, Lock, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,9 @@ const FEATURE_ICONS = {
   plugin: Code,
   seo: Check,
   selfHosted: Globe,
+  dynamic: RefreshCw,
+  botProtection: ShieldCheck,
+  quotaVisibility: Bell,
 } as const;
 
 const PRO_PLAN = BILLING_PLANS.PRO;
@@ -95,6 +98,24 @@ const MARKETING_COPY = {
         description:
           "Run the full backend yourself with Docker when you need maximum data ownership and cost control.",
       },
+      {
+        icon: FEATURE_ICONS.dynamic,
+        title: "Dynamic content translation",
+        description:
+          "An optional client-side layer re-translates AJAX, infinite-scroll, and SPA content after page load — through a same-origin proxy, so your API key never reaches the browser and crawlers keep seeing server-rendered HTML.",
+      },
+      {
+        icon: FEATURE_ICONS.botProtection,
+        title: "Bot traffic protection",
+        description:
+          "Known crawlers are detected and served from the translation cache without spending your word quota — your monthly words are reserved for human visitors.",
+      },
+      {
+        icon: FEATURE_ICONS.quotaVisibility,
+        title: "Quota transparency",
+        description:
+          "Dashboard warnings at 90% and 100% of your monthly words, a proactive email to the organization owner, and a WordPress admin notice — you know before translations pause, not after.",
+      },
     ],
     pricingHeading: "Transparent pricing. No surprises.",
     footer: {
@@ -165,6 +186,24 @@ const MARKETING_COPY = {
         title: "Self-hosted Option",
         description:
           "Für maximale Datenkontrolle kannst du das gesamte Backend per Docker selbst hosten.",
+      },
+      {
+        icon: FEATURE_ICONS.dynamic,
+        title: "Dynamische Inhalte übersetzen",
+        description:
+          "Eine optionale Client-Schicht übersetzt AJAX-, Infinite-Scroll- und SPA-Inhalte nach dem Laden — über einen Same-Origin-Proxy, dein API-Key erreicht nie den Browser und Crawler sehen weiter serverseitig gerendertes HTML.",
+      },
+      {
+        icon: FEATURE_ICONS.botProtection,
+        title: "Bot-Traffic-Schutz",
+        description:
+          "Bekannte Crawler werden erkannt und aus dem Übersetzungs-Cache bedient, ohne dein Wort-Kontingent zu verbrauchen — deine monatlichen Wörter bleiben für echte Besucher reserviert.",
+      },
+      {
+        icon: FEATURE_ICONS.quotaVisibility,
+        title: "Kontingent-Transparenz",
+        description:
+          "Dashboard-Warnungen bei 90 % und 100 % deiner monatlichen Wörter, eine proaktive E-Mail an den Organisations-Inhaber und ein Hinweis im WordPress-Admin — du erfährst es, bevor Übersetzungen pausieren, nicht danach.",
       },
     ],
     pricingHeading: "Transparente Preise. Keine Überraschungen.",
