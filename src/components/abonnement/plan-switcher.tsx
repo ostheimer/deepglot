@@ -12,6 +12,7 @@ import {
   type BillingPlanKey,
 } from "@/lib/billing-plans";
 import { openBillingPortal, startCheckout } from "@/lib/billing-client";
+import { uiText } from "@/lib/static-copy";
 
 const PAID_PLAN_KEYS = BILLING_PLAN_KEYS.filter(
   (key) => key !== "FREE" && key !== "ENTERPRISE"
@@ -84,7 +85,7 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
     <div className="bg-white border border-gray-200 rounded-xl p-6">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-base font-semibold text-gray-900">
-          {locale === "de" ? "Plan wechseln" : "Change plan"}
+          {uiText(locale, "Change plan", "Plan wechseln")}
         </h2>
         <div className="inline-flex items-center gap-3">
           <span
