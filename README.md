@@ -135,7 +135,7 @@ Features:
 - Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
 - Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive email to the organization owner when 90% or 100% of the monthly word limit is reached
 - Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
-- 27 PHP unit tests plus `DynamicTranslatorAssetTest.js` covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, language switcher rendering, block/widget rendering, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation controller, and runtime-config race conditions
+- 28 PHP unit tests plus `DynamicTranslatorAssetTest.js` covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, language switcher rendering, block/widget rendering, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation controller, runtime-config race conditions, and bot cache-poisoning prevention
 
 Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
 
@@ -395,12 +395,13 @@ The current lightweight test suite covers:
 
 ### WordPress plugin PHP test suite
 
-The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 27 PHP unit test files plus one JS asset test, all run via `npm run test:wp`:
+The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 28 PHP unit test files plus one JS asset test, all run via `npm run test:wp`:
 
 | Test file | What it covers |
 |---|---|
 | `AccessibilityAttributeTranslationTest.php` | Translation of ARIA and accessibility attributes |
 | `BlockRenderTest.php` | Gutenberg block rendering for the language switcher |
+| `BotCachePoisoningTest.php` | Guard against bot-visit identity mappings poisoning the WP translation cache for later human visitors |
 | `BotDetectorTest.php` | Bot-traffic detection to skip unnecessary translation |
 | `BrowserRedirectorTest.php` | Browser-language auto-redirect logic and guard conditions |
 | `ClientSettingsSyncTest.php` | Sync of admin settings to the client-side JS config object |
