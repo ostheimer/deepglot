@@ -16,6 +16,7 @@
     "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done; node wordpress-plugin/deepglot/tests/DynamicTranslatorAssetTest.js",
     "test:e2e:headed": "playwright test --headed",
     "smoke:production": "node --import tsx scripts/production-smoke.ts",
+    "smoke:stripe-webhooks": "node --import tsx scripts/stripe-webhook-smoke.ts",
     "acceptance:production": "node --import tsx scripts/production-acceptance.ts",
     "acceptance:phase6": "node --import tsx scripts/phase-6-acceptance.ts",
     "acceptance:saas": "node --import tsx scripts/saas-acceptance.ts",
