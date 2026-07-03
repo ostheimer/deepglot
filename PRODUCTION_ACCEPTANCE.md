@@ -228,7 +228,7 @@ npm run acceptance:production -- --json output/production-acceptance.json --juni
 # SaaS-only when Stripe or WordPress checks must be deferred
 npm run acceptance:saas -- --json output/saas.json --junit output/saas.xml
 
-# WordPress plugin v0.8.2 — follow the manual checklist above against meinhaushalt.at
+# WordPress plugin v0.8.3 — follow the manual checklist above against meinhaushalt.at
 ```
 
 Areas requiring explicit manual verification (not yet covered by automated suites):
@@ -237,7 +237,7 @@ Areas requiring explicit manual verification (not yet covered by automated suite
 - **IDOR fixes**: project-settings and language-management routes must return `404` when accessed with a different user's project ID (the handlers hide the project after `userCanManageProject` fails rather than exposing a `403`).
 - **CSV injection** (import/export): a cell beginning with `=cmd|' /C calc'!A0` must be stored as a literal string, not evaluated or silently dropped.
 - **Duplicate-Checkout guard** (8.23–8.29): submitting a second Stripe Checkout for the same plan/interval must return the URL of the existing open Checkout session rather than creating a new one; confirm only one open session exists in the Stripe dashboard after both attempts.
-- **Bot-traffic quota exemption** (8.32, plugin v0.8.2): record the account's word-usage counter before and after sending a translation request with a verified-bot User-Agent — the counter must be unchanged; the plugin status endpoint and dashboard banner alone do not confirm whether `incrementUsageRecord` was called.
+- **Bot-traffic quota exemption** (8.32, plugin v0.8.2+; deployed as v0.8.3): record the account's word-usage counter before and after sending a translation request with a verified-bot User-Agent — the counter must be unchanged; the plugin status endpoint and dashboard banner alone do not confirm whether `incrementUsageRecord` was called.
 - **Quota banners** (8.33): an account at ≥90% word usage must show the dashboard warning banner; to trigger the owner alert email, send a translation request through `/api/translate` with the account at ≥100% — the email is sent on rejection (`402`) of a non-bot batch, not on page load alone.
 - **`quota_probe` cache detection** (8.34): with a project at quota exhaustion, a `quota_probe` cache-hit request must be rejected before any translation is returned; note that uncached probes still reach the normal usage path — verify the cache-hit rejection behavior, not the usage counter.
 
