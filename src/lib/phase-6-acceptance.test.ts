@@ -11,9 +11,88 @@ import {
   buildEditorBootUrl,
   buildRuntimeConfigUrl,
   buildSubdomainAcceptanceUrl,
+  classifyBrowserRedirectProbes,
   classifyPhase6CommandFailure,
   resolvePhase6AcceptanceConfig,
 } from "@/lib/phase-6-acceptance";
+
+const ok = { status: 200, location: null };
+const toEnglish = {
+  status: 302,
+  location: "https://www.meinhaushalt.at/en/?deepglot_phase6=1",
+};
+
+test("passes the redirect check while the rollout is still guarded (no redirect at all)", () => {
+  const result = classifyBrowserRedirectProbes({
+    englishFirstVisit: ok,
+    sourceLanguageVisit: ok,
+    botVisit: ok,
+    cookieVisit: ok,
+  });
+
+  assert.equal(result.status, "PASS");
+  assert.match(result.detail, /disabled/i);
+});
+
+test("passes the redirect check when auto-redirect is enabled and every guard holds", () => {
+  const result = classifyBrowserRedirectProbes({
+    englishFirstVisit: toEnglish,
+    sourceLanguageVisit: ok,
+    botVisit: ok,
+    cookieVisit: ok,
+  });
+
+  assert.equal(result.status, "PASS");
+  assert.match(result.detail, /enabled/i);
+});
+
+test("fails the redirect check when a bot request is redirected", () => {
+  const result = classifyBrowserRedirectProbes({
+    englishFirstVisit: toEnglish,
+    sourceLanguageVisit: ok,
+    botVisit: toEnglish,
+    cookieVisit: ok,
+  });
+
+  assert.equal(result.status, "FAIL");
+  assert.match(result.detail, /bot/i);
+});
+
+test("fails the redirect check when a source-language visitor is redirected", () => {
+  const result = classifyBrowserRedirectProbes({
+    englishFirstVisit: toEnglish,
+    sourceLanguageVisit: toEnglish,
+    botVisit: ok,
+    cookieVisit: ok,
+  });
+
+  assert.equal(result.status, "FAIL");
+  assert.match(result.detail, /source-language/i);
+});
+
+test("fails the redirect check when a stored language preference is overridden", () => {
+  const result = classifyBrowserRedirectProbes({
+    englishFirstVisit: toEnglish,
+    sourceLanguageVisit: ok,
+    botVisit: ok,
+    cookieVisit: toEnglish,
+  });
+
+  assert.equal(result.status, "FAIL");
+  assert.match(result.detail, /cookie/i);
+});
+
+test("fails the redirect check when an enabled redirect points somewhere other than a localized path", () => {
+  const result = classifyBrowserRedirectProbes({
+    englishFirstVisit: { status: 302, location: "https://example.com/evil" },
+    sourceLanguageVisit: ok,
+    botVisit: ok,
+    cookieVisit: ok,
+  });
+
+  assert.equal(result.status, "FAIL");
+  assert.match(result.detail, /target/i);
+});
 
 test("resolves Phase 6 acceptance defaults and production fallbacks", () => {
   assert.deepEqual(
