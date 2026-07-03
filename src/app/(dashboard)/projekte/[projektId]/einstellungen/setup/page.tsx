@@ -132,23 +132,22 @@ export default async function SetupPage({ params }: PageProps) {
         </ol>
       </section>
 
-      {/* Code snippet */}
+      {/* Non-WordPress integration: the universal JS runtime snippet is not
+          published yet (tracked in GitHub issue #121). Never render a concrete
+          script URL here until the file is actually reachable — the previous
+          snippet pointed at a cdn.deepglot host that does not resolve (#170).
+          Guarded by src/lib/setup-instructions-guard.test.ts. */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-3">
           {uiText(locale, "Manual integration (without WordPress)", "Manuelle Integration (ohne WordPress)")}
         </h3>
-        <p className="text-sm text-gray-500 mb-3">
-          {uiText(locale, "For other platforms, add this script to the", "Für andere Plattformen: Füge dieses Script in den")}{" "}
-          <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">&lt;head&gt;</code>{" "}
-          {uiText(locale, "of your website.", "deiner Website ein.")}
+        <p className="text-sm text-gray-500">
+          {uiText(
+            locale,
+            "A universal JavaScript snippet for non-WordPress platforms is in development and not yet available. Today, the WordPress plugin above is the supported integration path — for other platforms, contact us and we will notify you as soon as the snippet ships.",
+            "Ein universelles JavaScript-Snippet für Plattformen ohne WordPress ist in Entwicklung und noch nicht verfügbar. Aktuell ist das oben beschriebene WordPress-Plugin der unterstützte Integrationsweg — für andere Plattformen kontaktiere uns, wir informieren dich, sobald das Snippet verfügbar ist."
+          )}
         </p>
-        <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto">
-          <code>{`<script>
-  window.DEEPGLOT_KEY = "${apiKey?.keyPrefix ?? "dg_live_..."}...";
-  window.DEEPGLOT_LANGS = ["en", "fr"];
-</script>
-<script async src="https://cdn.deepglot.com/v1/deepglot.js"></script>`}</code>
-        </pre>
       </section>
     </div>
   );
