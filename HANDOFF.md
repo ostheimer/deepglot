@@ -121,7 +121,6 @@ npm run test:e2e
 
 - **8.2** Switcher Weglot-parity: multi-switcher instances, visual switcher editor, pre-made templates (P2).
 - **8.3** Strategic Weglot competitive gaps: in-context visual translation editor, translation memory, glossary dashboard UI, PDF translation, multilingual sitemap, AMP verification, translation CDN (P3).
-- **8.4** Housekeeping: remove dead `DATABASE_*` Neon-integration env vars. The stale `AccessibilityAttributeTranslationTest 2.php` duplicate has already been removed from the repo — only the env-var cleanup remains (P4).
 
 ## Recommended Next Work
 

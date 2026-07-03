@@ -176,8 +176,7 @@ The verification stage currently runs:
 
 Required Vercel configuration:
 
-- set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in `Development` and `Preview` to the Neon preview branch
-- set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` in `Production` to the Neon production branch
+- set `DEEPGLOT_DATABASE_URL` in `Development` and `Preview` to the Neon preview branch, and in `Production` to the Neon production branch (static 2-dataset topology; the app resolves `DEEPGLOT_DATABASE_URL` first and falls back to `DATABASE_URL` only for self-host/local setups)
 - keep the repository connected to Vercel Git deployment so non-`main` pushes create Preview deployments and `main` creates Production deployments
 - enable automatic exposure of Vercel system environment variables so Preview and Production deployments can fall back to `VERCEL_BRANCH_URL`, `VERCEL_URL`, and `VERCEL_PROJECT_PRODUCTION_URL`
 
