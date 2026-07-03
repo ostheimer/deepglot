@@ -151,3 +151,88 @@ function normalizeUrl(value: string) {
 
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
+
+export type BrowserRedirectProbe = {
+  status: number;
+  location: string | null;
+};
+
+export type BrowserRedirectProbes = {
+  /** Accept-Language en, browser UA, no preference cookie. */
+  englishFirstVisit: BrowserRedirectProbe;
+  /** Accept-Language matching the site source language, no cookie. */
+  sourceLanguageVisit: BrowserRedirectProbe;
+  /** Crawler user agent (must match the plugin's bot regex). */
+  botVisit: BrowserRedirectProbe;
+  /** deepglot_preferred_language cookie set to the source language. */
+  cookieVisit: BrowserRedirectProbe;
+};
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+function probeRedirects(probe: BrowserRedirectProbe) {
+  return REDIRECT_STATUSES.has(probe.status) && Boolean(probe.location);
+}
+
+/**
+ * Classifies the browser-language auto-redirect state from four live probes.
+ *
+ * The check is enablement-aware: the site owner may run with auto-redirect
+ * disabled (guarded rollout — no request redirects) or enabled. Both are
+ * acceptable; what must ALWAYS hold are the guards. A redirect for a bot,
+ * for a source-language visitor, or for a visitor with a stored language
+ * preference is a real regression regardless of the rollout state
+ * (BrowserRedirector: bot skip, source-language skip, cookie skip).
+ */
+export function classifyBrowserRedirectProbes(probes: BrowserRedirectProbes): {
+  status: "PASS" | "FAIL";
+  detail: string;
+} {
+  const guardViolations: string[] = [];
+
+  if (probeRedirects(probes.botVisit)) {
+    guardViolations.push(
+      `bot request redirected (${probes.botVisit.status} -> ${probes.botVisit.location})`
+    );
+  }
+
+  if (probeRedirects(probes.sourceLanguageVisit)) {
+    guardViolations.push(
+      `source-language visitor redirected (${probes.sourceLanguageVisit.status} -> ${probes.sourceLanguageVisit.location})`
+    );
+  }
+
+  if (probeRedirects(probes.cookieVisit)) {
+    guardViolations.push(
+      `stored cookie preference overridden (${probes.cookieVisit.status} -> ${probes.cookieVisit.location})`
+    );
+  }
+
+  if (guardViolations.length > 0) {
+    return { status: "FAIL", detail: `Guard broken: ${guardViolations.join("; ")}.` };
+  }
+
+  if (!probeRedirects(probes.englishFirstVisit)) {
+    return {
+      status: "PASS",
+      detail: `Auto-redirect disabled (guarded rollout): ${probes.englishFirstVisit.status}; no redirect for any probe.`,
+    };
+  }
+
+  const location = probes.englishFirstVisit.location ?? "";
+  const pointsToLocalizedPath = /\/[a-z]{2}(-[a-z]{2})?\//i.test(
+    new URL(location, "https://placeholder.invalid").pathname + "/"
+  );
+
+  if (!pointsToLocalizedPath) {
+    return {
+      status: "FAIL",
+      detail: `Auto-redirect enabled but redirect target is not a localized path: ${probes.englishFirstVisit.status} -> ${location}.`,
+    };
+  }
+
+  return {
+    status: "PASS",
+    detail: `Auto-redirect enabled and guarded: first-visit ${probes.englishFirstVisit.status} -> ${location}; bot/source-language/cookie probes stay unredirected.`,
+  };
+}

@@ -17,8 +17,10 @@ import {
   buildEditorBootUrl,
   buildRuntimeConfigUrl,
   buildSubdomainAcceptanceUrl,
+  classifyBrowserRedirectProbes,
   classifyPhase6CommandFailure,
   resolvePhase6AcceptanceConfig,
+  type BrowserRedirectProbe,
   type Phase6AcceptanceConfig,
 } from "@/lib/phase-6-acceptance";
 import { redactAcceptanceOutput } from "@/lib/production-acceptance";
@@ -353,25 +355,54 @@ async function checkBrowserRedirectGuard(
   config: Phase6AcceptanceConfig
 ): Promise<AcceptanceCheck> {
   const startedAt = Date.now();
-  const url = new URL("/", config.wordpressUrl);
-  url.searchParams.set("deepglot_phase6", String(Date.now()));
 
-  try {
+  const browserUa =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+
+  const probe = async (headers: Record<string, string>): Promise<BrowserRedirectProbe> => {
+    const url = new URL("/", config.wordpressUrl);
+    url.searchParams.set("deepglot_phase6", String(Date.now()));
+
     const response = await fetch(url, {
       redirect: "manual",
-      headers: {
-        "Accept-Language": "en-US,en;q=0.9",
-        "User-Agent": "Deepglot Phase 6 acceptance",
-      },
+      headers,
       signal: AbortSignal.timeout(20_000),
     });
-    const location = response.headers.get("location");
-    const isRedirect = [301, 302, 303, 307, 308].includes(response.status);
+
+    return { status: response.status, location: response.headers.get("location") };
+  };
+
+  try {
+    // Enablement-aware: the site may run with auto-redirect disabled (guarded
+    // rollout) or enabled — both pass. What must always hold are the skip
+    // guards (bot, source-language visitor, stored cookie preference); the
+    // validation site's source language is German.
+    const [englishFirstVisit, sourceLanguageVisit, botVisit, cookieVisit] =
+      await Promise.all([
+        probe({ "Accept-Language": "en-US,en;q=0.9", "User-Agent": browserUa }),
+        probe({ "Accept-Language": "de-AT,de;q=0.9", "User-Agent": browserUa }),
+        probe({
+          "Accept-Language": "en-US,en;q=0.9",
+          "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+        }),
+        probe({
+          "Accept-Language": "en-US,en;q=0.9",
+          "User-Agent": browserUa,
+          Cookie: "deepglot_preferred_language=de",
+        }),
+      ]);
+
+    const result = classifyBrowserRedirectProbes({
+      englishFirstVisit,
+      sourceLanguageVisit,
+      botVisit,
+      cookieVisit,
+    });
 
     return {
       name: "Browser-language redirect guarded rollout",
-      status: !isRedirect && !location ? "PASS" : "FAIL",
-      detail: `${response.status}; location=${location ?? "(none)"}.`,
+      status: result.status,
+      detail: result.detail,
       durationMs: Date.now() - startedAt,
     };
   } catch (error) {
