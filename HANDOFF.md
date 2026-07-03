@@ -6,7 +6,7 @@ This file captures the current project state so work can continue in a new chat 
 
 - Branch: `main`
 - Latest production commit: `748f9b6` (`fix(translation): log terminal provider failures at error level (#139)`)
-- WordPress plugin **v0.8.3** is the current version in the repo (bot detection + quota-exhaustion surfacing + bot cache-poisoning guard). The 2026-06-10 dynamic-content-translation live QA on `meinhaushalt.at` ran on **v0.8.1**; a live re-verification of the v0.8.2/v0.8.3 bot/quota behavior is still pending.
+- WordPress plugin **v0.8.3 deployed on `meinhaushalt.at` (2026-07-03)** and live-verified: asset versions serve `?ver=0.8.3`, the human path renders translated pages, the bot path (curl UA) serves 200 cache-only. The pre-fix poisoned transient cache was flushed (239,624 `dg_` rows deleted) and re-warmed by human traffic with real English translations only — no identity mappings reappeared, confirming the #163 guard live. WP Rocket page cache purged in the same pass. (The 2026-06-10 dynamic-content-translation QA ran on v0.8.1 and still covers that feature; a dedicated quota-exhaustion live drill remains optional.)
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
@@ -130,7 +130,7 @@ npm run test:e2e
 
 - **Finalize the public legal pages** before commercial launch ([#159](https://github.com/ostheimer/deepglot/issues/159)): `/terms`, `/privacy`, and `/legal-notice` still carry placeholder content on the live domain.
 - **Update the marketing site**: dynamic/AJAX/SPA content translation is live and QA-verified (Weglot-parity selling point); the bot-traffic and quota protections (v0.8.2) also warrant a mention ([#160](https://github.com/ostheimer/deepglot/issues/160)).
-- **Live re-verification of plugin v0.8.2 on `meinhaushalt.at`**: the bot-detection and quota-exhaustion behavior shipped after the 2026-06-10 QA (which ran on v0.8.1) and has not been re-verified live; update `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md` afterwards.
+- **Optional: quota-exhaustion live drill on `meinhaushalt.at`**: v0.8.3 is deployed and the bot/cache behavior is live-verified (2026-07-03, see Current State); what has not been exercised live is the full quota-exhaustion signal chain (402 → wp-admin notice → owner email) — only needed if an end-to-end drill is desired.
 - **Run a full production acceptance suite** (`npm run acceptance:production`) to close the gap acknowledged in PRODUCTION_ACCEPTANCE.md — the security and quota-visibility changes 8.12–8.34 are deployed but no formal acceptance run has been documented since 2026-05.
 - Continue with Phase 8.2/8.3 (Weglot competitive parity) or 8.4 (Housekeeping: dead env vars).
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
