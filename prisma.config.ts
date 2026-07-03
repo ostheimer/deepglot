@@ -9,6 +9,9 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Mirror the runtime precedence in src/lib/database-url.ts: the static
+    // per-scope DEEPGLOT_DATABASE_URL (2-dataset topology, ROADMAP 8.6) wins;
+    // plain DATABASE_URL stays as the self-host/local fallback (#59).
+    url: process.env["DEEPGLOT_DATABASE_URL"]?.trim() || process.env["DATABASE_URL"],
   },
 });
