@@ -42,7 +42,7 @@ npm run test:e2e
 
 ## Public routing
 
-Deeglot now uses English as the canonical URL structure across the public site and the app:
+Deepglot now uses English as the canonical URL structure across the public site and the app:
 
 - Canonical English routes:
   - `/`
@@ -275,7 +275,7 @@ The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readin
 
 ## Self-hosting
 
-Deeglot now includes a first self-hosted setup:
+Deepglot now includes a first self-hosted setup:
 
 - `Dockerfile` builds the Next.js app for production use.
 - `docker-compose.yml` starts the app together with PostgreSQL.
@@ -442,7 +442,7 @@ The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 28 PHP unit 
 
 ## Plans and billing tiers
 
-Deeglot uses a `Plan` enum in the database schema with the following values:
+Deepglot uses a `Plan` enum in the database schema with the following values:
 
 - `FREE` — default plan for new users
 - `STARTER`, `BUSINESS`, `PRO`, `ADVANCED`, `EXTENDED` — active paid billing tiers
