@@ -1,6 +1,6 @@
 # Deepglot
 
-Deepglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
+Deeglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
 
 ## Author
 
@@ -42,7 +42,7 @@ npm run test:e2e
 
 ## Public routing
 
-Deepglot now uses English as the canonical URL structure across the public site and the app:
+Deeglot now uses English as the canonical URL structure across the public site and the app:
 
 - Canonical English routes:
   - `/`
@@ -275,7 +275,7 @@ The wrapper runs production smoke, Neon dry-run/readiness, Stripe env/API readin
 
 ## Self-hosting
 
-Deepglot now includes a first self-hosted setup:
+Deeglot now includes a first self-hosted setup:
 
 - `Dockerfile` builds the Next.js app for production use.
 - `docker-compose.yml` starts the app together with PostgreSQL.
@@ -400,6 +400,9 @@ The current lightweight test suite covers:
 - project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
 - translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
 - subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
+- pricing slider alignment regression (drives `pricing-grid.tsx` through every `BILLING_PLAN_KEYS` index and asserts the thumb centre is within ±2 px of the active tick label) via Playwright in `tests/e2e/pricing-slider-alignment.spec.ts`
+- marketing copy anti-drift guard (asserts `BILLING_PLANS` wiring in the marketing home component, allowlists competitor-comparison EUR tokens, and fails on any hardcoded EUR amount or word-count literal that collides with a real plan price) in `src/lib/marketing-home-drift-guard.test.ts`
+- Stripe webhook subscription-lifecycle smoke (trigger `customer.subscription.deleted`, `customer.subscription.updated`, and `invoice.payment_failed`, assert `Subscription.status`, `plan`, `wordsLimit`, and `getEffectiveWordsLimit` FREE soft-cap for non-ACTIVE statuses) run via `npm run smoke:stripe-webhooks` in `scripts/stripe-webhook-smoke.ts`
 
 ### WordPress plugin PHP test suite
 
@@ -439,7 +442,7 @@ The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 28 PHP unit 
 
 ## Plans and billing tiers
 
-Deepglot uses a `Plan` enum in the database schema with the following values:
+Deeglot uses a `Plan` enum in the database schema with the following values:
 
 - `FREE` — default plan for new users
 - `STARTER`, `BUSINESS`, `PRO`, `ADVANCED`, `EXTENDED` — active paid billing tiers
