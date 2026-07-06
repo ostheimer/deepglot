@@ -29,11 +29,18 @@ if (!function_exists('__')) {
     }
 
     function get_transient($key) {
-        return false;
+        return $GLOBALS['_deepglot_transients'][$key] ?? false;
     }
 
     function set_transient($key, $value, $ttl = 0) {
+        $GLOBALS['_deepglot_transients'][$key] = $value;
         return true;
+    }
+
+    if (!function_exists('random_bytes')) {
+        function random_bytes($length) {
+            return str_repeat('a', $length);
+        }
     }
 
     function wp_verify_nonce($nonce, $action = -1) {
@@ -268,38 +275,58 @@ $result = $controller->translateTexts(['Hallo'], 'en', false);
 dynCheck($client->callCount === 0, 'Cache-only path must not call the API.');
 dynCheck($result['to_words'] === ['[en] Hallo'], 'Hard-cached pages must still serve cached translations without a nonce.');
 
-// 5. Same-origin valid nonce requests can still translate cache misses.
+// 5. Same-origin valid nonce + quota ticket requests can still translate cache misses.
 configureDynamicOptions();
 $_SERVER['REMOTE_ADDR'] = '198.51.100.22';
 $_SERVER['HTTP_HOST'] = 'example.test';
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$quotaTicket = DynamicTranslationController::issueQuotaTicket();
 $response = $controller->handle(new WP_REST_Request([
     'texts' => ['Same-origin miss'],
     'lang_to' => 'en',
 ], [
     'Origin' => 'https://example.test',
     'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $quotaTicket,
 ]));
-dynCheck($client->callCount === 1, 'Same-origin valid nonce requests must call the API for cache misses.');
-dynCheck($response->get_data()['to_words'] === ['[en] Same-origin miss'], 'Same-origin API translation must be returned.');
+dynCheck($client->callCount === 1, 'Valid nonce + quota ticket must call the API for cache misses.');
+dynCheck($response->get_data()['to_words'] === ['[en] Same-origin miss'], 'Quota-ticket API translation must be returned.');
 
-// 6. A scraped nonce without Origin/Referer must not unlock API translations.
+// 6. A scraped nonce without a quota ticket must not unlock API translations (Origin spoof).
+configureDynamicOptions();
+$_SERVER['REMOTE_ADDR'] = '198.51.100.24';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Spoofed miss'],
+    'lang_to' => 'en',
+], [
+    'Origin' => 'https://example.test',
+    'X-WP-Nonce' => 'valid-rest-nonce',
+]));
+dynCheck($client->callCount === 0, 'A valid nonce with spoofed Origin but no quota ticket must not call the API.');
+dynCheck($response->get_data() === ['from_words' => [], 'to_words' => []], 'Missing quota ticket degrades cache misses to empty results.');
+
+// 7. A valid nonce without Origin/Referer but with quota ticket still translates misses.
 configureDynamicOptions();
 $_SERVER['REMOTE_ADDR'] = '198.51.100.23';
 unset($_SERVER['HTTP_HOST']);
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$quotaTicket = DynamicTranslationController::issueQuotaTicket();
 $response = $controller->handle(new WP_REST_Request([
     'texts' => ['Remote miss'],
     'lang_to' => 'en',
 ], [
     'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $quotaTicket,
 ]));
-dynCheck($client->callCount === 0, 'A valid nonce without Origin/Referer must not call the API.');
-dynCheck($response->get_data() === ['from_words' => [], 'to_words' => []], 'Missing Origin/Referer degrades cache misses to empty results.');
+dynCheck($client->callCount === 1, 'A valid nonce + quota ticket must call the API even without Origin/Referer.');
+dynCheck($response->get_data()['to_words'] === ['[en] Remote miss'], 'Quota ticket unlocks API translation without browser provenance headers.');
 
-// 7. Same-origin cache-only requests still serve cached translations.
+// 8. Same-origin cache-only requests still serve cached translations.
 $_SERVER['HTTP_HOST'] = 'example.test';
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache(['Hallo' => '[en] Hallo']));
@@ -312,20 +339,20 @@ $response = $controller->handle(new WP_REST_Request([
 dynCheck($client->callCount === 0, 'Same-origin cache-only request must not call the API.');
 dynCheck($response->get_data()['to_words'] === ['[en] Hallo'], 'Same-origin cache-only request must serve cached translations.');
 
-// 8. Target language not configured → rejected, no API call.
+// 9. Target language not configured → rejected, no API call.
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
 $result = $controller->translateTexts(['Hallo'], 'fr', true);
 dynCheck($client->callCount === 0, 'An unconfigured target language must be rejected before any API call.');
 dynCheck($result === ['from_words' => [], 'to_words' => []], 'Unconfigured target language returns nothing.');
 
-// 9. Target language equals source → rejected.
+// 10. Target language equals source → rejected.
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
 $result = $controller->translateTexts(['Hallo'], 'de', true);
 dynCheck($client->callCount === 0, 'Translating into the source language must be a no-op.');
 
-// 10. Feature disabled → no-op even with a valid nonce.
+// 11. Feature disabled → no-op even with a valid nonce.
 configureDynamicOptions(['enable_dynamic_translation' => false]);
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache(['Hallo' => '[en] Hallo']));
@@ -333,7 +360,7 @@ $result = $controller->translateTexts(['Hallo'], 'en', true);
 dynCheck($client->callCount === 0, 'Disabled feature must not translate.');
 dynCheck($result === ['from_words' => [], 'to_words' => []], 'Disabled feature returns nothing.');
 
-// 11. Oversized request is capped at MAX_TEXTS (200) before hitting the API.
+// 12. Oversized request is capped at MAX_TEXTS (200) before hitting the API.
 configureDynamicOptions();
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
@@ -345,7 +372,7 @@ $result = $controller->translateTexts($texts, 'en', true);
 dynCheck($client->callCount === 1, 'Oversized request still results in a single API call.');
 dynCheck(count($client->lastTexts) === 200, 'Request must be capped at 200 strings, got ' . count($client->lastTexts) . '.');
 
-// 12. A 402 (quota exhausted) flags the response so the browser client stops
+// 13. A 402 (quota exhausted) flags the response so the browser client stops
 //     retrying, while any cached strings still serve.
 configureDynamicOptions();
 $client = new QuotaExhaustedFakeClient();
@@ -355,7 +382,7 @@ dynCheck($client->callCount === 1, 'A cache miss still calls the API once before
 dynCheck(($result['quota_exhausted'] ?? false) === true, 'A 402 must set quota_exhausted on the response.');
 dynCheck($result['to_words'] === ['[en] Hallo'], 'Cached strings must still serve when the quota is exhausted.');
 
-// 13. A successful translation must NOT carry the quota_exhausted flag.
+// 14. A successful translation must NOT carry the quota_exhausted flag.
 $client = new DynamicFakeClient();
 $controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
 $result = $controller->translateTexts(['Neu'], 'en', true);

@@ -22,16 +22,26 @@ use WP_Error;
  * `{from_words, to_words}` contract the SaaS `/api/translate` endpoint uses.
  *
  * Abuse controls (a public page is a public endpoint):
- *  • permission: same-origin Referer + bot user-agent are rejected up front;
+ *  • permission: cross-site Referer + bot user-agents are rejected up front;
  *  • per-IP transient rate limit;
- *  • cache-first — a missing/stale nonce degrades to cache-only, so no project
- *    quota can ever be spent without a valid same-origin nonce. This keeps the
- *    layer working on full-page-cached sites (cache hits still serve) while
- *    blocking quota abuse.
+ *  • cache-first — a missing/stale nonce degrades to cache-only;
+ *  • quota spend requires a short-lived server-issued ticket (one per page
+ *    load). The REST nonce is public in the page source and Origin/Referer are
+ *    trivially spoofable in server-side HTTP clients, so the ticket caps fresh
+ *    words per page view and cannot be minted without rendering the page.
  */
 class DynamicTranslationController
 {
     public const ROUTE = '/translate-dynamic';
+
+    /** Header the browser sends with the per-page quota ticket. */
+    public const QUOTA_TICKET_HEADER = 'X-Deepglot-Quota-Ticket';
+
+    /** Fresh words a single page-load ticket may spend (≈10 API batches). */
+    public const MAX_FRESH_WORDS_PER_TICKET = 2000;
+
+    /** Ticket lifetime in seconds (matches a typical front-end session). */
+    public const QUOTA_TICKET_TTL = 3600;
 
     /** Max strings accepted per request (mirrors HtmlTranslator::BATCH_SIZE). */
     private const MAX_TEXTS = 200;
@@ -98,14 +108,15 @@ class DynamicTranslationController
         $texts  = (array) $request->get_param('texts');
         $langTo = (string) $request->get_param('lang_to');
 
-        // A valid same-origin REST nonce plus same-origin request provenance is
-        // what unlocks the (quota-spending) API path. Without both we still
-        // answer from cache, so hard-cached anonymous pages keep working
-        // without ever burning quota.
+        // A valid REST nonce plus a server-issued quota ticket unlock the
+        // (quota-spending) API path. The nonce alone is public in page source
+        // and Origin/Referer are spoofable outside browsers, so the ticket
+        // caps fresh-word spend per page load.
         $nonceValid = (bool) wp_verify_nonce((string) $request->get_header('X-WP-Nonce'), 'wp_rest');
-        $allowApi   = $nonceValid && $this->hasSameOriginProvenance($request);
+        $quotaTicket = trim((string) $request->get_header(self::QUOTA_TICKET_HEADER));
+        $allowApi   = $nonceValid && $this->hasValidQuotaTicket($quotaTicket);
 
-        $result = $this->translateTexts($texts, $langTo, $allowApi);
+        $result = $this->translateTexts($texts, $langTo, $allowApi, $quotaTicket);
 
         return new WP_REST_Response($result, 200);
     }
@@ -115,11 +126,12 @@ class DynamicTranslationController
      * unit-tested directly.
      *
      * @param  array<int, mixed> $texts
-     * @param  bool              $allowApi  When false (no valid nonce) only
+     * @param  bool              $allowApi  When false (no valid nonce/ticket) only
      *                                      cached translations are returned.
+     * @param  string            $quotaTicket  Per-page ticket for fresh-word budget.
      * @return array{from_words: string[], to_words: string[], quota_exhausted?: bool}
      */
-    public function translateTexts(array $texts, string $langTo, bool $allowApi): array
+    public function translateTexts(array $texts, string $langTo, bool $allowApi, string $quotaTicket = ''): array
     {
         $empty = ['from_words' => [], 'to_words' => []];
 
@@ -154,31 +166,38 @@ class DynamicTranslationController
         $quotaExhausted = false;
 
         if ($allowApi && !empty($missing)) {
-            $response = $this->client->translate($missing, $langFrom, $langTo);
-
-            if (is_wp_error($response)) {
-                $errorData = $response->get_error_data();
-                if (is_array($errorData) && (int) ($errorData['status'] ?? 0) === 402) {
-                    // Monthly word quota exhausted (issue #148): flag it so the
-                    // browser client stops retrying for this session. Cached
-                    // translations below still serve.
-                    $quotaExhausted = true;
-                }
-            } elseif (
-                is_array($response)
-                && isset($response['from_words'], $response['to_words'])
-                && is_array($response['from_words'])
-                && is_array($response['to_words'])
-            ) {
-                foreach ($response['from_words'] as $index => $original) {
-                    if (isset($response['to_words'][$index]) && is_string($original)) {
-                        $fresh[$original] = (string) $response['to_words'][$index];
-                    }
-                }
+            if ($quotaTicket !== '' && !$this->reserveFreshWordBudget($quotaTicket, count($missing))) {
+                // Ticket budget exhausted — serve cache hits only for this batch.
+                $missing = [];
             }
 
-            if (!empty($fresh)) {
-                $this->cache->setMany($fresh, $langFrom, $langTo);
+            if (!empty($missing)) {
+                $response = $this->client->translate($missing, $langFrom, $langTo);
+
+                if (is_wp_error($response)) {
+                    $errorData = $response->get_error_data();
+                    if (is_array($errorData) && (int) ($errorData['status'] ?? 0) === 402) {
+                        // Monthly word quota exhausted (issue #148): flag it so the
+                        // browser client stops retrying for this session. Cached
+                        // translations below still serve.
+                        $quotaExhausted = true;
+                    }
+                } elseif (
+                    is_array($response)
+                    && isset($response['from_words'], $response['to_words'])
+                    && is_array($response['from_words'])
+                    && is_array($response['to_words'])
+                ) {
+                    foreach ($response['from_words'] as $index => $original) {
+                        if (isset($response['to_words'][$index]) && is_string($original)) {
+                            $fresh[$original] = (string) $response['to_words'][$index];
+                        }
+                    }
+                }
+
+                if (!empty($fresh)) {
+                    $this->cache->setMany($fresh, $langFrom, $langTo);
+                }
             }
         }
 
@@ -265,28 +284,64 @@ class DynamicTranslationController
     }
 
     /**
-     * A public page can expose the REST nonce, so the nonce alone must not
-     * unlock API-backed cache misses. Require browser provenance from an
-     * allowed host before spending quota; missing or foreign provenance falls
-     * back to the cache-only path in handle().
+     * Mint a short-lived quota ticket for one page load. Stored server-side so
+     * clients cannot raise the fresh-word budget.
      */
-    private function hasSameOriginProvenance(WP_REST_Request $request): bool
+    public static function issueQuotaTicket(): string
     {
-        foreach (['origin', 'referer'] as $header) {
-            $value = trim((string) $request->get_header($header));
+        $ticket = bin2hex(random_bytes(16));
+        set_transient(
+            self::quotaTicketTransientKey($ticket),
+            ['spent' => 0, 'max' => self::MAX_FRESH_WORDS_PER_TICKET],
+            self::QUOTA_TICKET_TTL
+        );
 
-            if ($value === '') {
-                continue;
-            }
+        return $ticket;
+    }
 
-            $host = wp_parse_url($value, PHP_URL_HOST);
+    private static function quotaTicketTransientKey(string $ticket): string
+    {
+        return 'deepglot_dynqt_' . hash('sha256', $ticket);
+    }
 
-            if (is_string($host) && $this->isAllowedHost($host)) {
-                return true;
-            }
+    private function hasValidQuotaTicket(string $ticket): bool
+    {
+        if ($ticket === '') {
+            return false;
         }
 
-        return false;
+        $bucket = get_transient(self::quotaTicketTransientKey($ticket));
+
+        return is_array($bucket) && isset($bucket['spent'], $bucket['max']);
+    }
+
+    /**
+     * Reserve fresh-word budget against a page-load ticket before calling SaaS.
+     */
+    private function reserveFreshWordBudget(string $ticket, int $wordCount): bool
+    {
+        if ($ticket === '' || $wordCount <= 0) {
+            return false;
+        }
+
+        $key    = self::quotaTicketTransientKey($ticket);
+        $bucket = get_transient($key);
+
+        if (!is_array($bucket) || !isset($bucket['spent'], $bucket['max'])) {
+            return false;
+        }
+
+        $spent = (int) $bucket['spent'];
+        $max   = (int) $bucket['max'];
+
+        if ($spent + $wordCount > $max) {
+            return false;
+        }
+
+        $bucket['spent'] = $spent + $wordCount;
+        set_transient($key, $bucket, self::QUOTA_TICKET_TTL);
+
+        return true;
     }
 
     /**
