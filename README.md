@@ -362,6 +362,7 @@ Project pages now support these additional flows:
 - the full API key is shown exactly once after creation
 - page views can be enabled under `Stats -> Page views`
 - the visual editor opens a real target URL with `deepglot_editor=1`
+- **Security note:** the visual editor session token is currently passed in the launch URL as `?deepglot_editor_token=…`. Moving it out of the URL requires a coordinated change in the WordPress plugin (tracked as a known limitation).
 
 ## i18n automation scripts
 
