@@ -303,6 +303,7 @@
   function send(texts, withoutNonce) {
     var headers = { 'Content-Type': 'application/json' };
     if (!withoutNonce && cfg.nonce) headers['X-WP-Nonce'] = cfg.nonce;
+    if (!withoutNonce && cfg.quotaTicket) headers['X-Deepglot-Quota-Ticket'] = cfg.quotaTicket;
 
     fetch(cfg.endpoint, {
       method: 'POST',

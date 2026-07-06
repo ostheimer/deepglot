@@ -170,6 +170,7 @@ function createHarness(fetchHandler) {
     deepglotDynamic: {
       endpoint: '/wp-json/deepglot/v1/translate-dynamic',
       nonce: 'test-nonce',
+      quotaTicket: 'test-quota-ticket',
       langFrom: 'de',
       langTo: 'en',
       skipTags: ['script', 'style', 'pre', 'code', 'textarea', 'noscript', 'svg', 'math'],
@@ -378,9 +379,12 @@ async function testTextareaPlaceholderIsTranslated() {
 
 async function testStaleNonceRetriesWithoutNonce() {
   const noncePresence = [];
+  const ticketPresence = [];
   const harness = createHarness(async (texts, options) => {
     const hasNonce = !!(options.headers && options.headers['X-WP-Nonce']);
+    const hasTicket = !!(options.headers && options.headers['X-Deepglot-Quota-Ticket']);
     noncePresence.push(hasNonce);
+    ticketPresence.push(hasTicket);
     if (hasNonce) {
       return { ok: false, status: 403, json: async () => ({}) };
     }
@@ -391,9 +395,10 @@ async function testStaleNonceRetriesWithoutNonce() {
   harness.document.body.appendChild(text);
   await harness.runTimers();
 
-  // First attempt sends the (stale) nonce and is rejected 403 by WP core; the
-  // retry omits it to reach the controller's cache-only fallback.
+  // First attempt sends the (stale) nonce + quota ticket and is rejected 403 by WP core; the
+  // retry omits both to reach the controller's cache-only fallback.
   assert.deepEqual(noncePresence, [true, false]);
+  assert.deepEqual(ticketPresence, [true, false]);
   assert.deepEqual(harness.fetchCalls, [['Cached'], ['Cached']]);
   assert.equal(text.data, 'Zwischengespeichert');
 }

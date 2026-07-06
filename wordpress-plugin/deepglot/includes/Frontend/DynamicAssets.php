@@ -82,6 +82,7 @@ class DynamicAssets
             // current page origin, so the cookie + nonce are actually sent.
             'endpoint'         => esc_url_raw(wp_make_link_relative(rest_url(RestApi::NAMESPACE . DynamicTranslationController::ROUTE))),
             'nonce'            => wp_create_nonce('wp_rest'),
+            'quotaTicket'      => DynamicTranslationController::issueQuotaTicket(),
             'langFrom'         => $sourceLang,
             'langTo'           => $activeLang,
             'skipTags'         => array_map('strtolower', TranslationRules::SKIP_TAGS),
