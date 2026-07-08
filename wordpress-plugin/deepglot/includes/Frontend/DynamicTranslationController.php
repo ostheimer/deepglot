@@ -219,14 +219,16 @@ class DynamicTranslationController
 
             // Two independent caps must both allow the spend, otherwise this
             // batch degrades to cache-only:
-            //  1. the per-page ticket budget (provenance + per-render cap), and
-            //  2. the per-IP window budget (drain pre-filter, since page renders
+            //  1. the per-IP window budget (drain pre-filter, since page renders
             //     that mint tickets are free — the per-ticket cap alone cannot
-            //     limit a re-fetching attacker).
-            $ticketOk = $quotaTicket === ''
-                || $this->reserveFreshWordBudget($quotaTicket, $freshWords);
-
-            if (!$ticketOk || !$this->reserveFreshWordsForIp($freshWords)) {
+            //     limit a re-fetching attacker), and
+            //  2. the per-page ticket budget (provenance + per-render cap).
+            // Reserve the per-IP budget first so a failed ticket check does not
+            // debit the ticket while dropping the batch (shared-NAT breakage).
+            if (!$this->reserveFreshWordsForIp($freshWords)) {
+                $missing = [];
+            } elseif ($quotaTicket !== '' && !$this->reserveFreshWordBudget($quotaTicket, $freshWords)) {
+                $this->releaseFreshWordsForIp($freshWords);
                 $missing = [];
             }
 
@@ -459,6 +461,28 @@ class DynamicTranslationController
         set_transient($transient, $bucket, self::FRESH_BUDGET_WINDOW + 5);
 
         return true;
+    }
+
+    /**
+     * Undo a per-IP fresh-word reservation when a later gate (ticket budget)
+     * rejects the batch so the IP window is not consumed without a SaaS call.
+     */
+    private function releaseFreshWordsForIp(int $wordCount): void
+    {
+        if ($wordCount <= 0) {
+            return;
+        }
+
+        $ip        = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $transient = 'deepglot_dynfw_' . sha1($ip);
+        $bucket    = get_transient($transient);
+
+        if (!is_array($bucket) || !isset($bucket['spent'], $bucket['reset'])) {
+            return;
+        }
+
+        $bucket['spent'] = max(0, (int) $bucket['spent'] - $wordCount);
+        set_transient($transient, $bucket, self::FRESH_BUDGET_WINDOW + 5);
     }
 
     /**
