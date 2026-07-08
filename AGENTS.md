@@ -39,13 +39,13 @@ WordPress plugin REST API: /wp-json/deepglot/v1/ (PHP in wordpress-plugin/deepgl
 
 ## Architecture notes (do not re-do past decisions)
 
-**Request entrypoint:** `src/proxy.ts` is the sole request entrypoint for the SaaS app. `middleware.ts` was removed in a past refactor — do not recreate it.
+**Request entrypoint:** `src/proxy.ts` is the request entrypoint for page/dashboard traffic. Its `config.matcher` explicitly excludes `/api`, `/_next/*`, and `favicon.ico`, so API route handlers under `src/app/api/` run directly (not through the proxy). `middleware.ts` was removed in a past refactor — do not recreate it.
 
 **Internal route language:** Dashboard routes are internally German (`/agb`, `/datenschutz`, `/impressum`, `/projekte`, `/abonnement`, `/einstellungen`). Canonical English aliases are handled via `src/proxy.ts`. When adding legal or dashboard pages, add them as German directories and route them through the proxy — do not create new English-named directories for internal pages.
 
-**Acceptance module pattern:** Business logic for acceptance tests lives in `src/lib/*-acceptance.ts` (unit-testable). The files in `scripts/*-acceptance.ts` are thin wrappers that call the `src/lib/` modules. Do not duplicate acceptance logic in scripts directly.
+**Acceptance module pattern:** Prefer putting unit-testable acceptance logic in `src/lib/*-acceptance.ts` and keeping `scripts/*-acceptance.ts` as CLI runners (arg/env handling, reporting) that call those modules. This is the target pattern, not yet uniform — some runners (e.g. `scripts/saas-acceptance.ts`) still carry substantial flow logic directly; add new logic to `src/lib/` rather than the scripts.
 
-**Access control:** Use `userCanManageProject()` for all write operations on projects and `userHasProjectAccess()` for read operations only. Both live in `src/lib/project-access.ts`.
+**Access control:** `userCanManageProject()` (org OWNER/ADMIN or project ADMIN) gates management-sensitive routes — project settings, API keys, language add/remove, webhooks, exclusions. `userHasProjectAccess()` is the weaker membership check used by lighter routes (note: glossary CRUD currently gates on `userHasProjectAccess`, not manage). Both live in `src/lib/project-access.ts`; check the specific route before assuming which gate applies.
 
 **Stripe safety:** Always call `isRealStripeCustomerId()` (in `src/lib/billing.ts`) before any Stripe Customer API call. Synthetic/placeholder IDs must never reach the Stripe API.
 
