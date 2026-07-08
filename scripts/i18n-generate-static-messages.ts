@@ -30,6 +30,17 @@ const SKIP_KEYS = new Set([
   "className",
 ]);
 
+// Proper nouns that must never be translated — the translation providers
+// otherwise localize the product name (observed: "Deepglot" -> "Diepglot" nl,
+// "Glotte profonde" fr, "Profundo" es). A message that IS exactly a brand term
+// is stored verbatim; a brand term embedded in a longer string is tokenized
+// out before translation (see protectPlaceholders) and restored afterwards.
+const BRAND_TERMS = ["Deepglot"] as const;
+
+function isExactBrandTerm(message: string): boolean {
+  return (BRAND_TERMS as readonly string[]).includes(message.trim());
+}
+
 const GOOGLE_SPLIT_TOKEN = "__DG_STATIC_COPY_SPLIT__";
 
 dotenv.config({ path: path.join(ROOT, ".env.production.local"), override: false, quiet: true });
@@ -232,6 +243,21 @@ async function translateMissing(
 ) {
   const localeCache = (cache[locale] ??= {});
   const missing = englishMessages.filter((message) => !localeCache[message]);
+
+  // Brand-only messages (e.g. "Deepglot") are stored verbatim and never sent
+  // to a translation provider — path-agnostic, so it holds for both the
+  // --public-google and the LLM (translateTexts) paths.
+  const translatable = missing.filter((message) => {
+    if (isExactBrandTerm(message)) {
+      localeCache[message] = message.trim();
+      return false;
+    }
+    return true;
+  });
+  if (translatable.length !== missing.length) {
+    writeCache(cache);
+  }
+
   const batchSize = process.argv.includes("--public-google") ? 35 : 150;
 
   for (let index = 0; index < missing.length; index += batchSize) {
@@ -255,11 +281,21 @@ async function translateMissing(
 
 function protectPlaceholders(text: string) {
   const placeholders: string[] = [];
-  const protectedText = text.replace(/\{[a-zA-Z0-9_]+\}/g, (placeholder) => {
+  let protectedText = text.replace(/\{[a-zA-Z0-9_]+\}/g, (placeholder) => {
     const token = `__DGPH${placeholders.length}__`;
     placeholders.push(placeholder);
     return token;
   });
+
+  // Also tokenize brand terms embedded in longer strings so the translation
+  // provider cannot localize the product name mid-sentence.
+  for (const brand of BRAND_TERMS) {
+    protectedText = protectedText.replaceAll(brand, () => {
+      const token = `__DGPH${placeholders.length}__`;
+      placeholders.push(brand);
+      return token;
+    });
+  }
 
   return { protectedText, placeholders };
 }
