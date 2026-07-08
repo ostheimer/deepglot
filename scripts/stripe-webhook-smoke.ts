@@ -130,19 +130,19 @@ async function main() {
   console.log(`Target: ${webhookUrl}`);
   console.log(`Disposable subscription: ${stripeSubscriptionId}`);
 
-  // Seed a disposable org + STARTER subscription (STARTER exists in both the current schema and the older preview-DB Plan enum) the handlers can act on.
+  // Seed a disposable org + BUSINESS subscription the handlers can act on.
   const organization = await db.organization.create({
     data: {
       name: `Webhook Smoke ${runId}`,
       slug: `webhook-${runId.toLowerCase()}`,
-      plan: "STARTER",
+      plan: "BUSINESS",
       subscription: {
         create: {
           stripeCustomerId: `cus_${runId}`,
           stripeSubscriptionId,
           status: "ACTIVE",
-          plan: "STARTER",
-          wordsLimit: BILLING_PLANS.STARTER.wordsLimit,
+          plan: "BUSINESS",
+          wordsLimit: BILLING_PLANS.BUSINESS.wordsLimit,
         },
       },
     },
@@ -187,7 +187,7 @@ async function main() {
       const row = await db.subscription.findUnique({ where: { stripeSubscriptionId } });
       record(
         "subscription.updated -> status only (no STRIPE_PRICE_PRO_MONTHLY configured)",
-        response.status === 200 && row?.status === "ACTIVE" && row?.plan === "STARTER",
+        response.status === 200 && row?.status === "ACTIVE" && row?.plan === "BUSINESS",
         `http=${response.status}; plan kept=${row?.plan}; status=${row?.status} (unknown price id keeps the plan)`
       );
     }
