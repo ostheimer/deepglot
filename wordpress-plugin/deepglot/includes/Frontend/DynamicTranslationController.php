@@ -23,15 +23,22 @@ use WP_Error;
  *
  * Abuse controls (a public page is a public endpoint):
  *  • permission: cross-site Referer + bot user-agents are rejected up front;
- *  • per-IP request rate limit;
+ *  • per-IP request rate limit (soft, transient-based);
  *  • cache-first — a missing/stale nonce degrades to cache-only;
  *  • quota spend requires a short-lived server-issued ticket (one per page
  *    load). The REST nonce is public in the page source and Origin/Referer are
  *    trivially spoofable in server-side HTTP clients, so the ticket both proves
- *    the page was actually rendered and caps fresh segments per render;
- *  • a per-IP fresh-segment window budget bounds total spend regardless of how
- *    many tickets are minted — page renders are free, so the per-ticket cap
- *    alone would not stop an attacker who keeps re-fetching the page.
+ *    the page was actually rendered and caps fresh WORDS per render;
+ *  • a per-IP fresh-word window budget bounds total spend per IP.
+ *
+ * SCOPE / RESIDUAL RISK: these controls are an interim mitigation, not a full
+ * fix. Budgets are denominated in words (not segments) so a few long strings
+ * cannot slip a large spend past the cap, but the per-IP budget is a soft,
+ * non-atomic transient cap and is per-IP only — an attacker rotating IPs, or
+ * racing concurrent requests, can still burn the victim's remaining monthly
+ * quota early (bounded ultimately by the SaaS 402). The authoritative,
+ * site-wide fresh-word velocity limit must live SaaS-side next to the org
+ * quota. Tracked as a follow-up; issue #199 stays open until that lands.
  */
 class DynamicTranslationController
 {
@@ -41,29 +48,46 @@ class DynamicTranslationController
     public const QUOTA_TICKET_HEADER = 'X-Deepglot-Quota-Ticket';
 
     /**
-     * Fresh (uncached) segments a single page-load ticket may spend (≈10 API
-     * batches of MAX_TEXTS). A "segment" is one deduplicated missing string,
-     * which may itself contain several words, so this is a segment budget, not
-     * a literal word budget.
+     * Fresh (uncached) WORDS a single page-load ticket may spend. Denominated
+     * in words, not segments: the SaaS bills words, and one segment may be up
+     * to MAX_TEXT_LENGTH chars (hundreds of words), so a segment budget would
+     * be far coarser than the quota it protects. See estimateFreshWords().
      */
-    public const MAX_FRESH_SEGMENTS_PER_TICKET = 2000;
-
-    /** Ticket lifetime in seconds (matches a typical front-end session). */
-    public const QUOTA_TICKET_TTL = 3600;
+    public const MAX_FRESH_WORDS_PER_TICKET = 4000;
 
     /**
-     * Fresh segments a single client IP may spend across all tickets within
-     * FRESH_BUDGET_WINDOW. This is the real drain bound: a ticket is minted per
-     * page render and page renders are free, so the per-ticket cap alone does
-     * not limit an attacker who keeps re-fetching the page to mint new tickets.
-     * The per-IP window budget caps total fresh spend regardless of how many
-     * tickets are minted. Sized generously — a legitimate reader adds far fewer
-     * uncached dynamic segments per hour than this.
+     * Ticket lifetime in seconds. Matches the WP REST nonce validity window
+     * (~24h) so the ticket never expires before the nonce that accompanies it —
+     * otherwise full-page-cached pages (whose nonce + ticket are baked into the
+     * cached HTML) would stop translating new content after one hour.
      */
-    public const MAX_FRESH_SEGMENTS_PER_IP = 10000;
+    public const QUOTA_TICKET_TTL = 86400;
 
-    /** Window (seconds) for the per-IP fresh-segment budget. */
+    /**
+     * Fresh WORDS a single client IP may spend across all tickets within
+     * FRESH_BUDGET_WINDOW. A ticket is minted per page render and page renders
+     * are free, so the per-ticket cap alone does not limit an attacker who
+     * re-fetches the page to mint new tickets — this per-IP window budget does.
+     *
+     * NOTE: this is a best-effort *soft* cap and a per-IP pre-filter only. It
+     * does NOT fully close the quota-drain vector: the counters are non-atomic
+     * WP transients (concurrent requests can overshoot), and an attacker
+     * rotating IPs (IPv6 /64, cloud egress, botnet) gets a fresh budget per IP.
+     * The authoritative, site-wide fresh-word velocity limit belongs SaaS-side
+     * next to the org quota / 402 logic — tracked as a follow-up. Sized so a
+     * legitimate reader's genuinely-new dynamic content stays well under it.
+     */
+    public const MAX_FRESH_WORDS_PER_IP = 20000;
+
+    /** Window (seconds) for the per-IP fresh-word budget. */
     public const FRESH_BUDGET_WINDOW = 3600;
+
+    /**
+     * Chars-per-word floor for estimateFreshWords(): scripts without spaces
+     * (CJK) make str_word_count() return ~0, which would let a huge segment
+     * bypass the word budget, so each segment counts at least length / this.
+     */
+    private const CHARS_PER_WORD = 6;
 
     /** Max strings accepted per request (mirrors HtmlTranslator::BATCH_SIZE). */
     private const MAX_TEXTS = 200;
@@ -188,17 +212,21 @@ class DynamicTranslationController
         $quotaExhausted = false;
 
         if ($allowApi && !empty($missing)) {
-            $freshCount = count($missing);
+            // Budgets are denominated in words (what the SaaS bills), not
+            // segments, so a handful of very long segments cannot slip a large
+            // spend past a segment-counting cap.
+            $freshWords = $this->estimateFreshWords($missing);
 
             // Two independent caps must both allow the spend, otherwise this
             // batch degrades to cache-only:
             //  1. the per-page ticket budget (provenance + per-render cap), and
-            //  2. the per-IP window budget (the real drain bound, since page
-            //     renders that mint tickets are free and unlimited).
+            //  2. the per-IP window budget (drain pre-filter, since page renders
+            //     that mint tickets are free — the per-ticket cap alone cannot
+            //     limit a re-fetching attacker).
             $ticketOk = $quotaTicket === ''
-                || $this->reserveFreshSegmentBudget($quotaTicket, $freshCount);
+                || $this->reserveFreshWordBudget($quotaTicket, $freshWords);
 
-            if (!$ticketOk || !$this->reserveFreshSegmentsForIp($freshCount)) {
+            if (!$ticketOk || !$this->reserveFreshWordsForIp($freshWords)) {
                 $missing = [];
             }
 
@@ -316,14 +344,14 @@ class DynamicTranslationController
 
     /**
      * Mint a short-lived quota ticket for one page load. Stored server-side so
-     * clients cannot raise the fresh-segment budget.
+     * clients cannot raise the fresh-word budget.
      */
     public static function issueQuotaTicket(): string
     {
         $ticket = bin2hex(random_bytes(16));
         set_transient(
             self::quotaTicketTransientKey($ticket),
-            ['spent' => 0, 'max' => self::MAX_FRESH_SEGMENTS_PER_TICKET],
+            ['spent' => 0, 'max' => self::MAX_FRESH_WORDS_PER_TICKET],
             self::QUOTA_TICKET_TTL
         );
 
@@ -347,13 +375,35 @@ class DynamicTranslationController
     }
 
     /**
-     * Reserve fresh-segment budget against a page-load ticket before calling
-     * SaaS. Returns false (→ cache-only) when the ticket is missing/expired or
-     * its per-render budget is exhausted.
+     * Estimate the billable word count of the fresh (uncached) segments, with a
+     * character-length floor so scripts without spaces (CJK — where
+     * str_word_count() returns ~0) cannot smuggle a large spend past the word
+     * budget. This mirrors the SaaS billing unit closely enough for a cap; the
+     * SaaS remains the authority on the exact charge.
+     *
+     * @param array<int, string> $segments
      */
-    private function reserveFreshSegmentBudget(string $ticket, int $segmentCount): bool
+    private function estimateFreshWords(array $segments): int
     {
-        if ($ticket === '' || $segmentCount <= 0) {
+        $words = 0;
+
+        foreach ($segments as $segment) {
+            $byWords = str_word_count($segment);
+            $byChars = (int) ceil(mb_strlen($segment, 'UTF-8') / self::CHARS_PER_WORD);
+            $words  += max(1, $byWords, $byChars);
+        }
+
+        return $words;
+    }
+
+    /**
+     * Reserve fresh-word budget against a page-load ticket before calling SaaS.
+     * Returns false (→ cache-only) when the ticket is missing/expired or its
+     * per-render budget is exhausted.
+     */
+    private function reserveFreshWordBudget(string $ticket, int $wordCount): bool
+    {
+        if ($ticket === '' || $wordCount <= 0) {
             return false;
         }
 
@@ -367,26 +417,27 @@ class DynamicTranslationController
         $spent = (int) $bucket['spent'];
         $max   = (int) $bucket['max'];
 
-        if ($spent + $segmentCount > $max) {
+        if ($spent + $wordCount > $max) {
             return false;
         }
 
-        $bucket['spent'] = $spent + $segmentCount;
+        $bucket['spent'] = $spent + $wordCount;
         set_transient($key, $bucket, self::QUOTA_TICKET_TTL);
 
         return true;
     }
 
     /**
-     * Reserve fresh-segment budget against the client IP for the current
-     * window. This is the real quota-drain bound: page renders that mint
-     * tickets are free, so the per-ticket cap alone cannot limit an attacker
-     * who keeps re-fetching the page. Keyed on a hashed IP like the rate
-     * limiter; returns false (→ cache-only) once the window budget is spent.
+     * Reserve fresh-word budget against the client IP for the current window.
+     * A best-effort per-IP pre-filter: page renders that mint tickets are free,
+     * so the per-ticket cap alone cannot limit a re-fetching attacker, and this
+     * bounds total fresh spend per IP. Non-atomic (like the rate limiter) and
+     * per-IP only — the authoritative site-wide bound lives SaaS-side. Keyed on
+     * a hashed IP; returns false (→ cache-only) once the window budget is spent.
      */
-    private function reserveFreshSegmentsForIp(int $segmentCount): bool
+    private function reserveFreshWordsForIp(int $wordCount): bool
     {
-        if ($segmentCount <= 0) {
+        if ($wordCount <= 0) {
             return false;
         }
 
@@ -400,11 +451,11 @@ class DynamicTranslationController
             $bucket = ['spent' => 0, 'reset' => $now + self::FRESH_BUDGET_WINDOW];
         }
 
-        if ((int) $bucket['spent'] + $segmentCount > self::MAX_FRESH_SEGMENTS_PER_IP) {
+        if ((int) $bucket['spent'] + $wordCount > self::MAX_FRESH_WORDS_PER_IP) {
             return false;
         }
 
-        $bucket['spent'] = (int) $bucket['spent'] + $segmentCount;
+        $bucket['spent'] = (int) $bucket['spent'] + $wordCount;
         set_transient($transient, $bucket, self::FRESH_BUDGET_WINDOW + 5);
 
         return true;

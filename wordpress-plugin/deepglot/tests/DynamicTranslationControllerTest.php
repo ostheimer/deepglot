@@ -399,7 +399,7 @@ $ticket = DynamicTranslationController::issueQuotaTicket();
 // so exhausting 2000 segments per request is not otherwise reachable).
 set_transient(
     'deepglot_dynqt_' . hash('sha256', $ticket),
-    ['spent' => DynamicTranslationController::MAX_FRESH_SEGMENTS_PER_TICKET, 'max' => DynamicTranslationController::MAX_FRESH_SEGMENTS_PER_TICKET],
+    ['spent' => DynamicTranslationController::MAX_FRESH_WORDS_PER_TICKET, 'max' => DynamicTranslationController::MAX_FRESH_WORDS_PER_TICKET],
     DynamicTranslationController::QUOTA_TICKET_TTL
 );
 $client = new DynamicFakeClient();
@@ -423,7 +423,7 @@ $_SERVER['REMOTE_ADDR'] = '198.51.100.31';
 $_SERVER['HTTP_HOST'] = 'example.test';
 set_transient(
     'deepglot_dynfw_' . sha1('198.51.100.31'),
-    ['spent' => DynamicTranslationController::MAX_FRESH_SEGMENTS_PER_IP, 'reset' => time() + DynamicTranslationController::FRESH_BUDGET_WINDOW],
+    ['spent' => DynamicTranslationController::MAX_FRESH_WORDS_PER_IP, 'reset' => time() + DynamicTranslationController::FRESH_BUDGET_WINDOW],
     DynamicTranslationController::FRESH_BUDGET_WINDOW + 5
 );
 $ticket = DynamicTranslationController::issueQuotaTicket();
@@ -436,7 +436,7 @@ $response = $controller->handle(new WP_REST_Request([
     'X-WP-Nonce' => 'valid-rest-nonce',
     DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
 ]));
-dynCheck($client->callCount === 0, 'A fresh ticket must not bypass an exhausted per-IP fresh-segment budget.');
+dynCheck($client->callCount === 0, 'A fresh ticket must not bypass an exhausted per-IP fresh-word budget.');
 dynCheck($response->get_data() === ['from_words' => [], 'to_words' => []], 'Exhausted per-IP budget degrades cache misses to empty results.');
 
 // 17. A fresh ticket on a fresh IP still translates cache misses (the caps do
@@ -457,5 +457,40 @@ $response = $controller->handle(new WP_REST_Request([
 ]));
 dynCheck($client->callCount === 1, 'A fresh ticket within both budgets must still translate cache misses.');
 dynCheck($response->get_data()['to_words'] === ['[en] Fresh miss'], 'Legitimate first-visit translation must be returned.');
+
+// 18. The per-IP window budget accumulates ACROSS distinct tickets: minting a
+//     new ticket per page render must NOT reset the per-IP counter (the core
+//     drain-bound property — otherwise the ticket is free to re-mint).
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.33';
+$_SERVER['HTTP_HOST'] = 'example.test';
+// Seed the per-IP window so exactly 2 fresh words remain.
+set_transient(
+    'deepglot_dynfw_' . sha1('198.51.100.33'),
+    ['spent' => DynamicTranslationController::MAX_FRESH_WORDS_PER_IP - 2, 'reset' => time() + DynamicTranslationController::FRESH_BUDGET_WINDOW],
+    DynamicTranslationController::FRESH_BUDGET_WINDOW + 5
+);
+// Ticket A (fresh) spends the 2 remaining per-IP words.
+$ticketA = DynamicTranslationController::issueQuotaTicket();
+$clientA = new DynamicFakeClient();
+$controllerA = new DynamicTranslationController(new Options(), $clientA, new DynamicFakeCache([]));
+$controllerA->handle(new WP_REST_Request([
+    'texts' => ['zwei woerter'],
+    'lang_to' => 'en',
+], ['X-WP-Nonce' => 'valid-rest-nonce', DynamicTranslationController::QUOTA_TICKET_HEADER => $ticketA]));
+dynCheck($clientA->callCount === 1, 'Ticket A spends the last remaining per-IP words.');
+// Ticket B is a brand-new ticket with a full per-render budget, but the per-IP
+// window is now spent — a re-minted ticket must not unlock more fresh spend.
+$ticketB = DynamicTranslationController::issueQuotaTicket();
+dynCheck($ticketB !== $ticketA, 'Each page render mints a distinct ticket.');
+$clientB = new DynamicFakeClient();
+$controllerB = new DynamicTranslationController(new Options(), $clientB, new DynamicFakeCache([]));
+$responseB = $controllerB->handle(new WP_REST_Request([
+    'texts' => ['noch mehr text'],
+    'lang_to' => 'en',
+], ['X-WP-Nonce' => 'valid-rest-nonce', DynamicTranslationController::QUOTA_TICKET_HEADER => $ticketB]));
+dynCheck($clientB->callCount === 0, 'A fresh ticket must NOT reset the per-IP window — accumulation holds across tickets.');
+dynCheck($responseB->get_data() === ['from_words' => [], 'to_words' => []], 'Re-minted ticket degrades to cache-only once the per-IP window is spent.');
 
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");
