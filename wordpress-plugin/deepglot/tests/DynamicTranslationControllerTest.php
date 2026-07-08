@@ -493,4 +493,31 @@ $responseB = $controllerB->handle(new WP_REST_Request([
 dynCheck($clientB->callCount === 0, 'A fresh ticket must NOT reset the per-IP window — accumulation holds across tickets.');
 dynCheck($responseB->get_data() === ['from_words' => [], 'to_words' => []], 'Re-minted ticket degrades to cache-only once the per-IP window is spent.');
 
+// 19. When the per-IP budget blocks a batch, the ticket budget must NOT be
+//     debited — otherwise visitors behind a shared NAT lose their per-render
+//     allowance even though no translation ran.
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.34';
+$_SERVER['HTTP_HOST'] = 'example.test';
+set_transient(
+    'deepglot_dynfw_' . sha1('198.51.100.34'),
+    ['spent' => DynamicTranslationController::MAX_FRESH_WORDS_PER_IP, 'reset' => time() + DynamicTranslationController::FRESH_BUDGET_WINDOW],
+    DynamicTranslationController::FRESH_BUDGET_WINDOW + 5
+);
+$ticket = DynamicTranslationController::issueQuotaTicket();
+$ticketKey = 'deepglot_dynqt_' . hash('sha256', $ticket);
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$controller->handle(new WP_REST_Request([
+    'texts' => ['Should not debit ticket'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
+]));
+$bucket = get_transient($ticketKey);
+dynCheck($client->callCount === 0, 'Exhausted per-IP budget must not call the API.');
+dynCheck(is_array($bucket) && (int) $bucket['spent'] === 0, 'Per-IP rejection must not debit the ticket budget.');
+
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");
