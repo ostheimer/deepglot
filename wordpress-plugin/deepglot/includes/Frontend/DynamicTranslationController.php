@@ -23,12 +23,15 @@ use WP_Error;
  *
  * Abuse controls (a public page is a public endpoint):
  *  • permission: cross-site Referer + bot user-agents are rejected up front;
- *  • per-IP transient rate limit;
+ *  • per-IP request rate limit;
  *  • cache-first — a missing/stale nonce degrades to cache-only;
  *  • quota spend requires a short-lived server-issued ticket (one per page
  *    load). The REST nonce is public in the page source and Origin/Referer are
- *    trivially spoofable in server-side HTTP clients, so the ticket caps fresh
- *    words per page view and cannot be minted without rendering the page.
+ *    trivially spoofable in server-side HTTP clients, so the ticket both proves
+ *    the page was actually rendered and caps fresh segments per render;
+ *  • a per-IP fresh-segment window budget bounds total spend regardless of how
+ *    many tickets are minted — page renders are free, so the per-ticket cap
+ *    alone would not stop an attacker who keeps re-fetching the page.
  */
 class DynamicTranslationController
 {
@@ -37,11 +40,30 @@ class DynamicTranslationController
     /** Header the browser sends with the per-page quota ticket. */
     public const QUOTA_TICKET_HEADER = 'X-Deepglot-Quota-Ticket';
 
-    /** Fresh words a single page-load ticket may spend (≈10 API batches). */
-    public const MAX_FRESH_WORDS_PER_TICKET = 2000;
+    /**
+     * Fresh (uncached) segments a single page-load ticket may spend (≈10 API
+     * batches of MAX_TEXTS). A "segment" is one deduplicated missing string,
+     * which may itself contain several words, so this is a segment budget, not
+     * a literal word budget.
+     */
+    public const MAX_FRESH_SEGMENTS_PER_TICKET = 2000;
 
     /** Ticket lifetime in seconds (matches a typical front-end session). */
     public const QUOTA_TICKET_TTL = 3600;
+
+    /**
+     * Fresh segments a single client IP may spend across all tickets within
+     * FRESH_BUDGET_WINDOW. This is the real drain bound: a ticket is minted per
+     * page render and page renders are free, so the per-ticket cap alone does
+     * not limit an attacker who keeps re-fetching the page to mint new tickets.
+     * The per-IP window budget caps total fresh spend regardless of how many
+     * tickets are minted. Sized generously — a legitimate reader adds far fewer
+     * uncached dynamic segments per hour than this.
+     */
+    public const MAX_FRESH_SEGMENTS_PER_IP = 10000;
+
+    /** Window (seconds) for the per-IP fresh-segment budget. */
+    public const FRESH_BUDGET_WINDOW = 3600;
 
     /** Max strings accepted per request (mirrors HtmlTranslator::BATCH_SIZE). */
     private const MAX_TEXTS = 200;
@@ -166,8 +188,17 @@ class DynamicTranslationController
         $quotaExhausted = false;
 
         if ($allowApi && !empty($missing)) {
-            if ($quotaTicket !== '' && !$this->reserveFreshWordBudget($quotaTicket, count($missing))) {
-                // Ticket budget exhausted — serve cache hits only for this batch.
+            $freshCount = count($missing);
+
+            // Two independent caps must both allow the spend, otherwise this
+            // batch degrades to cache-only:
+            //  1. the per-page ticket budget (provenance + per-render cap), and
+            //  2. the per-IP window budget (the real drain bound, since page
+            //     renders that mint tickets are free and unlimited).
+            $ticketOk = $quotaTicket === ''
+                || $this->reserveFreshSegmentBudget($quotaTicket, $freshCount);
+
+            if (!$ticketOk || !$this->reserveFreshSegmentsForIp($freshCount)) {
                 $missing = [];
             }
 
@@ -285,14 +316,14 @@ class DynamicTranslationController
 
     /**
      * Mint a short-lived quota ticket for one page load. Stored server-side so
-     * clients cannot raise the fresh-word budget.
+     * clients cannot raise the fresh-segment budget.
      */
     public static function issueQuotaTicket(): string
     {
         $ticket = bin2hex(random_bytes(16));
         set_transient(
             self::quotaTicketTransientKey($ticket),
-            ['spent' => 0, 'max' => self::MAX_FRESH_WORDS_PER_TICKET],
+            ['spent' => 0, 'max' => self::MAX_FRESH_SEGMENTS_PER_TICKET],
             self::QUOTA_TICKET_TTL
         );
 
@@ -316,11 +347,13 @@ class DynamicTranslationController
     }
 
     /**
-     * Reserve fresh-word budget against a page-load ticket before calling SaaS.
+     * Reserve fresh-segment budget against a page-load ticket before calling
+     * SaaS. Returns false (→ cache-only) when the ticket is missing/expired or
+     * its per-render budget is exhausted.
      */
-    private function reserveFreshWordBudget(string $ticket, int $wordCount): bool
+    private function reserveFreshSegmentBudget(string $ticket, int $segmentCount): bool
     {
-        if ($ticket === '' || $wordCount <= 0) {
+        if ($ticket === '' || $segmentCount <= 0) {
             return false;
         }
 
@@ -334,12 +367,45 @@ class DynamicTranslationController
         $spent = (int) $bucket['spent'];
         $max   = (int) $bucket['max'];
 
-        if ($spent + $wordCount > $max) {
+        if ($spent + $segmentCount > $max) {
             return false;
         }
 
-        $bucket['spent'] = $spent + $wordCount;
+        $bucket['spent'] = $spent + $segmentCount;
         set_transient($key, $bucket, self::QUOTA_TICKET_TTL);
+
+        return true;
+    }
+
+    /**
+     * Reserve fresh-segment budget against the client IP for the current
+     * window. This is the real quota-drain bound: page renders that mint
+     * tickets are free, so the per-ticket cap alone cannot limit an attacker
+     * who keeps re-fetching the page. Keyed on a hashed IP like the rate
+     * limiter; returns false (→ cache-only) once the window budget is spent.
+     */
+    private function reserveFreshSegmentsForIp(int $segmentCount): bool
+    {
+        if ($segmentCount <= 0) {
+            return false;
+        }
+
+        $ip        = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $transient = 'deepglot_dynfw_' . sha1($ip);
+        $now       = time();
+
+        $bucket = get_transient($transient);
+
+        if (!is_array($bucket) || !isset($bucket['reset'], $bucket['spent']) || $bucket['reset'] <= $now) {
+            $bucket = ['spent' => 0, 'reset' => $now + self::FRESH_BUDGET_WINDOW];
+        }
+
+        if ((int) $bucket['spent'] + $segmentCount > self::MAX_FRESH_SEGMENTS_PER_IP) {
+            return false;
+        }
+
+        $bucket['spent'] = (int) $bucket['spent'] + $segmentCount;
+        set_transient($transient, $bucket, self::FRESH_BUDGET_WINDOW + 5);
 
         return true;
     }

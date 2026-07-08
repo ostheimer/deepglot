@@ -388,4 +388,74 @@ $controller = new DynamicTranslationController(new Options(), $client, new Dynam
 $result = $controller->translateTexts(['Neu'], 'en', true);
 dynCheck(!array_key_exists('quota_exhausted', $result), 'A successful response must not carry quota_exhausted.');
 
+// 15. Per-render ticket cap: once a valid ticket's fresh-segment budget is
+//     spent, further cache misses on that ticket degrade to cache-only.
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.30';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$ticket = DynamicTranslationController::issueQuotaTicket();
+// Drive the ticket to its cap directly (one request is capped at MAX_TEXTS,
+// so exhausting 2000 segments per request is not otherwise reachable).
+set_transient(
+    'deepglot_dynqt_' . hash('sha256', $ticket),
+    ['spent' => DynamicTranslationController::MAX_FRESH_SEGMENTS_PER_TICKET, 'max' => DynamicTranslationController::MAX_FRESH_SEGMENTS_PER_TICKET],
+    DynamicTranslationController::QUOTA_TICKET_TTL
+);
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Over the ticket budget'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
+]));
+dynCheck($client->callCount === 0, 'A valid ticket whose per-render budget is exhausted must not call the API.');
+dynCheck($response->get_data() === ['from_words' => [], 'to_words' => []], 'Exhausted ticket budget degrades cache misses to empty results.');
+
+// 16. Per-IP window budget: a FRESH ticket must not bypass an exhausted per-IP
+//     fresh-segment budget — this is what actually bounds quota drain, since an
+//     attacker can mint a new ticket per page load for free.
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.31';
+$_SERVER['HTTP_HOST'] = 'example.test';
+set_transient(
+    'deepglot_dynfw_' . sha1('198.51.100.31'),
+    ['spent' => DynamicTranslationController::MAX_FRESH_SEGMENTS_PER_IP, 'reset' => time() + DynamicTranslationController::FRESH_BUDGET_WINDOW],
+    DynamicTranslationController::FRESH_BUDGET_WINDOW + 5
+);
+$ticket = DynamicTranslationController::issueQuotaTicket();
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Over the per-IP budget'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
+]));
+dynCheck($client->callCount === 0, 'A fresh ticket must not bypass an exhausted per-IP fresh-segment budget.');
+dynCheck($response->get_data() === ['from_words' => [], 'to_words' => []], 'Exhausted per-IP budget degrades cache misses to empty results.');
+
+// 17. A fresh ticket on a fresh IP still translates cache misses (the caps do
+//     not block legitimate first-visit traffic).
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.32';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$ticket = DynamicTranslationController::issueQuotaTicket();
+$client = new DynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Fresh miss'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
+]));
+dynCheck($client->callCount === 1, 'A fresh ticket within both budgets must still translate cache misses.');
+dynCheck($response->get_data()['to_words'] === ['[en] Fresh miss'], 'Legitimate first-visit translation must be returned.');
+
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");
