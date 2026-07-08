@@ -362,6 +362,7 @@ Project pages now support these additional flows:
 - the full API key is shown exactly once after creation
 - page views can be enabled under `Stats -> Page views`
 - the visual editor opens a real target URL with `deepglot_editor=1`
+- **Security note:** the visual-editor session token is currently passed in the launch URL as `?deepglot_editor_token=…`. Moving it out of the URL requires a coordinated WordPress-plugin change and is tracked as a known limitation (see PR #98).
 
 ## i18n automation scripts
 
@@ -400,6 +401,9 @@ The current lightweight test suite covers:
 - project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
 - translation provider settings via Playwright in `tests/e2e/provider-settings.spec.ts`
 - subscription usage accessibility via Playwright in `tests/e2e/subscription-usage-accessibility.spec.ts`
+- pricing slider alignment regression (drives `pricing-grid.tsx` through every `BILLING_PLAN_KEYS` index and asserts the thumb centre is within ±2 px of the active tick label) via Playwright in `tests/e2e/pricing-slider-alignment.spec.ts`
+- marketing copy anti-drift guard (asserts `BILLING_PLANS` wiring in the marketing home component, allowlists competitor-comparison EUR tokens, and fails on any hardcoded EUR amount or word-count literal that collides with a real plan price) in `src/lib/marketing-home-drift-guard.test.ts`
+- Stripe webhook subscription-lifecycle smoke (trigger `customer.subscription.deleted`, `customer.subscription.updated`, and `invoice.payment_failed`, assert `Subscription.status`, `plan`, `wordsLimit`, and the `getEffectiveWordsLimit` FREE soft-cap for non-ACTIVE statuses) run via `npm run smoke:stripe-webhooks` in `scripts/stripe-webhook-smoke.ts`
 
 ### WordPress plugin PHP test suite
 

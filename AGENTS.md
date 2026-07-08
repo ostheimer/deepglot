@@ -36,3 +36,19 @@ npm run check:docs-language # verify docs are in English
 
 All SaaS API routes: /api/ (Next.js route handlers in src/app/api/)
 WordPress plugin REST API: /wp-json/deepglot/v1/ (PHP in wordpress-plugin/deepglot/includes/Api/)
+
+## Architecture notes (do not re-do past decisions)
+
+**Request entrypoint:** `src/proxy.ts` is the sole request entrypoint for the SaaS app. `middleware.ts` was removed in a past refactor — do not recreate it.
+
+**Internal route language:** Dashboard routes are internally German (`/agb`, `/datenschutz`, `/impressum`, `/projekte`, `/abonnement`, `/einstellungen`). Canonical English aliases are handled via `src/proxy.ts`. When adding legal or dashboard pages, add them as German directories and route them through the proxy — do not create new English-named directories for internal pages.
+
+**Acceptance module pattern:** Business logic for acceptance tests lives in `src/lib/*-acceptance.ts` (unit-testable). The files in `scripts/*-acceptance.ts` are thin wrappers that call the `src/lib/` modules. Do not duplicate acceptance logic in scripts directly.
+
+**Access control:** Use `userCanManageProject()` for all write operations on projects and `userHasProjectAccess()` for read operations only. Both live in `src/lib/project-access.ts`.
+
+**Stripe safety:** Always call `isRealStripeCustomerId()` (in `src/lib/billing.ts`) before any Stripe Customer API call. Synthetic/placeholder IDs must never reach the Stripe API.
+
+**Webhook SSRF guard:** `src/lib/webhook-url-safety.ts` must be applied both when creating/updating webhook endpoints AND when dispatching webhook deliveries. Skipping it on dispatch allows DNS-rebinding attacks.
+
+**Deprecated file:** `reference-plugin-analysis.md` in the repo root is explicitly deprecated (pre-implementation analysis from March 2026). Do not use it for architectural decisions — the actual implementation supersedes all recommendations in that file.
