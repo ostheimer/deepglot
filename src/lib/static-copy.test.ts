@@ -44,12 +44,27 @@ test("no static-message value drops or garbles the Deepglot brand token", () => 
 
 test("the generator protects brand terms before translation", () => {
   // Guardrail against removing the root-cause fix: the generator must carry a
-  // BRAND_TERMS list and short-circuit exact brand messages.
+  // BRAND_TERMS list, short-circuit exact brand messages, and batch only the
+  // filtered translatable list. Otherwise the short-circuited "Deepglot" cache
+  // value is immediately overwritten by the provider result on regeneration.
   const generator = readFileSync(
     path.join(process.cwd(), "scripts", "i18n-generate-static-messages.ts"),
     "utf8"
   );
+  const translateMissing = generator.match(
+    /async function translateMissing[\s\S]*?\n}\n\nfunction protectPlaceholders/
+  )?.[0];
 
   assert.match(generator, /const BRAND_TERMS = \[[^\]]*"Deepglot"/);
   assert.match(generator, /isExactBrandTerm/);
+  assert.ok(translateMissing, "translateMissing must exist in the generator");
+  assert.match(
+    translateMissing,
+    /for \(let index = 0; index < translatable\.length; index \+= batchSize\)/
+  );
+  assert.match(translateMissing, /const batch = translatable\.slice\(index, index \+ batchSize\)/);
+  assert.doesNotMatch(
+    translateMissing,
+    /for \(let index = 0; index < missing\.length; index \+= batchSize\)/
+  );
 });
