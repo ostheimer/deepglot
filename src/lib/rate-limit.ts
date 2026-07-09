@@ -8,7 +8,7 @@ export const AUTH_PASSWORD_RESET_RATE_LIMIT_SCOPE = "auth:password-reset";
 /**
  * Per-organization fresh-word velocity limit (#203). Unlike the monthly quota
  * (a total) and the per-minute request limit (a count), this caps how many
- * *fresh, provider-billed words* one organization can spend per rolling window
+ * *fresh, provider-billed words* one organization can spend per fixed hourly window
  * — the authoritative, atomic, per-org bound the WordPress plugin's soft per-IP
  * caps (v0.8.4) cannot provide. Keyed per org to match the per-org monthly
  * quota it protects, so an org with many project keys cannot multiply the rate
@@ -167,7 +167,7 @@ export function getRateLimitConfig(env: RateLimitEnv = process.env as RateLimitE
 
 /**
  * Atomically reserve `words` fresh, provider-billed words against an
- * organization's rolling velocity window. Returns `allowed: false` (with retry
+ * organization's fixed hourly velocity window. Returns `allowed: false` (with retry
  * timing) once the window budget is spent. Reserving is a single atomic upsert,
  * so concurrent requests cannot overshoot the cap (unlike the plugin's per-IP
  * transient caps).
