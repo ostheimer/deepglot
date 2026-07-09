@@ -6,13 +6,15 @@ export const PLUGIN_RATE_LIMIT_SCOPE = "plugin";
 export const AUTH_PASSWORD_RESET_RATE_LIMIT_SCOPE = "auth:password-reset";
 
 /**
- * Per-project fresh-word velocity limit (#203). Unlike the monthly quota (a
- * total) and the per-minute request limit (a count), this caps how many
- * *fresh, provider-billed words* one project can spend per rolling window —
- * the authoritative, atomic, per-project bound the WordPress plugin's soft
- * per-IP caps (v0.8.4) cannot provide. It stops an attacker (even one rotating
- * IPs through the dynamic-translate proxy) from draining a victim's whole
- * monthly quota in minutes, while sitting well above legitimate traffic.
+ * Per-organization fresh-word velocity limit (#203). Unlike the monthly quota
+ * (a total) and the per-minute request limit (a count), this caps how many
+ * *fresh, provider-billed words* one organization can spend per rolling window
+ * — the authoritative, atomic, per-org bound the WordPress plugin's soft per-IP
+ * caps (v0.8.4) cannot provide. Keyed per org to match the per-org monthly
+ * quota it protects, so an org with many project keys cannot multiply the rate
+ * against one shared pool. It stops an attacker (even one rotating IPs through
+ * the dynamic-translate proxy) from draining a victim's whole monthly quota in
+ * minutes, while sitting well above legitimate traffic.
  */
 export const TRANSLATE_WORD_VELOCITY_SCOPE = "translate:word-velocity";
 export const TRANSLATE_WORD_VELOCITY_WINDOW_MS = 3_600_000; // 1 hour
