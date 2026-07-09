@@ -272,6 +272,19 @@ AND "threshold" = <90 or 100>;
 - To restore translation: upgrade the organization's plan or increase the quota limit
 - Enterprise orgs without `stripeSubscriptionId` (e.g., meinhaushalt.at): quota can be adjusted manually in the database
 
+### Translation velocity limit (per-project drain rate)
+
+Separate from the monthly quota (a total) and the per-minute request rate limit (a count), `POST /api/translate` enforces a **per-project fresh-word velocity limit** (ROADMAP 8.37, #203): at most `TRANSLATE_WORD_VELOCITY_PER_HOUR` fresh, provider-billed words per project per rolling hour, reserved atomically via the `RateLimitBucket` table. It caps how *fast* a project can drain its quota — the authoritative bound behind the WordPress plugin's soft per-IP caps (v0.8.4), so a distributed attacker rotating IPs through the dynamic-translate proxy cannot burn the monthly quota in minutes.
+
+- **Default:** 50,000 words/hour/project. Override with the `TRANSLATE_WORD_VELOCITY_PER_HOUR` env var (Vercel Production) — raise it for legitimately very high-volume sites.
+- **Exempt:** cache hits, bot traffic, and health probes (`quota_probe`) never consume velocity.
+- **Signal:** over-budget requests get `429` with `code: velocity_limited` and a `Retry-After` header. The server-side pass then serves source text for that batch until the window rolls over; it is not a hard monthly exhaustion (that is still `402`).
+
+**Runbook — a site reports "translations stopped" but the monthly quota is not exhausted:**
+1. Check for `429 velocity_limited` responses in the Vercel logs for that project.
+2. If the traffic is legitimate (a real high-volume site), raise `TRANSLATE_WORD_VELOCITY_PER_HOUR` and redeploy.
+3. If the traffic looks like abuse (server-side clients, no browser), the limit is doing its job; investigate the source before raising it.
+
 ### WordPress plugin quota signals
 
 When the SaaS returns 402 for a translation request, the plugin:

@@ -26,6 +26,7 @@ import {
   TRANSLATE_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
   consumeRateLimit,
+  consumeTranslateWordVelocity,
   getRateLimitConfig,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
@@ -326,6 +327,33 @@ export async function POST(req: NextRequest) {
             limit: wordsLimit,
           },
           { status: 402 },
+        );
+      }
+    }
+
+    // 6b. Per-project fresh-word velocity limit (#203). The monthly quota
+    // caps the total; this caps the RATE of fresh, provider-billed spend per
+    // project over a rolling window, atomically. It is the authoritative bound
+    // the WordPress plugin's soft per-IP caps (v0.8.4) cannot provide: a
+    // distributed attacker rotating IPs through the dynamic-translate proxy
+    // still funnels through this project's key, so a per-project atomic cap
+    // stops them from draining the whole monthly quota in minutes. Only real
+    // fresh spend is charged — cache hits, bots, and health probes are exempt.
+    if (!isBot && !quotaProbe && translatedWords > 0) {
+      const velocity = await consumeTranslateWordVelocity({
+        projectId: project.id,
+        words: translatedWords,
+        limit: getRateLimitConfig().translateWordVelocityPerHour,
+      });
+
+      if (!velocity.allowed) {
+        return NextResponse.json(
+          {
+            error: "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
+            code: "velocity_limited",
+            retry_after: velocity.retryAfterSeconds,
+          },
+          { status: 429, headers: buildRateLimitHeaders(velocity) },
         );
       }
     }
