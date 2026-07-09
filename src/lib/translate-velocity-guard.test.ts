@@ -36,25 +36,32 @@ test("translate route enforces the per-project word velocity limit (#203)", () =
   );
   assert.match(
     source,
-    /consumeTranslateWordVelocity\(\{[\s\S]*?projectId:[\s\S]*?words:[\s\S]*?limit:[\s\S]*?\}\)/,
-    "velocity must be charged per project, by word count, against a limit"
+    /consumeTranslateWordVelocity\(\{[\s\S]*?organizationId:[\s\S]*?words:[\s\S]*?limit:[\s\S]*?\}\)/,
+    "velocity must be charged per organization (matching the per-org quota), by word count, against a limit"
   );
 });
 
-test("the velocity gate exempts bots and health probes, and only charges fresh spend", () => {
+test("the velocity gate charges every fresh spend but exempts bots — NOT health probes", () => {
   const source = routeSource();
 
   // The guard condition immediately preceding the velocity call must exclude
-  // bots and quota probes and require fresh words > 0.
+  // bots and require fresh words > 0.
   const gate = source.match(
-    /if\s*\(\s*([^)]*translatedWords[^)]*)\)\s*\{[\s\S]{0,200}?consumeTranslateWordVelocity/
+    /if\s*\(\s*([^)]*translatedWords[^)]*)\)\s*\{[\s\S]{0,260}?consumeTranslateWordVelocity/
   );
   assert.ok(gate, "consumeTranslateWordVelocity must sit behind a translatedWords gate");
 
   const condition = gate[1];
   assert.match(condition, /!isBot/, "bots must be exempt from the velocity limit");
-  assert.match(condition, /!quotaProbe/, "health probes must be exempt from the velocity limit");
   assert.match(condition, /translatedWords > 0/, "only real fresh spend is charged");
+  // quota_probe must NOT gate velocity: it is an attacker-settable body flag
+  // and the spend/usage block does not honor it, so exempting velocity would
+  // let `quota_probe: true` bypass the limit at full spend.
+  assert.doesNotMatch(
+    condition,
+    /quotaProbe/,
+    "velocity must not be conditioned on quota_probe (it is attacker-settable and would bypass the limit)"
+  );
 });
 
 test("an over-budget velocity result is rejected with 429 velocity_limited", () => {

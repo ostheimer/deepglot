@@ -331,17 +331,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6b. Per-project fresh-word velocity limit (#203). The monthly quota
-    // caps the total; this caps the RATE of fresh, provider-billed spend per
-    // project over a rolling window, atomically. It is the authoritative bound
-    // the WordPress plugin's soft per-IP caps (v0.8.4) cannot provide: a
-    // distributed attacker rotating IPs through the dynamic-translate proxy
-    // still funnels through this project's key, so a per-project atomic cap
-    // stops them from draining the whole monthly quota in minutes. Only real
-    // fresh spend is charged — cache hits, bots, and health probes are exempt.
-    if (!isBot && !quotaProbe && translatedWords > 0) {
+    // 6b. Per-org fresh-word velocity limit (#203). The monthly quota caps the
+    // total; this caps the RATE of fresh, provider-billed spend over a rolling
+    // window, atomically. It is the authoritative bound the WordPress plugin's
+    // soft per-IP caps (v0.8.4) cannot provide: a distributed attacker rotating
+    // IPs through the dynamic-translate proxy still funnels through this org's
+    // API keys, so a per-ORG atomic cap stops them from draining the monthly
+    // quota (which is itself per-org) in minutes — keying per project would let
+    // an org with N sites drain N× the rate against one shared pool.
+    //
+    // Charged for EVERY fresh (uncached) spend: cache hits and bots are exempt
+    // (translatedWords is 0 / the block is skipped), but `quota_probe` is NOT
+    // exempt — it is an attacker-settable body flag and the spend/usage block
+    // below does not honor it, so exempting velocity here would let
+    // `quota_probe: true` bypass the limit at full spend.
+    if (!isBot && translatedWords > 0) {
       const velocity = await consumeTranslateWordVelocity({
-        projectId: project.id,
+        organizationId: project.organizationId,
         words: translatedWords,
         limit: getRateLimitConfig().translateWordVelocityPerHour,
       });

@@ -167,23 +167,24 @@ test("treats a cost below one as one unit", async () => {
   assert.equal(result.remaining, 4);
 });
 
-test("consumeTranslateWordVelocity reserves words per project over an hour window", async () => {
+test("consumeTranslateWordVelocity reserves words per organization over an hour window", async () => {
   const store = new MemoryRateLimitStore();
   const now = new Date("2026-04-30T10:00:00.000Z");
 
-  const ok = await consumeTranslateWordVelocity({ projectId: "p1", words: 40_000, limit: 50_000, now, store });
+  const ok = await consumeTranslateWordVelocity({ organizationId: "org1", words: 40_000, limit: 50_000, now, store });
   assert.equal(ok.allowed, true);
   assert.equal(ok.limit, 50_000);
   assert.equal(ok.remaining, 10_000);
   assert.equal(ok.resetAt.getTime(), now.getTime() + TRANSLATE_WORD_VELOCITY_WINDOW_MS);
 
-  // A distinct project has its own budget (per-project isolation).
-  const otherProject = await consumeTranslateWordVelocity({ projectId: "p2", words: 40_000, limit: 50_000, now, store });
-  assert.equal(otherProject.allowed, true);
+  // A distinct organization has its own budget.
+  const otherOrg = await consumeTranslateWordVelocity({ organizationId: "org2", words: 40_000, limit: 50_000, now, store });
+  assert.equal(otherOrg.allowed, true);
 
-  // The first project cannot exceed its hourly budget by minting new work.
+  // The org cannot exceed its hourly budget — keyed per ORG, so spreading the
+  // same spend across multiple projects/keys of the org cannot multiply it.
   const blocked = await consumeTranslateWordVelocity({
-    projectId: "p1",
+    organizationId: "org1",
     words: 20_000,
     limit: 50_000,
     now: new Date("2026-04-30T10:30:00.000Z"),

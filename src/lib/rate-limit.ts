@@ -164,21 +164,25 @@ export function getRateLimitConfig(env: RateLimitEnv = process.env as RateLimitE
 }
 
 /**
- * Atomically reserve `words` fresh, provider-billed words against a project's
- * rolling velocity window. Returns `allowed: false` (with retry timing) once
- * the window budget is spent. Reserving is a single atomic upsert, so
- * concurrent requests cannot overshoot the cap (unlike the plugin's per-IP
- * transient caps). Only call this for real fresh spend — not cache hits, bots,
- * or health probes.
+ * Atomically reserve `words` fresh, provider-billed words against an
+ * organization's rolling velocity window. Returns `allowed: false` (with retry
+ * timing) once the window budget is spent. Reserving is a single atomic upsert,
+ * so concurrent requests cannot overshoot the cap (unlike the plugin's per-IP
+ * transient caps).
+ *
+ * Keyed per ORGANIZATION (matching the per-org monthly quota it protects) so an
+ * org with many projects/API keys cannot drain N× the rate against one shared
+ * pool. Call this for every real fresh spend — do NOT exempt health probes
+ * (`quota_probe` is an attacker-settable flag that still spends).
  */
 export async function consumeTranslateWordVelocity({
-  projectId,
+  organizationId,
   words,
   limit,
   now = new Date(),
   store,
 }: {
-  projectId: string;
+  organizationId: string;
   words: number;
   limit: number;
   now?: Date;
@@ -186,7 +190,7 @@ export async function consumeTranslateWordVelocity({
 }): Promise<RateLimitResult> {
   return consumeRateLimit({
     scope: TRANSLATE_WORD_VELOCITY_SCOPE,
-    subject: projectId,
+    subject: organizationId,
     limit,
     cost: words,
     windowMs: TRANSLATE_WORD_VELOCITY_WINDOW_MS,
