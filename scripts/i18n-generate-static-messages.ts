@@ -260,9 +260,9 @@ async function translateMissing(
 
   const batchSize = process.argv.includes("--public-google") ? 35 : 150;
 
-  for (let index = 0; index < missing.length; index += batchSize) {
-    const batch = missing.slice(index, index + batchSize);
-    console.log(`Translating ${locale}: ${index + 1}-${index + batch.length} of ${missing.length}`);
+  for (let index = 0; index < translatable.length; index += batchSize) {
+    const batch = translatable.slice(index, index + batchSize);
+    console.log(`Translating ${locale}: ${index + 1}-${index + batch.length} of ${translatable.length}`);
 
     const translated = process.argv.includes("--public-google")
       ? await translateWithPublicGoogle(batch, locale)
