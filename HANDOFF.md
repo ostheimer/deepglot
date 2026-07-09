@@ -5,8 +5,9 @@ This file captures the current project state so work can continue in a new chat 
 ## Current State
 
 - Branch: `main`
-- Latest production commit: `126f27a` (`fix(wp-plugin): guard translation cache against bot identity poisoning (v0.8.3) (#185)`)
-- WordPress plugin **v0.8.3 deployed on `meinhaushalt.at` (2026-07-03)** and live-verified: asset versions serve `?ver=0.8.3`, the human path renders translated pages, the bot path (curl UA) serves 200 cache-only. The pre-fix poisoned transient cache was flushed (239,624 `dg_` rows deleted) and re-warmed by human traffic with real English translations only — no identity mappings reappeared, confirming the #163 guard live. WP Rocket page cache purged in the same pass. (The 2026-06-10 dynamic-content-translation QA ran on v0.8.1 and still covers that feature; a dedicated quota-exhaustion live drill remains optional.)
+- WordPress plugin **v0.8.4 deployed on `meinhaushalt.at` (2026-07-09)** and live-verified: assets serve `?ver=0.8.4`, human path renders translated, and the dynamic-translate endpoint without a nonce/ticket returns `{from_words:[],to_words:[]}` (cache-only, no quota spend, no 500). Deployed via `rsync --checksum` (only the 5 changed files) after a server-side backup (`~/deepglot-plugin-backup-pre-084.tar.gz`); WP Rocket page cache purged. v0.8.4 replaces the spoofable Origin gate on the dynamic-translate proxy with word-denominated per-render + per-IP caps (interim mitigation, ROADMAP 8.36).
+- The authoritative SaaS-side fix (ROADMAP 8.37, #203) adds a per-project fresh-word velocity limit to `POST /api/translate` — see below.
+- v0.8.3 deploy (2026-07-03): flushed 239,624 poisoned `dg_` transients for the #163 fix; re-warmed with real translations only (guard confirmed live).
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
 - Production validation WordPress site: `https://www.meinhaushalt.at`
