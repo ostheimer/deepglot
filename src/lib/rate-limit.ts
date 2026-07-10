@@ -48,8 +48,30 @@ type RateLimitBucketData = {
   cost: number;
 };
 
+type RateLimitBucketReservationData = RateLimitBucketData & {
+  limit: number;
+};
+
+type RateLimitBucketReleaseData = {
+  scope: string;
+  subjectHash: string;
+  now: Date;
+  cost: number;
+};
+
+type RateLimitBucketReservation = {
+  bucket: RateLimitBucketRecord;
+  reserved: boolean;
+};
+
 export type RateLimitStore = {
   consumeBucket(data: RateLimitBucketData): Promise<RateLimitBucketRecord>;
+  reserveBucket(
+    data: RateLimitBucketReservationData
+  ): Promise<RateLimitBucketReservation>;
+  releaseBucket(
+    data: RateLimitBucketReleaseData
+  ): Promise<RateLimitBucketRecord | null>;
 };
 
 export type RateLimitResult = {
@@ -74,6 +96,53 @@ export class MemoryRateLimitStore implements RateLimitStore {
       subjectHash: data.subjectHash,
       count,
       resetAt,
+    };
+    this.buckets.set(key, bucket);
+    return bucket;
+  }
+
+  async reserveBucket(data: RateLimitBucketReservationData) {
+    const key = this.key(data.scope, data.subjectHash);
+    const existing = this.buckets.get(key);
+    const isExpired = !existing || existing.resetAt <= data.now;
+    const currentCount = isExpired ? 0 : existing.count;
+    const countIfReserved = currentCount + data.cost;
+    const reserved = isExpired || countIfReserved <= data.limit;
+    const resetAt = isExpired ? data.resetAt : existing.resetAt;
+
+    if (!reserved) {
+      return {
+        bucket: existing ?? {
+          scope: data.scope,
+          subjectHash: data.subjectHash,
+          count: 0,
+          resetAt,
+        },
+        reserved: false,
+      };
+    }
+
+    const bucket = {
+      scope: data.scope,
+      subjectHash: data.subjectHash,
+      count: countIfReserved,
+      resetAt,
+    };
+    this.buckets.set(key, bucket);
+    return { bucket, reserved: true };
+  }
+
+  async releaseBucket(data: RateLimitBucketReleaseData) {
+    const key = this.key(data.scope, data.subjectHash);
+    const existing = this.buckets.get(key);
+
+    if (!existing || existing.resetAt <= data.now) {
+      return null;
+    }
+
+    const bucket = {
+      ...existing,
+      count: Math.max(0, existing.count - data.cost),
     };
     this.buckets.set(key, bucket);
     return bucket;
@@ -120,6 +189,80 @@ class PrismaRateLimitStore implements RateLimitStore {
 
     return rows[0];
   }
+
+  async reserveBucket(data: RateLimitBucketReservationData) {
+    const { db } = await import("@/lib/db");
+
+    const rows = await db.$queryRaw<
+      Array<RateLimitBucketRecord & { reserved: boolean }>
+    >`
+      INSERT INTO "RateLimitBucket"
+        ("id", "scope", "subjectHash", "count", "resetAt", "createdAt", "updatedAt")
+      VALUES (
+        ${crypto.randomUUID()},
+        ${data.scope},
+        ${data.subjectHash},
+        ${data.cost},
+        ${data.resetAt},
+        ${data.now},
+        ${data.now}
+      )
+      ON CONFLICT ("scope", "subjectHash")
+      DO UPDATE SET
+        "count" = CASE
+          WHEN "RateLimitBucket"."resetAt" <= ${data.now} THEN ${data.cost}
+          ELSE "RateLimitBucket"."count" + ${data.cost}
+        END,
+        "resetAt" = CASE
+          WHEN "RateLimitBucket"."resetAt" <= ${data.now} THEN ${data.resetAt}
+          ELSE "RateLimitBucket"."resetAt"
+        END,
+        "updatedAt" = ${data.now}
+      WHERE
+        "RateLimitBucket"."resetAt" <= ${data.now}
+        OR "RateLimitBucket"."count" + ${data.cost} <= ${data.limit}
+      RETURNING "scope", "subjectHash", "count", "resetAt", true AS "reserved"
+    `;
+
+    if (rows[0]) {
+      return { bucket: rows[0], reserved: true };
+    }
+
+    const existingRows = await db.$queryRaw<RateLimitBucketRecord[]>`
+      SELECT "scope", "subjectHash", "count", "resetAt"
+      FROM "RateLimitBucket"
+      WHERE "scope" = ${data.scope}
+        AND "subjectHash" = ${data.subjectHash}
+      LIMIT 1
+    `;
+
+    return {
+      bucket: existingRows[0] ?? {
+        scope: data.scope,
+        subjectHash: data.subjectHash,
+        count: 0,
+        resetAt: data.resetAt,
+      },
+      reserved: false,
+    };
+  }
+
+  async releaseBucket(data: RateLimitBucketReleaseData) {
+    const { db } = await import("@/lib/db");
+
+    const rows = await db.$queryRaw<RateLimitBucketRecord[]>`
+      UPDATE "RateLimitBucket"
+      SET
+        "count" = GREATEST(0, "count" - ${data.cost}),
+        "updatedAt" = ${data.now}
+      WHERE "scope" = ${data.scope}
+        AND "subjectHash" = ${data.subjectHash}
+        AND "resetAt" > ${data.now}
+      RETURNING "scope", "subjectHash", "count", "resetAt"
+    `;
+
+    return rows[0] ?? null;
+  }
 }
 
 export function hashRateLimitSubject(scope: string, subject: string) {
@@ -142,6 +285,15 @@ function parsePositiveInteger(value: string | undefined, fallback: number) {
   }
 
   return parsed;
+}
+
+function normalizeLimit(limit: number) {
+  const normalizedLimit = Number.isFinite(limit) ? Math.floor(limit) : 1;
+  return Math.max(1, normalizedLimit);
+}
+
+function normalizeCost(cost: number) {
+  return Number.isFinite(cost) ? Math.max(1, Math.floor(cost)) : 1;
 }
 
 export function getRateLimitConfig(env: RateLimitEnv = process.env as RateLimitEnv) {
@@ -190,14 +342,61 @@ export async function consumeTranslateWordVelocity({
   now?: Date;
   store?: RateLimitStore;
 }): Promise<RateLimitResult> {
-  return consumeRateLimit({
-    scope: TRANSLATE_WORD_VELOCITY_SCOPE,
-    subject: organizationId,
-    limit,
-    cost: words,
-    windowMs: TRANSLATE_WORD_VELOCITY_WINDOW_MS,
+  const safeLimit = normalizeLimit(limit);
+  const safeCost = normalizeCost(words);
+  const scope = TRANSLATE_WORD_VELOCITY_SCOPE;
+  const subjectHash = hashRateLimitSubject(scope, organizationId);
+  const windowResetAt = new Date(now.getTime() + TRANSLATE_WORD_VELOCITY_WINDOW_MS);
+  const rateLimitStore = store ?? new PrismaRateLimitStore();
+  const { bucket, reserved } = await rateLimitStore.reserveBucket({
+    scope,
+    subjectHash,
     now,
-    ...(store ? { store } : {}),
+    resetAt: windowResetAt,
+    cost: safeCost,
+    limit: safeLimit,
+  });
+
+  if (!reserved) {
+    return {
+      allowed: false,
+      limit: safeLimit,
+      remaining: Math.max(0, safeLimit - bucket.count),
+      resetAt: bucket.resetAt,
+      retryAfterSeconds: secondsUntil(bucket.resetAt, now),
+    };
+  }
+
+  return {
+    allowed: true,
+    limit: safeLimit,
+    remaining: Math.max(0, safeLimit - bucket.count),
+    resetAt: bucket.resetAt,
+    retryAfterSeconds: 0,
+  };
+}
+
+export async function releaseTranslateWordVelocity({
+  organizationId,
+  words,
+  now = new Date(),
+  store,
+}: {
+  organizationId: string;
+  words: number;
+  now?: Date;
+  store?: RateLimitStore;
+}) {
+  const safeCost = normalizeCost(words);
+  const scope = TRANSLATE_WORD_VELOCITY_SCOPE;
+  const subjectHash = hashRateLimitSubject(scope, organizationId);
+  const rateLimitStore = store ?? new PrismaRateLimitStore();
+
+  await rateLimitStore.releaseBucket({
+    scope,
+    subjectHash,
+    now,
+    cost: safeCost,
   });
 }
 
@@ -233,9 +432,8 @@ export async function consumeRateLimit({
   now?: Date;
   store?: RateLimitStore;
 }): Promise<RateLimitResult> {
-  const normalizedLimit = Number.isFinite(limit) ? Math.floor(limit) : 1;
-  const safeLimit = Math.max(1, normalizedLimit);
-  const safeCost = Number.isFinite(cost) ? Math.max(1, Math.floor(cost)) : 1;
+  const safeLimit = normalizeLimit(limit);
+  const safeCost = normalizeCost(cost);
   const subjectHash = hashRateLimitSubject(scope, subject);
   const windowResetAt = new Date(now.getTime() + windowMs);
   const bucket = await store.consumeBucket({

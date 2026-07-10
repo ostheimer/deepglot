@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-// Source-level guardrail for the per-project fresh-word velocity limit (#203).
+// Source-level guardrail for the per-org fresh-word velocity limit (#203).
 //
-// The velocity gate is the authoritative, atomic, per-project bound on fresh
+// The velocity gate is the authoritative, atomic, per-org bound on fresh
 // provider spend — the real fix behind the WordPress plugin's soft per-IP caps
 // (v0.8.4). Removing it silently would re-open the quota-drain vector, and the
 // route handler is coupled to Prisma/auth so it is not unit-tested directly.
@@ -26,7 +26,7 @@ function routeSource() {
   return readFileSync(ROUTE_PATH, "utf8");
 }
 
-test("translate route enforces the per-project word velocity limit (#203)", () => {
+test("translate route enforces the per-org word velocity limit (#203)", () => {
   const source = routeSource();
 
   assert.match(
@@ -76,5 +76,20 @@ test("an over-budget velocity result is rejected with 429 velocity_limited", () 
     source,
     /!velocity\.allowed[\s\S]{0,400}status:\s*429/,
     "an over-budget velocity result must return HTTP 429"
+  );
+});
+
+test("provider failures refund the reserved velocity words before returning 500", () => {
+  const source = routeSource();
+
+  assert.match(
+    source,
+    /releaseTranslateWordVelocity/,
+    "the translate route must import and call releaseTranslateWordVelocity"
+  );
+  assert.match(
+    source,
+    /catch\s*\([^)]*\)\s*\{[\s\S]{0,600}releaseTranslateWordVelocity[\s\S]{0,600}throw\s+error/,
+    "provider errors must refund the velocity reservation before the route rethrows to its 500 handler"
   );
 });
