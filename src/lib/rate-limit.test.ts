@@ -8,6 +8,7 @@ import {
   consumeTranslateWordVelocity,
   getRateLimitConfig,
   hashRateLimitSubject,
+  releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 
 test("hashes rate-limit subjects without storing raw identifiers", () => {
@@ -191,4 +192,99 @@ test("consumeTranslateWordVelocity reserves words per organization over an hour 
     store,
   });
   assert.equal(blocked.allowed, false);
+});
+
+test("consumeTranslateWordVelocity rejects without spending the rejected words", async () => {
+  const store = new MemoryRateLimitStore();
+  const base = {
+    organizationId: "org_no_poison",
+    limit: 1_000,
+    store,
+  };
+
+  const first = await consumeTranslateWordVelocity({
+    ...base,
+    words: 600,
+    now: new Date("2026-04-30T10:00:00.000Z"),
+  });
+  assert.equal(first.allowed, true);
+  assert.equal(first.remaining, 400);
+
+  const rejected = await consumeTranslateWordVelocity({
+    ...base,
+    words: 500,
+    now: new Date("2026-04-30T10:05:00.000Z"),
+  });
+  assert.equal(rejected.allowed, false);
+  assert.equal(rejected.remaining, 400);
+
+  const stillFits = await consumeTranslateWordVelocity({
+    ...base,
+    words: 400,
+    now: new Date("2026-04-30T10:10:00.000Z"),
+  });
+  assert.equal(stillFits.allowed, true);
+  assert.equal(stillFits.remaining, 0);
+});
+
+test("consumeTranslateWordVelocity allows one oversized request in a fresh window", async () => {
+  const store = new MemoryRateLimitStore();
+  const base = {
+    organizationId: "org_oversized_first",
+    limit: 1_000,
+    store,
+  };
+
+  const oversized = await consumeTranslateWordVelocity({
+    ...base,
+    words: 1_200,
+    now: new Date("2026-04-30T10:00:00.000Z"),
+  });
+  assert.equal(oversized.allowed, true);
+  assert.equal(oversized.remaining, 0);
+
+  const blockedUntilReset = await consumeTranslateWordVelocity({
+    ...base,
+    words: 1,
+    now: new Date("2026-04-30T10:01:00.000Z"),
+  });
+  assert.equal(blockedUntilReset.allowed, false);
+
+  const nextWindow = await consumeTranslateWordVelocity({
+    ...base,
+    words: 1_200,
+    now: new Date("2026-04-30T11:01:00.000Z"),
+  });
+  assert.equal(nextWindow.allowed, true);
+  assert.equal(nextWindow.remaining, 0);
+});
+
+test("releaseTranslateWordVelocity refunds a successful reservation", async () => {
+  const store = new MemoryRateLimitStore();
+  const reservation = await consumeTranslateWordVelocity({
+    organizationId: "org_refund",
+    words: 700,
+    limit: 1_000,
+    now: new Date("2026-04-30T10:00:00.000Z"),
+    store,
+  });
+  assert.equal(reservation.allowed, true);
+  assert.equal(reservation.remaining, 300);
+
+  await releaseTranslateWordVelocity({
+    organizationId: "org_refund",
+    words: 700,
+    now: new Date("2026-04-30T10:01:00.000Z"),
+    store,
+  });
+
+  const afterRefund = await consumeTranslateWordVelocity({
+    organizationId: "org_refund",
+    words: 1_000,
+    limit: 1_000,
+    now: new Date("2026-04-30T10:02:00.000Z"),
+    store,
+  });
+  assert.equal(afterRefund.allowed, true);
+  assert.equal(afterRefund.remaining, 0);
 });

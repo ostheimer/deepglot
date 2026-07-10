@@ -28,6 +28,7 @@ import {
   consumeRateLimit,
   consumeTranslateWordVelocity,
   getRateLimitConfig,
+  releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 
@@ -332,7 +333,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 6b. Per-org fresh-word velocity limit (#203). The monthly quota caps the
-    // total; this caps the RATE of fresh, provider-billed spend over a rolling
+    // total; this caps the RATE of fresh, provider-billed spend over a fixed
     // window, atomically. It is the authoritative bound the WordPress plugin's
     // soft per-IP caps (v0.8.4) cannot provide: a distributed attacker rotating
     // IPs through the dynamic-translate proxy still funnels through this org's
@@ -345,6 +346,8 @@ export async function POST(req: NextRequest) {
     // exempt — it is an attacker-settable body flag and the spend/usage block
     // below does not honor it, so exempting velocity here would let
     // `quota_probe: true` bypass the limit at full spend.
+    let velocityReservation: { organizationId: string; words: number } | null =
+      null;
     if (!isBot && translatedWords > 0) {
       const velocity = await consumeTranslateWordVelocity({
         organizationId: project.organizationId,
@@ -362,19 +365,40 @@ export async function POST(req: NextRequest) {
           { status: 429, headers: buildRateLimitHeaders(velocity) },
         );
       }
+
+      velocityReservation = {
+        organizationId: project.organizationId,
+        words: translatedWords,
+      };
     }
 
     // 7. Translate uncached strings via the configured provider.
     if (pendingTranslations.length > 0 && !isBot) {
-      const results = await translateTexts(
-        {
-          texts: pendingTranslations.map((item) => item.protectedText),
-          sourceLang: l_from,
-          targetLang: l_to,
-        },
-        undefined,
-        project.settings,
-      );
+      let results: Awaited<ReturnType<typeof translateTexts>>;
+      try {
+        results = await translateTexts(
+          {
+            texts: pendingTranslations.map((item) => item.protectedText),
+            sourceLang: l_from,
+            targetLang: l_to,
+          },
+          undefined,
+          project.settings,
+        );
+      } catch (error) {
+        if (velocityReservation) {
+          try {
+            await releaseTranslateWordVelocity(velocityReservation);
+          } catch (refundError) {
+            console.error(
+              "[/api/translate] Velocity refund failed:",
+              refundError,
+            );
+          }
+        }
+
+        throw error;
+      }
 
       const enabledTranslationWebhookEvents = await db.webhookEndpoint.findMany(
         {
