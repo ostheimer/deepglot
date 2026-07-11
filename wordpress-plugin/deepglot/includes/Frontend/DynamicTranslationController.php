@@ -258,6 +258,15 @@ class DynamicTranslationController
 
                 if (!empty($fresh)) {
                     $this->cache->setMany($fresh, $langFrom, $langTo);
+                } elseif ($freshWords > 0) {
+                    // SaaS did not deliver any fresh translations (5xx, 429, network,
+                    // malformed body, or 402) — undo the local budgets so transient
+                    // failures and velocity limits do not poison the ticket/IP window
+                    // without a successful spend (shared-NAT breakage, same class as #210).
+                    $this->releaseFreshWordsForIp($freshWords);
+                    if ($quotaTicket !== '') {
+                        $this->releaseFreshWordBudget($quotaTicket, $freshWords);
+                    }
                 }
             }
         }
@@ -461,6 +470,27 @@ class DynamicTranslationController
         set_transient($transient, $bucket, self::FRESH_BUDGET_WINDOW + 5);
 
         return true;
+    }
+
+    /**
+     * Undo a per-page ticket reservation when the SaaS call did not deliver fresh
+     * translations, mirroring {@see releaseFreshWordsForIp()}.
+     */
+    private function releaseFreshWordBudget(string $ticket, int $wordCount): void
+    {
+        if ($ticket === '' || $wordCount <= 0) {
+            return;
+        }
+
+        $key    = self::quotaTicketTransientKey($ticket);
+        $bucket = get_transient($key);
+
+        if (!is_array($bucket) || !isset($bucket['spent'], $bucket['max'])) {
+            return;
+        }
+
+        $bucket['spent'] = max(0, (int) $bucket['spent'] - $wordCount);
+        set_transient($key, $bucket, self::QUOTA_TICKET_TTL);
     }
 
     /**

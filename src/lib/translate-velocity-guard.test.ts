@@ -93,3 +93,18 @@ test("provider failures refund the reserved velocity words before returning 500"
     "provider errors must refund the velocity reservation before the route rethrows to its 500 handler"
   );
 });
+
+test("persistence failures refund the reserved velocity words before returning 500", () => {
+  const source = routeSource();
+
+  assert.match(
+    source,
+    /catch\s*\([^)]*\)\s*\{[\s\S]{0,800}releaseTranslateWordVelocity[\s\S]{0,800}throw\s+error/,
+    "persistence errors must refund the velocity reservation before the route rethrows to its 500 handler"
+  );
+  assert.match(
+    source,
+    /Velocity refund failed after persistence error/,
+    "persistence refund failures must be logged distinctly from provider refund failures"
+  );
+});
