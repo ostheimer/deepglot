@@ -213,6 +213,23 @@ class QuotaExhaustedFakeClient extends Client
     }
 }
 
+/** Models a transient SaaS failure (HTTP 500) after local budgets were reserved. */
+class ServerErrorFakeClient extends Client
+{
+    public int $callCount = 0;
+
+    public function __construct()
+    {
+    }
+
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    {
+        $this->callCount++;
+
+        return new WP_Error('deepglot_api_error', 'Interner Server-Fehler', ['status' => 500]);
+    }
+}
+
 class DynamicFakeCache extends TranslationCache
 {
     /** @var array<string, string> */
@@ -519,5 +536,30 @@ $controller->handle(new WP_REST_Request([
 $bucket = get_transient($ticketKey);
 dynCheck($client->callCount === 0, 'Exhausted per-IP budget must not call the API.');
 dynCheck(is_array($bucket) && (int) $bucket['spent'] === 0, 'Per-IP rejection must not debit the ticket budget.');
+
+// 20. When the SaaS call fails without delivering fresh translations, both the
+//     per-IP and per-ticket budgets must be rolled back so transient 5xx/429
+//     responses do not poison shared-NAT visitors (same class as case 19).
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.35';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$ticket = DynamicTranslationController::issueQuotaTicket();
+$ticketKey = 'deepglot_dynqt_' . hash('sha256', $ticket);
+$ipKey = 'deepglot_dynfw_' . sha1('198.51.100.35');
+$client = new ServerErrorFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$controller->handle(new WP_REST_Request([
+    'texts' => ['Transient failure'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
+]));
+$ipBucket = get_transient($ipKey);
+$ticketBucket = get_transient($ticketKey);
+dynCheck($client->callCount === 1, 'A cache miss must still call the SaaS API once.');
+dynCheck(is_array($ipBucket) && (int) $ipBucket['spent'] === 0, 'SaaS failure must roll back the per-IP fresh-word budget.');
+dynCheck(is_array($ticketBucket) && (int) $ticketBucket['spent'] === 0, 'SaaS failure must roll back the per-ticket fresh-word budget.');
 
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");

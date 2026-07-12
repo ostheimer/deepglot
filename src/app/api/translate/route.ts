@@ -419,118 +419,133 @@ export async function POST(req: NextRequest) {
       );
       const hashesWrittenInTransaction = new Set<string>();
 
-      await db.$transaction(
-        async (tx) => {
-          for (const [resultIndex, item] of pendingTranslations.entries()) {
-            const translated = restoreGlossaryTerms(
-              results[resultIndex].text,
-              item.protection,
-            );
+      try {
+        await db.$transaction(
+          async (tx) => {
+            for (const [resultIndex, item] of pendingTranslations.entries()) {
+              const translated = restoreGlossaryTerms(
+                results[resultIndex].text,
+                item.protection,
+              );
 
-            translatedTexts[item.index] = translated;
+              translatedTexts[item.index] = translated;
 
-            const existedBefore =
-              cachedByHash.has(item.hash) ||
-              hashesWrittenInTransaction.has(item.hash);
-            const saved = await tx.translation.upsert({
-              where: {
-                projectId_originalHash: {
-                  projectId: project.id,
-                  originalHash: item.hash,
-                },
-              },
-              create: {
-                projectId: project.id,
-                originalHash: item.hash,
-                originalText: texts[item.index],
-                translatedText: translated,
-                langFrom: l_from,
-                langTo: l_to,
-                wordCount: item.wordCount,
-                source:
-                  providerName === "deepl"
-                    ? "DEEPL"
-                    : providerName === "mock"
-                      ? "MOCK"
-                      : "OPENAI",
-              },
-              update: {
-                translatedText: translated,
-                updatedAt: new Date(),
-                wordCount: item.wordCount,
-                isManual: false,
-                source:
-                  providerName === "deepl"
-                    ? "DEEPL"
-                    : providerName === "mock"
-                      ? "MOCK"
-                      : "OPENAI",
-              },
-            });
-            hashesWrittenInTransaction.add(item.hash);
-
-            const eventType = existedBefore
-              ? "translation.updated"
-              : "translation.created";
-
-            if (enabledTranslationWebhookEventTypes.has(eventType)) {
-              await queueProjectWebhookEvent(
-                {
-                  projectId: project.id,
-                  eventType,
-                  payload: {
-                    type: eventType,
-                    translationId: saved.id,
-                    originalText: saved.originalText,
-                    translatedText: saved.translatedText,
-                    langFrom: saved.langFrom,
-                    langTo: saved.langTo,
-                    requestUrl: request_url || null,
+              const existedBefore =
+                cachedByHash.has(item.hash) ||
+                hashesWrittenInTransaction.has(item.hash);
+              const saved = await tx.translation.upsert({
+                where: {
+                  projectId_originalHash: {
+                    projectId: project.id,
+                    originalHash: item.hash,
                   },
                 },
-                tx,
-              );
+                create: {
+                  projectId: project.id,
+                  originalHash: item.hash,
+                  originalText: texts[item.index],
+                  translatedText: translated,
+                  langFrom: l_from,
+                  langTo: l_to,
+                  wordCount: item.wordCount,
+                  source:
+                    providerName === "deepl"
+                      ? "DEEPL"
+                      : providerName === "mock"
+                        ? "MOCK"
+                        : "OPENAI",
+                },
+                update: {
+                  translatedText: translated,
+                  updatedAt: new Date(),
+                  wordCount: item.wordCount,
+                  isManual: false,
+                  source:
+                    providerName === "deepl"
+                      ? "DEEPL"
+                      : providerName === "mock"
+                        ? "MOCK"
+                        : "OPENAI",
+                },
+              });
+              hashesWrittenInTransaction.add(item.hash);
+
+              const eventType = existedBefore
+                ? "translation.updated"
+                : "translation.created";
+
+              if (enabledTranslationWebhookEventTypes.has(eventType)) {
+                await queueProjectWebhookEvent(
+                  {
+                    projectId: project.id,
+                    eventType,
+                    payload: {
+                      type: eventType,
+                      translationId: saved.id,
+                      originalText: saved.originalText,
+                      translatedText: saved.translatedText,
+                      langFrom: saved.langFrom,
+                      langTo: saved.langTo,
+                      requestUrl: request_url || null,
+                    },
+                  },
+                  tx,
+                );
+              }
             }
-          }
 
-          await incrementUsageRecord({
-            organizationId: project.organizationId,
-            projectId: project.id,
-            words: translatedWords,
-            month: currentMonth,
-            tx,
-          });
-
-          await recordTranslationBatch(
-            {
+            await incrementUsageRecord({
               organizationId: project.organizationId,
               projectId: project.id,
-              langFrom: l_from,
+              words: translatedWords,
+              month: currentMonth,
+              tx,
+            });
+
+            await recordTranslationBatch(
+              {
+                organizationId: project.organizationId,
+                projectId: project.id,
+                langFrom: l_from,
+                langTo: l_to,
+                requestUrl: request_url || null,
+                provider: providerName,
+                totalWords,
+                cachedWords,
+                manualWords,
+                glossaryWords,
+                translatedWords,
+              },
+              tx,
+            );
+
+            await upsertTranslatedUrlHit({
+              projectId: project.id,
               langTo: l_to,
               requestUrl: request_url || null,
-              provider: providerName,
-              totalWords,
-              cachedWords,
-              manualWords,
-              glossaryWords,
-              translatedWords,
-            },
-            tx,
-          );
+              wordCount: totalWords,
+              tx,
+            });
+          },
+          {
+            maxWait: 5_000,
+            timeout: 30_000,
+          },
+        );
+      } catch (error) {
+        if (velocityReservation) {
+          try {
+            await releaseTranslateWordVelocity(velocityReservation);
+          } catch (refundError) {
+            console.error(
+              "[/api/translate] Velocity refund failed after persistence error:",
+              refundError,
+            );
+          }
+        }
 
-          await upsertTranslatedUrlHit({
-            projectId: project.id,
-            langTo: l_to,
-            requestUrl: request_url || null,
-            wordCount: totalWords,
-            tx,
-          });
-        },
-        {
-          maxWait: 5_000,
-          timeout: 30_000,
-        },
-      );
+        throw error;
+      }
 
       // The increment just applied may have crossed the 90% warning line —
       // alert the org owner once (#148). A no-op (no DB/email) unless a
