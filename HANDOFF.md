@@ -1,12 +1,13 @@
-# Deepglot Handoff - 2026-07-01
+# Deepglot Handoff - 2026-07-09
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- WordPress plugin **v0.8.4 deployed on `meinhaushalt.at` (2026-07-09)** and live-verified: assets serve `?ver=0.8.4`, human path renders translated, and the dynamic-translate endpoint without a nonce/ticket returns `{from_words:[],to_words:[]}` (cache-only, no quota spend, no 500). Deployed via `rsync --checksum` (only the 5 changed files) after a server-side backup (`~/deepglot-plugin-backup-pre-084.tar.gz`); WP Rocket page cache purged. v0.8.4 replaces the spoofable Origin gate on the dynamic-translate proxy with word-denominated per-render + per-IP caps (interim mitigation, ROADMAP 8.36).
-- The authoritative SaaS-side fix (ROADMAP 8.37, #203) adds a per-project fresh-word velocity limit to `POST /api/translate` — see below.
+- WordPress plugin: **repo is at v0.8.6**; **`meinhaushalt.at` runs v0.8.5 (deployed 2026-07-09)** — one version behind. The live-deployed v0.8.5 was verified (assets serve `?ver=0.8.5`, human path renders translated, the dynamic-translate endpoint without a nonce/ticket returns `{from_words:[],to_words:[]}` — cache-only, no spend, no 500). Deploy used `rsync --checksum` after a server backup (`~/deepglot-plugin-backup-pre-085.tar.gz`) + WP Rocket cache purge. **v0.8.6 (#212) is not yet deployed** — it adds a plugin-side budget rollback when the SaaS call fails; deploy it to close the gap.
+- Plugin change history: v0.8.4 (#204) replaced the spoofable Origin gate with word-denominated per-render + per-IP caps; v0.8.5 (#210) fixed the ticket-debit ordering (per-IP reserved before ticket, with rollback); v0.8.6 (#212) rolls the ticket + per-IP reservations back on a failed SaaS call. All interim plugin-side mitigations behind the authoritative SaaS limit below (ROADMAP 8.36).
+- **Authoritative SaaS-side fix (ROADMAP 8.37, #203): a per-ORGANIZATION fresh-word velocity limit on `POST /api/translate`** — atomic per-org reservation via `RateLimitBucket`, `TRANSLATE_WORD_VELOCITY_PER_HOUR` (default 50k), `429 velocity_limited` over budget. Hardened by #211 (reserve-if-fits, no window poisoning, one oversized request per fresh window) and #212 (refund the reservation on provider failure). The #208 availability follow-ups are resolved by #211 + #212.
 - v0.8.3 deploy (2026-07-03): flushed 239,624 poisoned `dg_` transients for the #163 fix; re-warmed with real translations only (guard confirmed live).
 - Open pull requests: verify the current state with `gh pr list --repo ostheimer/deepglot --state open`; documentation sync PRs may be open independently of production state.
 - Canonical production URL: `https://deepglot.ai`
