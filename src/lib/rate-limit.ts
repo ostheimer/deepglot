@@ -153,7 +153,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
   }
 }
 
-class PrismaRateLimitStore implements RateLimitStore {
+export class PrismaRateLimitStore implements RateLimitStore {
   async consumeBucket(data: RateLimitBucketData) {
     const { db } = await import("@/lib/db");
 
@@ -225,7 +225,13 @@ class PrismaRateLimitStore implements RateLimitStore {
     `;
 
     if (rows[0]) {
-      return { bucket: rows[0], reserved: true };
+      const bucket: RateLimitBucketRecord = {
+        scope: rows[0].scope,
+        subjectHash: rows[0].subjectHash,
+        count: rows[0].count,
+        resetAt: rows[0].resetAt,
+      };
+      return { bucket, reserved: true };
     }
 
     const existingRows = await db.$queryRaw<RateLimitBucketRecord[]>`
@@ -315,6 +321,33 @@ export function getRateLimitConfig(env: RateLimitEnv = process.env as RateLimitE
       DEFAULT_TRANSLATE_WORD_VELOCITY_PER_HOUR
     ),
   };
+}
+
+/**
+ * Hourly fresh-word cap for an organization.
+ *
+ * The default follows the effective monthly quota so the velocity guard is
+ * useful for every plan instead of acting as a flat brake only on large plans.
+ * Operators can still set an explicit positive-integer override for unusual
+ * traffic profiles; invalid overrides fall back to the plan-derived cap.
+ */
+export function getTranslateWordVelocityLimit(
+  wordsLimit: number,
+  env: Pick<RateLimitEnv, "TRANSLATE_WORD_VELOCITY_PER_HOUR"> =
+    process.env as RateLimitEnv
+) {
+  const normalizedWordsLimit = Number.isFinite(wordsLimit)
+    ? Math.max(0, Math.floor(wordsLimit))
+    : 0;
+  const planDerivedLimit = Math.max(
+    1_000,
+    Math.floor(normalizedWordsLimit * 0.1)
+  );
+
+  return parsePositiveInteger(
+    env.TRANSLATE_WORD_VELOCITY_PER_HOUR,
+    planDerivedLimit
+  );
 }
 
 /**

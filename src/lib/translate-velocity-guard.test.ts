@@ -41,6 +41,21 @@ test("translate route enforces the per-org word velocity limit (#203)", () => {
   );
 });
 
+test("translate route derives the velocity cap from the effective monthly quota (#214)", () => {
+  const source = routeSource();
+
+  assert.match(
+    source,
+    /limit:\s*getTranslateWordVelocityLimit\(wordsLimit\)/,
+    "velocity must derive from the effective monthly wordsLimit"
+  );
+  assert.doesNotMatch(
+    source,
+    /limit:\s*getRateLimitConfig\(\)\.translateWordVelocityPerHour/,
+    "the translate route must not fall back to the former flat velocity default"
+  );
+});
+
 test("the velocity gate charges every fresh spend but exempts bots — NOT health probes", () => {
   const source = routeSource();
 

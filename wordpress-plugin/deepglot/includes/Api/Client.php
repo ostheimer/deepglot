@@ -197,9 +197,7 @@ class Client
                 $this->maybeFlagQuotaExhausted($statusCode);
                 $results[$key] = new \WP_Error(
                     'deepglot_api_error',
-                    is_array($decoded) && !empty($decoded['error'])
-                        ? $decoded['error']
-                        : __('Deepglot API Fehler.', 'deepglot'),
+                    $this->getApiErrorMessage($decoded),
                     ['status' => $statusCode, 'body' => $decoded]
                 );
                 continue;
@@ -308,12 +306,25 @@ class Client
 
             return new \WP_Error(
                 'deepglot_api_error',
-                is_array($decoded) && !empty($decoded['error']) ? $decoded['error'] : __('Deepglot API Fehler.', 'deepglot'),
+                $this->getApiErrorMessage($decoded),
                 ['status' => $statusCode, 'body' => $decoded]
             );
         }
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private function getApiErrorMessage($decoded): string
+    {
+        if (is_array($decoded) && isset($decoded['detail']) && is_string($decoded['detail']) && trim($decoded['detail']) !== '') {
+            return $decoded['detail'];
+        }
+
+        if (is_array($decoded) && isset($decoded['error']) && is_string($decoded['error']) && trim($decoded['error']) !== '') {
+            return $decoded['error'];
+        }
+
+        return __('Deepglot API Fehler.', 'deepglot');
     }
 
     /**

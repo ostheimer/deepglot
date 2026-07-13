@@ -6,7 +6,7 @@
  * markup, no risk of editor / frontend drift. The actual HTML is
  * produced by SwitcherBlock::render() in PHP.
  */
-( function ( blocks, element, serverSideRender, i18n ) {
+( function ( blocks, element, serverSideRender, i18n, components, blockEditor ) {
     if ( ! blocks || ! blocks.registerBlockType ) {
         return;
     }
@@ -28,13 +28,37 @@
             align: [ 'left', 'center', 'right' ],
         },
 
-        edit: function () {
+        attributes: {
+            instanceId: { type: 'string', default: 'default' },
+        },
+
+        edit: function ( props ) {
             // serverSideRender hits the REST API → PHP render callback
             // → same markup the visitor gets.
-            return el( serverSideRender, {
+            var preview = el( serverSideRender, {
                 block: 'deepglot/switcher',
-                attributes: {},
+                attributes: props.attributes,
             } );
+
+            if ( ! components || ! components.TextControl || ! blockEditor || ! blockEditor.InspectorControls ) {
+                return preview;
+            }
+
+            return el( element.Fragment, {},
+                el( blockEditor.InspectorControls, {},
+                    el( components.PanelBody, { title: __( 'Switcher-Instanz', 'deepglot' ) },
+                        el( components.TextControl, {
+                            label: __( 'Instanz-ID', 'deepglot' ),
+                            help: __( 'Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter.', 'deepglot' ),
+                            value: props.attributes.instanceId || 'default',
+                            onChange: function ( value ) {
+                                props.setAttributes( { instanceId: value } );
+                            },
+                        } )
+                    )
+                ),
+                preview
+            );
         },
 
         // Dynamic block — output is rendered by PHP. WP wants `save` to
@@ -48,5 +72,7 @@
     window.wp && window.wp.blocks,
     window.wp && window.wp.element,
     window.wp && window.wp.serverSideRender,
-    window.wp && window.wp.i18n
+    window.wp && window.wp.i18n,
+    window.wp && window.wp.components,
+    window.wp && window.wp.blockEditor
 );

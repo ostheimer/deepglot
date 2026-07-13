@@ -28,10 +28,11 @@ async function ensureTestProjectSeed(
       automaticTranslation: true,
       displayAiNotice: true,
       pageViewsEnabled: true,
-      translationMemory: true,
+      translationMemory: false,
     },
     update: {
       pageViewsEnabled: true,
+      translationMemory: false,
     },
   });
 

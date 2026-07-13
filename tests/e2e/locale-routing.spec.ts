@@ -99,8 +99,14 @@ test.describe("locale routing", () => {
     await page.getByRole("link", { name: "Documentation" }).click();
     await expect(page).toHaveURL(/\/docs$/);
     await expect(
-      page.getByRole("heading", { name: "Set up Deepglot" })
+      page.getByRole("heading", { name: "Integrate Deepglot" })
     ).toBeVisible();
+    await expect(page.getByRole("link", { name: "API reference" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "/api/translate" })).toBeVisible();
+
+    await page.goto("/de/dokumentation");
+    await expect(page.getByRole("heading", { name: "Deepglot integrieren" })).toBeVisible();
+    await expect(page.getByText(/Geschwindigkeitslimit/).first()).toBeVisible();
 
     await page.goto("/");
     await page.getByRole("link", { name: "Privacy" }).click();

@@ -413,7 +413,9 @@ class RestApi
             ];
         }
 
-        $detail = isset($json['error']) ? $json['error'] : "HTTP {$code}";
+        $detail = isset($json['detail']) && is_string($json['detail']) && trim($json['detail']) !== ''
+            ? $json['detail']
+            : (isset($json['error']) ? $json['error'] : "HTTP {$code}");
 
         return [false, $detail, null];
     }

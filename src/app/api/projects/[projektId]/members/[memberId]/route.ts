@@ -6,6 +6,7 @@ import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-acce
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { resetProjectMemberWorkflowAssignments } from "@/lib/translation-workflow";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
@@ -71,13 +72,31 @@ export async function PATCH(
     }
   }
 
-  const updated = await db.projectMember.update({
-    where: { id: member.id },
-    data: {
-      ...(parsed.data.role ? { role: parsed.data.role } : {}),
-      ...(Object.prototype.hasOwnProperty.call(parsed.data, "langCode") ? { langCode } : {}),
-    },
-    include: { user: { select: { id: true, name: true, email: true, image: true } } },
+  const changesLanguage = Object.prototype.hasOwnProperty.call(
+    parsed.data,
+    "langCode"
+  );
+  const updated = await db.$transaction(async (tx) => {
+    // A language-scoped member must not retain assignments outside their new
+    // scope. Reset those segments atomically before updating the membership.
+    if (changesLanguage && langCode) {
+      await resetProjectMemberWorkflowAssignments(tx, {
+        projectId: projektId,
+        memberId: member.id,
+        exceptLangCode: langCode,
+      });
+    }
+
+    return tx.projectMember.update({
+      where: { id: member.id },
+      data: {
+        ...(parsed.data.role ? { role: parsed.data.role } : {}),
+        ...(changesLanguage ? { langCode } : {}),
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true, image: true } },
+      },
+    });
   });
 
   return NextResponse.json({ member: updated });
@@ -116,7 +135,13 @@ export async function DELETE(
     );
   }
 
-  await db.projectMember.delete({ where: { id: member.id } });
+  await db.$transaction(async (tx) => {
+    await resetProjectMemberWorkflowAssignments(tx, {
+      projectId: projektId,
+      memberId: member.id,
+    });
+    await tx.projectMember.delete({ where: { id: member.id } });
+  });
 
   return NextResponse.json({ ok: true });
 }

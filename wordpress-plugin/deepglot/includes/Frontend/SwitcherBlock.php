@@ -39,7 +39,7 @@ class SwitcherBlock
             wp_register_script(
                 'deepglot-switcher-block',
                 DEEPGLOT_PLUGIN_URL . 'assets/js/block-switcher.js',
-                ['wp-blocks', 'wp-element', 'wp-server-side-render', 'wp-i18n'],
+                ['wp-blocks', 'wp-element', 'wp-server-side-render', 'wp-i18n', 'wp-components', 'wp-block-editor'],
                 DEEPGLOT_PLUGIN_VERSION,
                 true
             );
@@ -61,6 +61,12 @@ class SwitcherBlock
             'description'     => __('Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen.', 'deepglot'),
             'editor_script'   => 'deepglot-switcher-block',
             'render_callback' => [$this, 'render'],
+            'attributes'      => [
+                'instanceId' => [
+                    'type'    => 'string',
+                    'default' => 'default',
+                ],
+            ],
             'supports'        => [
                 'html'  => false,
                 'align' => ['left', 'center', 'right'],
@@ -83,7 +89,8 @@ class SwitcherBlock
      */
     public function render(array $attributes = []): string
     {
-        $body = $this->switcher->renderShortcode([]);
+        $instanceId = isset($attributes['instanceId']) ? (string) $attributes['instanceId'] : 'default';
+        $body = $this->switcher->renderShortcode(['instance' => $instanceId]);
         if ($body === '') {
             return '';
         }

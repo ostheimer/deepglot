@@ -7,6 +7,7 @@ import {
   consumeRateLimit,
   consumeTranslateWordVelocity,
   getRateLimitConfig,
+  getTranslateWordVelocityLimit,
   hashRateLimitSubject,
   releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
@@ -18,6 +19,28 @@ test("hashes rate-limit subjects without storing raw identifiers", () => {
   assert.equal(hash, hashRateLimitSubject("translate", "dg_live_secret"));
   assert.notEqual(hash, hashRateLimitSubject("plugin", "dg_live_secret"));
   assert.ok(!hash.includes("dg_live_secret"));
+});
+
+test("derives the hourly fresh-word cap from ten percent of the monthly plan quota", () => {
+  assert.equal(getTranslateWordVelocityLimit(10_000, {}), 1_000);
+  assert.equal(getTranslateWordVelocityLimit(25_000, {}), 2_500);
+  assert.equal(getTranslateWordVelocityLimit(200_000, {}), 20_000);
+  assert.equal(getTranslateWordVelocityLimit(20_000_000, {}), 2_000_000);
+});
+
+test("lets an explicit velocity-limit environment override win over the plan-derived cap", () => {
+  assert.equal(
+    getTranslateWordVelocityLimit(20_000_000, {
+      TRANSLATE_WORD_VELOCITY_PER_HOUR: "75000",
+    }),
+    75_000
+  );
+  assert.equal(
+    getTranslateWordVelocityLimit(200_000, {
+      TRANSLATE_WORD_VELOCITY_PER_HOUR: "invalid",
+    }),
+    20_000
+  );
 });
 
 test("uses documented per-minute rate-limit defaults with env overrides", () => {

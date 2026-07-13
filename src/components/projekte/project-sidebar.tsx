@@ -19,6 +19,8 @@ import {
   Wrench,
   Plug,
   Users,
+  FileText,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -57,8 +59,10 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
         { href: projectPath("/translations/languages"), label: uiText(locale, "Languages", "Sprachen"), icon: Languages },
         { href: projectPath("/translations/urls"), label: "URLs", icon: Globe },
         { href: projectPath("/translations/visual"), label: uiText(locale, "Visual Editor", "Visueller Editor"), icon: Paintbrush },
+        { href: projectPath("/translations/pros"), label: uiText(locale, "Human Review", "Menschliche Prüfung"), icon: UserCheck },
         { href: projectPath("/translations/glossary"), label: uiText(locale, "Glossary", "Glossar"), icon: BookOpen },
         { href: projectPath("/translations/import-export"), label: "Import & Export", icon: Download },
+        { href: projectPath("/translations/pdf"), label: locale === "de" ? "PDF-Übersetzung" : "PDF translation", icon: FileText },
         { href: projectPath("/translations/slugs"), label: "URL Slugs", icon: Link2 },
       ],
     },

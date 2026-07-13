@@ -49,9 +49,35 @@
 
     document.addEventListener('change', function (event) { sync(event.target); }, true);
 
+    /**
+     * Move auto-injected instances to a selector chosen in the same-origin
+     * visual editor. The server sanitizes selectors before output; try/catch is
+     * retained as defense in depth for stale options or browser parser drift.
+     * If the selector is missing, invalid, or points inside the switcher itself,
+     * the element simply remains at its safe wp_footer fallback location.
+     */
+    function placeSwitchers() {
+        var switchers = document.querySelectorAll('.deepglot-switcher[data-deepglot-target]');
+        for (var i = 0; i < switchers.length; i++) {
+            var switcher = switchers[i];
+            var selector = switcher.getAttribute('data-deepglot-target');
+            if (!selector) continue;
+
+            try {
+                var target = document.querySelector(selector);
+                if (!target || target === switcher || switcher.contains(target)) continue;
+                if (/^(SCRIPT|STYLE|HEAD|META|LINK|BASE|IFRAME|OBJECT|EMBED)$/.test(target.tagName || '')) continue;
+                target.appendChild(switcher);
+            } catch {
+                // Safe fallback: leave the rendered switcher in wp_footer.
+            }
+        }
+    }
+
     // Pre-sync any already-rendered switchers on first paint in case the
     // browser restored a checked state from BFcache.
     function initial() {
+        placeSwitchers();
         var nodes = document.querySelectorAll('.deepglot-switcher .deepglot-choice');
         for (var i = 0; i < nodes.length; i++) { sync(nodes[i]); }
     }

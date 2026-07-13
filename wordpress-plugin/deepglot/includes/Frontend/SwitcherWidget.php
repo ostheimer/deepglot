@@ -56,7 +56,10 @@ class SwitcherWidget extends WP_Widget
     public function widget($args, $instance)
     {
         $title = isset($instance['title']) ? (string) apply_filters('widget_title', $instance['title']) : '';
-        $body  = self::$boundSwitcher !== null ? self::$boundSwitcher->renderShortcode([]) : '';
+        $instanceId = isset($instance['instance_id']) ? (string) $instance['instance_id'] : 'default';
+        $body  = self::$boundSwitcher !== null
+            ? self::$boundSwitcher->renderShortcode(['instance' => $instanceId])
+            : '';
 
         // Open wrapper.
         echo $args['before_widget'] ?? ''; // phpcs:ignore WordPress.Security.EscapeOutput
@@ -77,6 +80,7 @@ class SwitcherWidget extends WP_Widget
     public function form($instance)
     {
         $title = isset($instance['title']) ? (string) $instance['title'] : '';
+        $instanceId = isset($instance['instance_id']) ? (string) $instance['instance_id'] : 'default';
         ?>
         <p>
             <label for="<?php echo esc_attr($this->get_field_id('title')); ?>">
@@ -89,6 +93,27 @@ class SwitcherWidget extends WP_Widget
                 type="text"
                 value="<?php echo esc_attr($title); ?>"
             />
+        </p>
+        <p>
+            <label for="<?php echo esc_attr($this->get_field_id('instance_id')); ?>">
+                <?php esc_html_e('Switcher-Instanz:', 'deepglot'); ?>
+            </label>
+            <select
+                class="widefat"
+                id="<?php echo esc_attr($this->get_field_id('instance_id')); ?>"
+                name="<?php echo esc_attr($this->get_field_name('instance_id')); ?>"
+            >
+                <?php
+                $instances = self::$boundSwitcher !== null ? self::$boundSwitcher->getInstances() : [];
+                foreach ($instances as $savedInstance) :
+                    $savedId = (string) ($savedInstance['id'] ?? '');
+                    if ($savedId === '') continue;
+                    ?>
+                    <option value="<?php echo esc_attr($savedId); ?>"<?php echo $instanceId === $savedId ? ' selected="selected"' : ''; ?>>
+                        <?php echo esc_html((string) ($savedInstance['name'] ?? $savedId)); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </p>
         <?php
     }
@@ -103,8 +128,13 @@ class SwitcherWidget extends WP_Widget
     public function update($new_instance, $old_instance)
     {
         $rawTitle = isset($new_instance['title']) ? (string) $new_instance['title'] : '';
+        $rawInstanceId = isset($new_instance['instance_id']) ? (string) $new_instance['instance_id'] : 'default';
+        $instanceId = function_exists('sanitize_key')
+            ? sanitize_key($rawInstanceId)
+            : trim(strtolower((string) preg_replace('/[^a-z0-9_-]/i', '', $rawInstanceId)), '_-');
         return [
             'title' => sanitize_text_field(wp_strip_all_tags($rawTitle)),
+            'instance_id' => $instanceId !== '' ? $instanceId : 'default',
         ];
     }
 }

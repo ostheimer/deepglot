@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 
 import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
+import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   pluginSettingsSyncSchema,
   type PluginSettingsSyncPayload,
@@ -39,23 +40,29 @@ function getSourceHost(payload: PluginSettingsSyncPayload) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function syncPluginSettings(request: NextRequest) {
   const rawApiKey = getRawApiKey(request);
 
   if (!rawApiKey) {
-    return NextResponse.json(
-      { error: "Missing API key." },
-      { status: 401 }
-    );
+    return apiProblem({
+      status: 401,
+      title: "Authentication required",
+      detail: "Missing API key.",
+      code: "missing_api_key",
+      instance: "/api/plugin/settings-sync",
+    });
   }
 
   const apiKey = await validateApiKey(rawApiKey);
 
   if (!apiKey) {
-    return NextResponse.json(
-      { error: "Invalid or expired API key." },
-      { status: 401 }
-    );
+    return apiProblem({
+      status: 401,
+      title: "Authentication failed",
+      detail: "Invalid or expired API key.",
+      code: "invalid_api_key",
+      instance: "/api/plugin/settings-sync",
+    });
   }
 
   const rateLimit = await consumeRateLimit({
@@ -65,24 +72,46 @@ export async function POST(request: NextRequest) {
   });
 
   if (!rateLimit.allowed) {
-    return NextResponse.json(
-      {
-        error: `Rate limit exceeded. Maximum ${rateLimit.limit} plugin requests per minute.`,
-      },
-      { status: 429, headers: buildRateLimitHeaders(rateLimit) }
-    );
+    return apiProblem({
+      status: 429,
+      title: "Rate limit exceeded",
+      detail: `Rate limit exceeded. Maximum ${rateLimit.limit} plugin requests per minute.`,
+      code: "rate_limit_exceeded",
+      instance: "/api/plugin/settings-sync",
+      extensions: { retry_after: rateLimit.retryAfterSeconds },
+      headers: buildRateLimitHeaders(rateLimit),
+    });
   }
 
-  const payload = pluginSettingsSyncSchema.safeParse(await request.json());
+  let requestBody: unknown;
+  try {
+    requestBody = await request.json();
+  } catch {
+    return validationProblem({
+      detail: "Request body must be valid JSON.",
+      instance: "/api/plugin/settings-sync",
+      errors: { body: ["Invalid JSON"] },
+    });
+  }
+
+  const payload = pluginSettingsSyncSchema.safeParse(requestBody);
 
   if (!payload.success) {
-    return NextResponse.json(
-      {
-        error:
-          payload.error.issues[0]?.message ?? "Invalid settings sync payload.",
+    const errors = payload.error.issues.reduce<Record<string, string[]>>(
+      (fieldErrors, issue) => {
+        const field = issue.path.join(".") || "body";
+        fieldErrors[field] = [...(fieldErrors[field] ?? []), issue.message];
+        return fieldErrors;
       },
-      { status: 400 }
+      {},
     );
+
+    return validationProblem({
+      detail:
+        payload.error.issues[0]?.message ?? "Invalid settings sync payload.",
+      instance: "/api/plugin/settings-sync",
+      errors,
+    });
   }
 
   const body = payload.data;
@@ -101,10 +130,11 @@ export async function POST(request: NextRequest) {
   });
 
   if (duplicateHosts.size > 0) {
-    return NextResponse.json(
-      { error: "Domain mappings must use unique hosts." },
-      { status: 400 }
-    );
+    return validationProblem({
+      detail: "Domain mappings must use unique hosts.",
+      instance: "/api/plugin/settings-sync",
+      errors: { domainMappings: ["Hosts must be unique."] },
+    });
   }
 
   const invalidMapping = body.domainMappings.find(
@@ -112,25 +142,27 @@ export async function POST(request: NextRequest) {
   );
 
   if (invalidMapping) {
-    return NextResponse.json(
-      {
-        error: `Domain mapping language '${invalidMapping.langCode}' is not active for the project.`,
+    return validationProblem({
+      detail: `Domain mapping language '${invalidMapping.langCode}' is not active for the project.`,
+      instance: "/api/plugin/settings-sync",
+      errors: {
+        domainMappings: ["Every mapping language must be an active target language."],
       },
-      { status: 400 }
-    );
+    });
   }
 
   if (
     body.routingMode === "SUBDOMAIN" &&
     body.targetLanguages.some((language) => !domainMappingLanguages.has(language))
   ) {
-    return NextResponse.json(
-      {
-        error:
-          "Every active target language needs a domain mapping before subdomain routing can be enabled.",
+    return validationProblem({
+      detail:
+        "Every active target language needs a domain mapping before subdomain routing can be enabled.",
+      instance: "/api/plugin/settings-sync",
+      errors: {
+        domainMappings: ["A mapping is required for every active target language."],
       },
-      { status: 400 }
-    );
+    });
   }
 
   try {
@@ -238,17 +270,38 @@ export async function POST(request: NextRequest) {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return NextResponse.json(
-        { error: "A domain mapping host is already connected to another project." },
-        { status: 409 }
-      );
+      return apiProblem({
+        status: 409,
+        title: "Conflict",
+        detail: "A domain mapping host is already connected to another project.",
+        code: "domain_mapping_conflict",
+        instance: "/api/plugin/settings-sync",
+      });
     }
 
     console.error("[POST /api/plugin/settings-sync] Failed:", error);
 
-    return NextResponse.json(
-      { error: "Could not sync plugin settings." },
-      { status: 500 }
-    );
+    return apiProblem({
+      status: 500,
+      title: "Internal server error",
+      detail: "Could not sync plugin settings.",
+      code: "internal_error",
+      instance: "/api/plugin/settings-sync",
+    });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    return await syncPluginSettings(request);
+  } catch (error) {
+    console.error("[POST /api/plugin/settings-sync] Failed before sync:", error);
+    return apiProblem({
+      status: 500,
+      title: "Internal server error",
+      detail: "Could not sync plugin settings.",
+      code: "internal_error",
+      instance: "/api/plugin/settings-sync",
+    });
   }
 }

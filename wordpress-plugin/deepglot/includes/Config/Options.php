@@ -6,6 +6,15 @@ class Options
 {
     public const OPTION_KEY = 'deepglot_settings';
 
+    /** Current persisted schema for independently configured switchers. */
+    public const SWITCHER_INSTANCES_VERSION = 1;
+
+    /** Keep the admin and frontend bounded even for a forged settings POST. */
+    public const SWITCHER_INSTANCES_MAX = 20;
+
+    /** Conservative upper bound for visual-editor-generated DOM selectors. */
+    public const SWITCHER_SELECTOR_MAX_LEN = 200;
+
     /** Allowed values for `switcher_default_style`. */
     public const SWITCHER_STYLES = ['list', 'dropdown'];
 
@@ -88,6 +97,10 @@ class Options
             // per language (e.g. `en` → 🇬🇧). Admin can override for
             // regional audiences (`en` → 🇺🇸).
             'switcher_custom_flags' => [],
+            // Versioned multi-switcher storage. Existing installations are
+            // migrated lazily from the global switcher_* fields in all().
+            'switcher_instances_version' => self::SWITCHER_INSTANCES_VERSION,
+            'switcher_instances' => [],
         ];
     }
 
@@ -102,7 +115,26 @@ class Options
             $stored = [];
         }
 
-        return wp_parse_args($stored, self::defaults());
+        $settings = wp_parse_args($stored, self::defaults());
+
+        if (
+            !isset($stored['switcher_instances_version'])
+            || (int) $stored['switcher_instances_version'] < self::SWITCHER_INSTANCES_VERSION
+            || !isset($stored['switcher_instances'])
+            || !is_array($stored['switcher_instances'])
+            || $stored['switcher_instances'] === []
+        ) {
+            $settings['switcher_instances_version'] = self::SWITCHER_INSTANCES_VERSION;
+            $settings['switcher_instances'] = [$this->legacySwitcherInstance($settings)];
+
+            // Persist once so subsequent requests and rollback/debug tooling see
+            // an explicit migration instead of a transient computed default.
+            if (function_exists('update_option')) {
+                update_option(self::OPTION_KEY, $settings);
+            }
+        }
+
+        return $settings;
     }
 
     public function sanitize($input): array
@@ -111,7 +143,7 @@ class Options
 
         $targetLanguages = $this->normalizeLanguageList($input['target_languages'] ?? []);
 
-        return [
+        $sanitized = [
             'enabled' => !empty($input['enabled']),
             'api_base_url' => untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url']))),
             'api_key' => sanitize_text_field((string) ($input['api_key'] ?? '')),
@@ -165,6 +197,207 @@ class Options
                 $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de')),
                 $targetLanguages
             ),
+        ];
+
+        $sanitized['switcher_instances_version'] = self::SWITCHER_INSTANCES_VERSION;
+        $sanitized['switcher_instances'] = $this->sanitizeSwitcherInstances(
+            $input['switcher_instances'] ?? [],
+            $sanitized
+        );
+
+        return $sanitized;
+    }
+
+    /**
+     * Sanitize the deliberately small selector grammar produced by the visual
+     * editor: element, #id and .class compounds joined by descendant or direct-
+     * child combinators. Attribute selectors, selector lists, pseudo selectors
+     * and CSS escape syntax are rejected rather than interpreted.
+     */
+    public function sanitizeSwitcherSelector($value): string
+    {
+        $selector = trim((string) $value);
+        if ($selector === '' || strlen($selector) > self::SWITCHER_SELECTOR_MAX_LEN) {
+            return '';
+        }
+
+        $selector = preg_replace('/\s+/', ' ', $selector);
+        $selector = preg_replace('/\s*>\s*/', ' > ', (string) $selector);
+        $compound = '(?:[#.][A-Za-z_][A-Za-z0-9_-]*|[A-Za-z][A-Za-z0-9-]*(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*)';
+
+        if (!preg_match('/^' . $compound . '(?:(?:\s*>\s*|\s+)' . $compound . ')*$/D', (string) $selector)) {
+            return '';
+        }
+
+        preg_match_all('/(?:^|[\s>])([A-Za-z][A-Za-z0-9-]*)/', (string) $selector, $tagMatches);
+        $unsafeTags = ['script', 'style', 'head', 'meta', 'link', 'base', 'iframe', 'object', 'embed'];
+        foreach ($tagMatches[1] ?? [] as $tagName) {
+            if (in_array(strtolower((string) $tagName), $unsafeTags, true)) {
+                return '';
+            }
+        }
+
+        return (string) $selector;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function getSwitcherInstances(): array
+    {
+        $settings = $this->all();
+        $raw = $settings['switcher_instances'] ?? [];
+        if (!is_array($raw) || $raw === []) {
+            return [$this->legacySwitcherInstance($settings)];
+        }
+
+        $instances = [];
+        $seen = [];
+        foreach (array_slice($raw, 0, self::SWITCHER_INSTANCES_MAX) as $candidate) {
+            if (!is_array($candidate)) {
+                continue;
+            }
+            $instance = $this->sanitizeSwitcherInstance($candidate, $settings);
+            $id = $instance['id'];
+            if ($id === '' || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $instances[] = $instance;
+        }
+
+        return $instances !== [] ? $instances : [$this->legacySwitcherInstance($settings)];
+    }
+
+    /**
+     * Resolve a saved instance. Unknown IDs safely fall back to the default so
+     * old shortcodes, blocks and widgets never disappear after an admin rename.
+     *
+     * @return array<string,mixed>
+     */
+    public function getSwitcherInstance(?string $id = null): array
+    {
+        $requested = $this->sanitizeSwitcherInstanceId($id ?? 'default');
+        $instances = $this->getSwitcherInstances();
+        $fallback = $instances[0];
+
+        foreach ($instances as $instance) {
+            if (($instance['id'] ?? '') === 'default') {
+                $fallback = $instance;
+            }
+            if (($instance['id'] ?? '') === $requested) {
+                return $instance;
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function getAutoInjectSwitcherInstances(): array
+    {
+        return array_values(array_filter(
+            $this->getSwitcherInstances(),
+            static fn (array $instance): bool => !empty($instance['enabled']) && !empty($instance['auto_inject'])
+        ));
+    }
+
+    public function sanitizeSwitcherInstanceId($value): string
+    {
+        if (function_exists('sanitize_key')) {
+            return substr(sanitize_key((string) $value), 0, 64);
+        }
+
+        return substr(trim(strtolower((string) preg_replace('/[^a-z0-9_-]/i', '', (string) $value)), '_-'), 0, 64);
+    }
+
+    /**
+     * @param mixed $raw
+     * @param array<string,mixed> $settings
+     * @return array<int,array<string,mixed>>
+     */
+    private function sanitizeSwitcherInstances($raw, array $settings): array
+    {
+        $instances = [$this->legacySwitcherInstance($settings)];
+        $seen = ['default' => true];
+
+        if (!is_array($raw)) {
+            return $instances;
+        }
+
+        foreach (array_slice($raw, 0, self::SWITCHER_INSTANCES_MAX) as $candidate) {
+            if (!is_array($candidate)) {
+                continue;
+            }
+            $instance = $this->sanitizeSwitcherInstance($candidate, $settings);
+            $id = $instance['id'];
+            if ($id === '' || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            $instances[] = $instance;
+        }
+
+        return $instances;
+    }
+
+    /**
+     * @param array<string,mixed> $raw
+     * @param array<string,mixed> $settings
+     * @return array<string,mixed>
+     */
+    private function sanitizeSwitcherInstance(array $raw, array $settings): array
+    {
+        $sourceLanguage = $this->sanitizeLanguage((string) ($settings['source_language'] ?? 'de'));
+        $targetLanguages = $this->normalizeLanguageList($settings['target_languages'] ?? []);
+
+        return [
+            'id' => $this->sanitizeSwitcherInstanceId($raw['id'] ?? ''),
+            'name' => sanitize_text_field((string) ($raw['name'] ?? 'Switcher')),
+            'template' => $this->sanitizeSwitcherInstanceId($raw['template'] ?? 'custom'),
+            'template_version' => max(1, (int) ($raw['template_version'] ?? self::SWITCHER_INSTANCES_VERSION)),
+            'enabled' => !empty($raw['enabled']),
+            'auto_inject' => !empty($raw['auto_inject']),
+            'style' => $this->sanitizeEnum((string) ($raw['style'] ?? 'list'), self::SWITCHER_STYLES, 'list'),
+            'flag_style' => $this->sanitizeEnum((string) ($raw['flag_style'] ?? 'rectangle_mat'), self::SWITCHER_FLAG_STYLES, 'rectangle_mat'),
+            'show_label' => !empty($raw['show_label']),
+            'label_format' => $this->sanitizeEnum((string) ($raw['label_format'] ?? 'full_name'), self::SWITCHER_LABEL_FORMATS, 'full_name'),
+            'language_order' => $this->normalizeLanguageList($raw['language_order'] ?? []),
+            'custom_css' => trim((string) ($raw['custom_css'] ?? '')),
+            'position' => $this->sanitizeEnum((string) ($raw['position'] ?? 'inline'), self::SWITCHER_POSITIONS, 'inline'),
+            'responsive_hide' => $this->sanitizeEnum((string) ($raw['responsive_hide'] ?? 'none'), self::SWITCHER_RESPONSIVE_HIDE_VALUES, 'none'),
+            'responsive_breakpoint' => $this->sanitizeBreakpoint($raw['responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT),
+            'custom_flags' => $this->sanitizeCustomFlags($raw['custom_flags'] ?? [], $sourceLanguage, $targetLanguages),
+            'selector' => $this->sanitizeSwitcherSelector($raw['selector'] ?? ''),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $settings
+     * @return array<string,mixed>
+     */
+    private function legacySwitcherInstance(array $settings): array
+    {
+        return [
+            'id' => 'default',
+            'name' => 'Standard',
+            'template' => 'legacy',
+            'template_version' => self::SWITCHER_INSTANCES_VERSION,
+            'enabled' => true,
+            'auto_inject' => !empty($settings['switcher_auto_inject']),
+            'style' => $this->sanitizeEnum((string) ($settings['switcher_default_style'] ?? 'list'), self::SWITCHER_STYLES, 'list'),
+            'flag_style' => $this->sanitizeEnum((string) ($settings['switcher_flag_style'] ?? 'rectangle_mat'), self::SWITCHER_FLAG_STYLES, 'rectangle_mat'),
+            'show_label' => !empty($settings['switcher_show_label']),
+            'label_format' => $this->sanitizeEnum((string) ($settings['switcher_label_format'] ?? 'full_name'), self::SWITCHER_LABEL_FORMATS, 'full_name'),
+            'language_order' => $this->normalizeLanguageList($settings['switcher_language_order'] ?? []),
+            'custom_css' => trim((string) ($settings['switcher_custom_css'] ?? '')),
+            'position' => $this->sanitizeEnum((string) ($settings['switcher_position'] ?? 'inline'), self::SWITCHER_POSITIONS, 'inline'),
+            'responsive_hide' => $this->sanitizeEnum((string) ($settings['switcher_responsive_hide'] ?? 'none'), self::SWITCHER_RESPONSIVE_HIDE_VALUES, 'none'),
+            'responsive_breakpoint' => $this->sanitizeBreakpoint($settings['switcher_responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT),
+            'custom_flags' => is_array($settings['switcher_custom_flags'] ?? null) ? $settings['switcher_custom_flags'] : [],
+            'selector' => '',
         ];
     }
 
@@ -571,6 +804,16 @@ class Options
                     is_array($settings['target_languages'] ?? null) ? $settings['target_languages'] : []
                 );
             }
+
+            $customInstances = array_values(array_filter(
+                is_array($settings['switcher_instances'] ?? null) ? $settings['switcher_instances'] : [],
+                static fn ($instance): bool => is_array($instance) && ($instance['id'] ?? '') !== 'default'
+            ));
+            $settings['switcher_instances_version'] = self::SWITCHER_INSTANCES_VERSION;
+            $settings['switcher_instances'] = array_merge(
+                [$this->legacySwitcherInstance($settings)],
+                $customInstances
+            );
         }
 
         $settings['runtime_config_synced_at'] = time();

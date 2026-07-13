@@ -3,6 +3,7 @@
 namespace Deepglot\Admin;
 
 use Deepglot\Config\Options;
+use Deepglot\Config\SwitcherTemplates;
 
 /**
  * Admin settings page with guided onboarding wizard.
@@ -82,6 +83,13 @@ class SettingsPage
         }
         // Inline styles keep the plugin dependency-free.
         add_action('admin_head', [$this, 'printStyles']);
+        wp_enqueue_script(
+            'deepglot-switcher-editor',
+            DEEPGLOT_PLUGIN_URL . 'assets/js/switcher-editor.js',
+            [],
+            DEEPGLOT_PLUGIN_VERSION,
+            true
+        );
     }
 
     public function printStyles(): void
@@ -181,6 +189,15 @@ class SettingsPage
         .dg-drag-handle { color: #9ca3af; font-size: 14px; line-height: 1; }
         .dg-sortable-label { font-weight: 600; color: #111827; letter-spacing: 0.5px; }
         .dg-sortable-native { color: #6b7280; font-weight: 400; margin-left: 4px; }
+
+        /* Independent switcher instances + same-origin visual picker */
+        .dg-switcher-templates { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 16px; }
+        .dg-switcher-instance { border: 1px solid #dbeafe; background: #f8fafc; border-radius: 10px; padding: 16px; margin: 12px 0; }
+        .dg-switcher-instance__header { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+        .dg-switcher-instance__header strong { color: #1e3a8a; }
+        .dg-switcher-preview { width: 100%; min-height: 280px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; margin-top: 8px; }
+        .dg-switcher-instance.is-selecting .dg-switcher-preview { outline: 3px solid rgba(79,70,229,.3); }
+        .dg-switcher-instance textarea { width: 100%; min-height: 70px; font-family: monospace; }
         </style>
         <?php
     }
@@ -712,6 +729,56 @@ class SettingsPage
                         <p class="description"><?php esc_html_e('Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann.', 'deepglot'); ?></p>
                     </div>
 
+                    <?php
+                    $previewUrl = add_query_arg('deepglot-switcher-preview', '1', home_url('/'));
+                    $savedInstances = array_values(array_filter(
+                        $this->options->getSwitcherInstances(),
+                        static fn (array $instance): bool => ($instance['id'] ?? '') !== 'default'
+                    ));
+                    $templateRegistry = SwitcherTemplates::registry();
+                    ?>
+                    <div class="dg-field" style="margin-top:24px; padding-top:20px; border-top:1px solid #e5e7eb;">
+                        <h3><?php esc_html_e('Weitere Switcher-Instanzen', 'deepglot'); ?></h3>
+                        <p class="description">
+                            <?php esc_html_e('Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default" erhalten.', 'deepglot'); ?>
+                        </p>
+                        <div class="dg-switcher-templates" aria-label="<?php esc_attr_e('Switcher-Vorlagen', 'deepglot'); ?>">
+                            <?php foreach ($templateRegistry as $templateId => $template) :
+                                $templateConfig = SwitcherTemplates::createInstance(
+                                    (string) $templateId,
+                                    'new-' . (string) $templateId,
+                                    (string) $template['name']
+                                );
+                                ?>
+                                <button
+                                    type="button"
+                                    class="button deepglot-switcher-template"
+                                    data-switcher-template="<?php echo esc_attr(wp_json_encode($templateConfig)); ?>"
+                                    title="<?php echo esc_attr((string) $template['description']); ?>"
+                                >
+                                    + <?php echo esc_html((string) $template['name']); ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <div data-deepglot-instances>
+                            <?php foreach ($savedInstances as $index => $instance) : ?>
+                                <?php $this->renderSwitcherInstanceEditor($instance, $index, $optKey, $previewUrl); ?>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <template id="deepglot-switcher-instance-template">
+                            <?php
+                            $this->renderSwitcherInstanceEditor(
+                                SwitcherTemplates::createInstance('classic-dropdown', 'new-switcher', __('Neuer Switcher', 'deepglot')),
+                                '__INDEX__',
+                                $optKey,
+                                $previewUrl
+                            );
+                            ?>
+                        </template>
+                    </div>
+
                 <div class="dg-actions" style="margin-top:24px;">
                         <button type="submit" class="dg-btn-primary">
                             <?php esc_html_e('Einstellungen speichern', 'deepglot'); ?>
@@ -784,6 +851,135 @@ class SettingsPage
             })();
             </script>
         </div>
+        <?php
+    }
+
+    /**
+     * Render one editable multi-switcher card. The iframe is deliberately
+     * same-origin and script-free; switcher-editor.js listens from the parent
+     * document and persists only selectors accepted by Options.
+     *
+     * @param array<string,mixed> $instance
+     * @param int|string $index
+     */
+    private function renderSwitcherInstanceEditor(array $instance, $index, string $optKey, string $previewUrl): void
+    {
+        $prefix = $optKey . '[switcher_instances][' . $index . ']';
+        $idPrefix = 'dg-switcher-instance-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', (string) $index);
+        $configuredLanguages = array_values(array_unique(array_merge(
+            [$this->options->getSourceLanguage()],
+            $this->options->getTargetLanguages()
+        )));
+        ?>
+        <section class="dg-switcher-instance" data-deepglot-instance-editor>
+            <div class="dg-switcher-instance__header">
+                <strong><?php echo esc_html((string) ($instance['name'] ?? __('Sprachumschalter', 'deepglot'))); ?></strong>
+                <button type="button" class="button-link-delete" data-deepglot-remove>
+                    <?php esc_html_e('Instanz entfernen', 'deepglot'); ?>
+                </button>
+            </div>
+
+            <input type="hidden" name="<?php echo esc_attr($prefix . '[template]'); ?>" value="<?php echo esc_attr((string) ($instance['template'] ?? 'custom')); ?>" data-switcher-field="template" />
+            <input type="hidden" name="<?php echo esc_attr($prefix . '[template_version]'); ?>" value="<?php echo esc_attr((string) ($instance['template_version'] ?? SwitcherTemplates::VERSION)); ?>" data-switcher-field="template_version" />
+
+            <div class="dg-section-grid">
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-id'); ?>"><?php esc_html_e('Instanz-ID', 'deepglot'); ?></label>
+                    <input id="<?php echo esc_attr($idPrefix . '-id'); ?>" type="text" name="<?php echo esc_attr($prefix . '[id]'); ?>" value="<?php echo esc_attr((string) ($instance['id'] ?? '')); ?>" maxlength="64" data-switcher-field="id" />
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-name'); ?>"><?php esc_html_e('Name', 'deepglot'); ?></label>
+                    <input id="<?php echo esc_attr($idPrefix . '-name'); ?>" type="text" name="<?php echo esc_attr($prefix . '[name]'); ?>" value="<?php echo esc_attr((string) ($instance['name'] ?? '')); ?>" data-switcher-field="name" />
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-style'); ?>"><?php esc_html_e('Darstellung', 'deepglot'); ?></label>
+                    <select id="<?php echo esc_attr($idPrefix . '-style'); ?>" name="<?php echo esc_attr($prefix . '[style]'); ?>" data-switcher-field="style">
+                        <option value="list" <?php selected(($instance['style'] ?? 'list'), 'list'); ?>><?php esc_html_e('Inline-Liste', 'deepglot'); ?></option>
+                        <option value="dropdown" <?php selected(($instance['style'] ?? 'list'), 'dropdown'); ?>><?php esc_html_e('Dropdown', 'deepglot'); ?></option>
+                    </select>
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-flag'); ?>"><?php esc_html_e('Flaggenstil', 'deepglot'); ?></label>
+                    <select id="<?php echo esc_attr($idPrefix . '-flag'); ?>" name="<?php echo esc_attr($prefix . '[flag_style]'); ?>" data-switcher-field="flag_style">
+                        <?php foreach (Options::SWITCHER_FLAG_STYLES as $flagStyle) : ?>
+                            <option value="<?php echo esc_attr($flagStyle); ?>" <?php selected(($instance['flag_style'] ?? 'rectangle_mat'), $flagStyle); ?>><?php echo esc_html($flagStyle); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-label'); ?>"><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                    <select id="<?php echo esc_attr($idPrefix . '-label'); ?>" name="<?php echo esc_attr($prefix . '[label_format]'); ?>" data-switcher-field="label_format">
+                        <option value="full_name" <?php selected(($instance['label_format'] ?? 'full_name'), 'full_name'); ?>><?php esc_html_e('Vollständiger Name', 'deepglot'); ?></option>
+                        <option value="iso_code" <?php selected(($instance['label_format'] ?? 'full_name'), 'iso_code'); ?>><?php esc_html_e('ISO-Code', 'deepglot'); ?></option>
+                    </select>
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-position'); ?>"><?php esc_html_e('Position', 'deepglot'); ?></label>
+                    <select id="<?php echo esc_attr($idPrefix . '-position'); ?>" name="<?php echo esc_attr($prefix . '[position]'); ?>" data-switcher-field="position">
+                        <?php foreach (Options::SWITCHER_POSITIONS as $position) : ?>
+                            <option value="<?php echo esc_attr($position); ?>" <?php selected(($instance['position'] ?? 'inline'), $position); ?>><?php echo esc_html($position); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-responsive'); ?>"><?php esc_html_e('Ausblenden auf', 'deepglot'); ?></label>
+                    <select id="<?php echo esc_attr($idPrefix . '-responsive'); ?>" name="<?php echo esc_attr($prefix . '[responsive_hide]'); ?>" data-switcher-field="responsive_hide">
+                        <option value="none" <?php selected(($instance['responsive_hide'] ?? 'none'), 'none'); ?>><?php esc_html_e('Keinem Gerät', 'deepglot'); ?></option>
+                        <option value="mobile" <?php selected(($instance['responsive_hide'] ?? 'none'), 'mobile'); ?>><?php esc_html_e('Mobilgeräten', 'deepglot'); ?></option>
+                        <option value="desktop" <?php selected(($instance['responsive_hide'] ?? 'none'), 'desktop'); ?>><?php esc_html_e('Desktop-Geräten', 'deepglot'); ?></option>
+                    </select>
+                </div>
+                <div class="dg-field">
+                    <label for="<?php echo esc_attr($idPrefix . '-breakpoint'); ?>"><?php esc_html_e('Breakpoint (px)', 'deepglot'); ?></label>
+                    <input id="<?php echo esc_attr($idPrefix . '-breakpoint'); ?>" type="number" min="320" max="1920" name="<?php echo esc_attr($prefix . '[responsive_breakpoint]'); ?>" value="<?php echo esc_attr((string) ($instance['responsive_breakpoint'] ?? 768)); ?>" data-switcher-field="responsive_breakpoint" />
+                </div>
+            </div>
+
+            <div class="dg-toggle-row" style="margin-top:14px;">
+                <input id="<?php echo esc_attr($idPrefix . '-enabled'); ?>" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($prefix . '[enabled]'); ?>" value="1" <?php checked(!empty($instance['enabled'])); ?> data-switcher-field="enabled" />
+                <label for="<?php echo esc_attr($idPrefix . '-enabled'); ?>"><?php esc_html_e('Instanz aktivieren', 'deepglot'); ?></label>
+                <input id="<?php echo esc_attr($idPrefix . '-auto'); ?>" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($prefix . '[auto_inject]'); ?>" value="1" <?php checked(!empty($instance['auto_inject'])); ?> data-switcher-field="auto_inject" />
+                <label for="<?php echo esc_attr($idPrefix . '-auto'); ?>"><?php esc_html_e('Automatisch platzieren', 'deepglot'); ?></label>
+                <input id="<?php echo esc_attr($idPrefix . '-show-label'); ?>" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($prefix . '[show_label]'); ?>" value="1" <?php checked(!empty($instance['show_label'])); ?> data-switcher-field="show_label" />
+                <label for="<?php echo esc_attr($idPrefix . '-show-label'); ?>"><?php esc_html_e('Beschriftung anzeigen', 'deepglot'); ?></label>
+            </div>
+
+            <div class="dg-field" style="margin-top:14px;">
+                <label for="<?php echo esc_attr($idPrefix . '-order'); ?>"><?php esc_html_e('Sprachreihenfolge', 'deepglot'); ?></label>
+                <input id="<?php echo esc_attr($idPrefix . '-order'); ?>" type="text" name="<?php echo esc_attr($prefix . '[language_order]'); ?>" value="<?php echo esc_attr(implode(', ', (array) ($instance['language_order'] ?? []))); ?>" placeholder="de, en, fr" data-switcher-field="language_order" />
+            </div>
+
+            <div class="dg-field">
+                <label><?php esc_html_e('Eigene Flaggen', 'deepglot'); ?></label>
+                <div class="dg-section-grid">
+                    <?php foreach ($configuredLanguages as $language) : ?>
+                        <input type="text" name="<?php echo esc_attr($prefix . '[custom_flags][' . $language . ']'); ?>" value="<?php echo esc_attr((string) (($instance['custom_flags'][$language] ?? ''))); ?>" placeholder="<?php echo esc_attr(strtoupper($language) . ': 🇦🇹 oder https://…'); ?>" />
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div class="dg-field">
+                <label for="<?php echo esc_attr($idPrefix . '-css'); ?>"><?php esc_html_e('Eigenes CSS', 'deepglot'); ?></label>
+                <textarea id="<?php echo esc_attr($idPrefix . '-css'); ?>" name="<?php echo esc_attr($prefix . '[custom_css]'); ?>" data-switcher-field="custom_css"><?php echo esc_textarea((string) ($instance['custom_css'] ?? '')); ?></textarea>
+            </div>
+
+            <div class="dg-field">
+                <label for="<?php echo esc_attr($idPrefix . '-selector'); ?>"><?php esc_html_e('DOM-Ziel für automatische Platzierung', 'deepglot'); ?></label>
+                <input id="<?php echo esc_attr($idPrefix . '-selector'); ?>" type="text" name="<?php echo esc_attr($prefix . '[selector]'); ?>" value="<?php echo esc_attr((string) ($instance['selector'] ?? '')); ?>" maxlength="<?php echo esc_attr((string) Options::SWITCHER_SELECTOR_MAX_LEN); ?>" placeholder="#site-header > nav.primary" data-deepglot-selector data-switcher-field="selector" />
+                <button type="button" class="button" data-deepglot-pick aria-pressed="false" style="margin-top:8px;">
+                    <?php esc_html_e('Element in der Vorschau auswählen', 'deepglot'); ?>
+                </button>
+                <p class="description"><?php esc_html_e('Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer.', 'deepglot'); ?></p>
+                <iframe
+                    class="dg-switcher-preview"
+                    src="<?php echo esc_url($previewUrl); ?>"
+                    title="<?php esc_attr_e('Website-Vorschau für die Switcher-Platzierung', 'deepglot'); ?>"
+                    sandbox="allow-same-origin"
+                    loading="lazy"
+                    data-deepglot-preview
+                ></iframe>
+            </div>
+        </section>
         <?php
     }
 }
