@@ -75,18 +75,25 @@ test("member removal and language changes reset assignments before they become i
   assert.match(workflow, /assignedToId:\s*null/);
 });
 
-test("visual-editor and import content writes invalidate stale approval", () => {
+test("visual-editor, import, and machine translate writes invalidate stale approval", () => {
   const manualRoute = source(
     "src/app/api/projects/[projektId]/manual-translations/route.ts",
   );
   const importRoute = source(
     "src/app/api/projects/[projektId]/import/route.ts",
   );
+  const translateRoute = source("src/app/api/translate/route.ts");
 
   assert.match(manualRoute, /resetTranslationWorkflowAfterContentEdit/);
   assert.match(manualRoute, /workflowStatus:\s*true/);
   assert.match(manualRoute, /assignedToId:\s*true/);
   assert.match(importRoute, /resetTranslationWorkflowAfterContentEdit/);
+  assert.match(translateRoute, /resetTranslationWorkflowAfterContentEdit/);
+  assert.match(
+    translateRoute,
+    /existingTranslation\.workflowStatus/,
+    "machine re-translations must load workflow state before invalidating approval",
+  );
   assert.ok(
     importRoute.match(/workflowStatus:\s*true/g)?.length === 2,
     "both PO and CSV translation imports must load workflow state",
