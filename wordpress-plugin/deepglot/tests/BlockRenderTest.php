@@ -205,4 +205,30 @@ blockAssert(str_contains($leftAlign, '<aside '), 'Aligned output still contains 
 $bogus = $alignBlock->render(['align' => 'underneath" onclick="alert(1)']);
 blockAssert(!str_contains($bogus, 'onclick'), 'Unknown align value is rejected, not echoed into the class attribute');
 
+// 7. Issue #57: a dynamic block can select an independent saved switcher
+// instance while retaining the existing alignment wrapper contract.
+[$_, $instanceBlock] = makeBlockEnv([
+    'switcher_instances_version' => 1,
+    'switcher_instances' => [
+        [
+            'id' => 'default', 'name' => 'Standard', 'enabled' => true,
+            'auto_inject' => false, 'style' => 'list', 'flag_style' => 'rectangle_mat',
+            'show_label' => true, 'label_format' => 'full_name', 'language_order' => [],
+            'custom_css' => '', 'position' => 'inline', 'responsive_hide' => 'none',
+            'responsive_breakpoint' => 768, 'custom_flags' => [], 'selector' => '',
+        ],
+        [
+            'id' => 'block-dropdown', 'name' => 'Block Dropdown', 'enabled' => true,
+            'auto_inject' => false, 'style' => 'dropdown', 'flag_style' => 'none',
+            'show_label' => true, 'label_format' => 'iso_code', 'language_order' => [],
+            'custom_css' => '', 'position' => 'inline', 'responsive_hide' => 'none',
+            'responsive_breakpoint' => 768, 'custom_flags' => [], 'selector' => '',
+        ],
+    ],
+]);
+$instanceBlockHtml = $instanceBlock->render(['instanceId' => 'block-dropdown', 'align' => 'center']);
+blockAssert(str_contains($instanceBlockHtml, 'data-deepglot-instance="block-dropdown"'), 'Block instanceId selects the saved instance');
+blockAssert(str_contains($instanceBlockHtml, 'deepglot-switcher--dropdown'), 'Block instance keeps independent dropdown style');
+blockAssert(str_contains($instanceBlockHtml, 'aligncenter'), 'Block instance keeps alignment support');
+
 fwrite(STDOUT, "BlockRenderTest: OK\n");

@@ -28,9 +28,18 @@ import {
   consumeRateLimit,
   consumeTranslateWordVelocity,
   getRateLimitConfig,
+  getTranslateWordVelocityLimit,
   releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
+import { apiProblem, validationProblem } from "@/lib/problem-details";
+import {
+  PrismaApiIdempotencyStore,
+  executeIdempotently,
+  validateApiIdempotencyKey,
+  type StoredApiResponse,
+} from "@/lib/api-idempotency";
+import { findOrganizationTranslationMemory } from "@/lib/translation-memory";
 
 export const runtime = "nodejs";
 
@@ -90,36 +99,16 @@ export const BotType = {
  *   to_words: string[],
  * }
  */
-export async function POST(req: NextRequest) {
+type ValidatedApiKeyRecord = NonNullable<
+  Awaited<ReturnType<typeof validateApiKey>>
+>;
+
+async function executeAuthenticatedTranslateRequest(
+  req: NextRequest,
+  apiKeyRecord: ValidatedApiKeyRecord,
+  parsedBodyOverride?: unknown,
+) {
   try {
-    // 1. Extract API key – support both query param AND Bearer header
-    const { searchParams } = new URL(req.url);
-    const queryApiKey = searchParams.get("api_key");
-    const authHeader = req.headers.get("Authorization");
-    const bearerKey = authHeader?.startsWith("Bearer ")
-      ? authHeader.substring(7)
-      : null;
-
-    const rawKey = queryApiKey ?? bearerKey;
-
-    if (!rawKey) {
-      return NextResponse.json(
-        {
-          error:
-            "API-Key fehlt. Nutze ?api_key=dg_live_... oder Authorization: Bearer ...",
-        },
-        { status: 401 },
-      );
-    }
-
-    const apiKeyRecord = await validateApiKey(rawKey);
-    if (!apiKeyRecord) {
-      return NextResponse.json(
-        { error: "Ungültiger oder abgelaufener API-Key" },
-        { status: 401 },
-      );
-    }
-
     // 2. Persistent rate limiting per API key
     const rateLimit = await consumeRateLimit({
       scope: TRANSLATE_RATE_LIMIT_SCOPE,
@@ -128,16 +117,32 @@ export async function POST(req: NextRequest) {
     });
 
     if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: `Rate Limit überschritten. Maximal ${rateLimit.limit} Anfragen pro Minute.`,
-        },
-        { status: 429, headers: buildRateLimitHeaders(rateLimit) },
-      );
+      return apiProblem({
+        status: 429,
+        title: "Rate limit exceeded",
+        detail: `Rate Limit überschritten. Maximal ${rateLimit.limit} Anfragen pro Minute.`,
+        code: "rate_limit_exceeded",
+        instance: "/api/translate",
+        extensions: { retry_after: rateLimit.retryAfterSeconds },
+        headers: buildRateLimitHeaders(rateLimit),
+      });
     }
 
     // 3. Parse request body
-    const body = (await req.json()) as {
+    let parsedBody = parsedBodyOverride;
+    if (parsedBodyOverride === undefined) {
+      try {
+        parsedBody = await req.json();
+      } catch {
+        return validationProblem({
+          detail: "Der Request-Body muss gültiges JSON enthalten.",
+          instance: "/api/translate",
+          errors: { body: ["Ungültiges JSON"] },
+        });
+      }
+    }
+
+    const body = parsedBody as {
       l_from: string;
       l_to: string;
       words: Array<{ t: number; w: string }>;
@@ -146,6 +151,14 @@ export async function POST(req: NextRequest) {
       bot?: number;
       quota_probe?: boolean;
     };
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return validationProblem({
+        detail: "Der Request-Body muss ein JSON-Objekt sein.",
+        instance: "/api/translate",
+        errors: { body: ["JSON-Objekt erwartet"] },
+      });
+    }
 
     const {
       l_from,
@@ -157,11 +170,27 @@ export async function POST(req: NextRequest) {
       quota_probe: quotaProbe = false,
     } = body;
 
-    if (!words?.length || !l_from || !l_to) {
-      return NextResponse.json(
-        { error: "Pflichtfelder fehlen: words, l_from, l_to" },
-        { status: 400 },
-      );
+    const validationErrors: Record<string, string[]> = {};
+    if (
+      !Array.isArray(words) ||
+      words.length === 0 ||
+      words.some((word) => !word || typeof word.w !== "string")
+    ) {
+      validationErrors.words = ["Mindestens ein gültiger Texteingang ist erforderlich."];
+    }
+    if (typeof l_from !== "string" || !l_from.trim()) {
+      validationErrors.l_from = ["Erforderlich"];
+    }
+    if (typeof l_to !== "string" || !l_to.trim()) {
+      validationErrors.l_to = ["Erforderlich"];
+    }
+
+    if (Object.keys(validationErrors).length > 0) {
+      return validationProblem({
+        detail: "Pflichtfelder fehlen oder sind ungültig: words, l_from, l_to",
+        instance: "/api/translate",
+        errors: validationErrors,
+      });
     }
 
     // Skip fresh provider calls (and quota) for ALL bot traffic, serving it
@@ -181,10 +210,11 @@ export async function POST(req: NextRequest) {
     const allowedLangs = project.languages.map((l) => l.langCode.toLowerCase());
 
     if (!allowedLangs.includes(l_to.toLowerCase())) {
-      return NextResponse.json(
-        { error: `Sprache '${l_to}' ist für dieses Projekt nicht aktiviert` },
-        { status: 400 },
-      );
+      return validationProblem({
+        detail: `Sprache '${l_to}' ist für dieses Projekt nicht aktiviert`,
+        instance: "/api/translate",
+        errors: { l_to: ["Sprache ist für dieses Projekt nicht aktiviert."] },
+      });
     }
 
     // 5. Cache lookup and glossary protection
@@ -213,6 +243,15 @@ export async function POST(req: NextRequest) {
         translation,
       ]),
     );
+    const translationMemoryByHash = project.settings?.translationMemory
+      ? await findOrganizationTranslationMemory(db, {
+          organizationId: project.organizationId,
+          targetProjectId: project.id,
+          originalHashes: hashes.filter(Boolean),
+          langFrom: l_from,
+          langTo: l_to,
+        })
+      : new Map();
 
     const pendingTranslations: Array<{
       index: number;
@@ -258,6 +297,13 @@ export async function POST(req: NextRequest) {
         } else {
           cachedWords += wordCount;
         }
+        continue;
+      }
+
+      const memoryHit = translationMemoryByHash.get(hash);
+      if (memoryHit) {
+        translatedTexts[index] = memoryHit.translatedText;
+        manualWords += wordCount;
         continue;
       }
 
@@ -321,14 +367,17 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        return NextResponse.json(
-          {
-            error: "Monatliches Wortlimit erreicht",
+        return apiProblem({
+          status: 402,
+          title: "Quota exhausted",
+          detail: "Monatliches Wortlimit erreicht",
+          code: "quota_exhausted",
+          instance: "/api/translate",
+          extensions: {
             used: wordsUsedThisMonth,
             limit: wordsLimit,
           },
-          { status: 402 },
-        );
+        });
       }
     }
 
@@ -352,18 +401,20 @@ export async function POST(req: NextRequest) {
       const velocity = await consumeTranslateWordVelocity({
         organizationId: project.organizationId,
         words: translatedWords,
-        limit: getRateLimitConfig().translateWordVelocityPerHour,
+        limit: getTranslateWordVelocityLimit(wordsLimit),
       });
 
       if (!velocity.allowed) {
-        return NextResponse.json(
-          {
-            error: "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
-            code: "velocity_limited",
-            retry_after: velocity.retryAfterSeconds,
-          },
-          { status: 429, headers: buildRateLimitHeaders(velocity) },
-        );
+        return apiProblem({
+          status: 429,
+          title: "Translation velocity limited",
+          detail:
+            "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
+          code: "velocity_limited",
+          instance: "/api/translate",
+          extensions: { retry_after: velocity.retryAfterSeconds },
+          headers: buildRateLimitHeaders(velocity),
+        });
       }
 
       velocityReservation = {
@@ -608,9 +659,147 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[/api/translate] Fehler:", error);
-    return NextResponse.json(
-      { error: "Interner Server-Fehler" },
-      { status: 500 },
-    );
+    return apiProblem({
+      status: 500,
+      title: "Internal server error",
+      detail: "Interner Server-Fehler",
+      code: "internal_error",
+      instance: "/api/translate",
+    });
+  }
+}
+
+const translateIdempotencyStore = new PrismaApiIdempotencyStore();
+
+async function captureApiResponse(response: NextResponse): Promise<StoredApiResponse> {
+  const text = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  let body: unknown = text;
+
+  if (contentType.includes("json")) {
+    body = text ? (JSON.parse(text) as unknown) : null;
+  }
+
+  return {
+    status: response.status,
+    headers: Object.fromEntries(response.headers.entries()),
+    body,
+  };
+}
+
+function restoreApiResponse(response: StoredApiResponse) {
+  const headers = new Headers(response.headers);
+  const contentType = headers.get("content-type") ?? "";
+  const body =
+    response.body === null
+      ? null
+      : contentType.includes("json")
+        ? JSON.stringify(response.body)
+        : typeof response.body === "string"
+          ? response.body
+          : JSON.stringify(response.body);
+
+  return new NextResponse(body, { status: response.status, headers });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    // 1. Extract API key – support both query param AND Bearer header.
+    const { searchParams } = new URL(req.url);
+    const queryApiKey = searchParams.get("api_key");
+    const authHeader = req.headers.get("Authorization");
+    const bearerKey = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : null;
+    const rawKey = queryApiKey ?? bearerKey;
+
+    if (!rawKey) {
+      return apiProblem({
+        status: 401,
+        title: "Authentication required",
+        detail:
+          "API-Key fehlt. Nutze ?api_key=dg_live_... oder Authorization: Bearer ...",
+        code: "missing_api_key",
+        instance: "/api/translate",
+      });
+    }
+
+    const apiKeyRecord = await validateApiKey(rawKey);
+    if (!apiKeyRecord) {
+      return apiProblem({
+        status: 401,
+        title: "Authentication failed",
+        detail: "Ungültiger oder abgelaufener API-Key",
+        code: "invalid_api_key",
+        instance: "/api/translate",
+      });
+    }
+
+    const rawIdempotencyKey = req.headers.get("Idempotency-Key");
+    if (rawIdempotencyKey === null) {
+      return executeAuthenticatedTranslateRequest(req, apiKeyRecord);
+    }
+
+    const idempotencyKey = rawIdempotencyKey.trim();
+    if (!validateApiIdempotencyKey(idempotencyKey)) {
+      return validationProblem({
+        detail: "Idempotency-Key muss zwischen 1 und 255 Zeichen lang sein.",
+        instance: "/api/translate",
+        errors: {
+          "Idempotency-Key": ["Zwischen 1 und 255 Zeichen erforderlich."],
+        },
+      });
+    }
+
+    let parsedBody: unknown;
+    try {
+      parsedBody = await req.json();
+    } catch {
+      return validationProblem({
+        detail: "Der Request-Body muss gültiges JSON enthalten.",
+        instance: "/api/translate",
+        errors: { body: ["Ungültiges JSON"] },
+      });
+    }
+
+    // The atomic claim happens before request rate limits, cache analytics,
+    // quota/velocity reservations, provider calls, usage, or webhooks. Only the
+    // winning request executes that complete side-effect pipeline.
+    const result = await executeIdempotently({
+      scope: `${apiKeyRecord.id}:POST:/api/translate`,
+      key: idempotencyKey,
+      requestBody: parsedBody,
+      store: translateIdempotencyStore,
+      execute: async () =>
+        captureApiResponse(
+          await executeAuthenticatedTranslateRequest(
+            req,
+            apiKeyRecord,
+            parsedBody,
+          ),
+        ),
+    });
+
+    if (result.kind === "conflict") {
+      return apiProblem({
+        status: 409,
+        title: "Idempotency conflict",
+        detail:
+          "Dieser Idempotency-Key wurde bereits mit einem anderen Request-Body verwendet.",
+        code: "idempotency_conflict",
+        instance: "/api/translate",
+      });
+    }
+
+    return restoreApiResponse(result.response);
+  } catch (error) {
+    console.error("[/api/translate] Idempotency/Authentifizierung fehlgeschlagen:", error);
+    return apiProblem({
+      status: 500,
+      title: "Internal server error",
+      detail: "Interner Server-Fehler",
+      code: "internal_error",
+      instance: "/api/translate",
+    });
   }
 }

@@ -47,6 +47,8 @@ test.describe("full UI audit", () => {
       `/projects/${projectId}/translations/glossary`,
       `/projects/${projectId}/translations/import-export`,
       `/projects/${projectId}/translations/visual`,
+      `/projects/${projectId}/translations/pros`,
+      `/projects/${projectId}/translations/pdf`,
       `/projects/${projectId}/translations/slugs`,
       `/projects/${projectId}/stats/requests`,
       `/projects/${projectId}/stats/page-views`,

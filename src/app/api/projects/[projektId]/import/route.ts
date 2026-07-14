@@ -21,6 +21,7 @@ import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { getCookieLocale } from "@/lib/request-locale";
 import { recordTranslationBatch } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
+import { resetTranslationWorkflowAfterContentEdit } from "@/lib/translation-workflow";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -193,7 +194,7 @@ async function importTranslationsPo(
     );
     const existing = await tx.translation.findUnique({
       where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      select: { id: true },
+      select: { id: true, workflowStatus: true, assignedToId: true },
     });
     const translation = await tx.translation.upsert({
       where: { projectId_originalHash: { projectId: project.id, originalHash } },
@@ -214,6 +215,9 @@ async function importTranslationsPo(
         langTo,
         isManual: true,
         source: "IMPORT",
+        ...(existing
+          ? resetTranslationWorkflowAfterContentEdit(existing)
+          : {}),
       },
     });
 
@@ -297,7 +301,7 @@ async function importTranslationsCsv(
     );
     const existing = await tx.translation.findUnique({
       where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      select: { id: true },
+      select: { id: true, workflowStatus: true, assignedToId: true },
     });
     const translation = await tx.translation.upsert({
       where: { projectId_originalHash: { projectId: project.id, originalHash } },
@@ -318,6 +322,9 @@ async function importTranslationsCsv(
         langTo: row.langTo,
         isManual: true,
         source: "IMPORT",
+        ...(existing
+          ? resetTranslationWorkflowAfterContentEdit(existing)
+          : {}),
       },
     });
 

@@ -12,8 +12,9 @@
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "test": "node --import tsx --test src/lib/*.test.ts",
+    "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "test:e2e": "playwright test",
-    "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done; node wordpress-plugin/deepglot/tests/DynamicTranslatorAssetTest.js",
+    "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done; node wordpress-plugin/deepglot/tests/DynamicTranslatorAssetTest.js; node wordpress-plugin/deepglot/tests/SwitcherVisualEditorTest.js",
     "test:e2e:headed": "playwright test --headed",
     "smoke:production": "node --import tsx scripts/production-smoke.ts",
     "smoke:stripe-webhooks": "node --import tsx scripts/stripe-webhook-smoke.ts",
@@ -21,7 +22,9 @@
     "acceptance:phase6": "node --import tsx scripts/phase-6-acceptance.ts",
     "acceptance:saas": "node --import tsx scripts/saas-acceptance.ts",
     "acceptance:neon": "node --import tsx scripts/neon-restore-drill.ts",
+    "acceptance:plan-schema": "node --import tsx scripts/plan-schema-acceptance.ts",
     "acceptance:stripe": "node --import tsx scripts/stripe-acceptance.ts",
+    "acceptance:visual-editor": "node --import tsx scripts/visual-editor-acceptance.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -42,6 +45,7 @@
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.20.0",
     "prisma": "^7.4.2",
     "radix-ui": "^1.4.3",
@@ -52,6 +56,7 @@
     "sonner": "^2.0.7",
     "stripe": "^20.4.0",
     "tailwind-merge": "^3.5.0",
+    "unpdf": "^1.6.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

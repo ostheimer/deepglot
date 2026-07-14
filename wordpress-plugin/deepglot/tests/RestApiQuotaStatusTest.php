@@ -89,6 +89,13 @@ if (!function_exists('__')) {
             ];
         }
 
+        if ($GLOBALS['_dgstatus_remote_mode'] === 'problem_details') {
+            return [
+                'response' => ['code' => 500],
+                'body' => '{"detail":"Standard problem detail.","error":"Legacy problem alias."}',
+            ];
+        }
+
         return [
             'response' => ['code' => 200],
             'body' => '{"from_words":["Test"],"to_words":["Test"]}',
@@ -284,5 +291,20 @@ $okResponse = $api->testConnection(new WP_REST_Request([
 
 dgstatusCheck($okResponse->get_status() === 200, 'Healthy test-connection should still pass.');
 dgstatusCheck($sync->syncCalls === 1, 'Healthy test-connection should still sync candidate settings.');
+
+$GLOBALS['_dgstatus_remote_mode'] = 'problem_details';
+$sync = new RestApiQuotaFakeSettingsSync();
+$api = new RestApi(new Options(), $sync);
+$problemResponse = $api->testConnection(new WP_REST_Request([
+    'api_key' => 'dg_live_quota',
+    'api_base_url' => 'https://deepglot.test/api',
+]));
+$problemData = $problemResponse->get_data();
+
+dgstatusCheck($problemResponse->get_status() === 422, 'Problem Details connection failures should fail validation.');
+dgstatusCheck(
+    $problemData['error'] === 'Standard problem detail.',
+    'Connection checks must prefer Problem Details detail over the legacy error alias.'
+);
 
 fwrite(STDOUT, "RestApiQuotaStatusTest: OK\n");

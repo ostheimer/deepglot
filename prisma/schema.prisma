@@ -180,23 +180,28 @@ model ProjectLanguage {
 // ─── Translations (Übersetzungs-Cache) ────────────────────────────────────
 
 model Translation {
-  id             String            @id @default(cuid())
-  originalHash   String            // md5 of (originalText + langFrom + langTo)
+  id             String                    @id @default(cuid())
+  originalHash   String                    // md5 of (originalText + langFrom + langTo)
   originalText   String
   translatedText String
-  langFrom       String            // ISO 639-1
-  langTo         String            // ISO 639-1
-  source         TranslationSource @default(DEEPL)
-  isManual       Boolean           @default(false) // manually edited
-  wordCount      Int               @default(0)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  langFrom       String                    // ISO 639-1
+  langTo         String                    // ISO 639-1
+  source         TranslationSource         @default(DEEPL)
+  isManual       Boolean                   @default(false) // manually edited
+  wordCount      Int                       @default(0)
+  workflowStatus TranslationWorkflowStatus @default(MACHINE)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
 
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  assignedToId String?
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo  ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
+  @@index([projectId, langTo, workflowStatus])
+  @@index([assignedToId])
 }
 
 enum TranslationSource {
@@ -206,6 +211,13 @@ enum TranslationSource {
   MANUAL
   MOCK
   IMPORT
+}
+
+enum TranslationWorkflowStatus {
+  MACHINE
+  ASSIGNED
+  IN_REVIEW
+  APPROVED
 }
 
 // ─── API Keys (Plugin-Authentifizierung) ──────────────────────────────────
@@ -311,6 +323,7 @@ model ProjectMember {
   userId    String?
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignedTranslations Translation[] @relation("TranslationAssignment")
 
   @@unique([projectId, email])
   @@index([userId])
@@ -487,6 +500,25 @@ model RateLimitBucket {
 
   @@unique([scope, subjectHash])
   @@index([resetAt])
+}
+
+model ApiIdempotencyRecord {
+  id              String   @id @default(cuid())
+  scope           String
+  keyHash         String
+  requestHash     String
+  status          String
+  ownerToken      String?
+  responseStatus  Int?
+  responseHeaders Json?
+  responseBody    String?
+  expiresAt       DateTime
+  leaseExpiresAt  DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([scope, keyHash])
+  @@index([expiresAt])
 }
 
 enum WebhookDeliveryStatus {

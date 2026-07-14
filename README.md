@@ -53,20 +53,20 @@ Deepglot now uses English as the canonical URL structure across the public site 
   - `/projects`
   - `/subscription`
   - `/settings`
-  - `/docs` (WIP/Draft)
+  - `/docs` (public developer and WordPress integration reference)
   - Legal pages (German statutory requirements):
     - `/terms` (Terms of Service)
     - `/privacy` (Privacy Policy)
     - `/legal-notice` (Legal Notice)
-- German localized routes use the same path structure under `/de`:
+- German localized routes use translated path segments under `/de`:
   - `/de`
-  - `/de/pricing`
-  - `/de/login`
-  - `/de/signup`
+  - `/de/preise`
+  - `/de/anmelden`
+  - `/de/registrieren`
   - `/de/dashboard`
-  - `/de/projects`
-  - `/de/subscription`
-  - `/de/settings`
+  - `/de/projekte`
+  - `/de/abonnement`
+  - `/de/einstellungen`
 - Legacy German routes such as `/preise`, `/anmelden`, `/registrieren`, and `/projekte/...` redirect to their canonical `/de/...` equivalents.
 
 Internally, the Next.js app still uses the existing route folders (e.g. `/projekte`, `/abonnement`, `/einstellungen`), while `src/proxy.ts` rewrites the external English path structure (`/projects`, `/subscription`, `/settings`) to the current internal implementation. The proxy also forwards the active locale through the request context and syncs the locale cookie so localized `/de/...` routes behave consistently during full-page navigation and auth redirects.
@@ -109,7 +109,7 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Current version: **v0.8.3**. v0.8.3 guards the local translation cache against bot cache-poisoning ([#163](https://github.com/ostheimer/deepglot/issues/163)): identity mappings from cache-only bot responses are no longer persisted, so a crawler being the first visitor of an uncached page can no longer pin source-language text into the 30-day transient cache for later human visitors. v0.8.2 stops bot traffic from burning translation quota (new `BotDetector` maps the visitor UA to the legacy bot code; bots are served cache-only — crawlers receive cached translations, and uncached URLs fall back to source-language content until a human visit warms the cache), surfaces quota exhaustion to operators (wp-admin notice, plugin status endpoint, dashboard warning/limit banners, owner email alerts at 90%/100%), and makes the dynamic-translator proxy return `quota_exhausted` so the browser stops retrying (closes [#147](https://github.com/ostheimer/deepglot/issues/147) and [#148](https://github.com/ostheimer/deepglot/issues/148)). v0.8.1 (2026-06-10) fixed a runtime-sync race that could revert freshly saved admin settings on busy sites and passed live QA for the dynamic-content translator on `meinhaushalt.at` (see `wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md`). v0.8.3 is deployed on `meinhaushalt.at` and live-verified (2026-07-03): the poisoned transient cache was flushed and re-warmed with real translations only.
+The plugin lives in `wordpress-plugin/deepglot`. Repository version: **v0.10.0**; the verified `meinhaushalt.at` production install remains **v0.8.6**, so repository and production are intentionally not described as in sync. v0.10.0 adds independent switcher instances, versioned templates, safe visual placement, real AMP option enforcement, and a validated multilingual sitemap. v0.8.6 added rollback of plugin-side fresh-word reservations after failed SaaS calls. Earlier v0.8.x releases added the dynamic-content translator, fixed runtime-sync races, stopped bots from consuming fresh quota, surfaced quota exhaustion, and prevented cache-only bot identity responses from poisoning the local translation cache. See `wordpress-plugin/deepglot/README.md`, `ROADMAP.md`, and `HANDOFF.md` for the implementation, test, deployment, and live-verification boundaries.
 
 Features:
 
@@ -122,7 +122,7 @@ Features:
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
 - hreflang SEO tags and `<html lang>` switching
-- Language switcher: shortcode `[deepglot_switcher]`, action hook, 5 flag styles, list/dropdown mode, 4 fixed/floating positions, per-language custom flags, responsive hide
+- Independent language switchers: named shortcode/block/widget/automatic instances, safe legacy migration, 5 flag styles, list/dropdown mode, fixed/floating or validated selector placement, per-language custom flags, responsive hide, three versioned templates, and a same-origin visual placement preview
 - Gutenberg block for language switcher
 - Classic widget for language switcher
 - WordPress nav-menu integration
@@ -131,13 +131,15 @@ Features:
 - REST API v1 at `/wp-json/deepglot/v1/` for settings CRUD, status, and test-connection
 - WooCommerce order email translation
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
+- AMP translation option enforced before runtime sync, cache, and provider work
+- Multilingual sitemap at `/deepglot-sitemap.xml` with validated internal source/target/`x-default` alternatives and `robots.txt` discovery
 - Subdomain support (`de.example.com`) (implemented; live QA pending — requires `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`)
 - Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
 - Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive email to the organization owner when 90% or 100% of the monthly word limit is reached
 - Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
-- 28 PHP unit tests plus `DynamicTranslatorAssetTest.js` covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, language switcher rendering, block/widget rendering, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation controller, runtime-config race conditions, and bot cache-poisoning prevention
+- 33 PHP fixtures plus the dynamic-translator and visual-switcher JavaScript regressions, covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, independent switchers, AMP, multilingual sitemap, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation, runtime-config races, and bot cache-poisoning prevention
 
-Run the PHP test suite (all PHP tests + DynamicTranslatorAssetTest.js) locally:
+Run the full WordPress suite locally:
 
 ```bash
 npm run test:wp
@@ -209,6 +211,17 @@ npm run acceptance:neon -- --env-file .env.production.local --create
 ```
 
 This script creates only a temporary child branch and never writes to `prod`.
+
+**Plan schema acceptance**
+
+Check a configured database for all canonical `Plan` enum values and verify that no `Organization` or `Subscription` rows still use the deprecated `PROFESSIONAL` alias:
+
+```bash
+npm run acceptance:plan-schema -- --env-file .env.development.local
+npm run acceptance:plan-schema -- --env-file .env.production.local
+```
+
+The guard uses `DEEPGLOT_DATABASE_URL` first and falls back to `DATABASE_URL`. It runs only read-only catalog and aggregate count queries. Its output includes the database hostname, observed enum values, and row counts, but never the connection credentials. CI runs the same guard against its local PostgreSQL database after `prisma db push`; run it separately against shared Neon environments to detect environment-specific schema drift.
 
 **Option B – Neon Console**  
 1. In the [Neon Console](https://console.neon.tech), open **Branches** and create a branch named `prod` with parent `main`.

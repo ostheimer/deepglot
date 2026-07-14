@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.8.6**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.10.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
 
 ## Author
 
@@ -47,12 +47,22 @@ The plugin ships a complete translation pipeline:
 - `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
 - `LinkRewriter` rewrites internal links; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
 - A WordPress-transient translation cache, batched + parallel API requests, and path-prefix / subdomain routing.
-- Language switcher (shortcode, Gutenberg block, classic widget, nav-menu), WooCommerce email translation, and browser-language redirect.
+- Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
+- WooCommerce email translation and browser-language redirect.
+- AMP translation is controlled by the `translate_amp` option: when disabled,
+  detected AMP endpoints bypass the output pipeline entirely; when enabled,
+  AMP uses the same translation, bot classification, and cache-safety path as
+  ordinary pages.
+- A dedicated multilingual sitemap at `/deepglot-sitemap.xml`, advertised in
+  `robots.txt`, lists public WordPress posts, pages, and taxonomy terms with
+  source, active target-language, and `x-default` alternates. Generated URLs
+  follow path-prefix or configured subdomain routing; translation exclusions
+  and external URLs are rejected before XML serialization.
 - An opt-in client-side translator for content loaded after page render (see below).
 
 ## Test
 
-Run the full plugin suite (PHP unit tests + the dynamic-translator JS regression):
+Run the full plugin suite (PHP unit tests plus dynamic-translator and visual-switcher JS regressions):
 
 ```bash
 npm run test:wp
@@ -63,6 +73,17 @@ Or a single PHP test directly:
 ```bash
 php wordpress-plugin/deepglot/tests/UrlLanguageResolverTest.php
 ```
+
+## Language-switcher instances
+
+The legacy global switcher is migrated to the `default` instance without changing its appearance or auto-inject behavior. Additional instances can be created from versioned templates under `Settings → Deepglot → Sprachumschalter` and edited independently.
+
+- Shortcode: `[deepglot_switcher instance="header-main"]`
+- Gutenberg block: set the instance ID in the block inspector.
+- Classic widget: select the saved instance in the widget form.
+- Automatic placement: enable auto placement and either enter a conservative DOM selector or select an element in the same-origin, script-free preview iframe.
+
+If a saved selector is invalid or no longer exists after a theme change, the switcher remains at its safe WordPress footer fallback. Every render retains a unique checkbox/label ID for independent dropdown and ARIA state.
 
 ## Dynamic content translation (opt-in)
 

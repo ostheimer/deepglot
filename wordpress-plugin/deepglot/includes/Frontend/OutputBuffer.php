@@ -53,6 +53,13 @@ class OutputBuffer
             return;
         }
 
+        // The admin toggle must gate the actual output pipeline, not only the
+        // settings-sync payload. Bail before runtime config, exclusions, cache
+        // reads or translation calls so an opted-out AMP response is untouched.
+        if ($this->isAmpRequest() && !$this->options->shouldTranslateAmp()) {
+            return;
+        }
+
         $this->maybeRefreshRuntimeConfig();
 
         if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
@@ -200,6 +207,39 @@ class OutputBuffer
         }
 
         return $uri;
+    }
+
+    /**
+     * Detect AMP across the official AMP plugin helper, legacy query-var mode,
+     * and canonical `/amp/` endpoints. Each fallback is deliberately narrow so
+     * ordinary slugs containing the letters "amp" are not misclassified.
+     */
+    private function isAmpRequest(): bool
+    {
+        if (function_exists('is_amp_endpoint') && is_amp_endpoint()) {
+            return true;
+        }
+
+        if (function_exists('amp_is_request') && amp_is_request()) {
+            return true;
+        }
+
+        $queryValue = function_exists('get_query_var') ? get_query_var('amp', null) : null;
+        if ($queryValue !== null && $queryValue !== '' && $queryValue !== false && $queryValue !== '0' && $queryValue !== 0) {
+            return true;
+        }
+
+        if (array_key_exists('amp', $_GET)) {
+            $getValue = $_GET['amp'];
+            if ($getValue !== '' && $getValue !== '0' && $getValue !== 0 && $getValue !== false) {
+                return true;
+            }
+        }
+
+        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $path = (string) parse_url($uri, PHP_URL_PATH);
+
+        return preg_match('#/amp/?$#i', $path) === 1;
     }
 
     private function loadDocument(string $html): \DOMDocument

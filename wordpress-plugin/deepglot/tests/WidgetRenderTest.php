@@ -216,4 +216,38 @@ $widgetOff->widget($widgetArgs, ['title' => '']);
 $offOutput = ob_get_clean();
 widgetAssert(!str_contains($offOutput, '<aside class="deepglot-switcher'), 'Disabled plugin: widget body is empty');
 
+// 8. Issue #57: each widget stores and renders an independent switcher
+// instance instead of silently falling back to the global appearance.
+SwitcherWidget::bind(makeWidgetEnv([
+    'switcher_instances_version' => 1,
+    'switcher_instances' => [
+        [
+            'id' => 'default', 'name' => 'Standard', 'enabled' => true,
+            'auto_inject' => false, 'style' => 'list', 'flag_style' => 'rectangle_mat',
+            'show_label' => true, 'label_format' => 'full_name', 'language_order' => [],
+            'custom_css' => '', 'position' => 'inline', 'responsive_hide' => 'none',
+            'responsive_breakpoint' => 768, 'custom_flags' => [], 'selector' => '',
+        ],
+        [
+            'id' => 'sidebar-dropdown', 'name' => 'Sidebar', 'enabled' => true,
+            'auto_inject' => false, 'style' => 'dropdown', 'flag_style' => 'none',
+            'show_label' => true, 'label_format' => 'iso_code', 'language_order' => [],
+            'custom_css' => '', 'position' => 'inline', 'responsive_hide' => 'none',
+            'responsive_breakpoint' => 768, 'custom_flags' => [], 'selector' => '',
+        ],
+    ],
+]));
+$instanceWidget = new SwitcherWidget();
+ob_start();
+$instanceWidget->widget($widgetArgs, ['title' => '', 'instance_id' => 'sidebar-dropdown']);
+$instanceWidgetOutput = ob_get_clean();
+widgetAssert(str_contains($instanceWidgetOutput, 'data-deepglot-instance="sidebar-dropdown"'), 'Widget instance_id selects the saved instance');
+widgetAssert(str_contains($instanceWidgetOutput, 'deepglot-switcher--dropdown'), 'Widget instance keeps independent dropdown style');
+$updatedInstance = $instanceWidget->update(['title' => '', 'instance_id' => 'sidebar-dropdown<script>'], []);
+widgetAssert(($updatedInstance['instance_id'] ?? null) === 'sidebar-dropdownscript', 'Widget instance id is sanitized');
+ob_start();
+$instanceWidget->form(['title' => '', 'instance_id' => 'sidebar-dropdown']);
+$instanceForm = ob_get_clean();
+widgetAssert(str_contains($instanceForm, 'instance_id'), 'Widget form exposes an instance selector');
+
 fwrite(STDOUT, "WidgetRenderTest: OK\n");

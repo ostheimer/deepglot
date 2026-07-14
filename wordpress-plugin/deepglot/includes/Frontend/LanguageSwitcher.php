@@ -67,8 +67,16 @@ class LanguageSwitcher
         add_action('deepglot_language_switcher', [$this, 'renderAction']);
         add_action('wp_enqueue_scripts', [$this, 'enqueueStyles']);
 
-        if ($this->options->shouldAutoInjectSwitcher()) {
-            add_action('wp_footer', [$this, 'renderAction']);
+        foreach ($this->options->getAutoInjectSwitcherInstances() as $instance) {
+            $instanceId = (string) ($instance['id'] ?? 'default');
+            if ($instanceId === 'default') {
+                add_action('wp_footer', [$this, 'renderAutoAction']);
+                continue;
+            }
+
+            add_action('wp_footer', function () use ($instanceId): void {
+                $this->renderInstanceAction($instanceId);
+            });
         }
     }
 
@@ -80,6 +88,24 @@ class LanguageSwitcher
     public function renderAction(): void
     {
         echo $this->buildHtml([]); // phpcs:ignore WordPress.Security.EscapeOutput
+    }
+
+    public function renderInstanceAction(string $instanceId): void
+    {
+        echo $this->buildHtml(['instance' => $instanceId, '_auto_placement' => true]); // phpcs:ignore WordPress.Security.EscapeOutput
+    }
+
+    public function renderAutoAction(): void
+    {
+        echo $this->buildHtml(['instance' => 'default', '_auto_placement' => true]); // phpcs:ignore WordPress.Security.EscapeOutput
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function getInstances(): array
+    {
+        return $this->options->getSwitcherInstances();
     }
 
     public function enqueueStyles(): void
@@ -120,6 +146,15 @@ class LanguageSwitcher
             return '';
         }
 
+        $requestedInstance = isset($atts['instance'])
+            ? (string) $atts['instance']
+            : (isset($atts['id']) ? (string) $atts['id'] : 'default');
+        $instance = $this->options->getSwitcherInstance($requestedInstance);
+        if (empty($instance['enabled'])) {
+            return '';
+        }
+        $instanceId = (string) ($instance['id'] ?? 'default');
+
         $requestUri    = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $host          = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
         $sourceLang    = $this->options->getSourceLanguage();
@@ -139,17 +174,17 @@ class LanguageSwitcher
             ?? $sourceLang;
         $canonicalPath = $this->routing->getCanonicalPath($requestUri);
 
-        $style = $this->options->getSwitcherDefaultStyle();
+        $style = (string) ($instance['style'] ?? $this->options->getSwitcherDefaultStyle());
         if (isset($atts['style']) && in_array($atts['style'], Options::SWITCHER_STYLES, true)) {
             $style = $atts['style'];
         }
 
-        $flagStyle     = $this->options->getSwitcherFlagStyle();
-        $labelFormat   = $this->options->getSwitcherLabelFormat();
-        $showLabel     = $this->options->shouldShowSwitcherLabel();
-        $languageOrder = $this->options->getSwitcherLanguageOrder();
-        $position      = $this->options->getSwitcherPosition();
-        $customCss     = $this->options->getSwitcherCustomCss();
+        $flagStyle     = (string) ($instance['flag_style'] ?? $this->options->getSwitcherFlagStyle());
+        $labelFormat   = (string) ($instance['label_format'] ?? $this->options->getSwitcherLabelFormat());
+        $showLabel     = (bool) ($instance['show_label'] ?? $this->options->shouldShowSwitcherLabel());
+        $languageOrder = is_array($instance['language_order'] ?? null) ? $instance['language_order'] : [];
+        $position      = (string) ($instance['position'] ?? $this->options->getSwitcherPosition());
+        $customCss     = (string) ($instance['custom_css'] ?? $this->options->getSwitcherCustomCss());
         $autoRedirect  = $this->options->shouldAutoRedirect();
 
         $configured   = array_values(array_unique(array_merge([$sourceLang], $targetLangs)));
@@ -242,12 +277,16 @@ class LanguageSwitcher
         }
         $items .= '</ul>';
 
-        $css           = $this->renderCustomCss($customCss);
+        $css           = $this->renderCustomCss($customCss, $instanceId);
         $responsiveCss = $this->renderResponsiveCss(
-            $this->options->getSwitcherResponsiveHide(),
-            $this->options->getSwitcherResponsiveBreakpoint()
+            (string) ($instance['responsive_hide'] ?? 'none'),
+            (int) ($instance['responsive_breakpoint'] ?? Options::SWITCHER_BREAKPOINT_DEFAULT),
+            $instanceId
         );
-        $customFlags   = $this->renderCustomFlagsCss($this->options->getSwitcherCustomFlags());
+        $customFlags   = $this->renderCustomFlagsCss(
+            is_array($instance['custom_flags'] ?? null) ? $instance['custom_flags'] : [],
+            $instanceId
+        );
         $ariaLabel     = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
 
@@ -263,9 +302,18 @@ class LanguageSwitcher
             $popupAttrs = ' aria-haspopup="listbox" aria-expanded="false"';
         }
 
+        $targetSelector = !empty($atts['_auto_placement'])
+            ? (string) ($instance['selector'] ?? '')
+            : '';
+        $targetAttribute = $targetSelector !== ''
+            ? ' data-deepglot-target="' . esc_attr($targetSelector) . '"'
+            : '';
+
         return $css . $responsiveCss . $customFlags . $marker . sprintf(
-            '<aside class="%s" data-deepglot-no-translate tabindex="0"%s aria-label="%s">%s%s</aside>',
+            '<aside class="%s" data-deepglot-no-translate data-deepglot-instance="%s"%s tabindex="0"%s aria-label="%s">%s%s</aside>',
             esc_attr(implode(' ', $wrapperClasses)),
+            esc_attr($instanceId),
+            $targetAttribute,
             $popupAttrs,
             esc_attr($ariaLabel),
             $current,
@@ -280,7 +328,7 @@ class LanguageSwitcher
      * last mobile width — matches the common `max-width: 768px` /
      * `min-width: 769px` convention site themes already use.
      */
-    private function renderResponsiveCss(string $hide, int $breakpoint): string
+    private function renderResponsiveCss(string $hide, int $breakpoint, string $instanceId): string
     {
         if ($hide === 'none') {
             return '';
@@ -294,7 +342,7 @@ class LanguageSwitcher
 
         return '<style class="deepglot-switcher__responsive-css">'
             . $mediaQuery
-            . ' { .deepglot-switcher { display: none !important; } }'
+            . ' { .deepglot-switcher[data-deepglot-instance="' . esc_attr($instanceId) . '"] { display: none !important; } }'
             . '</style>';
     }
 
@@ -310,13 +358,14 @@ class LanguageSwitcher
      *
      * @param array<string,string> $customFlags
      */
-    private function renderCustomFlagsCss(array $customFlags): string
+    private function renderCustomFlagsCss(array $customFlags, string $instanceId): string
     {
         if (empty($customFlags)) {
             return '';
         }
 
         $rules = '';
+        $scope = '.deepglot-switcher[data-deepglot-instance="' . esc_attr($instanceId) . '"] ';
         foreach ($customFlags as $lang => $value) {
             $langSafe = preg_replace('/[^a-z0-9_-]/i', '', $lang);
             if ($langSafe === '') {
@@ -325,14 +374,17 @@ class LanguageSwitcher
 
             if ($this->looksLikeUrl($value)) {
                 $rules .= sprintf(
-                    '.deepglot-flag--%s{background-image:url("%s");background-size:cover;background-position:center;}.deepglot-flag--%s::before{content:"";}',
+                    '%s.deepglot-flag--%s{background-image:url("%s");background-size:cover;background-position:center;}%s.deepglot-flag--%s::before{content:"";}',
+                    $scope,
                     $langSafe,
                     $value,
+                    $scope,
                     $langSafe
                 );
             } else {
                 $rules .= sprintf(
-                    '.deepglot-flag--%s::before{content:"%s";}',
+                    '%s.deepglot-flag--%s::before{content:"%s";}',
+                    $scope,
                     $langSafe,
                     $value
                 );
@@ -436,7 +488,7 @@ class LanguageSwitcher
      * tag-like syntax) and removing it neutralises any `</style>` /
      * `<script>` breakout that a hostile or sloppy paste could smuggle in.
      */
-    private function renderCustomCss(string $css): string
+    private function renderCustomCss(string $css, string $instanceId): string
     {
         $css = trim($css);
         if ($css === '') {
@@ -444,6 +496,17 @@ class LanguageSwitcher
         }
 
         $safe = str_replace('<', '', $css);
+
+        // Preserve the migrated global/default CSS byte-for-byte. New named
+        // instances scope the conventional `.deepglot-switcher` selector so
+        // editing one instance does not restyle its siblings.
+        if ($instanceId !== 'default') {
+            $safe = str_replace(
+                '.deepglot-switcher',
+                '.deepglot-switcher[data-deepglot-instance="' . $instanceId . '"]',
+                $safe
+            );
+        }
 
         return '<style class="deepglot-switcher__custom-css">' . $safe . '</style>';
     }

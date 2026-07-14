@@ -8,6 +8,8 @@ import { getLanguageName } from "@/lib/language-names";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 import { requireProjectManagement } from "@/lib/project-page-access";
 import { uiText } from "@/lib/static-copy";
+import { TranslationMemoryToggle } from "@/components/projekte/translation-memory-toggle";
+import { planSupportsTranslationMemory } from "@/lib/translation-memory";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -33,7 +35,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
 
   const project = await db.project.findUnique({
     where: { id: projektId },
-    include: { settings: true },
+    include: { settings: true, organization: { select: { plan: true } } },
   });
   if (!project) notFound();
 
@@ -43,8 +45,6 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
   const originalLanguageId = "original-language";
   const openWebsiteLabel =
     uiText(locale, "Open website in a new tab", "Website in neuem Tab öffnen");
-  const translationMemoryLabel =
-    uiText(locale, "Translation memory (beta)", "Übersetzungsgedächtnis (Beta)");
 
   return (
     <div className="max-w-3xl">
@@ -158,27 +158,12 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
           disabled
           className="border-x border-gray-200"
         />
-        <div className="bg-white border-x border-gray-200 p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {translationMemoryLabel}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {uiText(locale, "Translation memory is available starting with the Professional plan.", "Das Übersetzungsgedächtnis ist ab dem Professional-Plan verfügbar.")}
-              </p>
-            </div>
-            <div className="relative">
-              <input
-                type="checkbox"
-                aria-label={translationMemoryLabel}
-                disabled
-                className="sr-only"
-              />
-              <div className="h-5 w-9 rounded-full bg-gray-200 cursor-not-allowed opacity-50" />
-            </div>
-          </div>
-        </div>
+        <TranslationMemoryToggle
+          projectId={projektId}
+          locale={locale}
+          initialEnabled={s?.translationMemory ?? false}
+          eligible={planSupportsTranslationMemory(project.organization.plan)}
+        />
 
         {/* Website type + Industry */}
         <section className="bg-white border border-gray-200 rounded-b-xl p-6">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { apiProblem } from "@/lib/problem-details";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,12 @@ export async function GET() {
     await db.$queryRaw`SELECT 1`;
     return new NextResponse(null, { status: 200 });
   } catch {
-    return new NextResponse(null, { status: 503 });
+    return apiProblem({
+      status: 503,
+      title: "Service unavailable",
+      detail: "The Deepglot API cannot reach its database.",
+      code: "service_unavailable",
+      instance: "/api/public/status",
+    });
   }
 }

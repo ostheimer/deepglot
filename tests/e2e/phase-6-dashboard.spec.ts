@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 
 import { e2eId, signInAndGetProjectId } from "./helpers";
 
@@ -239,5 +240,77 @@ test.describe("Phase 6 dashboard flows", () => {
     expect(invalidVerification.status()).toBe(401);
     const invalidBody = (await invalidVerification.json()) as { ok: boolean };
     expect(invalidBody.ok).toBe(false);
+  });
+
+  test("assigns, reviews, approves, and reopens a translation segment", async ({
+    page,
+  }) => {
+    const projectId = await signInAndGetProjectId(page);
+
+    await page.goto(`/projects/${projectId}/translations/pros`);
+    await expect(
+      page.getByRole("heading", { name: "Human review" })
+    ).toBeVisible();
+
+    const segment = page
+      .locator("article")
+      .filter({ hasText: "Willkommen bei Deepglot" })
+      .first();
+    await expect(segment).toBeVisible();
+
+    const assignee = segment.getByLabel("Assign segment");
+    await assignee.selectOption({ label: "translator@deepglot.local" });
+    await expect(segment.getByText("Assigned", { exact: true })).toBeVisible();
+
+    await segment.getByRole("button", { name: "Submit for review" }).click();
+    await expect(segment.getByText("In review", { exact: true })).toBeVisible();
+
+    await segment.getByRole("button", { name: "Approve" }).click();
+    await expect(segment.getByText("Approved", { exact: true })).toBeVisible();
+
+    await segment.getByRole("button", { name: "Reopen" }).click();
+    await expect(segment.getByText("Assigned", { exact: true })).toBeVisible();
+    await assignee.selectOption("");
+    await expect(segment.getByText("Machine", { exact: true })).toBeVisible();
+  });
+
+  test("translates a text PDF and downloads a bounded reflow output", async ({
+    page,
+  }) => {
+    const projectId = await signInAndGetProjectId(page);
+    const source = await PDFDocument.create();
+    const font = await source.embedFont(StandardFonts.Helvetica);
+    const sourcePage = source.addPage([595, 842]);
+    sourcePage.drawText("Hallo Welt aus dem Browser.", {
+      x: 48,
+      y: 780,
+      size: 12,
+      font,
+    });
+    const sourceBytes = await source.save();
+
+    await page.goto(`/projects/${projectId}/translations/pdf`);
+    await expect(
+      page.getByRole("heading", { name: "PDF translation" })
+    ).toBeVisible();
+    await page.getByLabel("Target language").selectOption("en");
+    await page.locator("#pdf-source-file").setInputFiles({
+      name: "browser-source.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(sourceBytes),
+    });
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Translate and download" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe(
+      "browser-source-deepglot-en.pdf"
+    );
+    const outputPath = await download.path();
+    expect(outputPath).toBeTruthy();
+    const outputBytes = await readFile(outputPath!);
+    expect(outputBytes.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    await expect(page.getByText("Translated PDF downloaded.")).toBeVisible();
   });
 });

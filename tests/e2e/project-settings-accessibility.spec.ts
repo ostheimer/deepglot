@@ -25,7 +25,7 @@ test.describe("project settings accessibility", () => {
       page.getByRole("switch", { name: "Automatic content translation" })
     ).toBeDisabled();
     await expect(
-      page.getByRole("checkbox", { name: "Translation memory (beta)" })
+      page.getByRole("switch", { name: "Translation memory" })
     ).toBeDisabled();
   });
 

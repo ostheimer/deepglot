@@ -14,6 +14,7 @@ use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
 use Deepglot\Frontend\LinkRewriter;
+use Deepglot\Frontend\MultilingualSitemap;
 use Deepglot\Frontend\NavMenuSwitcher;
 use Deepglot\Frontend\OutputBuffer;
 use Deepglot\Frontend\SwitcherBlock;
@@ -51,6 +52,7 @@ class Plugin
         $this->container->get(SettingsSync::class)->register();
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
+        $this->container->get(MultilingualSitemap::class)->register();
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(DynamicTranslationController::class)->register();
         $this->container->get(DynamicAssets::class)->register();
@@ -170,6 +172,13 @@ class Plugin
 
         $this->container->singleton(HreflangInjector::class, function (Container $c) {
             return new HreflangInjector($c->get(Options::class), $c->get(SiteRouting::class));
+        });
+
+        $this->container->singleton(MultilingualSitemap::class, function (Container $c) {
+            return new MultilingualSitemap(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class)
+            );
         });
 
         $this->container->singleton(OutputBuffer::class, function (Container $c) {

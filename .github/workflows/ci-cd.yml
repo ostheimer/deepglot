@@ -68,6 +68,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Run ESLint
+        run: npm run lint
+
       - name: Check Markdown documentation language
         run: npm run check:docs-language
 
@@ -88,6 +91,15 @@ jobs:
 
       - name: Prepare Playwright database
         run: npx prisma db push
+
+      - name: Verify Plan schema acceptance
+        run: npm run acceptance:plan-schema
+
+      - name: Verify Visual Editor persistence acceptance
+        run: npm run acceptance:visual-editor
+
+      - name: Run PostgreSQL integration tests
+        run: npm run test:integration
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

@@ -9,6 +9,7 @@ import {
   recordWebhookProcessorRun,
 } from "@/lib/webhook-processor";
 import { isWebhookProcessRequestAuthorized } from "@/lib/webhook-cron";
+import { pruneExpiredApiIdempotencyRecords } from "@/lib/api-idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,12 @@ export async function GET(request: NextRequest) {
   }
 
   const startedAt = Date.now();
+  const idempotencyRecordsPruned = await pruneExpiredApiIdempotencyRecords().catch(
+    (error) => {
+      console.error("[GET /api/webhooks/process] Idempotency cleanup failed:", error);
+      return 0;
+    },
+  );
 
   try {
     const results = await dispatchPendingWebhookDeliveries();
@@ -37,6 +44,7 @@ export async function GET(request: NextRequest) {
       delivered: summary.delivered,
       failed: summary.failed,
       pendingRemaining: summary.pendingRemaining,
+      idempotencyRecordsPruned,
       durationMs: summary.durationMs,
     });
   } catch (error) {
