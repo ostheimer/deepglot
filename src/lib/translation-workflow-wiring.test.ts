@@ -91,4 +91,15 @@ test("visual-editor and import content writes invalidate stale approval", () => 
     importRoute.match(/workflowStatus:\s*true/g)?.length === 2,
     "both PO and CSV translation imports must load workflow state",
   );
+  const importUpserts = importRoute
+    .split("const translation = await tx.translation.upsert")
+    .slice(1);
+  assert.equal(importUpserts.length, 2, "expected PO and CSV import upserts");
+  for (const upsert of importUpserts) {
+    assert.ok(
+      upsert.indexOf("resetTranslationWorkflowAfterContentEdit(existing)") >
+        upsert.indexOf("update:"),
+      "each import update must invalidate stale workflow approval",
+    );
+  }
 });
