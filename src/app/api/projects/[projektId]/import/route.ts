@@ -207,9 +207,6 @@ async function importTranslationsPo(
         langTo,
         isManual: true,
         source: "IMPORT",
-        ...(existing
-          ? resetTranslationWorkflowAfterContentEdit(existing)
-          : {}),
         wordCount: countWords(row.originalText),
       },
       update: {
@@ -218,6 +215,9 @@ async function importTranslationsPo(
         langTo,
         isManual: true,
         source: "IMPORT",
+        ...(existing
+          ? resetTranslationWorkflowAfterContentEdit(existing)
+          : {}),
       },
     });
 
@@ -314,9 +314,6 @@ async function importTranslationsCsv(
         langTo: row.langTo,
         isManual: true,
         source: "IMPORT",
-        ...(existing
-          ? resetTranslationWorkflowAfterContentEdit(existing)
-          : {}),
         wordCount: countWords(row.originalText),
       },
       update: {
@@ -325,6 +322,9 @@ async function importTranslationsCsv(
         langTo: row.langTo,
         isManual: true,
         source: "IMPORT",
+        ...(existing
+          ? resetTranslationWorkflowAfterContentEdit(existing)
+          : {}),
       },
     });
 
