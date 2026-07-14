@@ -37,8 +37,8 @@ export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
       description={
         uiText(
           locale,
-          "This notice explains how Deepglot processes personal data for accounts, translation projects, integrations, support, security, and billing. Last updated: 13 July 2026.",
-          "Diese Erklärung beschreibt, wie Deepglot personenbezogene Daten für Konten, Übersetzungsprojekte, Integrationen, Support, Sicherheit und Abrechnung verarbeitet. Stand: 13. Juli 2026."
+          "This notice explains how Deepglot processes personal data for accounts, translation projects, integrations, support, security, and billing. Last updated: 14 July 2026.",
+          "Diese Erklärung beschreibt, wie Deepglot personenbezogene Daten für Konten, Übersetzungsprojekte, Integrationen, Support, Sicherheit und Abrechnung verarbeitet. Stand: 14. Juli 2026."
         )
       }
       sections={[

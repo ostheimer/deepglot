@@ -1,6 +1,6 @@
 # Open issue resolution record
 
-Snapshot: 2026-07-13. This record covers every issue that was open when the
+Snapshot: 2026-07-13; owner approval updated 2026-07-14. This record covers every issue that was open when the
 work began. It distinguishes code that is implemented and tested from explicit
 product decisions. It is an audit aid, not a replacement for the linked tests,
 GitHub discussion, deployment evidence, or legal approval.
@@ -15,7 +15,7 @@ GitHub discussion, deployment evidence, or legal approval.
 | #167 | Accepted defer decision | MCP remains unavailable until public API prerequisites and a two-user Demand gate are met. |
 | #166 | Implemented and tested | Shared Problem Details contract across public/plugin APIs, legacy error compatibility, and WordPress client coverage. |
 | #161 | Implemented and tested | Persistent translation idempotency, exact replay, conflict handling, concurrency coalescing, cleanup, and real PostgreSQL integration. |
-| #159 | Owner/legal approval required | Product-current legal drafts, route guards, current operator data, and a maintenance checklist exist. The issue must not be closed without explicit owner approval and qualified review where needed. |
+| #159 | Owner-approved for current launch stage | Product-current legal texts, route guards, current operator data, and a maintenance checklist exist. Andreas Ostheimer explicitly approved the English and German texts for the current launch stage on 2026-07-14; this records an owner decision, not qualified legal advice or a market expansion. |
 | #158 | Implemented and tested | Source-backed public API/WordPress reference, examples, auth/failure semantics, webhook contract, lifecycle policy, locale routes, and anti-drift tests. |
 | #124 | Tracking resolution | Close only after the child issues #57, #58, #121, and #122 have their implementation or accepted-decision evidence linked in GitHub. |
 | #122 | Implemented and tested | Tenant/language-scoped assignment and review state machine, filters, pagination, dashboard, member cleanup, approval invalidation, and PostgreSQL coverage. Marketplace/payment is explicitly deferred; export/import remains the external-vendor handoff. |

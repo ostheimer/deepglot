@@ -1,23 +1,27 @@
 # Legal review checklist
 
-Status: launch draft for owner and qualified legal review, 2026-07-13.
+Status: owner-approved for the current launch stage, 2026-07-14.
 
 This checklist is a product-maintenance guard, not legal advice or a guarantee
-of compliance. Issue #159 must remain open until the owner and, where needed,
-qualified counsel approve the public English and German texts for the intended
-customer groups and launch markets.
+of compliance. The owner approved the public English and German texts for the
+current launch stage on 2026-07-14. That decision does not represent qualified
+legal advice, add launch markets, or waive a later review where needed.
 
 ## Approval record
 
-- [ ] Confirm the operator name, company form, register number, VAT number,
+- [x] Confirm the operator name, company form, register number, VAT number,
   address, partners, ownership percentages, email address, and telephone number.
 - [ ] Confirm whether additional Austrian trade-authority, chamber, company-
   court, professional-law, or supervisory disclosures are required.
 - [ ] Confirm whether the terms target businesses, consumers, or both and add
   any mandatory consumer withdrawal information and model form.
-- [ ] Record reviewer, approval date, approved commit, launch countries, and
-  next scheduled review.
-- [ ] Verify the rendered `/legal-notice`, `/terms`, `/privacy`,
+- [x] Record reviewer, approval date, approved commit, launch countries, and
+  next scheduled review. Reviewer: Andreas Ostheimer (owner); approved on
+  2026-07-14 in the Codex task; approved content commit: `d46795a`; scope:
+  current launch stage and existing launch markets only; next review: before a
+  material billing, privacy, customer-group, or launch-market change and no
+  later than 2027-07-14.
+- [x] Verify the rendered `/legal-notice`, `/terms`, `/privacy`,
   `/de/impressum`, `/de/agb`, and `/de/datenschutz` routes.
 
 ## Billing and contract changes
@@ -66,13 +70,13 @@ that a vendor name alone is sufficient.
 
 ## Public statements and dispute-resolution references
 
-- [ ] Keep German frontend copy in real umlauts.
-- [ ] Do not publish claims of uninterrupted availability, perfect translation,
+- [x] Keep German frontend copy in real umlauts.
+- [x] Do not publish claims of uninterrupted availability, perfect translation,
   certified compliance, or guaranteed provider locations without evidence.
-- [ ] Do not restore the obsolete EU Online Dispute Resolution platform link.
+- [x] Do not restore the obsolete EU Online Dispute Resolution platform link.
   The platform was discontinued on 2025-07-20 under Regulation (EU) 2024/3228;
   use the official regulation as the review source:
   <https://eur-lex.europa.eu/eli/reg/2024/3228/oj>.
 - [ ] Re-check any consumer-dispute wording against the current law and the
   actual willingness or obligation to participate in a procedure.
-- [ ] Update the visible revision date and this approval record after review.
+- [x] Update the visible revision date and this approval record after review.

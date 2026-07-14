@@ -37,8 +37,8 @@ export default async function TermsPage({ searchParams }: TermsPageProps) {
       description={
         uiText(
           locale,
-          "These terms describe the current Deepglot SaaS, billing, quota, cancellation, and self-hosting flows. Last updated: 13 July 2026.",
-          "Diese AGB beschreiben die aktuellen SaaS-, Abrechnungs-, Wortlimit-, Kündigungs- und Self-hosting-Abläufe von Deepglot. Stand: 13. Juli 2026."
+          "These terms describe the current Deepglot SaaS, billing, quota, cancellation, and self-hosting flows. Last updated: 14 July 2026.",
+          "Diese AGB beschreiben die aktuellen SaaS-, Abrechnungs-, Wortlimit-, Kündigungs- und Self-hosting-Abläufe von Deepglot. Stand: 14. Juli 2026."
         )
       }
       sections={[

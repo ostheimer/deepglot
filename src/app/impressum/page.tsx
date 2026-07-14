@@ -39,8 +39,8 @@ export default async function LegalNoticePage({
       description={
         uiText(
           locale,
-          "Company and contact information for the operator of Deepglot. Last updated: 13 July 2026.",
-          "Unternehmens- und Kontaktangaben zum Betreiber von Deepglot. Stand: 13. Juli 2026."
+          "Company and contact information for the operator of Deepglot. Last updated: 14 July 2026.",
+          "Unternehmens- und Kontaktangaben zum Betreiber von Deepglot. Stand: 14. Juli 2026."
         )
       }
       sections={[

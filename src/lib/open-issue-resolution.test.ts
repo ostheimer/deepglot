@@ -17,11 +17,12 @@ test("records a concrete disposition for every issue open at the start of the ru
   }
 });
 
-test("separates shipped work, accepted strategic decisions, and the legal approval gate", () => {
+test("separates shipped work, accepted strategic decisions, and the owner-approved legal scope", () => {
   for (const required of [
     "Implemented and tested",
     "Accepted defer decision",
-    "Owner/legal approval required",
+    "Owner-approved for current launch stage",
+    "not qualified legal advice",
     "Demand gate",
     "PostgreSQL",
     "WordPress",
@@ -33,5 +34,5 @@ test("separates shipped work, accepted strategic decisions, and the legal approv
 
 test("keeps tracking epics dependent on their child issue evidence", () => {
   assert.match(record, /#124[\s\S]*child issues #57, #58, #121, and #122/);
-  assert.match(record, /#159[\s\S]*must not be closed without explicit owner/);
+  assert.match(record, /#159[\s\S]*explicitly approved[\s\S]*not qualified legal advice/);
 });
