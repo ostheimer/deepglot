@@ -40,6 +40,7 @@ import {
   type StoredApiResponse,
 } from "@/lib/api-idempotency";
 import { findOrganizationTranslationMemory } from "@/lib/translation-memory";
+import { resetTranslationWorkflowAfterContentEdit } from "@/lib/translation-workflow";
 
 export const runtime = "nodejs";
 
@@ -484,6 +485,7 @@ async function executeAuthenticatedTranslateRequest(
               const existedBefore =
                 cachedByHash.has(item.hash) ||
                 hashesWrittenInTransaction.has(item.hash);
+              const existingTranslation = cachedByHash.get(item.hash);
               const saved = await tx.translation.upsert({
                 where: {
                   projectId_originalHash: {
@@ -517,6 +519,12 @@ async function executeAuthenticatedTranslateRequest(
                       : providerName === "mock"
                         ? "MOCK"
                         : "OPENAI",
+                  ...(existingTranslation
+                    ? resetTranslationWorkflowAfterContentEdit({
+                        workflowStatus: existingTranslation.workflowStatus,
+                        assignedToId: existingTranslation.assignedToId,
+                      })
+                    : {}),
                 },
               });
               hashesWrittenInTransaction.add(item.hash);
