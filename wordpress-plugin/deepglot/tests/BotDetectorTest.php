@@ -56,4 +56,12 @@ botCheck(BotDetector::detectCurrentRequest() === BotDetector::GOOGLE, 'detectCur
 unset($_SERVER['HTTP_USER_AGENT']);
 botCheck(BotDetector::detectCurrentRequest() === BotDetector::HUMAN, 'Missing request UA → HUMAN.');
 
+
+// Performance-Messwerkzeuge dürfen keine Quota verbrennen: wie generische
+// Crawler gehören sie zu OTHER, nicht zu HUMAN (Spiegelung des
+// BrowserRedirector-Bot-Filters).
+botCheck(BotDetector::detect('Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Mobile Safari/537.36 Chrome-Lighthouse') === BotDetector::OTHER, 'Lighthouse → OTHER.');
+botCheck(BotDetector::detect('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0 Safari/537.36 GTmetrix') === BotDetector::OTHER, 'GTmetrix → OTHER.');
+botCheck(BotDetector::detect('Mozilla/5.0 (X11; Linux x86_64; PTST/240301.140921) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36') === BotDetector::OTHER, 'WebPageTest (PTST) → OTHER.');
+
 fwrite(STDOUT, "BotDetectorTest: OK\n");

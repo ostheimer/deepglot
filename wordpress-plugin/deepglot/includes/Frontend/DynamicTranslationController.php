@@ -546,7 +546,7 @@ class DynamicTranslationController
         }
 
         // Mirrors BrowserRedirector::isBotRequest().
-        return (bool) preg_match('/bot|crawler|spider|slurp|bingpreview|facebookexternalhit|wget|curl/i', $userAgent);
+        return (bool) preg_match('/bot|crawler|spider|slurp|bingpreview|facebookexternalhit|wget|curl|lighthouse|headlesschrome|gtmetrix|ptst/i', $userAgent);
     }
 
     /**
