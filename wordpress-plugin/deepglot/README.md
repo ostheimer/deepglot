@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.10.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.10.1**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
 
 ## Author
 
@@ -59,6 +59,11 @@ The plugin ships a complete translation pipeline:
   follow path-prefix or configured subdomain routing; translation exclusions
   and external URLs are rejected before XML serialization.
 - An opt-in client-side translator for content loaded after page render (see below).
+- WP Rocket compatibility: `switcher.css` and the switcher's inline `<style>`
+  blocks are excluded from "Remove Unused CSS" and minification
+  (`WpRocketCompat`), because WP Rocket's used-CSS pipeline re-encodes the
+  emoji flag glyphs as HTML entities — invalid CSS that renders as literal
+  text instead of flags.
 
 ## Test
 
