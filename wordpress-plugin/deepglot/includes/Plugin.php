@@ -21,6 +21,7 @@ use Deepglot\Frontend\SwitcherBlock;
 use Deepglot\Frontend\SwitcherWidget;
 use Deepglot\Frontend\RequestRouter;
 use Deepglot\Frontend\WooCommerceEmailTranslator;
+use Deepglot\Frontend\WpRocketCompat;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\UrlLanguageResolver;
@@ -56,6 +57,7 @@ class Plugin
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(DynamicTranslationController::class)->register();
         $this->container->get(DynamicAssets::class)->register();
+        $this->container->get(WpRocketCompat::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
         $this->container->get(NavMenuSwitcher::class)->register();
         $this->container->get(SwitcherBlock::class)->register();
@@ -215,6 +217,10 @@ class Plugin
                 $c->get(SiteRouting::class),
                 $c->get(RequestRouter::class)
             );
+        });
+
+        $this->container->singleton(WpRocketCompat::class, static function () {
+            return new WpRocketCompat();
         });
 
         $this->container->singleton(NavMenuSwitcher::class, function (Container $c) {
