@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Pins how the language switcher renders once the admin can drive every
  * appearance knob from the WP plugin settings (introduced 2026-05-12, see

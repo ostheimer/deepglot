@@ -34,10 +34,14 @@ wordpress-plugin/deepglot/
 
 ## Installation in WordPress
 
-1. Package the `wordpress-plugin/deepglot` directory as a ZIP archive.
+1. Package the `wordpress-plugin/deepglot` directory as a ZIP archive (`../build-zip.sh` writes `../dist/deepglot-<version>.zip` without dev files).
 2. Upload it in WordPress under `Plugins -> Add New -> Upload Plugin`.
 3. Activate the plugin.
 4. Under `Settings -> Deepglot`, configure the API base URL, API key, and languages.
+
+## wordpress.org packaging
+
+The plugin ships a `readme.txt` in wordpress.org format (stable tag, GPLv2-or-later license, external-services disclosure for the Deepglot API). `PluginVersionConsistencyTest` keeps the header version, runtime constant, README, and readme.txt stable tag in lockstep. A local WordPress test environment lives in `../docker-compose.yml`; its header comment documents how to install WordPress, activate the plugin, and run the official Plugin Check (`wp plugin check deepglot --exclude-directories=tests`). The check must report zero ERROR findings before a directory submission; remaining WARNING advisories (mostly `$_SERVER` unslash/sanitize in the routing layer) are tracked as follow-up work.
 
 ## Current scope
 

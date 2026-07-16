@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Reproduces the html lang regression observed on https://www.meinhaushalt.at/en/
  * on 2026-05-07 where translated pages still announced lang="de".

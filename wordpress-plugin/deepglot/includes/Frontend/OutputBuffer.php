@@ -237,7 +237,7 @@ class OutputBuffer
         }
 
         $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $path = (string) parse_url($uri, PHP_URL_PATH);
+        $path = (string) wp_parse_url($uri, PHP_URL_PATH);
 
         return preg_match('#/amp/?$#i', $path) === 1;
     }

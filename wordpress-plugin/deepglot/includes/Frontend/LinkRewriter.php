@@ -130,7 +130,7 @@ class LinkRewriter
             return !str_starts_with($url, '//');
         }
 
-        $host = (string) parse_url($url, PHP_URL_HOST);
+        $host = (string) wp_parse_url($url, PHP_URL_HOST);
 
         return $this->routing->isInternalHost($host);
     }

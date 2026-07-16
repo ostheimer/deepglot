@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Brings the WP Nav Menu integration up to Weglot parity. A site owner
  * adds a single "Sprachschalter" placeholder under Appearance → Menus
