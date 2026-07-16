@@ -125,6 +125,10 @@ assertSameRedirect(
 // Performance-Messwerkzeuge dürfen nicht sprachumgeleitet werden, sonst messen
 // Lighthouse/PageSpeed & Co. die übersetzte Seite statt der Original-Seite.
 $isBotRequest = new ReflectionMethod(BrowserRedirector::class, 'isBotRequest');
+if (PHP_VERSION_ID < 80100) {
+    // Vor PHP 8.1 ist setAccessible() für private Methoden Pflicht (Requires PHP: 7.4).
+    $isBotRequest->setAccessible(true);
+}
 
 $botAgents = [
     'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' => 'Googlebot',

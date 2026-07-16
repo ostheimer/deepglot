@@ -50,7 +50,7 @@ class BotDetector
 
         // Generic crawler/tool signatures, mirroring (and extending) the
         // BrowserRedirector bot regex.
-        if (preg_match('/bot|crawler|spider|facebookexternalhit|wget|curl|python-requests|httpclient|headless/i', $userAgent)) {
+        if (preg_match('/bot|crawler|spider|facebookexternalhit|wget|curl|python-requests|httpclient|headless|lighthouse|gtmetrix|ptst/i', $userAgent)) {
             return self::OTHER;
         }
 

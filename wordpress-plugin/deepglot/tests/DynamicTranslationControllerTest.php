@@ -562,4 +562,24 @@ dynCheck($client->callCount === 1, 'A cache miss must still call the SaaS API on
 dynCheck(is_array($ipBucket) && (int) $ipBucket['spent'] === 0, 'SaaS failure must roll back the per-IP fresh-word budget.');
 dynCheck(is_array($ticketBucket) && (int) $ticketBucket['spent'] === 0, 'SaaS failure must roll back the per-ticket fresh-word budget.');
 
+
+// isBot() ist als Spiegel von BrowserRedirector::isBotRequest() dokumentiert:
+// Performance-Messwerkzeuge müssen auch am dynamischen Endpoint als Bot gelten,
+// sonst verbrennt Audit-Traffic Übersetzungs-Quota.
+$isBot = new ReflectionMethod(DynamicTranslationController::class, 'isBot');
+if (PHP_VERSION_ID < 80100) {
+    $isBot->setAccessible(true);
+}
+
+foreach ([
+    'Lighthouse' => 'Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Mobile Safari/537.36 Chrome-Lighthouse',
+    'HeadlessChrome' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0.0.0 Safari/537.36',
+    'GTmetrix' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0 Safari/537.36 GTmetrix',
+    'WebPageTest (PTST)' => 'Mozilla/5.0 (X11; Linux x86_64; PTST/240301.140921) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+] as $label => $userAgent) {
+    dynCheck($isBot->invoke($controller, $userAgent) === true, $label . ' must be treated as a bot at the dynamic endpoint.');
+}
+
+dynCheck($isBot->invoke($controller, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1') === false, 'Regular browsers must stay non-bot at the dynamic endpoint.');
+
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");
