@@ -126,7 +126,7 @@ class BrowserRedirector
             return false;
         }
 
-        return (bool) preg_match('/bot|crawler|spider|slurp|bingpreview|facebookexternalhit|wget|curl/i', $userAgent);
+        return (bool) preg_match('/bot|crawler|spider|slurp|bingpreview|facebookexternalhit|wget|curl|lighthouse|headlesschrome|gtmetrix|ptst/i', $userAgent);
     }
 
     private function persistLanguageCookie(string $language): void
