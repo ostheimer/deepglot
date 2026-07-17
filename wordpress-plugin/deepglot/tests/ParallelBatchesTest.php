@@ -79,6 +79,7 @@ require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
 require_once __DIR__ . '/../includes/Support/BotDetector.php';
+require_once __DIR__ . '/../includes/Support/HtmlDocument.php';
 require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
 
 use Deepglot\Api\Client;

@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
+use Deepglot\Support\HtmlDocument;
 use Deepglot\Support\TranslationCache;
 
 /**
@@ -634,33 +635,12 @@ class HtmlTranslator
 
     private function loadHtml(string $html): \DOMDocument
     {
-        $doc = new \DOMDocument('1.0', 'UTF-8');
-
-        libxml_use_internal_errors(true);
-
-        // The meta charset hint ensures DOMDocument preserves UTF-8.
-        $doc->loadHTML(
-            '<?xml encoding="UTF-8">' . $html,
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOWARNING | LIBXML_NOERROR
-        );
-
-        libxml_clear_errors();
-
-        return $doc;
+        return HtmlDocument::load($html);
     }
 
     private function saveHtml(\DOMDocument $doc): string
     {
-        $html = $doc->saveHTML();
-
-        if ($html === false) {
-            return '';
-        }
-
-        // Remove the xml declaration we injected.
-        $html = str_replace('<?xml encoding="UTF-8">', '', $html);
-
-        return $html;
+        return HtmlDocument::save($doc);
     }
 
     /**
