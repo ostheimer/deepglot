@@ -141,6 +141,9 @@ class HtmlTranslator
             return ['html' => $html, 'segments' => []];
         }
 
+        $originalHtml = $html;
+        $rawStyleContents = [];
+        $html = $this->protectRawStyleContents($html, $rawStyleContents);
         $sourceLang = $this->options->getSourceLanguage();
 
         $doc = $this->loadHtml($html);
@@ -157,7 +160,7 @@ class HtmlTranslator
         $jsonLdMutations = $this->jsonLd->collect($doc);
 
         if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
-            return ['html' => $html, 'segments' => []];
+            return ['html' => $originalHtml, 'segments' => []];
         }
 
         // Deduplicate texts so we don't pay twice for the same string.
@@ -219,7 +222,7 @@ class HtmlTranslator
         $all = array_merge($cached, $apiResults);
 
         if (empty($all) && empty($jsonLdMutations)) {
-            return ['html' => $html, 'segments' => []];
+            return ['html' => $originalHtml, 'segments' => []];
         }
 
         // Replace text node data in the DOM.
@@ -269,7 +272,7 @@ class HtmlTranslator
         }
 
         return [
-            'html' => $this->saveHtml($doc),
+            'html' => $this->restoreRawStyleContents($this->saveHtml($doc), $rawStyleContents),
             'segments' => $segments,
         ];
     }
@@ -647,6 +650,39 @@ class HtmlTranslator
         libxml_clear_errors();
 
         return $doc;
+    }
+
+    /**
+     * DOMDocument serializes non-ASCII characters inside raw-text <style>
+     * nodes as HTML entities. CSS does not decode those entities, so preserve
+     * the raw CSS bytes while still letting the rest of the document translate.
+     *
+     * @param array<string, string> $contents
+     */
+    private function protectRawStyleContents(string $html, array &$contents): string
+    {
+        $contents = [];
+
+        $protected = preg_replace_callback(
+            '/(<style\b[^>]*>)(.*?)(<\/style>)/is',
+            function (array $matches) use (&$contents, $html): string {
+                $token = '__DEEPGLOT_RAW_STYLE_' . count($contents) . '_' . sha1($html . "\0" . count($contents)) . '__';
+                $contents[$token] = $matches[2];
+
+                return $matches[1] . $token . $matches[3];
+            },
+            $html
+        );
+
+        return is_string($protected) ? $protected : $html;
+    }
+
+    /**
+     * @param array<string, string> $contents
+     */
+    private function restoreRawStyleContents(string $html, array $contents): string
+    {
+        return $contents === [] ? $html : strtr($html, $contents);
     }
 
     private function saveHtml(\DOMDocument $doc): string
