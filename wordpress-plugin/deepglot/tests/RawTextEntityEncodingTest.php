@@ -300,7 +300,37 @@ rawAssert(
 );
 
 // -----------------------------------------------------------------------
-// 5. The pipeline serializes the SAME document twice (translate, then the
+// 5. Literal charset-looking markup in comments or raw-text elements is not a
+//    document charset declaration. It must not block the injected UTF-8 meta,
+//    or raw-text emoji will regress to numeric entities.
+// -----------------------------------------------------------------------
+$nestedMetaLiteral = '<html><head>'
+    . '<!-- <meta charset="ISO-8859-1"> -->'
+    . '<script>var headLiteral = \'<meta charset="ISO-8859-1">\';</script>'
+    . '<meta charset="UTF-8">'
+    . '<style>.flag::before{content:"🇩🇪"}</style>'
+    . '</head><body>'
+    . '<script>var literal = \'<meta charset="ISO-8859-1">\'; var flag = "🇬🇧";</script>'
+    . '<p>Käse</p></body></html>';
+$nestedMetaLiteralOut = (new HtmlTranslator(new RawTextFakeClient(), $options, new RawTextNullCache()))
+    ->translate($nestedMetaLiteral, 'en', '', 0);
+rawAssert(
+    strpos($nestedMetaLiteralOut, 'content:"🇩🇪"') !== false,
+    'A fake Latin-1 meta inside comments must not re-enable style entity escaping, got: '
+        . substr($nestedMetaLiteralOut, 0, 240)
+);
+rawAssert(
+    strpos($nestedMetaLiteralOut, 'var flag = "🇬🇧"') !== false,
+    'A fake Latin-1 meta inside script text must not re-enable script entity escaping, got: '
+        . substr($nestedMetaLiteralOut, 0, 240)
+);
+rawAssert(
+    strpos($nestedMetaLiteralOut, '&#127465;') === false && strpos($nestedMetaLiteralOut, '&#127466;') === false,
+    'Literal nested meta text must not block raw UTF-8 serialization'
+);
+
+// -----------------------------------------------------------------------
+// 6. The pipeline serializes the SAME document twice (translate, then the
 //    link/hreflang pass). The injected meta must not accumulate, and a page
 //    that already ships its own classic Content-Type meta must not get a
 //    second one.
@@ -325,7 +355,7 @@ rawAssert(
 );
 
 // -----------------------------------------------------------------------
-// 6. A document that declares a NON-UTF-8 charset was parsed as that charset,
+// 7. A document that declares a NON-UTF-8 charset was parsed as that charset,
 //    so its text only survives today because saveHTML() escapes it straight
 //    back. Forcing UTF-8 output there would turn that into permanent mojibake,
 //    so such documents must stay on the legacy (entity) path — never worse
