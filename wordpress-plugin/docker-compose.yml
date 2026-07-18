@@ -7,7 +7,7 @@
 #     --admin_email=admin@example.com --skip-email
 #   docker compose run --rm cli wp plugin activate deepglot
 #   docker compose run --rm cli wp plugin install plugin-check --activate
-#   docker compose run --rm cli wp plugin check deepglot
+#   docker compose run --rm cli wp plugin check deepglot --exclude-directories=tests
 #
 # The plugin directory is mounted read-only so nothing in the repo is modified.
 
