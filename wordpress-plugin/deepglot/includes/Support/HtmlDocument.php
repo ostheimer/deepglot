@@ -56,7 +56,7 @@ class HtmlDocument
 
         libxml_clear_errors();
 
-        if (!self::declaresConflictingCharset($html)) {
+        if (!self::declaresConflictingCharset($doc)) {
             self::injectEncodingMeta($doc);
         }
 
@@ -160,14 +160,48 @@ class HtmlDocument
      * round-trip into permanent mojibake, so we leave those documents on the
      * legacy path — never worse than today.
      */
-    private static function declaresConflictingCharset(string $html): bool
+    private static function declaresConflictingCharset(\DOMDocument $doc): bool
     {
-        if (preg_match('/<meta[^>]*?charset\s*=\s*["\']?\s*([a-z0-9_.:-]+)/i', $html, $matches) !== 1) {
+        $xpath = new \DOMXPath($doc);
+        $nodes = $xpath->query('/meta | /html/head/meta');
+
+        if ($nodes === false) {
             return false;
         }
 
-        $charset = strtolower($matches[1]);
+        foreach ($nodes as $meta) {
+            if (!$meta instanceof \DOMElement) {
+                continue;
+            }
 
-        return $charset !== 'utf-8' && $charset !== 'utf8';
+            $charset = self::charsetFromMeta($meta);
+
+            if ($charset === null) {
+                continue;
+            }
+
+            return $charset !== 'utf-8' && $charset !== 'utf8';
+        }
+
+        return false;
+    }
+
+    private static function charsetFromMeta(\DOMElement $meta): ?string
+    {
+        $charset = trim($meta->getAttribute('charset'));
+
+        if ($charset !== '') {
+            return strtolower($charset);
+        }
+
+        if (strtolower($meta->getAttribute('http-equiv')) !== 'content-type') {
+            return null;
+        }
+
+        if (preg_match('/(?:^|;)\s*charset\s*=\s*["\']?\s*([a-z0-9_.:-]+)/i', $meta->getAttribute('content'), $matches) !== 1) {
+            return null;
+        }
+
+        return strtolower($matches[1]);
     }
 }
