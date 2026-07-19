@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Regression contract for issue #58 AMP support. The admin toggle must gate
  * actual output buffering for AMP endpoints without disabling ordinary pages,

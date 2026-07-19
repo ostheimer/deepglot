@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Regression contract for issue #57 A/C: independently configured switcher
  * instances, legacy migration, and a versioned template registry.

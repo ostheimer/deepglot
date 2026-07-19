@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Pins the new responsive-hide options that let a site owner show the
  * switcher only on desktop or only on mobile (Weglot-parity: their

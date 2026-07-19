@@ -110,6 +110,7 @@ final class SwitcherTemplates
     {
         $value = function_exists('sanitize_text_field')
             ? sanitize_text_field($value)
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- fallback for the non-WordPress unit-test context only; WordPress always takes the sanitize_text_field() branch.
             : trim(strip_tags($value));
 
         return $value !== '' ? $value : __('Sprachumschalter', 'deepglot');

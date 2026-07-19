@@ -102,15 +102,15 @@ class SiteRouting
             return $this->buildHrefForLanguage($url, $language);
         }
 
-        $host = (string) parse_url($url, PHP_URL_HOST);
+        $host = (string) wp_parse_url($url, PHP_URL_HOST);
 
         if (!$this->isInternalHost($host)) {
             return $url;
         }
 
-        $path = (string) parse_url($url, PHP_URL_PATH);
-        $query = (string) parse_url($url, PHP_URL_QUERY);
-        $fragment = (string) parse_url($url, PHP_URL_FRAGMENT);
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $query = (string) wp_parse_url($url, PHP_URL_QUERY);
+        $fragment = (string) wp_parse_url($url, PHP_URL_FRAGMENT);
         $relative = $this->appendQueryAndFragment($path ?: '/', $query, $fragment);
 
         return $this->buildUrlForLanguage($relative, $language);
@@ -119,7 +119,7 @@ class SiteRouting
     public function isInternalHost(string $host): bool
     {
         $normalizedHost = $this->normalizeHost($host);
-        $sourceHost = $this->normalizeHost((string) parse_url($this->siteUrl, PHP_URL_HOST));
+        $sourceHost = $this->normalizeHost((string) wp_parse_url($this->siteUrl, PHP_URL_HOST));
 
         if ($normalizedHost === '' || $normalizedHost === $sourceHost) {
             return true;
@@ -130,7 +130,7 @@ class SiteRouting
 
     private function splitPath(string $path): array
     {
-        $parsed = parse_url($path);
+        $parsed = wp_parse_url($path);
         $canonicalPath = $this->resolver->stripLanguageFromPath((string) ($parsed['path'] ?? '/'));
 
         return [
@@ -157,7 +157,7 @@ class SiteRouting
 
     private function siteBaseUrlForHost(string $host): string
     {
-        $scheme = (string) parse_url($this->siteUrl, PHP_URL_SCHEME) ?: 'https';
+        $scheme = (string) wp_parse_url($this->siteUrl, PHP_URL_SCHEME) ?: 'https';
 
         return $scheme . '://' . $host;
     }
@@ -170,7 +170,7 @@ class SiteRouting
             return '';
         }
 
-        $parsed = parse_url(str_starts_with($host, 'http') ? $host : 'https://' . $host, PHP_URL_HOST);
+        $parsed = wp_parse_url(str_starts_with($host, 'http') ? $host : 'https://' . $host, PHP_URL_HOST);
 
         return is_string($parsed) ? strtolower($parsed) : '';
     }

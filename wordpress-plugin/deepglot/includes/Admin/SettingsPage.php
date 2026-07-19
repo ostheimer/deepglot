@@ -52,7 +52,7 @@ class SettingsPage
             <p>
                 <strong><?php esc_html_e('Deepglot: Monatliches Wortlimit erreicht.', 'deepglot'); ?></strong>
                 <?php esc_html_e('Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird.', 'deepglot'); ?>
-                <a href="<?php echo $dashboardUrl; ?>" target="_blank" rel="noopener noreferrer">
+                <a href="<?php echo esc_url($dashboardUrl); ?>" target="_blank" rel="noopener noreferrer">
                     <?php esc_html_e('Kontingent im Deepglot-Dashboard prüfen', 'deepglot'); ?>
                 </a>
             </p>

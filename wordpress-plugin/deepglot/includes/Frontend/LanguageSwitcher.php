@@ -268,6 +268,7 @@ class LanguageSwitcher
                 esc_attr($native),
                 esc_attr($href),
                 esc_attr($lang),
+                /* translators: %s: native name of the target language. */
                 esc_attr(sprintf(__('Switch language to %s', 'deepglot'), $native)),
                 esc_attr($lang),
                 $flagSpan,
@@ -287,6 +288,7 @@ class LanguageSwitcher
             is_array($instance['custom_flags'] ?? null) ? $instance['custom_flags'] : [],
             $instanceId
         );
+        /* translators: %s: native name of the currently active language. */
         $ariaLabel     = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
 

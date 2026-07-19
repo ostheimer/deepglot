@@ -51,3 +51,4 @@ next-env.d.ts
 .env*.inspect
 .env.preview.branch
 wordpress-plugin/*.zip
+wordpress-plugin/dist/

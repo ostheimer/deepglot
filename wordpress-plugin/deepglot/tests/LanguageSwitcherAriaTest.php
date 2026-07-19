@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Brings the Deepglot language switcher up to Weglot-parity on the
  * dimensions that matter most for accessibility, mobile UX, and

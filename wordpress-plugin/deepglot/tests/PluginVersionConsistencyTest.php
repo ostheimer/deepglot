@@ -36,4 +36,20 @@ versionAssert(
     'README version must match the plugin bootstrap'
 );
 
+$readmeTxt = file_get_contents(__DIR__ . '/../readme.txt');
+
+versionAssert(is_string($readmeTxt), 'wordpress.org readme.txt must be readable');
+versionAssert(
+    preg_match('/^Stable tag:\s*([^\s]+)$/m', $readmeTxt, $stableTagMatch) === 1,
+    'readme.txt Stable tag is missing'
+);
+versionAssert(
+    ($stableTagMatch[1] ?? '') === $headerVersion,
+    'readme.txt Stable tag must match the plugin header version'
+);
+versionAssert(
+    preg_match('/^ \* License:\s*GPL/m', $plugin) === 1,
+    'Plugin header must declare a GPL-compatible license for wordpress.org'
+);
+
 fwrite(STDOUT, "PluginVersionConsistencyTest: OK\n");

@@ -921,7 +921,7 @@ class Options
     {
         $host = strtolower(trim($host));
         $host = preg_replace('#^https?://#', '', $host);
-        $host = trim((string) parse_url('https://' . $host, PHP_URL_HOST));
+        $host = trim((string) wp_parse_url('https://' . $host, PHP_URL_HOST));
 
         return $host ?: '';
     }
@@ -973,8 +973,8 @@ class Options
         }
 
         $candidates = [$urlOrPath];
-        $path = parse_url($urlOrPath, PHP_URL_PATH);
-        $query = parse_url($urlOrPath, PHP_URL_QUERY);
+        $path = wp_parse_url($urlOrPath, PHP_URL_PATH);
+        $query = wp_parse_url($urlOrPath, PHP_URL_QUERY);
 
         if (is_string($path) && $path !== '') {
             $candidates[] = $path;

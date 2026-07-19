@@ -1,5 +1,12 @@
 <?php
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1)
+    {
+        return parse_url($url, $component);
+    }
+}
+
 /**
  * Pins the per-language custom flag override (Weglot-parity: their
  * `custom_flag` field per language in the dashboard).
