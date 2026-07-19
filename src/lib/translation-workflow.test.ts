@@ -5,6 +5,7 @@ import {
   TranslationWorkflowError,
   planTranslationWorkflowUpdate,
   resetTranslationWorkflowAfterContentEdit,
+  workflowResetFieldsIfTranslatedTextChanged,
   resolveTranslationWorkflowLanguage,
   type TranslationWorkflowActor,
 } from "@/lib/translation-workflow";
@@ -238,6 +239,23 @@ test("content edits invalidate approval while preserving a valid assignment", ()
       workflowStatus: "IN_REVIEW",
       assignedToId: "member-en",
     }),
+    { workflowStatus: "ASSIGNED" },
+  );
+});
+
+test("unchanged translated text keeps workflow approval on import-style writes", () => {
+  const approved = {
+    workflowStatus: "APPROVED" as const,
+    assignedToId: "member-en",
+    translatedText: "Hello",
+  };
+
+  assert.deepEqual(
+    workflowResetFieldsIfTranslatedTextChanged(approved, "Hello"),
+    {},
+  );
+  assert.deepEqual(
+    workflowResetFieldsIfTranslatedTextChanged(approved, "Hi"),
     { workflowStatus: "ASSIGNED" },
   );
 });

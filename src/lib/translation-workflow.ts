@@ -86,6 +86,23 @@ export function resetTranslationWorkflowAfterContentEdit(current: {
     : { workflowStatus: "MACHINE", assignedToId: null };
 }
 
+export function workflowResetFieldsIfTranslatedTextChanged(
+  existing: {
+    workflowStatus: TranslationWorkflowStatus;
+    assignedToId: string | null;
+    translatedText: string;
+  },
+  nextTranslatedText: string,
+):
+  | ReturnType<typeof resetTranslationWorkflowAfterContentEdit>
+  | Record<string, never> {
+  if (existing.translatedText === nextTranslatedText) {
+    return {};
+  }
+
+  return resetTranslationWorkflowAfterContentEdit(existing);
+}
+
 export function resetProjectMemberWorkflowAssignments(
   tx: Pick<Prisma.TransactionClient, "translation">,
   {
