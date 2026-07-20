@@ -369,4 +369,67 @@ rawAssert(
     'A non-UTF-8 document is left on the legacy path and gets no injected meta, got: ' . substr($latinOut, 0, 200)
 );
 
+// The same opt-out must hold for the CLASSIC spelling, where the charset hides
+// inside `content` — that is the form libxml itself reads, so missing it would
+// leave a genuinely Latin-1 page being re-serialized as UTF-8 (mojibake).
+$latinClassic = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">'
+    . '</head><body><p>Test</p></body></html>';
+$latinClassicOut = (new HtmlTranslator(new RawTextFakeClient(), $options, new RawTextNullCache()))
+    ->translate($latinClassic, 'en', '', 0);
+rawAssert(
+    substr_count($latinClassicOut, 'http-equiv') === 1,
+    'A non-UTF-8 http-equiv declaration keeps the legacy path and gets no injected meta, got: '
+        . substr($latinClassicOut, 0, 200)
+);
+
+// -----------------------------------------------------------------------
+// 8. Two paths the decoy case in 5. does not reach, because it always ships a
+//    real <meta charset="UTF-8"> to fall back on: a page that declares NO
+//    charset at all, and a FRAGMENT (no <head>, so the encoding meta goes
+//    top-level). Both must still ignore charset-looking script text — the
+//    dynamic translator round-trips fragments on every AJAX render.
+// -----------------------------------------------------------------------
+$decoyNoRealMeta = '<html><head><script>var t = \'<meta charset="ISO-8859-1">\';</script>'
+    . '<style>.a{content:"🇩🇪"}</style></head><body><p>Käse</p></body></html>';
+$decoyNoRealMetaOut = (new HtmlTranslator(new RawTextFakeClient(), $options, new RawTextNullCache()))
+    ->translate($decoyNoRealMeta, 'en', '', 0);
+rawAssert(
+    strpos($decoyNoRealMetaOut, 'content:"🇩🇪"') !== false,
+    'A page declaring no charset still serializes raw UTF-8 despite script decoy text, got: '
+        . substr($decoyNoRealMetaOut, 0, 240)
+);
+
+$decoyFragment = '<div><script>var t = \'<meta charset="ISO-8859-1">\';</script>'
+    . '<style>.a{content:"🇩🇪"}</style></div>';
+$decoyFragmentOut = (new HtmlTranslator(new RawTextFakeClient(), $options, new RawTextNullCache()))
+    ->translate($decoyFragment, 'en', '', 0);
+rawAssert(
+    strpos($decoyFragmentOut, 'content:"🇩🇪"') !== false,
+    'A head-less fragment still serializes raw UTF-8 despite script decoy text, got: '
+        . substr($decoyFragmentOut, 0, 240)
+);
+rawAssert(
+    strpos($decoyFragmentOut, 'http-equiv') === false
+        && strpos($decoyFragmentOut, 'data-deepglot-charset') === false,
+    'The fragment keeps no injected encoding meta in its output, got: ' . substr($decoyFragmentOut, 0, 240)
+);
+
+// -----------------------------------------------------------------------
+// 9. The charset lookup is deliberately scoped to the places libxml itself
+//    reads (htmlGetMetaEncoding scans top-level children and direct children
+//    of <head>). A stray <meta charset> in the BODY does not drive the parse
+//    encoding, so treating it as a declaration would strand a genuinely UTF-8
+//    page on the entity path. Widening the query to `//meta` reintroduces
+//    exactly that, and nothing else in this file would notice.
+// -----------------------------------------------------------------------
+$bodyMetaOnly = '<html><head><style>.a{content:"🇩🇪"}</style></head>'
+    . '<body><meta charset="ISO-8859-1"><p>Kaese</p></body></html>';
+$bodyMetaOnlyOut = (new HtmlTranslator(new RawTextFakeClient(), $options, new RawTextNullCache()))
+    ->translate($bodyMetaOnly, 'en', '', 0);
+rawAssert(
+    strpos($bodyMetaOnlyOut, 'content:"🇩🇪"') !== false,
+    'A charset meta in <body> must not disable UTF-8 serialization, got: '
+        . substr($bodyMetaOnlyOut, 0, 240)
+);
+
 fwrite(STDOUT, "RawTextEntityEncodingTest: OK\n");
