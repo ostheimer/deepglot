@@ -6,7 +6,7 @@ import { verifyEditorSessionToken } from "@/lib/editor-session";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { recordTranslationBatch, upsertTranslatedUrlHit } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
-import { resetTranslationWorkflowAfterContentEdit } from "@/lib/translation-workflow";
+import { workflowResetFieldsIfTranslatedTextChanged } from "@/lib/translation-workflow";
 import {
   PLUGIN_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
@@ -147,7 +147,12 @@ export async function POST(
           originalHash,
         },
       },
-      select: { id: true, workflowStatus: true, assignedToId: true },
+      select: {
+        id: true,
+        workflowStatus: true,
+        assignedToId: true,
+        translatedText: true,
+      },
     });
 
     const saved = await tx.translation.upsert({
@@ -176,7 +181,10 @@ export async function POST(
         source: "MANUAL",
         wordCount,
         ...(existing
-          ? resetTranslationWorkflowAfterContentEdit(existing)
+          ? workflowResetFieldsIfTranslatedTextChanged(
+              existing,
+              parsed.data.translatedText,
+            )
           : {}),
       },
     });

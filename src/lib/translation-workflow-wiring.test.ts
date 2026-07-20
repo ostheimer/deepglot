@@ -84,10 +84,11 @@ test("visual-editor, import, and machine translate writes invalidate stale appro
   );
   const translateRoute = source("src/app/api/translate/route.ts");
 
-  assert.match(manualRoute, /resetTranslationWorkflowAfterContentEdit/);
+  assert.match(manualRoute, /workflowResetFieldsIfTranslatedTextChanged/);
   assert.match(manualRoute, /workflowStatus:\s*true/);
   assert.match(manualRoute, /assignedToId:\s*true/);
-  assert.match(importRoute, /resetTranslationWorkflowAfterContentEdit/);
+  assert.match(manualRoute, /translatedText:\s*true/);
+  assert.match(importRoute, /workflowResetFieldsIfTranslatedTextChanged/);
   assert.match(translateRoute, /resetTranslationWorkflowAfterContentEdit/);
   assert.match(
     translateRoute,
@@ -98,15 +99,19 @@ test("visual-editor, import, and machine translate writes invalidate stale appro
     importRoute.match(/workflowStatus:\s*true/g)?.length === 2,
     "both PO and CSV translation imports must load workflow state",
   );
+  assert.ok(
+    importRoute.match(/translatedText:\s*true/g)?.length === 2,
+    "both PO and CSV translation imports must compare translated text",
+  );
   const importUpserts = importRoute
     .split("const translation = await tx.translation.upsert")
     .slice(1);
   assert.equal(importUpserts.length, 2, "expected PO and CSV import upserts");
   for (const upsert of importUpserts) {
     assert.ok(
-      upsert.indexOf("resetTranslationWorkflowAfterContentEdit(existing)") >
+      upsert.indexOf("workflowResetFieldsIfTranslatedTextChanged") >
         upsert.indexOf("update:"),
-      "each import update must invalidate stale workflow approval",
+      "each import update must invalidate stale workflow approval only when text changes",
     );
   }
 });
