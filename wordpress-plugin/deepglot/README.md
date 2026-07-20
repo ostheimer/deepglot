@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.10.1**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.10.2**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
 
 ## Author
 
@@ -64,6 +64,14 @@ The plugin ships a complete translation pipeline:
   (`WpRocketCompat`), because WP Rocket's used-CSS pipeline re-encodes the
   emoji flag glyphs as HTML entities — invalid CSS that renders as literal
   text instead of flags.
+- UTF-8-safe serialization: every DOM round-trip goes through
+  `Support\HtmlDocument`. `DOMDocument::saveHTML()` only emits raw UTF-8 when
+  libxml can read the encoding from the classic
+  `<meta http-equiv="Content-Type" …>` tag; WordPress ships the HTML5 short
+  form `<meta charset="UTF-8">`, which libxml ignores, so output fell back to
+  entity-escaping everything. Harmless in text, but corruption inside
+  `<style>` / `<script>`, where CSS and JS have no entities. `HtmlDocument`
+  injects the meta libxml reads and strips it again after serializing.
 
 ## Test
 

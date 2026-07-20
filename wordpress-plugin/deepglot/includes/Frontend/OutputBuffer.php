@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
+use Deepglot\Support\HtmlDocument;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
@@ -244,27 +245,12 @@ class OutputBuffer
 
     private function loadDocument(string $html): \DOMDocument
     {
-        $doc = new \DOMDocument('1.0', 'UTF-8');
-
-        libxml_use_internal_errors(true);
-        $doc->loadHTML(
-            '<?xml encoding="UTF-8">' . $html,
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOWARNING | LIBXML_NOERROR
-        );
-        libxml_clear_errors();
-
-        return $doc;
+        return HtmlDocument::load($html);
     }
 
     private function saveDocument(\DOMDocument $doc): string
     {
-        $html = $doc->saveHTML();
-
-        if ($html === false) {
-            return '';
-        }
-
-        return str_replace('<?xml encoding="UTF-8">', '', $html);
+        return HtmlDocument::save($doc);
     }
 
     private function isEditorMode(): bool
