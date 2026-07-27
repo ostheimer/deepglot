@@ -35,6 +35,10 @@ if (!function_exists('add_rewrite_rule')) {
 if (!function_exists('home_url')) {
     function home_url($path = '/') { return 'https://example.com' . $path; }
 }
+if (!function_exists('nocache_headers')) {
+    $GLOBALS['_deepglot_sitemap_nocache_calls'] = 0;
+    function nocache_headers() { $GLOBALS['_deepglot_sitemap_nocache_calls']++; }
+}
 if (!function_exists('get_query_var')) {
     function get_query_var($key, $default = '') { return $GLOBALS['_deepglot_sitemap_query'][$key] ?? $default; }
 }
@@ -109,6 +113,10 @@ sitemapAssert(
 $pathSitemap->addRewriteRules();
 sitemapAssert(($GLOBALS['_deepglot_sitemap_rewrites'][0][0] ?? '') === '^deepglot-sitemap\.xml$', 'Dedicated sitemap rewrite is exact');
 $robots = $pathSitemap->filterRobotsTxt("User-agent: *\n", true);
+sitemapAssert(
+    ($GLOBALS['_deepglot_sitemap_nocache_calls'] ?? 0) === 1,
+    'robots.txt disables intermediary caching so plugin updates cannot leave a stale discovery response live'
+);
 sitemapAssert(substr_count($robots, 'Sitemap: https://example.com/deepglot-sitemap.xml') === 1, 'robots.txt advertises the sitemap exactly once');
 sitemapAssert(substr_count($pathSitemap->filterRobotsTxt($robots, true), 'deepglot-sitemap.xml') === 1, 'robots.txt filter does not duplicate an existing line');
 
