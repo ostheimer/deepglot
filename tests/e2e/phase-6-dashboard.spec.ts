@@ -2,7 +2,11 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 
-import { e2eId, signInAndGetProjectId } from "./helpers";
+import {
+  e2eId,
+  seededProjectDomain,
+  signInAndGetProjectId,
+} from "./helpers";
 
 test.describe("Phase 6 dashboard flows", () => {
   test("manages glossary rules through create, edit, and delete", async ({
@@ -125,7 +129,9 @@ test.describe("Phase 6 dashboard flows", () => {
     await expect(page.getByText("DE → EN")).toBeVisible();
     await expect(page.getByText("DE → FR")).toBeVisible();
     await expect(page.getByText("Top URLs")).toBeVisible();
-    await expect(page.getByText("https://localhost:3000/preise")).toBeVisible();
+    await expect(
+      page.getByText(`https://${seededProjectDomain}/preise`)
+    ).toBeVisible();
   });
 
   test("manages webhook endpoints and records a test delivery", async ({
