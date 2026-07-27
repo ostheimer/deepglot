@@ -18,6 +18,7 @@ class MultilingualSitemap
     private const QUERY_VAR = 'deepglot_sitemap';
     private const ENDPOINT = 'deepglot-sitemap.xml';
     private const MAX_ENTRIES = 50000;
+    private const ROBOTS_FILTER_PRIORITY = 100000;
 
     private Options $options;
     private SiteRouting $routing;
@@ -33,7 +34,7 @@ class MultilingualSitemap
         add_action('init', [$this, 'addRewriteRules']);
         add_filter('query_vars', [$this, 'filterQueryVars']);
         add_action('template_redirect', [$this, 'maybeRender'], -100);
-        add_filter('robots_txt', [$this, 'filterRobotsTxt'], 10, 2);
+        add_filter('robots_txt', [$this, 'filterRobotsTxt'], self::ROBOTS_FILTER_PRIORITY, 2);
     }
 
     public function addRewriteRules(): void

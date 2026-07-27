@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.10.2**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.10.3**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list. v0.10.3 appends the multilingual sitemap to `robots.txt` after late renderers such as Yoast SEO, whose priority-99,999 filter otherwise replaced Deepglot's discovery line.
 
 ## Author
 

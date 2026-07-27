@@ -128,7 +128,7 @@ export function LoginCard({
         return;
       }
 
-      window.location.assign(result?.url ?? dashboardPath);
+      window.location.assign(dashboardPath);
     } finally {
       setIsTestLoginLoading(false);
     }

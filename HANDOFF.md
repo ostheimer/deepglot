@@ -1,14 +1,14 @@
-# Deepglot Handoff - 2026-07-16
+# Deepglot Handoff - 2026-07-27
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current State
 
 - Branch: `main`
-- WordPress plugin: **v0.10.1 deployed on `meinhaushalt.at` and live-verified (2026-07-16).** v0.10.1 adds `Frontend\WpRocketCompat` ([#221](https://github.com/ostheimer/deepglot/pull/221)): WP Rocket's "Remove Unused CSS" replaced `switcher.css` with an inlined `wpr-usedcss` blob that carried the emoji flag rules as HTML entities (invalid CSS → literal text instead of flags on translated pages), so `switcher.css` and the switcher's inline `<style>` blocks are now excluded from RUCSS and minify. Deploy followed the established procedure: server backup (`~/deepglot-backup-20260716-1833-v0.10.0.tar.gz`), checksum rsync (live had drifted only in tests/; runtime was clean v0.10.0), remote `php -l`, WP Rocket cache purge. Live verification in a real browser on `/en/`: `wpr-usedcss` present, `switcher.css?ver=0.10.1` link preserved, computed `::before` flag content renders 🇬🇧/🇩🇪.
-- **Deploy access + path:** SSH `meinhaus@dedi2019.your-server.de` port `222`, key `~/.ssh/meinhaushalt_hetzner_deploy`; live plugin dir `/usr/home/meinhaus/public_html/wp-content/plugins/deepglot` (realpath `/usr/www/users/meinhaus/wp-content/plugins/deepglot`). The old warning about `SSH_WP_PLUGIN_PATH` in `.env.local` is obsolete — `.env.local` no longer exists (2026-07-16); never target `/home/.sites/...`, always the `/usr/home/meinhaus/...` path. No WP-CLI on the server.
+- WordPress plugin: **v0.10.2 deployed on `meinhaushalt.at` and live-verified (2026-07-27); repository patch v0.10.3 awaits rollout.** A checksum dry-run found no runtime drift from repository v0.10.2. Browser verification on `/en/` confirmed `switcher.css?ver=0.10.2`, `<html lang="en">`, raw UTF-8 in `style`/`script`, and computed 🇬🇧/🇩🇪 pseudo-element content. v0.10.3 fixes a production discovery gap: Yoast SEO replaces `robots_txt` at priority 99,999, so Deepglot now appends `/deepglot-sitemap.xml` at priority 100,000.
+- **Deploy access + path:** SSH `meinhaus@dedi2019.your-server.de` port `222`; live plugin dir `/usr/home/meinhaus/public_html/wp-content/plugins/deepglot` (realpath `/usr/www/users/meinhaus/wp-content/plugins/deepglot`). The configured `SSH_WP_PLUGIN_PATH` is stale; never target `/home/.sites/...`, always the `/usr/home/meinhaus/...` path. No WP-CLI on the server.
 - **WP Rocket RUCSS ops findings (2026-07-16):** used CSS lives in the `wp_wpr_rucss_used_css` DB table — a file-level clear of `wp-content/cache/used-css` does NOT reset it. 327 jobs were stuck `failed` ("500: To Submit request failed", transient WP Rocket SaaS errors from earlier that day) and blocked all regeneration; truncating the table (the admin "Clear Used CSS" equivalent) plus a page-cache purge re-queued generation successfully (~930 completed within ~45 min). RUCSS rows exist only for source URLs because `RequestRouter` strips the language prefix before WP Rocket resolves the URL — translated pages receive the source page's used CSS.
-- **Known latent bug ([#223](https://github.com/ostheimer/deepglot/issues/223)):** `HtmlTranslator` entity-encodes non-ASCII inside `<style>` contents on translated pages (evidence: the same freshly generated `wpr-usedcss` carries correct emoji on `/` but `&#127465;`-entities on `/en/`). Currently masked on meinhaushalt.at by cascade order plus the v0.10.1 exclusions, but it breaks custom emoji flag overrides (`deepglot-switcher__custom-flags`) on translated pages and mangles any third-party inline CSS containing non-ASCII.
+- **UTF-8 serialization bug #223 resolved and deployed in v0.10.2:** `Support\HtmlDocument` preserves non-ASCII content across both DOM round-trips. Live `/en/` verification found raw flag emoji in CSS and no numeric entities in `style`/`script`.
 - Plugin change history: v0.8.4 (#204) replaced the spoofable Origin gate with word-denominated per-render + per-IP caps; v0.8.5 (#210) fixed the ticket-debit ordering (per-IP reserved before ticket, with rollback); v0.8.6 (#212) rolls the ticket + per-IP reservations back on a failed SaaS call. All interim plugin-side mitigations behind the authoritative SaaS limit below (ROADMAP 8.36).
 - **Authoritative SaaS-side fix (ROADMAP 8.37/8.39, #203/#214): a per-ORGANIZATION fresh-word velocity limit on `POST /api/translate`** — atomic per-org reservation via `RateLimitBucket`, with a default cap of 10% of the effective monthly quota (minimum 1,000 words/hour) and an optional fixed `TRANSLATE_WORD_VELOCITY_PER_HOUR` override; over-budget requests return `429 velocity_limited`. Hardened by #211 (reserve-if-fits, no window poisoning, one oversized request per fresh window), #212 (refund the reservation on provider/persistence failure), and #214 (memory/Prisma parity plus real-PostgreSQL contention coverage and a route guard for the plan-derived cap). The #208 availability follow-ups are resolved by #211, #212, and #214.
 - v0.8.3 deploy (2026-07-03): flushed 239,624 poisoned `dg_` transients for the #163 fix; re-warmed with real translations only (guard confirmed live).
@@ -119,7 +119,7 @@ npm run test:e2e
 
 ## Known External Blocks
 
-- Phase 6 subdomain live QA remains blocked until a real mapped production host is configured through `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`.
+- Production currently uses `PATH_PREFIX` routing with no domain mappings, so subdomain QA is not a blocker for the current launch scope. Configure `DEEPGLOT_PHASE6_SUBDOMAIN_HOST` only when subdomain routing is intentionally enabled.
 - Visual editor token still passed in the launch URL (`?deepglot_editor_token`); moving it out of the URL requires a coordinated WordPress-plugin change (noted in PR #98).
 
 ## Recently Completed Competitive Work
@@ -129,10 +129,11 @@ npm run test:e2e
 
 ## Recommended Next Work
 
-- **Approve and deploy the public legal-page drafts** before commercial launch ([#159](https://github.com/ostheimer/deepglot/issues/159)): the repository now contains product-current `/terms`, `/privacy`, and `/legal-notice` drafts plus `docs/LEGAL-REVIEW.md`, while the live domain remains unchanged until explicit owner/legal review.
+- The English and German legal texts are owner-approved for the current launch scope; the approval record and future review triggers are in `docs/LEGAL-REVIEW.md` and issue #159 is closed.
 - **Update the marketing site**: dynamic/AJAX/SPA content translation is live and QA-verified (Weglot-parity selling point); the bot-traffic and quota protections (v0.8.2) also warrant a mention ([#160](https://github.com/ostheimer/deepglot/issues/160)).
 - **Optional: quota-exhaustion live drill on `meinhaushalt.at`**: v0.8.3 is deployed and the bot/cache behavior is live-verified (2026-07-03, see Current State); what has not been exercised live is the full quota-exhaustion signal chain (402 → wp-admin notice → owner email) — only needed if an end-to-end drill is desired.
 - **Run a full production acceptance suite** (`npm run acceptance:production`) to close the gap acknowledged in PRODUCTION_ACCEPTANCE.md — the security and quota-visibility changes 8.12–8.34 are deployed but no formal acceptance run has been documented since 2026-05.
-- Review and deploy repository plugin v0.10.0 to an explicitly designated non-production WordPress target before any production rollout; validate visual placement, AMP on/off, sitemap/robots responses, and configured subdomain DNS/TLS there.
+- Deploy repository plugin v0.10.3 after CI, then verify that live `robots.txt` advertises both Yoast's index and `/deepglot-sitemap.xml`.
+- Re-run live Stripe API acceptance after interactive Stripe account verification; Vercel's sensitive-variable export intentionally does not expose the configured production secrets.
 - Keep the test-first bug workflow from `AGENTS.md`: reproduce reported UI bugs with Playwright first, then fix and prove the fix.
 - For future UI audits, prefer expanding `tests/e2e/full-ui-audit.spec.ts` rather than doing one-off manual checks.

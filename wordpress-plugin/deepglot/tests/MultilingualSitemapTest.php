@@ -102,6 +102,10 @@ sitemapAssert(isset($GLOBALS['_deepglot_sitemap_actions']['init']), 'Sitemap reg
 sitemapAssert(($GLOBALS['_deepglot_sitemap_actions']['template_redirect'][0][1] ?? 0) < 0, 'Sitemap renders before the HTML OutputBuffer');
 sitemapAssert(isset($GLOBALS['_deepglot_sitemap_filters']['query_vars']), 'Sitemap registers its query var');
 sitemapAssert(isset($GLOBALS['_deepglot_sitemap_filters']['robots_txt']), 'Sitemap is discoverable from robots.txt');
+sitemapAssert(
+    ($GLOBALS['_deepglot_sitemap_filters']['robots_txt'][0][1] ?? 0) > 99999,
+    'Sitemap discovery runs after late robots.txt renderers such as Yoast SEO'
+);
 $pathSitemap->addRewriteRules();
 sitemapAssert(($GLOBALS['_deepglot_sitemap_rewrites'][0][0] ?? '') === '^deepglot-sitemap\.xml$', 'Dedicated sitemap rewrite is exact');
 $robots = $pathSitemap->filterRobotsTxt("User-agent: *\n", true);
