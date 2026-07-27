@@ -61,6 +61,10 @@ class MultilingualSitemap
 
     public function filterRobotsTxt(string $output, bool $public): string
     {
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+
         if (!$public || !$this->isAvailable()) {
             return $output;
         }
