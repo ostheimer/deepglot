@@ -100,7 +100,7 @@ function navItem(int $id, string $title, string $url, array $extra = []): object
     return $item;
 }
 
-function navMakeSwitcher(array $overrides = []): NavMenuSwitcher
+function navMakeSwitcher(array $overrides = [], ?object $requestRouter = null): NavMenuSwitcher
 {
     update_option(Options::OPTION_KEY, array_merge(Options::defaults(), array_merge([
         'enabled' => true,
@@ -123,7 +123,7 @@ function navMakeSwitcher(array $overrides = []): NavMenuSwitcher
         $_SERVER['HTTP_HOST'] = 'example.com';
     }
 
-    return new NavMenuSwitcher($options, $routing);
+    return new NavMenuSwitcher($options, $routing, $requestRouter);
 }
 
 // 1. The marker item is recognised. NavMenuSwitcher looks for items
@@ -313,5 +313,37 @@ $dropChildren = array_filter(
     fn($i) => (int) $i->menu_item_parent === 8
 );
 navAssert(count($dropChildren) === 2, 'Nested dropdown: children still attach to marker id, got ' . count($dropChildren));
+
+// 13. RequestRouter already captured the language before stripping /en/ from
+// REQUEST_URI. The menu must use that state, and Plugin.php must inject the
+// same RequestRouter instance into NavMenuSwitcher.
+$_SERVER['REQUEST_URI'] = '/';
+$requestRouter = new class {
+    public function getCurrentLanguage(): ?string
+    {
+        return 'en';
+    }
+};
+$routerAwareSwitcher = navMakeSwitcher([], $requestRouter);
+$routerAwareItems = $routerAwareSwitcher->expand([
+    navItem(120, 'Sprachschalter', '#deepglot-switcher', [
+        'post_name' => 'deepglot-switcher',
+        'classes' => ['deepglot-mode-dropdown'],
+    ]),
+]);
+$routerAwareParents = array_values(array_filter(
+    $routerAwareItems,
+    fn($i) => in_array('deepglot-switcher-parent', $i->classes ?? [], true)
+));
+navAssert(count($routerAwareParents) === 1, 'Router-aware dropdown has one parent');
+navAssert($routerAwareParents[0]->title === 'English', 'Router-aware dropdown parent is the detected English language');
+
+$pluginSource = file_get_contents(__DIR__ . '/../includes/Plugin.php');
+$navWiringStart = strpos($pluginSource, 'singleton(NavMenuSwitcher::class');
+$navWiring = $navWiringStart === false ? '' : substr($pluginSource, $navWiringStart, 500);
+navAssert(
+    str_contains($navWiring, '$c->get(RequestRouter::class)'),
+    'Plugin.php injects RequestRouter into NavMenuSwitcher'
+);
 
 fwrite(STDOUT, "NavMenuSwitcherTest: OK\n");

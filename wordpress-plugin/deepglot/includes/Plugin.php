@@ -224,7 +224,11 @@ class Plugin
         });
 
         $this->container->singleton(NavMenuSwitcher::class, function (Container $c) {
-            return new NavMenuSwitcher($c->get(Options::class), $c->get(SiteRouting::class));
+            return new NavMenuSwitcher(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class),
+                $c->get(RequestRouter::class)
+            );
         });
 
         $this->container->singleton(NavMenuMetaBox::class, static function () {

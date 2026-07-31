@@ -52,6 +52,17 @@ function test_does_not_rewrite_external_link(): void
     assert(strpos($out, 'href="https://other.com/page/"') !== false, "External link must be unchanged: {$out}");
 }
 
+function test_does_not_rewrite_mailto_or_tel_links(): void
+{
+    $html = '<a href="mailto:empfang@example.com">E-mail</a>'
+          . '<a href="tel:+4312363020">Phone</a>'
+          . '<a href="/kontakt/">Contact</a>';
+    $out = rewriteHtml($html, 'en');
+    assert(strpos($out, 'href="mailto:empfang@example.com"') !== false, "mailto: links must remain actionable and unchanged: {$out}");
+    assert(strpos($out, 'href="tel:+4312363020"') !== false, "tel: links must remain actionable and unchanged: {$out}");
+    assert(strpos($out, 'href="/en/kontakt/"') !== false, "Ordinary relative links must still be rewritten: {$out}");
+}
+
 function test_rewrites_internal_absolute_link(): void
 {
     $html = '<a href="https://example.com/services/">Services</a>';
@@ -89,15 +100,31 @@ function test_skips_nested_links_inside_no_translate_ancestor(): void
     assert(strpos($out, 'href="/about/"') !== false && strpos($out, '/en/about/') === false, "Deeply nested <a> inside data-deepglot-no-translate must NOT be rewritten: {$out}");
 }
 
+function test_skips_links_inside_deepglot_nav_menu_item(): void
+{
+    $html = '<nav><ul>'
+          . '<li class="menu-item menu-item-deepglot deepglot-lang-de"><a href="/">Deutsch</a></li>'
+          . '<li class="ubermenu-item ubermenu-item-deepglot ubermenu-deepglot-lang-en"><a href="/">Deutsch via UberMenu</a></li>'
+          . '<li class="menu-item"><a href="/kontakt/">Kontakt</a></li>'
+          . '</ul></nav>';
+
+    $out = rewriteHtml($html, 'en');
+    assert(strpos($out, '<a href="/">Deutsch</a>') !== false, "Nav switcher's source-language href '/' must NOT be rewritten: {$out}");
+    assert(strpos($out, '<a href="/">Deutsch via UberMenu</a>') !== false, "Theme-prefixed nav switcher classes must protect the source-language href: {$out}");
+    assert(strpos($out, 'href="/en/kontakt/"') !== false, "Ordinary nav links must still receive the active-language prefix: {$out}");
+}
+
 // ---------------------------------------------------------------------------
 
 $tests = [
     'test_rewrites_relative_link',
     'test_does_not_rewrite_already_prefixed_link',
     'test_does_not_rewrite_external_link',
+    'test_does_not_rewrite_mailto_or_tel_links',
     'test_rewrites_internal_absolute_link',
     'test_skips_links_inside_deepglot_no_translate_subtree',
     'test_skips_nested_links_inside_no_translate_ancestor',
+    'test_skips_links_inside_deepglot_nav_menu_item',
 ];
 
 $passed = 0;

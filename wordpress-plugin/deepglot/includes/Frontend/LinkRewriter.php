@@ -63,7 +63,7 @@ class LinkRewriter
             // Skip anything inside a `data-deepglot-no-translate` subtree
             // (language switcher, plugin-owned widgets) — those build
             // their own per-language hrefs and must not be re-prefixed.
-            if ($this->insideNoTranslateSubtree($node)) {
+            if ($this->insideNoTranslateSubtree($node) || $this->insideDeepglotNavMenuItem($node)) {
                 continue;
             }
 
@@ -96,6 +96,38 @@ class LinkRewriter
         return false;
     }
 
+    /**
+     * NavMenuSwitcher entries own their per-language hrefs but WordPress only
+     * exposes them through menu-item classes, not a no-translate wrapper.
+     */
+    private function insideDeepglotNavMenuItem(\DOMNode $node): bool
+    {
+        $cursor = $node;
+        while ($cursor !== null) {
+            if ($cursor instanceof \DOMElement) {
+                $classes = preg_split('/\s+/', trim($cursor->getAttribute('class'))) ?: [];
+
+                foreach ($classes as $class) {
+                    if ($this->isDeepglotNavMenuClass($class)) {
+                        return true;
+                    }
+                }
+            }
+            $cursor = $cursor->parentNode;
+        }
+        return false;
+    }
+
+    /**
+     * Accepts the native WordPress markers and theme-prefixed variants such as
+     * `ubermenu-item-deepglot` and `ubermenu-deepglot-lang-en`.
+     */
+    private function isDeepglotNavMenuClass(string $class): bool
+    {
+        return preg_match('/^(?:[a-z0-9_-]*menu)-item-deepglot$/i', $class) === 1
+            || preg_match('/^(?:[a-z0-9_-]+-)?deepglot-lang(?:-[a-z0-9_-]+)?$/i', $class) === 1;
+    }
+
     private function rewriteLinkTags(\DOMDocument $doc, string $language): void
     {
         $links = $doc->getElementsByTagName('link');
@@ -125,6 +157,11 @@ class LinkRewriter
 
     private function isInternalUrl(string $url): bool
     {
+        // URI schemes other than HTTP(S) are actions/resources, not site URLs.
+        if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $url) && !preg_match('#^https?://#i', $url)) {
+            return false;
+        }
+
         // Relative URLs are always internal.
         if (!preg_match('#^https?://#i', $url)) {
             return !str_starts_with($url, '//');

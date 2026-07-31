@@ -58,11 +58,13 @@ class NavMenuSwitcher
 
     private Options $options;
     private SiteRouting $routing;
+    private ?object $requestRouter;
 
-    public function __construct(Options $options, SiteRouting $routing)
+    public function __construct(Options $options, SiteRouting $routing, ?object $requestRouter = null)
     {
         $this->options = $options;
         $this->routing = $routing;
+        $this->requestRouter = $requestRouter;
     }
 
     public function register(): void
@@ -97,7 +99,12 @@ class NavMenuSwitcher
 
         $requestUri    = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $host          = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
-        $activeLang    = $this->routing->detectLanguage($requestUri, $host) ?? $this->options->getSourceLanguage();
+        $routerLang    = ($this->requestRouter !== null && method_exists($this->requestRouter, 'getCurrentLanguage'))
+            ? $this->requestRouter->getCurrentLanguage()
+            : null;
+        $activeLang    = $routerLang
+            ?? $this->routing->detectLanguage($requestUri, $host)
+            ?? $this->options->getSourceLanguage();
         $sourceLang    = $this->options->getSourceLanguage();
         $targetLangs   = $this->options->getTargetLanguages();
         $orderedLangs  = $this->orderLanguages(
