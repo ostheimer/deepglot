@@ -57,6 +57,10 @@ class Options
     public const SWITCHER_BREAKPOINT_MAX     = 1920;
     public const SWITCHER_BREAKPOINT_DEFAULT = 768;
 
+    /** Bound SaaS-provided slug maps before persisting them in wp_options. */
+    public const URL_SLUG_MAPPINGS_MAX = 10000;
+    public const URL_SLUG_SEGMENT_MAX_LEN = 200;
+
     public static function defaults(): array
     {
         return [
@@ -68,6 +72,9 @@ class Options
             'auto_redirect' => false,
             'routing_mode' => 'PATH_PREFIX',
             'domain_mappings' => [],
+            // Runtime-only cache populated from the SaaS UrlSlug records.
+            // Shape: array<target-language, array<source-segment, translated-segment>>.
+            'url_slug_mappings' => [],
             'translate_emails' => false,
             'translate_search' => false,
             'translate_amp' => false,
@@ -142,16 +149,31 @@ class Options
         $input = is_array($input) ? $input : [];
 
         $targetLanguages = $this->normalizeLanguageList($input['target_languages'] ?? []);
+        $stored = get_option(self::OPTION_KEY, []);
+        $stored = is_array($stored) ? $stored : [];
+        $incomingApiKey = sanitize_text_field((string) ($input['api_key'] ?? ''));
+        $incomingBaseUrl = untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url'])));
+        $sameRuntimeSource = $incomingApiKey === (string) ($stored['api_key'] ?? '')
+            && $incomingBaseUrl === untrailingslashit((string) ($stored['api_base_url'] ?? self::defaults()['api_base_url']));
+        $urlSlugMappings = $sameRuntimeSource
+            ? $this->normalizeUrlSlugMappings(
+                array_key_exists('url_slug_mappings', $input)
+                    ? $input['url_slug_mappings']
+                    : ($stored['url_slug_mappings'] ?? []),
+                $targetLanguages
+            )
+            : [];
 
         $sanitized = [
             'enabled' => !empty($input['enabled']),
-            'api_base_url' => untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url']))),
-            'api_key' => sanitize_text_field((string) ($input['api_key'] ?? '')),
+            'api_base_url' => $incomingBaseUrl,
+            'api_key' => $incomingApiKey,
             'source_language' => $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de')),
             'target_languages' => $targetLanguages,
             'auto_redirect' => !empty($input['auto_redirect']),
             'routing_mode' => $this->sanitizeRoutingMode((string) ($input['routing_mode'] ?? 'PATH_PREFIX')),
             'domain_mappings' => $this->normalizeDomainMappings($input['domain_mappings'] ?? []),
+            'url_slug_mappings' => $urlSlugMappings,
             'translate_emails' => !empty($input['translate_emails']),
             'translate_search' => !empty($input['translate_search']),
             'translate_amp' => !empty($input['translate_amp']),
@@ -531,6 +553,19 @@ class Options
         return is_array($options['domain_mappings']) ? $options['domain_mappings'] : [];
     }
 
+    /**
+     * @return array<string, array<string, string>>
+     */
+    public function getUrlSlugMappings(): array
+    {
+        $options = $this->all();
+
+        return $this->normalizeUrlSlugMappings(
+            $options['url_slug_mappings'] ?? [],
+            $this->normalizeLanguageList($options['target_languages'] ?? [])
+        );
+    }
+
     public function shouldAutoRedirect(): bool
     {
         $options = $this->all();
@@ -744,6 +779,13 @@ class Options
             $settings['exclude_selectors'] = implode("\n", $this->normalizeStringList($exclusions['selectors'] ?? []));
         }
 
+        if (array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
+            $settings['url_slug_mappings'] = $this->normalizeRuntimeUrlSlugs(
+                $runtimeConfig['urlSlugs'],
+                $this->normalizeLanguageList($settings['target_languages'] ?? [])
+            );
+        }
+
         if (array_key_exists('switcher', $runtimeConfig) && is_array($runtimeConfig['switcher'])) {
             $switcher = $runtimeConfig['switcher'];
 
@@ -915,6 +957,152 @@ class Options
         }
 
         return $mappings;
+    }
+
+    /**
+     * Sanitizes the persisted nested map and removes every mapping involved in
+     * a reverse collision. Keeping a source slug is safer than emitting a
+     * translated path that cannot be resolved to one WordPress resource.
+     *
+     * @param mixed $value
+     * @param string[] $allowedLanguages
+     * @return array<string, array<string, string>>
+     */
+    private function normalizeUrlSlugMappings($value, array $allowedLanguages): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($value as $language => $languageMappings) {
+            if (!is_array($languageMappings)) {
+                continue;
+            }
+
+            foreach ($languageMappings as $originalSlug => $translatedSlug) {
+                $rows[] = [
+                    'langTo' => $language,
+                    'originalSlug' => $originalSlug,
+                    'translatedSlug' => $translatedSlug,
+                ];
+
+                if (count($rows) > self::URL_SLUG_MAPPINGS_MAX) {
+                    break 2;
+                }
+            }
+        }
+
+        if (count($rows) > self::URL_SLUG_MAPPINGS_MAX) {
+            return [];
+        }
+
+        return $this->normalizeRuntimeUrlSlugs($rows, $allowedLanguages);
+    }
+
+    /**
+     * @param mixed[] $rows
+     * @param string[] $allowedLanguages
+     * @return array<string, array<string, string>>
+     */
+    private function normalizeRuntimeUrlSlugs(array $rows, array $allowedLanguages): array
+    {
+        if (count($rows) > self::URL_SLUG_MAPPINGS_MAX) {
+            return [];
+        }
+
+        $mappings = [];
+        $translatedOwners = [];
+        $blockedOriginals = [];
+        $blockedTranslations = [];
+        $seenOriginals = [];
+        $acceptedCount = 0;
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $language = $this->sanitizeLanguage((string) ($row['langTo'] ?? ''));
+            $original = $this->sanitizeUrlSlugSegment($row['originalSlug'] ?? null);
+            $translated = $this->sanitizeUrlSlugSegment($row['translatedSlug'] ?? null);
+
+            if (
+                $language === ''
+                || !in_array($language, $allowedLanguages, true)
+                || $original === ''
+                || $translated === ''
+                || isset($blockedOriginals[$language][$original])
+            ) {
+                continue;
+            }
+
+            if (isset($seenOriginals[$language][$original])) {
+                $existingTranslation = $mappings[$language][$original] ?? null;
+                if ($existingTranslation !== null) {
+                    unset($mappings[$language][$original], $translatedOwners[$language][$existingTranslation]);
+                    $acceptedCount--;
+                }
+                $blockedOriginals[$language][$original] = true;
+                continue;
+            }
+            $seenOriginals[$language][$original] = true;
+
+            if (isset($blockedTranslations[$language][$translated])) {
+                continue;
+            }
+
+            $existingOwner = $translatedOwners[$language][$translated] ?? null;
+            if ($existingOwner !== null && $existingOwner !== $original) {
+                unset($mappings[$language][$existingOwner], $translatedOwners[$language][$translated]);
+                $blockedTranslations[$language][$translated] = true;
+                $acceptedCount--;
+                continue;
+            }
+
+            $mappings[$language][$original] = $translated;
+            $translatedOwners[$language][$translated] = $original;
+            $acceptedCount++;
+
+            if ($acceptedCount >= self::URL_SLUG_MAPPINGS_MAX) {
+                break;
+            }
+        }
+
+        return array_filter($mappings, static fn (array $languageMappings): bool => $languageMappings !== []);
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function sanitizeUrlSlugSegment($value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+
+        $segment = rawurldecode(trim($value));
+        $segment = function_exists('mb_strtolower')
+            ? mb_strtolower($segment, 'UTF-8')
+            : strtolower($segment);
+        $segment = preg_replace_callback(
+            '/%[0-9a-f]{2}/i',
+            static fn (array $match): string => strtoupper($match[0]),
+            $segment
+        ) ?? $segment;
+
+        if (
+            $segment === ''
+            || $segment === '.'
+            || $segment === '..'
+            || strlen($segment) > self::URL_SLUG_SEGMENT_MAX_LEN
+            || preg_match('//u', $segment) !== 1
+            || preg_match('/[\x00-\x20\x7f\/\\\\?#]/u', $segment) === 1
+        ) {
+            return '';
+        }
+
+        return rawurlencode($segment);
     }
 
     private function sanitizeHost(string $host): string

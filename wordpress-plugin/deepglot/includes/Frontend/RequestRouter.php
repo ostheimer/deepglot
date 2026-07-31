@@ -107,7 +107,10 @@ class RequestRouter
 
         // Build the expected canonical path for the current language-prefixed request.
         $originalUri   = $this->originalRequestUri ?? '/';
-        $canonicalPath = $this->routing->getCanonicalPath(parse_url($originalUri, PHP_URL_PATH) ?: '/');
+        $canonicalPath = $this->routing->getCanonicalPath(
+            parse_url($originalUri, PHP_URL_PATH) ?: '/',
+            $this->currentLanguage
+        );
         $siteUrl       = rtrim(get_site_url(), '/');
         $currentHost   = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
 
@@ -159,11 +162,11 @@ class RequestRouter
         $this->originalRequestUri = $uri;
 
         // Strip language prefix so WordPress sees the canonical URL.
-        $stripped = $this->routing->getCanonicalPath($uri);
+        $stripped = $this->routing->getCanonicalPath($uri, $detected);
 
         // Preserve the query string.
         $queryString = parse_url($uri, PHP_URL_QUERY);
-        if ($queryString) {
+        if (is_string($queryString) && $queryString !== '') {
             $stripped = rtrim($stripped, '/') . '/?' . $queryString;
         }
 

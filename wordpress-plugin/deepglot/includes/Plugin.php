@@ -148,7 +148,8 @@ class Plugin
                 $c->get(UrlLanguageResolver::class),
                 get_site_url(),
                 $options->getRoutingMode(),
-                $options->getDomainMappings()
+                $options->getDomainMappings(),
+                $options->getUrlSlugMappings()
             );
         });
 
@@ -224,7 +225,11 @@ class Plugin
         });
 
         $this->container->singleton(NavMenuSwitcher::class, function (Container $c) {
-            return new NavMenuSwitcher($c->get(Options::class), $c->get(SiteRouting::class));
+            return new NavMenuSwitcher(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class),
+                $c->get(RequestRouter::class)
+            );
         });
 
         $this->container->singleton(NavMenuMetaBox::class, static function () {

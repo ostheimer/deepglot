@@ -10,6 +10,12 @@ import {
   consumeRateLimit,
   getRateLimitConfig,
 } from "@/lib/rate-limit";
+import {
+  MAX_RUNTIME_URL_SLUGS,
+  buildRuntimeUrlSlugs,
+} from "@/lib/runtime-url-slugs";
+
+export { MAX_RUNTIME_URL_SLUGS } from "@/lib/runtime-url-slugs";
 
 function getRawApiKey(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -65,18 +71,46 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const rules = await db.translationExclusion.findMany({
-      where: { projectId: apiKey.projectId },
-      orderBy: [{ createdAt: "asc" }, { value: "asc" }],
-      select: {
-        type: true,
-        value: true,
-      },
-    });
+    const [rules, urlSlugs] = await Promise.all([
+      db.translationExclusion.findMany({
+        where: { projectId: apiKey.projectId },
+        orderBy: [{ createdAt: "asc" }, { value: "asc" }],
+        select: {
+          type: true,
+          value: true,
+        },
+      }),
+      db.urlSlug.findMany({
+        where: {
+          projectId: apiKey.projectId,
+        },
+        orderBy: [{ langTo: "asc" }, { originalSlug: "asc" }],
+        select: {
+          originalSlug: true,
+          translatedSlug: true,
+          langTo: true,
+        },
+        // Fetch one sentinel row so oversized projects fail explicitly. A
+        // silent truncation would make some translated URLs non-reversible.
+        take: MAX_RUNTIME_URL_SLUGS + 1,
+      }),
+    ]);
+
+    if (urlSlugs.length > MAX_RUNTIME_URL_SLUGS) {
+      return apiProblem({
+        status: 413,
+        title: "Runtime configuration too large",
+        detail: `The project has more than ${MAX_RUNTIME_URL_SLUGS} URL slug records. Reduce the mapping set before refreshing the plugin runtime configuration.`,
+        code: "runtime_url_slugs_limit_exceeded",
+        instance: "/api/plugin/runtime-config",
+      });
+    }
+
     const exclusions = buildRuntimeExclusions(rules);
 
     return NextResponse.json({
       exclusions,
+      urlSlugs: buildRuntimeUrlSlugs(urlSlugs),
       syncedAt: new Date().toISOString(),
     });
   } catch (error) {

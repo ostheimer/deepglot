@@ -100,7 +100,7 @@ function navItem(int $id, string $title, string $url, array $extra = []): object
     return $item;
 }
 
-function navMakeSwitcher(array $overrides = []): NavMenuSwitcher
+function navMakeSwitcher(array $overrides = [], ?object $requestRouter = null): NavMenuSwitcher
 {
     update_option(Options::OPTION_KEY, array_merge(Options::defaults(), array_merge([
         'enabled' => true,
@@ -123,7 +123,7 @@ function navMakeSwitcher(array $overrides = []): NavMenuSwitcher
         $_SERVER['HTTP_HOST'] = 'example.com';
     }
 
-    return new NavMenuSwitcher($options, $routing);
+    return new NavMenuSwitcher($options, $routing, $requestRouter);
 }
 
 // 1. The marker item is recognised. NavMenuSwitcher looks for items
@@ -313,5 +313,26 @@ $dropChildren = array_filter(
     fn($i) => (int) $i->menu_item_parent === 8
 );
 navAssert(count($dropChildren) === 2, 'Nested dropdown: children still attach to marker id, got ' . count($dropChildren));
+
+// 13. RequestRouter strips translated prefixes/slugs before menus render.
+// The captured language therefore remains authoritative after REQUEST_URI
+// has become the canonical WordPress source path.
+$_SERVER['REQUEST_URI'] = '/ueber-uns/';
+$routerState = new class {
+    public function getCurrentLanguage(): ?string { return 'en'; }
+};
+$switcherAfterRouting = navMakeSwitcher([], $routerState);
+$afterRouting = $switcherAfterRouting->expand([
+    navItem(120, 'Sprachschalter', '#deepglot-switcher', [
+        'post_name' => 'deepglot-switcher',
+        'classes' => ['deepglot-mode-dropdown'],
+    ]),
+]);
+$afterRoutingParent = array_values(array_filter(
+    $afterRouting,
+    fn($item) => in_array('deepglot-switcher-parent', $item->classes ?? [], true)
+));
+navAssert(count($afterRoutingParent) === 1, 'Post-router dropdown must still render one active-language parent.');
+navAssert($afterRoutingParent[0]->title === 'English', 'Post-router nav menu must keep the translated request language as active.');
 
 fwrite(STDOUT, "NavMenuSwitcherTest: OK\n");
