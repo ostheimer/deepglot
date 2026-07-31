@@ -228,7 +228,10 @@ class NavMenuSwitcher
                 'post_name'        => 'deepglot-switcher-' . $lang,
                 'classes'          => $this->classesFor($lang, false, $isActive && !$dropdown),
                 'xfn'              => '',
-                'description'      => $this->labelFor($lang, 'full_name'),
+                // Avada renders nav item descriptions as a visible subtitle.
+                // Keeping the language label here would display e.g.
+                // "GermanGerman" even though the regular title is sufficient.
+                'description'      => '',
                 'attr_title'       => $this->labelFor($lang, 'full_name'),
                 'target'           => '',
             ];

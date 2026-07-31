@@ -150,6 +150,10 @@ foreach ($expanded as $item) {
     if (in_array($item->title, ['Deutsch', 'English', 'Français'], true)) {
         navAssert(in_array('menu-item-deepglot', $item->classes, true), 'Expanded item has menu-item-deepglot class: ' . $item->title);
         navAssert(in_array('deepglot-lang', $item->classes, true), 'Expanded item has deepglot-lang class: ' . $item->title);
+        navAssert(
+            $item->description === '',
+            'Expanded language description stays empty so Avada does not render the label twice: ' . $item->title
+        );
     }
 }
 
