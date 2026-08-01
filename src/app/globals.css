@@ -11,7 +11,7 @@
   --color-brand-300: #f7a08f;
   --color-brand-400: #f77a65;
   --color-brand-500: #f03b22;
-  --color-brand-600: #df351c;
+  --color-brand-600: #d92f19;
   --color-brand-700: #c62812;
   --color-brand-800: #9f2818;
   --color-brand-900: #5e1f14;
@@ -65,7 +65,7 @@
   --card-foreground: #071521;
   --popover: #ffffff;
   --popover-foreground: #071521;
-  --primary: #f03b22;
+  --primary: #d92f19;
   --primary-foreground: #ffffff;
   --secondary: #f1f0eb;
   --secondary-foreground: #071521;
@@ -84,7 +84,7 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: #f5f3ed;
   --sidebar-foreground: #071521;
-  --sidebar-primary: #f03b22;
+  --sidebar-primary: #d92f19;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #fff0ec;
   --sidebar-accent-foreground: #c62812;
@@ -111,14 +111,14 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: #df351c;
+  --chart-1: #d92f19;
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: #f7a08f;
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #df351c;
+  --sidebar-primary: #d92f19;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);

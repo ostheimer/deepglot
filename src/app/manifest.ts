@@ -1,12 +1,16 @@
 import type { MetadataRoute } from "next";
 
-export default function manifest(): MetadataRoute.Manifest {
+import { getCookieLocale } from "@/lib/request-locale";
+import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+
+export function buildLocalizedManifest(locale: SiteLocale): MetadataRoute.Manifest {
   return {
     name: "Deepglot",
     short_name: "Deepglot",
     description:
       "Open-source WordPress translation without subscription lock-in.",
-    start_url: "/",
+    start_url: getMarketingPath(locale, "home"),
+    scope: "/",
     display: "standalone",
     background_color: "#fbfaf7",
     theme_color: "#f03b22",
@@ -31,4 +35,8 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
   };
+}
+
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  return buildLocalizedManifest(await getCookieLocale());
 }

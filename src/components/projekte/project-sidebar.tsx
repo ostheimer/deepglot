@@ -126,7 +126,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
             {project.languages.slice(0, 3).map((l) => (
               <Badge
                 key={l.id}
-                className="border-0 bg-brand-50 px-1.5 py-0 text-xs text-brand-600"
+                className="border-0 bg-brand-50 px-1.5 py-0 text-xs text-brand-700"
               >
                 {l.langCode.toUpperCase()}
               </Badge>

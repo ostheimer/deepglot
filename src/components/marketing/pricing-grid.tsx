@@ -292,7 +292,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
 
   const ctaClass = `block w-full rounded-xl py-3 text-center text-sm font-semibold text-white transition-colors ${
     tier.highlight
-      ? "bg-[#f03b22] hover:bg-[#d92f19]"
+      ? "bg-[#d92f19] hover:bg-[#c62812]"
       : "bg-[#071521] hover:bg-black"
   }`;
 
@@ -404,7 +404,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
             aria-label={copy.billingToggleLabel}
             onClick={() => setYearly((value) => !value)}
             className={`relative inline-flex h-6 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f03b22] focus-visible:ring-offset-2 ${
-              yearly ? "bg-[#f03b22]" : "bg-gray-300"
+              yearly ? "bg-[#d92f19]" : "bg-gray-300"
             }`}
           >
             <span
@@ -436,7 +436,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
           >
             {copy.sliderLabel}
           </label>
-          <span className="text-2xl font-extrabold text-[#f03b22] tabular-nums">
+          <span className="text-2xl font-extrabold text-[#c62812] tabular-nums">
             {formatWordCount(tier.wordsLimit, locale)}
           </span>
         </div>
@@ -449,7 +449,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
           value={tierIndex}
           onChange={(event) => setTierIndex(Number(event.target.value))}
           aria-valuetext={`${tier.name}: ${formatWordCount(tier.wordsLimit, locale)} ${copy.wordsLabel}`}
-          className="w-full cursor-pointer appearance-none bg-transparent focus:outline-none [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-[#f7b7ab] [&::-webkit-slider-thumb]:mt-[-8px] [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#f03b22] [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[#f7b7ab] [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#f03b22]"
+          className="w-full cursor-pointer appearance-none bg-transparent focus:outline-none [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-[#f7b7ab] [&::-webkit-slider-thumb]:mt-[-8px] [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-[#d92f19] [&::-webkit-slider-thumb]:shadow-lg [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[#f7b7ab] [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-[#d92f19]"
         />
         {/*
           Tick labels are absolutely positioned to match the native range
@@ -472,8 +472,8 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
                 style={{
                   left: `calc(12px + (100% - 24px) * ${idx} / ${lastIndex})`,
                 }}
-                className={`absolute top-0 -translate-x-1/2 whitespace-nowrap transition-colors hover:text-[#f03b22] ${
-                  idx === tierIndex ? "text-[#f03b22]" : ""
+                className={`absolute top-0 -translate-x-1/2 whitespace-nowrap transition-colors hover:text-[#c62812] ${
+                  idx === tierIndex ? "text-[#c62812]" : ""
                 }`}
                 aria-label={`${BILLING_PLANS[key].name}: ${formatWordCount(BILLING_PLANS[key].wordsLimit, locale)}`}
               >
@@ -498,7 +498,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-2xl font-bold text-gray-900">{tier.name}</p>
               {tier.highlight && (
-                <span className="inline-flex items-center rounded-full bg-[#f03b22] px-2.5 py-0.5 text-xs font-semibold text-white">
+                <span className="inline-flex items-center rounded-full bg-[#d92f19] px-2.5 py-0.5 text-xs font-semibold text-white">
                   {copy.recommendedBadge}
                 </span>
               )}
@@ -550,7 +550,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
       {!isEnterprise && (
         <p className="mt-6 text-center text-xs text-gray-500">
           {copy.contactPrompt}{" "}
-          <a className="text-[#f03b22] hover:underline" href={enterpriseMailto}>
+          <a className="text-[#c62812] hover:underline" href={enterpriseMailto}>
             {copy.enterpriseCta}
           </a>
           .
@@ -563,7 +563,7 @@ export function PricingGrid({ locale, viewer }: PricingGridProps) {
           {copy.faq}{" "}
           <a
             href="mailto:office@ostheimer.at?subject=Deepglot%20Plans"
-            className="text-[#f03b22] hover:underline"
+            className="text-[#c62812] hover:underline"
           >
             {copy.faqCta}
           </a>{" "}

@@ -34,8 +34,8 @@ const NAV_COPY = {
 
 function navLinkClass(isActive: boolean) {
   return isActive
-    ? "text-sm font-semibold text-[#f03b22]"
-    : "text-sm font-medium text-[#14212d] transition-colors hover:text-[#f03b22]";
+    ? "text-sm font-semibold text-[#c62812]"
+    : "text-sm font-medium text-[#14212d] transition-colors hover:text-[#c62812]";
 }
 
 export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
@@ -96,7 +96,7 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
           <Button
             asChild
             size="sm"
-            className="h-10 rounded-md bg-[#f03b22] px-4 font-semibold text-white shadow-none hover:bg-[#d92f19] lg:h-12 lg:px-12"
+            className="h-10 rounded-md bg-[#d92f19] px-4 font-semibold text-white shadow-none hover:bg-[#c62812] lg:h-12 lg:px-12"
           >
             <Link href={signupHref}>
               {copy.signup}

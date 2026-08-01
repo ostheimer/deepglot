@@ -115,7 +115,7 @@ class SettingsPage
         .dg-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 28px; }
         .dg-step { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid #f3f4f6; }
         .dg-step:last-child { border-bottom: none; }
-        .dg-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #f03b22; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+        .dg-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #d92f19; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
         .dg-step-num.done { background: #16a34a; }
         .dg-step-body { flex: 1; }
         .dg-step-body h3 { margin: 0 0 6px; font-size: 0.9375rem; color: #111827; }
@@ -133,9 +133,9 @@ class SettingsPage
         .dg-lang-row .dg-field { flex: 1; min-width: 140px; }
 
         /* Buttons */
-        .dg-btn-primary { background: #f03b22; color: #fff; border: none; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .dg-btn-primary { background: #d92f19; color: #fff; border: none; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
         .dg-btn-primary:hover { background: #c62812; }
-        .dg-btn-outline { background: transparent; color: #f03b22; border: 1.5px solid #f03b22; padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .dg-btn-outline { background: transparent; color: #c62812; border: 1.5px solid #f03b22; padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
         .dg-btn-outline:hover { background: #fff0ec; color: #c62812; border-color: #c62812; }
 
         /* Alert */
@@ -154,7 +154,7 @@ class SettingsPage
 
         /* Advanced section */
         .dg-advanced-toggle { font-size: 12px; color: #6b7280; cursor: pointer; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; }
-        .dg-advanced-toggle:hover { color: #f03b22; }
+        .dg-advanced-toggle:hover { color: #c62812; }
         .dg-advanced { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e5e7eb; }
         .dg-advanced.open { display: block; }
         .dg-advanced textarea { width: 100%; max-width: 460px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; font-family: monospace; color: #374151; resize: vertical; }
@@ -162,7 +162,7 @@ class SettingsPage
         /* Footer actions */
         .dg-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
         .dg-help { font-size: 12px; color: #9ca3af; margin-top: 8px; }
-        .dg-help a { color: #f03b22; text-decoration: none; }
+        .dg-help a { color: #c62812; text-decoration: none; }
 
         /* Switcher section */
         .dg-section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 460px; }

@@ -73,7 +73,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               de ? "Eine übersetzte URL öffnen und Navigation, hreflang, Cache, dynamische Inhalte und Kontingentstatus prüfen." : "Open a translated URL and verify navigation, hreflang, cache, dynamic content, and quota status.",
             ].map((step, index) => (
               <li key={step} className="border-l-2 border-[#f03b22] bg-white p-5 leading-7 text-[#4d5963]">
-                <span className="mr-2 font-mono font-semibold text-[#f03b22]">{index + 1}.</span>{step}
+                <span className="mr-2 font-mono font-semibold text-[#c62812]">{index + 1}.</span>{step}
               </li>
             ))}
           </ol>
@@ -100,7 +100,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
                 <p className="mt-2 text-xs text-gray-500">
                   {de ? "Quellcode:" : "Source:"}{" "}
                   <a
-                    className="font-mono text-[#f03b22] hover:underline"
+                    className="font-mono text-[#c62812] hover:underline"
                     href={`https://github.com/ostheimer/deepglot/blob/main/${endpoint.sourceFile}`}
                   >
                     {endpoint.sourceFile}
@@ -189,7 +189,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             <p>
               {de ? "MCP-Server, offizielles SDK/CLI und Agent-Skills sind derzeit nicht verfügbar. DPP-Lokalisierung ist eine spätere, noch zu validierende Richtung und keine Compliance-Zusage. " : "An MCP server, official SDK/CLI, and agent skills are not currently available. DPP localization is a later, unvalidated direction and not a compliance claim. "}
               <a
-                className="font-medium text-[#f03b22] hover:underline"
+                className="font-medium text-[#c62812] hover:underline"
                 href="https://github.com/ostheimer/deepglot/blob/main/docs/product-decisions/developer-surfaces.md"
               >
                 {de ? "Entscheidungsprotokoll" : "Decision record"}
@@ -199,8 +199,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
         </section>
 
         <div className="mt-20 border-l-4 border-[#f03b22] bg-white p-6 text-sm text-[#58636d]">
-          {de ? "Fragen oder Integrationsfeedback? " : "Questions or integration feedback? "}<a className="font-medium text-[#f03b22] hover:underline" href="mailto:office@ostheimer.at">office@ostheimer.at</a>
-          <span className="mx-2">·</span><Link className="font-medium text-[#f03b22] hover:underline" href={getMarketingPath(locale, "home")}>{de ? "Zur Startseite" : "Back to homepage"}</Link>
+          {de ? "Fragen oder Integrationsfeedback? " : "Questions or integration feedback? "}<a className="font-medium text-[#c62812] hover:underline" href="mailto:office@ostheimer.at">office@ostheimer.at</a>
+          <span className="mx-2">·</span><Link className="font-medium text-[#c62812] hover:underline" href={getMarketingPath(locale, "home")}>{de ? "Zur Startseite" : "Back to homepage"}</Link>
         </div>
         </div>
       </main>

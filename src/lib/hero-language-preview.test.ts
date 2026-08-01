@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getHeroPreviewLanguageCode,
+  getHeroPreviewTabs,
   HERO_PREVIEW_LANGUAGES,
 } from "./hero-language-preview";
 import { SITE_LOCALES } from "./site-locale";
@@ -65,18 +66,34 @@ test("the showcase translates its complete navigation with the selected preview 
   }
 });
 
-test("the showcase initially follows the selected site language when available", () => {
+test("the showcase initially follows every selected site language", () => {
   assert.equal(getHeroPreviewLanguageCode("de"), "de");
   assert.equal(getHeroPreviewLanguageCode("en"), "en");
   assert.equal(getHeroPreviewLanguageCode("fr"), "fr");
   assert.equal(getHeroPreviewLanguageCode("it"), "it");
 
   for (const locale of SITE_LOCALES) {
-    assert.ok(
-      HERO_PREVIEW_LANGUAGES.some(
-        (language) => language.code === getHeroPreviewLanguageCode(locale)
-      ),
-      locale
-    );
+    assert.equal(getHeroPreviewLanguageCode(locale), locale);
+    assert.ok(HERO_PREVIEW_LANGUAGES.some((language) => language.code === locale), locale);
+  }
+});
+
+test("Bulgarian starts with localized showcase navigation and hero copy", () => {
+  const language = HERO_PREVIEW_LANGUAGES.find((candidate) => candidate.code === "bg");
+
+  assert.ok(language, "missing Bulgarian showcase language");
+  assert.notEqual(language.navigation.services, "Services");
+  assert.notEqual(language.navigation.projects, "Projects");
+  assert.notEqual(language.heading, "We create spaces that last.");
+  assert.notEqual(language.body, "Thoughtful design, clean lines and sustainable materials – architecture with lasting impact.");
+  assert.notEqual(language.cta, "Learn more");
+});
+
+test("the showcase keeps four tabs and includes the selected site language", () => {
+  for (const locale of SITE_LOCALES) {
+    const tabs = getHeroPreviewTabs(locale);
+    assert.equal(tabs.length, 4, locale);
+    assert.equal(new Set(tabs.map((language) => language.code)).size, 4, locale);
+    assert.ok(tabs.some((language) => language.code === locale), locale);
   }
 });

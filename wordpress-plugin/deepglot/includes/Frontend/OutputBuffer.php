@@ -278,7 +278,7 @@ class OutputBuffer
 #deepglot-editor-root textarea{min-height:120px;resize:vertical;}
 #deepglot-editor-root .dg-actions{display:flex;justify-content:space-between;gap:10px;}
 #deepglot-editor-root button{appearance:none;border:none;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;}
-#deepglot-editor-root .dg-primary{background:#f03b22;color:#fff;}
+#deepglot-editor-root .dg-primary{background:#d92f19;color:#fff;}
 #deepglot-editor-root .dg-secondary{background:#fff0ec;color:#9f2818;}
 #deepglot-editor-root .dg-status{font-size:12px;color:#64748b;min-height:18px;}
 #deepglot-editor-banner{position:fixed;left:24px;bottom:24px;z-index:2147483647;max-width:420px;background:#111827;color:#fff;padding:12px 14px;border-radius:12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;box-shadow:0 20px 60px rgba(15,23,42,.2);}

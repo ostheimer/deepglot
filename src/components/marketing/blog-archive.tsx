@@ -44,7 +44,7 @@ export function BlogArchive({ locale }: { locale: SiteLocale }) {
               </p>
             </div>
             <div className="flex flex-col justify-end border-l border-white/20 pl-8">
-              <Buildings className="h-10 w-10 text-[#f03b22]" weight="regular" />
+              <Buildings className="h-10 w-10 text-[#c62812]" weight="regular" />
               <p className="mt-5 text-sm font-bold uppercase tracking-[0.16em]">
                 {uiText(locale, "Notes from Austria", "Notizen aus Österreich")}
               </p>
@@ -60,12 +60,12 @@ export function BlogArchive({ locale }: { locale: SiteLocale }) {
         </header>
 
         <section className="mx-auto max-w-[1488px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
-          <p className="mb-8 text-sm font-bold uppercase tracking-[0.18em] text-[#f03b22]">
+          <p className="mb-8 text-sm font-bold uppercase tracking-[0.18em] text-[#c62812]">
             {uiText(locale, "Latest articles", "Neueste Artikel")}
           </p>
 
           <article className="grid overflow-hidden border border-[#d8d6ce] bg-white lg:grid-cols-[0.82fr_1.18fr]">
-            <div className="flex min-h-72 flex-col justify-between bg-[#f03b22] p-8 text-white sm:p-10">
+            <div className="flex min-h-72 flex-col justify-between bg-[#d92f19] p-8 text-white sm:p-10">
               <span className="text-7xl font-extrabold tracking-[-0.07em] text-white/30">01</span>
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.16em]">{featured.copy.category}</p>
@@ -83,7 +83,7 @@ export function BlogArchive({ locale }: { locale: SiteLocale }) {
               <p className="mt-6 max-w-2xl text-lg leading-8 text-[#58636d]">{featured.copy.excerpt}</p>
               <Link
                 href={getBlogArticlePath(locale, featured.slug)}
-                className="mt-8 inline-flex w-fit items-center gap-3 font-bold text-[#f03b22] transition-colors hover:text-[#c62812]"
+                className="mt-8 inline-flex w-fit items-center gap-3 font-bold text-[#c62812] transition-colors hover:text-[#c62812]"
               >
                 {uiText(locale, "Read article", "Artikel lesen")}
                 <ArrowRight className="h-5 w-5" weight="bold" />
@@ -95,7 +95,7 @@ export function BlogArchive({ locale }: { locale: SiteLocale }) {
             {rest.map((post, index) => (
               <article key={post.id} className="flex min-h-[420px] flex-col border-t-4 border-[#f03b22] bg-[#f2f0ea] p-8 sm:p-10">
                 <div className="flex items-start justify-between gap-6">
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#f03b22]">{post.copy.category}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#c62812]">{post.copy.category}</p>
                   <span className="text-5xl font-extrabold tracking-[-0.06em] text-[#071521]/12">0{index + 2}</span>
                 </div>
                 <h2 className="mt-10 text-3xl font-extrabold leading-[1.08] tracking-[-0.04em]">{post.copy.title}</h2>
@@ -107,7 +107,7 @@ export function BlogArchive({ locale }: { locale: SiteLocale }) {
                   <Link
                     href={getBlogArticlePath(locale, post.slug)}
                     aria-label={`${uiText(locale, "Read article", "Artikel lesen")}: ${post.copy.title}`}
-                    className="grid h-11 w-11 shrink-0 place-items-center bg-[#071521] text-white transition-colors hover:bg-[#f03b22]"
+                    className="grid h-11 w-11 shrink-0 place-items-center bg-[#071521] text-white transition-colors hover:bg-[#d92f19]"
                   >
                     <ArrowRight className="h-5 w-5" weight="bold" />
                   </Link>

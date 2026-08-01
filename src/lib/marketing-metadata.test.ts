@@ -5,6 +5,8 @@ import {
   buildMarketingMetadata,
   buildPageMetadata,
 } from "@/lib/marketing-metadata";
+import { generateMetadata as generateBlogMetadata } from "@/app/blog/page";
+import { generateMetadata as generateDocsMetadata } from "@/app/docs/page";
 
 test("marketing metadata carries complete Open Graph and Twitter cards", () => {
   const metadata = buildMarketingMetadata({
@@ -81,5 +83,26 @@ test("editorial metadata can publish an EN/DE-only article canonical", () => {
         alt: "Deepglot — WordPress translation built in Austria",
       },
     ],
+  });
+});
+
+test("unsupported blog and documentation locales point only to real EN/DE variants", async () => {
+  const searchParams = Promise.resolve({ __locale: "fr" });
+  const [blogMetadata, docsMetadata] = await Promise.all([
+    generateBlogMetadata({ searchParams }),
+    generateDocsMetadata({ searchParams }),
+  ]);
+
+  assert.equal(blogMetadata.alternates?.canonical, "/blog");
+  assert.deepEqual(blogMetadata.alternates?.languages, {
+    en: "/blog",
+    de: "/de/blog",
+    "x-default": "/blog",
+  });
+  assert.equal(docsMetadata.alternates?.canonical, "/docs");
+  assert.deepEqual(docsMetadata.alternates?.languages, {
+    en: "/docs",
+    de: "/de/dokumentation",
+    "x-default": "/docs",
   });
 });

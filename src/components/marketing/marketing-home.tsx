@@ -27,6 +27,7 @@ import {
   getAustriaBrandLabel,
   getMarketingHeroLocale,
 } from "@/lib/marketing-hero-locale";
+import { splitMarketingHeroTitle } from "@/lib/marketing-hero-title";
 import {
   formatCompactWords,
   getDateTimeFieldLabel,
@@ -261,6 +262,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
     : isEnglish
       ? "Deepglot translates your WordPress content automatically with AI. Your translations stay under your control."
       : copy.heroDescription;
+  const heroTitleParts = splitMarketingHeroTitle(copy.heroTitle, copy.heroHighlight);
   const proofItems = [
     {
       icon: LockKey,
@@ -282,7 +284,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
       icon: Tag,
       title: isGerman ? "Faire Preise" : copy.pricingHeading,
       description: isGerman
-        ? "Du zahlst nur für das, was du nutzt. Kein Abo-Zwang, volle Kostenkontrolle."
+        ? "Klare Tarife, transparente Limits, volle Kostenkontrolle."
         : copy.featuresDescription,
       tone: "signal" as const,
     },
@@ -298,7 +300,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
             data-testid="marketing-hero-copy"
             className="relative z-10 max-w-[610px] lg:-translate-y-5 lg:py-8"
           >
-            <p className="mb-5 text-sm font-bold tracking-[-0.01em] text-[#f03b22] sm:text-base">
+            <p className="mb-5 text-sm font-bold tracking-[-0.01em] text-[#c62812] sm:text-base">
               {heroLocale.eyebrow}
             </p>
             <h1 className="text-[3.25rem] font-extrabold leading-[0.98] tracking-[-0.055em] text-[#071521] sm:text-[4rem] lg:text-[4rem] xl:text-[4.1rem]">
@@ -310,7 +312,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
                   <br />
                   als eine Sprache.
                   <br />
-                  <span className="text-[#f03b22]">Ohne Abo-Falle.</span>
+                  <span className="text-[#c62812]">Ohne Abo-Falle.</span>
                 </>
               ) : isEnglish ? (
                 <>
@@ -318,12 +320,15 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
                   <br />
                   more than one language.
                   <br />
-                  <span className="text-[#f03b22]">Without lock-in.</span>
+                  <span className="text-[#c62812]">Without lock-in.</span>
                 </>
               ) : (
                 <>
-                  {copy.heroTitle.replace(copy.heroHighlight, "").trim()}{" "}
-                  <span className="text-[#f03b22]">{copy.heroHighlight}</span>
+                  {heroTitleParts.before}
+                  {heroTitleParts.highlight ? (
+                    <span className="text-[#c62812]">{heroTitleParts.highlight}</span>
+                  ) : null}
+                  {heroTitleParts.after}
                 </>
               )}
             </h1>
@@ -335,7 +340,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
               <Button
                 asChild
                 size="lg"
-                className="h-14 rounded-[4px] bg-[#f03b22] px-12 text-base font-bold text-white shadow-none hover:bg-[#d92f19]"
+                className="h-14 rounded-[4px] bg-[#d92f19] px-12 text-base font-bold text-white shadow-none hover:bg-[#c62812]"
               >
                 <Link href={signupHref}>
                   {copy.heroPrimaryCta}
@@ -360,7 +365,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
               {heroFooter}
             </p>
 
-            <p className="ml-5 mt-12 flex items-center gap-3 text-sm font-bold text-[#f03b22]">
+            <p className="ml-5 mt-12 flex items-center gap-3 text-sm font-bold text-[#c62812]">
               <Buildings className="h-7 w-7" weight="regular" />
               {getAustriaBrandLabel(locale)}
             </p>
@@ -377,7 +382,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
           {proofItems.map((item) => (
             <div key={item.title} className="flex min-h-44 items-start gap-5 py-9 md:px-8 md:py-11 md:first:pl-0 md:last:pr-0">
               <item.icon
-                className={item.tone === "mint" ? "h-10 w-10 shrink-0 text-[#42c5a4]" : "h-10 w-10 shrink-0 text-[#f03b22]"}
+                className={item.tone === "mint" ? "h-10 w-10 shrink-0 text-[#42c5a4]" : "h-10 w-10 shrink-0 text-[#c62812]"}
                 weight="regular"
               />
               <div>
@@ -392,7 +397,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
       <section id="features" className="bg-white py-24 sm:py-28">
         <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
           <div className="mb-14 grid gap-5 md:grid-cols-[0.8fr_1.2fr] md:items-end">
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#f03b22]">
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
               WordPress-first
             </p>
             <div>
@@ -414,7 +419,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
                     featureId ? "scroll-mt-28" : ""
                   } ${index < copy.features.length - 1 ? "border-b" : ""} md:border-b lg:border-r lg:[&:nth-child(3n)]:border-r-0`}
                 >
-                  <feature.icon className="h-7 w-7 text-[#f03b22]" weight="regular" />
+                  <feature.icon className="h-7 w-7 text-[#c62812]" weight="regular" />
                   <h3 className="mt-6 text-xl font-bold tracking-[-0.025em] text-[#071521]">{feature.title}</h3>
                   <p className="mt-3 text-sm leading-6 text-[#58636d]">{feature.description}</p>
                 </article>
@@ -427,7 +432,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
       <section id="pricing" className="bg-[#f3f2ed] py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-[#f03b22]">{copy.badge}</p>
+            <p className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">{copy.badge}</p>
             <h2 className="text-4xl font-extrabold tracking-[-0.045em] text-[#071521]">{copy.pricingHeading}</h2>
             <p className="mt-4 text-sm font-semibold text-[#58636d]">
               {PRO_PLAN.name} · {formatMonthlyEuroPrice(PRO_PLAN_EUROS, locale)} · {proWords}

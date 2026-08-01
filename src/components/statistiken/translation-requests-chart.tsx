@@ -120,10 +120,10 @@ export function TranslationRequestsChart({
         <Line
           type="monotone"
           dataKey="requests"
-          stroke="#df351c"
+          stroke="#d92f19"
           strokeWidth={2}
           dot={false}
-          activeDot={{ r: 5, fill: "#df351c", stroke: "#fff", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "#d92f19", stroke: "#fff", strokeWidth: 2 }}
         />
       </LineChart>
     </ResponsiveContainer>

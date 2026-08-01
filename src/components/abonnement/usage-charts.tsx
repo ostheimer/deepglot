@@ -13,7 +13,7 @@ import { formatNumber } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
-const PIE_COLORS = ["#df351c", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#f7a08f"];
+const PIE_COLORS = ["#d92f19", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#f7a08f"];
 
 interface ProjectRow {
   id: string;

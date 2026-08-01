@@ -35,6 +35,6 @@ test("the application uses the orange brand palette instead of violet accents", 
 
   const globalStyles = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
   assert.match(globalStyles, /--color-brand-500:\s*#f03b22/);
-  assert.match(globalStyles, /--color-brand-600:\s*#df351c/);
+  assert.match(globalStyles, /--color-brand-600:\s*#d92f19/);
   assert.match(globalStyles, /--color-brand-700:\s*#c62812/);
 });

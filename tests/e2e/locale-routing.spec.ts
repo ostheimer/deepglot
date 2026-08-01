@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function expectLocaleCookie(page: Page, locale: "en" | "de") {
+async function expectLocaleCookie(page: Page, locale: string) {
   await expect
     .poll(async () => {
       const cookieString = await page.evaluate(() => document.cookie);
@@ -53,6 +53,23 @@ test.describe("locale routing", () => {
       })
     ).toBeVisible();
     await expectLocaleCookie(page, "en");
+  });
+
+  test("keeps the selected locale when launching the installed app", async ({
+    page,
+  }) => {
+    await page.goto("/bg");
+    await expectLocaleCookie(page, "bg");
+
+    const manifest = await page.evaluate(async () => {
+      const response = await fetch("/manifest.webmanifest?locale-regression=bg", {
+        cache: "no-store",
+      });
+      return response.json() as Promise<{ start_url?: string; scope?: string }>;
+    });
+
+    expect(manifest.start_url).toBe("/bg");
+    expect(manifest.scope).toBe("/");
   });
 
   test("opens the WordPress plugin section from the homepage navigation", async ({
@@ -132,6 +149,26 @@ test.describe("locale routing", () => {
     await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
   });
 
+  test("redirects unsupported editorial locales to the real English surfaces", async ({
+    page,
+  }) => {
+    await page.goto("/fr/blog");
+
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/blog");
+    await expect(
+      page.getByRole("heading", {
+        name: "Ideas for an open, multilingual web.",
+      })
+    ).toBeVisible();
+
+    await page.goto("/fr/documentation");
+
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/docs");
+    await expect(
+      page.getByRole("heading", { name: "Integrate Deepglot" })
+    ).toBeVisible();
+  });
+
   test("keeps the active anchor when switching homepage language", async ({
     page,
   }) => {
@@ -187,9 +224,9 @@ test.describe("locale routing", () => {
       }
     });
 
-    await page.goto("/hr/dokumentacija");
+    await page.goto("/de/dokumentation");
 
-    await expect(page).toHaveTitle(/Dokumentacija \| Deepglot/);
+    await expect(page).toHaveTitle(/Dokumentation \| Deepglot/);
 
     await page.goto("/es/terminos");
 

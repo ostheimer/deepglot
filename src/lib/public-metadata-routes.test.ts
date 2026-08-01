@@ -3,10 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import manifest from "@/app/manifest";
+import { buildLocalizedManifest } from "@/app/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
-import { SITE_LOCALES, withLocalePrefix } from "@/lib/site-locale";
+import {
+  getMarketingPath,
+  SITE_LOCALES,
+  withLocalePrefix,
+} from "@/lib/site-locale";
 
 function readPngDimensions(relativePath: string) {
   const file = readFileSync(path.join(process.cwd(), relativePath));
@@ -45,7 +49,7 @@ test("robots excludes every localized private route root", () => {
 });
 
 test("manifest exposes installable 192, 512, and maskable icons", () => {
-  const icons = manifest().icons ?? [];
+  const icons = buildLocalizedManifest("en").icons ?? [];
 
   assert.ok(
     icons.some(
@@ -82,14 +86,33 @@ test("manifest exposes installable 192, 512, and maskable icons", () => {
   );
 });
 
-test("sitemap publishes all marketing locales but only real EN/DE editorial variants", () => {
+test("manifest launches in the selected locale without narrowing the app scope", () => {
+  const manifest = buildLocalizedManifest("bg");
+
+  assert.equal(manifest.start_url, "/bg");
+  assert.equal(manifest.scope, "/");
+});
+
+test("sitemap publishes only routes with content in the advertised locale", () => {
   const entries = sitemap();
   const urls = entries.map((entry) => entry.url);
   const editorialUrls = urls.filter((url) => new URL(url).pathname.includes("/blog"));
+  const possibleDocumentationUrls = new Set(
+    SITE_LOCALES.map(
+      (locale) => `https://deepglot.ai${getMarketingPath(locale, "docs")}`
+    )
+  );
+  const documentationUrls = urls.filter((url) =>
+    possibleDocumentationUrls.has(url)
+  );
 
-  assert.equal(entries.length, 152);
+  assert.equal(entries.length, 130);
   assert.equal(new Set(urls).size, entries.length);
   assert.equal(editorialUrls.length, 8);
+  assert.deepEqual(documentationUrls.sort(), [
+    "https://deepglot.ai/de/dokumentation",
+    "https://deepglot.ai/docs",
+  ]);
   assert.ok(
     editorialUrls.every((url) => {
       const pathname = new URL(url).pathname;

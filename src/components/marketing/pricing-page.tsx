@@ -31,7 +31,7 @@ export async function PricingPage({ locale }: PricingPageProps) {
       <MarketingNav locale={locale} active="pricing" />
 
       <div className="border-b border-[#d8d6ce] bg-[#fbfaf7] px-4 pb-14 pt-16 text-center sm:pt-20">
-        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-[#f03b22]">
+        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-[#c62812]">
           {copy.eyebrow}
         </p>
         <h1 className="mb-5 text-5xl font-extrabold tracking-[-0.05em] text-[#071521] sm:text-6xl">

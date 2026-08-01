@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { getBlogArticlePath, getBlogPosts } from "@/lib/blog";
+import { isBilingualPublicLocale } from "@/lib/bilingual-public-content";
 import { CANONICAL_APP_HOST } from "@/lib/canonical-host";
 import { getMarketingPath, SITE_LOCALES } from "@/lib/site-locale";
 
@@ -9,7 +10,7 @@ const LAST_MODIFIED = new Date("2026-08-01T00:00:00.000Z");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return SITE_LOCALES.flatMap((locale) => {
-    const publishesLocalizedEditorial = locale === "en" || locale === "de";
+    const publishesBilingualContent = isBilingualPublicLocale(locale);
     const marketingEntries: MetadataRoute.Sitemap = [
       {
         url: `${ORIGIN}${getMarketingPath(locale, "home")}`,
@@ -23,12 +24,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
         changeFrequency: "monthly",
         priority: 0.8,
       },
-      {
-        url: `${ORIGIN}${getMarketingPath(locale, "docs")}`,
-        lastModified: LAST_MODIFIED,
-        changeFrequency: "weekly",
-        priority: 0.8,
-      },
+      ...(publishesBilingualContent
+        ? [
+            {
+              url: `${ORIGIN}${getMarketingPath(locale, "docs")}`,
+              lastModified: LAST_MODIFIED,
+              changeFrequency: "weekly" as const,
+              priority: 0.8,
+            },
+          ]
+        : []),
       {
         url: `${ORIGIN}${getMarketingPath(locale, "privacy")}`,
         lastModified: LAST_MODIFIED,
@@ -48,7 +53,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: 0.3,
       },
     ];
-    const editorialEntries: MetadataRoute.Sitemap = publishesLocalizedEditorial
+    const editorialEntries: MetadataRoute.Sitemap = publishesBilingualContent
       ? [
           {
             url: `${ORIGIN}${getMarketingPath(locale, "blog")}`,

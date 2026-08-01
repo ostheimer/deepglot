@@ -35,7 +35,7 @@ export function SimpleMarketingPage({
           <div className="mx-auto grid max-w-[1488px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:px-10 lg:py-24 xl:px-14">
             <div className="max-w-4xl">
               {eyebrow && (
-                <p className="mb-5 text-sm font-bold uppercase tracking-[0.18em] text-[#f03b22]">
+                <p className="mb-5 text-sm font-bold uppercase tracking-[0.18em] text-[#c62812]">
                   {eyebrow}
                 </p>
               )}
@@ -47,7 +47,7 @@ export function SimpleMarketingPage({
               </p>
             </div>
             <div className="hidden border-l border-[#c9c7be] pl-8 lg:flex lg:flex-col lg:justify-end">
-              <Buildings className="h-10 w-10 text-[#f03b22]" weight="regular" />
+              <Buildings className="h-10 w-10 text-[#c62812]" weight="regular" />
               <p className="mt-5 text-sm font-bold uppercase tracking-[0.14em] text-[#071521]">
                 {getAustriaBrandLabel(locale)}
               </p>
@@ -78,12 +78,12 @@ export function SimpleMarketingPage({
           <div className="mt-12 flex flex-col gap-4 border-l-4 border-[#f03b22] bg-white p-6 text-sm text-[#58636d] sm:flex-row sm:items-center sm:justify-between">
             <p>
               {uiText(locale, "Questions? Contact us at ", "Fragen? Schreib uns unter ")}
-              <a href="mailto:office@ostheimer.at" className="font-bold text-[#f03b22] hover:underline">
+              <a href="mailto:office@ostheimer.at" className="font-bold text-[#c62812] hover:underline">
                 office@ostheimer.at
               </a>
               .
             </p>
-            <Link href={getMarketingPath(locale, "home")} className="font-bold text-[#071521] hover:text-[#f03b22]">
+            <Link href={getMarketingPath(locale, "home")} className="font-bold text-[#071521] hover:text-[#c62812]">
               {uiText(locale, "Back to homepage", "Zurück zur Startseite")} →
             </Link>
           </div>

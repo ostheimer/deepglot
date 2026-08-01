@@ -4,6 +4,8 @@ import { Buildings, CheckCircle } from "@phosphor-icons/react/dist/ssr";
 
 import { DeepglotLogo } from "@/components/brand/deepglot-logo";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
+import { BILLING_PLANS } from "@/lib/billing-plans";
+import { formatNumber } from "@/lib/locale-formatting";
 import { getAustriaBrandLabel } from "@/lib/marketing-hero-locale";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getMarketingPath } from "@/lib/site-locale";
@@ -11,6 +13,7 @@ import { uiText } from "@/lib/static-copy";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
+  const freeWords = formatNumber(BILLING_PLANS.FREE.wordsLimit, locale);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#fbfaf7] text-[#071521]">
@@ -55,7 +58,11 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
               </p>
               <p className="mt-8 flex items-center gap-2 text-sm font-semibold text-white/80">
                 <CheckCircle className="h-5 w-5 text-[#42c5a4]" weight="fill" />
-                {uiText(locale, "10,000 words per month free", "10.000 Wörter pro Monat kostenlos")}
+                {uiText(
+                  locale,
+                  "{words} words per month free",
+                  "{words} Wörter pro Monat kostenlos"
+                ).replace("{words}", freeWords)}
               </p>
             </div>
           </div>

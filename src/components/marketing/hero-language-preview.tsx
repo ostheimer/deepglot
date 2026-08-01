@@ -4,10 +4,12 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import {
   getHeroPreviewLanguageCode,
+  getHeroPreviewTabs,
   HERO_PREVIEW_LANGUAGES,
   type HeroPreviewLanguageCode,
 } from "@/lib/hero-language-preview";
 import type { SiteLocale } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
 export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
   const initialCode = getHeroPreviewLanguageCode(locale);
@@ -21,6 +23,7 @@ export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
   const activeLanguage =
     HERO_PREVIEW_LANGUAGES.find((language) => language.code === activeCode) ??
     HERO_PREVIEW_LANGUAGES[0];
+  const previewTabs = getHeroPreviewTabs(initialCode);
 
   return (
     <div
@@ -46,7 +49,11 @@ export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
         <div className="relative aspect-[16/7.8] min-h-[245px] overflow-hidden sm:min-h-[300px]">
           <Image
             src="/marketing/austrian-interior-hero.png"
-            alt="Modernes österreichisches Architekturprojekt mit warmem Holz und großen Fenstern"
+            alt={uiText(
+              locale,
+              "Modern Austrian architecture project with warm wood and large windows",
+              "Modernes österreichisches Architekturprojekt mit warmem Holz und großen Fenstern"
+            )}
             fill
             className="object-cover"
             sizes="(max-width: 1024px) 100vw, 58vw"
@@ -72,10 +79,10 @@ export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
 
       <div
         role="tablist"
-        aria-label="Preview language"
+        aria-label={uiText(locale, "Preview language", "Vorschausprache")}
         className="absolute bottom-0 left-1/2 grid w-[78%] -translate-x-1/2 grid-cols-2 rounded-md border border-black/10 bg-white p-1.5 shadow-[0_16px_40px_rgba(6,21,33,0.12)] sm:grid-cols-4 sm:p-2"
       >
-        {HERO_PREVIEW_LANGUAGES.map((language) => {
+        {previewTabs.map((language) => {
           const active = language.code === activeCode;
           return (
             <button
@@ -85,12 +92,12 @@ export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
               aria-selected={active}
               onClick={() => setActiveCode(language.code)}
               className={`relative px-2 py-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f03b22] sm:text-sm ${
-                active ? "text-[#071521]" : "text-[#53606b] hover:text-[#f03b22]"
+                active ? "text-[#071521]" : "text-[#53606b] hover:text-[#c62812]"
               }`}
             >
               {language.label}
               {active && (
-                <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#f03b22]" />
+                <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#d92f19]" />
               )}
             </button>
           );

@@ -1,8 +1,29 @@
-import type { SiteLocale } from "@/lib/site-locale";
+import {
+  SITE_LOCALES,
+  SITE_LOCALE_METADATA,
+  type SiteLocale,
+} from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 
-export const HERO_PREVIEW_LANGUAGES = [
-  {
-    code: "de",
+type HeroPreviewLanguage = {
+  code: SiteLocale;
+  label: string;
+  navigation: {
+    services: string;
+    projects: string;
+    about: string;
+    contact: string;
+    quote: string;
+  };
+  heading: string;
+  body: string;
+  cta: string;
+};
+
+const CURATED_PREVIEW_LANGUAGES: Partial<
+  Record<SiteLocale, Omit<HeroPreviewLanguage, "code">>
+> = {
+  de: {
     label: "Deutsch",
     navigation: {
       services: "Leistungen",
@@ -15,8 +36,7 @@ export const HERO_PREVIEW_LANGUAGES = [
     body: "Durchdachtes Design, klare Linien und nachhaltige Materialien – für Architektur, die wirkt.",
     cta: "Mehr erfahren",
   },
-  {
-    code: "en",
+  en: {
     label: "English",
     navigation: {
       services: "Services",
@@ -29,8 +49,7 @@ export const HERO_PREVIEW_LANGUAGES = [
     body: "Thoughtful design, clean lines and sustainable materials – architecture with lasting impact.",
     cta: "Learn more",
   },
-  {
-    code: "fr",
+  fr: {
     label: "Français",
     navigation: {
       services: "Services",
@@ -43,8 +62,7 @@ export const HERO_PREVIEW_LANGUAGES = [
     body: "Un design réfléchi, des lignes claires et des matériaux durables – une architecture qui marque.",
     cta: "En savoir plus",
   },
-  {
-    code: "it",
+  it: {
     label: "Italiano",
     navigation: {
       services: "Servizi",
@@ -57,14 +75,64 @@ export const HERO_PREVIEW_LANGUAGES = [
     body: "Design accurato, linee pulite e materiali sostenibili – un’architettura che lascia il segno.",
     cta: "Scopri di più",
   },
-] as const;
+};
 
-export type HeroPreviewLanguageCode = (typeof HERO_PREVIEW_LANGUAGES)[number]["code"];
+function createPreviewLanguage(locale: SiteLocale): HeroPreviewLanguage {
+  const curated = CURATED_PREVIEW_LANGUAGES[locale];
+  if (curated) return { code: locale, ...curated };
+
+  return {
+    code: locale,
+    label: SITE_LOCALE_METADATA[locale].nativeName,
+    navigation: {
+      services: uiText(locale, "Services", "Leistungen"),
+      projects: uiText(locale, "Projects", "Projekte"),
+      about: uiText(locale, "About us", "Über uns"),
+      contact: uiText(locale, "Contact", "Kontakt"),
+      quote: uiText(locale, "Request a quote", "Angebot anfordern"),
+    },
+    heading: uiText(
+      locale,
+      "We create spaces that last.",
+      "Wir gestalten Räume, die bleiben."
+    ),
+    body: uiText(
+      locale,
+      "Thoughtful design, clean lines and sustainable materials – architecture with lasting impact.",
+      "Durchdachtes Design, klare Linien und nachhaltige Materialien – für Architektur, die wirkt."
+    ),
+    cta: uiText(locale, "Learn more", "Mehr erfahren"),
+  };
+}
+
+export const HERO_PREVIEW_LANGUAGES: readonly HeroPreviewLanguage[] =
+  SITE_LOCALES.map(createPreviewLanguage);
+
+export type HeroPreviewLanguageCode = SiteLocale;
 
 export function getHeroPreviewLanguageCode(
   locale: SiteLocale
 ): HeroPreviewLanguageCode {
-  return HERO_PREVIEW_LANGUAGES.some((language) => language.code === locale)
-    ? (locale as HeroPreviewLanguageCode)
-    : "en";
+  return locale;
+}
+
+const DEFAULT_PREVIEW_CODES: readonly HeroPreviewLanguageCode[] = [
+  "de",
+  "en",
+  "fr",
+  "it",
+];
+
+export function getHeroPreviewTabs(
+  selectedCode: HeroPreviewLanguageCode
+): readonly HeroPreviewLanguage[] {
+  const codes = DEFAULT_PREVIEW_CODES.includes(selectedCode)
+    ? DEFAULT_PREVIEW_CODES
+    : [selectedCode, ...DEFAULT_PREVIEW_CODES.slice(0, 3)];
+
+  return codes.map(
+    (code) =>
+      HERO_PREVIEW_LANGUAGES.find((language) => language.code === code) ??
+      HERO_PREVIEW_LANGUAGES[0]
+  );
 }
