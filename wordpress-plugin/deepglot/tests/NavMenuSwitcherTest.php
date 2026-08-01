@@ -150,6 +150,10 @@ foreach ($expanded as $item) {
     if (in_array($item->title, ['Deutsch', 'English', 'Français'], true)) {
         navAssert(in_array('menu-item-deepglot', $item->classes, true), 'Expanded item has menu-item-deepglot class: ' . $item->title);
         navAssert(in_array('deepglot-lang', $item->classes, true), 'Expanded item has deepglot-lang class: ' . $item->title);
+        navAssert(
+            $item->description === '',
+            'Expanded language description stays empty so Avada does not render the label twice: ' . $item->title
+        );
     }
 }
 
@@ -316,7 +320,8 @@ navAssert(count($dropChildren) === 2, 'Nested dropdown: children still attach to
 
 // 13. RequestRouter strips translated prefixes/slugs before menus render.
 // The captured language therefore remains authoritative after REQUEST_URI
-// has become the canonical WordPress source path.
+// has become the canonical WordPress source path. Plugin.php must also inject
+// that same RequestRouter instance into NavMenuSwitcher.
 $_SERVER['REQUEST_URI'] = '/ueber-uns/';
 $routerState = new class {
     public function getCurrentLanguage(): ?string { return 'en'; }
@@ -334,5 +339,13 @@ $afterRoutingParent = array_values(array_filter(
 ));
 navAssert(count($afterRoutingParent) === 1, 'Post-router dropdown must still render one active-language parent.');
 navAssert($afterRoutingParent[0]->title === 'English', 'Post-router nav menu must keep the translated request language as active.');
+
+$pluginSource = file_get_contents(__DIR__ . '/../includes/Plugin.php');
+$navWiringStart = strpos($pluginSource, 'singleton(NavMenuSwitcher::class');
+$navWiring = $navWiringStart === false ? '' : substr($pluginSource, $navWiringStart, 500);
+navAssert(
+    str_contains($navWiring, '$c->get(RequestRouter::class)'),
+    'Plugin.php injects RequestRouter into NavMenuSwitcher'
+);
 
 fwrite(STDOUT, "NavMenuSwitcherTest: OK\n");
