@@ -178,7 +178,7 @@ fi
 
 temporary_archive="$(mktemp "$output_directory/.deepglot-$version.zip.XXXXXX")"
 
-git -C "$repository_root" archive \
+TZ=UTC git -C "$repository_root" archive \
     --format=zip \
     -9 \
     --mtime="@$commit_epoch" \

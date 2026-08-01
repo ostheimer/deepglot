@@ -45,23 +45,78 @@ function runPackageCommand(array $command, string $workingDirectory, ?array $env
     ];
 }
 
+function findPackageExecutable(string $command): ?string
+{
+    if ($command === '' || str_contains($command, DIRECTORY_SEPARATOR)) {
+        return null;
+    }
+
+    $path = getenv('PATH');
+    if (!is_string($path) || $path === '') {
+        return null;
+    }
+
+    $currentDirectory = getcwd();
+    foreach (explode(PATH_SEPARATOR, $path) as $directory) {
+        $directory = $directory !== '' ? $directory : $currentDirectory;
+        if (!is_string($directory) || $directory === '') {
+            continue;
+        }
+
+        $resolvedDirectory = realpath($directory);
+        if (!is_string($resolvedDirectory) || !str_starts_with($resolvedDirectory, DIRECTORY_SEPARATOR)) {
+            continue;
+        }
+
+        $candidate = $resolvedDirectory . DIRECTORY_SEPARATOR . $command;
+        if (!is_file($candidate) || !is_executable($candidate)) {
+            continue;
+        }
+
+        return $candidate;
+    }
+
+    return null;
+}
+
+function requirePackageExecutable(string $command): string
+{
+    $executable = findPackageExecutable($command);
+    packageAssert(
+        $executable !== null,
+        sprintf('Required package-test dependency "%s" was not found in PATH', $command)
+    );
+
+    return $executable;
+}
+
+/**
+ * @return array{path: string, mode: 'sha256sum'|'shasum'}
+ */
+function requirePackageShaUtility(): array
+{
+    $sha256sum = findPackageExecutable('sha256sum');
+    if ($sha256sum !== null) {
+        return ['path' => $sha256sum, 'mode' => 'sha256sum'];
+    }
+
+    $shasum = findPackageExecutable('shasum');
+    if ($shasum !== null) {
+        return ['path' => $shasum, 'mode' => 'shasum'];
+    }
+
+    throw new RuntimeException('Required package-test dependency "sha256sum" or "shasum" was not found in PATH');
+}
+
 /**
  * @param list<string> $commands
  */
-function createControlledPackagePath(string $directory, string $workingDirectory, array $commands): void
+function createControlledPackagePath(string $directory, array $commands): void
 {
     packageAssert(mkdir($directory, 0777, true) || is_dir($directory), 'Could not create controlled PATH');
 
     foreach ($commands as $command) {
-        $lookup = runPackageCommand(
-            ['/bin/sh', '-c', 'command -v "$1"', 'deepglot-command-lookup', $command],
-            $workingDirectory
-        );
-        $target = trim($lookup['stdout']);
-        packageAssert(
-            $lookup['exitCode'] === 0 && $target !== '' && str_starts_with($target, '/'),
-            'Could not resolve command for controlled PATH: ' . $command
-        );
+        $target = requirePackageExecutable($command);
         packageAssert(symlink($target, $directory . '/' . $command), 'Could not link controlled command: ' . $command);
     }
 }
@@ -147,6 +202,10 @@ try {
         throw new RuntimeException('Forced package-test cleanup failure');
     }
 
+    $bashBinary = requirePackageExecutable('bash');
+    $unzipBinary = requirePackageExecutable('unzip');
+    $sleepBinary = requirePackageExecutable('sleep');
+
     $packageTestSource = file_get_contents(__FILE__);
     $legacyCleanupRootVariable = 'DEEPGLOT_PACKAGE_TEST_' . 'FIXTURE_ROOT';
     packageAssert(
@@ -195,6 +254,41 @@ try {
     copyPackageDirectory(__DIR__ . '/..', $fixturePlugin);
     packageAssert(copy($builderSource, $builderFixture), 'Could not copy the release builder');
     chmod($builderFixture, 0755);
+
+    $resolverAliasDirectory = $fixtureRoot . '/resolver-alias';
+    packageAssert(mkdir($resolverAliasDirectory, 0700, false), 'Could not create executable-alias fixture');
+    $resolverDispatcher = '#!' . $bashBinary . "\n" . <<<'BASH'
+printf '%s\n' "${0##*/}"
+BASH;
+    file_put_contents($resolverAliasDirectory . '/toolbox', $resolverDispatcher);
+    chmod($resolverAliasDirectory . '/toolbox', 0755);
+    packageAssert(
+        symlink('toolbox', $resolverAliasDirectory . '/sha256sum'),
+        'Could not create executable-alias symlink'
+    );
+    $originalPath = getenv('PATH');
+    packageAssert(is_string($originalPath), 'Could not read PATH for executable-alias regression');
+    putenv('PATH=' . $resolverAliasDirectory . PATH_SEPARATOR . $originalPath);
+    try {
+        $resolvedAlias = findPackageExecutable('sha256sum');
+        packageAssert(
+            $resolvedAlias === realpath($resolverAliasDirectory) . '/sha256sum',
+            'Executable resolver must preserve the final alias name'
+        );
+        $aliasInvocation = runPackageCommand([$resolvedAlias], $fixtureRoot);
+        packageAssert(
+            $aliasInvocation['exitCode'] === 0 && trim($aliasInvocation['stdout']) === 'sha256sum',
+            'Resolved executable alias must retain argv[0] applet dispatch'
+        );
+        $shaSelection = requirePackageShaUtility();
+        packageAssert(
+            $shaSelection['path'] === $resolvedAlias && $shaSelection['mode'] === 'sha256sum',
+            'SHA utility mode must come from the selected command name, not the resolved basename'
+        );
+    } finally {
+        putenv('PATH=' . $originalPath);
+    }
+
     file_put_contents($fixturePlugin . '/assets/.DS_Store', 'Committed OS metadata must be excluded.');
 
     $commands = [
@@ -219,14 +313,14 @@ try {
     $commit = trim($revision['stdout']);
     packageAssert($revision['exitCode'] === 0 && preg_match('/^[0-9a-f]{40}$/', $commit) === 1, 'Fixture commit must be a full SHA');
 
-    $shortRef = runPackageCommand(['bash', $builderFixture, 'HEAD', $fixtureRoot . '/invalid'], $fixtureRoot);
+    $shortRef = runPackageCommand([$bashBinary, $builderFixture, 'HEAD', $fixtureRoot . '/invalid'], $fixtureRoot);
     packageAssert($shortRef['exitCode'] !== 0, 'Release builder must reject symbolic or abbreviated revisions');
 
     $cleanBuilder = file_get_contents($builderFixture);
     packageAssert(is_string($cleanBuilder), 'Could not read fixture release builder');
     file_put_contents($builderFixture, $cleanBuilder . "\n# Uncommitted builder mutation.\n");
     $dirtyBuilder = runPackageCommand(
-        ['bash', $builderFixture, $commit, $fixtureRoot . '/invalid-dirty-builder'],
+        [$bashBinary, $builderFixture, $commit, $fixtureRoot . '/invalid-dirty-builder'],
         $fixtureRoot
     );
     packageAssert(
@@ -241,14 +335,14 @@ try {
 
     $controlledCommands = ['git', 'awk', 'dirname', 'mkdir', 'mktemp', 'mv', 'rm', 'rmdir'];
     $missingShaPath = $fixtureRoot . '/path-without-sha';
-    createControlledPackagePath($missingShaPath, $fixtureRoot, $controlledCommands);
+    createControlledPackagePath($missingShaPath, $controlledCommands);
     $baseEnvironment = getenv();
     packageAssert(is_array($baseEnvironment), 'Could not read package-test environment');
     $missingShaEnvironment = $baseEnvironment;
     $missingShaEnvironment['PATH'] = $missingShaPath;
     $missingShaOutput = $fixtureRoot . '/dist-missing-sha';
     $missingShaBuild = runPackageCommand(
-        ['/bin/bash', $builderFixture, $commit, $missingShaOutput],
+        [$bashBinary, $builderFixture, $commit, $missingShaOutput],
         $fixtureRoot,
         $missingShaEnvironment
     );
@@ -258,7 +352,7 @@ try {
         'Release builder must reject a missing SHA-256 utility'
     );
     packageAssert(!file_exists($missingShaOutput), 'SHA-256 tooling must be validated before creating the output directory');
-    $missingShaRetry = runPackageCommand(['/bin/bash', $builderFixture, $commit, $missingShaOutput], $fixtureRoot);
+    $missingShaRetry = runPackageCommand([$bashBinary, $builderFixture, $commit, $missingShaOutput], $fixtureRoot);
     packageAssert(
         $missingShaRetry['exitCode'] === 0,
         "Build must succeed after restoring SHA-256 tooling\n"
@@ -266,14 +360,14 @@ try {
     );
 
     $failingShaPath = $fixtureRoot . '/path-with-failing-sha';
-    createControlledPackagePath($failingShaPath, $fixtureRoot, $controlledCommands);
-    file_put_contents($failingShaPath . '/sha256sum', "#!/bin/sh\nexit 91\n");
+    createControlledPackagePath($failingShaPath, $controlledCommands);
+    file_put_contents($failingShaPath . '/sha256sum', '#!' . $bashBinary . "\nexit 91\n");
     chmod($failingShaPath . '/sha256sum', 0755);
     $failingShaEnvironment = $baseEnvironment;
     $failingShaEnvironment['PATH'] = $failingShaPath;
     $failingShaOutput = $fixtureRoot . '/dist-failing-sha';
     $failingShaBuild = runPackageCommand(
-        ['/bin/bash', $builderFixture, $commit, $failingShaOutput],
+        [$bashBinary, $builderFixture, $commit, $failingShaOutput],
         $fixtureRoot,
         $failingShaEnvironment
     );
@@ -282,7 +376,7 @@ try {
         packageDirectoryEntries($failingShaOutput) === [],
         'Failed release builds must remove final artifacts and temporary files'
     );
-    $failingShaRetry = runPackageCommand(['/bin/bash', $builderFixture, $commit, $failingShaOutput], $fixtureRoot);
+    $failingShaRetry = runPackageCommand([$bashBinary, $builderFixture, $commit, $failingShaOutput], $fixtureRoot);
     packageAssert(
         $failingShaRetry['exitCode'] === 0,
         "A cleaned output directory must allow a successful retry\n"
@@ -293,7 +387,7 @@ try {
     $guardedChecksum = $guardedZip . '.sha256';
     $guardedZipHash = hash_file('sha256', $guardedZip);
     $guardedChecksumHash = hash_file('sha256', $guardedChecksum);
-    $overwriteAttempt = runPackageCommand(['/bin/bash', $builderFixture, $commit, $failingShaOutput], $fixtureRoot);
+    $overwriteAttempt = runPackageCommand([$bashBinary, $builderFixture, $commit, $failingShaOutput], $fixtureRoot);
     packageAssert(
         $overwriteAttempt['exitCode'] === 73
             && hash_file('sha256', $guardedZip) === $guardedZipHash
@@ -302,35 +396,29 @@ try {
     );
 
     $parallelPath = $fixtureRoot . '/path-with-blocking-sha';
-    createControlledPackagePath($parallelPath, $fixtureRoot, $controlledCommands);
-    $shaLookup = runPackageCommand(
-        ['/bin/sh', '-c', 'command -v sha256sum || command -v shasum'],
-        $fixtureRoot
-    );
-    $realShaUtility = trim($shaLookup['stdout']);
-    packageAssert($shaLookup['exitCode'] === 0 && $realShaUtility !== '', 'Could not resolve SHA-256 utility for lock test');
-    file_put_contents(
-        $parallelPath . '/sha256sum',
-        <<<'SH'
-#!/bin/sh
+    createControlledPackagePath($parallelPath, $controlledCommands);
+    $shaSelection = requirePackageShaUtility();
+    $realShaUtility = $shaSelection['path'];
+    $blockingShaScript = '#!' . $bashBinary . "\n" . <<<'SH'
 set -eu
 : > "$DEEPGLOT_HASH_READY_FILE"
 while [ ! -f "$DEEPGLOT_HASH_RELEASE_FILE" ]; do
-    /bin/sleep 0.01
+    "$DEEPGLOT_SLEEP_UTILITY" 0.01
 done
 if [ "$DEEPGLOT_REAL_SHA_MODE" = "shasum" ]; then
     exec "$DEEPGLOT_REAL_SHA_UTILITY" -a 256 "$@"
 fi
 exec "$DEEPGLOT_REAL_SHA_UTILITY" "$@"
-SH
-    );
+SH;
+    file_put_contents($parallelPath . '/sha256sum', $blockingShaScript);
     chmod($parallelPath . '/sha256sum', 0755);
     $parallelEnvironment = $baseEnvironment;
     $parallelEnvironment['PATH'] = $parallelPath;
     $parallelEnvironment['DEEPGLOT_HASH_READY_FILE'] = $fixtureRoot . '/parallel-hash-ready';
     $parallelEnvironment['DEEPGLOT_HASH_RELEASE_FILE'] = $fixtureRoot . '/parallel-hash-release';
     $parallelEnvironment['DEEPGLOT_REAL_SHA_UTILITY'] = $realShaUtility;
-    $parallelEnvironment['DEEPGLOT_REAL_SHA_MODE'] = str_ends_with($realShaUtility, '/shasum') ? 'shasum' : 'sha256sum';
+    $parallelEnvironment['DEEPGLOT_REAL_SHA_MODE'] = $shaSelection['mode'];
+    $parallelEnvironment['DEEPGLOT_SLEEP_UTILITY'] = $sleepBinary;
     $parallelOutput = $fixtureRoot . '/dist-parallel';
     $parallelScript = <<<'BASH'
 set -euo pipefail
@@ -339,6 +427,8 @@ commit="$2"
 output_directory="$3"
 ready_file="$4"
 release_file="$5"
+bash_binary="$6"
+sleep_binary="$7"
 first_pid=''
 
 release_first_build() {
@@ -352,17 +442,17 @@ release_first_build() {
 }
 trap release_first_build EXIT
 
-/bin/bash "$builder" "$commit" "$output_directory" &
+"$bash_binary" "$builder" "$commit" "$output_directory" &
 first_pid=$!
 for ((attempt = 0; attempt < 500; attempt++)); do
     [[ -f "$ready_file" ]] && break
     kill -0 "$first_pid" 2>/dev/null || break
-    /bin/sleep 0.01
+    "$sleep_binary" 0.01
 done
 [[ -f "$ready_file" ]]
 
 set +e
-/bin/bash "$builder" "$commit" "$output_directory"
+"$bash_binary" "$builder" "$commit" "$output_directory"
 collision_status=$?
 set -e
 if [[ $collision_status -ne 75 ]]; then
@@ -387,7 +477,7 @@ if [[ -e "$output_directory/.deepglot-0.11.0.lock" ]]; then
 fi
 
 set +e
-/bin/bash "$builder" "$commit" "$output_directory"
+"$bash_binary" "$builder" "$commit" "$output_directory"
 guard_status=$?
 set -e
 if [[ $guard_status -ne 73 ]]; then
@@ -401,12 +491,14 @@ fi
 BASH;
     $parallelBuild = runPackageCommand(
         [
-            '/bin/bash', '-c', $parallelScript, 'deepglot-parallel-build',
+            $bashBinary, '-c', $parallelScript, 'deepglot-parallel-build',
             $builderFixture,
             $commit,
             $parallelOutput,
             $parallelEnvironment['DEEPGLOT_HASH_READY_FILE'],
             $parallelEnvironment['DEEPGLOT_HASH_RELEASE_FILE'],
+            $bashBinary,
+            $sleepBinary,
         ],
         $fixtureRoot,
         $parallelEnvironment
@@ -422,24 +514,27 @@ BASH;
         'First parallel build must retain a correct ZIP and checksum'
     );
 
-    foreach (['one', 'two'] as $outputName) {
+    foreach (['utc' => 'UTC', 'honolulu' => 'Pacific/Honolulu'] as $outputName => $timezone) {
+        $timezoneEnvironment = $baseEnvironment;
+        $timezoneEnvironment['TZ'] = $timezone;
         $result = runPackageCommand(
-            ['bash', $builderFixture, $commit, $fixtureRoot . '/dist-' . $outputName],
-            $fixtureRoot
+            [$bashBinary, $builderFixture, $commit, $fixtureRoot . '/dist-' . $outputName],
+            $fixtureRoot,
+            $timezoneEnvironment
         );
         packageAssert($result['exitCode'] === 0, 'Release build failed: ' . $result['stderr']);
     }
 
-    $firstZip = $fixtureRoot . '/dist-one/deepglot-0.11.0.zip';
-    $secondZip = $fixtureRoot . '/dist-two/deepglot-0.11.0.zip';
-    $firstChecksum = $fixtureRoot . '/dist-one/deepglot-0.11.0.zip.sha256';
+    $firstZip = $fixtureRoot . '/dist-utc/deepglot-0.11.0.zip';
+    $secondZip = $fixtureRoot . '/dist-honolulu/deepglot-0.11.0.zip';
+    $firstChecksum = $fixtureRoot . '/dist-utc/deepglot-0.11.0.zip.sha256';
     packageAssert(is_file($firstZip) && is_file($secondZip), 'Expected release ZIPs were not created');
-    packageAssert(hash_file('sha256', $firstZip) === hash_file('sha256', $secondZip), 'Repeated builds must be byte-identical');
+    packageAssert(hash_file('sha256', $firstZip) === hash_file('sha256', $secondZip), 'Cross-timezone builds must be byte-identical');
 
     $expectedChecksum = hash_file('sha256', $firstZip) . "  deepglot-0.11.0.zip\n";
     packageAssert(file_get_contents($firstChecksum) === $expectedChecksum, 'Checksum sidecar must use the relative ZIP filename');
 
-    $archiveListing = runPackageCommand(['unzip', '-Z1', $firstZip], $fixtureRoot);
+    $archiveListing = runPackageCommand([$unzipBinary, '-Z1', $firstZip], $fixtureRoot);
     packageAssert($archiveListing['exitCode'] === 0, 'Release ZIP must be readable by unzip');
     $archiveEntries = array_values(array_filter(explode("\n", trim($archiveListing['stdout']))));
     foreach ($archiveEntries as $entry) {
@@ -475,7 +570,7 @@ BASH;
 
     $extractDirectory = $fixtureRoot . '/extracted';
     mkdir($extractDirectory);
-    $extract = runPackageCommand(['unzip', '-qq', $firstZip, '-d', $extractDirectory], $fixtureRoot);
+    $extract = runPackageCommand([$unzipBinary, '-qq', $firstZip, '-d', $extractDirectory], $fixtureRoot);
     packageAssert($extract['exitCode'] === 0, 'Release ZIP must extract successfully');
 
     $phpFiles = new RecursiveIteratorIterator(
@@ -505,7 +600,7 @@ BASH;
     $symlinkCommit = trim($symlinkRevision['stdout']);
     packageAssert(preg_match('/^[0-9a-f]{40}$/', $symlinkCommit) === 1, 'Symlink fixture commit must be a full SHA');
     $symlinkBuild = runPackageCommand(
-        ['bash', $builderFixture, $symlinkCommit, $fixtureRoot . '/invalid-symlink'],
+        [$bashBinary, $builderFixture, $symlinkCommit, $fixtureRoot . '/invalid-symlink'],
         $fixtureRoot
     );
     packageAssert(
