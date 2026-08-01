@@ -3,13 +3,15 @@
  * Plugin Name: Deepglot
  * Plugin URI: https://deepglot.ai
  * Description: Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API.
- * Version: 0.10.4
+ * Version: 0.11.0
  * Author: Andreas Ostheimer
  * Author URI: https://www.ostheimer.at
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: deepglot
  * Domain Path: /languages
  * Requires at least: 6.0
- * Requires PHP: 7.4
+ * Requires PHP: 8.0
  */
 
 defined('ABSPATH') || exit;
@@ -17,7 +19,7 @@ defined('ABSPATH') || exit;
 define('DEEPGLOT_PLUGIN_FILE', __FILE__);
 define('DEEPGLOT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('DEEPGLOT_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('DEEPGLOT_PLUGIN_VERSION', '0.10.4');
+define('DEEPGLOT_PLUGIN_VERSION', '0.11.0');
 
 require_once DEEPGLOT_PLUGIN_DIR . 'includes/Autoloader.php';
 

@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.10.4**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the repository [README](../../README.md) for the full feature list. v0.10.4 sends no-cache headers for WordPress' virtual `robots.txt`, preventing intermediary caches from preserving stale sitemap discovery after plugin or configuration changes. v0.10.3 appends the multilingual sitemap after late renderers such as Yoast SEO, whose priority-99,999 filter otherwise replaced Deepglot's discovery line.
+This directory contains the Deepglot WordPress plugin (**v0.11.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list. v0.11.0 adds SaaS-managed translated URL slugs, bounded runtime-config refresh, and request guards for WordPress infrastructure paths. It is a release candidate; no customer deployment is part of this release-preparation phase.
 
 ## Author
 
@@ -23,6 +23,9 @@ https://www.ostheimer.at
 wordpress-plugin/deepglot/
 ├── deepglot.php
 ├── bootstrap.php
+├── LICENSE
+├── README.md
+├── readme.txt
 ├── includes/
 │   ├── Admin/
 │   ├── Api/
@@ -34,7 +37,7 @@ wordpress-plugin/deepglot/
 
 ## Installation in WordPress
 
-1. Package the `wordpress-plugin/deepglot` directory as a ZIP archive.
+1. Build the versioned ZIP from an explicit commit using the release command below.
 2. Upload it in WordPress under `Plugins -> Add New -> Upload Plugin`.
 3. Activate the plugin.
 4. Under `Settings -> Deepglot`, configure the API base URL, API key, and languages.
@@ -73,6 +76,20 @@ The plugin ships a complete translation pipeline:
   `<style>` / `<script>`, where CSS and JS have no entities. `HtmlDocument`
   injects the meta libxml reads and strips it again after serializing.
 
+## Reproducible release package
+
+Build only from a full commit SHA. The builder reads committed Git objects,
+packages the runtime allowlist under a single `deepglot/` directory, and writes
+a SHA-256 sidecar next to the ZIP:
+
+```bash
+wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
+```
+
+For v0.11.0 this creates `deepglot-0.11.0.zip` and
+`deepglot-0.11.0.zip.sha256`. Build the same commit into two empty output
+directories and compare the ZIP hashes when validating a release candidate.
+
 ## Test
 
 Run the full plugin suite (PHP unit tests plus dynamic-translator and visual-switcher JS regressions):
@@ -109,4 +126,4 @@ The server-side pass only translates the HTML present at render time. The option
 - **SEO-safe:** the initial, crawlable HTML is still produced by the server pass; this layer only enhances live interaction and is skipped for bots.
 - **Extraction parity:** the skip rules and attribute whitelist are shared with the server pass via `Support\TranslationRules` (drift-guarded by `tests/TranslationRulesTest.php`); the shipped asset is covered by `tests/DynamicTranslatorAssetTest.js`.
 
-> Status: **live QA passed on 2026-06-10** on `meinhaushalt.at` (plugin v0.8.1, flag enabled there). The toggle remains **off by default** for new installs. See [DYNAMIC_TRANSLATION_QA.md](DYNAMIC_TRANSLATION_QA.md) for the checklist and the recorded result.
+> Status: **live QA passed on 2026-06-10** on `meinhaushalt.at` (plugin v0.8.1, flag enabled there). The toggle remains **off by default** for new installs. See the [dynamic-translation QA record](https://github.com/ostheimer/deepglot/blob/main/wordpress-plugin/deepglot/DYNAMIC_TRANSLATION_QA.md) for the checklist and the recorded result.

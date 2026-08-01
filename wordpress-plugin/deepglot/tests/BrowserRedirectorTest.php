@@ -126,7 +126,7 @@ assertSameRedirect(
 // Lighthouse/PageSpeed & Co. die übersetzte Seite statt der Original-Seite.
 $isBotRequest = new ReflectionMethod(BrowserRedirector::class, 'isBotRequest');
 if (PHP_VERSION_ID < 80100) {
-    // Vor PHP 8.1 ist setAccessible() für private Methoden Pflicht (Requires PHP: 7.4).
+    // Vor PHP 8.1 ist setAccessible() für private Methoden Pflicht (Requires PHP: 8.0).
     $isBotRequest->setAccessible(true);
 }
 
