@@ -191,8 +191,8 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
 }`,
     notes: [
       {
-        en: "SUBDOMAIN mode requires one unique domain mapping for every active target language.",
-        de: "Der Modus SUBDOMAIN benötigt für jede aktive Zielsprache eine eindeutige Domain-Zuordnung.",
+        en: "In SUBDOMAIN mode, mapped target languages use their unique host; unmapped target languages fall back to path prefixes on the source host.",
+        de: "Im Modus SUBDOMAIN verwenden zugeordnete Zielsprachen ihren eindeutigen Host; nicht zugeordnete Zielsprachen werden über Pfad-Präfixe auf dem Quellhost ausgeliefert.",
       },
     ],
   },

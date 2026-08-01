@@ -71,6 +71,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const activeTargetLanguages = apiKey.project.languages
+      .filter((language) => language.isActive)
+      .map((language) => language.langCode);
+
     const [rules, urlSlugs] = await Promise.all([
       db.translationExclusion.findMany({
         where: { projectId: apiKey.projectId },
@@ -83,6 +87,7 @@ export async function GET(request: NextRequest) {
       db.urlSlug.findMany({
         where: {
           projectId: apiKey.projectId,
+          langTo: { in: activeTargetLanguages },
         },
         orderBy: [{ langTo: "asc" }, { originalSlug: "asc" }],
         select: {

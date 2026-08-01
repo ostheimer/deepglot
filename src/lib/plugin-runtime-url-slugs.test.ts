@@ -20,6 +20,8 @@ const WORDPRESS_INFRASTRUCTURE_SEGMENTS = [
   "robots.txt",
   "wp-sitemap.xml",
   "deepglot-sitemap.xml",
+  "index.php",
+  "favicon.ico",
 ] as const;
 
 let runtimeSlugRows: Array<{
@@ -35,15 +37,25 @@ const apiKeyFindUnique = test.mock.fn(async () => ({
   expiresAt: null,
   project: {
     organization: { subscription: null },
-    languages: [],
+    languages: [
+      { langCode: "en", isActive: true },
+      { langCode: "fr", isActive: false },
+    ],
     settings: null,
   },
 }));
 const apiKeyUpdate = test.mock.fn(async () => ({}));
 const exclusionFindMany = test.mock.fn(async () => []);
-const slugFindMany = test.mock.fn(async (_args: unknown) => {
-  void _args;
-  return runtimeSlugRows;
+const slugFindMany = test.mock.fn(async (args: {
+  where?: { langTo?: { in?: string[] } };
+  take?: number;
+}) => {
+  const activeLanguages = args.where?.langTo?.in;
+  const filteredRows = activeLanguages
+    ? runtimeSlugRows.filter((row) => activeLanguages.includes(row.langTo))
+    : runtimeSlugRows;
+
+  return filteredRows.slice(0, args.take);
 });
 const rateLimitQuery = test.mock.fn(async () => [{
   scope: "plugin",
@@ -148,6 +160,7 @@ test("returns only bounded, nonempty URL slug mappings for the API key project",
   assert.deepEqual(slugFindMany.mock.calls[0].arguments[0], {
     where: {
       projectId: "project_current",
+      langTo: { in: ["en"] },
     },
     orderBy: [{ langTo: "asc" }, { originalSlug: "asc" }],
     select: {
@@ -177,4 +190,33 @@ test("returns only bounded, nonempty URL slug mappings for the API key project",
   assert.equal(overflowResponse.status, 413);
   assert.equal(overflowBody.code, "runtime_url_slugs_limit_exceeded");
   assert.equal("urlSlugs" in overflowBody, false);
+
+  runtimeSlugRows = [
+    ...Array.from({ length: 6_000 }, (_, index) => ({
+      originalSlug: `active-source-${index}`,
+      translatedSlug: `active-target-${index}`,
+      langTo: "en",
+    })),
+    ...Array.from({ length: 5_000 }, (_, index) => ({
+      originalSlug: `inactive-source-${index}`,
+      translatedSlug: `inactive-target-${index}`,
+      langTo: "fr",
+    })),
+  ];
+
+  const staleLanguageResponse = await GET(
+    new Request(
+      "https://deepglot.test/api/plugin/runtime-config?api_key=dg_live_current",
+    ) as NextRequest,
+  );
+  const staleLanguageBody = await staleLanguageResponse.json();
+
+  assert.equal(staleLanguageResponse.status, 200);
+  assert.equal(staleLanguageBody.urlSlugs.length, 6_000);
+  assert.equal(
+    staleLanguageBody.urlSlugs.every(
+      (row: { langTo: string }) => row.langTo === "en",
+    ),
+    true,
+  );
 });

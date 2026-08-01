@@ -26,6 +26,8 @@ final class WordPressInfrastructure
         'robots.txt',
         'wp-sitemap.xml',
         'deepglot-sitemap.xml',
+        'index.php',
+        'favicon.ico',
     ];
 
     public static function isReservedSlugSegment(string $segment): bool
@@ -38,6 +40,11 @@ final class WordPressInfrastructure
         return in_array($decoded, self::RESERVED_SLUG_SEGMENTS, true);
     }
 
+    public static function isFrontControllerSegment(string $segment): bool
+    {
+        return strtolower(rawurldecode(trim($segment))) === 'index.php';
+    }
+
     /**
      * @param string[] $segments
      */
@@ -45,7 +52,7 @@ final class WordPressInfrastructure
     {
         $firstSegment = (string) ($segments[0] ?? '');
 
-        if (strtolower(rawurldecode(trim($firstSegment))) === 'index.php' && isset($segments[1])) {
+        if (self::isFrontControllerSegment($firstSegment) && isset($segments[1])) {
             $firstSegment = (string) $segments[1];
         }
 

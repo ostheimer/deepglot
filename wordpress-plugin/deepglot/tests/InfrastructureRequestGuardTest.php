@@ -47,6 +47,8 @@ $infrastructurePaths = [
     '/robots.txt',
     '/wp-sitemap.xml',
     '/deepglot-sitemap.xml',
+    '/index.php',
+    '/favicon.ico',
 ];
 
 foreach ($infrastructurePaths as $requestUri) {
@@ -57,7 +59,13 @@ foreach ($infrastructurePaths as $requestUri) {
     );
 }
 
-foreach (['/', '/en/services/', '/en/wp-content-marketing/'] as $requestUri) {
+foreach ([
+    '/',
+    '/en/services/',
+    '/en/wp-content-marketing/',
+    '/index.php/en/services/',
+    '/blog/index.php/en/services/',
+] as $requestUri) {
     $_SERVER['REQUEST_URI'] = $requestUri;
     infrastructureGuardAssert(
         $guard->invoke($plugin) === false,

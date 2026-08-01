@@ -75,17 +75,40 @@ class SiteRouting
             }
         }
 
-        return $this->resolver->detectLanguageFromPath($uri);
+        $segments = $this->getPathSegments($uri);
+        foreach ($this->resolver->getTargetLanguages() as $language) {
+            if ($this->getPathPrefixLanguageIndex($segments, $language) !== null) {
+                return $language;
+            }
+        }
+
+        return $this->getSitePathSegments() === []
+            ? $this->resolver->detectLanguageFromPath($uri)
+            : null;
     }
 
     public function getCanonicalPath(string $uri, ?string $language = null): string
     {
         $detectedLanguage = $language !== null
             ? strtolower(trim($language))
-            : $this->resolver->detectLanguageFromPath($uri);
-        $canonicalPath = $this->resolver->stripLanguageFromPath($uri);
+            : $this->detectLanguage($uri);
+        $siteSegments = $this->getSitePathSegments();
+        $segments = $this->getPathSegments($uri);
+        $languageIndex = $this->getPathPrefixLanguageIndex(
+            $segments,
+            (string) $detectedLanguage,
+            $siteSegments === []
+        );
 
-        return $this->mapPathSegments($canonicalPath, $detectedLanguage, true);
+        if ($languageIndex !== null) {
+            array_splice($segments, $languageIndex, 1);
+        }
+
+        return $this->mapPathSegments(
+            $this->pathFromSegments($segments),
+            $detectedLanguage,
+            true
+        );
     }
 
     public function buildUrlForLanguage(string $path, string $language): string
@@ -343,9 +366,13 @@ class SiteRouting
             return '/';
         }
 
-        $structuralPathPrefixLength = $this->getStructuralPathPrefixLength($segments, $language);
+        $structuralPathPrefixLength = $this->getStructuralPathPrefixLength(
+            $segments,
+            $language,
+            $skipLanguageSegment
+        );
 
-        if ($reverse && $this->isWordPressInfrastructurePath($segments, $language)) {
+        if ($this->isWordPressInfrastructurePath($segments, $language, $skipLanguageSegment)) {
             return '/' . implode('/', $segments) . '/';
         }
 
@@ -367,9 +394,17 @@ class SiteRouting
     /**
      * @param string[] $segments
      */
-    private function isWordPressInfrastructurePath(array $segments, string $language): bool
+    private function isWordPressInfrastructurePath(
+        array $segments,
+        string $language,
+        bool $allowRelativeSitePath = false
+    ): bool
     {
-        $structuralPathPrefixLength = $this->getStructuralPathPrefixLength($segments, $language);
+        $structuralPathPrefixLength = $this->getStructuralPathPrefixLength(
+            $segments,
+            $language,
+            $allowRelativeSitePath
+        );
         if ($structuralPathPrefixLength > 0) {
             $segments = array_slice($segments, $structuralPathPrefixLength);
         }
@@ -383,13 +418,21 @@ class SiteRouting
      *
      * @param string[] $segments
      */
-    private function getStructuralPathPrefixLength(array $segments, string $language): int
+    private function getStructuralPathPrefixLength(
+        array $segments,
+        string $language,
+        bool $allowRelativeSitePath = false
+    ): int
     {
         $siteSegments = $this->getSitePathSegments();
         $sitePathPrefixLength = $this->getSitePathPrefixLength($segments, $siteSegments);
 
         if ($siteSegments !== [] && $sitePathPrefixLength === 0) {
-            return 0;
+            if (!$allowRelativeSitePath) {
+                return 0;
+            }
+
+            $sitePathPrefixLength = 0;
         }
 
         $prefixLength = $sitePathPrefixLength;
@@ -416,6 +459,72 @@ class SiteRouting
         }
 
         return $prefixLength;
+    }
+
+    /**
+     * Finds the removable PATH_PREFIX language relative to the exact WordPress
+     * site path, with an optional index.php before or after that language.
+     *
+     * @param string[] $segments
+     */
+    private function getPathPrefixLanguageIndex(
+        array $segments,
+        string $language,
+        bool $allowMappedLanguage = false
+    ): ?int
+    {
+        $siteSegments = $this->getSitePathSegments();
+        $sitePathPrefixLength = $this->getSitePathPrefixLength($segments, $siteSegments);
+
+        if ($siteSegments !== [] && $sitePathPrefixLength === 0) {
+            return null;
+        }
+
+        if (
+            isset($segments[$sitePathPrefixLength])
+            && $this->isPathPrefixLanguageSegment(
+                $segments[$sitePathPrefixLength],
+                $language,
+                $allowMappedLanguage
+            )
+        ) {
+            return $sitePathPrefixLength;
+        }
+
+        if (
+            isset($segments[$sitePathPrefixLength + 1])
+            && $this->normalizeSlugSegment($segments[$sitePathPrefixLength]) === 'index.php'
+            && $this->isPathPrefixLanguageSegment(
+                $segments[$sitePathPrefixLength + 1],
+                $language,
+                $allowMappedLanguage
+            )
+        ) {
+            return $sitePathPrefixLength + 1;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getPathSegments(string $path): array
+    {
+        $parsedPath = (string) parse_url($path, PHP_URL_PATH);
+
+        return array_values(array_filter(
+            explode('/', trim($parsedPath, '/')),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+    }
+
+    /**
+     * @param string[] $segments
+     */
+    private function pathFromSegments(array $segments): string
+    {
+        return $segments === [] ? '/' : '/' . implode('/', $segments) . '/';
     }
 
     /**
@@ -452,12 +561,19 @@ class SiteRouting
         return count($siteSegments);
     }
 
-    private function isPathPrefixLanguageSegment(string $segment, string $language): bool
+    private function isPathPrefixLanguageSegment(
+        string $segment,
+        string $language,
+        bool $allowMappedLanguage = false
+    ): bool
     {
         $language = strtolower(trim($language));
         if (
             !in_array($language, $this->resolver->getTargetLanguages(), true)
-            || $this->getSubdomainHostForLanguage($language) !== null
+            || (
+                !$allowMappedLanguage
+                && $this->getSubdomainHostForLanguage($language) !== null
+            )
         ) {
             return false;
         }

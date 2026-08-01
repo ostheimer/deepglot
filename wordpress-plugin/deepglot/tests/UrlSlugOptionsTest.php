@@ -101,6 +101,8 @@ $reservedInfrastructureSegments = [
     'robots.txt',
     'wp-sitemap.xml',
     'deepglot-sitemap.xml',
+    'index.php',
+    'favicon.ico',
 ];
 $runtimeUrlSlugRows = [
         ['langTo' => 'en', 'originalSlug' => 'ueber-uns', 'translatedSlug' => 'about-us'],

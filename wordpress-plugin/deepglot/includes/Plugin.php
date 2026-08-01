@@ -178,7 +178,14 @@ class Plugin
             static fn (string $segment): bool => $segment !== ''
         ));
 
-        foreach ($segments as $segment) {
+        foreach ($segments as $index => $segment) {
+            if (
+                WordPressInfrastructure::isFrontControllerSegment($segment)
+                && isset($segments[$index + 1])
+            ) {
+                continue;
+            }
+
             if (WordPressInfrastructure::isReservedSlugSegment($segment)) {
                 return true;
             }

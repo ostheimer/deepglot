@@ -79,4 +79,23 @@ requestRouterSlugAssert(
     'Subdomain requests must pass the detected language when reversing translated slugs.'
 );
 
+$_SERVER['REQUEST_URI'] = '/blog/fr/page/?0';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$fallbackRouter = new RequestRouter(
+    $options,
+    new SiteRouting(
+        new UrlLanguageResolver('de', ['en', 'fr']),
+        'https://example.com/blog',
+        'SUBDOMAIN',
+        ['en' => 'en.example.com'],
+        ['fr' => ['page-source' => 'page']]
+    )
+);
+$fallbackRouter->rewriteRequestUri();
+requestRouterSlugAssert(
+    '/blog/page-source/?0',
+    (string) $_SERVER['REQUEST_URI'],
+    'Path-prefix fallback requests below a WordPress subdirectory must strip the locale and reverse translated slugs.'
+);
+
 fwrite(STDOUT, "RequestRouterSlugTest: OK\n");

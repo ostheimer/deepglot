@@ -26,6 +26,21 @@ $pathRouting = new SiteRouting(
 
 assertSameRouting('en', $pathRouting->detectLanguage('/en/about/', 'example.com'), 'Path-prefix routing should detect the language from the path.');
 assertSameRouting('https://example.com/en/about/', $pathRouting->buildUrlForLanguage('/about/', 'en'), 'Path-prefix routing should build prefixed URLs.');
+assertSameRouting(
+    '/en/about/',
+    $pathRouting->getCanonicalPath('/en/en/about/', 'en'),
+    'Canonical routing must remove only the structural language prefix and preserve an identical content segment.'
+);
+assertSameRouting(
+    '/index.php/about/',
+    $pathRouting->getCanonicalPath('/index.php/en/about/', 'en'),
+    'Canonical routing must strip a language prefix that follows the root front controller.'
+);
+assertSameRouting(
+    '/about/',
+    $pathRouting->getCanonicalPath('/%65n/about/', 'en'),
+    'Canonical routing must strip a percent-encoded structural language prefix exactly once.'
+);
 
 $subdomainRouting = new SiteRouting(
     $resolver,
@@ -143,6 +158,11 @@ assertSameRouting(
     'Translated slug reversal must not rewrite WordPress REST infrastructure paths.'
 );
 assertSameRouting(
+    'https://en.example.com/wp-json/deepglot/v1/',
+    $infrastructureRouting->buildUrlForLanguage('/wp-json/deepglot/v1/', 'en'),
+    'Forward URL generation must not rewrite segments inside WordPress REST infrastructure paths.'
+);
+assertSameRouting(
     'https://example.com/wp-admin/admin-ajax.php/',
     $infrastructureRouting->rewriteUrl('https://en.example.com/wp-admin/admin-ajax.php', 'de'),
     'Translated slug reversal must not rewrite WordPress admin infrastructure paths on mapped hosts.'
@@ -165,6 +185,8 @@ $reservedInfrastructureSegments = [
     'robots.txt',
     'wp-sitemap.xml',
     'deepglot-sitemap.xml',
+    'index.php',
+    'favicon.ico',
 ];
 $reservedInfrastructureMappings = [
     'wp-json-guide' => 'api-guide',
@@ -287,14 +309,19 @@ assertSameRouting(
     'A target language without its own host must use the path-prefix fallback.'
 );
 assertSameRouting(
-    '/blog/fr/page-source/',
-    $partialSubdomainRouting->getCanonicalPath('/blog/fr/page/', 'fr'),
-    'The path-prefix fallback language segment must remain structural during reversal.'
+    'fr',
+    $partialSubdomainRouting->detectLanguage('/blog/fr/page/', 'example.com'),
+    'A path-prefix fallback language must be detected relative to the configured WordPress subdirectory.'
 );
 assertSameRouting(
-    '/blog/fr/wp-json/deepglot/v1/',
+    '/blog/page-source/',
+    $partialSubdomainRouting->getCanonicalPath('/blog/fr/page/', 'fr'),
+    'The path-prefix fallback language segment must be stripped before WordPress routing.'
+);
+assertSameRouting(
+    '/blog/wp-json/deepglot/v1/',
     $partialSubdomainRouting->getCanonicalPath('/blog/fr/wp-json/deepglot/v1/', 'fr'),
-    'Infrastructure below a fallback language prefix must bypass translated slug reversal.'
+    'Infrastructure below a fallback language prefix must strip the locale and bypass slug reversal.'
 );
 
 $emptySubdomainHostRouting = new SiteRouting(
@@ -305,7 +332,7 @@ $emptySubdomainHostRouting = new SiteRouting(
     ['fr' => ['language-source' => 'fr', 'page-source' => 'page']]
 );
 assertSameRouting(
-    '/blog/fr/page-source/',
+    '/blog/page-source/',
     $emptySubdomainHostRouting->getCanonicalPath('/blog/fr/page/', 'fr'),
     'An explicitly empty language host must use the same path-prefix structure fallback.'
 );
@@ -323,7 +350,7 @@ assertSameRouting(
     'A falsey normalized language host must use the path-prefix fallback when building URLs.'
 );
 assertSameRouting(
-    '/blog/fr/page-source/',
+    '/blog/page-source/',
     $zeroSubdomainHostRouting->getCanonicalPath('/blog/fr/page/', 'fr'),
     'A falsey normalized language host must use the same path-prefix fallback during reversal.'
 );
@@ -355,39 +382,44 @@ $subdirectoryPathPrefixRouting = new SiteRouting(
     ]
 );
 assertSameRouting(
-    '/blog/en/wp-json/deepglot/v1/',
+    'en',
+    $subdirectoryPathPrefixRouting->detectLanguage('/blog/en/content/', 'example.com'),
+    'Path-prefix routing must detect a language relative to the configured WordPress subdirectory.'
+);
+assertSameRouting(
+    '/blog/wp-json/deepglot/v1/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/en/wp-json/deepglot/v1/', 'en'),
-    'Infrastructure prefixes below the WordPress subdirectory and language segment must bypass translated slug reversal.'
+    'Infrastructure prefixes must strip the language below the WordPress subdirectory and bypass reversal.'
 );
 assertSameRouting(
-    '/blog/en/index.php/wp-json/deepglot/v1/',
+    '/blog/index.php/wp-json/deepglot/v1/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/en/index.php/wp-json/deepglot/v1/', 'en'),
-    'Infrastructure prefixes below the WordPress subdirectory, language segment, and index.php must bypass translated slug reversal.'
+    'Language before index.php must be stripped while preserving the WordPress front controller.'
 );
 assertSameRouting(
-    '/blog/index.php/en/wp-json/deepglot/v1/',
+    '/blog/index.php/wp-json/deepglot/v1/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/index.php/en/wp-json/deepglot/v1/', 'en'),
-    'Infrastructure prefixes must also bypass reversal when index.php precedes the language segment.'
+    'Language after index.php must be stripped while preserving the WordPress front controller.'
 );
 assertSameRouting(
-    '/blog/en/content/',
+    '/blog/content/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/en/content/', 'en'),
-    'The configured WordPress subdirectory segments must never be reverse mapped as content slugs.'
+    'The configured WordPress subdirectory must remain while the language prefix is stripped.'
 );
 assertSameRouting(
-    '/blog/en/page-source/',
+    '/blog/page-source/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/en/page/', 'en'),
-    'The language structure segment must stay intact while later content slugs are reversed.'
+    'The language structure segment must be stripped while later content slugs are reversed.'
 );
 assertSameRouting(
-    '/blog/en/index.php/page-source/',
+    '/blog/index.php/page-source/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/en/index.php/page/', 'en'),
-    'Language and index.php structure segments must stay intact before reversing later content slugs.'
+    'Language must be stripped and index.php preserved before reversing later content slugs.'
 );
 assertSameRouting(
-    '/blog/index.php/en/page-source/',
+    '/blog/index.php/page-source/',
     $subdirectoryPathPrefixRouting->getCanonicalPath('/blog/index.php/en/page/', 'en'),
-    'index.php and language structure segments must stay intact in either order.'
+    'Language must be stripped after index.php before reversing later content slugs.'
 );
 assertSameRouting(
     '/blogger/language-source/wp-json/plugin-source/version-source/',

@@ -18,6 +18,8 @@ export const WORDPRESS_INFRASTRUCTURE_SLUG_SEGMENTS = [
   "robots.txt",
   "wp-sitemap.xml",
   "deepglot-sitemap.xml",
+  "index.php",
+  "favicon.ico",
 ] as const;
 
 const WORDPRESS_INFRASTRUCTURE_SLUG_SET = new Set<string>(
