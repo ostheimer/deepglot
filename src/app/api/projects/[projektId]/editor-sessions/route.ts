@@ -2,52 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { buildEditorLaunchUrl } from "@/lib/editor-launch-url";
 import { createEditorSessionToken } from "@/lib/editor-session";
 import {
   canAccessProject,
   canAccessProjectLanguage,
   getProjectAccess,
 } from "@/lib/project-access";
-import { getProjectUrl } from "@/lib/project-url";
 
 export const runtime = "nodejs";
-
-function buildEditorLaunchUrl({
-  domain,
-  routingMode,
-  domainMappings,
-  langTo,
-  projectId,
-  token,
-}: {
-  domain: string;
-  routingMode: "PATH_PREFIX" | "SUBDOMAIN";
-  domainMappings: Array<{ langCode: string; host: string }>;
-  langTo: string;
-  projectId: string;
-  token: string;
-}) {
-  const baseUrl =
-    routingMode === "SUBDOMAIN"
-      ? (() => {
-          const mapping = domainMappings.find((item) => item.langCode === langTo);
-          return mapping ? getProjectUrl(mapping.host) : getProjectUrl(domain);
-        })()
-      : getProjectUrl(domain);
-
-  const url = new URL(baseUrl);
-
-  if (routingMode === "PATH_PREFIX") {
-    const pathname = url.pathname.replace(/\/$/, "");
-    url.pathname = `${pathname}/${langTo}`.replace(/\/{2,}/g, "/");
-  }
-
-  url.searchParams.set("deepglot_editor", "1");
-  url.searchParams.set("deepglot_editor_project", projectId);
-  url.searchParams.set("deepglot_editor_token", token);
-
-  return url.toString();
-}
 
 export async function POST(
   request: NextRequest,

@@ -38,3 +38,48 @@ export const pluginSettingsSyncSchema = z
 export type PluginSettingsSyncPayload = z.infer<
   typeof pluginSettingsSyncSchema
 >;
+
+export type PluginDomainMappingsValidationError = {
+  detail: string;
+  errors: { domainMappings: string[] };
+};
+
+export function validatePluginDomainMappings(
+  payload: PluginSettingsSyncPayload,
+): PluginDomainMappingsValidationError | null {
+  const duplicateHosts = new Set<string>();
+  const seenHosts = new Set<string>();
+
+  for (const mapping of payload.domainMappings) {
+    if (seenHosts.has(mapping.host)) {
+      duplicateHosts.add(mapping.host);
+      continue;
+    }
+
+    seenHosts.add(mapping.host);
+  }
+
+  if (duplicateHosts.size > 0) {
+    return {
+      detail: "Domain mappings must use unique hosts.",
+      errors: { domainMappings: ["Hosts must be unique."] },
+    };
+  }
+
+  const invalidMapping = payload.domainMappings.find(
+    (mapping) => !payload.targetLanguages.includes(mapping.langCode),
+  );
+
+  if (invalidMapping) {
+    return {
+      detail: `Domain mapping language '${invalidMapping.langCode}' is not active for the project.`,
+      errors: {
+        domainMappings: [
+          "Every mapping language must be an active target language.",
+        ],
+      },
+    };
+  }
+
+  return null;
+}

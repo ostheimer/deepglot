@@ -103,9 +103,6 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
         <h3 className="text-base font-semibold text-gray-900">
           {uiText(locale, "Routing & domains", "Routing & Domains")}
         </h3>
-        <p className="mt-1 text-sm text-gray-500">
-          {uiText(locale, "Path-prefix is the default. Subdomain mode requires a host mapping for every active target language.", "Pfad-Präfix ist Standard. Für Subdomains muss jede aktive Zielsprache einem Host zugeordnet sein.")}
-        </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Badge className="bg-indigo-50 text-indigo-700">

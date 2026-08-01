@@ -139,14 +139,22 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
       de: "Projekt-API-Key über Bearer-Header oder Query-Parameter.",
     },
     summary: {
-      en: "Returns normalized translation exclusions and the synchronization timestamp used by the WordPress runtime.",
-      de: "Liefert normalisierte Übersetzungsausschlüsse und den Synchronisationszeitpunkt für die WordPress-Laufzeit.",
+      en: "Returns normalized translation exclusions, collision-safe translated URL slugs, and the synchronization timestamp used by the WordPress runtime.",
+      de: "Liefert normalisierte Übersetzungsausschlüsse, kollisionssichere übersetzte URL-Slugs und den Synchronisationszeitpunkt für die WordPress-Laufzeit.",
     },
     responseExample: `{
-  "exclusions": { "urls": [], "selectors": [], "content": [] },
+  "exclusions": { "urls": [], "regexes": [], "selectors": [] },
+  "urlSlugs": [
+    { "originalSlug": "ueber-uns", "translatedSlug": "about-us", "langTo": "en" }
+  ],
   "syncedAt": "2026-07-13T10:00:00.000Z"
 }`,
-    notes: [],
+    notes: [
+      {
+        en: "Mappings that would shadow another source slug or have an ambiguous reverse mapping are omitted. Projects above the bounded 10,000-record runtime contract receive a 413 error instead of a silently truncated map.",
+        de: "Zuordnungen, die einen anderen Quell-Slug verdecken oder keine eindeutige Rückwärtszuordnung besitzen, werden ausgelassen. Projekte oberhalb des begrenzten Runtime-Vertrags mit 10.000 Zeilen erhalten einen 413-Fehler statt einer unbemerkt abgeschnittenen Zuordnung.",
+      },
+    ],
   },
   {
     id: "settings-sync",
@@ -183,8 +191,8 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
 }`,
     notes: [
       {
-        en: "SUBDOMAIN mode requires one unique domain mapping for every active target language.",
-        de: "Der Modus SUBDOMAIN benötigt für jede aktive Zielsprache eine eindeutige Domain-Zuordnung.",
+        en: "In SUBDOMAIN mode, mapped target languages use their unique host; unmapped target languages fall back to path prefixes on the source host.",
+        de: "Im Modus SUBDOMAIN verwenden zugeordnete Zielsprachen ihren eindeutigen Host; nicht zugeordnete Zielsprachen werden über Pfad-Präfixe auf dem Quellhost ausgeliefert.",
       },
     ],
   },

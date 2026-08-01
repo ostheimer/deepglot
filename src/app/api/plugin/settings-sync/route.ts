@@ -7,6 +7,7 @@ import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   pluginSettingsSyncSchema,
   type PluginSettingsSyncPayload,
+  validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
 import {
   PLUGIN_RATE_LIMIT_SCOPE,
@@ -115,53 +116,12 @@ async function syncPluginSettings(request: NextRequest) {
   }
 
   const body = payload.data;
-  const domainMappingLanguages = new Set(
-    body.domainMappings.map((mapping) => mapping.langCode)
-  );
-  const duplicateHosts = new Set<string>();
-  const seenHosts = new Set<string>();
+  const domainMappingsValidation = validatePluginDomainMappings(body);
 
-  body.domainMappings.forEach((mapping) => {
-    if (seenHosts.has(mapping.host)) {
-      duplicateHosts.add(mapping.host);
-      return;
-    }
-    seenHosts.add(mapping.host);
-  });
-
-  if (duplicateHosts.size > 0) {
+  if (domainMappingsValidation) {
     return validationProblem({
-      detail: "Domain mappings must use unique hosts.",
       instance: "/api/plugin/settings-sync",
-      errors: { domainMappings: ["Hosts must be unique."] },
-    });
-  }
-
-  const invalidMapping = body.domainMappings.find(
-    (mapping) => !body.targetLanguages.includes(mapping.langCode)
-  );
-
-  if (invalidMapping) {
-    return validationProblem({
-      detail: `Domain mapping language '${invalidMapping.langCode}' is not active for the project.`,
-      instance: "/api/plugin/settings-sync",
-      errors: {
-        domainMappings: ["Every mapping language must be an active target language."],
-      },
-    });
-  }
-
-  if (
-    body.routingMode === "SUBDOMAIN" &&
-    body.targetLanguages.some((language) => !domainMappingLanguages.has(language))
-  ) {
-    return validationProblem({
-      detail:
-        "Every active target language needs a domain mapping before subdomain routing can be enabled.",
-      instance: "/api/plugin/settings-sync",
-      errors: {
-        domainMappings: ["A mapping is required for every active target language."],
-      },
+      ...domainMappingsValidation,
     });
   }
 
