@@ -318,29 +318,27 @@ $dropChildren = array_filter(
 );
 navAssert(count($dropChildren) === 2, 'Nested dropdown: children still attach to marker id, got ' . count($dropChildren));
 
-// 13. RequestRouter already captured the language before stripping /en/ from
-// REQUEST_URI. The menu must use that state, and Plugin.php must inject the
-// same RequestRouter instance into NavMenuSwitcher.
-$_SERVER['REQUEST_URI'] = '/';
-$requestRouter = new class {
-    public function getCurrentLanguage(): ?string
-    {
-        return 'en';
-    }
+// 13. RequestRouter strips translated prefixes/slugs before menus render.
+// The captured language therefore remains authoritative after REQUEST_URI
+// has become the canonical WordPress source path. Plugin.php must also inject
+// that same RequestRouter instance into NavMenuSwitcher.
+$_SERVER['REQUEST_URI'] = '/ueber-uns/';
+$routerState = new class {
+    public function getCurrentLanguage(): ?string { return 'en'; }
 };
-$routerAwareSwitcher = navMakeSwitcher([], $requestRouter);
-$routerAwareItems = $routerAwareSwitcher->expand([
+$switcherAfterRouting = navMakeSwitcher([], $routerState);
+$afterRouting = $switcherAfterRouting->expand([
     navItem(120, 'Sprachschalter', '#deepglot-switcher', [
         'post_name' => 'deepglot-switcher',
         'classes' => ['deepglot-mode-dropdown'],
     ]),
 ]);
-$routerAwareParents = array_values(array_filter(
-    $routerAwareItems,
-    fn($i) => in_array('deepglot-switcher-parent', $i->classes ?? [], true)
+$afterRoutingParent = array_values(array_filter(
+    $afterRouting,
+    fn($item) => in_array('deepglot-switcher-parent', $item->classes ?? [], true)
 ));
-navAssert(count($routerAwareParents) === 1, 'Router-aware dropdown has one parent');
-navAssert($routerAwareParents[0]->title === 'English', 'Router-aware dropdown parent is the detected English language');
+navAssert(count($afterRoutingParent) === 1, 'Post-router dropdown must still render one active-language parent.');
+navAssert($afterRoutingParent[0]->title === 'English', 'Post-router nav menu must keep the translated request language as active.');
 
 $pluginSource = file_get_contents(__DIR__ . '/../includes/Plugin.php');
 $navWiringStart = strpos($pluginSource, 'singleton(NavMenuSwitcher::class');

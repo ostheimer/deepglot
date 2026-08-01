@@ -25,6 +25,7 @@ use Deepglot\Frontend\WpRocketCompat;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Support\WordPressInfrastructure;
 use Deepglot\Sync\SettingsSync;
 
 class Plugin
@@ -51,6 +52,7 @@ class Plugin
         $this->container->get(NavMenuMetaBox::class)->register();
         $this->container->get(RestApi::class)->register();
         $this->container->get(SettingsSync::class)->register();
+        add_action('plugins_loaded', [$this, 'refreshRuntimeRouting'], 0);
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(MultilingualSitemap::class)->register();
@@ -69,6 +71,36 @@ class Plugin
         SwitcherWidget::bind($this->container->get(LanguageSwitcher::class));
         SwitcherWidget::register();
         $this->container->get(WooCommerceEmailTranslator::class)->register();
+    }
+
+    /**
+     * Refresh frontend routing before RequestRouter inspects REQUEST_URI.
+     *
+     * Runtime configuration is irrelevant to admin, AJAX, cron, REST, CLI and
+     * core infrastructure bootstraps. Avoiding those request types also
+     * prevents an unavailable SaaS endpoint from delaying unrelated WordPress
+     * operations.
+     */
+    public function refreshRuntimeRouting(): void
+    {
+        if (
+            is_admin()
+            || wp_doing_ajax()
+            || wp_doing_cron()
+            || $this->isWordPressInfrastructureRequest()
+        ) {
+            return;
+        }
+
+        $options = $this->container->get(Options::class);
+        if (!$options->isEnabled() || !$options->isConfigured()) {
+            return;
+        }
+
+        $this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();
+        $this->container->get(SiteRouting::class)->replaceUrlSlugMappings(
+            $options->getUrlSlugMappings()
+        );
     }
 
     /**
@@ -115,6 +147,53 @@ class Plugin
         return $this->container->get(Client::class);
     }
 
+    private function isWordPressInfrastructureRequest(): bool
+    {
+        if (
+            (defined('WP_CLI') && WP_CLI)
+            || (defined('REST_REQUEST') && REST_REQUEST)
+            || (function_exists('wp_is_json_request') && wp_is_json_request())
+            || isset($_GET['rest_route'])
+        ) {
+            return true;
+        }
+
+        $requestPath = (string) parse_url(
+            isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+            PHP_URL_PATH
+        );
+        $restPrefix = function_exists('rest_get_url_prefix')
+            ? trim((string) rest_get_url_prefix(), '/')
+            : 'wp-json';
+
+        if (
+            $restPrefix !== ''
+            && preg_match('#(?:^|/)' . preg_quote($restPrefix, '#') . '(?:/|$)#i', $requestPath) === 1
+        ) {
+            return true;
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim($requestPath, '/')),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+
+        foreach ($segments as $index => $segment) {
+            if (
+                WordPressInfrastructure::isFrontControllerSegment($segment)
+                && isset($segments[$index + 1])
+            ) {
+                continue;
+            }
+
+            if (WordPressInfrastructure::isReservedSlugSegment($segment)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // -------------------------------------------------------------------------
     // Service registration
     // -------------------------------------------------------------------------
@@ -148,7 +227,8 @@ class Plugin
                 $c->get(UrlLanguageResolver::class),
                 get_site_url(),
                 $options->getRoutingMode(),
-                $options->getDomainMappings()
+                $options->getDomainMappings(),
+                $options->getUrlSlugMappings()
             );
         });
 

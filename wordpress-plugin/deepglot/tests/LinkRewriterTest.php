@@ -10,12 +10,19 @@ require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Frontend/LinkRewriter.php';
 
 use Deepglot\Frontend\LinkRewriter;
+use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
-function rewriteHtml(string $html, string $lang): string
+function rewriteHtml(string $html, string $lang, array $urlSlugMappings = []): string
 {
     $resolver = new UrlLanguageResolver('de', ['en', 'fr']);
-    $rewriter = new LinkRewriter($resolver, 'https://example.com');
+    $routing = new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [], $urlSlugMappings);
+    return rewriteHtmlUsingRouting($html, $lang, $routing);
+}
+
+function rewriteHtmlUsingRouting(string $html, string $lang, SiteRouting $routing): string
+{
+    $rewriter = new LinkRewriter($routing);
 
     $doc = new DOMDocument('1.0', 'UTF-8');
     libxml_use_internal_errors(true);
@@ -70,6 +77,48 @@ function test_rewrites_internal_absolute_link(): void
     assert(strpos($out, '/en/services/') !== false, "Absolute internal link must be rewritten: {$out}");
 }
 
+function test_rewrites_configured_url_slugs_and_preserves_suffixes(): void
+{
+    $html = '<a href="/ueber-uns/?ref=nav#team">About</a>';
+    $out = rewriteHtml($html, 'en', [
+        'en' => ['ueber-uns' => 'about-us'],
+    ]);
+    assert(strpos($out, 'href="/en/about-us/?ref=nav#team"') !== false, "Configured target slugs, query strings, and fragments must be reflected in internal links: {$out}");
+}
+
+function test_canonicalizes_stale_same_language_prefixed_slugs(): void
+{
+    $html = '<a href="/en/ueber-uns/?ref=legacy#team">Legacy EN</a>'
+          . '<a href="/fr/a-propos/?ref=manual#team">Explicit FR</a>';
+    $out = rewriteHtml($html, 'en', [
+        'en' => ['ueber-uns' => 'about-us'],
+        'fr' => ['ueber-uns' => 'a-propos'],
+    ]);
+    assert(strpos($out, 'href="/en/about-us/?ref=legacy#team"') !== false, "Same-language prefixed links must be canonicalized through the configured slug map: {$out}");
+    assert(strpos($out, 'href="/fr/a-propos/?ref=manual#team"') !== false, "Explicit links to another language must remain untouched: {$out}");
+}
+
+function test_respects_absolute_subdomain_languages_while_canonicalizing_current_links(): void
+{
+    $resolver = new UrlLanguageResolver('de', ['en', 'fr']);
+    $routing = new SiteRouting(
+        $resolver,
+        'https://example.com',
+        'SUBDOMAIN',
+        ['en' => 'en.example.com', 'fr' => 'fr.example.com'],
+        [
+            'en' => ['ueber-uns' => 'about-us'],
+            'fr' => ['ueber-uns' => 'a-propos'],
+        ]
+    );
+    $html = '<a href="https://fr.example.com/a-propos/?ref=manual#team">Explicit FR</a>'
+          . '<a href="https://en.example.com/ueber-uns/?ref=legacy#team">Legacy EN</a>';
+    $out = rewriteHtmlUsingRouting($html, 'en', $routing);
+
+    assert(strpos($out, 'href="https://fr.example.com/a-propos/?ref=manual#team"') !== false, "An explicit absolute link to another mapped subdomain language must remain untouched: {$out}");
+    assert(strpos($out, 'href="https://en.example.com/about-us/?ref=legacy#team"') !== false, "A stale absolute link on the current language subdomain must be canonicalized: {$out}");
+}
+
 /**
  * Regression: when the language switcher renders its own per-language
  * <a> tags (e.g. href="/" for the source language), LinkRewriter used
@@ -122,6 +171,9 @@ $tests = [
     'test_does_not_rewrite_external_link',
     'test_does_not_rewrite_mailto_or_tel_links',
     'test_rewrites_internal_absolute_link',
+    'test_rewrites_configured_url_slugs_and_preserves_suffixes',
+    'test_canonicalizes_stale_same_language_prefixed_slugs',
+    'test_respects_absolute_subdomain_languages_while_canonicalizing_current_links',
     'test_skips_links_inside_deepglot_no_translate_subtree',
     'test_skips_nested_links_inside_no_translate_ancestor',
     'test_skips_links_inside_deepglot_nav_menu_item',

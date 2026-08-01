@@ -67,10 +67,13 @@ class LinkRewriter
                 continue;
             }
 
-            // Do not rewrite anchors that already carry a language prefix.
-            $existing = $this->routing->detectLanguage($value);
+            // Keep deliberate cross-language links untouched. A link already
+            // prefixed for the CURRENT language still runs through SiteRouting
+            // so stale source slugs from a WPML migration are canonicalized
+            // without adding a second language prefix.
+            $existing = $this->detectUrlLanguage($value);
 
-            if ($existing !== null) {
+            if ($existing !== null && $existing !== strtolower(trim($language))) {
                 continue;
             }
 
@@ -146,9 +149,9 @@ class LinkRewriter
             $href = $link->getAttribute('href');
 
             if (in_array($rel, ['canonical', 'shortlink'], true) && $href !== '' && $this->isInternalUrl($href)) {
-                $existing = $this->routing->detectLanguage($href);
+                $existing = $this->detectUrlLanguage($href);
 
-                if ($existing === null) {
+                if ($existing === null || $existing === strtolower(trim($language))) {
                     $link->setAttribute('href', $this->routing->rewriteUrl($href, $language));
                 }
             }
@@ -170,5 +173,17 @@ class LinkRewriter
         $host = (string) parse_url($url, PHP_URL_HOST);
 
         return $this->routing->isInternalHost($host);
+    }
+
+    private function detectUrlLanguage(string $url): ?string
+    {
+        if (preg_match('#^https?://#i', $url)) {
+            $path = (string) parse_url($url, PHP_URL_PATH);
+            $host = (string) parse_url($url, PHP_URL_HOST);
+
+            return $this->routing->detectLanguage($path !== '' ? $path : '/', $host);
+        }
+
+        return $this->routing->detectLanguage($url);
     }
 }

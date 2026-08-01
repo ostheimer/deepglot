@@ -45,7 +45,7 @@ The plugin ships a complete translation pipeline:
 
 - Admin configuration under `Settings → Deepglot` (API, languages, switcher, exclusions, members).
 - `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
-- `LinkRewriter` rewrites internal links; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
+- `LinkRewriter` rewrites internal links; SaaS-managed translated URL-slug mappings are applied and reversed for path-prefix and subdomain routing; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
 - A WordPress-transient translation cache, batched + parallel API requests, and path-prefix / subdomain routing.
 - Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
 - WooCommerce email translation and browser-language redirect.

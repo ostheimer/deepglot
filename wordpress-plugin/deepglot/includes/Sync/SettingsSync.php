@@ -7,6 +7,11 @@ use Deepglot\Config\Options;
 
 class SettingsSync
 {
+    private const RUNTIME_REFRESH_LOCK_OPTION = 'deepglot_runtime_refresh_lock';
+    private const RUNTIME_REFRESH_BACKOFF_TRANSIENT = 'deepglot_runtime_refresh_backoff';
+    private const RUNTIME_REFRESH_LOCK_TTL = 60;
+    private const RUNTIME_REFRESH_FAILURE_BACKOFF = 60;
+
     private Options $options;
     private Client $client;
 
@@ -29,6 +34,10 @@ class SettingsSync
 
         if (!is_array($newValue)) {
             return;
+        }
+
+        if ($this->runtimeSourceChanged($oldValue, $newValue)) {
+            $this->options->clearUrlSlugMappings();
         }
 
         $result = $this->sync($newValue);
@@ -65,14 +74,40 @@ class SettingsSync
 
     public function maybeRefreshRuntimeConfig(): void
     {
-        if (!$this->options->shouldRefreshRuntimeConfig()) {
+        if (
+            !$this->options->shouldRefreshRuntimeConfig()
+            || get_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT) !== false
+        ) {
             return;
         }
 
-        $result = $this->refreshRuntimeConfig();
+        $lockToken = $this->createRuntimeRefreshLockToken();
+        if (!$this->acquireRuntimeRefreshLock($lockToken)) {
+            return;
+        }
 
-        if (is_wp_error($result)) {
-            error_log('[Deepglot] Runtime config sync failed: ' . $result->get_error_message());
+        try {
+            // Another request may have completed a refresh or established a
+            // failure backoff while this request was waiting for the lock.
+            if (
+                !$this->options->shouldRefreshRuntimeConfig()
+                || get_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT) !== false
+            ) {
+                return;
+            }
+
+            $result = $this->refreshRuntimeConfig();
+
+            if (is_wp_error($result)) {
+                set_transient(
+                    self::RUNTIME_REFRESH_BACKOFF_TRANSIENT,
+                    time(),
+                    self::RUNTIME_REFRESH_FAILURE_BACKOFF
+                );
+                error_log('[Deepglot] Runtime config sync failed: ' . $result->get_error_message());
+            }
+        } finally {
+            $this->releaseRuntimeRefreshLock($lockToken);
         }
     }
 
@@ -100,8 +135,106 @@ class SettingsSync
             return $runtimeConfig;
         }
 
-        $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
+        $applied = $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
+
+        if ($applied) {
+            delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
+        }
 
         return $runtimeConfig;
+    }
+
+    private function acquireRuntimeRefreshLock(string $lockToken): bool
+    {
+        $currentLock = get_option(self::RUNTIME_REFRESH_LOCK_OPTION, false);
+
+        if ($currentLock !== false) {
+            $currentLock = (string) $currentLock;
+            $lockTimestamp = $this->runtimeRefreshLockTimestamp($currentLock);
+            if ($lockTimestamp > 0 && microtime(true) - $lockTimestamp < self::RUNTIME_REFRESH_LOCK_TTL) {
+                return false;
+            }
+
+            if (!$this->compareAndDeleteRuntimeRefreshLock($currentLock)) {
+                return false;
+            }
+        }
+
+        return (bool) add_option(self::RUNTIME_REFRESH_LOCK_OPTION, $lockToken, '', false);
+    }
+
+    private function releaseRuntimeRefreshLock(string $lockToken): void
+    {
+        $this->compareAndDeleteRuntimeRefreshLock($lockToken);
+    }
+
+    private function createRuntimeRefreshLockToken(): string
+    {
+        $suffix = function_exists('wp_generate_uuid4')
+            ? wp_generate_uuid4()
+            : uniqid('', true);
+
+        return sprintf('%.6F:%s', microtime(true), $suffix);
+    }
+
+    private function runtimeRefreshLockTimestamp(string $lockToken): float
+    {
+        $separator = strpos($lockToken, ':');
+        $timestamp = $separator === false
+            ? $lockToken
+            : substr($lockToken, 0, $separator);
+
+        return is_numeric($timestamp) ? (float) $timestamp : 0.0;
+    }
+
+    /**
+     * Delete only the exact token this request observed or acquired. A
+     * read-then-delete sequence is unsafe because another request can replace
+     * the option between those operations.
+     */
+    private function compareAndDeleteRuntimeRefreshLock(string $lockToken): bool
+    {
+        global $wpdb;
+
+        if (
+            !isset($wpdb)
+            || !is_object($wpdb)
+            || !isset($wpdb->options)
+            || !method_exists($wpdb, 'delete')
+        ) {
+            return false;
+        }
+
+        $deleted = $wpdb->delete(
+            $wpdb->options,
+            [
+                'option_name' => self::RUNTIME_REFRESH_LOCK_OPTION,
+                'option_value' => $lockToken,
+            ],
+            ['%s', '%s']
+        );
+
+        if ((int) $deleted !== 1) {
+            return false;
+        }
+
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::RUNTIME_REFRESH_LOCK_OPTION, 'options');
+            wp_cache_delete('alloptions', 'options');
+        }
+
+        return true;
+    }
+
+    private function runtimeSourceChanged($oldValue, array $newValue): bool
+    {
+        $oldValue = is_array($oldValue) ? $oldValue : [];
+
+        $oldApiKey = trim((string) ($oldValue['api_key'] ?? ''));
+        $newApiKey = trim((string) ($newValue['api_key'] ?? ''));
+        $oldBaseUrl = untrailingslashit((string) ($oldValue['api_base_url'] ?? ''));
+        $newBaseUrl = untrailingslashit((string) ($newValue['api_base_url'] ?? ''));
+
+        return $oldApiKey !== $newApiKey || $oldBaseUrl !== $newBaseUrl;
     }
 }
