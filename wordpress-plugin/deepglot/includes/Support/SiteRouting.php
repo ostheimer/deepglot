@@ -82,9 +82,7 @@ class SiteRouting
             }
         }
 
-        return $this->getSitePathSegments() === []
-            ? $this->resolver->detectLanguageFromPath($uri)
-            : null;
+        return null;
     }
 
     public function getCanonicalPath(string $uri, ?string $language = null): string
@@ -92,12 +90,10 @@ class SiteRouting
         $detectedLanguage = $language !== null
             ? strtolower(trim($language))
             : $this->detectLanguage($uri);
-        $siteSegments = $this->getSitePathSegments();
         $segments = $this->getPathSegments($uri);
         $languageIndex = $this->getPathPrefixLanguageIndex(
             $segments,
-            (string) $detectedLanguage,
-            $siteSegments === []
+            (string) $detectedLanguage
         );
 
         if ($languageIndex !== null) {
@@ -469,8 +465,7 @@ class SiteRouting
      */
     private function getPathPrefixLanguageIndex(
         array $segments,
-        string $language,
-        bool $allowMappedLanguage = false
+        string $language
     ): ?int
     {
         $siteSegments = $this->getSitePathSegments();
@@ -484,8 +479,7 @@ class SiteRouting
             isset($segments[$sitePathPrefixLength])
             && $this->isPathPrefixLanguageSegment(
                 $segments[$sitePathPrefixLength],
-                $language,
-                $allowMappedLanguage
+                $language
             )
         ) {
             return $sitePathPrefixLength;
@@ -496,8 +490,7 @@ class SiteRouting
             && $this->normalizeSlugSegment($segments[$sitePathPrefixLength]) === 'index.php'
             && $this->isPathPrefixLanguageSegment(
                 $segments[$sitePathPrefixLength + 1],
-                $language,
-                $allowMappedLanguage
+                $language
             )
         ) {
             return $sitePathPrefixLength + 1;
@@ -563,17 +556,13 @@ class SiteRouting
 
     private function isPathPrefixLanguageSegment(
         string $segment,
-        string $language,
-        bool $allowMappedLanguage = false
+        string $language
     ): bool
     {
         $language = strtolower(trim($language));
         if (
             !in_array($language, $this->resolver->getTargetLanguages(), true)
-            || (
-                !$allowMappedLanguage
-                && $this->getSubdomainHostForLanguage($language) !== null
-            )
+            || $this->getSubdomainHostForLanguage($language) !== null
         ) {
             return false;
         }

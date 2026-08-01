@@ -56,7 +56,7 @@ assertSameRouting('en', $subdomainRouting->detectLanguage('/about/', 'en.example
 assertSameRouting('https://en.example.com/about/', $subdomainRouting->buildUrlForLanguage('/about/', 'en'), 'Subdomain routing should build host-based URLs.');
 assertSameRouting(true, $subdomainRouting->isInternalHost('fr.example.com'), 'Mapped subdomain hosts should count as internal hosts.');
 assertSameRouting('https://example.com/about/?ref=nav#intro', $subdomainRouting->buildUrlForLanguage('/fr/about/?ref=nav#intro', 'de'), 'Source-language URLs in subdomain mode should use the canonical source host without a locale prefix.');
-assertSameRouting('https://en.example.com/offers/?coupon=1#details', $subdomainRouting->rewriteUrl('https://fr.example.com/fr/offers/?coupon=1#details', 'en'), 'Mapped subdomain URLs should rewrite across localized hosts and strip stale path prefixes.');
+assertSameRouting('https://en.example.com/offers/?coupon=1#details', $subdomainRouting->rewriteUrl('https://fr.example.com/offers/?coupon=1#details', 'en'), 'Mapped subdomain URLs should rewrite across localized hosts.');
 assertSameRouting('https://partner.example.net/offers/', $subdomainRouting->rewriteUrl('https://partner.example.net/offers/', 'en'), 'External hosts should not be rewritten in subdomain mode.');
 assertSameRouting('//cdn.example.com/image.jpg', $subdomainRouting->rewriteUrl('//cdn.example.com/image.jpg', 'en'), 'Protocol-relative URLs should not be rewritten.');
 
@@ -128,6 +128,29 @@ assertSameRouting(
     '/ueber-uns/',
     $translatedSubdomainRouting->getCanonicalPath('/about-us/', 'en'),
     'Subdomain requests must be able to reverse translated slugs using the detected target language.'
+);
+
+$languageNamedSlugRouting = new SiteRouting(
+    $resolver,
+    'https://example.com',
+    'SUBDOMAIN',
+    ['en' => 'en.example.com'],
+    ['en' => ['source-page' => 'en']]
+);
+assertSameRouting(
+    'https://en.example.com/en/',
+    $languageNamedSlugRouting->buildUrlForLanguage('/source-page/', 'en'),
+    'A mapped subdomain may use its language code as an ordinary translated content slug.'
+);
+assertSameRouting(
+    '/source-page/',
+    $languageNamedSlugRouting->getCanonicalPath('/en/', 'en'),
+    'A language-named content slug on a mapped host must be reversed instead of stripped as a path prefix.'
+);
+assertSameRouting(
+    null,
+    $languageNamedSlugRouting->detectLanguage('/en/', 'example.com'),
+    'A mapped language must not be re-detected as a path-prefix fallback on the source host.'
 );
 
 $infrastructureRouting = new SiteRouting(

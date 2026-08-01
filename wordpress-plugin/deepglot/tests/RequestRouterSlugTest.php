@@ -79,6 +79,34 @@ requestRouterSlugAssert(
     'Subdomain requests must pass the detected language when reversing translated slugs.'
 );
 
+$_SERVER['REQUEST_URI'] = '/en/?0';
+$_SERVER['HTTP_HOST'] = 'en.example.com';
+$languageNamedSlugRouter = new RequestRouter(
+    $options,
+    new SiteRouting(
+        $resolver,
+        'https://example.com',
+        'SUBDOMAIN',
+        ['en' => 'en.example.com'],
+        ['en' => ['source-page' => 'en']]
+    )
+);
+$languageNamedSlugRouter->rewriteRequestUri();
+requestRouterSlugAssert(
+    '/source-page/?0',
+    (string) $_SERVER['REQUEST_URI'],
+    'Mapped subdomain requests must preserve a language-named content slug for reverse mapping.'
+);
+
+$_SERVER['REQUEST_URI'] = '/en/?0';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$languageNamedSlugRouter->rewriteRequestUri();
+requestRouterSlugAssert(
+    '/en/?0',
+    (string) $_SERVER['REQUEST_URI'],
+    'The source host must not activate a language that has its own mapped subdomain.'
+);
+
 $_SERVER['REQUEST_URI'] = '/blog/fr/page/?0';
 $_SERVER['HTTP_HOST'] = 'example.com';
 $fallbackRouter = new RequestRouter(
