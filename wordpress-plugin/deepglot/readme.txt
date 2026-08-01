@@ -1,0 +1,87 @@
+=== Deepglot ===
+Contributors: helpstring
+Tags: translation, multilingual, language switcher, localization, machine translation
+Requires at least: 6.0
+Tested up to: 7.0
+Requires PHP: 8.0
+Stable tag: 0.11.0
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+AI-powered website translation with SEO-friendly URLs, hreflang tags, and a customizable language switcher.
+
+== Description ==
+
+Deepglot translates rendered WordPress pages through the Deepglot translation API and serves each visitor a localized site without duplicating posts.
+
+* Translates text, metadata, accessibility attributes, and JSON-LD structured data.
+* Rewrites internal links and SaaS-managed translated URL slugs for path-prefix or subdomain routing.
+* Adds canonical and `hreflang` tags plus a multilingual sitemap.
+* Provides shortcode, block, widget, nav-menu, and automatic language switchers.
+* Caches translations locally and serves cached translations to crawlers without spending quota.
+* Optionally translates dynamically loaded content through a same-origin WordPress REST endpoint.
+
+== Installation ==
+
+1. Upload the release ZIP under `Plugins -> Add New -> Upload Plugin`.
+2. Activate Deepglot.
+3. Open `Settings -> Deepglot` and enter the API base URL and API key.
+4. Choose the source language, target languages, routing, switcher, and exclusions.
+
+== Frequently Asked Questions ==
+
+= Do I need a Deepglot account? =
+
+Yes. Use an account at https://deepglot.ai or configure a compatible self-hosted Deepglot service.
+
+= Does the plugin duplicate posts? =
+
+No. Translation happens on rendered output. Source content remains in the original WordPress posts and pages.
+
+= What happens when the quota is exhausted? =
+
+Cached translations remain available. Uncached content falls back to the source language, and administrators see a quota notice.
+
+== External services ==
+
+By default, this plugin connects to the Deepglot service at `https://deepglot.ai/api/`. A compatible self-hosted API base URL can be selected in the settings.
+
+For translation requests, the plugin sends the configured API key, text fragments from rendered pages, source and target language codes, the requested page URL, and a bot-classification code. It sends these requests when uncached content needs translation or when an administrator tests the connection. Dynamic translation requests first pass through the site's same-origin WordPress REST endpoint, so the API key is not exposed to browsers.
+
+Settings synchronization sends the configured API key, site URL, routing mode, source and target languages, domain mappings, and the feature flags for automatic redirect, email translation, search translation, AMP translation, and dynamic translation.
+
+Runtime refresh sends the configured API key and receives URL and selector exclusions, regular-expression exclusions, and translated URL-slug mappings. The plugin can also request the public supported-languages list without an API key.
+
+Starting the Visual Editor verifies its token through the project-scoped `editor-sessions/verify` endpoint. Saving a manual translation sends the token, original and translated text, source and target language codes, and the request URL to the project-scoped `manual-translations` endpoint.
+
+Deepglot returns translated text, language and quota status, and the synchronized project configuration described above. Review the service policies before enabling the hosted service:
+
+* Terms of service: https://deepglot.ai/terms
+* Privacy policy: https://deepglot.ai/privacy
+
+== Changelog ==
+
+= 0.11.0 =
+* Added SaaS-managed translated URL slugs for forward and reverse request routing.
+* Added bounded runtime-config refresh and dedicated persisted slug mappings.
+* Excluded WordPress infrastructure paths from translation routing.
+
+= 0.10.4 =
+* Prevented intermediary caches from preserving stale virtual `robots.txt` responses.
+
+= 0.10.3 =
+* Kept multilingual sitemap discovery when late renderers such as Yoast SEO replace `robots.txt` output.
+
+= 0.10.2 =
+* Preserved raw UTF-8 through DOM serialization, including emoji and umlauts in scripts and styles.
+
+= 0.10.1 =
+* Excluded switcher CSS from WP Rocket used-CSS and minification pipelines.
+
+= 0.10.0 =
+* Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
+
+== Upgrade Notice ==
+
+= 0.11.0 =
+Adds translated URL-slug routing and safer runtime synchronization. Requires PHP 8.0 or newer.
