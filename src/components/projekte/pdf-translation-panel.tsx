@@ -157,8 +157,8 @@ export function PdfTranslationPanel({
         className="rounded-xl border border-gray-200 bg-white p-6"
       >
         <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-indigo-50">
-            <FileText className="h-5 w-5 text-indigo-600" />
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-brand-50">
+            <FileText className="h-5 w-5 text-brand-600" />
           </div>
           <div className="min-w-0 flex-1 space-y-5">
             <div>
@@ -212,7 +212,7 @@ export function PdfTranslationPanel({
             <Button
               type="submit"
               disabled={!file || !langTo || isSubmitting}
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-brand-600 hover:bg-brand-700"
             >
               {isSubmitting ? (
                 t("Translating…", "Wird übersetzt…")

@@ -240,7 +240,7 @@ export function SignupCard({
           </div>
           <Button
             type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-700"
+            className="w-full bg-brand-600 hover:bg-brand-700"
             disabled={isLoading}
           >
             {isLoading ? copy.submitting : copy.submit}
@@ -269,7 +269,7 @@ export function SignupCard({
           {copy.haveAccount}{" "}
           <Link
             href={getMarketingPath(locale, "login")}
-            className="font-medium text-indigo-600 hover:underline"
+            className="font-medium text-brand-600 hover:underline"
           >
             {copy.login}
           </Link>

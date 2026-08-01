@@ -30,6 +30,9 @@ test("maps marketing routes per locale", () => {
   assert.equal(getMarketingPath("de", "login"), "/de/anmelden");
   assert.equal(getMarketingPath("de", "signup"), "/de/registrieren");
   assert.equal(getMarketingPath("fr", "pricing"), "/fr/tarifs");
+  assert.equal(getMarketingPath("en", "blog"), "/blog");
+  assert.equal(getMarketingPath("de", "blog"), "/de/blog");
+  assert.equal(getMarketingPath("fr", "blog"), "/fr/blog");
   assert.equal(getMarketingPath("en", "forgotPassword"), "/forgot-password");
   assert.equal(getMarketingPath("de", "forgotPassword"), "/de/passwort-vergessen");
   assert.equal(getMarketingPath("de", "resetPassword"), "/de/passwort-zuruecksetzen");
@@ -42,6 +45,8 @@ test("converts external english routes to internal app paths", () => {
   assert.equal(toInternalPath("/fr/projets/123/traductions/langues"), "/projekte/123/uebersetzungen/sprachen");
   assert.equal(toInternalPath("/projects/123/settings/members"), "/projekte/123/einstellungen/mitglieder");
   assert.equal(toInternalPath("/pricing"), "/pricing");
+  assert.equal(toInternalPath("/de/blog"), "/blog");
+  assert.equal(toInternalPath("/fr/blog/wordpress-ohne-lock-in"), "/blog/wordpress-ohne-lock-in");
 });
 
 test("leaves api routes unchanged during locale path mapping", () => {

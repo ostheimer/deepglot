@@ -265,11 +265,11 @@ class OutputBuffer
         $style = $doc->createElement('style');
         $style->appendChild($doc->createTextNode('
 .deepglot-editor-segment{cursor:pointer;transition:background-color .15s ease,outline-color .15s ease;}
-.deepglot-editor-segment:hover{outline:1px dashed #4f46e5;background:rgba(79,70,229,.08);}
-.deepglot-editor-segment[data-deepglot-selected="true"]{outline:2px solid #4f46e5;background:rgba(79,70,229,.12);}
+.deepglot-editor-segment:hover{outline:1px dashed #f03b22;background:rgba(240,59,34,.08);}
+.deepglot-editor-segment[data-deepglot-selected="true"]{outline:2px solid #f03b22;background:rgba(240,59,34,.12);}
 #deepglot-editor-root{position:fixed;top:24px;right:24px;z-index:2147483647;width:360px;max-width:calc(100vw - 32px);background:#fff;border:1px solid #dbe4ff;border-radius:16px;box-shadow:0 24px 80px rgba(15,23,42,.18);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;}
 #deepglot-editor-root[hidden]{display:none;}
-#deepglot-editor-root .dg-header{padding:16px 18px;border-bottom:1px solid #eef2ff;background:linear-gradient(135deg,#eef2ff,#ffffff);}
+#deepglot-editor-root .dg-header{padding:16px 18px;border-bottom:1px solid #fff0ec;background:linear-gradient(135deg,#fff0ec,#ffffff);}
 #deepglot-editor-root .dg-title{font-size:14px;font-weight:700;margin:0 0 4px;}
 #deepglot-editor-root .dg-subtitle{font-size:12px;color:#64748b;margin:0;}
 #deepglot-editor-root .dg-body{padding:16px 18px;display:grid;gap:12px;}
@@ -278,8 +278,8 @@ class OutputBuffer
 #deepglot-editor-root textarea{min-height:120px;resize:vertical;}
 #deepglot-editor-root .dg-actions{display:flex;justify-content:space-between;gap:10px;}
 #deepglot-editor-root button{appearance:none;border:none;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer;}
-#deepglot-editor-root .dg-primary{background:#4f46e5;color:#fff;}
-#deepglot-editor-root .dg-secondary{background:#eef2ff;color:#3730a3;}
+#deepglot-editor-root .dg-primary{background:#f03b22;color:#fff;}
+#deepglot-editor-root .dg-secondary{background:#fff0ec;color:#9f2818;}
 #deepglot-editor-root .dg-status{font-size:12px;color:#64748b;min-height:18px;}
 #deepglot-editor-banner{position:fixed;left:24px;bottom:24px;z-index:2147483647;max-width:420px;background:#111827;color:#fff;padding:12px 14px;border-radius:12px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;box-shadow:0 20px 60px rgba(15,23,42,.2);}
         '));

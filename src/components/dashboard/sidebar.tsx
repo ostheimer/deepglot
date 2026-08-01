@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Globe,
   LayoutDashboard,
   FolderOpen,
   Settings,
@@ -11,6 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { DeepglotLogo } from "@/components/brand/deepglot-logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -60,15 +60,14 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
+    <aside className="flex min-h-screen w-64 flex-col border-r border-[#d8d6ce] bg-[#f5f3ed]">
       {/* Logo */}
       <Link
         href={withLocalePrefix("/dashboard", locale)}
-        className="h-16 flex items-center gap-2 px-6 border-b border-gray-100 hover:bg-gray-50"
+        className="flex h-16 items-center gap-2 border-b border-[#d8d6ce] px-6 transition-colors hover:bg-[#fff0ec]"
         aria-label="Deepglot dashboard"
       >
-        <Globe className="h-6 w-6 text-indigo-600" />
-        <span className="text-lg font-bold text-gray-900">Deepglot</span>
+        <DeepglotLogo markClassName="h-8 w-8" wordmarkClassName="text-lg" />
       </Link>
 
       {/* Navigation */}
@@ -82,8 +81,8 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-brand-50 text-brand-700"
+                    : "text-[#58636d] hover:bg-white hover:text-[#071521]"
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -95,14 +94,14 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
       </nav>
 
       {/* User Footer */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="border-t border-[#d8d6ce] p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <LanguageSwitcher compact />
           </div>
           <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.image ?? undefined} />
-            <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-semibold">
+            <AvatarFallback className="bg-brand-100 text-brand-700 text-xs font-semibold">
               {user.name?.charAt(0).toUpperCase() ?? user.email?.charAt(0).toUpperCase() ?? "?"}
             </AvatarFallback>
           </Avatar>

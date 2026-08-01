@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import {
   DASHBOARD_DEVELOPER_SURFACES,
@@ -13,7 +14,7 @@ import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl bg-gray-950 p-4 text-sm leading-6 text-gray-100">
+    <pre className="overflow-x-auto rounded-md border border-white/10 bg-[#071521] p-4 text-sm leading-6 text-white/90">
       <code>{children}</code>
     </pre>
   );
@@ -23,22 +24,28 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
   const de = locale === "de";
 
   return (
-    <div className="min-h-screen bg-white text-gray-950">
+    <div className="min-h-screen bg-[#fbfaf7] text-[#071521]">
       <MarketingNav locale={locale} active="docs" />
-      <main className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+      <main>
+        <header className="border-b border-[#d8d6ce] bg-[#071521] text-white">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 lg:py-24">
+            <div className="max-w-3xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#f03b22]">
             {de ? "Entwicklerdokumentation" : "Developer documentation"}
           </p>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+          <h1 className="mt-4 text-5xl font-extrabold tracking-[-0.05em] sm:text-6xl">
             {de ? "Deepglot integrieren" : "Integrate Deepglot"}
           </h1>
-          <p className="mt-6 text-lg leading-8 text-gray-600">
+          <p className="mt-6 text-lg leading-8 text-white/65">
             {de
               ? "Source-basierte Referenz für WordPress, REST-API, Authentifizierung, Fehler, Webhooks und sichere Projektabläufe."
               : "Source-backed reference for WordPress, the REST API, authentication, errors, webhooks, and safe project workflows."}
           </p>
-        </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
 
         <nav aria-label={de ? "Dokumentationsbereiche" : "Documentation sections"} className="mt-10 flex flex-wrap gap-3 text-sm">
           {[
@@ -50,7 +57,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             ["project-surfaces", de ? "Projektoberflächen" : "Project surfaces"],
             ["versioning", de ? "Versionierung" : "Versioning"],
           ].map(([id, label]) => (
-            <a key={id} href={`#${id}`} className="rounded-full border border-gray-300 px-4 py-2 font-medium hover:border-indigo-500 hover:text-indigo-700">
+            <a key={id} href={`#${id}`} className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {label}
             </a>
           ))}
@@ -65,12 +72,12 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               de ? "Das WordPress-Plugin installieren, API-URL und Key eintragen und den Verbindungstest ausführen." : "Install the WordPress plugin, enter the API URL and key, and run the connection test.",
               de ? "Eine übersetzte URL öffnen und Navigation, hreflang, Cache, dynamische Inhalte und Kontingentstatus prüfen." : "Open a translated URL and verify navigation, hreflang, cache, dynamic content, and quota status.",
             ].map((step, index) => (
-              <li key={step} className="rounded-2xl border border-gray-200 p-5 leading-7 text-gray-700">
-                <span className="mr-2 font-mono font-semibold text-indigo-600">{index + 1}.</span>{step}
+              <li key={step} className="border-l-2 border-[#f03b22] bg-white p-5 leading-7 text-[#4d5963]">
+                <span className="mr-2 font-mono font-semibold text-[#f03b22]">{index + 1}.</span>{step}
               </li>
             ))}
           </ol>
-          <div className="mt-6 rounded-2xl bg-indigo-50 p-6 text-sm leading-7 text-indigo-950">
+          <div className="mt-6 rounded-2xl bg-[#fff0ec] p-6 text-sm leading-7 text-[#5e1f14]">
             <strong>{de ? "Authentifizierung:" : "Authentication:"}</strong>{" "}
             {de
               ? "Nutze bevorzugt Authorization: Bearer <key>. ?api_key=<key> bleibt für ältere Plugin-Clients kompatibel. Dashboard-Routen verwenden dagegen eine angemeldete Sitzung und sind keine öffentliche API."
@@ -82,7 +89,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           <h2 className="text-3xl font-bold">{de ? "API-Referenz" : "API reference"}</h2>
           <div className="mt-8 space-y-8">
             {PUBLIC_ENDPOINT_DOCS.map((endpoint) => (
-              <article key={endpoint.id} className="rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <article key={endpoint.id} className="rounded-md border border-[#d8d6ce] bg-white p-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="rounded-md bg-gray-950 px-2.5 py-1 font-mono text-xs font-bold text-white">{endpoint.method}</span>
                   <h3 className="font-mono text-lg font-semibold">{endpoint.path}</h3>
@@ -93,7 +100,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
                 <p className="mt-2 text-xs text-gray-500">
                   {de ? "Quellcode:" : "Source:"}{" "}
                   <a
-                    className="font-mono text-indigo-600 hover:underline"
+                    className="font-mono text-[#f03b22] hover:underline"
                     href={`https://github.com/ostheimer/deepglot/blob/main/${endpoint.sourceFile}`}
                   >
                     {endpoint.sourceFile}
@@ -129,7 +136,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               : "AMP pages enter the translation pipeline only when the plugin option is enabled. The multilingual sitemap at /deepglot-sitemap.xml is advertised in robots.txt and contains only validated internal language alternatives."}
           </p>
           <ul className="mt-6 grid gap-3 font-mono text-sm md:grid-cols-2">
-            {WORDPRESS_REST_ENDPOINTS.map((endpoint) => <li key={endpoint} className="rounded-xl bg-gray-100 px-4 py-3">{endpoint}</li>)}
+            {WORDPRESS_REST_ENDPOINTS.map((endpoint) => <li key={endpoint} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3">{endpoint}</li>)}
           </ul>
         </section>
 
@@ -143,7 +150,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           <div className="mt-5"><CodeBlock>{PROBLEM_DETAILS_EXAMPLE}</CodeBlock></div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {["400 validation_failed", "401 missing_api_key / invalid_api_key", "402 quota_exhausted", "409 idempotency_conflict", "429 rate_limit_exceeded / velocity_limited", "500 internal_error", "503 service_unavailable"].map((item) => (
-              <div key={item} className="rounded-xl border border-gray-200 px-4 py-3 font-mono text-xs">{item}</div>
+              <div key={item} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3 font-mono text-xs">{item}</div>
             ))}
           </div>
         </section>
@@ -156,7 +163,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               : "Project managers configure public HTTPS targets. Deepglot checks targets for SSRF at creation and dispatch, signs timestamp.payload with HMAC-SHA256, and sends X-Deepglot-Event, X-Deepglot-Timestamp, and X-Deepglot-Signature. Failed deliveries retry after 60, 300, and 900 seconds."}
           </p>
           <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {PROJECT_WEBHOOK_DOC_EVENTS.map((event) => <li key={event} className="rounded-xl bg-gray-100 px-4 py-3 font-mono text-sm">{event}</li>)}
+            {PROJECT_WEBHOOK_DOC_EVENTS.map((event) => <li key={event} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3 font-mono text-sm">{event}</li>)}
           </ul>
         </section>
 
@@ -167,9 +174,9 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Diese Routen versorgen das Dashboard und sind nicht als externer stabiler REST-Vertrag freigegeben. API-Keys, Sprachen, Webhooks, Ausschlüsse und das Pro+-Übersetzungsgedächtnis benötigen Verwaltungsrechte. Menschliche Prüfungen und PDF-Übersetzungen sind zusätzlich projekt- und sprachgebunden; nur Verwaltende dürfen zuweisen oder freigeben. Glossar-CRUD verwendet derzeit die schwächere Projektmitgliedschaftsprüfung. Import, Export und Editor-Sitzungen verwenden angemeldete, projektspezifische Zugriffe."
               : "These routes power the dashboard and are not a stable external REST contract. API keys, languages, webhooks, exclusions, and the Pro+ translation-memory setting require management access. Human review and PDF translation are additionally project- and language-scoped; only managers may assign or approve. Glossary CRUD currently uses the weaker project-membership gate. Import, export, and editor sessions use signed-in, project-specific access."}
           </p>
-          <div className="mt-6 overflow-x-auto rounded-2xl border border-gray-200">
-            <table className="w-full text-left text-sm"><thead className="bg-gray-50"><tr><th className="px-4 py-3">Route</th><th className="px-4 py-3">Access</th></tr></thead><tbody>
-              {DASHBOARD_DEVELOPER_SURFACES.map((surface) => <tr key={surface.path} className="border-t border-gray-200"><td className="px-4 py-3 font-mono">{surface.path}</td><td className="px-4 py-3">{surface.access}</td></tr>)}
+          <div className="mt-6 overflow-x-auto rounded-md border border-[#d8d6ce] bg-white">
+            <table className="w-full text-left text-sm"><thead className="bg-[#f1f0eb]"><tr><th className="px-4 py-3">Route</th><th className="px-4 py-3">Access</th></tr></thead><tbody>
+              {DASHBOARD_DEVELOPER_SURFACES.map((surface) => <tr key={surface.path} className="border-t border-[#d8d6ce]"><td className="px-4 py-3 font-mono">{surface.path}</td><td className="px-4 py-3">{surface.access}</td></tr>)}
             </tbody></table>
           </div>
         </section>
@@ -182,7 +189,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             <p>
               {de ? "MCP-Server, offizielles SDK/CLI und Agent-Skills sind derzeit nicht verfügbar. DPP-Lokalisierung ist eine spätere, noch zu validierende Richtung und keine Compliance-Zusage. " : "An MCP server, official SDK/CLI, and agent skills are not currently available. DPP localization is a later, unvalidated direction and not a compliance claim. "}
               <a
-                className="font-medium text-indigo-600 hover:underline"
+                className="font-medium text-[#f03b22] hover:underline"
                 href="https://github.com/ostheimer/deepglot/blob/main/docs/product-decisions/developer-surfaces.md"
               >
                 {de ? "Entscheidungsprotokoll" : "Decision record"}
@@ -191,11 +198,13 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </div>
         </section>
 
-        <div className="mt-20 rounded-2xl bg-gray-50 p-6 text-sm text-gray-600">
-          {de ? "Fragen oder Integrationsfeedback? " : "Questions or integration feedback? "}<a className="font-medium text-indigo-600 hover:underline" href="mailto:office@ostheimer.at">office@ostheimer.at</a>
-          <span className="mx-2">·</span><Link className="font-medium text-indigo-600 hover:underline" href={getMarketingPath(locale, "home")}>{de ? "Zur Startseite" : "Back to homepage"}</Link>
+        <div className="mt-20 border-l-4 border-[#f03b22] bg-white p-6 text-sm text-[#58636d]">
+          {de ? "Fragen oder Integrationsfeedback? " : "Questions or integration feedback? "}<a className="font-medium text-[#f03b22] hover:underline" href="mailto:office@ostheimer.at">office@ostheimer.at</a>
+          <span className="mx-2">·</span><Link className="font-medium text-[#f03b22] hover:underline" href={getMarketingPath(locale, "home")}>{de ? "Zur Startseite" : "Back to homepage"}</Link>
+        </div>
         </div>
       </main>
+      <MarketingFooter locale={locale} />
     </div>
   );
 }

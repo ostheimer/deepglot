@@ -17,10 +17,10 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[#fbfaf7]">
       <DashboardSidebar user={session.user} />
       <main className="flex-1 overflow-auto">
-        <div className="max-w-7xl mx-auto p-8">{children}</div>
+        <div className="mx-auto max-w-7xl p-6 sm:p-8">{children}</div>
       </main>
     </div>
   );

@@ -149,7 +149,7 @@ export default async function SwitcherPage({ params }: PageProps) {
               defaultValue={s?.switcherCustomCss ?? ".language-selector {\n  margin-bottom: 20px;\n}"}
               rows={5}
               readOnly
-              className="w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+              className="w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y"
             />
             <p className="text-xs text-gray-400">
               {uiText(locale, "CSS applied to the language switcher or your website.", "CSS das auf den Sprachauswähler oder deine Website angewendet wird.")}

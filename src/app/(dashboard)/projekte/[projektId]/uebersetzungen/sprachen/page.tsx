@@ -149,11 +149,11 @@ export default async function SprachenPage({ params }: PageProps) {
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
                     <div
-                      className="h-full bg-indigo-500 rounded-full transition-all"
+                      className="h-full bg-brand-500 rounded-full transition-all"
                       style={{ width: `${manualPercent}%` }}
                     />
                   </div>
-                  <span className="text-sm text-indigo-600 font-medium min-w-[2.5rem]">
+                  <span className="text-sm text-brand-600 font-medium min-w-[2.5rem]">
                     {manualPercent}%
                   </span>
                 </div>

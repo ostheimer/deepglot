@@ -140,7 +140,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
           <div className="flex items-start justify-between mb-6">
             <div>
               <p className="text-3xl font-bold text-gray-900">
-                <span className="text-indigo-600">{formatNumber(totalWords, locale)}</span>
+                <span className="text-brand-600">{formatNumber(totalWords, locale)}</span>
               </p>
               <p className="text-sm text-gray-500 mt-1">
                 {uiText(locale, "Translated volume for the selected period", "Übersetztes Volumen für den gewählten Zeitraum")}
@@ -163,7 +163,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
                     })}
                     className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
                       isActive
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-brand-600 text-white"
                         : "text-gray-500 hover:bg-white hover:text-gray-700"
                     }`}
                   >
@@ -244,7 +244,7 @@ export default async function StatistikenAnfragenPage({ params, searchParams }: 
                   </div>
                   <div className="h-2 rounded-full bg-gray-100">
                     <div
-                      className="h-2 rounded-full bg-indigo-600"
+                      className="h-2 rounded-full bg-brand-600"
                       style={{
                         width: `${
                           totalWords > 0 ? (item.value / totalWords) * 100 : 0

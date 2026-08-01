@@ -93,7 +93,7 @@
 
                 if (highlighted) highlighted.style.outline = '';
                 highlighted = event.target;
-                highlighted.style.outline = '3px solid #4f46e5';
+                highlighted.style.outline = '3px solid #f03b22';
                 selectorInput.value = selector;
                 selectorInput.dispatchEvent(new Event('change', { bubbles: true }));
                 selecting = false;

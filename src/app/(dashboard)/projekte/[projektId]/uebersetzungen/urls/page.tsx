@@ -74,7 +74,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                 size="sm"
                 className={`h-7 px-2.5 text-xs font-medium transition-colors ${
                   activeLang === l.langCode
-                    ? "bg-indigo-600 text-white hover:bg-indigo-600 hover:text-white"
+                    ? "bg-brand-600 text-white hover:bg-brand-600 hover:text-white"
                     : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
@@ -155,7 +155,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                     href={recordUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex text-gray-400 transition-colors hover:text-indigo-600"
+                    className="inline-flex text-gray-400 transition-colors hover:text-brand-600"
                     title={uiText(locale, "Open URL", "URL öffnen")}
                     aria-label={locale === "de" ? `${record.urlPath} öffnen` : `Open ${record.urlPath}`}
                   >
@@ -169,7 +169,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                 </span>
 
                 {/* Manual % */}
-                <span className="text-sm text-indigo-600 font-medium">0%</span>
+                <span className="text-sm text-brand-600 font-medium">0%</span>
 
                 <span className="text-xs text-gray-400">
                   {uiText(locale, "Read-only", "Nur Ansicht")}

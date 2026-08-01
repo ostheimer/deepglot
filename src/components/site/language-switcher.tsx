@@ -79,7 +79,7 @@ export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
                   {SITE_LOCALE_METADATA[value].shortLabel}
                 </span>
                 <span className="flex-1">{SITE_LOCALE_METADATA[value].nativeName}</span>
-                {isActive && <Check className="h-4 w-4 text-indigo-600" />}
+                {isActive && <Check className="h-4 w-4 text-[#f03b22]" />}
               </a>
             </DropdownMenuItem>
           );

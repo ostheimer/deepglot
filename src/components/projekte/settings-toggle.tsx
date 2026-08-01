@@ -44,8 +44,8 @@ export function SettingsToggle({
           onClick={handleToggle}
           disabled={disabled}
           className={cn(
-            "relative flex-shrink-0 h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
-            checked ? "bg-indigo-600" : "bg-gray-200",
+            "relative flex-shrink-0 h-5 w-9 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+            checked ? "bg-brand-600" : "bg-gray-200",
             disabled && "opacity-40 cursor-not-allowed"
           )}
         >

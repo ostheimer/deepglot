@@ -186,7 +186,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
                     {uiText(locale, "Current plan", "Aktueller Plan")}
                   </p>
-                  <p className="text-sm font-semibold text-indigo-700 mt-0.5">
+                  <p className="text-sm font-semibold text-brand-700 mt-0.5">
                     {PLAN_LABELS[plan] ?? plan}{" "}
                     {plan !== "FREE" && (
                       <span className="text-gray-400 font-normal text-xs">
@@ -223,13 +223,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     {uiText(locale, "Word usage", "Wörter-Nutzung")}
                   </p>
                 </div>
-                <p className="text-sm font-semibold text-indigo-700 mb-1.5">
+                <p className="text-sm font-semibold text-brand-700 mb-1.5">
                   {formatNumber(wordsUsed, locale)} / {formatNumber(wordsLimit, locale)}
                 </p>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      wordsPercent > 90 ? "bg-red-500" : wordsPercent > 70 ? "bg-yellow-400" : "bg-indigo-600"
+                      wordsPercent > 90 ? "bg-red-500" : wordsPercent > 70 ? "bg-yellow-400" : "bg-brand-600"
                     }`}
                     style={{ width: `${wordsPercent}%` }}
                   />
@@ -244,13 +244,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </p>
                   <HelpCircle className="h-3 w-3 text-gray-400" />
                 </div>
-                <p className="text-sm font-semibold text-indigo-700 mb-1.5">
+                <p className="text-sm font-semibold text-brand-700 mb-1.5">
                   {formatNumber(requestsCount, locale)} / {formatNumber(requestsLimit, locale)}
                 </p>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      requestsPercent > 90 ? "bg-red-500" : "bg-indigo-600"
+                      requestsPercent > 90 ? "bg-red-500" : "bg-brand-600"
                     }`}
                     style={{ width: `${requestsPercent}%` }}
                   />
@@ -274,7 +274,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="flex flex-wrap gap-2">
                 {org?.members.slice(0, 6).map((m) => (
                   <div key={m.id} className="flex flex-col items-center gap-1">
-                    <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-white shadow-sm">
+                    <div className="h-9 w-9 rounded-full bg-brand-100 flex items-center justify-center border-2 border-white shadow-sm">
                       {m.user?.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -283,7 +283,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           className="h-9 w-9 rounded-full object-cover"
                         />
                       ) : (
-                        <span className="text-xs font-bold text-indigo-700">
+                        <span className="text-xs font-bold text-brand-700">
                           {(m.user?.name ?? m.user?.email ?? "?").charAt(0).toUpperCase()}
                         </span>
                       )}
@@ -326,7 +326,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             {/* Decorative */}
             <div className="absolute right-0 top-0 h-full w-[42%] flex items-center justify-center opacity-20">
-              <Globe className="h-32 w-32 text-indigo-400" />
+              <Globe className="h-32 w-32 text-brand-400" />
             </div>
             <div className="absolute top-3 right-3 bg-white/10 rounded-full px-2 py-0.5 flex items-center gap-1">
               <Zap className="h-3 w-3 text-yellow-400" />
@@ -343,7 +343,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   ? `Projekt${(org?.projects.length ?? 0) !== 1 ? "e" : ""}`
                   : `project${(org?.projects.length ?? 0) !== 1 ? "s" : ""}`}
               </h2>
-              <Button asChild className="bg-indigo-600 hover:bg-indigo-700 h-8 px-3 text-xs gap-1.5">
+              <Button asChild className="bg-brand-600 hover:bg-brand-700 h-8 px-3 text-xs gap-1.5">
                 <Link href={withLocalePrefix("/projects/new", locale)}>
                   <Plus className="h-3.5 w-3.5" />
                   {uiText(locale, "Create project", "Projekt erstellen")}
@@ -400,7 +400,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <p className="text-xs text-gray-400 mt-1 mb-4 max-w-xs mx-auto">
                   {uiText(locale, "Create your first project and connect your WordPress plugin.", "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.")}
                 </p>
-                <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
+                <Button asChild className="bg-brand-600 hover:bg-brand-700 gap-1.5">
                   <Link href={withLocalePrefix("/projects/new", locale)}>
                     <Plus className="h-4 w-4" />
                     {uiText(locale, "Create first project", "Erstes Projekt erstellen")}
@@ -413,7 +413,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="text-center mt-2">
                 <Link
                   href={withLocalePrefix("/projects", locale)}
-                  className="text-xs text-indigo-600 hover:underline"
+                  className="text-xs text-brand-600 hover:underline"
                 >
                   {uiText(locale, "View all projects", "Alle Projekte anzeigen")}
                 </Link>
@@ -455,7 +455,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       <div className="flex gap-2.5">
                         {icon}
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-indigo-600 truncate">
+                          <p className="text-xs font-semibold text-brand-600 truncate">
                             {item.project}
                           </p>
                           <p className="text-xs text-gray-600 mt-0.5 leading-snug">
@@ -483,7 +483,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div className="px-5 py-3 border-t border-gray-100 text-center">
                 <Link
                   href={withLocalePrefix("/projects", locale)}
-                  className="text-xs text-indigo-600 hover:underline"
+                  className="text-xs text-brand-600 hover:underline"
                 >
                   {uiText(locale, "View all projects", "Alle Projekte anzeigen")}
                 </Link>
@@ -494,7 +494,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           {/* Support Box */}
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <div className="flex items-start gap-3">
-              <MessageCircle className="h-5 w-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+              <MessageCircle className="h-5 w-5 text-brand-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-gray-900">Support</p>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
@@ -502,7 +502,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </p>
                 <a
                   href="mailto:office@ostheimer.at?subject=Deepglot%20Support"
-                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mt-2"
+                  className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline mt-2"
                 >
                   {uiText(locale, "Contact support", "Support kontaktieren")}
                   <HelpCircle className="h-3 w-3" />

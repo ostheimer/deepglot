@@ -105,7 +105,7 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
         </h3>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Badge className="bg-indigo-50 text-indigo-700">
+          <Badge className="bg-brand-50 text-brand-700">
             {s?.routingMode === "SUBDOMAIN"
               ? uiText(locale, "Subdomains", "Subdomains")
               : uiText(locale, "Path prefix", "Pfad-Präfix")}

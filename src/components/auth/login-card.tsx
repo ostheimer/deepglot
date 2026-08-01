@@ -147,10 +147,10 @@ export function LoginCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {canUseTestLogin && (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <div className="rounded-xl border border-brand-200 bg-brand-50 p-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-full bg-indigo-100 p-2">
-                <Sparkles className="h-4 w-4 text-indigo-700" />
+              <div className="mt-0.5 rounded-full bg-brand-100 p-2">
+                <Sparkles className="h-4 w-4 text-brand-700" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-gray-900">
@@ -159,14 +159,14 @@ export function LoginCard({
                 <p className="mt-1 text-sm text-gray-600">
                   {copy.testLoginDescription}
                 </p>
-                <p className="mt-2 text-xs text-indigo-700">
+                <p className="mt-2 text-xs text-brand-700">
                   {copy.testLoginHintPrefix}{" "}
                   <code className="rounded bg-white px-1.5 py-0.5">
                     {testLoginEmail}
                   </code>
                 </p>
                 <Button
-                  className="mt-3 w-full bg-indigo-600 hover:bg-indigo-700"
+                  className="mt-3 w-full bg-brand-600 hover:bg-brand-700"
                   onClick={handleTestLogin}
                   disabled={isTestLoginLoading || isLoading}
                 >
@@ -232,7 +232,7 @@ export function LoginCard({
               <Label htmlFor="password">{copy.password}</Label>
               <Link
                 href={getMarketingPath(locale, "forgotPassword")}
-                className="text-sm font-medium text-indigo-600 hover:underline"
+                className="text-sm font-medium text-brand-600 hover:underline"
               >
                 {copy.forgotPassword}
               </Link>
@@ -248,7 +248,7 @@ export function LoginCard({
           </div>
           <Button
             type="submit"
-            className="w-full bg-indigo-600 hover:bg-indigo-700"
+            className="w-full bg-brand-600 hover:bg-brand-700"
             disabled={isLoading || isTestLoginLoading}
           >
             {isLoading ? copy.submitting : copy.submit}
@@ -259,7 +259,7 @@ export function LoginCard({
           {copy.noAccount}{" "}
           <Link
             href={getMarketingPath(locale, "signup")}
-            className="font-medium text-indigo-600 hover:underline"
+            className="font-medium text-brand-600 hover:underline"
           >
             {copy.signup}
           </Link>

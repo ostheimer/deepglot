@@ -1,29 +1,20 @@
-import Link from "next/link";
-import { Globe } from "lucide-react";
-
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
 import { getViewerBillingContext } from "@/lib/billing-viewer";
-import {
-  getMarketingPath,
-  type SiteLocale,
-} from "@/lib/site-locale";
+import type { SiteLocale } from "@/lib/site-locale";
 import { localizeCopy } from "@/lib/static-copy";
 
 const PAGE_COPY = {
   en: {
     title: "Simple, fair pricing",
     description: "Start for free. No credit card required.",
-    footerPrivacy: "Privacy",
-    footerLegal: "Legal Notice",
-    footerTerms: "Terms",
+    eyebrow: "Fair by design",
   },
   de: {
     title: "Einfache, faire Preise",
     description: "Kostenlos starten, keine Kreditkarte erforderlich.",
-    footerPrivacy: "Datenschutz",
-    footerLegal: "Impressum",
-    footerTerms: "AGB",
+    eyebrow: "Fair aus Prinzip",
   },
 } as const;
 
@@ -33,44 +24,27 @@ type PricingPageProps = {
 
 export async function PricingPage({ locale }: PricingPageProps) {
   const copy = localizeCopy(locale, PAGE_COPY);
-  const homeHref = getMarketingPath(locale, "home");
   const viewer = await getViewerBillingContext();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#f2f0ea] text-[#071521]">
       <MarketingNav locale={locale} active="pricing" />
 
-      <div className="px-4 pb-10 pt-16 text-center">
-        <h1 className="mb-4 text-4xl font-extrabold text-gray-900 sm:text-5xl">
+      <div className="border-b border-[#d8d6ce] bg-[#fbfaf7] px-4 pb-14 pt-16 text-center sm:pt-20">
+        <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-[#f03b22]">
+          {copy.eyebrow}
+        </p>
+        <h1 className="mb-5 text-5xl font-extrabold tracking-[-0.05em] text-[#071521] sm:text-6xl">
           {copy.title}
         </h1>
-        <p className="text-lg text-gray-500">{copy.description}</p>
+        <p className="text-lg text-[#58636d]">{copy.description}</p>
       </div>
 
-      <PricingGrid locale={locale} viewer={viewer} />
+      <div className="pt-14">
+        <PricingGrid locale={locale} viewer={viewer} />
+      </div>
 
-      <footer className="mt-20 border-t border-gray-100 py-10">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:flex-row">
-          <Link href={homeHref} className="flex items-center gap-2" aria-label="Deepglot">
-            <Globe className="h-5 w-5 text-indigo-600" />
-            <span className="font-semibold text-gray-900">Deepglot</span>
-            <span className="ml-2 text-sm text-gray-400">
-              © {new Date().getFullYear()} Andreas Ostheimer
-            </span>
-          </Link>
-          <div className="flex gap-6 text-sm text-gray-400">
-            <Link href={getMarketingPath(locale, "privacy")} className="hover:text-gray-700">
-              {copy.footerPrivacy}
-            </Link>
-            <Link href={getMarketingPath(locale, "legalNotice")} className="hover:text-gray-700">
-              {copy.footerLegal}
-            </Link>
-            <Link href={getMarketingPath(locale, "terms")} className="hover:text-gray-700">
-              {copy.footerTerms}
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter locale={locale} />
     </div>
   );
 }
