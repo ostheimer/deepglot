@@ -49,7 +49,7 @@ export function EnablePageViewsButton({
 
   return (
     <Button
-      className="bg-indigo-600 hover:bg-indigo-700 px-8"
+      className="bg-brand-600 hover:bg-brand-700 px-8"
       onClick={handleEnable}
       disabled={isLoading}
     >

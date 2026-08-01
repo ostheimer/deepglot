@@ -153,7 +153,7 @@ export function ProfileSettingsForm({
         <Button
           type="submit"
           disabled={isSaving}
-          className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm"
+          className="bg-brand-600 hover:bg-brand-700 h-8 px-4 text-sm"
         >
           {isSaving ? copy.saving : copy.save}
         </Button>

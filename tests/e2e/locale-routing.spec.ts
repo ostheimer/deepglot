@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function expectLocaleCookie(page: Page, locale: "en" | "de") {
+async function expectLocaleCookie(page: Page, locale: string) {
   await expect
     .poll(async () => {
       const cookieString = await page.evaluate(() => document.cookie);
@@ -27,7 +27,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole("heading", {
-        name: /Translate your WordPress site/i,
+        name: /Your website speaks more than one language/i,
       })
     ).toBeVisible();
 
@@ -36,7 +36,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/de$/);
     await expect(
       page.getByRole("heading", {
-        name: /Übersetze deine WordPress-Site/i,
+        name: /Deine Website spricht jetzt mehr als eine Sprache/i,
       })
     ).toBeVisible();
     await page.getByRole("button", { name: "Language" }).click();
@@ -49,10 +49,27 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole("heading", {
-        name: /Translate your WordPress site/i,
+        name: /Your website speaks more than one language/i,
       })
     ).toBeVisible();
     await expectLocaleCookie(page, "en");
+  });
+
+  test("keeps the selected locale when launching the installed app", async ({
+    page,
+  }) => {
+    await page.goto("/bg");
+    await expectLocaleCookie(page, "bg");
+
+    const manifest = await page.evaluate(async () => {
+      const response = await fetch("/manifest.webmanifest?locale-regression=bg", {
+        cache: "no-store",
+      });
+      return response.json() as Promise<{ start_url?: string; scope?: string }>;
+    });
+
+    expect(manifest.start_url).toBe("/bg");
+    expect(manifest.scope).toBe("/");
   });
 
   test("opens the WordPress plugin section from the homepage navigation", async ({
@@ -88,7 +105,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole("heading", {
-        name: /Translate your WordPress site/i,
+        name: /Your website speaks more than one language/i,
       })
     ).toBeVisible();
   });
@@ -96,7 +113,10 @@ test.describe("locale routing", () => {
   test("opens public documentation and legal footer links", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "Documentation" }).click();
+    await page
+      .getByLabel("Footer")
+      .getByRole("link", { name: "Documentation" })
+      .click();
     await expect(page).toHaveURL(/\/docs$/);
     await expect(
       page.getByRole("heading", { name: "Integrate Deepglot" })
@@ -109,21 +129,44 @@ test.describe("locale routing", () => {
     await expect(page.getByText(/Geschwindigkeitslimit/).first()).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Privacy" }).click();
+    await page.getByLabel("Footer").getByRole("link", { name: "Privacy" }).click();
     await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Legal Notice" }).click();
+    await page
+      .getByLabel("Footer")
+      .getByRole("link", { name: "Legal Notice" })
+      .click();
     await expect(page).toHaveURL(/\/legal-notice$/);
     await expect(
       page.getByRole("heading", { name: "Legal Notice" })
     ).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Terms" }).click();
+    await page.getByLabel("Footer").getByRole("link", { name: "Terms" }).click();
     await expect(page).toHaveURL(/\/terms$/);
     await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
+  });
+
+  test("redirects unsupported editorial locales to the real English surfaces", async ({
+    page,
+  }) => {
+    await page.goto("/fr/blog");
+
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/blog");
+    await expect(
+      page.getByRole("heading", {
+        name: "Ideas for an open, multilingual web.",
+      })
+    ).toBeVisible();
+
+    await page.goto("/fr/documentation");
+
+    await expect.poll(() => new URL(page.url()).pathname).toBe("/docs");
+    await expect(
+      page.getByRole("heading", { name: "Integrate Deepglot" })
+    ).toBeVisible();
   });
 
   test("keeps the active anchor when switching homepage language", async ({
@@ -164,7 +207,7 @@ test.describe("locale routing", () => {
     await expect(page.getByText("EUR 69/month", { exact: true })).toHaveCount(0);
     await expect(page.getByText("200k words", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/EUR 69\/месец/)).toBeVisible();
-    await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(2);
+    await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(1);
   });
 
   test("localizes marketing metadata and legal page titles", async ({
@@ -181,9 +224,9 @@ test.describe("locale routing", () => {
       }
     });
 
-    await page.goto("/hr/dokumentacija");
+    await page.goto("/de/dokumentation");
 
-    await expect(page).toHaveTitle(/Dokumentacija \| Deepglot/);
+    await expect(page).toHaveTitle(/Dokumentation \| Deepglot/);
 
     await page.goto("/es/terminos");
 

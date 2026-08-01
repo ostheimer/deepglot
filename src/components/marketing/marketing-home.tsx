@@ -1,14 +1,33 @@
 import Link from "next/link";
-import { ArrowRight, Bell, Check, Code, Globe, Lock, RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowsClockwise,
+  Bell,
+  Buildings,
+  CheckCircle,
+  Code,
+  GithubLogo,
+  GlobeHemisphereWest,
+  HardDrives,
+  Lightning,
+  LockKey,
+  ShieldCheck,
+  Tag,
+} from "@phosphor-icons/react/dist/ssr";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HeroLanguagePreview } from "@/components/marketing/hero-language-preview";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
 import { getViewerBillingContext } from "@/lib/billing-viewer";
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { formatNumber } from "@/lib/locale-formatting";
+import {
+  getAustriaBrandLabel,
+  getMarketingHeroLocale,
+} from "@/lib/marketing-hero-locale";
+import { splitMarketingHeroTitle } from "@/lib/marketing-hero-title";
 import {
   formatCompactWords,
   getDateTimeFieldLabel,
@@ -17,13 +36,13 @@ import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { localizeCopy, uiText } from "@/lib/static-copy";
 
 const FEATURE_ICONS = {
-  fast: Zap,
-  control: Lock,
-  model: Globe,
+  fast: Lightning,
+  control: LockKey,
+  model: GlobeHemisphereWest,
   plugin: Code,
-  seo: Check,
-  selfHosted: Globe,
-  dynamic: RefreshCw,
+  seo: CheckCircle,
+  selfHosted: HardDrives,
+  dynamic: ArrowsClockwise,
   botProtection: ShieldCheck,
   quotaVisibility: Bell,
 } as const;
@@ -233,116 +252,191 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
   const copy = localizeCopy(locale, MARKETING_COPY);
   const heroFooter = buildHeroFooter(locale);
   const signupHref = getMarketingPath(locale, "signup");
-  const comparisonWords = formatCompactWords(PRO_PLAN.wordsLimit, locale);
   const viewer = await getViewerBillingContext();
+  const proWords = formatCompactWords(PRO_PLAN.wordsLimit, locale);
+  const isGerman = locale === "de";
+  const isEnglish = locale === "en";
+  const heroLocale = getMarketingHeroLocale(locale);
+  const heroDescription = isGerman
+    ? "Deepglot übersetzt deinen WordPress-Content automatisch per KI. Deine Übersetzungen bleiben unter deiner Kontrolle."
+    : isEnglish
+      ? "Deepglot translates your WordPress content automatically with AI. Your translations stay under your control."
+      : copy.heroDescription;
+  const heroTitleParts = splitMarketingHeroTitle(copy.heroTitle, copy.heroHighlight);
+  const proofItems = [
+    {
+      icon: LockKey,
+      title: isGerman ? "Deine Daten" : copy.features[1].title,
+      description: isGerman
+        ? "Deine Inhalte bleiben bei dir. Keine Weitergabe, keine Überraschungen."
+        : copy.features[1].description,
+      tone: "signal" as const,
+    },
+    {
+      icon: Code,
+      title: "Open Source",
+      description: isGerman
+        ? "Transparenter Code, aktive Community, volles Vertrauen."
+        : copy.features[5].description,
+      tone: "mint" as const,
+    },
+    {
+      icon: Tag,
+      title: isGerman ? "Faire Preise" : copy.pricingHeading,
+      description: isGerman
+        ? "Klare Tarife, transparente Limits, volle Kostenkontrolle."
+        : copy.featuresDescription,
+      tone: "signal" as const,
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#fbfaf7] text-[#071521]">
       <MarketingNav locale={locale} />
 
-      <section className="mx-auto max-w-7xl px-4 pb-20 pt-24 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl text-center">
-          <Badge variant="secondary" className="mb-6 border-indigo-200 bg-indigo-50 text-indigo-700">
-            {copy.badge}
-          </Badge>
-          <h1 className="mb-6 text-5xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-            {copy.heroTitle.replace(copy.heroHighlight, "").trim()}{" "}
-            <span className="text-indigo-600">{copy.heroHighlight}</span>
-          </h1>
-          <p className="mx-auto mb-10 max-w-2xl text-xl leading-relaxed text-gray-600">
-            {copy.heroDescription}
-          </p>
-          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button asChild size="lg" className="bg-indigo-600 px-8 text-base hover:bg-indigo-700">
-              <Link href={signupHref}>
-                {copy.heroPrimaryCta}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="px-8 text-base">
-              <Link href="https://github.com/ostheimer/deepglot" target="_blank">
-                <Code className="mr-2 h-4 w-4" />
-                {copy.heroSecondaryCta}
-              </Link>
-            </Button>
+      <section className="overflow-hidden border-b border-[#e6e5df] bg-[#fbfaf7]">
+        <div className="mx-auto grid min-h-[744px] max-w-[1488px] items-center gap-10 px-5 py-14 sm:px-8 lg:-mb-[18px] lg:grid-cols-[0.965fr_1.035fr] lg:items-start lg:gap-8 lg:px-10 lg:pb-0 lg:pt-10 xl:px-14">
+          <div
+            data-testid="marketing-hero-copy"
+            className="relative z-10 max-w-[610px] lg:-translate-y-5 lg:py-8"
+          >
+            <p className="mb-5 text-sm font-bold tracking-[-0.01em] text-[#c62812] sm:text-base">
+              {heroLocale.eyebrow}
+            </p>
+            <h1 className="text-[3.25rem] font-extrabold leading-[0.98] tracking-[-0.055em] text-[#071521] sm:text-[4rem] lg:text-[4rem] xl:text-[4.1rem]">
+              {isGerman ? (
+                <>
+                  Deine Website
+                  <br />
+                  spricht jetzt mehr
+                  <br />
+                  als eine Sprache.
+                  <br />
+                  <span className="text-[#c62812]">Ohne Abo-Falle.</span>
+                </>
+              ) : isEnglish ? (
+                <>
+                  Your website speaks
+                  <br />
+                  more than one language.
+                  <br />
+                  <span className="text-[#c62812]">Without lock-in.</span>
+                </>
+              ) : (
+                <>
+                  {heroTitleParts.before}
+                  {heroTitleParts.highlight ? (
+                    <span className="text-[#c62812]">{heroTitleParts.highlight}</span>
+                  ) : null}
+                  {heroTitleParts.after}
+                </>
+              )}
+            </h1>
+            <p className="mt-4 max-w-[550px] text-lg leading-[1.58] text-[#4d5963] sm:text-xl">
+              {heroDescription}
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="h-14 rounded-[4px] bg-[#d92f19] px-12 text-base font-bold text-white shadow-none hover:bg-[#c62812]"
+              >
+                <Link href={signupHref}>
+                  {copy.heroPrimaryCta}
+                  <ArrowRight className="ml-3 h-5 w-5" weight="bold" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-14 rounded-[4px] border-[#17242e] bg-transparent px-12 text-base font-bold text-[#071521] shadow-none hover:bg-[#071521] hover:text-white"
+              >
+                <Link href="https://github.com/ostheimer/deepglot" target="_blank">
+                  <GithubLogo className="mr-3 h-5 w-5" weight="fill" />
+                  {copy.heroSecondaryCta}
+                </Link>
+              </Button>
+            </div>
+
+            <p className="mt-4 flex items-center gap-2 text-sm font-medium text-[#4d5963]">
+              <CheckCircle className="h-5 w-5 shrink-0 text-[#42bfa2]" weight="bold" />
+              {heroFooter}
+            </p>
+
+            <p className="ml-5 mt-12 flex items-center gap-3 text-sm font-bold text-[#c62812]">
+              <Buildings className="h-7 w-7" weight="regular" />
+              {getAustriaBrandLabel(locale)}
+            </p>
           </div>
-          <p className="mt-4 text-sm text-gray-500">{heroFooter}</p>
+
+          <div data-testid="marketing-hero-showcase" className="min-w-0 lg:self-center lg:-translate-y-5">
+            <HeroLanguagePreview locale={locale} />
+          </div>
         </div>
       </section>
 
-      <section className="bg-gray-50 py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-6 text-center md:grid-cols-4">
-            {copy.comparison.map((item) => {
-              const price = item.highlight
-                ? formatMonthlyEuroPrice(PRO_PLAN_EUROS, locale)
-                : uiText(locale, "from EUR 99/month", "ab EUR 99/Monat");
-              const label = item.highlight
-                ? `${item.label} ${PRO_PLAN.name}`
-                : item.label;
+      <section className="bg-[#061827] text-white">
+        <div className="mx-auto grid max-w-[1488px] divide-y divide-white/25 px-5 sm:px-8 md:grid-cols-3 md:divide-x md:divide-y-0 lg:px-10 xl:px-14">
+          {proofItems.map((item) => (
+            <div key={item.title} className="flex min-h-44 items-start gap-5 py-9 md:px-8 md:py-11 md:first:pl-0 md:last:pr-0">
+              <item.icon
+                className={item.tone === "mint" ? "h-10 w-10 shrink-0 text-[#42c5a4]" : "h-10 w-10 shrink-0 text-[#c62812]"}
+                weight="regular"
+              />
+              <div>
+                <h2 className="text-2xl font-bold tracking-[-0.035em]">{item.title}</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-white/70">{item.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="features" className="bg-white py-24 sm:py-28">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+          <div className="mb-14 grid gap-5 md:grid-cols-[0.8fr_1.2fr] md:items-end">
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
+              WordPress-first
+            </p>
+            <div>
+              <h2 className="text-4xl font-extrabold tracking-[-0.045em] text-[#071521] sm:text-5xl">
+                {copy.featuresHeading}
+              </h2>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-[#58636d]">{copy.featuresDescription}</p>
+            </div>
+          </div>
+          <div className="grid border-y border-[#d9dad7] md:grid-cols-2 lg:grid-cols-3">
+            {copy.features.map((feature, index) => {
+              const featureId = "id" in feature ? feature.id : undefined;
 
               return (
-                <div
-                  key={label}
-                  className={`col-span-2 rounded-xl p-6 ${
-                    item.highlight
-                      ? "bg-indigo-600 text-white"
-                      : "border border-gray-200 bg-white text-gray-900"
-                  }`}
+                <article
+                  key={feature.title}
+                  id={featureId}
+                  className={`border-[#d9dad7] px-1 py-8 sm:px-6 ${
+                    featureId ? "scroll-mt-28" : ""
+                  } ${index < copy.features.length - 1 ? "border-b" : ""} md:border-b lg:border-r lg:[&:nth-child(3n)]:border-r-0`}
                 >
-                  <p className={`mb-2 text-sm font-medium ${item.highlight ? "text-indigo-200" : "text-gray-500"}`}>
-                    {label}
-                  </p>
-                  <p className="mb-1 text-3xl font-bold">{price}</p>
-                  <p className={`text-sm ${item.highlight ? "text-indigo-200" : "text-gray-500"}`}>
-                    {comparisonWords}
-                  </p>
-                  {item.highlight && (
-                    <Badge className="mt-3 bg-white text-indigo-600">{copy.comparisonBadge}</Badge>
-                  )}
-                </div>
+                  <feature.icon className="h-7 w-7 text-[#c62812]" weight="regular" />
+                  <h3 className="mt-6 text-xl font-bold tracking-[-0.025em] text-[#071521]">{feature.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#58636d]">{feature.description}</p>
+                </article>
               );
             })}
           </div>
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
-        <div className="mb-16 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-gray-900">{copy.featuresHeading}</h2>
-          <p className="mx-auto max-w-2xl text-lg text-gray-600">{copy.featuresDescription}</p>
-        </div>
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {copy.features.map((feature) => {
-            const featureId = "id" in feature ? feature.id : undefined;
-
-            return (
-              <Card
-                key={feature.title}
-                id={featureId}
-                className={`border-gray-100 transition-shadow hover:shadow-md ${
-                  featureId ? "scroll-mt-24" : ""
-                }`}
-              >
-                <CardHeader>
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50">
-                    <feature.icon className="h-5 w-5 text-indigo-600" />
-                  </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">{feature.description}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id="pricing" className="bg-gray-50 py-24">
+      <section id="pricing" className="bg-[#f3f2ed] py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-gray-900">{copy.pricingHeading}</h2>
+            <p className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">{copy.badge}</p>
+            <h2 className="text-4xl font-extrabold tracking-[-0.045em] text-[#071521]">{copy.pricingHeading}</h2>
+            <p className="mt-4 text-sm font-semibold text-[#58636d]">
+              {PRO_PLAN.name} · {formatMonthlyEuroPrice(PRO_PLAN_EUROS, locale)} · {proWords}
+            </p>
           </div>
           {/*
             The dedicated /pricing page hosts the same slider component, so the
@@ -353,48 +447,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
         </div>
       </section>
 
-      <footer className="border-t border-gray-100 py-12">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:flex-row sm:px-6 lg:px-8">
-          <Link
-            href={getMarketingPath(locale, "home")}
-            className="flex items-center gap-2"
-            aria-label="Deepglot"
-          >
-            <Globe className="h-5 w-5 text-indigo-600" />
-            <span className="font-semibold text-gray-900">Deepglot</span>
-            <span className="ml-2 text-sm text-gray-500">
-              © {new Date().getFullYear()} Andreas Ostheimer
-            </span>
-          </Link>
-          <div className="flex gap-6 text-sm text-gray-500">
-            <Link
-              href={getMarketingPath(locale, "privacy")}
-              className="transition-colors hover:text-gray-900"
-            >
-              {copy.footer.privacy}
-            </Link>
-            <Link
-              href={getMarketingPath(locale, "legalNotice")}
-              className="transition-colors hover:text-gray-900"
-            >
-              {copy.footer.legal}
-            </Link>
-            <Link
-              href={getMarketingPath(locale, "terms")}
-              className="transition-colors hover:text-gray-900"
-            >
-              {copy.footer.terms}
-            </Link>
-            <Link
-              href="https://github.com/ostheimer/deepglot"
-              target="_blank"
-              className="transition-colors hover:text-gray-900"
-            >
-              {copy.footer.github}
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter locale={locale} />
     </div>
   );
 }

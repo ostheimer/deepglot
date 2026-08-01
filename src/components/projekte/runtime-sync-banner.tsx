@@ -45,7 +45,7 @@ export function RuntimeSyncBanner({
             : uiText(locale, "No plugin sync received yet. Save the settings in the WordPress plugin to update the mirrored state.", "Noch keine Plugin-Synchronisierung empfangen. Speichere die Einstellungen im WordPress-Plugin, um den Spiegelstand zu aktualisieren.")}
         </p>
       </div>
-      <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+      <Button asChild className="bg-brand-600 hover:bg-brand-700">
         <a href={wpSettingsUrl} target="_blank" rel="noreferrer">
           <ExternalLink className="mr-2 h-4 w-4" />
           {uiText(locale, "Open WordPress settings", "WordPress-Einstellungen öffnen")}

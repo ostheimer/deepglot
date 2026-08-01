@@ -99,7 +99,7 @@ class SettingsPage
         /* ── Deepglot Admin Styles ── */
         #deepglot-wrap { max-width: 760px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         #deepglot-wrap h1 { display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin-bottom: 0; }
-        #deepglot-wrap .dg-logo { width: 28px; height: 28px; background: #4f46e5; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+        #deepglot-wrap .dg-logo { width: 32px; height: 32px; display: block; object-fit: contain; flex-shrink: 0; }
 
         /* Status badge */
         .dg-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-left: 4px; }
@@ -115,7 +115,7 @@ class SettingsPage
         .dg-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 28px; }
         .dg-step { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid #f3f4f6; }
         .dg-step:last-child { border-bottom: none; }
-        .dg-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #4f46e5; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+        .dg-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #d92f19; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
         .dg-step-num.done { background: #16a34a; }
         .dg-step-body { flex: 1; }
         .dg-step-body h3 { margin: 0 0 6px; font-size: 0.9375rem; color: #111827; }
@@ -127,16 +127,16 @@ class SettingsPage
         .dg-field input[type="text"],
         .dg-field input[type="url"],
         .dg-field input[type="password"] { width: 100%; max-width: 460px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: monospace; color: #111827; }
-        .dg-field input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79,70,229,.15); }
+        .dg-field input:focus { outline: none; border-color: #f03b22; box-shadow: 0 0 0 2px rgba(240,59,34,.15); }
         .dg-field .description { margin: 5px 0 0; font-size: 12px; color: #9ca3af; }
         .dg-lang-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
         .dg-lang-row .dg-field { flex: 1; min-width: 140px; }
 
         /* Buttons */
-        .dg-btn-primary { background: #4f46e5; color: #fff; border: none; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-        .dg-btn-primary:hover { background: #4338ca; }
-        .dg-btn-outline { background: transparent; color: #4f46e5; border: 1.5px solid #4f46e5; padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
-        .dg-btn-outline:hover { background: #eef2ff; color: #4338ca; border-color: #4338ca; }
+        .dg-btn-primary { background: #d92f19; color: #fff; border: none; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .dg-btn-primary:hover { background: #c62812; }
+        .dg-btn-outline { background: transparent; color: #c62812; border: 1.5px solid #f03b22; padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .dg-btn-outline:hover { background: #fff0ec; color: #c62812; border-color: #c62812; }
 
         /* Alert */
         .dg-alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
@@ -148,13 +148,13 @@ class SettingsPage
         .dg-toggle-row { display: flex; align-items: center; gap: 12px; }
         .dg-toggle-row label { font-size: 13px; color: #374151; cursor: pointer; }
         input[type="checkbox"].dg-toggle { width: 36px; height: 20px; appearance: none; background: #d1d5db; border-radius: 10px; cursor: pointer; position: relative; transition: background .2s; }
-        input[type="checkbox"].dg-toggle:checked { background: #4f46e5; }
+        input[type="checkbox"].dg-toggle:checked { background: #f03b22; }
         input[type="checkbox"].dg-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
         input[type="checkbox"].dg-toggle:checked::after { left: 18px; }
 
         /* Advanced section */
         .dg-advanced-toggle { font-size: 12px; color: #6b7280; cursor: pointer; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; }
-        .dg-advanced-toggle:hover { color: #4f46e5; }
+        .dg-advanced-toggle:hover { color: #c62812; }
         .dg-advanced { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e5e7eb; }
         .dg-advanced.open { display: block; }
         .dg-advanced textarea { width: 100%; max-width: 460px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; font-family: monospace; color: #374151; resize: vertical; }
@@ -162,7 +162,7 @@ class SettingsPage
         /* Footer actions */
         .dg-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
         .dg-help { font-size: 12px; color: #9ca3af; margin-top: 8px; }
-        .dg-help a { color: #4f46e5; text-decoration: none; }
+        .dg-help a { color: #c62812; text-decoration: none; }
 
         /* Switcher section */
         .dg-section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 460px; }
@@ -185,7 +185,7 @@ class SettingsPage
         }
         .dg-sortable-item:hover { background: #f3f4f6; }
         .dg-sortable-item.dragging { opacity: 0.4; cursor: grabbing; }
-        .dg-sortable-item.drag-over { border-color: #4f46e5; background: #eef2ff; }
+        .dg-sortable-item.drag-over { border-color: #f03b22; background: #fff0ec; }
         .dg-drag-handle { color: #9ca3af; font-size: 14px; line-height: 1; }
         .dg-sortable-label { font-weight: 600; color: #111827; letter-spacing: 0.5px; }
         .dg-sortable-native { color: #6b7280; font-weight: 400; margin-left: 4px; }
@@ -196,7 +196,7 @@ class SettingsPage
         .dg-switcher-instance__header { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
         .dg-switcher-instance__header strong { color: #1e3a8a; }
         .dg-switcher-preview { width: 100%; min-height: 280px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; margin-top: 8px; }
-        .dg-switcher-instance.is-selecting .dg-switcher-preview { outline: 3px solid rgba(79,70,229,.3); }
+        .dg-switcher-instance.is-selecting .dg-switcher-preview { outline: 3px solid rgba(240,59,34,.3); }
         .dg-switcher-instance textarea { width: 100%; min-height: 70px; font-family: monospace; }
         </style>
         <?php
@@ -227,7 +227,13 @@ class SettingsPage
         ?>
         <div class="wrap" id="deepglot-wrap">
             <h1>
-                <span class="dg-logo">D</span>
+                <img
+                    class="dg-logo"
+                    src="<?php echo esc_url(DEEPGLOT_PLUGIN_URL . 'assets/images/deepglot-mark.png'); ?>"
+                    width="32"
+                    height="32"
+                    alt=""
+                >
                 Deepglot
                 <span class="dg-status <?php echo esc_attr($statusClass); ?>">
                     <?php echo esc_html($statusLabel); ?>
@@ -266,7 +272,7 @@ class SettingsPage
                                 <h3><?php esc_html_e('API-Key eintragen', 'deepglot'); ?></h3>
                                 <?php if (!$isSetup) : ?>
                                 <p>
-                                    <?php esc_html_e('Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key.', 'deepglot'); ?>
+                                    <?php esc_html_e('Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key.', 'deepglot'); ?>
                                     <br>
                                     <a href="<?php echo esc_url($dashUrl . '/projects/new'); ?>" target="_blank" rel="noopener" class="dg-btn-outline" style="margin-top:10px; display:inline-flex;">
                                         ↗ <?php esc_html_e('Zum Dashboard – API-Key erstellen', 'deepglot'); ?>

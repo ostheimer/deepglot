@@ -70,7 +70,7 @@ export default async function EinstellungenPage({
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16 border border-gray-200">
               <AvatarImage src={user?.image ?? undefined} />
-              <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xl font-bold">
+              <AvatarFallback className="bg-brand-100 text-brand-700 text-xl font-bold">
                 {(user?.name ?? user?.email ?? "?").charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -79,7 +79,7 @@ export default async function EinstellungenPage({
                 href="https://gravatar.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
               >
                 {uiText(locale, "Open Gravatar", "Zu Gravatar")}
                 <ExternalLink className="h-3 w-3" />
@@ -174,7 +174,7 @@ export default async function EinstellungenPage({
               <div className="mt-3 space-y-3">
                 {memberships.map((m) => (
                   <div key={m.id} className="flex items-start gap-2">
-                    <div className="mt-0.5 h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center">
+                    <div className="mt-0.5 h-5 w-5 rounded-full bg-brand-600 flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
                         {m.organization.name.charAt(0)}
                       </span>
@@ -205,7 +205,7 @@ export default async function EinstellungenPage({
           </div>
           <Button
             disabled
-            className="bg-indigo-600 hover:bg-indigo-600 gap-1.5 h-8 px-4 text-sm opacity-50"
+            className="bg-brand-600 hover:bg-brand-600 gap-1.5 h-8 px-4 text-sm opacity-50"
             title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -245,7 +245,7 @@ export default async function EinstellungenPage({
               >
                 {/* Name */}
                 <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">
                       {m.organization.name.charAt(0)}
                     </span>
@@ -288,8 +288,8 @@ export default async function EinstellungenPage({
 
                 {/* Users */}
                 <div className="flex items-center">
-                  <div className="h-6 w-6 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center">
-                    <span className="text-xs font-bold text-indigo-700">
+                  <div className="h-6 w-6 rounded-full bg-brand-100 border-2 border-white flex items-center justify-center">
+                    <span className="text-xs font-bold text-brand-700">
                       {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
                     </span>
                   </div>

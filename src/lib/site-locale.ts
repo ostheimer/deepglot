@@ -1331,6 +1331,7 @@ export function getMarketingPath(
     | "home"
     | "pricing"
     | "docs"
+    | "blog"
     | "login"
     | "signup"
     | "forgotPassword"
@@ -1344,6 +1345,7 @@ export function getMarketingPath(
     home: "/",
     pricing: `/${LOCALIZED_SEGMENTS[locale].pricing}`,
     docs: `/${LOCALIZED_SEGMENTS[locale].docs}`,
+    blog: "/blog",
     login: `/${LOCALIZED_SEGMENTS[locale].login}`,
     signup: `/${LOCALIZED_SEGMENTS[locale].signup}`,
     forgotPassword: `/${LOCALIZED_SEGMENTS[locale].forgotPassword}`,

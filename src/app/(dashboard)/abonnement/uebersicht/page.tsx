@@ -100,7 +100,7 @@ export default async function PlanUebersichtPage({
             <p className="text-sm text-gray-600 mb-1">
               {uiText(locale, "Your current plan is:", "Dein aktueller Plan ist:")}
             </p>
-            <h2 className="text-lg font-bold text-indigo-600">{plan.name}</h2>
+            <h2 className="text-lg font-bold text-brand-600">{plan.name}</h2>
           </div>
           <Badge variant={statusBadge.variant} className="shrink-0">
             {locale === "de" ? statusBadge.de : statusBadge.en}
@@ -139,7 +139,7 @@ export default async function PlanUebersichtPage({
           {uiText(locale, "Review your", "Überprüfe deine")}{" "}
           <Link
             href={withLocalePrefix("/subscription/usage", locale)}
-            className="text-indigo-600 hover:underline"
+            className="text-brand-600 hover:underline"
           >
             {uiText(
               locale,

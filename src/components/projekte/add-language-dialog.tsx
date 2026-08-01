@@ -75,7 +75,7 @@ export function AddLanguageDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-indigo-600 hover:bg-indigo-700" size="sm">
+        <Button className="bg-brand-600 hover:bg-brand-700" size="sm">
           <Plus className="mr-2 h-4 w-4" />
           {uiText(locale, "Add language", "Sprache hinzufügen")}
         </Button>
@@ -109,8 +109,8 @@ export function AddLanguageDialog({
                     }
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors ${
                       isSelected
-                        ? "bg-indigo-600 text-white border-indigo-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:border-indigo-400"
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-white text-gray-700 border-gray-300 hover:border-brand-400"
                     }`}
                   >
                     {isSelected && <X className="h-3 w-3" />}
@@ -127,7 +127,7 @@ export function AddLanguageDialog({
               {uiText(locale, "Cancel", "Abbrechen")}
             </Button>
             <Button
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-brand-600 hover:bg-brand-700"
               onClick={handleAdd}
               disabled={selected.length === 0 || isLoading}
             >

@@ -112,7 +112,7 @@ export function ForgotPasswordCard() {
             </div>
             <Button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700"
+              className="w-full bg-brand-600 hover:bg-brand-700"
               disabled={isLoading}
             >
               {isLoading ? copy.submitting : copy.submit}
@@ -123,7 +123,7 @@ export function ForgotPasswordCard() {
         <p className="text-center text-sm text-gray-600">
           <Link
             href={getMarketingPath(locale, "login")}
-            className="font-medium text-indigo-600 hover:underline"
+            className="font-medium text-brand-600 hover:underline"
           >
             {copy.backToLogin}
           </Link>

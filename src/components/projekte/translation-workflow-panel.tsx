@@ -185,7 +185,7 @@ export function TranslationWorkflowPanel({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5 text-indigo-600" />
+            <UserCheck className="h-5 w-5 text-brand-600" />
             <h2 className="text-xl font-bold text-gray-900">
               {uiText(locale, "Human review", "Menschliche Prüfung")}
             </h2>
@@ -224,7 +224,7 @@ export function TranslationWorkflowPanel({
         </div>
       </div>
 
-      <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+      <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900">
         {uiText(
           locale,
           "Marketplace and payment are deliberately deferred. For external professionals, use the existing export → vendor → import handoff and approve the result here.",
@@ -333,7 +333,7 @@ export function TranslationWorkflowPanel({
           <span className="text-sm font-medium text-gray-700">
             {data?.total ?? 0} {uiText(locale, "segments", "Segmente")}
           </span>
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />}
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-brand-600" />}
         </div>
 
         {!loading && data?.items.length === 0 ? (
@@ -470,7 +470,7 @@ export function TranslationWorkflowPanel({
                           {uiText(locale, "Reopen", "Erneut bearbeiten")}
                         </Button>
                       )}
-                      {saving && <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />}
+                      {saving && <Loader2 className="h-4 w-4 animate-spin text-brand-600" />}
                     </div>
                   </div>
                 </article>

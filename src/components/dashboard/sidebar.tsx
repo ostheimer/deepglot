@@ -3,16 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Globe,
   LayoutDashboard,
   FolderOpen,
   Settings,
   CreditCard,
   LogOut,
+  Menu,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { DeepglotLogo } from "@/components/brand/deepglot-logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useLocale } from "@/components/providers/locale-provider";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { getMarketingPath, withLocalePrefix } from "@/lib/site-locale";
@@ -38,10 +46,14 @@ const COPY = {
   en: {
     fallbackUser: "User",
     signOut: "Sign out",
+    openNavigation: "Open navigation",
+    navigationTitle: "Dashboard navigation",
   },
   de: {
     fallbackUser: "Benutzer",
     signOut: "Abmelden",
+    openNavigation: "Navigation öffnen",
+    navigationTitle: "Dashboard-Navigation",
   },
 } as const;
 
@@ -59,70 +71,122 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
   const navItems = localizeCopy(locale, NAV_ITEMS);
   const pathname = usePathname();
 
-  return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col min-h-screen">
-      {/* Logo */}
+  const logoLink = (mobile: boolean) => {
+    const link = (
       <Link
         href={withLocalePrefix("/dashboard", locale)}
-        className="h-16 flex items-center gap-2 px-6 border-b border-gray-100 hover:bg-gray-50"
+        className="flex h-16 items-center gap-2 border-b border-[#d8d6ce] px-6 transition-colors hover:bg-[#fff0ec]"
         aria-label="Deepglot dashboard"
       >
-        <Globe className="h-6 w-6 text-indigo-600" />
-        <span className="text-lg font-bold text-gray-900">Deepglot</span>
+        <DeepglotLogo markClassName="h-8 w-8" wordmarkClassName="text-lg" />
       </Link>
+    );
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
+    return mobile ? <SheetClose asChild>{link}</SheetClose> : link;
+  };
+
+  const sidebarContent = (mobile: boolean) => (
+    <div className="flex h-full min-h-0 flex-col bg-[#f5f3ed]">
+      {logoLink(mobile)}
+
+      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {navItems.map((item) => {
           const localizedHref = withLocalePrefix(item.href, locale);
           const isActive = pathname === localizedHref || pathname.startsWith(`${localizedHref}/`);
-          return (
-            <Link key={item.href} href={localizedHref}>
-              <div
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </div>
+          const link = (
+            <Link
+              key={mobile ? undefined : item.href}
+              href={localizedHref}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-brand-50 text-brand-700"
+                  : "text-[#58636d] hover:bg-white hover:text-[#071521]"
+              )}
+              aria-current={isActive ? "page" : undefined}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </Link>
           );
+
+          return mobile ? (
+            <SheetClose asChild key={item.href}>
+              {link}
+            </SheetClose>
+          ) : link;
         })}
       </nav>
 
-      {/* User Footer */}
-      <div className="p-4 border-t border-gray-100">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <LanguageSwitcher compact />
-          </div>
-          <div className="flex items-center gap-3 mb-3">
+      <div className="border-t border-[#d8d6ce] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <LanguageSwitcher compact />
+        </div>
+        <div className="mb-3 flex items-center gap-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.image ?? undefined} />
-            <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-semibold">
+            <AvatarFallback className="bg-brand-100 text-xs font-semibold text-brand-700">
               {user.name?.charAt(0).toUpperCase() ?? user.email?.charAt(0).toUpperCase() ?? "?"}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-gray-900">
               {user.name ?? copy.fallbackUser}
             </p>
-            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            <p className="truncate text-xs text-gray-500">{user.email}</p>
           </div>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-gray-600 hover:text-red-600 hover:bg-red-50"
+          className="w-full justify-start text-gray-600 hover:bg-red-50 hover:text-red-600"
           onClick={() => signOut({ callbackUrl: getMarketingPath(locale, "home") })}
         >
           <LogOut className="mr-2 h-4 w-4" />
           {copy.signOut}
         </Button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-[#d8d6ce] bg-[#f5f3ed] px-4 lg:hidden">
+        <Link
+          href={withLocalePrefix("/dashboard", locale)}
+          aria-label="Deepglot dashboard"
+        >
+          <DeepglotLogo markClassName="h-8 w-8" wordmarkClassName="text-lg" />
+        </Link>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="border-[#d8d6ce] bg-white text-[#071521] hover:bg-[#fff0ec]"
+              aria-label={copy.openNavigation}
+              data-testid="dashboard-mobile-nav-trigger"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="w-[min(20rem,calc(100vw-2rem))] gap-0 border-[#d8d6ce] bg-[#f5f3ed] p-0"
+          >
+            <SheetTitle className="sr-only">{copy.navigationTitle}</SheetTitle>
+            {sidebarContent(true)}
+          </SheetContent>
+        </Sheet>
+      </header>
+
+      <aside
+        className="hidden min-h-screen w-64 flex-shrink-0 flex-col border-r border-[#d8d6ce] bg-[#f5f3ed] lg:flex"
+        data-testid="dashboard-desktop-sidebar"
+      >
+        {sidebarContent(false)}
+      </aside>
+    </>
   );
 }

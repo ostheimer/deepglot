@@ -97,7 +97,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                 uiText(locale, "Most visited translated URLs", "Meistbesuchte übersetzte URLs"),
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-400 flex-shrink-0" />
                   {f}
                 </li>
               ))}

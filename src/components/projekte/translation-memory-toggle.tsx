@@ -86,8 +86,8 @@ export function TranslationMemoryToggle({
           disabled={!eligible || saving}
           onClick={update}
           className={cn(
-            "relative h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
-            enabled ? "bg-indigo-600" : "bg-gray-200",
+            "relative h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+            enabled ? "bg-brand-600" : "bg-gray-200",
             (!eligible || saving) && "cursor-not-allowed opacity-40"
           )}
         >

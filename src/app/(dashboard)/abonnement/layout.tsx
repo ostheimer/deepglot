@@ -10,9 +10,9 @@ export default async function AbonnementLayout({ children }: { children: React.R
   if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
   return (
-    <div className="flex gap-8 min-h-full">
+    <div className="flex min-h-full flex-col gap-6 lg:flex-row lg:gap-8">
       {/* Left sidebar */}
-      <aside className="w-52 flex-shrink-0">
+      <aside className="min-w-0 w-full lg:w-52 lg:flex-shrink-0">
         <BillingSidebarNav />
       </aside>
 

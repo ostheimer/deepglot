@@ -88,7 +88,7 @@ export function buildPasswordResetEmailPayload({
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
         <p>${copy.intro}</p>
         <p>
-          <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${resetUrl}" style="display:inline-block;background:#d92f19;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             ${copy.action}
           </a>
         </p>
@@ -142,7 +142,7 @@ export function buildProjectInvitationEmailPayload({
         <p>${copy.intro}</p>
         <p style="color:#374151">${projectLine}${inviterLine ? `<br>${inviterLine}` : ""}</p>
         <p>
-          <a href="${inviteUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${inviteUrl}" style="display:inline-block;background:#d92f19;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             ${copy.action}
           </a>
         </p>
@@ -267,7 +267,7 @@ export function buildDuplicateSubscriptionAlertEmailPayload({
           Orphaned subscription — cancel and refund manually: <strong>${orphanedSubscriptionId}</strong>
         </p>
         <p>
-          <a href="${stripeUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${stripeUrl}" style="display:inline-block;background:#d92f19;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             Open in Stripe
           </a>
         </p>
@@ -396,7 +396,7 @@ export function buildQuotaAlertEmailPayload({
         <p style="color:#374151">${deLead}</p>
         <p style="color:#374151"><strong>${htmlUsageLine}</strong></p>
         <p>
-          <a href="${dashboardUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${dashboardUrl}" style="display:inline-block;background:#d92f19;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             Open usage / Nutzung öffnen
           </a>
         </p>

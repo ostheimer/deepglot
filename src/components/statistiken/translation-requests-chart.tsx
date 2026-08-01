@@ -49,7 +49,7 @@ function CustomTooltip({
       </p>
       <div className="flex items-center justify-between gap-6">
         <span className="text-gray-500">{item.payload.langPair}</span>
-        <span className="font-bold text-indigo-600 text-base">
+        <span className="font-bold text-brand-600 text-base">
           {formatNumber(item.value, locale)}
         </span>
       </div>
@@ -120,10 +120,10 @@ export function TranslationRequestsChart({
         <Line
           type="monotone"
           dataKey="requests"
-          stroke="#4f46e5"
+          stroke="#d92f19"
           strokeWidth={2}
           dot={false}
-          activeDot={{ r: 5, fill: "#4f46e5", stroke: "#fff", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "#d92f19", stroke: "#fff", strokeWidth: 2 }}
         />
       </LineChart>
     </ResponsiveContainer>

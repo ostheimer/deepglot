@@ -105,7 +105,7 @@ export function PasswordChangeForm({ hasPassword }: Props) {
         <Button
           type="submit"
           disabled={loading}
-          className="bg-indigo-600 hover:bg-indigo-700 h-8 px-4 text-sm"
+          className="bg-brand-600 hover:bg-brand-700 h-8 px-4 text-sm"
         >
           {loading
             ? uiText(locale, "Saving...", "Speichern…")

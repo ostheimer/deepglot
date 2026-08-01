@@ -114,3 +114,13 @@ test("no string literal embeds a literal word amount (7.13)", () => {
     "word ceilings must render through placeholders filled from BILLING_PLANS, never as literals"
   );
 });
+
+test("the localized homepage never leaks a German-only pricing eyebrow", () => {
+  const source = componentSource();
+
+  assert.doesNotMatch(
+    source,
+    />Keine Abo-Falle</,
+    "the pricing eyebrow must come from localized copy"
+  );
+});

@@ -15,7 +15,7 @@ export function AutoUpgradeToggle({ defaultChecked }: Props) {
       aria-checked={checked}
       onClick={() => setChecked((v) => !v)}
       className={`relative flex-shrink-0 h-5 w-9 rounded-full transition-colors duration-200 ${
-        checked ? "bg-indigo-600" : "bg-gray-200"
+        checked ? "bg-brand-600" : "bg-gray-200"
       }`}
     >
       <span

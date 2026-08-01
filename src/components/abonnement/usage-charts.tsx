@@ -13,7 +13,7 @@ import { formatNumber } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
-const PIE_COLORS = ["#8b5cf6", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#a78bfa"];
+const PIE_COLORS = ["#d92f19", "#fbbf24", "#34d399", "#60a5fa", "#f87171", "#f7a08f"];
 
 interface ProjectRow {
   id: string;
@@ -83,7 +83,7 @@ export function UsageCharts({
             <p className="text-sm font-semibold text-gray-900">
               {uiText(locale, "Total word usage", "Gesamte Wörter-Nutzung")}
             </p>
-            <p className="text-sm font-semibold text-indigo-600">
+            <p className="text-sm font-semibold text-brand-600">
               {formatNumber(totalWords, locale)} / {formatNumber(wordsLimit, locale)}
             </p>
           </div>
@@ -91,7 +91,7 @@ export function UsageCharts({
           {/* Progress bar */}
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
             <div
-              className="h-full bg-indigo-600 rounded-full transition-all"
+              className="h-full bg-brand-600 rounded-full transition-all"
               style={{ width: `${wordsPercent}%` }}
             />
           </div>
@@ -137,7 +137,7 @@ export function UsageCharts({
             <p className="text-sm font-semibold text-gray-900">
               {uiText(locale, "Total translation requests", "Übersetzungs-Anfragen gesamt")}
             </p>
-            <p className="text-sm font-semibold text-indigo-600">
+            <p className="text-sm font-semibold text-brand-600">
               {formatNumber(totalRequests, locale)} / {formatNumber(requestsLimit, locale)}
             </p>
           </div>
@@ -184,7 +184,7 @@ export function UsageCharts({
           <h2 className="text-sm font-semibold text-gray-900">
             {uiText(locale, "Projects", "Projekte")}
           </h2>
-          <span className="text-sm text-indigo-600 font-medium">
+          <span className="text-sm text-brand-600 font-medium">
             {projectCount} / {projectsLimit}
           </span>
         </div>
@@ -252,7 +252,7 @@ export function UsageCharts({
                 {/* Actions */}
                 <Link
                   href={withLocalePrefix(`/projects/${p.id}/translations/languages`, locale)}
-                  className="text-xs text-indigo-600 hover:underline"
+                  className="text-xs text-brand-600 hover:underline"
                 >
                   {uiText(locale, "View details", "Details anzeigen")}
                 </Link>

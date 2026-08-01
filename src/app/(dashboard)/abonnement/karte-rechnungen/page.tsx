@@ -205,7 +205,7 @@ export default async function KarteRechnungenPage() {
                       href={inv.pdf}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-600 hover:underline text-xs"
+                      className="text-brand-600 hover:underline text-xs"
                     >
                       PDF
                     </a>

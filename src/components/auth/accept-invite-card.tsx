@@ -267,7 +267,7 @@ export function AcceptInviteCard({ token }: { token: string }) {
 
             {needsSignIn ? (
               <div className="space-y-4">
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+                <div className="rounded-lg border border-brand-200 bg-brand-50 p-4">
                   <p className="text-sm font-semibold text-gray-900">
                     {copy.existingUserTitle}
                   </p>
@@ -275,13 +275,13 @@ export function AcceptInviteCard({ token }: { token: string }) {
                     {copy.existingUserDescription}
                   </p>
                 </div>
-                <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700">
+                <Button asChild className="w-full bg-brand-600 hover:bg-brand-700">
                   <Link href={signInHref}>{copy.signIn}</Link>
                 </Button>
               </div>
             ) : isExistingUser ? (
               <Button
-                className="w-full bg-indigo-600 hover:bg-indigo-700"
+                className="w-full bg-brand-600 hover:bg-brand-700"
                 disabled={isSubmitting}
                 onClick={() => acceptInvitation()}
               >
@@ -326,7 +326,7 @@ export function AcceptInviteCard({ token }: { token: string }) {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                  className="w-full bg-brand-600 hover:bg-brand-700"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? copy.accepting : copy.accept}

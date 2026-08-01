@@ -295,7 +295,7 @@ export function GlossaryTable({
           </Button>
           <Button
             type="button"
-            className="bg-indigo-600 hover:bg-indigo-700"
+            className="bg-brand-600 hover:bg-brand-700"
             size="sm"
             onClick={openCreateDialog}
           >
@@ -415,7 +415,7 @@ export function GlossaryTable({
               />
               <button
                 type="button"
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                className="text-xs font-medium text-brand-600 hover:text-brand-700"
                 onClick={() => updateForm("translatedTerm", form.originalTerm)}
               >
                 {copy.neverTranslate}
@@ -458,7 +458,7 @@ export function GlossaryTable({
                 onChange={(event) =>
                   updateForm("caseSensitive", event.target.checked)
                 }
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                className="h-4 w-4 rounded border-gray-300 text-brand-600"
               />
               <span className="text-sm text-gray-700">{copy.caseSensitive}</span>
             </label>
@@ -470,7 +470,7 @@ export function GlossaryTable({
             </Button>
             <Button
               type="button"
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-brand-600 hover:bg-brand-700"
               disabled={
                 isPending ||
                 !form.originalTerm.trim() ||

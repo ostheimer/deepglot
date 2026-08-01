@@ -100,7 +100,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
                   rel="noopener noreferrer"
                   aria-label={openWebsiteLabel}
                   title={openWebsiteLabel}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand-600"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -181,14 +181,14 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-not-allowed">
                   <input type="radio" name="websiteType" value="" defaultChecked={!s?.websiteType} disabled
-                    className="h-3.5 w-3.5 text-indigo-600" />
+                    className="h-3.5 w-3.5 text-brand-600" />
                   <span className="text-sm text-gray-700">{uiText(locale, "Not specified", "Keine Angabe")}</span>
                 </label>
                 {WEBSITE_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-not-allowed">
                     <input type="radio" name="websiteType" value={t} disabled
                       defaultChecked={s?.websiteType === t}
-                      className="h-3.5 w-3.5 text-indigo-600" />
+                      className="h-3.5 w-3.5 text-brand-600" />
                     <span className="text-sm text-gray-700">{t}</span>
                   </label>
                 ))}
@@ -204,14 +204,14 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-not-allowed">
                   <input type="radio" name="industryType" value="" defaultChecked={!s?.industryType} disabled
-                    className="h-3.5 w-3.5 text-indigo-600" />
+                    className="h-3.5 w-3.5 text-brand-600" />
                   <span className="text-sm text-gray-700">{uiText(locale, "Not specified", "Keine Angabe")}</span>
                 </label>
                 {INDUSTRY_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-not-allowed">
                     <input type="radio" name="industryType" value={t} disabled
                       defaultChecked={s?.industryType === t}
-                      className="h-3.5 w-3.5 text-indigo-600" />
+                      className="h-3.5 w-3.5 text-brand-600" />
                     <span className="text-sm text-gray-700">{t}</span>
                   </label>
                 ))}
