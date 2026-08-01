@@ -14,6 +14,8 @@ test.describe("full UI audit", () => {
       "/docs",
       "/blog",
       "/blog/wordpress-translation-without-lock-in",
+      "/blog/translated-url-slugs-for-wordpress",
+      "/blog/built-in-austria-for-24-languages",
       "/privacy",
       "/legal-notice",
       "/terms",
@@ -26,6 +28,8 @@ test.describe("full UI audit", () => {
       "/de/preise",
       "/de/blog",
       "/de/blog/wordpress-uebersetzen-ohne-lock-in",
+      "/de/blog/uebersetzte-url-slugs-fuer-wordpress",
+      "/de/blog/aus-oesterreich-fuer-24-sprachen",
       "/fr",
       "/fr/tarifs",
       "/fr/blog",
@@ -47,6 +51,7 @@ test.describe("full UI audit", () => {
     const authenticatedRoutes = [
       "/dashboard",
       "/projects",
+      "/projects/new",
       `/projects/${projectId}/translations/languages`,
       `/projects/${projectId}/translations/urls`,
       `/projects/${projectId}/translations/glossary`,
@@ -87,6 +92,54 @@ test.describe("full UI audit", () => {
     expect(checkedTargets.size, "unique checked link targets").toBeGreaterThan(50);
     expect(checkedLinks, "visible same-origin links").toBeGreaterThan(500);
     expect(checkedInteractives, "visible interactives").toBeGreaterThan(700);
+  });
+
+  test("public shells stay usable on a mobile viewport", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const route of [
+      "/",
+      "/pricing",
+      "/docs",
+      "/blog",
+      "/blog/wordpress-translation-without-lock-in",
+      "/privacy",
+      "/login",
+      "/de",
+      "/de/preise",
+      "/de/blog",
+    ]) {
+      const response = await page.goto(route, { waitUntil: "load" });
+      expect(response?.status() ?? 200, `${route} HTTP status`).toBeLessThan(400);
+      await expect(page.locator("h1")).not.toHaveCount(0);
+      await expectNoHorizontalOverflow(page, route);
+    }
+  });
+
+  test("authenticated shells stay usable on a mobile viewport", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await signInAsTestUser(page);
+    const projectId = await getAuditedProjectId(page);
+
+    for (const route of [
+      "/dashboard",
+      "/projects",
+      "/projects/new",
+      `/projects/${projectId}/translations/languages`,
+      `/projects/${projectId}/settings`,
+      "/subscription",
+      "/subscription/billing",
+      "/settings",
+    ]) {
+      const response = await page.goto(route, { waitUntil: "load" });
+      expect(response?.status() ?? 200, `${route} HTTP status`).toBeLessThan(400);
+      await expectNoHorizontalOverflow(page, route);
+    }
   });
 });
 
@@ -396,4 +449,21 @@ function describeInteractive(item: VisibleInteractive) {
   const id = item.id ? `#${item.id}` : "";
 
   return `${item.tag}${role}${id}`;
+}
+
+async function expectNoHorizontalOverflow(page: Page, path: string) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            Math.max(
+              document.documentElement.scrollWidth,
+              document.body.scrollWidth
+            ) <=
+            document.documentElement.clientWidth + 1
+        ),
+      { message: `${path} should not overflow horizontally` }
+    )
+    .toBe(true);
 }

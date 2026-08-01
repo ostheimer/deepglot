@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HERO_PREVIEW_LANGUAGES } from "./hero-language-preview";
+import {
+  getHeroPreviewLanguageCode,
+  HERO_PREVIEW_LANGUAGES,
+} from "./hero-language-preview";
+import { SITE_LOCALES } from "./site-locale";
 
 const EXPECTED_SHOWCASE_COPY = {
   de: {
@@ -58,5 +62,21 @@ test("the showcase translates its complete navigation with the selected preview 
     assert.deepEqual(language.navigation, expected.navigation);
     assert.equal(language.heading, expected.heading);
     assert.equal(language.cta, expected.cta);
+  }
+});
+
+test("the showcase initially follows the selected site language when available", () => {
+  assert.equal(getHeroPreviewLanguageCode("de"), "de");
+  assert.equal(getHeroPreviewLanguageCode("en"), "en");
+  assert.equal(getHeroPreviewLanguageCode("fr"), "fr");
+  assert.equal(getHeroPreviewLanguageCode("it"), "it");
+
+  for (const locale of SITE_LOCALES) {
+    assert.ok(
+      HERO_PREVIEW_LANGUAGES.some(
+        (language) => language.code === getHeroPreviewLanguageCode(locale)
+      ),
+      locale
+    );
   }
 });

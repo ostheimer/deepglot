@@ -104,8 +104,8 @@ msgid "API-Key eintragen"
 msgstr "Inserisci API-Key"
 
 #: includes/Admin/SettingsPage.php:221
-msgid "Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key."
-msgstr "Crea un account gratuito su deepglot.app, crea un progetto per il tuo sito web e copia API-Key."
+msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgstr "Crea un account gratuito su deepglot.ai, crea un progetto per il tuo sito web e copia API-Key."
 
 #: includes/Admin/SettingsPage.php:224
 msgid "Zum Dashboard – API-Key erstellen"

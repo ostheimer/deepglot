@@ -3,6 +3,11 @@ import {
   type SiteLocale,
   withLocalePrefix,
 } from "@/lib/site-locale";
+import {
+  BLOG_ARTICLE_SLUGS,
+  getBlogArticleSlug,
+  type BlogArticleId,
+} from "@/lib/blog-routes";
 
 type BlogPostCopy = {
   title: string;
@@ -15,7 +20,7 @@ type BlogPostCopy = {
 };
 
 export type BlogPost = {
-  id: string;
+  id: BlogArticleId;
   slug: string;
   publishedAt: string;
   readingMinutes: number;
@@ -23,7 +28,7 @@ export type BlogPost = {
 };
 
 type BlogPostSource = {
-  id: string;
+  id: BlogArticleId;
   slugs: { en: string; de: string };
   publishedAt: string;
   readingMinutes: number;
@@ -33,10 +38,7 @@ type BlogPostSource = {
 const BLOG_POSTS: readonly BlogPostSource[] = [
   {
     id: "portability",
-    slugs: {
-      en: "wordpress-translation-without-lock-in",
-      de: "wordpress-uebersetzen-ohne-lock-in",
-    },
+    slugs: BLOG_ARTICLE_SLUGS.portability,
     publishedAt: "2026-08-01",
     readingMinutes: 5,
     copy: {
@@ -102,10 +104,7 @@ const BLOG_POSTS: readonly BlogPostSource[] = [
   },
   {
     id: "translated-slugs",
-    slugs: {
-      en: "translated-url-slugs-for-wordpress",
-      de: "uebersetzte-url-slugs-fuer-wordpress",
-    },
+    slugs: BLOG_ARTICLE_SLUGS["translated-slugs"],
     publishedAt: "2026-08-01",
     readingMinutes: 6,
     copy: {
@@ -171,10 +170,7 @@ const BLOG_POSTS: readonly BlogPostSource[] = [
   },
   {
     id: "austria",
-    slugs: {
-      en: "built-in-austria-for-24-languages",
-      de: "aus-oesterreich-fuer-24-sprachen",
-    },
+    slugs: BLOG_ARTICLE_SLUGS.austria,
     publishedAt: "2026-08-01",
     readingMinutes: 4,
     copy: {
@@ -241,7 +237,7 @@ const BLOG_POSTS: readonly BlogPostSource[] = [
 ] as const;
 
 function getLocalizedSlug(source: BlogPostSource, locale: SiteLocale) {
-  return locale === "de" ? source.slugs.de : source.slugs.en;
+  return getBlogArticleSlug(source.id, locale);
 }
 
 function localizeBlogPost(source: BlogPostSource, locale: SiteLocale): BlogPost {
@@ -268,6 +264,21 @@ export function getBlogPost(locale: SiteLocale, slug: string) {
 
 export function getBlogArticlePath(locale: SiteLocale, slug: string) {
   return withLocalePrefix(`/blog/${slug}`, locale);
+}
+
+export function getBlogArticleRedirectPath(locale: SiteLocale, slug: string) {
+  const post = getBlogPost(locale, slug);
+
+  if (!post) return null;
+
+  const contentLocale = locale === "de" ? "de" : "en";
+  const canonicalPath = getBlogArticlePath(
+    contentLocale,
+    getBlogArticleSlug(post.id, contentLocale)
+  );
+  const requestedPath = getBlogArticlePath(locale, slug);
+
+  return canonicalPath === requestedPath ? null : canonicalPath;
 }
 
 export function formatBlogDate(locale: SiteLocale, publishedAt: string) {

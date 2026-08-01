@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,7 +7,7 @@ import { CANONICAL_APP_HOST } from "@/lib/canonical-host";
 import { getRequestLocale } from "@/lib/request-locale";
 
 const manrope = Manrope({
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext", "cyrillic", "cyrillic-ext", "greek"],
   display: "swap",
   variable: "--font-manrope",
 });
@@ -63,6 +63,11 @@ export const metadata: Metadata = {
       "Open-source WordPress translation, built in Austria and designed to keep your content under your control.",
     images: ["/opengraph-image.png"],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f03b22",
+  colorScheme: "light",
 };
 
 export default async function RootLayout({

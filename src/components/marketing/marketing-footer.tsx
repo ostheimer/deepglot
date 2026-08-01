@@ -22,17 +22,17 @@ export function MarketingFooter({ locale }: { locale: SiteLocale }) {
           <p className="mt-4 max-w-md text-sm leading-6 text-white/60">
             {uiText(
               locale,
-              "Open-source WordPress translation, built in Austria and designed to keep your content under your control.",
-              "Open-Source-Übersetzung für WordPress, entwickelt in Österreich und gemacht für die volle Kontrolle über deine Inhalte."
+              "Deepglot gives you control over your translations again, with professional features at fair prices.",
+              "Deepglot gibt dir die Kontrolle über deine Übersetzungen zurück, mit professionellen Features zu fairen Preisen."
             )}
           </p>
           <p className="mt-5 text-xs uppercase tracking-[0.16em] text-white/40">
-            © {new Date().getFullYear()} Ostheimer OG · Austria
+            © {new Date().getFullYear()} Ostheimer OG · {uiText(locale, "Austria", "Österreich")}
           </p>
         </div>
 
         <nav
-          aria-label={uiText(locale, "Footer navigation", "Footer-Navigation")}
+          aria-label="Footer"
           className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm text-white/70 sm:grid-cols-3"
         >
           <Link className="transition-colors hover:text-[#f77a65]" href={getMarketingPath(locale, "blog")}>

@@ -23,7 +23,10 @@ import { PricingGrid } from "@/components/marketing/pricing-grid";
 import { getViewerBillingContext } from "@/lib/billing-viewer";
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { formatNumber } from "@/lib/locale-formatting";
-import { getMarketingHeroLocale } from "@/lib/marketing-hero-locale";
+import {
+  getAustriaBrandLabel,
+  getMarketingHeroLocale,
+} from "@/lib/marketing-hero-locale";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { localizeCopy, uiText } from "@/lib/static-copy";
 
@@ -264,7 +267,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
       title: "Open Source",
       description: isGerman
         ? "Transparenter Code, aktive Community, volles Vertrauen."
-        : "Transparent code, an active community, and full control.",
+        : copy.features[5].description,
       tone: "mint" as const,
     },
     {
@@ -272,7 +275,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
       title: isGerman ? "Faire Preise" : copy.pricingHeading,
       description: isGerman
         ? "Du zahlst nur für das, was du nutzt. Kein Abo-Zwang, volle Kostenkontrolle."
-        : "Pay only for what you use, with full cost control.",
+        : copy.featuresDescription,
       tone: "signal" as const,
     },
   ];
@@ -351,12 +354,12 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
 
             <p className="ml-5 mt-12 flex items-center gap-3 text-sm font-bold text-[#f03b22]">
               <Buildings className="h-7 w-7" weight="regular" />
-              {uiText(locale, "Built in Austria", "Entwickelt in Österreich")}
+              {getAustriaBrandLabel(locale)}
             </p>
           </div>
 
           <div data-testid="marketing-hero-showcase" className="min-w-0 lg:self-center lg:-translate-y-5">
-            <HeroLanguagePreview />
+            <HeroLanguagePreview locale={locale} />
           </div>
         </div>
       </section>
@@ -416,10 +419,10 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
       <section id="pricing" className="bg-[#f3f2ed] py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-[#f03b22]">Keine Abo-Falle</p>
+            <p className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-[#f03b22]">{copy.badge}</p>
             <h2 className="text-4xl font-extrabold tracking-[-0.045em] text-[#071521]">{copy.pricingHeading}</h2>
             <p className="mt-4 text-sm font-semibold text-[#58636d]">
-              {PRO_PLAN.name} · EUR {PRO_PLAN_EUROS}/{uiText(locale, "month", "Monat")} · {proWords} {uiText(locale, "words", "Wörter")}
+              {PRO_PLAN.name} · EUR {PRO_PLAN_EUROS} · {uiText(locale, "Monthly", "Monatlich")} · {proWords} {uiText(locale, "Words", "Wörter")}
             </p>
           </div>
           {/*

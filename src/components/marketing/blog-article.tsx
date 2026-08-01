@@ -12,6 +12,7 @@ import {
   getBlogArticlePath,
   type BlogPost,
 } from "@/lib/blog";
+import { getAustriaBrandLabel } from "@/lib/marketing-hero-locale";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -66,7 +67,7 @@ export function BlogArticle({
           <aside className="lg:border-l lg:border-[#d8d6ce] lg:pl-8">
             <div className="sticky top-32 border-t-4 border-[#f03b22] bg-white p-6">
               <Buildings className="h-8 w-8 text-[#f03b22]" weight="regular" />
-              <p className="mt-5 text-sm font-bold uppercase tracking-[0.14em]">{uiText(locale, "Built in Austria", "Entwickelt in Österreich")}</p>
+              <p className="mt-5 text-sm font-bold uppercase tracking-[0.14em]">{getAustriaBrandLabel(locale)}</p>
               <p className="mt-3 text-sm leading-6 text-[#69737b]">{uiText(locale, "Open source, direct contact, and full control over your content.", "Open Source, direkter Kontakt und volle Kontrolle über deine Inhalte.")}</p>
               <a href="https://github.com/ostheimer/deepglot" target="_blank" rel="noreferrer" className="mt-5 inline-block text-sm font-bold text-[#f03b22] hover:underline">GitHub →</a>
             </div>

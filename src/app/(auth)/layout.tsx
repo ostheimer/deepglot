@@ -1,8 +1,10 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Buildings, CheckCircle } from "@phosphor-icons/react/dist/ssr";
 
 import { DeepglotLogo } from "@/components/brand/deepglot-logo";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
+import { getAustriaBrandLabel } from "@/lib/marketing-hero-locale";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getMarketingPath } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -23,15 +25,18 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           {children}
         </section>
         <aside className="relative hidden min-h-[720px] overflow-hidden border-l border-[#d8d6ce] bg-[#071521] lg:block">
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-65"
-            style={{ backgroundImage: "url('/marketing/austrian-interior-hero.png')" }}
+          <Image
+            src="/marketing/austrian-interior-hero.png"
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 54vw, 0px"
+            className="object-cover opacity-65"
           />
           <div className="absolute inset-0 bg-[#071521]/55" />
           <div className="relative flex h-full flex-col justify-between p-12 text-white xl:p-16">
             <p className="flex items-center gap-3 text-sm font-bold uppercase tracking-[0.16em] text-[#f77a65]">
               <Buildings className="h-6 w-6" weight="regular" />
-              {uiText(locale, "Built in Austria", "Entwickelt in Österreich")}
+              {getAustriaBrandLabel(locale)}
             </p>
             <div className="max-w-xl">
               <h1 className="text-5xl font-extrabold leading-[1.02] tracking-[-0.05em]">

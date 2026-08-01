@@ -3,6 +3,7 @@ import { Buildings } from "@phosphor-icons/react/dist/ssr";
 
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { getAustriaBrandLabel } from "@/lib/marketing-hero-locale";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -48,7 +49,7 @@ export function SimpleMarketingPage({
             <div className="hidden border-l border-[#c9c7be] pl-8 lg:flex lg:flex-col lg:justify-end">
               <Buildings className="h-10 w-10 text-[#f03b22]" weight="regular" />
               <p className="mt-5 text-sm font-bold uppercase tracking-[0.14em] text-[#071521]">
-                {uiText(locale, "Built in Austria", "Entwickelt in Österreich")}
+                {getAustriaBrandLabel(locale)}
               </p>
               <p className="mt-2 text-sm leading-6 text-[#69737b]">
                 {uiText(

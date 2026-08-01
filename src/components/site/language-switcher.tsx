@@ -4,6 +4,7 @@ import { Check, ChevronDown, Globe } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import { useLocale } from "@/components/providers/locale-provider";
+import { localizeBlogArticlePathname } from "@/lib/blog-routes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +31,10 @@ export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
   const currentLocale: SiteLocale = locale;
 
   function getTargetUrl(targetLocale: SiteLocale) {
-    const targetPath = getLocalizedPathname(currentPathname, targetLocale);
+    const targetPath = getLocalizedPathname(
+      localizeBlogArticlePathname(currentPathname, targetLocale),
+      targetLocale
+    );
     const query = searchParams.toString();
     const hash =
       typeof window === "undefined" ? "" : window.location.hash;

@@ -9,6 +9,7 @@ const LAST_MODIFIED = new Date("2026-08-01T00:00:00.000Z");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return SITE_LOCALES.flatMap((locale) => {
+    const publishesLocalizedEditorial = locale === "en" || locale === "de";
     const marketingEntries: MetadataRoute.Sitemap = [
       {
         url: `${ORIGIN}${getMarketingPath(locale, "home")}`,
@@ -24,12 +25,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       },
       {
         url: `${ORIGIN}${getMarketingPath(locale, "docs")}`,
-        lastModified: LAST_MODIFIED,
-        changeFrequency: "weekly",
-        priority: 0.8,
-      },
-      {
-        url: `${ORIGIN}${getMarketingPath(locale, "blog")}`,
         lastModified: LAST_MODIFIED,
         changeFrequency: "weekly",
         priority: 0.8,
@@ -53,15 +48,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
         priority: 0.3,
       },
     ];
-    const articleEntries: MetadataRoute.Sitemap = getBlogPosts(locale).map(
-      (post) => ({
-        url: `${ORIGIN}${getBlogArticlePath(locale, post.slug)}`,
-        lastModified: new Date(`${post.publishedAt}T00:00:00.000Z`),
-        changeFrequency: "monthly" as const,
-        priority: 0.7,
-      })
-    );
+    const editorialEntries: MetadataRoute.Sitemap = publishesLocalizedEditorial
+      ? [
+          {
+            url: `${ORIGIN}${getMarketingPath(locale, "blog")}`,
+            lastModified: LAST_MODIFIED,
+            changeFrequency: "weekly" as const,
+            priority: 0.8,
+          },
+          ...getBlogPosts(locale).map((post) => ({
+            url: `${ORIGIN}${getBlogArticlePath(locale, post.slug)}`,
+            lastModified: new Date(`${post.publishedAt}T00:00:00.000Z`),
+            changeFrequency: "monthly" as const,
+            priority: 0.7,
+          })),
+        ]
+      : [];
 
-    return [...marketingEntries, ...articleEntries];
+    return [...marketingEntries, ...editorialEntries];
   });
 }

@@ -1,14 +1,23 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  getHeroPreviewLanguageCode,
   HERO_PREVIEW_LANGUAGES,
   type HeroPreviewLanguageCode,
 } from "@/lib/hero-language-preview";
+import type { SiteLocale } from "@/lib/site-locale";
 
-export function HeroLanguagePreview() {
-  const [activeCode, setActiveCode] = useState<HeroPreviewLanguageCode>("de");
+export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
+  const initialCode = getHeroPreviewLanguageCode(locale);
+  const [activeCode, setActiveCode] =
+    useState<HeroPreviewLanguageCode>(initialCode);
+
+  useEffect(() => {
+    setActiveCode(initialCode);
+  }, [initialCode]);
+
   const activeLanguage =
     HERO_PREVIEW_LANGUAGES.find((language) => language.code === activeCode) ??
     HERO_PREVIEW_LANGUAGES[0];
@@ -63,7 +72,7 @@ export function HeroLanguagePreview() {
 
       <div
         role="tablist"
-        aria-label="Vorschau-Sprache"
+        aria-label="Preview language"
         className="absolute bottom-0 left-1/2 grid w-[78%] -translate-x-1/2 grid-cols-2 rounded-md border border-black/10 bg-white p-1.5 shadow-[0_16px_40px_rgba(6,21,33,0.12)] sm:grid-cols-4 sm:p-2"
       >
         {HERO_PREVIEW_LANGUAGES.map((language) => {

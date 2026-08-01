@@ -21,9 +21,18 @@ import {
   Users,
   FileText,
   UserCheck,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useLocale } from "@/components/providers/locale-provider";
 import {
   canAccessProjectArea,
@@ -91,79 +100,128 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
     },
   ];
 
-  return (
-    <aside className="flex min-h-screen w-56 flex-shrink-0 flex-col border-r border-[#d8d6ce] bg-[#f5f3ed] py-6">
-      {/* Back + Project info */}
-      <div className="px-4 mb-6">
-        <Link
-          href={withLocalePrefix("/projects", locale)}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 mb-4 transition-colors"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          {uiText(locale, "All Projects", "Alle Projekte")}
-        </Link>
-        <div>
-          <p className="font-semibold text-gray-900 text-sm truncate">{project.name}</p>
-          <p className="text-xs text-gray-500 truncate">{project.domain}</p>
-        </div>
-        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-          <Badge className="text-xs bg-gray-100 text-gray-600 border-0 px-1.5 py-0">
-            {project.originalLang.toUpperCase()}
-          </Badge>
-          {project.languages.slice(0, 3).map((l) => (
-            <Badge
-              key={l.id}
-              className="text-xs bg-brand-50 text-brand-600 border-0 px-1.5 py-0"
-            >
-              {l.langCode.toUpperCase()}
-            </Badge>
-          ))}
-          {project.languages.length > 3 && (
-            <span className="text-xs text-gray-400">+{project.languages.length - 3}</span>
-          )}
-        </div>
-      </div>
+  const sidebarContent = (mobile: boolean) => {
+    const backLink = (
+      <Link
+        href={withLocalePrefix("/projects", locale)}
+        className="mb-4 flex items-center gap-1.5 text-xs text-gray-500 transition-colors hover:text-gray-700"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        {uiText(locale, "All Projects", "Alle Projekte")}
+      </Link>
+    );
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-5">
-        {nav.filter((section) => !("hidden" in section && section.hidden)).map((section) => (
-          <div key={section.label}>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-1.5">
-              {section.label}
-            </p>
-            <ul className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive =
-                  pathname === item.href || pathname.startsWith(item.href + "/");
-                return (
-                  <li key={item.href}>
-                    <Link href={item.href}>
-                      <div
-                        className={cn(
-                          "flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors",
-                          isActive
-                            ? "bg-brand-50 text-brand-700 font-medium"
-                            : "text-[#58636d] hover:bg-white hover:text-[#071521]"
-                        )}
-                      >
-                        <span className="flex items-center gap-2">
-                          <item.icon className="h-3.5 w-3.5" />
-                          {item.label}
-                        </span>
-                        {"badge" in item && item.badge && (
-                          <Badge className="text-xs py-0 px-1.5 bg-brand-600 text-white border-0">
-                            {item.badge}
-                          </Badge>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+    return (
+      <div className="flex h-full min-h-0 flex-col bg-[#f5f3ed] py-6">
+        <div className="mb-6 px-4">
+          {mobile ? <SheetClose asChild>{backLink}</SheetClose> : backLink}
+          <div>
+            <p className="truncate text-sm font-semibold text-gray-900">{project.name}</p>
+            <p className="truncate text-xs text-gray-500">{project.domain}</p>
           </div>
-        ))}
-      </nav>
-    </aside>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Badge className="border-0 bg-gray-100 px-1.5 py-0 text-xs text-gray-600">
+              {project.originalLang.toUpperCase()}
+            </Badge>
+            {project.languages.slice(0, 3).map((l) => (
+              <Badge
+                key={l.id}
+                className="border-0 bg-brand-50 px-1.5 py-0 text-xs text-brand-600"
+              >
+                {l.langCode.toUpperCase()}
+              </Badge>
+            ))}
+            {project.languages.length > 3 && (
+              <span className="text-xs text-gray-400">+{project.languages.length - 3}</span>
+            )}
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3">
+          {nav.filter((section) => !("hidden" in section && section.hidden)).map((section) => (
+            <div key={section.label}>
+              <p className="mb-1.5 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                {section.label}
+              </p>
+              <ul className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive =
+                    pathname === item.href || pathname.startsWith(item.href + "/");
+                  const link = (
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors",
+                        isActive
+                          ? "bg-brand-50 font-medium text-brand-700"
+                          : "text-[#58636d] hover:bg-white hover:text-[#071521]"
+                      )}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <span className="flex items-center gap-2">
+                        <item.icon className="h-3.5 w-3.5" />
+                        {item.label}
+                      </span>
+                      {"badge" in item && item.badge && (
+                        <Badge className="border-0 bg-brand-600 px-1.5 py-0 text-xs text-white">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+
+                  return (
+                    <li key={item.href}>
+                      {mobile ? <SheetClose asChild>{link}</SheetClose> : link}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <header className="flex items-center justify-between border-b border-[#d8d6ce] bg-[#f5f3ed] px-4 py-3 lg:hidden">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-gray-900">{project.name}</p>
+          <p className="truncate text-xs text-gray-500">{project.domain}</p>
+        </div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="ml-4 flex-shrink-0 border-[#d8d6ce] bg-white text-[#071521] hover:bg-[#fff0ec]"
+              aria-label={uiText(locale, "Open project navigation", "Projektnavigation öffnen")}
+              data-testid="project-mobile-nav-trigger"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="w-[min(20rem,calc(100vw-2rem))] gap-0 border-[#d8d6ce] bg-[#f5f3ed] p-0"
+          >
+            <SheetTitle className="sr-only">
+              {uiText(locale, "Project navigation", "Projektnavigation")}
+            </SheetTitle>
+            {sidebarContent(true)}
+          </SheetContent>
+        </Sheet>
+      </header>
+
+      <aside
+        className="hidden min-h-screen w-56 flex-shrink-0 flex-col border-r border-[#d8d6ce] bg-[#f5f3ed] lg:flex"
+        data-testid="project-desktop-sidebar"
+      >
+        {sidebarContent(false)}
+      </aside>
+    </>
   );
 }

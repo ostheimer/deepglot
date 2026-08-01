@@ -9,9 +9,12 @@ type BlogPageProps = { searchParams: LocaleSearchParams };
 
 export async function generateMetadata({ searchParams }: BlogPageProps): Promise<Metadata> {
   const locale = await getPageLocale(searchParams);
+  const contentLocale = locale === "de" ? "de" : "en";
 
   return buildMarketingMetadata({
     locale,
+    contentLocale,
+    alternateLocales: ["en", "de"],
     route: "blog",
     title: uiText(locale, "Blog", "Blog"),
     description: uiText(

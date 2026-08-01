@@ -34,10 +34,10 @@ export default async function ProjectLayout({ children, params }: ProjectLayoutP
   if (!access || !canAccessProject(access)) notFound();
 
   return (
-    <div className="flex gap-6 -m-8 min-h-screen">
+    <div className="-m-6 min-h-screen sm:-m-8 lg:flex lg:gap-6">
       <h1 className="sr-only">{project.name}</h1>
       <ProjectSidebar project={project} access={access} />
-      <div className="flex-1 p-8 min-w-0">{children}</div>
+      <div className="min-w-0 flex-1 p-6 sm:p-8">{children}</div>
     </div>
   );
 }

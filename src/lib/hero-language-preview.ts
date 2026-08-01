@@ -1,3 +1,5 @@
+import type { SiteLocale } from "@/lib/site-locale";
+
 export const HERO_PREVIEW_LANGUAGES = [
   {
     code: "de",
@@ -58,3 +60,11 @@ export const HERO_PREVIEW_LANGUAGES = [
 ] as const;
 
 export type HeroPreviewLanguageCode = (typeof HERO_PREVIEW_LANGUAGES)[number]["code"];
+
+export function getHeroPreviewLanguageCode(
+  locale: SiteLocale
+): HeroPreviewLanguageCode {
+  return HERO_PREVIEW_LANGUAGES.some((language) => language.code === locale)
+    ? (locale as HeroPreviewLanguageCode)
+    : "en";
+}

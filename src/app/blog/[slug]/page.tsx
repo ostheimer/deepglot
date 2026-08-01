@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { BlogArticle } from "@/components/marketing/blog-article";
 import {
   getAllBlogSlugs,
   getBlogArticlePath,
+  getBlogArticleRedirectPath,
   getBlogPost,
   getBlogPosts,
 } from "@/lib/blog";
+import { buildBlogArticleStructuredData } from "@/lib/blog-metadata";
+import { buildPageMetadata } from "@/lib/marketing-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
-import {
-  SITE_LOCALE_METADATA,
-  SITE_LOCALES,
-} from "@/lib/site-locale";
 
 type BlogArticlePageProps = {
   params: Promise<{ slug: string }>;
@@ -29,33 +28,31 @@ export async function generateMetadata({ params, searchParams }: BlogArticlePage
 
   if (!post) return {};
 
+  const contentLocale = locale === "de" ? "de" : "en";
+  const canonicalPost = getBlogPosts(contentLocale).find(
+    (candidate) => candidate.id === post.id
+  )!;
   const languageAlternates = Object.fromEntries(
-    SITE_LOCALES.map((siteLocale) => {
+    (["en", "de"] as const).map((siteLocale) => {
       const localizedPost = getBlogPosts(siteLocale).find((candidate) => candidate.id === post.id)!;
       return [siteLocale, getBlogArticlePath(siteLocale, localizedPost.slug)];
     })
   );
-  const canonical = getBlogArticlePath(locale, post.slug);
+  const canonical = getBlogArticlePath(contentLocale, canonicalPost.slug);
 
-  return {
+  return buildPageMetadata({
+    locale: contentLocale,
     title: post.copy.title,
     description: post.copy.excerpt,
-    alternates: {
-      canonical,
-      languages: {
-        ...languageAlternates,
-        "x-default": languageAlternates.en,
-      },
+    canonical,
+    languages: {
+      ...languageAlternates,
+      "x-default": languageAlternates.en,
     },
-    openGraph: {
-      type: "article",
-      locale: SITE_LOCALE_METADATA[locale].openGraphLocale,
-      url: canonical,
-      title: post.copy.title,
-      description: post.copy.excerpt,
+    article: {
       publishedTime: `${post.publishedAt}T00:00:00.000Z`,
     },
-  };
+  });
 }
 
 export default async function BlogArticlePage({ params, searchParams }: BlogArticlePageProps) {
@@ -63,24 +60,25 @@ export default async function BlogArticlePage({ params, searchParams }: BlogArti
   const post = getBlogPost(locale, slug);
 
   if (!post) notFound();
+  const redirectPath = getBlogArticleRedirectPath(locale, slug);
+  if (redirectPath) {
+    permanentRedirect(redirectPath);
+  }
 
   const posts = getBlogPosts(locale);
   const index = posts.findIndex((candidate) => candidate.id === post.id);
   const nextPost = posts[(index + 1) % posts.length];
-  const articleUrl = getBlogArticlePath(locale, post.slug);
-
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: post.copy.title,
+  const contentLocale = locale === "de" ? "de" : "en";
+  const canonicalPost = getBlogPosts(contentLocale).find(
+    (candidate) => candidate.id === post.id
+  )!;
+  const structuredData = buildBlogArticleStructuredData({
+    title: post.copy.title,
     description: post.copy.excerpt,
-    datePublished: post.publishedAt,
-    dateModified: post.publishedAt,
-    inLanguage: locale,
-    mainEntityOfPage: articleUrl,
-    author: { "@type": "Organization", name: "Deepglot" },
-    publisher: { "@type": "Organization", name: "Ostheimer OG" },
-  };
+    publishedAt: post.publishedAt,
+    contentLocale,
+    canonicalPath: getBlogArticlePath(contentLocale, canonicalPost.slug),
+  });
 
   return (
     <>

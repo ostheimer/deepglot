@@ -99,7 +99,7 @@ class SettingsPage
         /* ── Deepglot Admin Styles ── */
         #deepglot-wrap { max-width: 760px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
         #deepglot-wrap h1 { display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin-bottom: 0; }
-        #deepglot-wrap .dg-logo { width: 28px; height: 28px; background: #f03b22; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+        #deepglot-wrap .dg-logo { width: 32px; height: 32px; display: block; object-fit: contain; flex-shrink: 0; }
 
         /* Status badge */
         .dg-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-left: 4px; }
@@ -227,7 +227,13 @@ class SettingsPage
         ?>
         <div class="wrap" id="deepglot-wrap">
             <h1>
-                <span class="dg-logo">D</span>
+                <img
+                    class="dg-logo"
+                    src="<?php echo esc_url(DEEPGLOT_PLUGIN_URL . 'assets/images/deepglot-mark.png'); ?>"
+                    width="32"
+                    height="32"
+                    alt=""
+                >
                 Deepglot
                 <span class="dg-status <?php echo esc_attr($statusClass); ?>">
                     <?php echo esc_html($statusLabel); ?>
@@ -266,7 +272,7 @@ class SettingsPage
                                 <h3><?php esc_html_e('API-Key eintragen', 'deepglot'); ?></h3>
                                 <?php if (!$isSetup) : ?>
                                 <p>
-                                    <?php esc_html_e('Erstelle ein kostenloses Konto auf deepglot.app, lege ein Projekt für deine Website an und kopiere den API-Key.', 'deepglot'); ?>
+                                    <?php esc_html_e('Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key.', 'deepglot'); ?>
                                     <br>
                                     <a href="<?php echo esc_url($dashUrl . '/projects/new'); ?>" target="_blank" rel="noopener" class="dg-btn-outline" style="margin-top:10px; display:inline-flex;">
                                         ↗ <?php esc_html_e('Zum Dashboard – API-Key erstellen', 'deepglot'); ?>
