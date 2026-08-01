@@ -23,6 +23,9 @@ final class WordPressInfrastructure
         'wp-signup.php',
         'wp-activate.php',
         'wp-links-opml.php',
+        'robots.txt',
+        'wp-sitemap.xml',
+        'deepglot-sitemap.xml',
     ];
 
     public static function isReservedSlugSegment(string $segment): bool

@@ -17,6 +17,9 @@ const WORDPRESS_INFRASTRUCTURE_SEGMENTS = [
   "wp-signup.php",
   "wp-activate.php",
   "wp-links-opml.php",
+  "robots.txt",
+  "wp-sitemap.xml",
+  "deepglot-sitemap.xml",
 ] as const;
 
 let runtimeSlugRows: Array<{
@@ -99,6 +102,13 @@ test("omits reserved WordPress infrastructure segments from runtime slug mapping
     { originalSlug: "wp-json-guide", translatedSlug: "api-guide", langTo: "en" },
     { originalSlug: "content-tools", translatedSlug: "wp-content-tools", langTo: "en" },
   ]);
+});
+
+test("keeps malformed percent escapes aligned with WordPress source reservations", () => {
+  assert.deepEqual(buildRuntimeUrlSlugs([
+    { originalSlug: "foo%2Dbar%", translatedSlug: null, langTo: "en" },
+    { originalSlug: "other", translatedSlug: "foo-bar%25", langTo: "en" },
+  ]), [], "Malformed percent escapes must not defeat normalized source reservations.");
 });
 
 test("returns only bounded, nonempty URL slug mappings for the API key project", async () => {

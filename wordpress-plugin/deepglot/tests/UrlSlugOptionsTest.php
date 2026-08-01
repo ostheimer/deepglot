@@ -98,6 +98,9 @@ $reservedInfrastructureSegments = [
     'wp-signup.php',
     'wp-activate.php',
     'wp-links-opml.php',
+    'robots.txt',
+    'wp-sitemap.xml',
+    'deepglot-sitemap.xml',
 ];
 $runtimeUrlSlugRows = [
         ['langTo' => 'en', 'originalSlug' => 'ueber-uns', 'translatedSlug' => 'about-us'],
@@ -111,6 +114,8 @@ $runtimeUrlSlugRows = [
         ['langTo' => 'en', 'originalSlug' => 'unsafe', 'translatedSlug' => '../wp-admin'],
         ['langTo' => 'en', 'originalSlug' => 'encoded-slash', 'translatedSlug' => 'foo%2Fbar'],
         ['langTo' => 'en', 'originalSlug' => 'literal-percent', 'translatedSlug' => 'foo%252Fbar'],
+        ['langTo' => 'en', 'originalSlug' => 'foo%2Dbar%', 'translatedSlug' => null],
+        ['langTo' => 'en', 'originalSlug' => 'other', 'translatedSlug' => 'foo-bar%25'],
         ['langTo' => 'en', 'originalSlug' => str_repeat('a', Options::URL_SLUG_SEGMENT_MAX_LEN + 1), 'translatedSlug' => 'too-long'],
         ['langTo' => 'en', 'originalSlug' => 'non-string', 'translatedSlug' => ['bad']],
 ];

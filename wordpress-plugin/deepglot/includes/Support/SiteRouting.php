@@ -40,7 +40,13 @@ class SiteRouting
 
     public function usesSubdomains(): bool
     {
-        return $this->routingMode === 'SUBDOMAIN' && !empty($this->domainMappings);
+        foreach (array_keys($this->domainMappings) as $language) {
+            if ($this->getSubdomainHostForLanguage((string) $language) !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function getSourceLanguage(): string
@@ -60,9 +66,10 @@ class SiteRouting
     {
         $normalizedHost = $this->normalizeHost($host);
 
-        if ($this->usesSubdomains() && $normalizedHost !== '') {
-            foreach ($this->domainMappings as $lang => $mappedHost) {
-                if ($normalizedHost === $mappedHost) {
+        if ($normalizedHost !== '') {
+            foreach (array_keys($this->domainMappings) as $lang) {
+                $mappedHost = $this->getSubdomainHostForLanguage((string) $lang);
+                if ($mappedHost !== null && $normalizedHost === $mappedHost) {
                     return $lang;
                 }
             }
@@ -86,10 +93,10 @@ class SiteRouting
         [$canonicalPath, $query, $fragment] = $this->splitPath($path);
         $normalizedLanguage = strtolower(trim($language));
 
-        if ($this->usesSubdomains() && $normalizedLanguage !== $this->resolver->getSourceLanguage()) {
-            $host = $this->domainMappings[$normalizedLanguage] ?? null;
+        if ($normalizedLanguage !== $this->resolver->getSourceLanguage()) {
+            $host = $this->getSubdomainHostForLanguage($normalizedLanguage);
 
-            if ($host) {
+            if ($host !== null) {
                 $translatedPath = $this->mapPathSegments($canonicalPath, $normalizedLanguage, false);
                 return $this->siteBaseUrlForHost($host) . $this->appendQueryAndFragment($translatedPath, $query, $fragment);
             }
@@ -161,7 +168,13 @@ class SiteRouting
             return true;
         }
 
-        return in_array($normalizedHost, $this->domainMappings, true);
+        foreach (array_keys($this->domainMappings) as $language) {
+            if ($normalizedHost === $this->getSubdomainHostForLanguage((string) $language)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function splitPath(string $path): array
@@ -330,12 +343,14 @@ class SiteRouting
             return '/';
         }
 
-        if ($reverse && $this->isWordPressInfrastructurePath($segments)) {
+        $structuralPathPrefixLength = $this->getStructuralPathPrefixLength($segments, $language);
+
+        if ($reverse && $this->isWordPressInfrastructurePath($segments, $language)) {
             return '/' . implode('/', $segments) . '/';
         }
 
         foreach ($segments as $index => &$segment) {
-            if ($skipLanguageSegment && $index === 0) {
+            if ($index < $structuralPathPrefixLength || ($skipLanguageSegment && $index === 0)) {
                 continue;
             }
 
@@ -352,9 +367,116 @@ class SiteRouting
     /**
      * @param string[] $segments
      */
-    private function isWordPressInfrastructurePath(array $segments): bool
+    private function isWordPressInfrastructurePath(array $segments, string $language): bool
     {
+        $structuralPathPrefixLength = $this->getStructuralPathPrefixLength($segments, $language);
+        if ($structuralPathPrefixLength > 0) {
+            $segments = array_slice($segments, $structuralPathPrefixLength);
+        }
+
         return WordPressInfrastructure::isInfrastructurePath($segments);
+    }
+
+    /**
+     * Returns the exact site path plus at most one language segment and one
+     * index.php segment. The two optional segments may appear in either order.
+     *
+     * @param string[] $segments
+     */
+    private function getStructuralPathPrefixLength(array $segments, string $language): int
+    {
+        $siteSegments = $this->getSitePathSegments();
+        $sitePathPrefixLength = $this->getSitePathPrefixLength($segments, $siteSegments);
+
+        if ($siteSegments !== [] && $sitePathPrefixLength === 0) {
+            return 0;
+        }
+
+        $prefixLength = $sitePathPrefixLength;
+        $skippedLanguage = false;
+        $skippedIndex = false;
+
+        while (isset($segments[$prefixLength])) {
+            if (
+                !$skippedLanguage
+                && $this->isPathPrefixLanguageSegment($segments[$prefixLength], $language)
+            ) {
+                $prefixLength++;
+                $skippedLanguage = true;
+                continue;
+            }
+
+            if (!$skippedIndex && $this->normalizeSlugSegment($segments[$prefixLength]) === 'index.php') {
+                $prefixLength++;
+                $skippedIndex = true;
+                continue;
+            }
+
+            break;
+        }
+
+        return $prefixLength;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getSitePathSegments(): array
+    {
+        $sitePath = (string) parse_url($this->siteUrl, PHP_URL_PATH);
+
+        return array_values(array_filter(
+            explode('/', trim($sitePath, '/')),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+    }
+
+    /**
+     * @param string[] $segments
+     * @param string[] $siteSegments
+     */
+    private function getSitePathPrefixLength(array $segments, array $siteSegments): int
+    {
+        if ($siteSegments === [] || count($segments) < count($siteSegments)) {
+            return 0;
+        }
+
+        foreach ($siteSegments as $index => $siteSegment) {
+            $normalizedSegment = $this->normalizeSlugSegment($segments[$index]);
+            $normalizedSiteSegment = $this->normalizeSlugSegment($siteSegment);
+            if ($normalizedSegment === '' || $normalizedSegment !== $normalizedSiteSegment) {
+                return 0;
+            }
+        }
+
+        return count($siteSegments);
+    }
+
+    private function isPathPrefixLanguageSegment(string $segment, string $language): bool
+    {
+        $language = strtolower(trim($language));
+        if (
+            !in_array($language, $this->resolver->getTargetLanguages(), true)
+            || $this->getSubdomainHostForLanguage($language) !== null
+        ) {
+            return false;
+        }
+
+        $normalizedSegment = $this->normalizeSlugSegment($segment);
+
+        return $normalizedSegment !== ''
+            && $normalizedSegment === $this->normalizeSlugSegment($language);
+    }
+
+    private function getSubdomainHostForLanguage(string $language): ?string
+    {
+        if ($this->routingMode !== 'SUBDOMAIN') {
+            return null;
+        }
+
+        $host = $this->domainMappings[strtolower(trim($language))] ?? null;
+
+        return $host ? $host : null;
     }
 
     private function normalizeSlugSegment(string $slug): string

@@ -44,6 +44,9 @@ $infrastructurePaths = [
     '/wp-json/deepglot/v1/settings',
     '/index.php/wp-json/deepglot/v1/settings',
     '/subdirectory/wp-login.php',
+    '/robots.txt',
+    '/wp-sitemap.xml',
+    '/deepglot-sitemap.xml',
 ];
 
 foreach ($infrastructurePaths as $requestUri) {

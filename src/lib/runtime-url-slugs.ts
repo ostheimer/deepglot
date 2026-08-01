@@ -15,6 +15,9 @@ export const WORDPRESS_INFRASTRUCTURE_SLUG_SEGMENTS = [
   "wp-signup.php",
   "wp-activate.php",
   "wp-links-opml.php",
+  "robots.txt",
+  "wp-sitemap.xml",
+  "deepglot-sitemap.xml",
 ] as const;
 
 const WORDPRESS_INFRASTRUCTURE_SLUG_SET = new Set<string>(
@@ -33,12 +36,21 @@ export type RuntimeUrlSlug = {
   langTo: string;
 };
 
-function normalizeSegmentForCollision(value: string) {
+function normalizeSegmentForCollision(value: string): string | null {
   const trimmed = value.trim();
+  // PHP rawurldecode() decodes every valid %HH byte while preserving malformed
+  // percent signs. Escape only malformed signs before decodeURIComponent() so
+  // mixed input such as `foo%2Dbar%` follows the same one-pass semantics.
+  const protectedMalformedPercents = trimmed.replace(
+    /%(?![0-9a-f]{2})/gi,
+    "%25",
+  );
   try {
-    return decodeURIComponent(trimmed).toLocaleLowerCase("und");
+    return decodeURIComponent(protectedMalformedPercents).toLocaleLowerCase("und");
   } catch {
-    return trimmed.toLocaleLowerCase("und");
+    // A syntactically valid %HH sequence can still contain invalid UTF-8.
+    // The PHP normalizers reject that after rawurldecode(), so omit it here too.
+    return null;
   }
 }
 
@@ -75,7 +87,7 @@ export function buildRuntimeUrlSlugs(rows: RuntimeUrlSlugRow[]): RuntimeUrlSlug[
     }
 
     const translated = normalizeSegmentForCollision(translatedSlug);
-    if (isReservedWordPressSegment(translated)) {
+    if (!translated || isReservedWordPressSegment(translated)) {
       continue;
     }
 
@@ -94,6 +106,10 @@ export function buildRuntimeUrlSlugs(rows: RuntimeUrlSlugRow[]): RuntimeUrlSlug[
     }
 
     const translated = normalizeSegmentForCollision(translatedSlug);
+    if (!translated) {
+      return [];
+    }
+
     const originalKey = `${language}\0${original}`;
     const translatedKey = `${language}\0${translated}`;
     const translatedOwnersForSegment = translatedOwners.get(translatedKey);
