@@ -51,6 +51,7 @@ class Plugin
         $this->container->get(NavMenuMetaBox::class)->register();
         $this->container->get(RestApi::class)->register();
         $this->container->get(SettingsSync::class)->register();
+        $this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(MultilingualSitemap::class)->register();

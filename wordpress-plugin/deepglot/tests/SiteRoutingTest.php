@@ -115,6 +115,34 @@ assertSameRouting(
     'Subdomain requests must be able to reverse translated slugs using the detected target language.'
 );
 
+$infrastructureRouting = new SiteRouting(
+    $resolver,
+    'https://example.com',
+    'SUBDOMAIN',
+    [
+        'en' => 'en.example.com',
+    ],
+    [
+        'en' => [
+            'rest-source' => 'wp-json',
+            'plugin-source' => 'deepglot',
+            'version-source' => 'v1',
+            'admin-source' => 'wp-admin',
+        ],
+    ]
+);
+
+assertSameRouting(
+    '/wp-json/deepglot/v1/',
+    $infrastructureRouting->getCanonicalPath('/wp-json/deepglot/v1/', 'en'),
+    'Translated slug reversal must not rewrite WordPress REST infrastructure paths.'
+);
+assertSameRouting(
+    'https://example.com/wp-admin/admin-ajax.php/',
+    $infrastructureRouting->rewriteUrl('https://en.example.com/wp-admin/admin-ajax.php', 'de'),
+    'Translated slug reversal must not rewrite WordPress admin infrastructure paths on mapped hosts.'
+);
+
 $crossLanguageRouting = new SiteRouting(
     $resolver,
     'https://example.com',

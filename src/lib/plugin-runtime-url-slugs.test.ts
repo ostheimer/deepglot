@@ -109,7 +109,23 @@ test("returns only bounded, nonempty URL slug mappings for the API key project",
   );
   const overflowBody = await overflowResponse.json();
 
-  assert.equal(overflowResponse.status, 413);
-  assert.equal(overflowBody.code, "runtime_url_slugs_limit_exceeded");
-  assert.equal("urlSlugs" in overflowBody, false);
+  assert.equal(overflowResponse.status, 200);
+  assert.equal(overflowBody.urlSlugs.length, MAX_RUNTIME_URL_SLUGS);
+  assert.deepEqual(overflowBody.urlSlugs.at(-1), {
+    originalSlug: "source-9999",
+    translatedSlug: "target-9999",
+    langTo: "en",
+  });
+  assert.equal(
+    overflowBody.urlSlugs.some(
+      (slug: { originalSlug: string }) => slug.originalSlug === "source-10000",
+    ),
+    false,
+  );
+  assert.equal(overflowBody.urlSlugsTruncated, true);
+  assert.deepEqual(overflowBody.warnings, [{
+    code: "runtime_url_slugs_truncated",
+    detail: `The project has more than ${MAX_RUNTIME_URL_SLUGS} URL slug records. The runtime configuration is limited to the first ${MAX_RUNTIME_URL_SLUGS} records; reduce the mapping set for complete translated URL coverage.`,
+    limit: MAX_RUNTIME_URL_SLUGS,
+  }]);
 });

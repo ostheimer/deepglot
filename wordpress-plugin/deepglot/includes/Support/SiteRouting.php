@@ -309,6 +309,10 @@ class SiteRouting
             return '/';
         }
 
+        if ($reverse && $this->isWordPressInfrastructurePath($segments)) {
+            return '/' . implode('/', $segments) . '/';
+        }
+
         foreach ($segments as $index => &$segment) {
             if ($skipLanguageSegment && $index === 0) {
                 continue;
@@ -322,6 +326,28 @@ class SiteRouting
         unset($segment);
 
         return '/' . implode('/', $segments) . '/';
+    }
+
+    /**
+     * @param string[] $segments
+     */
+    private function isWordPressInfrastructurePath(array $segments): bool
+    {
+        $firstSegment = $this->normalizeSlugSegment($segments[0] ?? '');
+
+        if ($firstSegment === 'index.php' && isset($segments[1])) {
+            $firstSegment = $this->normalizeSlugSegment($segments[1]);
+        }
+
+        return in_array($firstSegment, [
+            'wp-admin',
+            'wp-json',
+            'wp-content',
+            'wp-includes',
+            'wp-login.php',
+            'wp-cron.php',
+            'xmlrpc.php',
+        ], true);
     }
 
     private function normalizeSlugSegment(string $slug): string

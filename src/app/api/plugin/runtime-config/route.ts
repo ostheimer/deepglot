@@ -90,27 +90,31 @@ export async function GET(request: NextRequest) {
           translatedSlug: true,
           langTo: true,
         },
-        // Fetch one sentinel row so oversized projects fail explicitly. A
-        // silent truncation would make some translated URLs non-reversible.
+        // Fetch one sentinel row so oversized projects return a bounded
+        // configuration with an explicit warning instead of a permanent error.
         take: MAX_RUNTIME_URL_SLUGS + 1,
       }),
     ]);
 
-    if (urlSlugs.length > MAX_RUNTIME_URL_SLUGS) {
-      return apiProblem({
-        status: 413,
-        title: "Runtime configuration too large",
-        detail: `The project has more than ${MAX_RUNTIME_URL_SLUGS} URL slug records. Reduce the mapping set before refreshing the plugin runtime configuration.`,
-        code: "runtime_url_slugs_limit_exceeded",
-        instance: "/api/plugin/runtime-config",
-      });
-    }
+    const urlSlugsTruncated = urlSlugs.length > MAX_RUNTIME_URL_SLUGS;
 
     const exclusions = buildRuntimeExclusions(rules);
 
     return NextResponse.json({
       exclusions,
-      urlSlugs: buildRuntimeUrlSlugs(urlSlugs),
+      urlSlugs: buildRuntimeUrlSlugs(urlSlugs.slice(0, MAX_RUNTIME_URL_SLUGS)),
+      ...(urlSlugsTruncated
+        ? {
+            urlSlugsTruncated: true,
+            warnings: [
+              {
+                code: "runtime_url_slugs_truncated",
+                detail: `The project has more than ${MAX_RUNTIME_URL_SLUGS} URL slug records. The runtime configuration is limited to the first ${MAX_RUNTIME_URL_SLUGS} records; reduce the mapping set for complete translated URL coverage.`,
+                limit: MAX_RUNTIME_URL_SLUGS,
+              },
+            ],
+          }
+        : {}),
       syncedAt: new Date().toISOString(),
     });
   } catch (error) {

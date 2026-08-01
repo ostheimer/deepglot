@@ -6,13 +6,27 @@
 
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_slug_options'] = [];
+    $GLOBALS['_deepglot_slug_autoload'] = [];
 
     function get_option($key, $default = false) {
         return $GLOBALS['_deepglot_slug_options'][$key] ?? $default;
     }
 
+    function add_option($key, $value, $deprecated = '', $autoload = true) {
+        if (array_key_exists($key, $GLOBALS['_deepglot_slug_options'])) {
+            return false;
+        }
+
+        $GLOBALS['_deepglot_slug_options'][$key] = $value;
+        $GLOBALS['_deepglot_slug_autoload'][$key] = (bool) $autoload;
+        return true;
+    }
+
     function update_option($key, $value) {
         $GLOBALS['_deepglot_slug_options'][$key] = $value;
+        if (!array_key_exists($key, $GLOBALS['_deepglot_slug_autoload'])) {
+            $GLOBALS['_deepglot_slug_autoload'][$key] = true;
+        }
         return true;
     }
 
@@ -67,7 +81,7 @@ function slugOptionsSettings(array $overrides = []): array
 }
 
 $options = new Options();
-slugOptionsAssert(true, array_key_exists('url_slug_mappings', Options::defaults()), 'A bounded URL slug cache default must exist.');
+slugOptionsAssert(false, array_key_exists('url_slug_mappings', Options::defaults()), 'Runtime URL slug mappings must stay out of the autoloaded settings defaults.');
 
 update_option(Options::OPTION_KEY, slugOptionsSettings());
 $options->applyRuntimeConfig([
@@ -99,6 +113,21 @@ $expectedMappings = [
     ],
 ];
 slugOptionsAssert($expectedMappings, $options->getUrlSlugMappings(), 'Runtime URL slugs must be sanitized, target-scoped, collision-safe, and canonically encoded.');
+slugOptionsAssert(
+    $expectedMappings,
+    get_option(Options::URL_SLUG_MAPPINGS_OPTION_KEY, []),
+    'Runtime URL slugs must be stored in their dedicated option.'
+);
+slugOptionsAssert(
+    false,
+    array_key_exists('url_slug_mappings', get_option(Options::OPTION_KEY, [])),
+    'Runtime URL slugs must not be persisted inside the main settings option.'
+);
+slugOptionsAssert(
+    false,
+    $GLOBALS['_deepglot_slug_autoload'][Options::URL_SLUG_MAPPINGS_OPTION_KEY] ?? null,
+    'The dedicated URL slug mappings option must be added with autoload disabled.'
+);
 
 $options->applyRuntimeConfig([
     'exclusions' => ['urls' => ['/private'], 'regexes' => [], 'selectors' => []],
@@ -108,19 +137,45 @@ slugOptionsAssert($expectedMappings, $options->getUrlSlugMappings(), 'A partial 
 $sameSourceInput = array_merge(slugOptionsSettings(), ['enabled' => true]);
 unset($sameSourceInput['url_slug_mappings']);
 $sameSourceSave = $options->sanitize($sameSourceInput);
-slugOptionsAssert($expectedMappings, $sameSourceSave['url_slug_mappings'], 'A normal settings save for the same key and backend must preserve runtime-only slug mappings.');
+slugOptionsAssert(false, array_key_exists('url_slug_mappings', $sameSourceSave), 'A normal settings save must keep runtime-only slug mappings out of the settings payload.');
+slugOptionsAssert($expectedMappings, $options->getUrlSlugMappings(), 'A normal settings save for the same key and backend must preserve the dedicated runtime-only slug cache.');
 
 $newKeyInput = array_merge(slugOptionsSettings(), ['api_key' => 'dg_live_project_b']);
 $newKeyInput['url_slug_mappings'] = $expectedMappings;
 $newKeySave = $options->sanitize($newKeyInput);
-slugOptionsAssert([], $newKeySave['url_slug_mappings'], 'Changing the API key must clear mappings from the previous project even if a REST merge carries the old runtime-only field forward.');
+slugOptionsAssert(false, array_key_exists('url_slug_mappings', $newKeySave), 'Changing the API key must keep mappings out of the settings payload.');
+slugOptionsAssert([], $options->getUrlSlugMappings(), 'Changing the API key must clear mappings from the previous project even if a REST merge carries the old runtime-only field forward.');
+
+$options->applyRuntimeConfig([
+    'urlSlugs' => [
+        ['langTo' => 'en', 'originalSlug' => 'leistung', 'translatedSlug' => 'service'],
+    ],
+]);
+slugOptionsAssert(['en' => ['leistung' => 'service']], $options->getUrlSlugMappings(), 'The dedicated slug cache can be repopulated after a project change.');
 
 $newBackendInput = array_merge(slugOptionsSettings(), ['api_base_url' => 'https://staging.deepglot.test/api']);
 unset($newBackendInput['url_slug_mappings']);
 $newBackendSave = $options->sanitize($newBackendInput);
-slugOptionsAssert([], $newBackendSave['url_slug_mappings'], 'Changing the API backend must clear mappings from the previous backend.');
+slugOptionsAssert(false, array_key_exists('url_slug_mappings', $newBackendSave), 'Changing the API backend must keep mappings out of the settings payload.');
+slugOptionsAssert([], $options->getUrlSlugMappings(), 'Changing the API backend must clear mappings from the previous backend.');
+
+unset(
+    $GLOBALS['_deepglot_slug_options'][Options::URL_SLUG_MAPPINGS_OPTION_KEY],
+    $GLOBALS['_deepglot_slug_autoload'][Options::URL_SLUG_MAPPINGS_OPTION_KEY]
+);
+update_option(Options::OPTION_KEY, slugOptionsSettings([
+    'url_slug_mappings' => [
+        'en' => ['legacy' => 'legacy-translated'],
+    ],
+]));
+slugOptionsAssert(
+    ['en' => ['legacy' => 'legacy-translated']],
+    $options->getUrlSlugMappings(),
+    'Legacy caches already stored in deepglot_settings must remain readable during upgrade.'
+);
 
 $options->applyRuntimeConfig(['urlSlugs' => []]);
 slugOptionsAssert([], $options->getUrlSlugMappings(), 'An explicit empty SaaS urlSlugs list must clear stale cached mappings.');
+slugOptionsAssert(false, array_key_exists('url_slug_mappings', get_option(Options::OPTION_KEY, [])), 'Refreshing runtime slugs must remove legacy caches from deepglot_settings.');
 
 fwrite(STDOUT, "UrlSlugOptionsTest: OK\n");

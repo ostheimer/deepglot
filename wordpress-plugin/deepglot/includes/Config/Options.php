@@ -5,6 +5,7 @@ namespace Deepglot\Config;
 class Options
 {
     public const OPTION_KEY = 'deepglot_settings';
+    public const URL_SLUG_MAPPINGS_OPTION_KEY = 'deepglot_url_slug_mappings';
 
     /** Current persisted schema for independently configured switchers. */
     public const SWITCHER_INSTANCES_VERSION = 1;
@@ -59,6 +60,7 @@ class Options
 
     /** Bound SaaS-provided slug maps before persisting them in wp_options. */
     public const URL_SLUG_MAPPINGS_MAX = 10000;
+    public const URL_SLUG_MAPPINGS_MAX_BYTES = 2097152;
     public const URL_SLUG_SEGMENT_MAX_LEN = 200;
 
     public static function defaults(): array
@@ -72,9 +74,6 @@ class Options
             'auto_redirect' => false,
             'routing_mode' => 'PATH_PREFIX',
             'domain_mappings' => [],
-            // Runtime-only cache populated from the SaaS UrlSlug records.
-            // Shape: array<target-language, array<source-segment, translated-segment>>.
-            'url_slug_mappings' => [],
             'translate_emails' => false,
             'translate_search' => false,
             'translate_amp' => false,
@@ -123,7 +122,23 @@ class Options
         }
 
         $settings = wp_parse_args($stored, self::defaults());
+        $shouldPersistRuntimeCacheMigration = false;
 
+        if (array_key_exists('url_slug_mappings', $settings)) {
+            $dedicatedMappings = get_option(self::URL_SLUG_MAPPINGS_OPTION_KEY, null);
+
+            if (!is_array($dedicatedMappings)) {
+                $this->storeUrlSlugMappings($this->normalizeUrlSlugMappings(
+                    $settings['url_slug_mappings'],
+                    $this->normalizeLanguageList($settings['target_languages'] ?? [])
+                ));
+            }
+
+            unset($settings['url_slug_mappings']);
+            $shouldPersistRuntimeCacheMigration = true;
+        }
+
+        $shouldPersistSwitcherMigration = false;
         if (
             !isset($stored['switcher_instances_version'])
             || (int) $stored['switcher_instances_version'] < self::SWITCHER_INSTANCES_VERSION
@@ -136,9 +151,11 @@ class Options
 
             // Persist once so subsequent requests and rollback/debug tooling see
             // an explicit migration instead of a transient computed default.
-            if (function_exists('update_option')) {
-                update_option(self::OPTION_KEY, $settings);
-            }
+            $shouldPersistSwitcherMigration = true;
+        }
+
+        if ($shouldPersistRuntimeCacheMigration || $shouldPersistSwitcherMigration) {
+            $this->updateSettingsOption($settings, $shouldPersistRuntimeCacheMigration);
         }
 
         return $settings;
@@ -155,14 +172,10 @@ class Options
         $incomingBaseUrl = untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url'])));
         $sameRuntimeSource = $incomingApiKey === (string) ($stored['api_key'] ?? '')
             && $incomingBaseUrl === untrailingslashit((string) ($stored['api_base_url'] ?? self::defaults()['api_base_url']));
-        $urlSlugMappings = $sameRuntimeSource
-            ? $this->normalizeUrlSlugMappings(
-                array_key_exists('url_slug_mappings', $input)
-                    ? $input['url_slug_mappings']
-                    : ($stored['url_slug_mappings'] ?? []),
-                $targetLanguages
-            )
-            : [];
+
+        if (!$sameRuntimeSource) {
+            $this->storeUrlSlugMappings([]);
+        }
 
         $sanitized = [
             'enabled' => !empty($input['enabled']),
@@ -173,7 +186,6 @@ class Options
             'auto_redirect' => !empty($input['auto_redirect']),
             'routing_mode' => $this->sanitizeRoutingMode((string) ($input['routing_mode'] ?? 'PATH_PREFIX')),
             'domain_mappings' => $this->normalizeDomainMappings($input['domain_mappings'] ?? []),
-            'url_slug_mappings' => $urlSlugMappings,
             'translate_emails' => !empty($input['translate_emails']),
             'translate_search' => !empty($input['translate_search']),
             'translate_amp' => !empty($input['translate_amp']),
@@ -559,9 +571,10 @@ class Options
     public function getUrlSlugMappings(): array
     {
         $options = $this->all();
+        $urlSlugMappings = get_option(self::URL_SLUG_MAPPINGS_OPTION_KEY, null);
 
         return $this->normalizeUrlSlugMappings(
-            $options['url_slug_mappings'] ?? [],
+            is_array($urlSlugMappings) ? $urlSlugMappings : ($options['url_slug_mappings'] ?? []),
             $this->normalizeLanguageList($options['target_languages'] ?? [])
         );
     }
@@ -780,10 +793,10 @@ class Options
         }
 
         if (array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
-            $settings['url_slug_mappings'] = $this->normalizeRuntimeUrlSlugs(
+            $this->storeUrlSlugMappings($this->normalizeRuntimeUrlSlugs(
                 $runtimeConfig['urlSlugs'],
                 $this->normalizeLanguageList($settings['target_languages'] ?? [])
-            );
+            ));
         }
 
         if (array_key_exists('switcher', $runtimeConfig) && is_array($runtimeConfig['switcher'])) {
@@ -859,12 +872,9 @@ class Options
         }
 
         $settings['runtime_config_synced_at'] = time();
+        unset($settings['url_slug_mappings']);
 
-        $GLOBALS['deepglot_applying_runtime_config'] = true;
-        $updated = update_option(self::OPTION_KEY, $settings);
-        unset($GLOBALS['deepglot_applying_runtime_config']);
-
-        return (bool) $updated;
+        return $this->updateSettingsOption($settings, true);
     }
 
     public function isUrlExcluded(string $urlOrPath): bool
@@ -957,6 +967,64 @@ class Options
         }
 
         return $mappings;
+    }
+
+    /**
+     * @param array<string, mixed> $settings
+     */
+    private function updateSettingsOption(array $settings, bool $suppressSync = false): bool
+    {
+        if (!function_exists('update_option')) {
+            return false;
+        }
+
+        if ($suppressSync) {
+            $GLOBALS['deepglot_applying_runtime_config'] = true;
+        }
+
+        $updated = update_option(self::OPTION_KEY, $settings);
+
+        if ($suppressSync) {
+            unset($GLOBALS['deepglot_applying_runtime_config']);
+        }
+
+        return (bool) $updated;
+    }
+
+    /**
+     * @param array<string, array<string, string>> $mappings
+     */
+    private function storeUrlSlugMappings(array $mappings): bool
+    {
+        if (strlen(serialize($mappings)) > self::URL_SLUG_MAPPINGS_MAX_BYTES) {
+            $mappings = [];
+        }
+
+        if (function_exists('add_option')) {
+            $added = add_option(self::URL_SLUG_MAPPINGS_OPTION_KEY, $mappings, '', false);
+
+            if ($added) {
+                if (function_exists('wp_cache_delete')) {
+                    wp_cache_delete(self::URL_SLUG_MAPPINGS_OPTION_KEY, 'options');
+                    wp_cache_delete('alloptions', 'options');
+                }
+
+                return true;
+            }
+        }
+
+        if (!function_exists('update_option')) {
+            return false;
+        }
+
+        $updated = update_option(self::URL_SLUG_MAPPINGS_OPTION_KEY, $mappings);
+
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::URL_SLUG_MAPPINGS_OPTION_KEY, 'options');
+            wp_cache_delete('alloptions', 'options');
+        }
+
+        return (bool) $updated;
     }
 
     /**
