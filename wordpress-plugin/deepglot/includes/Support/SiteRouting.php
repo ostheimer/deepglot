@@ -2,6 +2,8 @@
 
 namespace Deepglot\Support;
 
+require_once __DIR__ . '/WordPressInfrastructure.php';
+
 class SiteRouting
 {
     private UrlLanguageResolver $resolver;
@@ -230,6 +232,16 @@ class SiteRouting
                 continue;
             }
 
+            $originalCounts = [];
+            foreach ($languageMappings as $originalSlug => $_translatedSlug) {
+                $original = $this->normalizeSlugSegment((string) $originalSlug);
+                if ($original === '' || WordPressInfrastructure::isReservedSlugSegment($original)) {
+                    continue;
+                }
+
+                $originalCounts[$original] = ($originalCounts[$original] ?? 0) + 1;
+            }
+
             $accepted = [];
             $owners = [];
             $ambiguousTranslations = [];
@@ -247,6 +259,10 @@ class SiteRouting
                 if (
                     $original === ''
                     || $translated === ''
+                    || WordPressInfrastructure::isReservedSlugSegment($original)
+                    || WordPressInfrastructure::isReservedSlugSegment($translated)
+                    || ($originalCounts[$original] ?? 0) !== 1
+                    || ($translated !== $original && isset($originalCounts[$translated]))
                     || isset($ambiguousOriginals[$original])
                 ) {
                     continue;
@@ -338,21 +354,7 @@ class SiteRouting
      */
     private function isWordPressInfrastructurePath(array $segments): bool
     {
-        $firstSegment = $this->normalizeSlugSegment($segments[0] ?? '');
-
-        if ($firstSegment === 'index.php' && isset($segments[1])) {
-            $firstSegment = $this->normalizeSlugSegment($segments[1]);
-        }
-
-        return in_array($firstSegment, [
-            'wp-admin',
-            'wp-json',
-            'wp-content',
-            'wp-includes',
-            'wp-login.php',
-            'wp-cron.php',
-            'xmlrpc.php',
-        ], true);
+        return WordPressInfrastructure::isInfrastructurePath($segments);
     }
 
     private function normalizeSlugSegment(string $slug): string

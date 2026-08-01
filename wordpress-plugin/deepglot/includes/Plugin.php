@@ -25,6 +25,7 @@ use Deepglot\Frontend\WpRocketCompat;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Support\WordPressInfrastructure;
 use Deepglot\Sync\SettingsSync;
 
 class Plugin
@@ -172,13 +173,18 @@ class Plugin
             return true;
         }
 
-        return preg_match(
-            '#(?:^|/)(?:wp-admin|wp-content|wp-includes)(?:/|$)#i',
-            $requestPath
-        ) === 1 || preg_match(
-            '#(?:^|/)(?:wp-login\.php|xmlrpc\.php|wp-cron\.php|wp-comments-post\.php|wp-mail\.php|wp-trackback\.php)(?:/|$)#i',
-            $requestPath
-        ) === 1;
+        $segments = array_values(array_filter(
+            explode('/', trim($requestPath, '/')),
+            static fn (string $segment): bool => $segment !== ''
+        ));
+
+        foreach ($segments as $segment) {
+            if (WordPressInfrastructure::isReservedSlugSegment($segment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // -------------------------------------------------------------------------

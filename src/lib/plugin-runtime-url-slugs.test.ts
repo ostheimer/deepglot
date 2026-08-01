@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { NextRequest } from "next/server";
+import { buildRuntimeUrlSlugs } from "@/lib/runtime-url-slugs";
+
+const WORDPRESS_INFRASTRUCTURE_SEGMENTS = [
+  "wp-json",
+  "wp-admin",
+  "wp-content",
+  "wp-includes",
+  "wp-login.php",
+  "wp-cron.php",
+  "xmlrpc.php",
+  "wp-comments-post.php",
+  "wp-mail.php",
+  "wp-trackback.php",
+  "wp-signup.php",
+  "wp-activate.php",
+  "wp-links-opml.php",
+] as const;
 
 let runtimeSlugRows: Array<{
   originalSlug: string;
@@ -45,6 +62,44 @@ const rateLimitQuery = test.mock.fn(async () => [{
   },
   $queryRaw: rateLimitQuery,
 };
+
+test("omits reserved WordPress infrastructure segments from runtime slug mappings", () => {
+  const reservedTargets = WORDPRESS_INFRASTRUCTURE_SEGMENTS.map(
+    (translatedSlug, index) => ({
+      originalSlug: `source-${index}`,
+      translatedSlug,
+      langTo: "en",
+    }),
+  );
+  assert.deepEqual(buildRuntimeUrlSlugs(reservedTargets), []);
+
+  assert.deepEqual(buildRuntimeUrlSlugs([
+    { originalSlug: "foo", translatedSlug: "wp-json", langTo: "en" },
+    { originalSlug: "bar", translatedSlug: "foo", langTo: "en" },
+  ]), [], "A row with a rejected target must still reserve its real source slug.");
+
+  const reservedOriginals = WORDPRESS_INFRASTRUCTURE_SEGMENTS.map(
+    (originalSlug, index) => ({
+      originalSlug,
+      translatedSlug: `target-${index}`,
+      langTo: "en",
+    }),
+  );
+  assert.deepEqual(buildRuntimeUrlSlugs(reservedOriginals), []);
+
+  assert.deepEqual(buildRuntimeUrlSlugs([
+    { originalSlug: "WP-JSON", translatedSlug: "upper-case", langTo: "en" },
+    { originalSlug: "encoded-target", translatedSlug: "wp%2Dadmin", langTo: "en" },
+  ]), []);
+
+  assert.deepEqual(buildRuntimeUrlSlugs([
+    { originalSlug: "wp-json-guide", translatedSlug: "api-guide", langTo: "en" },
+    { originalSlug: "content-tools", translatedSlug: "wp-content-tools", langTo: "en" },
+  ]), [
+    { originalSlug: "wp-json-guide", translatedSlug: "api-guide", langTo: "en" },
+    { originalSlug: "content-tools", translatedSlug: "wp-content-tools", langTo: "en" },
+  ]);
+});
 
 test("returns only bounded, nonempty URL slug mappings for the API key project", async () => {
   const { GET, MAX_RUNTIME_URL_SLUGS } = await import(

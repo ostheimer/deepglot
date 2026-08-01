@@ -84,8 +84,22 @@ $options = new Options();
 slugOptionsAssert(false, array_key_exists('url_slug_mappings', Options::defaults()), 'Runtime URL slug mappings must stay out of the autoloaded settings defaults.');
 
 update_option(Options::OPTION_KEY, slugOptionsSettings());
-$options->applyRuntimeConfig([
-    'urlSlugs' => [
+$reservedInfrastructureSegments = [
+    'wp-json',
+    'wp-admin',
+    'wp-content',
+    'wp-includes',
+    'wp-login.php',
+    'wp-cron.php',
+    'xmlrpc.php',
+    'wp-comments-post.php',
+    'wp-mail.php',
+    'wp-trackback.php',
+    'wp-signup.php',
+    'wp-activate.php',
+    'wp-links-opml.php',
+];
+$runtimeUrlSlugRows = [
         ['langTo' => 'en', 'originalSlug' => 'ueber-uns', 'translatedSlug' => 'about-us'],
         ['langTo' => 'en', 'originalSlug' => 'aerzte', 'translatedSlug' => 'ärzte'],
         ['langTo' => 'fr', 'originalSlug' => 'ueber-uns', 'translatedSlug' => 'a-propos'],
@@ -99,14 +113,31 @@ $options->applyRuntimeConfig([
         ['langTo' => 'en', 'originalSlug' => 'literal-percent', 'translatedSlug' => 'foo%252Fbar'],
         ['langTo' => 'en', 'originalSlug' => str_repeat('a', Options::URL_SLUG_SEGMENT_MAX_LEN + 1), 'translatedSlug' => 'too-long'],
         ['langTo' => 'en', 'originalSlug' => 'non-string', 'translatedSlug' => ['bad']],
-    ],
-]);
+];
+foreach ($reservedInfrastructureSegments as $index => $reservedSegment) {
+    $runtimeUrlSlugRows[] = [
+        'langTo' => 'en',
+        'originalSlug' => 'reserved-target-' . $index,
+        'translatedSlug' => $reservedSegment,
+    ];
+    $runtimeUrlSlugRows[] = [
+        'langTo' => 'en',
+        'originalSlug' => $reservedSegment,
+        'translatedSlug' => 'reserved-source-' . $index,
+    ];
+}
+$runtimeUrlSlugRows[] = ['langTo' => 'en', 'originalSlug' => 'wp-json-guide', 'translatedSlug' => 'api-guide'];
+$runtimeUrlSlugRows[] = ['langTo' => 'en', 'originalSlug' => 'content-tools', 'translatedSlug' => 'wp-content-tools'];
+
+$options->applyRuntimeConfig(['urlSlugs' => $runtimeUrlSlugRows]);
 
 $expectedMappings = [
     'en' => [
         'ueber-uns' => 'about-us',
         'aerzte' => '%C3%A4rzte',
         'literal-percent' => 'foo%252Fbar',
+        'wp-json-guide' => 'api-guide',
+        'content-tools' => 'wp-content-tools',
     ],
     'fr' => [
         'ueber-uns' => 'a-propos',
@@ -128,6 +159,41 @@ slugOptionsAssert(
     $GLOBALS['_deepglot_slug_autoload'][Options::URL_SLUG_MAPPINGS_OPTION_KEY] ?? null,
     'The dedicated URL slug mappings option must be added with autoload disabled.'
 );
+
+$persistedDefenseMappings = $expectedMappings;
+foreach ($reservedInfrastructureSegments as $index => $reservedSegment) {
+    $persistedDefenseMappings['en']['persisted-target-' . $index] = $reservedSegment;
+    $persistedDefenseMappings['en'][$reservedSegment] = 'persisted-source-' . $index;
+}
+update_option(Options::URL_SLUG_MAPPINGS_OPTION_KEY, $persistedDefenseMappings);
+slugOptionsAssert(
+    $expectedMappings,
+    $options->getUrlSlugMappings(),
+    'Persisted runtime maps must defensively discard reserved WordPress infrastructure originals and targets.'
+);
+
+$persistedShadowMappings = $expectedMappings;
+$persistedShadowMappings['en']['foo'] = 'wp-json';
+$persistedShadowMappings['en']['bar'] = 'foo';
+update_option(Options::URL_SLUG_MAPPINGS_OPTION_KEY, $persistedShadowMappings);
+slugOptionsAssert(
+    $expectedMappings,
+    $options->getUrlSlugMappings(),
+    'A persisted row with a rejected target must still reserve its real source slug against shadowing.'
+);
+
+$options->applyRuntimeConfig(['urlSlugs' => [
+    ['langTo' => 'en', 'originalSlug' => 'foo', 'translatedSlug' => 'wp-json'],
+    ['langTo' => 'en', 'originalSlug' => 'bar', 'translatedSlug' => 'foo'],
+    ['langTo' => 'en', 'originalSlug' => 'safe-page', 'translatedSlug' => 'safe-target'],
+]]);
+slugOptionsAssert(
+    ['en' => ['safe-page' => 'safe-target']],
+    $options->getUrlSlugMappings(),
+    'Runtime rows with rejected targets must still reserve valid originals against shadowing.'
+);
+
+update_option(Options::URL_SLUG_MAPPINGS_OPTION_KEY, $expectedMappings);
 
 $options->applyRuntimeConfig([
     'exclusions' => ['urls' => ['/private'], 'regexes' => [], 'selectors' => []],

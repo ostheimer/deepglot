@@ -5,6 +5,7 @@
  * infrastructure endpoints must remain independent of SaaS availability.
  */
 
+require_once __DIR__ . '/../includes/Support/WordPressInfrastructure.php';
 require_once __DIR__ . '/../includes/Plugin.php';
 
 use Deepglot\Plugin;
@@ -35,6 +36,9 @@ $infrastructurePaths = [
     '/wp-comments-post.php',
     '/wp-mail.php',
     '/wp-trackback.php',
+    '/wp-signup.php',
+    '/wp-activate.php',
+    '/wp-links-opml.php',
     '/wp-content/cache/missing.css',
     '/wp-includes/js/missing.js',
     '/wp-json/deepglot/v1/settings',

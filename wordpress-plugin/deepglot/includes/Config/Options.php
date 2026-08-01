@@ -2,6 +2,10 @@
 
 namespace Deepglot\Config;
 
+use Deepglot\Support\WordPressInfrastructure;
+
+require_once dirname(__DIR__) . '/Support/WordPressInfrastructure.php';
+
 class Options
 {
     public const OPTION_KEY = 'deepglot_settings';
@@ -1130,6 +1134,26 @@ class Options
             return [];
         }
 
+        $originalCounts = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $language = $this->sanitizeLanguage((string) ($row['langTo'] ?? ''));
+            $original = $this->sanitizeUrlSlugSegment($row['originalSlug'] ?? null);
+            if (
+                $language === ''
+                || !in_array($language, $allowedLanguages, true)
+                || $original === ''
+                || WordPressInfrastructure::isReservedSlugSegment($original)
+            ) {
+                continue;
+            }
+
+            $originalCounts[$language][$original] = ($originalCounts[$language][$original] ?? 0) + 1;
+        }
+
         $mappings = [];
         $translatedOwners = [];
         $blockedOriginals = [];
@@ -1151,6 +1175,10 @@ class Options
                 || !in_array($language, $allowedLanguages, true)
                 || $original === ''
                 || $translated === ''
+                || WordPressInfrastructure::isReservedSlugSegment($original)
+                || WordPressInfrastructure::isReservedSlugSegment($translated)
+                || ($originalCounts[$language][$original] ?? 0) !== 1
+                || ($translated !== $original && isset($originalCounts[$language][$translated]))
                 || isset($blockedOriginals[$language][$original])
             ) {
                 continue;

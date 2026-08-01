@@ -133,6 +133,11 @@ $infrastructureRouting = new SiteRouting(
 );
 
 assertSameRouting(
+    'https://en.example.com/rest-source/',
+    $infrastructureRouting->buildUrlForLanguage('/rest-source/', 'en'),
+    'Forward routing must not turn a content slug into the reserved wp-json REST segment.'
+);
+assertSameRouting(
     '/wp-json/deepglot/v1/',
     $infrastructureRouting->getCanonicalPath('/wp-json/deepglot/v1/', 'en'),
     'Translated slug reversal must not rewrite WordPress REST infrastructure paths.'
@@ -141,6 +146,91 @@ assertSameRouting(
     'https://example.com/wp-admin/admin-ajax.php/',
     $infrastructureRouting->rewriteUrl('https://en.example.com/wp-admin/admin-ajax.php', 'de'),
     'Translated slug reversal must not rewrite WordPress admin infrastructure paths on mapped hosts.'
+);
+
+$reservedInfrastructureSegments = [
+    'wp-json',
+    'wp-admin',
+    'wp-content',
+    'wp-includes',
+    'wp-login.php',
+    'wp-cron.php',
+    'xmlrpc.php',
+    'wp-comments-post.php',
+    'wp-mail.php',
+    'wp-trackback.php',
+    'wp-signup.php',
+    'wp-activate.php',
+    'wp-links-opml.php',
+];
+$reservedInfrastructureMappings = [
+    'wp-json-guide' => 'api-guide',
+    'content-tools' => 'wp-content-tools',
+];
+foreach ($reservedInfrastructureSegments as $index => $reservedSegment) {
+    $reservedInfrastructureMappings['reserved-target-' . $index] = $reservedSegment;
+    $reservedInfrastructureMappings[$reservedSegment] = 'reserved-source-' . $index;
+}
+
+$reservedInfrastructureRouting = new SiteRouting(
+    $resolver,
+    'https://example.com',
+    'PATH_PREFIX',
+    [],
+    ['en' => $reservedInfrastructureMappings]
+);
+
+foreach ($reservedInfrastructureSegments as $index => $reservedSegment) {
+    assertSameRouting(
+        'https://example.com/en/reserved-target-' . $index . '/',
+        $reservedInfrastructureRouting->buildUrlForLanguage('/reserved-target-' . $index . '/', 'en'),
+        'Forward routing must not emit the reserved WordPress segment ' . $reservedSegment . '.'
+    );
+    assertSameRouting(
+        'https://example.com/en/' . $reservedSegment . '/',
+        $reservedInfrastructureRouting->buildUrlForLanguage('/' . $reservedSegment . '/', 'en'),
+        'Forward routing must not translate the reserved WordPress original ' . $reservedSegment . '.'
+    );
+    assertSameRouting(
+        '/reserved-source-' . $index . '/',
+        $reservedInfrastructureRouting->getCanonicalPath('/en/reserved-source-' . $index . '/'),
+        'Reverse routing must not resolve a safe target to the reserved WordPress original ' . $reservedSegment . '.'
+    );
+}
+
+assertSameRouting(
+    'https://example.com/en/api-guide/',
+    $reservedInfrastructureRouting->buildUrlForLanguage('/wp-json-guide/', 'en'),
+    'Exact infrastructure guards must not block ordinary content slugs that merely start with wp-json.'
+);
+assertSameRouting(
+    '/content-tools/',
+    $reservedInfrastructureRouting->getCanonicalPath('/en/wp-content-tools/'),
+    'Exact infrastructure guards must not block ordinary translated slugs that merely start with wp-content.'
+);
+
+$reservedTargetShadowRouting = new SiteRouting(
+    $resolver,
+    'https://example.com',
+    'PATH_PREFIX',
+    [],
+    [
+        'en' => [
+            'foo' => 'wp-json',
+            'bar' => 'foo',
+            'safe-page' => 'safe-target',
+        ],
+    ]
+);
+assertSameRouting(
+    'https://example.com/en/bar/',
+    $reservedTargetShadowRouting->buildUrlForLanguage('/bar/', 'en'),
+    'A mapping with a rejected reserved target must still reserve its source slug against forward shadowing.'
+);
+assertSameRouting(
+    'https://example.com/en/safe-target/',
+    $reservedTargetShadowRouting->buildUrlForLanguage('/safe-page/', 'en'),
+    'Rejecting reserved mappings must preserve unrelated safe mappings.'
 );
 
 $crossLanguageRouting = new SiteRouting(
