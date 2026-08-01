@@ -27,7 +27,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole("heading", {
-        name: /Translate your WordPress site/i,
+        name: /Your website speaks more than one language/i,
       })
     ).toBeVisible();
 
@@ -36,7 +36,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/de$/);
     await expect(
       page.getByRole("heading", {
-        name: /Übersetze deine WordPress-Site/i,
+        name: /Deine Website spricht jetzt mehr als eine Sprache/i,
       })
     ).toBeVisible();
     await page.getByRole("button", { name: "Language" }).click();
@@ -49,7 +49,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole("heading", {
-        name: /Translate your WordPress site/i,
+        name: /Your website speaks more than one language/i,
       })
     ).toBeVisible();
     await expectLocaleCookie(page, "en");
@@ -88,7 +88,7 @@ test.describe("locale routing", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole("heading", {
-        name: /Translate your WordPress site/i,
+        name: /Your website speaks more than one language/i,
       })
     ).toBeVisible();
   });
@@ -96,7 +96,10 @@ test.describe("locale routing", () => {
   test("opens public documentation and legal footer links", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "Documentation" }).click();
+    await page
+      .getByLabel("Footer")
+      .getByRole("link", { name: "Documentation" })
+      .click();
     await expect(page).toHaveURL(/\/docs$/);
     await expect(
       page.getByRole("heading", { name: "Integrate Deepglot" })
@@ -109,19 +112,22 @@ test.describe("locale routing", () => {
     await expect(page.getByText(/Geschwindigkeitslimit/).first()).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Privacy" }).click();
+    await page.getByLabel("Footer").getByRole("link", { name: "Privacy" }).click();
     await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Legal Notice" }).click();
+    await page
+      .getByLabel("Footer")
+      .getByRole("link", { name: "Legal Notice" })
+      .click();
     await expect(page).toHaveURL(/\/legal-notice$/);
     await expect(
       page.getByRole("heading", { name: "Legal Notice" })
     ).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Terms" }).click();
+    await page.getByLabel("Footer").getByRole("link", { name: "Terms" }).click();
     await expect(page).toHaveURL(/\/terms$/);
     await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
   });

@@ -27,6 +27,10 @@ import {
   getAustriaBrandLabel,
   getMarketingHeroLocale,
 } from "@/lib/marketing-hero-locale";
+import {
+  formatCompactWords,
+  getDateTimeFieldLabel,
+} from "@/lib/marketing-formatting";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { localizeCopy, uiText } from "@/lib/static-copy";
 
@@ -44,6 +48,10 @@ const FEATURE_ICONS = {
 
 const PRO_PLAN = BILLING_PLANS.PRO;
 const PRO_PLAN_EUROS = Math.round((PRO_PLAN.monthlyPriceCents ?? 0) / 100);
+
+function formatMonthlyEuroPrice(amount: number, locale: SiteLocale): string {
+  return `EUR ${amount}/${getDateTimeFieldLabel(locale, "month")}`;
+}
 
 const MARKETING_COPY = {
   en: {
@@ -244,7 +252,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
   const heroFooter = buildHeroFooter(locale);
   const signupHref = getMarketingPath(locale, "signup");
   const viewer = await getViewerBillingContext();
-  const proWords = formatNumber(PRO_PLAN.wordsLimit, locale);
+  const proWords = formatCompactWords(PRO_PLAN.wordsLimit, locale);
   const isGerman = locale === "de";
   const isEnglish = locale === "en";
   const heroLocale = getMarketingHeroLocale(locale);
@@ -422,7 +430,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
             <p className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-[#f03b22]">{copy.badge}</p>
             <h2 className="text-4xl font-extrabold tracking-[-0.045em] text-[#071521]">{copy.pricingHeading}</h2>
             <p className="mt-4 text-sm font-semibold text-[#58636d]">
-              {PRO_PLAN.name} · EUR {PRO_PLAN_EUROS} · {uiText(locale, "Monthly", "Monatlich")} · {proWords} {uiText(locale, "Words", "Wörter")}
+              {PRO_PLAN.name} · {formatMonthlyEuroPrice(PRO_PLAN_EUROS, locale)} · {proWords}
             </p>
           </div>
           {/*
