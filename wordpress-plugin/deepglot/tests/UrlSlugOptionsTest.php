@@ -144,7 +144,7 @@ $newKeyInput = array_merge(slugOptionsSettings(), ['api_key' => 'dg_live_project
 $newKeyInput['url_slug_mappings'] = $expectedMappings;
 $newKeySave = $options->sanitize($newKeyInput);
 slugOptionsAssert(false, array_key_exists('url_slug_mappings', $newKeySave), 'Changing the API key must keep mappings out of the settings payload.');
-slugOptionsAssert([], $options->getUrlSlugMappings(), 'Changing the API key must clear mappings from the previous project even if a REST merge carries the old runtime-only field forward.');
+slugOptionsAssert($expectedMappings, $options->getUrlSlugMappings(), 'Sanitizing an unsaved candidate API key must not clear the active project slug cache.');
 
 $options->applyRuntimeConfig([
     'urlSlugs' => [
@@ -157,7 +157,21 @@ $newBackendInput = array_merge(slugOptionsSettings(), ['api_base_url' => 'https:
 unset($newBackendInput['url_slug_mappings']);
 $newBackendSave = $options->sanitize($newBackendInput);
 slugOptionsAssert(false, array_key_exists('url_slug_mappings', $newBackendSave), 'Changing the API backend must keep mappings out of the settings payload.');
-slugOptionsAssert([], $options->getUrlSlugMappings(), 'Changing the API backend must clear mappings from the previous backend.');
+slugOptionsAssert(['en' => ['leistung' => 'service']], $options->getUrlSlugMappings(), 'Sanitizing an unsaved candidate backend must not clear the active project slug cache.');
+
+$oversizedRows = [];
+for ($index = 0; $index < 6000; $index++) {
+    $oversizedRows[] = [
+        'langTo' => 'en',
+        'originalSlug' => 'source-' . $index . '-' . str_repeat('a', 175),
+        'translatedSlug' => 'target-' . $index . '-' . str_repeat('b', 175),
+    ];
+}
+$options->applyRuntimeConfig(['urlSlugs' => $oversizedRows]);
+$boundedMappings = get_option(Options::URL_SLUG_MAPPINGS_OPTION_KEY, []);
+slugOptionsAssert(true, is_array($boundedMappings) && $boundedMappings !== [], 'A valid oversized runtime map must retain a safe non-empty subset instead of clearing every mapping.');
+slugOptionsAssert(true, strlen(serialize($boundedMappings)) <= Options::URL_SLUG_MAPPINGS_MAX_BYTES, 'The retained runtime map subset must respect the serialized byte cap.');
+slugOptionsAssert(true, count($boundedMappings['en'] ?? []) < count($oversizedRows), 'The byte bound must omit only the tail that no longer fits.');
 
 unset(
     $GLOBALS['_deepglot_slug_options'][Options::URL_SLUG_MAPPINGS_OPTION_KEY],

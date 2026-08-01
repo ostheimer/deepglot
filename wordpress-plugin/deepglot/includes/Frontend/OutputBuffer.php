@@ -2,7 +2,6 @@
 
 namespace Deepglot\Frontend;
 
-use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
@@ -60,8 +59,6 @@ class OutputBuffer
         if ($this->isAmpRequest() && !$this->options->shouldTranslateAmp()) {
             return;
         }
-
-        $this->maybeRefreshRuntimeConfig();
 
         if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
             return;
@@ -174,29 +171,6 @@ class OutputBuffer
         $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
         return $this->routing->detectLanguage($uri, $host);
-    }
-
-    private function maybeRefreshRuntimeConfig(): void
-    {
-        if (!$this->options->shouldRefreshRuntimeConfig()) {
-            return;
-        }
-
-        // Capture key and base URL the fetch will use so applyRuntimeConfig
-        // can discard the payload if the stored configuration changed in the
-        // meantime (see there).
-        $fetchKey = trim($this->options->getApiKey());
-        $fetchBaseUrl = untrailingslashit($this->options->getApiBaseUrl());
-
-        $client = new Client($this->options);
-        $runtimeConfig = $client->fetchRuntimeConfig();
-
-        if (is_wp_error($runtimeConfig)) {
-            error_log('[Deepglot] Runtime config sync failed: ' . $runtimeConfig->get_error_message());
-            return;
-        }
-
-        $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
     }
 
     private function currentRequestUrl(): string

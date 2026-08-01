@@ -166,16 +166,8 @@ class Options
         $input = is_array($input) ? $input : [];
 
         $targetLanguages = $this->normalizeLanguageList($input['target_languages'] ?? []);
-        $stored = get_option(self::OPTION_KEY, []);
-        $stored = is_array($stored) ? $stored : [];
         $incomingApiKey = sanitize_text_field((string) ($input['api_key'] ?? ''));
         $incomingBaseUrl = untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url'])));
-        $sameRuntimeSource = $incomingApiKey === (string) ($stored['api_key'] ?? '')
-            && $incomingBaseUrl === untrailingslashit((string) ($stored['api_base_url'] ?? self::defaults()['api_base_url']));
-
-        if (!$sameRuntimeSource) {
-            $this->storeUrlSlugMappings([]);
-        }
 
         $sanitized = [
             'enabled' => !empty($input['enabled']),
@@ -577,6 +569,11 @@ class Options
             is_array($urlSlugMappings) ? $urlSlugMappings : ($options['url_slug_mappings'] ?? []),
             $this->normalizeLanguageList($options['target_languages'] ?? [])
         );
+    }
+
+    public function clearUrlSlugMappings(): bool
+    {
+        return $this->storeUrlSlugMappings([]);
     }
 
     public function shouldAutoRedirect(): bool
@@ -996,9 +993,7 @@ class Options
      */
     private function storeUrlSlugMappings(array $mappings): bool
     {
-        if (strlen(serialize($mappings)) > self::URL_SLUG_MAPPINGS_MAX_BYTES) {
-            $mappings = [];
-        }
+        $mappings = $this->boundUrlSlugMappingsByBytes($mappings);
 
         if (function_exists('add_option')) {
             $added = add_option(self::URL_SLUG_MAPPINGS_OPTION_KEY, $mappings, '', false);
@@ -1025,6 +1020,62 @@ class Options
         }
 
         return (bool) $updated;
+    }
+
+    /**
+     * Retain a deterministic prefix that is guaranteed to fit the option byte
+     * budget. The input has already been normalized across the full payload,
+     * so dropping a tail cannot reintroduce a reverse-slug collision.
+     *
+     * @param array<string, array<string, string>> $mappings
+     * @return array<string, array<string, string>>
+     */
+    private function boundUrlSlugMappingsByBytes(array $mappings): array
+    {
+        if (strlen(serialize($mappings)) <= self::URL_SLUG_MAPPINGS_MAX_BYTES) {
+            return $mappings;
+        }
+
+        $bounded = [];
+        $estimatedBytes = 32;
+
+        foreach ($mappings as $language => $languageMappings) {
+            if (!is_array($languageMappings)) {
+                continue;
+            }
+
+            foreach ($languageMappings as $original => $translated) {
+                if (!is_string($translated)) {
+                    continue;
+                }
+
+                $newLanguage = !isset($bounded[$language]);
+                // PHP's serialized string/array metadata is much smaller than
+                // this reserve, including count digit growth at 10,000 rows.
+                $entryBytes = strlen((string) $original) + strlen($translated) + 64;
+                if ($newLanguage) {
+                    $entryBytes += strlen((string) $language) + 64;
+                }
+
+                if ($estimatedBytes + $entryBytes > self::URL_SLUG_MAPPINGS_MAX_BYTES) {
+                    break 2;
+                }
+
+                $bounded[$language][(string) $original] = $translated;
+                $estimatedBytes += $entryBytes;
+            }
+        }
+
+        // Keep the hard guarantee independent of the conservative estimate.
+        while ($bounded !== [] && strlen(serialize($bounded)) > self::URL_SLUG_MAPPINGS_MAX_BYTES) {
+            $lastLanguage = array_key_last($bounded);
+            array_pop($bounded[$lastLanguage]);
+            if ($bounded[$lastLanguage] === []) {
+                unset($bounded[$lastLanguage]);
+            }
+        }
+
+        return $bounded;
     }
 
     /**

@@ -51,7 +51,7 @@ class Plugin
         $this->container->get(NavMenuMetaBox::class)->register();
         $this->container->get(RestApi::class)->register();
         $this->container->get(SettingsSync::class)->register();
-        $this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();
+        add_action('plugins_loaded', [$this, 'refreshRuntimeRouting'], 0);
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(MultilingualSitemap::class)->register();
@@ -70,6 +70,36 @@ class Plugin
         SwitcherWidget::bind($this->container->get(LanguageSwitcher::class));
         SwitcherWidget::register();
         $this->container->get(WooCommerceEmailTranslator::class)->register();
+    }
+
+    /**
+     * Refresh frontend routing before RequestRouter inspects REQUEST_URI.
+     *
+     * Runtime configuration is irrelevant to admin, AJAX, cron, REST, CLI and
+     * core infrastructure bootstraps. Avoiding those request types also
+     * prevents an unavailable SaaS endpoint from delaying unrelated WordPress
+     * operations.
+     */
+    public function refreshRuntimeRouting(): void
+    {
+        if (
+            is_admin()
+            || wp_doing_ajax()
+            || wp_doing_cron()
+            || $this->isWordPressInfrastructureRequest()
+        ) {
+            return;
+        }
+
+        $options = $this->container->get(Options::class);
+        if (!$options->isEnabled() || !$options->isConfigured()) {
+            return;
+        }
+
+        $this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();
+        $this->container->get(SiteRouting::class)->replaceUrlSlugMappings(
+            $options->getUrlSlugMappings()
+        );
     }
 
     /**
@@ -114,6 +144,41 @@ class Plugin
     public function client(): Client
     {
         return $this->container->get(Client::class);
+    }
+
+    private function isWordPressInfrastructureRequest(): bool
+    {
+        if (
+            (defined('WP_CLI') && WP_CLI)
+            || (defined('REST_REQUEST') && REST_REQUEST)
+            || (function_exists('wp_is_json_request') && wp_is_json_request())
+            || isset($_GET['rest_route'])
+        ) {
+            return true;
+        }
+
+        $requestPath = (string) parse_url(
+            isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+            PHP_URL_PATH
+        );
+        $restPrefix = function_exists('rest_get_url_prefix')
+            ? trim((string) rest_get_url_prefix(), '/')
+            : 'wp-json';
+
+        if (
+            $restPrefix !== ''
+            && preg_match('#(?:^|/)' . preg_quote($restPrefix, '#') . '(?:/|$)#i', $requestPath) === 1
+        ) {
+            return true;
+        }
+
+        return preg_match(
+            '#(?:^|/)(?:wp-admin|wp-content|wp-includes)(?:/|$)#i',
+            $requestPath
+        ) === 1 || preg_match(
+            '#(?:^|/)(?:wp-login\.php|xmlrpc\.php|wp-cron\.php|wp-comments-post\.php|wp-mail\.php|wp-trackback\.php)(?:/|$)#i',
+            $requestPath
+        ) === 1;
     }
 
     // -------------------------------------------------------------------------

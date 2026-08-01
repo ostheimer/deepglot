@@ -31,6 +31,11 @@ class SiteRouting
         [$this->urlSlugMappings, $this->reverseUrlSlugMappings] = $this->normalizeUrlSlugMappings($urlSlugMappings);
     }
 
+    public function replaceUrlSlugMappings(array $urlSlugMappings): void
+    {
+        [$this->urlSlugMappings, $this->reverseUrlSlugMappings] = $this->normalizeUrlSlugMappings($urlSlugMappings);
+    }
+
     public function usesSubdomains(): bool
     {
         return $this->routingMode === 'SUBDOMAIN' && !empty($this->domainMappings);
