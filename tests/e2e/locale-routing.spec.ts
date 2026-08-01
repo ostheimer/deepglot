@@ -170,7 +170,7 @@ test.describe("locale routing", () => {
     await expect(page.getByText("EUR 69/month", { exact: true })).toHaveCount(0);
     await expect(page.getByText("200k words", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/EUR 69\/месец/)).toBeVisible();
-    await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(2);
+    await expect(page.getByText(/200\s+хил\.\s+думи/)).toHaveCount(1);
   });
 
   test("localizes marketing metadata and legal page titles", async ({
