@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
@@ -155,8 +156,8 @@ class LanguageSwitcher
         }
         $instanceId = (string) ($instance['id'] ?? 'default');
 
-        $requestUri    = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host          = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $requestUri    = RequestInput::server('REQUEST_URI', '/');
+        $host          = RequestInput::server('HTTP_HOST');
         $sourceLang    = $this->options->getSourceLanguage();
         $targetLangs   = $this->options->getTargetLanguages();
 

@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
@@ -112,7 +113,7 @@ class RequestRouter
             $this->currentLanguage
         );
         $siteUrl       = rtrim(get_site_url(), '/');
-        $currentHost   = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $currentHost   = RequestInput::server('HTTP_HOST');
 
         // If the redirect target equals the canonical URL (= same page without lang prefix), block it.
         $targetPath = wp_parse_url($location, PHP_URL_PATH) ?: '/';
@@ -150,8 +151,8 @@ class RequestRouter
             return;
         }
 
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $uri = RequestInput::server('REQUEST_URI', '/');
+        $host = RequestInput::server('HTTP_HOST');
         $detected = $this->routing->detectLanguage($uri, $host);
 
         if ($detected === null) {

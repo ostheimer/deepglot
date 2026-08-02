@@ -14,3 +14,12 @@ if (!function_exists('wp_parse_url')) {
         return parse_url($url, $component);
     }
 }
+
+if (!function_exists('wp_unslash')) {
+    function wp_unslash(mixed $value): mixed
+    {
+        return $value;
+    }
+}
+
+require_once dirname(__DIR__) . '/includes/Support/RequestInput.php';

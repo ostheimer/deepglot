@@ -4,6 +4,7 @@ namespace Deepglot\Frontend;
 
 use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationRules;
 
@@ -48,7 +49,7 @@ class DynamicAssets
 
         // The visual editor injects and manages its own segments; the dynamic
         // pass would fight it, so stand down whenever the editor is active.
-        if (isset($_GET['deepglot_editor'])) {
+        if (RequestInput::hasQuery('deepglot_editor')) {
             return;
         }
 
@@ -109,8 +110,8 @@ class DynamicAssets
      */
     private function detectActiveLanguage(): string
     {
-        $requestUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host       = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $requestUri = RequestInput::server('REQUEST_URI', '/');
+        $host       = RequestInput::server('HTTP_HOST');
 
         $routerLang = ($this->requestRouter !== null && method_exists($this->requestRouter, 'getCurrentLanguage'))
             ? $this->requestRouter->getCurrentLanguage()
@@ -124,7 +125,7 @@ class DynamicAssets
     /** Current request URL, mirroring OutputBuffer::currentRequestUrl(). */
     private function currentRequestUrl(): string
     {
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $uri = RequestInput::server('REQUEST_URI', '/');
 
         if (function_exists('home_url')) {
             return home_url($uri);

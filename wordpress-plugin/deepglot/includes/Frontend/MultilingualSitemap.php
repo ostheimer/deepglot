@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
@@ -290,7 +291,7 @@ class MultilingualSitemap
             return true;
         }
 
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
+        $uri = RequestInput::server('REQUEST_URI');
         $path = (string) wp_parse_url($uri, PHP_URL_PATH);
 
         return trim($path, '/') === self::ENDPOINT;

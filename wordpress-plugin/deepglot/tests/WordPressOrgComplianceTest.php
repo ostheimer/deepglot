@@ -36,7 +36,28 @@ foreach ($iterator as $file) {
         preg_match('/(?<!wp_)parse_url\s*\(/', $source) !== 1,
         'Production PHP must use wp_parse_url(): ' . $path
     );
+
+    if ($file->getFilename() !== 'RequestInput.php') {
+        $requestVariables = array_values(array_filter(
+            token_get_all($source),
+            static fn ($token): bool => is_array($token)
+                && $token[0] === T_VARIABLE
+                && in_array($token[1], ['$_SERVER', '$_GET'], true)
+        ));
+        $allowedRequestVariables = str_ends_with($path, '/Frontend/RequestRouter.php') ? 1 : 0;
+        wporgComplianceAssert(
+            count($requestVariables) === $allowedRequestVariables,
+            'Production request reads must use RequestInput: ' . $path
+        );
+    }
 }
+
+$requestInput = file_get_contents($pluginRoot . '/includes/Support/RequestInput.php');
+wporgComplianceAssert(is_string($requestInput), 'RequestInput.php must be readable');
+wporgComplianceAssert(
+    substr_count($requestInput, 'sanitize_text_field(wp_unslash(') === 2,
+    'Server and query values must be unslashed and sanitized centrally'
+);
 
 $options = file_get_contents($pluginRoot . '/includes/Config/Options.php');
 $siteRouting = file_get_contents($pluginRoot . '/includes/Support/SiteRouting.php');
@@ -45,6 +66,8 @@ $settingsPage = file_get_contents($pluginRoot . '/includes/Admin/SettingsPage.ph
 $container = file_get_contents($pluginRoot . '/includes/Container.php');
 $sitemap = file_get_contents($pluginRoot . '/includes/Frontend/MultilingualSitemap.php');
 $languageSwitcher = file_get_contents($pluginRoot . '/includes/Frontend/LanguageSwitcher.php');
+$settingsSync = file_get_contents($pluginRoot . '/includes/Sync/SettingsSync.php');
+$plugin = file_get_contents($pluginRoot . '/includes/Plugin.php');
 
 foreach (
     [
@@ -55,6 +78,8 @@ foreach (
         'Container.php' => $container,
         'MultilingualSitemap.php' => $sitemap,
         'LanguageSwitcher.php' => $languageSwitcher,
+        'SettingsSync.php' => $settingsSync,
+        'Plugin.php' => $plugin,
     ] as $name => $source
 ) {
     wporgComplianceAssert(is_string($source), $name . ' must be readable');
@@ -100,6 +125,18 @@ wporgComplianceAssert(
         $languageSwitcher
     ) === 1,
     'Active-language placeholder must have a translators comment'
+);
+wporgComplianceAssert(
+    substr_count($settingsSync, 'phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log') === 2,
+    'Operational sync logs must carry narrow Plugin Check justifications'
+);
+wporgComplianceAssert(
+    str_contains($settingsSync, 'phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery'),
+    'Atomic runtime lock deletion must carry a narrow Plugin Check justification'
+);
+wporgComplianceAssert(
+    str_contains($plugin, 'phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound'),
+    'Bundled-translation loading must carry a narrow Plugin Check justification'
 );
 
 fwrite(STDOUT, "WordPressOrgComplianceTest: OK\n");

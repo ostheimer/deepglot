@@ -60,6 +60,6 @@ class BotDetector
     /** Bot code for the current request. */
     public static function detectCurrentRequest(): int
     {
-        return self::detect(isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '');
+        return self::detect(RequestInput::server('HTTP_USER_AGENT'));
     }
 }
