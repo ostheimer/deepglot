@@ -65,6 +65,8 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added SaaS-managed translated URL slugs for forward and reverse request routing.
 * Added bounded runtime-config refresh and dedicated persisted slug mappings.
 * Excluded WordPress infrastructure paths from translation routing.
+* Added the refreshed Deepglot admin branding, packaged logo, and orange visual-editor accents.
+* Updated dashboard links and localized setup copy from deepglot.app to deepglot.ai.
 
 = 0.10.4 =
 * Prevented intermediary caches from preserving stale virtual `robots.txt` responses.
@@ -84,4 +86,4 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Upgrade Notice ==
 
 = 0.11.0 =
-Adds translated URL-slug routing and safer runtime synchronization. Requires PHP 8.0 or newer.
+Adds translated URL-slug routing, safer runtime synchronization, and refreshed Deepglot admin branding. Requires PHP 8.0 or newer.
