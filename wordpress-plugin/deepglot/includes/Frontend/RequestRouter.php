@@ -21,6 +21,9 @@ class RequestRouter
     /** Original REQUEST_URI before we strip the language prefix. */
     private ?string $originalRequestUri = null;
 
+    /** Canonical localized URL when a request uses stale source slugs. */
+    private ?string $canonicalRedirectUrl = null;
+
     public function __construct(Options $options, SiteRouting $routing)
     {
         $this->options = $options;
@@ -40,6 +43,11 @@ class RequestRouter
         // Block wp_redirect only when it strips our language prefix.
         add_filter('wp_redirect',      [$this, 'preventLanguageStrippingRedirect']);
         add_filter('wp_safe_redirect', [$this, 'preventLanguageStrippingRedirect']);
+        add_filter('allowed_redirect_hosts', [$this, 'allowInternalRedirectHost'], 10, 2);
+
+        // Redirect stale WPML-era source slugs before the translated response
+        // is rendered, but after WordPress has resolved the canonical source.
+        add_action('template_redirect', [$this, 'redirectCanonicalSlug'], -50);
 
         // Belt-and-suspenders: remove the WP core canonical redirect action before
         // it runs (priority 10) when a language prefix is active.
@@ -127,11 +135,57 @@ class RequestRouter
             return false;
         }
 
-        if ($this->routing->usesSubdomains() && $targetHost !== '' && $currentHost !== '' && $targetHost !== $currentHost) {
+        if (
+            $this->routing->usesSubdomains()
+            && $targetHost !== ''
+            && $currentHost !== ''
+            && !$this->routing->hostsMatch($targetHost, $currentHost)
+        ) {
             return false;
         }
 
         return $location;
+    }
+
+    /**
+     * Allows wp_safe_redirect() to use only configured Deepglot language hosts.
+     *
+     * @param string[] $hosts
+     * @return string[]
+     */
+    public function allowInternalRedirectHost(array $hosts, string $host): array
+    {
+        if ($host !== '' && $this->routing->isInternalHost($host)) {
+            $hosts[] = strtolower($host);
+        }
+
+        return array_values(array_unique($hosts));
+    }
+
+    /** Permanently redirects a stale localized slug to its configured target. */
+    public function redirectCanonicalSlug(): void
+    {
+        if ($this->canonicalRedirectUrl === null) {
+            return;
+        }
+
+        $requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+        if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
+            return;
+        }
+
+        if (function_exists('is_404') && is_404()) {
+            return;
+        }
+
+        $targetHost = (string) parse_url($this->canonicalRedirectUrl, PHP_URL_HOST);
+        if ($targetHost === '' || !$this->routing->isInternalHost($targetHost)) {
+            return;
+        }
+
+        if (wp_safe_redirect($this->canonicalRedirectUrl, 301, 'Deepglot')) {
+            exit;
+        }
     }
 
     /** Returns the language code detected for the current request (null = source language). */
@@ -146,6 +200,10 @@ class RequestRouter
      */
     public function rewriteRequestUri(): void
     {
+        $this->currentLanguage = null;
+        $this->originalRequestUri = null;
+        $this->canonicalRedirectUrl = null;
+
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
             return;
         }
@@ -160,6 +218,11 @@ class RequestRouter
 
         $this->currentLanguage    = $detected;
         $this->originalRequestUri = $uri;
+        $this->canonicalRedirectUrl = $this->routing->getCanonicalRedirectUrl(
+            $uri,
+            $host,
+            $detected
+        );
 
         // Strip language prefix so WordPress sees the canonical URL.
         $stripped = $this->routing->getCanonicalPath($uri, $detected);
