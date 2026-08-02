@@ -9,8 +9,15 @@ import {
 
 export const MANIFEST_LOCALE_PARAM = "locale";
 
-export function getManifestLocale(value: string | null): SiteLocale {
-  return isSiteLocale(value) ? value : DEFAULT_MARKETING_LOCALE;
+export function getManifestLocale(
+  value: string | null,
+  cookieValue: string | null = null
+): SiteLocale {
+  if (isSiteLocale(value)) {
+    return value;
+  }
+
+  return isSiteLocale(cookieValue) ? cookieValue : DEFAULT_MARKETING_LOCALE;
 }
 
 export function getManifestHref(locale: SiteLocale): string {

@@ -128,6 +128,20 @@ test("manifest route reads the explicit locale query without a cookie", async ()
   assert.equal(manifest.scope, "/");
 });
 
+test("manifest route keeps the locale cookie fallback for existing installs", async () => {
+  const response = manifestRoute(
+    new NextRequest("https://deepglot.ai/manifest.webmanifest?locale-regression=bg", {
+      headers: {
+        cookie: "deepglot-locale=bg",
+      },
+    })
+  );
+  const manifest = await response.json();
+
+  assert.equal(manifest.start_url, "/bg");
+  assert.equal(manifest.scope, "/");
+});
+
 test("sitemap publishes only routes with content in the advertised locale", () => {
   const entries = sitemap();
   const urls = entries.map((entry) => entry.url);
