@@ -25,6 +25,22 @@ function luminance(hex: string) {
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 }
 
+function hexChannel(hex: string, offset: number) {
+  return Number.parseInt(hex.replace("#", "").slice(offset, offset + 2), 16);
+}
+
+function blend(foreground: string, background: string, alpha: number) {
+  const channel = (offset: number) =>
+    Math.round(
+      hexChannel(foreground, offset) * alpha +
+        hexChannel(background, offset) * (1 - alpha)
+    )
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${channel(0)}${channel(2)}${channel(4)}`;
+}
+
 function contrast(foreground: string, background: string) {
   const lighter = Math.max(luminance(foreground), luminance(background));
   const darker = Math.min(luminance(foreground), luminance(background));
@@ -68,6 +84,21 @@ test("small orange developer-docs text stays readable on the navy header", () =>
   assert.ok(darkHeader, "developer docs must retain its navy header");
   assert.match(darkHeader, /text-\[#f03b22\]/);
   assert.doesNotMatch(darkHeader, /text-\[#c62812\]/);
+});
+
+test("footer copyright text meets WCAG AA contrast on navy", () => {
+  const source = readFileSync(
+    join(process.cwd(), "src", "components", "marketing", "marketing-footer.tsx"),
+    "utf8"
+  );
+  const opacity = source.match(/text-xs[^"]*text-white\/(\d+)/)?.[1];
+
+  assert.ok(opacity, "footer copyright must use an explicit white opacity");
+  assert.ok(
+    contrast(blend(WHITE, NAVY, Number(opacity) / 100), NAVY) >= 4.5,
+    "footer copyright text must meet AA contrast for normal text"
+  );
+  assert.doesNotMatch(source, /text-xs[^"]*text-white\/40/);
 });
 
 test("hard-coded orange text and white-on-orange controls use accessible tokens", () => {

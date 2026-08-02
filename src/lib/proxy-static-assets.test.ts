@@ -11,6 +11,7 @@ const STATIC_AND_METADATA_PATHS = [
   "/apple-icon.png",
   "/opengraph-image.png",
   "/manifest.webmanifest",
+  "/nl/manifest.webmanifest",
   "/robots.txt",
   "/sitemap.xml",
   "/marketing/austrian-interior-hero.png",

@@ -5,6 +5,7 @@ import test from "node:test";
 import ts from "typescript";
 
 import { SITE_LOCALES } from "@/lib/site-locale";
+import { uiText } from "@/lib/static-copy";
 import { STATIC_MESSAGES } from "@/lib/static-messages";
 
 const SRC_DIR = path.join(process.cwd(), "src");
@@ -166,4 +167,21 @@ test("showcase image alternative text follows the selected locale", () => {
     source,
     /alt="Modernes österreichisches Architekturprojekt mit warmem Holz und großen Fenstern"/
   );
+});
+
+test("marketing hero title can wrap long localized words on mobile", () => {
+  const source = readFileSync(
+    path.join(SRC_DIR, "components", "marketing", "marketing-home.tsx"),
+    "utf8"
+  );
+  const heroHeadingClass = source.match(/<h1 className="([^"]+)"/)?.[1] ?? "";
+  const dutchTitle = uiText(
+    "nl",
+    "Translate your WordPress site without subscription lock-in",
+    "Übersetze deine WordPress-Site ohne Abo-Falle"
+  );
+
+  assert.match(dutchTitle, /abonnementsvergrendeling/);
+  assert.match(heroHeadingClass, /\[overflow-wrap:anywhere\]|break-words/);
+  assert.match(heroHeadingClass, /hyphens-auto/);
 });

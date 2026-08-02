@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { buildLocalizedManifest } from "@/app/manifest";
+import { buildLocalizedManifest, getManifestHref } from "@/app/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import {
@@ -90,6 +90,25 @@ test("manifest launches in the selected locale without narrowing the app scope",
   const manifest = buildLocalizedManifest("bg");
 
   assert.equal(manifest.start_url, "/bg");
+  assert.equal(manifest.scope, "/");
+});
+
+test("manifest links are locale-specific instead of cookie-dependent", async () => {
+  const source = readFileSync(path.join(process.cwd(), "src", "app", "manifest.ts"), "utf8");
+  const { GET } = await import("@/app/[manifestLocale]/manifest.webmanifest/route");
+
+  assert.equal(getManifestHref("en"), "/manifest.webmanifest");
+  assert.equal(getManifestHref("nl"), "/nl/manifest.webmanifest");
+  assert.doesNotMatch(source, /getCookieLocale/);
+
+  const response = await GET(new Request("https://deepglot.ai/nl/manifest.webmanifest"), {
+    params: Promise.resolve({ manifestLocale: "nl" }),
+  });
+  const manifest = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "application/manifest+json");
+  assert.equal(manifest.start_url, "/nl");
   assert.equal(manifest.scope, "/");
 });
 

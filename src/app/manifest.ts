@@ -1,7 +1,16 @@
 import type { MetadataRoute } from "next";
 
-import { getCookieLocale } from "@/lib/request-locale";
-import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import {
+  DEFAULT_MARKETING_LOCALE,
+  getMarketingPath,
+  type SiteLocale,
+} from "@/lib/site-locale";
+
+export function getManifestHref(locale: SiteLocale) {
+  return locale === DEFAULT_MARKETING_LOCALE
+    ? "/manifest.webmanifest"
+    : `/${locale}/manifest.webmanifest`;
+}
 
 export function buildLocalizedManifest(locale: SiteLocale): MetadataRoute.Manifest {
   return {
@@ -37,6 +46,6 @@ export function buildLocalizedManifest(locale: SiteLocale): MetadataRoute.Manife
   };
 }
 
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  return buildLocalizedManifest(await getCookieLocale());
+export default function manifest(): MetadataRoute.Manifest {
+  return buildLocalizedManifest(DEFAULT_MARKETING_LOCALE);
 }
