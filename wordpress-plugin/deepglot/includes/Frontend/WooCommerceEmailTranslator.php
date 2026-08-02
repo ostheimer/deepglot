@@ -4,6 +4,7 @@ namespace Deepglot\Frontend;
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 class WooCommerceEmailTranslator
@@ -147,8 +148,8 @@ class WooCommerceEmailTranslator
 
     private function detectCheckoutLanguage(): string
     {
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $uri = RequestInput::server('REQUEST_URI', '/');
+        $host = RequestInput::server('HTTP_HOST');
         $detected = $this->routing->detectLanguage($uri, $host);
         $supportedTargets = $this->routing->getTargetLanguages();
 

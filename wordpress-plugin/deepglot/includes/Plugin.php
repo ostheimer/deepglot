@@ -23,6 +23,7 @@ use Deepglot\Frontend\RequestRouter;
 use Deepglot\Frontend\WooCommerceEmailTranslator;
 use Deepglot\Frontend\WpRocketCompat;
 use Deepglot\Support\SiteRouting;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\UrlLanguageResolver;
 use Deepglot\Support\WordPressInfrastructure;
@@ -116,7 +117,7 @@ class Plugin
         delete_transient('deepglot_just_activated');
 
         // Skip redirect during bulk plugin activations.
-        if (isset($_GET['activate-multi'])) {
+        if (RequestInput::hasQuery('activate-multi')) {
             return;
         }
 
@@ -126,6 +127,7 @@ class Plugin
 
     public function loadTextDomain(): void
     {
+        // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound -- GitHub release installs ship bundled translations outside the WordPress.org language-pack path.
         load_plugin_textdomain('deepglot', false, dirname(plugin_basename(DEEPGLOT_PLUGIN_FILE)) . '/languages');
     }
 
@@ -153,13 +155,13 @@ class Plugin
             (defined('WP_CLI') && WP_CLI)
             || (defined('REST_REQUEST') && REST_REQUEST)
             || (function_exists('wp_is_json_request') && wp_is_json_request())
-            || isset($_GET['rest_route'])
+            || RequestInput::hasQuery('rest_route')
         ) {
             return true;
         }
 
-        $requestPath = (string) parse_url(
-            isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
+        $requestPath = (string) wp_parse_url(
+            RequestInput::server('REQUEST_URI'),
             PHP_URL_PATH
         );
         $restPrefix = function_exists('rest_get_url_prefix')

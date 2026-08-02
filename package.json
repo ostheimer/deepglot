@@ -14,7 +14,7 @@
     "test": "node --import tsx --test src/lib/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "test:e2e": "playwright test",
-    "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php \"$test\"; done; node wordpress-plugin/deepglot/tests/DynamicTranslatorAssetTest.js; node wordpress-plugin/deepglot/tests/SwitcherVisualEditorTest.js",
+    "test:wp": "set -e; for test in wordpress-plugin/deepglot/tests/*.php; do php -d auto_prepend_file=wordpress-plugin/deepglot/tests/WordPressTestBootstrap.php \"$test\"; done; node wordpress-plugin/deepglot/tests/DynamicTranslatorAssetTest.js; node wordpress-plugin/deepglot/tests/SwitcherVisualEditorTest.js",
     "test:e2e:headed": "playwright test --headed",
     "smoke:production": "node --import tsx scripts/production-smoke.ts",
     "smoke:stripe-webhooks": "node --import tsx scripts/stripe-webhook-smoke.ts",

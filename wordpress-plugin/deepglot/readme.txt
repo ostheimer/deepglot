@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.0
+Stable tag: 0.11.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -20,6 +20,8 @@ Deepglot translates rendered WordPress pages through the Deepglot translation AP
 * Provides shortcode, block, widget, nav-menu, and automatic language switchers.
 * Caches translations locally and serves cached translations to crawlers without spending quota.
 * Optionally translates dynamically loaded content through a same-origin WordPress REST endpoint.
+
+Development source and release build instructions are available at https://github.com/ostheimer/deepglot.
 
 == Installation ==
 
@@ -61,6 +63,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.11.1 =
+* Preserved whitespace-prefixed `mailto:` and `tel:` action links during URL rewriting.
+* Restored full-language descriptions when the switcher displays ISO-code labels.
+* Cleared WordPress.org Plugin Check errors for URL parsing, direct access, escaping, and translator comments.
+
 = 0.11.0 =
 * Added SaaS-managed translated URL slugs for forward and reverse request routing.
 * Added bounded runtime-config refresh and dedicated persisted slug mappings.
@@ -85,5 +92,5 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Upgrade Notice ==
 
-= 0.11.0 =
-Adds translated URL-slug routing, safer runtime synchronization, and refreshed Deepglot admin branding. Requires PHP 8.0 or newer.
+= 0.11.1 =
+Preserves action links, restores descriptive ISO-code labels, and improves WordPress.org compatibility. Requires PHP 8.0 or newer.

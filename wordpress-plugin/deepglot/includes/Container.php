@@ -25,13 +25,13 @@ class Container
         }
 
         if (!isset($this->factories[$id])) {
-            throw new InvalidArgumentException(sprintf('Service "%s" is not registered.', $id));
+            throw new InvalidArgumentException(sprintf('Service "%s" is not registered.', esc_html($id)));
         }
 
         $service = ($this->factories[$id])($this);
 
         if (!is_object($service)) {
-            throw new RuntimeException(sprintf('Factory for "%s" must return an object.', $id));
+            throw new RuntimeException(sprintf('Factory for "%s" must return an object.', esc_html($id)));
         }
 
         $this->instances[$id] = $service;

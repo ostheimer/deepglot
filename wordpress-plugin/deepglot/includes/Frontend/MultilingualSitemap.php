@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
@@ -99,6 +100,7 @@ class MultilingualSitemap
             header('Content-Type: application/xml; charset=UTF-8');
         }
 
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- XML document; every value is escaped via htmlspecialchars(ENT_XML1) in xmlEscape().
         echo $this->buildXml($this->collectSourceEntries());
         exit;
     }
@@ -289,8 +291,8 @@ class MultilingualSitemap
             return true;
         }
 
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '';
-        $path = (string) parse_url($uri, PHP_URL_PATH);
+        $uri = RequestInput::server('REQUEST_URI');
+        $path = (string) wp_parse_url($uri, PHP_URL_PATH);
 
         return trim($path, '/') === self::ENDPOINT;
     }
@@ -339,7 +341,7 @@ class MultilingualSitemap
 
     private function isSafeInternalUrl(string $url): bool
     {
-        $parts = parse_url($url);
+        $parts = wp_parse_url($url);
 
         if (!is_array($parts)) {
             return false;
@@ -357,8 +359,8 @@ class MultilingualSitemap
 
     private function relativeLocation(string $url): string
     {
-        $path = (string) parse_url($url, PHP_URL_PATH);
-        $query = (string) parse_url($url, PHP_URL_QUERY);
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $query = (string) wp_parse_url($url, PHP_URL_QUERY);
         $relative = $this->routing->getCanonicalPath($path !== '' ? $path : '/');
 
         if ($query !== '') {

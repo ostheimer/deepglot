@@ -2,6 +2,8 @@
 
 namespace Deepglot\Support;
 
+defined('ABSPATH') || exit;
+
 require_once __DIR__ . '/WordPressInfrastructure.php';
 
 class SiteRouting
@@ -162,15 +164,15 @@ class SiteRouting
             return $this->buildHrefForLanguage($url, $language);
         }
 
-        $host = (string) parse_url($url, PHP_URL_HOST);
+        $host = (string) wp_parse_url($url, PHP_URL_HOST);
 
         if (!$this->isInternalHost($host)) {
             return $url;
         }
 
-        $path = (string) parse_url($url, PHP_URL_PATH);
-        $query = (string) parse_url($url, PHP_URL_QUERY);
-        $fragment = (string) parse_url($url, PHP_URL_FRAGMENT);
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $query = (string) wp_parse_url($url, PHP_URL_QUERY);
+        $fragment = (string) wp_parse_url($url, PHP_URL_FRAGMENT);
         $sourceLanguage = $this->detectLanguage($path ?: '/', $host);
         $canonicalPath = $this->getCanonicalPath($path ?: '/', $sourceLanguage);
         $relative = $this->appendQueryAndFragment($canonicalPath, $query, $fragment);
@@ -181,7 +183,7 @@ class SiteRouting
     public function isInternalHost(string $host): bool
     {
         $normalizedHost = $this->normalizeHost($host);
-        $sourceHost = $this->normalizeHost((string) parse_url($this->siteUrl, PHP_URL_HOST));
+        $sourceHost = $this->normalizeHost((string) wp_parse_url($this->siteUrl, PHP_URL_HOST));
 
         if ($normalizedHost === '' || $normalizedHost === $sourceHost) {
             return true;
@@ -198,7 +200,7 @@ class SiteRouting
 
     private function splitPath(string $path): array
     {
-        $parsed = parse_url($path);
+        $parsed = wp_parse_url($path);
         $parsedPath = (string) ($parsed['path'] ?? '/');
         $host = (string) ($parsed['host'] ?? '');
         $language = $this->detectLanguage($parsedPath, $host);
@@ -228,7 +230,7 @@ class SiteRouting
 
     private function siteBaseUrlForHost(string $host): string
     {
-        $scheme = (string) parse_url($this->siteUrl, PHP_URL_SCHEME) ?: 'https';
+        $scheme = (string) wp_parse_url($this->siteUrl, PHP_URL_SCHEME) ?: 'https';
 
         return $scheme . '://' . $host;
     }
@@ -241,7 +243,7 @@ class SiteRouting
             return '';
         }
 
-        $parsed = parse_url(str_starts_with($host, 'http') ? $host : 'https://' . $host, PHP_URL_HOST);
+        $parsed = wp_parse_url(str_starts_with($host, 'http') ? $host : 'https://' . $host, PHP_URL_HOST);
 
         return is_string($parsed) ? strtolower($parsed) : '';
     }
@@ -504,7 +506,7 @@ class SiteRouting
      */
     private function getPathSegments(string $path): array
     {
-        $parsedPath = (string) parse_url($path, PHP_URL_PATH);
+        $parsedPath = (string) wp_parse_url($path, PHP_URL_PATH);
 
         return array_values(array_filter(
             explode('/', trim($parsedPath, '/')),
@@ -525,7 +527,7 @@ class SiteRouting
      */
     private function getSitePathSegments(): array
     {
-        $sitePath = (string) parse_url($this->siteUrl, PHP_URL_PATH);
+        $sitePath = (string) wp_parse_url($this->siteUrl, PHP_URL_PATH);
 
         return array_values(array_filter(
             explode('/', trim($sitePath, '/')),

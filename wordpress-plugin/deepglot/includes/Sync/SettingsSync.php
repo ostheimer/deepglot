@@ -43,6 +43,7 @@ class SettingsSync
         $result = $this->sync($newValue);
 
         if (is_wp_error($result)) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Operational sync failures must reach the site error log without exposing credentials.
             error_log('[Deepglot] Settings sync failed: ' . $result->get_error_message());
         }
     }
@@ -104,6 +105,7 @@ class SettingsSync
                     time(),
                     self::RUNTIME_REFRESH_FAILURE_BACKOFF
                 );
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Operational refresh failures must reach the site error log without exposing credentials.
                 error_log('[Deepglot] Runtime config sync failed: ' . $result->get_error_message());
             }
         } finally {
@@ -205,6 +207,7 @@ class SettingsSync
             return false;
         }
 
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- A conditional option delete is required for compare-and-delete lock ownership.
         $deleted = $wpdb->delete(
             $wpdb->options,
             [

@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
@@ -97,8 +98,8 @@ class NavMenuSwitcher
             return array_values(array_filter($items, fn($item) => !$this->isMarker($item)));
         }
 
-        $requestUri    = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host          = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $requestUri    = RequestInput::server('REQUEST_URI', '/');
+        $host          = RequestInput::server('HTTP_HOST');
         $routerLang    = ($this->requestRouter !== null && method_exists($this->requestRouter, 'getCurrentLanguage'))
             ? $this->requestRouter->getCurrentLanguage()
             : null;
