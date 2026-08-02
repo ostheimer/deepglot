@@ -26,7 +26,7 @@ export function MarketingFooter({ locale }: { locale: SiteLocale }) {
               "Deepglot gibt dir die Kontrolle über deine Übersetzungen zurück, mit professionellen Features zu fairen Preisen."
             )}
           </p>
-          <p className="mt-5 text-xs uppercase tracking-[0.16em] text-white/40">
+          <p className="mt-5 text-xs uppercase tracking-[0.16em] text-white/50">
             © {new Date().getFullYear()} Ostheimer OG · {uiText(locale, "Austria", "Österreich")}
           </p>
         </div>

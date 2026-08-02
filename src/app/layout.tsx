@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import { CANONICAL_APP_HOST } from "@/lib/canonical-host";
+import { getManifestHref } from "@/lib/manifest";
 import { getRequestLocale } from "@/lib/request-locale";
 
 const manrope = Manrope({
@@ -13,7 +14,7 @@ const manrope = Manrope({
 });
 const canonicalAppOrigin = `https://${CANONICAL_APP_HOST}`;
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   metadataBase: new URL(canonicalAppOrigin),
   title: {
     default: "Deepglot",
@@ -24,7 +25,6 @@ export const metadata: Metadata = {
   applicationName: "Deepglot",
   creator: "Ostheimer OG",
   publisher: "Ostheimer OG",
-  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -64,6 +64,15 @@ export const metadata: Metadata = {
     images: ["/opengraph-image.png"],
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+
+  return {
+    ...baseMetadata,
+    manifest: getManifestHref(locale),
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#f03b22",
