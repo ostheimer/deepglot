@@ -188,7 +188,7 @@ test("mobile marketing navigation reserves space for long localized signup label
   const wordmarkClass = source.match(/wordmarkClassName="([^"]+)"/)?.[1] ?? "";
 
   assert.match(wordmarkClass, /hidden/);
-  assert.match(wordmarkClass, /min-\[390px\]:inline/);
+  assert.match(wordmarkClass, /min-\[420px\]:inline/);
 });
 
 test("marketing proof cards can shrink and wrap long localized titles", () => {

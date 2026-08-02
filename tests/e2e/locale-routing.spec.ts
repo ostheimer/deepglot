@@ -32,7 +32,7 @@ test.describe("locale routing", () => {
       const response = await page.goto(route, { waitUntil: "load" });
       expect(response?.status() ?? 200, `${locale} HTTP status`).toBeLessThan(400);
 
-      for (const width of [320, 375, 390, 768]) {
+      for (const width of [320, 390, 420, 768]) {
         await page.setViewportSize({ width, height: 844 });
 
         const topBar = page.locator("nav > div").first();
@@ -40,7 +40,7 @@ test.describe("locale routing", () => {
         const wordmark = topBar.locator('a[aria-label="Deepglot"] span span');
 
         await expect(signupLink, `${width}px ${locale} signup action`).toBeVisible();
-        if (width < 390) {
+        if (width < 420) {
           await expect(wordmark, `${width}px ${locale} wordmark`).toBeHidden();
         } else {
           await expect(wordmark, `${width}px ${locale} wordmark`).toBeVisible();

@@ -78,7 +78,7 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
           <DeepglotLogo
             priority
             markClassName="h-10 w-10 lg:h-12 lg:w-12"
-            wordmarkClassName="hidden text-xl min-[390px]:inline lg:text-2xl"
+            wordmarkClassName="hidden text-xl min-[420px]:inline lg:text-2xl"
           />
         </Link>
         <div className="hidden items-center gap-7 lg:flex xl:gap-10">
