@@ -24,15 +24,16 @@ test.describe("locale routing", () => {
   test("keeps localized homepages inside narrow responsive layouts", async ({
     page,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(90_000);
 
-    for (const width of [320, 375, 390, 768]) {
-      await page.setViewportSize({ width, height: 844 });
+    for (const locale of SITE_LOCALES) {
+      const route = getMarketingPath(locale, "home");
+      await page.setViewportSize({ width: 320, height: 844 });
+      const response = await page.goto(route, { waitUntil: "load" });
+      expect(response?.status() ?? 200, `${locale} HTTP status`).toBeLessThan(400);
 
-      for (const locale of SITE_LOCALES) {
-        const route = getMarketingPath(locale, "home");
-        const response = await page.goto(route, { waitUntil: "load" });
-        expect(response?.status() ?? 200, `${width}px ${locale} HTTP status`).toBeLessThan(400);
+      for (const width of [320, 375, 390, 768]) {
+        await page.setViewportSize({ width, height: 844 });
 
         const topBar = page.locator("nav > div").first();
         const signupLink = topBar.locator("a").last();
