@@ -55,8 +55,9 @@ class LinkRewriter
             }
 
             $value = $node->getAttribute($attr);
+            $normalizedValue = $this->withoutLeadingHtmlWhitespace($value);
 
-            if ($value === '' || !$this->isInternalUrl($value)) {
+            if ($normalizedValue === '' || !$this->isInternalUrl($normalizedValue)) {
                 continue;
             }
 
@@ -71,13 +72,13 @@ class LinkRewriter
             // prefixed for the CURRENT language still runs through SiteRouting
             // so stale source slugs from a WPML migration are canonicalized
             // without adding a second language prefix.
-            $existing = $this->detectUrlLanguage($value);
+            $existing = $this->detectUrlLanguage($normalizedValue);
 
             if ($existing !== null && $existing !== strtolower(trim($language))) {
                 continue;
             }
 
-            $node->setAttribute($attr, $this->routing->rewriteUrl($value, $language));
+            $node->setAttribute($attr, $this->routing->rewriteUrl($normalizedValue, $language));
         }
     }
 
@@ -147,15 +148,21 @@ class LinkRewriter
 
             $rel  = strtolower($link->getAttribute('rel'));
             $href = $link->getAttribute('href');
+            $normalizedHref = $this->withoutLeadingHtmlWhitespace($href);
 
-            if (in_array($rel, ['canonical', 'shortlink'], true) && $href !== '' && $this->isInternalUrl($href)) {
-                $existing = $this->detectUrlLanguage($href);
+            if (in_array($rel, ['canonical', 'shortlink'], true) && $normalizedHref !== '' && $this->isInternalUrl($normalizedHref)) {
+                $existing = $this->detectUrlLanguage($normalizedHref);
 
                 if ($existing === null || $existing === strtolower(trim($language))) {
-                    $link->setAttribute('href', $this->routing->rewriteUrl($href, $language));
+                    $link->setAttribute('href', $this->routing->rewriteUrl($normalizedHref, $language));
                 }
             }
         }
+    }
+
+    private function withoutLeadingHtmlWhitespace(string $value): string
+    {
+        return preg_replace('/^[\t\n\f\r ]+/', '', $value) ?? $value;
     }
 
     private function isInternalUrl(string $url): bool

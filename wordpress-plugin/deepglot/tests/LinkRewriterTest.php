@@ -22,6 +22,14 @@ function rewriteHtml(string $html, string $lang, array $urlSlugMappings = []): s
 
 function rewriteHtmlUsingRouting(string $html, string $lang, SiteRouting $routing): string
 {
+    $doc = rewriteDocumentUsingRouting($html, $lang, $routing);
+
+    $result = $doc->saveHTML();
+    return str_replace('<?xml encoding="UTF-8">', '', (string) $result);
+}
+
+function rewriteDocumentUsingRouting(string $html, string $lang, SiteRouting $routing): DOMDocument
+{
     $rewriter = new LinkRewriter($routing);
 
     $doc = new DOMDocument('1.0', 'UTF-8');
@@ -31,8 +39,7 @@ function rewriteHtmlUsingRouting(string $html, string $lang, SiteRouting $routin
 
     $rewriter->rewrite($doc, $lang);
 
-    $result = $doc->saveHTML();
-    return str_replace('<?xml encoding="UTF-8">', '', (string) $result);
+    return $doc;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +75,30 @@ function test_does_not_rewrite_mailto_or_tel_links(): void
     assert(strpos($out, 'href="mailto:empfang@example.com"') !== false, "mailto: links must remain actionable and unchanged: {$out}");
     assert(strpos($out, 'href="tel:+4312363020"') !== false, "tel: links must remain actionable and unchanged: {$out}");
     assert(strpos($out, 'href="/en/kontakt/"') !== false, "Ordinary relative links must still be rewritten: {$out}");
+}
+
+function test_does_not_rewrite_special_links_with_leading_whitespace(): void
+{
+    $resolver = new UrlLanguageResolver('de', ['en', 'fr']);
+    $routing = new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', []);
+    $doc = rewriteDocumentUsingRouting(
+        '<a id="email" href=" mailto:empfang@example.com">E-mail</a>'
+        . '<a id="phone" href="' . "\n" . 'tel:+4312363020">Phone</a>'
+        . '<a id="contact" href="/kontakt/">Contact</a>',
+        'en',
+        $routing
+    );
+
+    $email = $doc->getElementById('email');
+    $phone = $doc->getElementById('phone');
+    $contact = $doc->getElementById('contact');
+
+    assert($email instanceof DOMElement, 'Expected email link in rewritten DOM');
+    assert($phone instanceof DOMElement, 'Expected phone link in rewritten DOM');
+    assert($contact instanceof DOMElement, 'Expected contact link in rewritten DOM');
+    assert($email->getAttribute('href') === ' mailto:empfang@example.com', 'Whitespace-prefixed mailto: href must remain untouched');
+    assert($phone->getAttribute('href') === "\n" . 'tel:+4312363020', 'Whitespace-prefixed tel: href must remain untouched');
+    assert($contact->getAttribute('href') === '/en/kontakt/', 'Control relative href must still be rewritten');
 }
 
 function test_rewrites_internal_absolute_link(): void
@@ -170,6 +201,7 @@ $tests = [
     'test_does_not_rewrite_already_prefixed_link',
     'test_does_not_rewrite_external_link',
     'test_does_not_rewrite_mailto_or_tel_links',
+    'test_does_not_rewrite_special_links_with_leading_whitespace',
     'test_rewrites_internal_absolute_link',
     'test_rewrites_configured_url_slugs_and_preserves_suffixes',
     'test_canonicalizes_stale_same_language_prefixed_slugs',

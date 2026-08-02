@@ -157,6 +157,24 @@ foreach ($expanded as $item) {
     }
 }
 
+// 2b. When the visible label is an ISO code, keep the full language name in
+// the description so subtitle-capable themes stay informative. The Avada
+// duplicate-label guard only applies when the title itself is already full_name.
+$isoSwitcher = navMakeSwitcher(['switcher_label_format' => 'iso_code']);
+$isoExpanded = $isoSwitcher->expand([
+    navItem(101, 'Sprachschalter', '#deepglot-switcher', ['post_name' => 'deepglot-switcher']),
+]);
+$englishIsoItem = null;
+foreach ($isoExpanded as $item) {
+    if ($item->title === 'EN') {
+        $englishIsoItem = $item;
+        break;
+    }
+}
+navAssert($englishIsoItem !== null, 'ISO-code switcher renders English as EN');
+navAssert($englishIsoItem->description === 'English', 'ISO-code switcher keeps full English description');
+navAssert($englishIsoItem->attr_title === 'English', 'ISO-code switcher keeps full English attr_title');
+
 // 3. Active language gets the current-menu-item class so existing themes
 // highlight it just like a normal active page.
 $_SERVER['REQUEST_URI'] = '/en/';
