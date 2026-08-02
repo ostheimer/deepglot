@@ -146,11 +146,15 @@ class LinkRewriter
                 continue;
             }
 
-            $rel  = strtolower($link->getAttribute('rel'));
+            $relTokens = preg_split('/\s+/u', strtolower(trim($link->getAttribute('rel')))) ?: [];
             $href = $link->getAttribute('href');
             $normalizedHref = $this->withoutLeadingHtmlWhitespace($href);
 
-            if (in_array($rel, ['canonical', 'shortlink'], true) && $normalizedHref !== '' && $this->isInternalUrl($normalizedHref)) {
+            if (
+                array_intersect($relTokens, ['canonical', 'shortlink']) !== []
+                && $normalizedHref !== ''
+                && $this->isInternalUrl($normalizedHref)
+            ) {
                 $existing = $this->detectUrlLanguage($normalizedHref);
 
                 if ($existing === null || $existing === strtolower(trim($language))) {

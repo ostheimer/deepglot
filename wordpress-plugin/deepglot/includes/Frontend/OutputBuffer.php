@@ -111,7 +111,12 @@ class OutputBuffer
         // Use the original (pre-rewrite) REQUEST_URI to get the canonical path.
         $rawUri        = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $canonicalPath = $this->routing->getCanonicalPath($rawUri);
-        $this->hreflangInjector->inject($doc, $canonicalPath);
+        $this->hreflangInjector->inject(
+            $doc,
+            $canonicalPath,
+            $targetLanguage,
+            $this->allowsFallbackCanonical()
+        );
 
         // Step 4: switch <html lang> to the target language and mark translate="no"
         // so browser extensions (Chrome auto-translate, etc.) don't double translate.
@@ -156,7 +161,12 @@ class OutputBuffer
         $doc = $this->loadDocument($html);
         $rawUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $canonicalPath = $this->routing->getCanonicalPath($rawUri);
-        $this->hreflangInjector->inject($doc, $canonicalPath);
+        $this->hreflangInjector->inject(
+            $doc,
+            $canonicalPath,
+            null,
+            $this->allowsFallbackCanonical()
+        );
 
         return $this->saveDocument($doc);
     }
@@ -199,6 +209,15 @@ class OutputBuffer
             '/\A(?:<!--.*?-->\s*)*(?:<!doctype\s+html\b[^>]*>\s*)?<html(?:\s|>)/is',
             $documentStart
         ) === 1;
+    }
+
+    private function allowsFallbackCanonical(): bool
+    {
+        $statusCode = http_response_code();
+
+        return $statusCode === false
+            || $statusCode === 0
+            || ($statusCode >= 200 && $statusCode < 300);
     }
 
     private function detectTargetLanguage(): ?string

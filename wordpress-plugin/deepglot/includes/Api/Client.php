@@ -6,6 +6,9 @@ use Deepglot\Config\Options;
 
 class Client
 {
+    /** Translation providers may need longer than ordinary API operations. */
+    private const TRANSLATE_TIMEOUT_SECONDS = 30;
+
     private Options $options;
 
     public function __construct(Options $options)
@@ -121,7 +124,9 @@ class Client
         return $this->request(
             'POST',
             '/translate?api_key=' . rawurlencode($this->options->getApiKey()),
-            $payload
+            $payload,
+            null,
+            self::TRANSLATE_TIMEOUT_SECONDS
         );
     }
 
@@ -168,7 +173,7 @@ class Client
                 'headers' => $headers,
                 'data' => is_string($body) ? $body : '',
                 'options' => [
-                    'timeout' => 30,
+                    'timeout' => self::TRANSLATE_TIMEOUT_SECONDS,
                     'connect_timeout' => 10,
                     'useragent' => 'Deepglot WordPress Plugin/' . (defined('DEEPGLOT_PLUGIN_VERSION') ? DEEPGLOT_PLUGIN_VERSION : 'dev'),
                 ],
@@ -274,13 +279,19 @@ class Client
         );
     }
 
-    private function request(string $method, string $path, ?array $payload = null, ?string $baseUrl = null)
+    private function request(
+        string $method,
+        string $path,
+        ?array $payload = null,
+        ?string $baseUrl = null,
+        int $timeoutSeconds = 15
+    )
     {
         $url = untrailingslashit((string) ($baseUrl ?? $this->options->getApiBaseUrl())) . $path;
 
         $args = [
             'method' => $method,
-            'timeout' => 15,
+            'timeout' => $timeoutSeconds,
             'headers' => [
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
