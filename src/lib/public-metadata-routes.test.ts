@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { NextRequest } from "next/server";
 
-import { buildLocalizedManifest } from "@/app/manifest";
+import { GET as manifestRoute } from "@/app/manifest.webmanifest/route";
+import { buildLocalizedManifest, getManifestHref } from "@/lib/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import {
@@ -89,6 +91,39 @@ test("manifest exposes installable 192, 512, and maskable icons", () => {
 test("manifest launches in the selected locale without narrowing the app scope", () => {
   const manifest = buildLocalizedManifest("bg");
 
+  assert.equal(manifest.start_url, "/bg");
+  assert.equal(manifest.scope, "/");
+});
+
+test("manifest link carries the selected locale without relying on cookies", () => {
+  const layoutSource = readFileSync(
+    path.join(process.cwd(), "src", "app", "layout.tsx"),
+    "utf8"
+  );
+  const manifestRouteSource = readFileSync(
+    path.join(process.cwd(), "src", "app", "manifest.webmanifest", "route.ts"),
+    "utf8"
+  );
+
+  assert.equal(getManifestHref("bg"), "/manifest.webmanifest?locale=bg");
+  assert.doesNotMatch(layoutSource, /manifest:\s*"\/manifest\.webmanifest"/);
+  assert.match(layoutSource, /getManifestHref\(locale\)/);
+  assert.match(
+    manifestRouteSource,
+    /request\.nextUrl\.searchParams\.get\(MANIFEST_LOCALE_PARAM\)/
+  );
+});
+
+test("manifest route reads the explicit locale query without a cookie", async () => {
+  const response = manifestRoute(
+    new NextRequest("https://deepglot.ai/manifest.webmanifest?locale=bg")
+  );
+  const manifest = await response.json();
+
+  assert.equal(
+    response.headers.get("content-type"),
+    "application/manifest+json; charset=utf-8"
+  );
   assert.equal(manifest.start_url, "/bg");
   assert.equal(manifest.scope, "/");
 });

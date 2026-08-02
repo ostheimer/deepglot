@@ -303,7 +303,7 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
             <p className="mb-5 text-sm font-bold tracking-[-0.01em] text-[#c62812] sm:text-base">
               {heroLocale.eyebrow}
             </p>
-            <h1 className="text-[3.25rem] font-extrabold leading-[0.98] tracking-[-0.055em] text-[#071521] sm:text-[4rem] lg:text-[4rem] xl:text-[4.1rem]">
+            <h1 className="max-w-full text-[3.25rem] font-extrabold leading-[0.98] tracking-[-0.055em] text-[#071521] [overflow-wrap:anywhere] hyphens-auto sm:text-[4rem] lg:text-[4rem] xl:text-[4.1rem]">
               {isGerman ? (
                 <>
                   Deine Website

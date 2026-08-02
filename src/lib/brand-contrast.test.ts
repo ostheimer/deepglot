@@ -9,6 +9,7 @@ const NAVY = "#071521";
 const INTERACTION_ORANGE = "#d92f19";
 const TEXT_ORANGE = "#c62812";
 const DARK_SURFACE_ORANGE = "#f03b22";
+const WHITE_OVER_NAVY_50 = "#838a90";
 
 function linearChannel(hex: string) {
   const channel = Number.parseInt(hex, 16) / 255;
@@ -68,6 +69,17 @@ test("small orange developer-docs text stays readable on the navy header", () =>
   assert.ok(darkHeader, "developer docs must retain its navy header");
   assert.match(darkHeader, /text-\[#f03b22\]/);
   assert.doesNotMatch(darkHeader, /text-\[#c62812\]/);
+});
+
+test("footer copyright text stays readable on the navy footer", () => {
+  const source = readFileSync(
+    join(process.cwd(), "src", "components", "marketing", "marketing-footer.tsx"),
+    "utf8"
+  );
+
+  assert.ok(contrast(WHITE_OVER_NAVY_50, NAVY) >= 4.5);
+  assert.match(source, /text-white\/50/);
+  assert.doesNotMatch(source, /text-white\/40/);
 });
 
 test("hard-coded orange text and white-on-orange controls use accessible tokens", () => {

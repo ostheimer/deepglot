@@ -167,3 +167,15 @@ test("showcase image alternative text follows the selected locale", () => {
     /alt="Modernes österreichisches Architekturprojekt mit warmem Holz und großen Fenstern"/
   );
 });
+
+test("marketing hero headline can wrap long localized words inside the clipped hero shell", () => {
+  const source = readFileSync(
+    path.join(SRC_DIR, "components", "marketing", "marketing-home.tsx"),
+    "utf8"
+  );
+  const headingClass = source.match(/<h1 className="([^"]+)"/)?.[1] ?? "";
+
+  assert.match(headingClass, /max-w-full/);
+  assert.match(headingClass, /\[overflow-wrap:anywhere\]/);
+  assert.match(headingClass, /hyphens-auto/);
+});
