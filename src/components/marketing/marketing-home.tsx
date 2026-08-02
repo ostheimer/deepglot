@@ -385,8 +385,8 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
                 className={item.tone === "mint" ? "h-10 w-10 shrink-0 text-[#42c5a4]" : "h-10 w-10 shrink-0 text-[#c62812]"}
                 weight="regular"
               />
-              <div>
-                <h2 className="text-2xl font-bold tracking-[-0.035em]">{item.title}</h2>
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold tracking-[-0.035em] [overflow-wrap:anywhere] hyphens-auto">{item.title}</h2>
                 <p className="mt-3 max-w-sm text-sm leading-6 text-white/70">{item.description}</p>
               </div>
             </div>

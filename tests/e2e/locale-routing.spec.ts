@@ -21,46 +21,59 @@ async function switchMarketingLanguage(page: Page, languageName: string) {
 }
 
 test.describe("locale routing", () => {
-  test("keeps every localized signup action inside a 320px mobile navigation", async ({
+  test("keeps localized homepages inside narrow responsive layouts", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 320, height: 844 });
+    test.setTimeout(120_000);
 
-    for (const locale of SITE_LOCALES) {
-      const route = getMarketingPath(locale, "home");
-      const response = await page.goto(route, { waitUntil: "load" });
-      expect(response?.status() ?? 200, `${locale} HTTP status`).toBeLessThan(400);
+    for (const width of [320, 375, 390, 768]) {
+      await page.setViewportSize({ width, height: 844 });
 
-      const topBar = page.locator("nav > div").first();
-      const signupLink = topBar.locator("a").last();
-      const wordmark = topBar.locator('a[aria-label="Deepglot"] span span');
+      for (const locale of SITE_LOCALES) {
+        const route = getMarketingPath(locale, "home");
+        const response = await page.goto(route, { waitUntil: "load" });
+        expect(response?.status() ?? 200, `${width}px ${locale} HTTP status`).toBeLessThan(400);
 
-      await expect(signupLink, `${locale} signup action`).toBeVisible();
-      await expect(wordmark, `${locale} wordmark`).toBeHidden();
+        const topBar = page.locator("nav > div").first();
+        const signupLink = topBar.locator("a").last();
+        const wordmark = topBar.locator('a[aria-label="Deepglot"] span span');
 
-      const layout = await page.evaluate(() => {
-        const row = document.querySelector("nav > div:first-child");
-        const links = row ? Array.from(row.querySelectorAll("a")) : [];
-        const signupRect = links.at(-1)?.getBoundingClientRect();
+        await expect(signupLink, `${width}px ${locale} signup action`).toBeVisible();
+        if (width < 390) {
+          await expect(wordmark, `${width}px ${locale} wordmark`).toBeHidden();
+        } else {
+          await expect(wordmark, `${width}px ${locale} wordmark`).toBeVisible();
+        }
 
-        return {
-          documentWidth: Math.max(
-            document.documentElement.scrollWidth,
-            document.body.scrollWidth
-          ),
-          viewportWidth: document.documentElement.clientWidth,
-          signupLeft: signupRect?.left ?? -1,
-          signupRight: signupRect?.right ?? Number.POSITIVE_INFINITY,
-        };
-      });
+        const layout = await page.evaluate(() => {
+          const row = document.querySelector("nav > div:first-child");
+          const rowRect = row?.getBoundingClientRect();
+          const links = row ? Array.from(row.querySelectorAll("a")) : [];
+          const signupRect = links.at(-1)?.getBoundingClientRect();
 
-      expect(layout.documentWidth, `${locale} document width`).toBeLessThanOrEqual(
-        layout.viewportWidth + 1
-      );
-      expect(layout.signupLeft, `${locale} signup left edge`).toBeGreaterThanOrEqual(0);
-      expect(layout.signupRight, `${locale} signup right edge`).toBeLessThanOrEqual(
-        layout.viewportWidth + 1
-      );
+          return {
+            documentWidth: Math.max(
+              document.documentElement.scrollWidth,
+              document.body.scrollWidth
+            ),
+            viewportWidth: document.documentElement.clientWidth,
+            rowLeft: rowRect?.left ?? 0,
+            rowRight: rowRect?.right ?? Number.NEGATIVE_INFINITY,
+            signupLeft: signupRect?.left ?? -1,
+            signupRight: signupRect?.right ?? Number.POSITIVE_INFINITY,
+          };
+        });
+
+        expect(layout.documentWidth, `${width}px ${locale} document width`).toBeLessThanOrEqual(
+          layout.viewportWidth + 1
+        );
+        expect(layout.signupLeft, `${width}px ${locale} signup left edge`).toBeGreaterThanOrEqual(
+          layout.rowLeft - 1
+        );
+        expect(layout.signupRight, `${width}px ${locale} signup right edge`).toBeLessThanOrEqual(
+          layout.rowRight + 1
+        );
+      }
     }
   });
 

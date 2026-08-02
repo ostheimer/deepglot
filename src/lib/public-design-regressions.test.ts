@@ -188,5 +188,19 @@ test("mobile marketing navigation reserves space for long localized signup label
   const wordmarkClass = source.match(/wordmarkClassName="([^"]+)"/)?.[1] ?? "";
 
   assert.match(wordmarkClass, /hidden/);
-  assert.match(wordmarkClass, /min-\[375px\]:inline/);
+  assert.match(wordmarkClass, /min-\[390px\]:inline/);
+});
+
+test("marketing proof cards can shrink and wrap long localized titles", () => {
+  const source = readFileSync(
+    path.join(SRC_DIR, "components", "marketing", "marketing-home.tsx"),
+    "utf8"
+  );
+  const headingClass = source.match(
+    /<h2 className="([^"]+)">\{item\.title\}<\/h2>/
+  )?.[1] ?? "";
+
+  assert.match(source, /<div className="min-w-0">\s*<h2/);
+  assert.match(headingClass, /\[overflow-wrap:anywhere\]/);
+  assert.match(headingClass, /hyphens-auto/);
 });
