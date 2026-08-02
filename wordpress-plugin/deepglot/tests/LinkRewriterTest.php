@@ -70,6 +70,20 @@ function test_does_not_rewrite_mailto_or_tel_links(): void
     assert(strpos($out, 'href="/en/kontakt/"') !== false, "Ordinary relative links must still be rewritten: {$out}");
 }
 
+function test_does_not_rewrite_whitespace_prefixed_mailto_or_tel_links(): void
+{
+    $html = '<a href=" mailto:empfang@example.com">E-mail</a>'
+          . '<a href="' . "\n" . 'tel:+4312363020">Phone</a>'
+          . '<a href="/kontakt/">Contact</a>';
+    $out = rewriteHtml($html, 'en');
+
+    assert(strpos($out, 'mailto:empfang@example.com') !== false, "Whitespace-prefixed mailto: links must remain actionable: {$out}");
+    assert(strpos($out, 'tel:+4312363020') !== false, "Whitespace-prefixed tel: links must remain actionable: {$out}");
+    assert(strpos($out, '/en/%20mailto') === false, "Whitespace-prefixed mailto: links must not be treated as relative paths: {$out}");
+    assert(strpos($out, '/en/%0Atel') === false, "Whitespace-prefixed tel: links must not be treated as relative paths: {$out}");
+    assert(strpos($out, 'href="/en/kontakt/"') !== false, "Ordinary relative links must still be rewritten: {$out}");
+}
+
 function test_rewrites_internal_absolute_link(): void
 {
     $html = '<a href="https://example.com/services/">Services</a>';
@@ -170,6 +184,7 @@ $tests = [
     'test_does_not_rewrite_already_prefixed_link',
     'test_does_not_rewrite_external_link',
     'test_does_not_rewrite_mailto_or_tel_links',
+    'test_does_not_rewrite_whitespace_prefixed_mailto_or_tel_links',
     'test_rewrites_internal_absolute_link',
     'test_rewrites_configured_url_slugs_and_preserves_suffixes',
     'test_canonicalizes_stale_same_language_prefixed_slugs',

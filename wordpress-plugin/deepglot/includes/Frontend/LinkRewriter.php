@@ -55,8 +55,9 @@ class LinkRewriter
             }
 
             $value = $node->getAttribute($attr);
+            $url = $this->normalizeUrlForClassification($value);
 
-            if ($value === '' || !$this->isInternalUrl($value)) {
+            if ($url === '' || !$this->isInternalUrl($url)) {
                 continue;
             }
 
@@ -71,13 +72,13 @@ class LinkRewriter
             // prefixed for the CURRENT language still runs through SiteRouting
             // so stale source slugs from a WPML migration are canonicalized
             // without adding a second language prefix.
-            $existing = $this->detectUrlLanguage($value);
+            $existing = $this->detectUrlLanguage($url);
 
             if ($existing !== null && $existing !== strtolower(trim($language))) {
                 continue;
             }
 
-            $node->setAttribute($attr, $this->routing->rewriteUrl($value, $language));
+            $node->setAttribute($attr, $this->routing->rewriteUrl($url, $language));
         }
     }
 
@@ -147,19 +148,31 @@ class LinkRewriter
 
             $rel  = strtolower($link->getAttribute('rel'));
             $href = $link->getAttribute('href');
+            $url = $this->normalizeUrlForClassification($href);
 
-            if (in_array($rel, ['canonical', 'shortlink'], true) && $href !== '' && $this->isInternalUrl($href)) {
-                $existing = $this->detectUrlLanguage($href);
+            if (in_array($rel, ['canonical', 'shortlink'], true) && $url !== '' && $this->isInternalUrl($url)) {
+                $existing = $this->detectUrlLanguage($url);
 
                 if ($existing === null || $existing === strtolower(trim($language))) {
-                    $link->setAttribute('href', $this->routing->rewriteUrl($href, $language));
+                    $link->setAttribute('href', $this->routing->rewriteUrl($url, $language));
                 }
             }
         }
     }
 
+    private function normalizeUrlForClassification(string $url): string
+    {
+        return ltrim($url);
+    }
+
     private function isInternalUrl(string $url): bool
     {
+        $url = $this->normalizeUrlForClassification($url);
+
+        if ($url === '') {
+            return false;
+        }
+
         // URI schemes other than HTTP(S) are actions/resources, not site URLs.
         if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $url) && !preg_match('#^https?://#i', $url)) {
             return false;
@@ -177,6 +190,8 @@ class LinkRewriter
 
     private function detectUrlLanguage(string $url): ?string
     {
+        $url = $this->normalizeUrlForClassification($url);
+
         if (preg_match('#^https?://#i', $url)) {
             $path = (string) parse_url($url, PHP_URL_PATH);
             $host = (string) parse_url($url, PHP_URL_HOST);

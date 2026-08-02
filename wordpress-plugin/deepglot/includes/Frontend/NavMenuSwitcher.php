@@ -187,7 +187,7 @@ class NavMenuSwitcher
                 'post_name'        => 'deepglot-switcher-parent',
                 'classes'          => $this->classesFor($activeLang, true, false),
                 'xfn'              => '',
-                'description'      => '',
+                'description'      => $hideCurrent ? '' : $this->descriptionFor($activeLang, $labelFormat),
                 'attr_title'       => $this->labelFor($activeLang, 'full_name'),
                 'target'           => '',
             ];
@@ -229,9 +229,9 @@ class NavMenuSwitcher
                 'classes'          => $this->classesFor($lang, false, $isActive && !$dropdown),
                 'xfn'              => '',
                 // Avada renders nav item descriptions as a visible subtitle.
-                // Keeping the language label here would display e.g.
-                // "GermanGerman" even though the regular title is sufficient.
-                'description'      => '',
+                // Full-name titles would duplicate the visible label, but
+                // compact ISO labels still need the full name as a subtitle.
+                'description'      => $this->descriptionFor($lang, $labelFormat),
                 'attr_title'       => $this->labelFor($lang, 'full_name'),
                 'target'           => '',
             ];
@@ -289,6 +289,11 @@ class NavMenuSwitcher
             return strtoupper($lang);
         }
         return self::LANGUAGE_LABELS[$lang] ?? strtoupper($lang);
+    }
+
+    private function descriptionFor(string $lang, string $format): string
+    {
+        return $format === 'full_name' ? '' : $this->labelFor($lang, 'full_name');
     }
 
     /**

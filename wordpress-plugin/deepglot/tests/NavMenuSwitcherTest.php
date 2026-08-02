@@ -157,6 +157,23 @@ foreach ($expanded as $item) {
     }
 }
 
+// 2b. When titles are compact ISO codes, themes such as Avada still
+// need the full language name in the description subtitle. The
+// full-name mode above keeps it empty to avoid duplicated labels.
+$isoSwitcher = navMakeSwitcher(['switcher_label_format' => 'iso_code']);
+$isoExpanded = $isoSwitcher->expand([
+    navItem(10, 'Sprachschalter', '#deepglot-switcher', ['post_name' => 'deepglot-switcher']),
+]);
+$isoDescriptions = [];
+foreach ($isoExpanded as $item) {
+    if (in_array('deepglot-lang', $item->classes ?? [], true)) {
+        $isoDescriptions[$item->title] = $item->description;
+    }
+}
+navAssert($isoDescriptions['DE'] === 'Deutsch', 'ISO list mode: DE item keeps full-name description');
+navAssert($isoDescriptions['EN'] === 'English', 'ISO list mode: EN item keeps full-name description');
+navAssert($isoDescriptions['FR'] === 'Français', 'ISO list mode: FR item keeps full-name description');
+
 // 3. Active language gets the current-menu-item class so existing themes
 // highlight it just like a normal active page.
 $_SERVER['REQUEST_URI'] = '/en/';
@@ -190,6 +207,21 @@ navAssert(count($parents) === 1, 'Dropdown mode: exactly one top-level item (the
 navAssert(count($children) === 2, 'Dropdown mode: alternatives become children, got ' . count($children));
 $parent = array_values($parents)[0];
 navAssert($parent->title === 'Deutsch', 'Dropdown parent is the active language (Deutsch on /)');
+
+$isoDropdownSwitcher = navMakeSwitcher(['switcher_label_format' => 'iso_code']);
+$isoDropdown = $isoDropdownSwitcher->expand([
+    navItem(51, 'Sprachschalter', '#deepglot-switcher', [
+        'post_name' => 'deepglot-switcher',
+        'classes' => ['deepglot-mode-dropdown'],
+    ]),
+]);
+$isoDropdownParent = array_values(array_filter(
+    $isoDropdown,
+    fn($i) => in_array('deepglot-switcher-parent', $i->classes ?? [], true)
+))[0] ?? null;
+navAssert($isoDropdownParent !== null, 'ISO dropdown mode: parent item renders');
+navAssert($isoDropdownParent->title === 'DE', 'ISO dropdown mode: parent uses compact active-language title');
+navAssert($isoDropdownParent->description === 'Deutsch', 'ISO dropdown mode: parent keeps full-name description');
 
 // 5. hide_current mode drops the active language from the list entirely
 // — useful when the switcher only shows alternatives.
