@@ -103,6 +103,34 @@ test("openai provider fails clearly when the API key is missing", async () => {
   );
 });
 
+test("does not fail over when the primary provider configuration is invalid", async () => {
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+
+  globalThis.fetch = (async () => {
+    providerCalls += 1;
+    throw new Error("No provider request should run for invalid configuration");
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          }
+        ),
+      /OpenAI API key is not configured/
+    );
+    assert.equal(providerCalls, 0, "configuration errors must not reach a fallback provider");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("falls back to a secondary provider when the primary returns a 429 quota error", async () => {
   const originalFetch = globalThis.fetch;
   const recorded: string[] = [];
@@ -157,6 +185,140 @@ test("falls back to a secondary provider when the primary returns a 429 quota er
     assert.equal(geminiCalls, 1);
     assert.deepEqual(result, [
       { text: "fallback-worked", detectedSourceLanguage: "de" },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back when a provider returns fewer translations than requested", async () => {
+  const originalFetch = globalThis.fetch;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  translations: [{ text: "only-one-result" }],
+                }),
+              },
+            },
+          ],
+        })
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      translations: [
+                        { text: "first-fallback", detectedSourceLanguage: "de" },
+                        { text: "second-fallback", detectedSourceLanguage: "de" },
+                      ],
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      );
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      {
+        texts: ["Erster Text", "Zweiter Text"],
+        sourceLang: "de",
+        targetLang: "en",
+      },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [
+      { text: "first-fallback", detectedSourceLanguage: "de" },
+      { text: "second-fallback", detectedSourceLanguage: "de" },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back when a provider returns a JSON null envelope", async () => {
+  const originalFetch = globalThis.fetch;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return new Response("null", {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      translations: [
+                        { text: "fallback-after-null", detectedSourceLanguage: "de" },
+                      ],
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      );
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [
+      { text: "fallback-after-null", detectedSourceLanguage: "de" },
     ]);
   } finally {
     globalThis.fetch = originalFetch;

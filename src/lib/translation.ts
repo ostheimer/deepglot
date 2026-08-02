@@ -8,11 +8,12 @@ import {
   type TranslationProviderConfig,
   type TranslationSettingsLike,
 } from "@/lib/translation-config";
-import type {
-  TranslateTextsInput,
-  TranslationEnv,
-  TranslationProviderName,
-  TranslationResult,
+import {
+  TranslationProviderResponseError,
+  type TranslateTextsInput,
+  type TranslationEnv,
+  type TranslationProviderName,
+  type TranslationResult,
 } from "@/lib/translation-types";
 export { countWords } from "@/lib/translation-types";
 
@@ -67,12 +68,14 @@ async function translateWithProvider(
 }
 
 /**
- * Errors the fallback wrapper treats as "try the next provider":
- * quota / rate-limit responses, gateway/timeout errors and the catch-all
- * 5xx server errors. Auth failures, validation errors and other 4xx codes
- * are surfaced unchanged so the operator can see the real misconfiguration.
+ * Errors the fallback wrapper treats as "try the next provider": invalid
+ * provider response contracts, quota / rate-limit responses, gateway/timeout
+ * errors and catch-all 5xx server errors. Auth failures, local configuration
+ * errors and other 4xx codes are surfaced unchanged so the operator can see
+ * the real misconfiguration.
  */
 function isProviderFailoverError(error: unknown): boolean {
+  if (error instanceof TranslationProviderResponseError) return true;
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
   if (message.includes("429") || message.includes("rate limit") || message.includes("quota")) {
@@ -118,10 +121,10 @@ export async function translateTexts(
       lastError = error;
       const hasNext = index < chain.length - 1;
 
-      // Quota / rate-limit / 5xx / network error with another provider still
-      // to try: warn rather than error — the request can still succeed via the
-      // fallback — but log the full upstream detail and the chain so a
-      // recurring failover is visible instead of hidden behind a truncation.
+      // Recoverable provider response / quota / rate-limit / 5xx / network
+      // error with another provider still to try: warn rather than error — the
+      // request can still succeed via the fallback — but log the full upstream
+      // detail and the chain so a recurring failover is visible.
       if (hasNext && isProviderFailoverError(error)) {
         console.warn(
           `[translation] provider ${candidate.provider} failed; falling back to ${chain[index + 1].provider} (chain: ${providerChain}). ${describeProviderError(error)}`
