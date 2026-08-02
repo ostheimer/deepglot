@@ -58,6 +58,11 @@ wporgComplianceAssert(
     substr_count($requestInput, 'sanitize_text_field(wp_unslash(') === 2,
     'Server and query values must be unslashed and sanitized centrally'
 );
+wporgComplianceAssert(
+    str_contains($requestInput, "\$key === 'REQUEST_URI'")
+        && str_contains($requestInput, 'esc_url_raw(wp_unslash('),
+    'REQUEST_URI must use URL-aware sanitization that preserves encoded bytes'
+);
 
 $options = file_get_contents($pluginRoot . '/includes/Config/Options.php');
 $siteRouting = file_get_contents($pluginRoot . '/includes/Support/SiteRouting.php');

@@ -18,6 +18,10 @@ final class RequestInput
             return $default;
         }
 
+        if ($key === 'REQUEST_URI' && function_exists('esc_url_raw') && function_exists('wp_unslash')) {
+            return esc_url_raw(wp_unslash((string) $value));
+        }
+
         if (function_exists('sanitize_text_field') && function_exists('wp_unslash')) {
             return sanitize_text_field(wp_unslash((string) $value));
         }
