@@ -43,6 +43,14 @@ versionAssert(
     'README version must match the plugin bootstrap'
 );
 versionAssert(
+    !str_contains($readme, 'It is a release candidate'),
+    'Stable plugin README must not describe the package as a release candidate'
+);
+versionAssert(
+    str_contains($readme, 'does not automatically install or update the plugin on customer sites'),
+    'Plugin README must state the customer-installation boundary'
+);
+versionAssert(
     preg_match('/^Stable tag:\s*([^\s]+)$/m', $wordpressReadme, $stableTagMatch) === 1,
     'WordPress.org stable tag is missing'
 );
@@ -53,6 +61,11 @@ versionAssert(
 versionAssert(
     str_contains($rootReadme, 'Repository version: **v' . $headerVersion . '**'),
     'Repository README version must match the plugin bootstrap'
+);
+versionAssert(
+    !str_contains($rootReadme, 'release candidate')
+        && str_contains($rootReadme, 'Publishing the GitHub release does not automatically update customer WordPress sites.'),
+    'Repository README must describe the stable release and customer-update boundary'
 );
 
 versionAssert(
@@ -131,6 +144,10 @@ versionAssert(
 versionAssert(
     str_contains($wordpressReadme, '= ' . $headerVersion . ' ='),
     'WordPress.org changelog must contain the release version'
+);
+versionAssert(
+    str_contains($wordpressReadme, 'Deepglot admin branding'),
+    'WordPress.org changelog must document the branded admin experience'
 );
 
 fwrite(STDOUT, "PluginVersionConsistencyTest: OK\n");
