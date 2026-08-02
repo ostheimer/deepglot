@@ -179,3 +179,14 @@ test("marketing hero headline can wrap long localized words inside the clipped h
   assert.match(headingClass, /\[overflow-wrap:anywhere\]/);
   assert.match(headingClass, /hyphens-auto/);
 });
+
+test("mobile marketing navigation reserves space for long localized signup labels", () => {
+  const source = readFileSync(
+    path.join(SRC_DIR, "components", "marketing", "marketing-nav.tsx"),
+    "utf8"
+  );
+  const wordmarkClass = source.match(/wordmarkClassName="([^"]+)"/)?.[1] ?? "";
+
+  assert.match(wordmarkClass, /hidden/);
+  assert.match(wordmarkClass, /min-\[375px\]:inline/);
+});

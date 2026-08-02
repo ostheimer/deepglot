@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { getMarketingPath, SITE_LOCALES } from "../../src/lib/site-locale";
+
 async function expectLocaleCookie(page: Page, locale: string) {
   await expect
     .poll(async () => {
@@ -19,6 +21,49 @@ async function switchMarketingLanguage(page: Page, languageName: string) {
 }
 
 test.describe("locale routing", () => {
+  test("keeps every localized signup action inside a 320px mobile navigation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+
+    for (const locale of SITE_LOCALES) {
+      const route = getMarketingPath(locale, "home");
+      const response = await page.goto(route, { waitUntil: "load" });
+      expect(response?.status() ?? 200, `${locale} HTTP status`).toBeLessThan(400);
+
+      const topBar = page.locator("nav > div").first();
+      const signupLink = topBar.locator("a").last();
+      const wordmark = topBar.locator('a[aria-label="Deepglot"] span span');
+
+      await expect(signupLink, `${locale} signup action`).toBeVisible();
+      await expect(wordmark, `${locale} wordmark`).toBeHidden();
+
+      const layout = await page.evaluate(() => {
+        const row = document.querySelector("nav > div:first-child");
+        const links = row ? Array.from(row.querySelectorAll("a")) : [];
+        const signupRect = links.at(-1)?.getBoundingClientRect();
+
+        return {
+          documentWidth: Math.max(
+            document.documentElement.scrollWidth,
+            document.body.scrollWidth
+          ),
+          viewportWidth: document.documentElement.clientWidth,
+          signupLeft: signupRect?.left ?? -1,
+          signupRight: signupRect?.right ?? Number.POSITIVE_INFINITY,
+        };
+      });
+
+      expect(layout.documentWidth, `${locale} document width`).toBeLessThanOrEqual(
+        layout.viewportWidth + 1
+      );
+      expect(layout.signupLeft, `${locale} signup left edge`).toBeGreaterThanOrEqual(0);
+      expect(layout.signupRight, `${locale} signup right edge`).toBeLessThanOrEqual(
+        layout.viewportWidth + 1
+      );
+    }
+  });
+
   test("switches the marketing homepage between canonical English and German URLs", async ({
     page,
   }) => {
