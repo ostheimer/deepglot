@@ -37,6 +37,7 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
+versionAssert($headerVersion === '0.11.1', 'WordPress.org submission release must be version 0.11.1');
 versionAssert($headerVersion === $constantVersion, 'Header and runtime versions must match');
 versionAssert(
     str_contains($readme, '(**v' . $headerVersion . '**)'),
@@ -140,6 +141,10 @@ versionAssert(
         && str_contains($wordpressReadme, 'https://deepglot.ai/privacy')
         && str_contains($wordpressReadme, 'https://deepglot.ai/terms'),
     'WordPress.org readme must disclose the Deepglot API service and policies'
+);
+versionAssert(
+    str_contains($wordpressReadme, 'https://github.com/ostheimer/deepglot'),
+    'WordPress.org readme must link the public development source and release tooling'
 );
 versionAssert(
     str_contains($wordpressReadme, '= ' . $headerVersion . ' ='),

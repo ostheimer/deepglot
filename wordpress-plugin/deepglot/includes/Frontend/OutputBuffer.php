@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
@@ -109,7 +110,7 @@ class OutputBuffer
 
         // Step 3: inject hreflang tags.
         // Use the original (pre-rewrite) REQUEST_URI to get the canonical path.
-        $rawUri        = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $rawUri        = RequestInput::server('REQUEST_URI', '/');
         $canonicalPath = $this->routing->getCanonicalPath($rawUri);
         $this->hreflangInjector->inject(
             $doc,
@@ -159,7 +160,7 @@ class OutputBuffer
         }
 
         $doc = $this->loadDocument($html);
-        $rawUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $rawUri = RequestInput::server('REQUEST_URI', '/');
         $canonicalPath = $this->routing->getCanonicalPath($rawUri);
         $this->hreflangInjector->inject(
             $doc,
@@ -233,14 +234,14 @@ class OutputBuffer
         // Fallback: re-detect from the original URI (before REQUEST_URI was rewritten).
         // The router stores the original URI in a request attribute; if not available,
         // detect from the still-current REQUEST_URI.
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $uri = RequestInput::server('REQUEST_URI', '/');
+        $host = RequestInput::server('HTTP_HOST');
         return $this->routing->detectLanguage($uri, $host);
     }
 
     private function currentRequestUrl(): string
     {
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $uri = RequestInput::server('REQUEST_URI', '/');
 
         if (function_exists('home_url')) {
             return home_url($uri);
@@ -269,15 +270,15 @@ class OutputBuffer
             return true;
         }
 
-        if (array_key_exists('amp', $_GET)) {
-            $getValue = $_GET['amp'];
+        if (RequestInput::hasQuery('amp')) {
+            $getValue = RequestInput::query('amp');
             if ($getValue !== '' && $getValue !== '0' && $getValue !== 0 && $getValue !== false) {
                 return true;
             }
         }
 
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $path = (string) parse_url($uri, PHP_URL_PATH);
+        $uri = RequestInput::server('REQUEST_URI', '/');
+        $path = (string) wp_parse_url($uri, PHP_URL_PATH);
 
         return preg_match('#/amp/?$#i', $path) === 1;
     }
@@ -294,7 +295,9 @@ class OutputBuffer
 
     private function isEditorMode(): bool
     {
-        return isset($_GET['deepglot_editor']) && isset($_GET['deepglot_editor_token']) && isset($_GET['deepglot_editor_project']);
+        return RequestInput::hasQuery('deepglot_editor')
+            && RequestInput::hasQuery('deepglot_editor_token')
+            && RequestInput::hasQuery('deepglot_editor_project');
     }
 
     /**
@@ -302,8 +305,8 @@ class OutputBuffer
      */
     private function injectEditorShell(\DOMDocument $doc, array $segments): void
     {
-        $projectId = isset($_GET['deepglot_editor_project']) ? sanitize_text_field((string) $_GET['deepglot_editor_project']) : '';
-        $token = isset($_GET['deepglot_editor_token']) ? sanitize_text_field((string) $_GET['deepglot_editor_token']) : '';
+        $projectId = RequestInput::query('deepglot_editor_project');
+        $token = RequestInput::query('deepglot_editor_token');
 
         if ($projectId === '' || $token === '') {
             return;
@@ -314,7 +317,7 @@ class OutputBuffer
             'apiBaseUrl' => $apiBaseUrl,
             'projectId' => $projectId,
             'token' => $token,
-            'requestUrl' => home_url(add_query_arg([], isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/')),
+            'requestUrl' => home_url(add_query_arg([], RequestInput::server('REQUEST_URI', '/'))),
             'segments' => array_values($segments),
         ]);
 

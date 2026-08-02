@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
@@ -155,8 +156,8 @@ class LanguageSwitcher
         }
         $instanceId = (string) ($instance['id'] ?? 'default');
 
-        $requestUri    = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host          = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $requestUri    = RequestInput::server('REQUEST_URI', '/');
+        $host          = RequestInput::server('HTTP_HOST');
         $sourceLang    = $this->options->getSourceLanguage();
         $targetLangs   = $this->options->getTargetLanguages();
 
@@ -268,6 +269,7 @@ class LanguageSwitcher
                 esc_attr($native),
                 esc_attr($href),
                 esc_attr($lang),
+                /* translators: %s: native language name. */
                 esc_attr(sprintf(__('Switch language to %s', 'deepglot'), $native)),
                 esc_attr($lang),
                 $flagSpan,
@@ -287,6 +289,7 @@ class LanguageSwitcher
             is_array($instance['custom_flags'] ?? null) ? $instance['custom_flags'] : [],
             $instanceId
         );
+        /* translators: %s: active language name. */
         $ariaLabel     = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
 

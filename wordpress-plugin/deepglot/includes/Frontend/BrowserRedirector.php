@@ -3,6 +3,7 @@
 namespace Deepglot\Frontend;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 class BrowserRedirector
@@ -78,8 +79,8 @@ class BrowserRedirector
             return;
         }
 
-        $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
-        $host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+        $uri = RequestInput::server('REQUEST_URI', '/');
+        $host = RequestInput::server('HTTP_HOST');
         $currentLanguage = $this->routing->detectLanguage($uri, $host);
 
         if ($currentLanguage !== null) {
@@ -89,7 +90,7 @@ class BrowserRedirector
 
         if ($this->shouldSkipRedirect([
             'hasLocaleCookie' => !empty($_COOKIE[$this->cookieName]),
-            'isBot' => $this->isBotRequest((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')),
+            'isBot' => $this->isBotRequest(RequestInput::server('HTTP_USER_AGENT')),
             'isAdmin' => is_admin(),
             'isAjax' => function_exists('wp_doing_ajax') && wp_doing_ajax(),
             'isRest' => function_exists('wp_is_json_request') && wp_is_json_request(),
@@ -97,13 +98,13 @@ class BrowserRedirector
             'isPreview' => function_exists('is_preview') && is_preview(),
             'isCheckout' => function_exists('is_checkout') && is_checkout(),
             'isOrderPay' => function_exists('is_wc_endpoint_url') && is_wc_endpoint_url('order-pay'),
-            'isEditorMode' => isset($_GET['deepglot_editor']) || isset($_GET['deepglot_editor_token']),
+            'isEditorMode' => RequestInput::hasQuery('deepglot_editor') || RequestInput::hasQuery('deepglot_editor_token'),
             'isLocalizedRequest' => $currentLanguage !== null,
         ])) {
             return;
         }
 
-        $preferredLanguage = $this->pickPreferredLanguage((string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
+        $preferredLanguage = $this->pickPreferredLanguage(RequestInput::server('HTTP_ACCEPT_LANGUAGE'));
 
         if ($preferredLanguage === null) {
             return;

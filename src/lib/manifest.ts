@@ -1,10 +1,32 @@
 import type { MetadataRoute } from "next";
 
-import { getCookieLocale } from "@/lib/request-locale";
-import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
+import {
+  DEFAULT_MARKETING_LOCALE,
+  getMarketingPath,
+  isSiteLocale,
+  type SiteLocale,
+} from "@/lib/site-locale";
+
+export const MANIFEST_LOCALE_PARAM = "locale";
+
+export function getManifestLocale(
+  value: string | null,
+  cookieValue: string | null = null
+): SiteLocale {
+  if (isSiteLocale(value)) {
+    return value;
+  }
+
+  return isSiteLocale(cookieValue) ? cookieValue : DEFAULT_MARKETING_LOCALE;
+}
+
+export function getManifestHref(locale: SiteLocale): string {
+  return `/manifest.webmanifest?${MANIFEST_LOCALE_PARAM}=${locale}`;
+}
 
 export function buildLocalizedManifest(locale: SiteLocale): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "Deepglot",
     short_name: "Deepglot",
     description:
@@ -35,8 +57,4 @@ export function buildLocalizedManifest(locale: SiteLocale): MetadataRoute.Manife
       },
     ],
   };
-}
-
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  return buildLocalizedManifest(await getCookieLocale());
 }

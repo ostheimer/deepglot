@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Api\Client;
 use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\TranslationRules;
 use WP_REST_Request;
@@ -303,7 +304,7 @@ class DynamicTranslationController
      */
     public function permissionCheck(WP_REST_Request $request): bool|WP_Error
     {
-        if ($this->isBot((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''))) {
+        if ($this->isBot(RequestInput::server('HTTP_USER_AGENT'))) {
             return new WP_Error('rest_forbidden', __('Nicht verfügbar.', 'deepglot'), ['status' => 403]);
         }
 
@@ -332,8 +333,9 @@ class DynamicTranslationController
         $host = strtolower($host);
         $allowed = [];
 
-        if (isset($_SERVER['HTTP_HOST'])) {
-            $requestHost = wp_parse_url('http://' . (string) $_SERVER['HTTP_HOST'], PHP_URL_HOST);
+        $currentHost = RequestInput::server('HTTP_HOST');
+        if ($currentHost !== '') {
+            $requestHost = wp_parse_url('http://' . $currentHost, PHP_URL_HOST);
             if (is_string($requestHost)) {
                 $allowed[] = strtolower($requestHost);
             }
@@ -452,7 +454,7 @@ class DynamicTranslationController
             return false;
         }
 
-        $ip        = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ip        = RequestInput::server('REMOTE_ADDR', 'unknown');
         $transient = 'deepglot_dynfw_' . sha1($ip);
         $now       = time();
 
@@ -503,7 +505,7 @@ class DynamicTranslationController
             return;
         }
 
-        $ip        = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ip        = RequestInput::server('REMOTE_ADDR', 'unknown');
         $transient = 'deepglot_dynfw_' . sha1($ip);
         $bucket    = get_transient($transient);
 
@@ -522,7 +524,7 @@ class DynamicTranslationController
      */
     private function withinRateLimit(): bool
     {
-        $ip        = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+        $ip        = RequestInput::server('REMOTE_ADDR', 'unknown');
         $transient = 'deepglot_dynrl_' . sha1($ip);
         $now       = time();
 

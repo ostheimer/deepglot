@@ -181,7 +181,7 @@ class LinkRewriter
             return !str_starts_with($url, '//');
         }
 
-        $host = (string) parse_url($url, PHP_URL_HOST);
+        $host = (string) wp_parse_url($url, PHP_URL_HOST);
 
         return $this->routing->isInternalHost($host);
     }
@@ -189,8 +189,8 @@ class LinkRewriter
     private function detectUrlLanguage(string $url): ?string
     {
         if (preg_match('#^https?://#i', $url)) {
-            $path = (string) parse_url($url, PHP_URL_PATH);
-            $host = (string) parse_url($url, PHP_URL_HOST);
+            $path = (string) wp_parse_url($url, PHP_URL_PATH);
+            $host = (string) wp_parse_url($url, PHP_URL_HOST);
 
             return $this->routing->detectLanguage($path !== '' ? $path : '/', $host);
         }

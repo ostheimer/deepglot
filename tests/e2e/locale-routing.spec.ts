@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { getMarketingPath, SITE_LOCALES } from "../../src/lib/site-locale";
+
 async function expectLocaleCookie(page: Page, locale: string) {
   await expect
     .poll(async () => {
@@ -19,6 +21,79 @@ async function switchMarketingLanguage(page: Page, languageName: string) {
 }
 
 test.describe("locale routing", () => {
+  test("keeps localized homepages inside narrow responsive layouts", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    for (const locale of SITE_LOCALES) {
+      const route = getMarketingPath(locale, "home");
+      await page.setViewportSize({ width: 320, height: 844 });
+      const response = await page.goto(route, { waitUntil: "load" });
+      expect(response?.status() ?? 200, `${locale} HTTP status`).toBeLessThan(400);
+
+      for (const width of [320, 390, 420, 768]) {
+        await page.setViewportSize({ width, height: 844 });
+
+        const topBar = page.locator("nav > div").first();
+        const signupLink = topBar.locator("a").last();
+        const wordmark = topBar.locator('a[aria-label="Deepglot"] span span');
+
+        await expect(signupLink, `${width}px ${locale} signup action`).toBeVisible();
+        if (width < 420) {
+          await expect(wordmark, `${width}px ${locale} wordmark`).toBeHidden();
+        } else {
+          await expect(wordmark, `${width}px ${locale} wordmark`).toBeVisible();
+        }
+
+        const layout = await page.evaluate(() => {
+          const row = document.querySelector("nav > div:first-child");
+          const rowRect = row?.getBoundingClientRect();
+          const rowStyle = row ? window.getComputedStyle(row) : null;
+          const logoRect = row
+            ?.querySelector('a[aria-label="Deepglot"]')
+            ?.getBoundingClientRect();
+          const actionsRect = row?.lastElementChild?.getBoundingClientRect();
+          const links = row ? Array.from(row.querySelectorAll("a")) : [];
+          const signupRect = links.at(-1)?.getBoundingClientRect();
+
+          return {
+            documentWidth: Math.max(
+              document.documentElement.scrollWidth,
+              document.body.scrollWidth
+            ),
+            viewportWidth: document.documentElement.clientWidth,
+            contentLeft:
+              (rowRect?.left ?? 0) + Number.parseFloat(rowStyle?.paddingLeft ?? "0"),
+            contentRight:
+              (rowRect?.right ?? Number.NEGATIVE_INFINITY) -
+              Number.parseFloat(rowStyle?.paddingRight ?? "0"),
+            logoRight: logoRect?.right ?? Number.POSITIVE_INFINITY,
+            actionsLeft: actionsRect?.left ?? Number.NEGATIVE_INFINITY,
+            signupLeft: signupRect?.left ?? -1,
+            signupRight: signupRect?.right ?? Number.POSITIVE_INFINITY,
+          };
+        });
+
+        expect(layout.documentWidth, `${width}px ${locale} document width`).toBeLessThanOrEqual(
+          layout.viewportWidth + 1
+        );
+        expect(layout.signupLeft, `${width}px ${locale} signup left edge`).toBeGreaterThanOrEqual(
+          layout.contentLeft - 1
+        );
+        expect(layout.signupRight, `${width}px ${locale} signup right edge`).toBeLessThanOrEqual(
+          layout.contentRight + 1
+        );
+        expect(
+          layout.actionsLeft - layout.logoRight,
+          `${width}px ${locale} logo/action gap`
+        ).toBeGreaterThanOrEqual(
+          8
+        );
+      }
+    }
+  });
+
   test("switches the marketing homepage between canonical English and German URLs", async ({
     page,
   }) => {

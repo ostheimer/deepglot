@@ -96,7 +96,7 @@ class WpRocketCompat
      */
     private function switcherCssPath(): string
     {
-        $path = parse_url(DEEPGLOT_PLUGIN_URL . 'assets/css/switcher.css', PHP_URL_PATH);
+        $path = wp_parse_url(DEEPGLOT_PLUGIN_URL . 'assets/css/switcher.css', PHP_URL_PATH);
 
         return is_string($path) && $path !== ''
             ? $path
