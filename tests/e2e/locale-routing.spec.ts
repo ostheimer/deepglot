@@ -49,6 +49,11 @@ test.describe("locale routing", () => {
         const layout = await page.evaluate(() => {
           const row = document.querySelector("nav > div:first-child");
           const rowRect = row?.getBoundingClientRect();
+          const rowStyle = row ? window.getComputedStyle(row) : null;
+          const logoRect = row
+            ?.querySelector('a[aria-label="Deepglot"]')
+            ?.getBoundingClientRect();
+          const actionsRect = row?.lastElementChild?.getBoundingClientRect();
           const links = row ? Array.from(row.querySelectorAll("a")) : [];
           const signupRect = links.at(-1)?.getBoundingClientRect();
 
@@ -58,8 +63,13 @@ test.describe("locale routing", () => {
               document.body.scrollWidth
             ),
             viewportWidth: document.documentElement.clientWidth,
-            rowLeft: rowRect?.left ?? 0,
-            rowRight: rowRect?.right ?? Number.NEGATIVE_INFINITY,
+            contentLeft:
+              (rowRect?.left ?? 0) + Number.parseFloat(rowStyle?.paddingLeft ?? "0"),
+            contentRight:
+              (rowRect?.right ?? Number.NEGATIVE_INFINITY) -
+              Number.parseFloat(rowStyle?.paddingRight ?? "0"),
+            logoRight: logoRect?.right ?? Number.POSITIVE_INFINITY,
+            actionsLeft: actionsRect?.left ?? Number.NEGATIVE_INFINITY,
             signupLeft: signupRect?.left ?? -1,
             signupRight: signupRect?.right ?? Number.POSITIVE_INFINITY,
           };
@@ -69,10 +79,16 @@ test.describe("locale routing", () => {
           layout.viewportWidth + 1
         );
         expect(layout.signupLeft, `${width}px ${locale} signup left edge`).toBeGreaterThanOrEqual(
-          layout.rowLeft - 1
+          layout.contentLeft - 1
         );
         expect(layout.signupRight, `${width}px ${locale} signup right edge`).toBeLessThanOrEqual(
-          layout.rowRight + 1
+          layout.contentRight + 1
+        );
+        expect(
+          layout.actionsLeft - layout.logoRight,
+          `${width}px ${locale} logo/action gap`
+        ).toBeGreaterThanOrEqual(
+          8
         );
       }
     }
