@@ -80,7 +80,7 @@ class UrlLanguageResolver
      */
     private function segments(string $path): array
     {
-        $path = (string) parse_url($path, PHP_URL_PATH);
+        $path = (string) wp_parse_url($path, PHP_URL_PATH);
         $path = trim($path, '/');
 
         if ($path === '') {

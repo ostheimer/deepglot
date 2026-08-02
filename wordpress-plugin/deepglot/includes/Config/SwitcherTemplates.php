@@ -110,7 +110,7 @@ final class SwitcherTemplates
     {
         $value = function_exists('sanitize_text_field')
             ? sanitize_text_field($value)
-            : trim(strip_tags($value));
+            : trim(wp_strip_all_tags($value));
 
         return $value !== '' ? $value : __('Sprachumschalter', 'deepglot');
     }

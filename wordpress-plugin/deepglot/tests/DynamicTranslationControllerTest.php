@@ -47,8 +47,10 @@ if (!function_exists('__')) {
         return $nonce === 'valid-rest-nonce' && $action === 'wp_rest';
     }
 
-    function wp_parse_url($url, $component = -1) {
-        return parse_url($url, $component);
+    if (!function_exists('wp_parse_url')) {
+        function wp_parse_url($url, $component = -1) {
+            return parse_url($url, $component);
+        }
     }
 
     function home_url($path = '/') {

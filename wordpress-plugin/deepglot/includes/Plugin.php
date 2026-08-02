@@ -158,7 +158,7 @@ class Plugin
             return true;
         }
 
-        $requestPath = (string) parse_url(
+        $requestPath = (string) wp_parse_url(
             isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '',
             PHP_URL_PATH
         );
