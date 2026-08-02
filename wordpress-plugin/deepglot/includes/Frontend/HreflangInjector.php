@@ -73,7 +73,11 @@ class HreflangInjector
         $toRemove = [];
 
         foreach ($links as $link) {
-            if ($link instanceof \DOMElement && strtolower($link->getAttribute('rel')) === 'alternate') {
+            if (
+                $link instanceof \DOMElement
+                && strtolower($link->getAttribute('rel')) === 'alternate'
+                && $link->hasAttribute('hreflang')
+            ) {
                 $toRemove[] = $link;
             }
         }

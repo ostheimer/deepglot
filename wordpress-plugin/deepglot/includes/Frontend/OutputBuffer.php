@@ -47,11 +47,11 @@ class OutputBuffer
 
     public function startBuffer(): void
     {
-        $targetLanguage = $this->detectTargetLanguage();
-
-        if ($targetLanguage === null) {
+        if (!$this->canProcessCurrentRequest()) {
             return;
         }
+
+        $targetLanguage = $this->detectTargetLanguage();
 
         // The admin toggle must gate the actual output pipeline, not only the
         // settings-sync payload. Bail before runtime config, exclusions, cache
@@ -65,7 +65,9 @@ class OutputBuffer
         }
 
         ob_start(function (string $html) use ($targetLanguage): string {
-            return $this->process($html, $targetLanguage);
+            return $targetLanguage === null
+                ? $this->processSource($html)
+                : $this->process($html, $targetLanguage);
         });
     }
 
@@ -141,21 +143,45 @@ class OutputBuffer
         return $this->saveDocument($doc);
     }
 
+    /**
+     * Adds the reciprocal language cluster to a source-language response
+     * without translating content or rewriting source links.
+     */
+    public function processSource(string $html): string
+    {
+        if ($html === '' || stripos($html, '<html') === false) {
+            return $html;
+        }
+
+        $doc = $this->loadDocument($html);
+        $rawUri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
+        $canonicalPath = $this->routing->getCanonicalPath($rawUri);
+        $this->hreflangInjector->inject($doc, $canonicalPath);
+
+        return $this->saveDocument($doc);
+    }
+
     // -------------------------------------------------------------------------
 
-    private function detectTargetLanguage(): ?string
+    private function canProcessCurrentRequest(): bool
     {
         if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
-            return null;
+            return false;
         }
 
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
-            return null;
+            return false;
         }
 
         if (headers_sent()) {
-            return null;
+            return false;
         }
+
+        return true;
+    }
+
+    private function detectTargetLanguage(): ?string
+    {
 
         // The RequestRouter already stripped the language prefix from REQUEST_URI,
         // but it stored the detected language for us.

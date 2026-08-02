@@ -83,7 +83,7 @@ use Deepglot\Frontend\MultilingualSitemap;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
-function makeSitemap(string $mode = 'PATH_PREFIX', array $mappings = []): MultilingualSitemap
+function makeSitemap(string $mode = 'PATH_PREFIX', array $mappings = [], array $slugMappings = []): MultilingualSitemap
 {
     update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
         'enabled' => true,
@@ -94,7 +94,7 @@ function makeSitemap(string $mode = 'PATH_PREFIX', array $mappings = []): Multil
         'domain_mappings' => $mappings,
     ]));
     $options = new Options();
-    $routing = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://example.com', $mode, $mappings);
+    $routing = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://example.com', $mode, $mappings, $slugMappings);
     return new MultilingualSitemap($options, $routing);
 }
 
@@ -176,6 +176,55 @@ sitemapAssert(str_contains($xml, 'hreflang="x-default"'), 'x-default points at t
 sitemapAssert(!str_contains($xml, 'evil.example') && !str_contains($xml, 'javascript:'), 'Unsafe source URLs cannot leak into XML');
 $doc = new DOMDocument();
 sitemapAssert($doc->loadXML($xml) === true, 'Generated sitemap is well-formed XML');
+
+// 3b. Search engines need one <url><loc> entry per language version. Every
+// version must publish the exact same reciprocal alternate set, including
+// translated slugs, so no page is left out of the cluster.
+$translatedSitemap = makeSitemap('PATH_PREFIX', [], [
+    'en' => ['produkte' => 'products', 'zahnbehandlung' => 'dental-treatment'],
+    'fr' => ['produkte' => 'produits', 'zahnbehandlung' => 'soins-dentaires'],
+]);
+$translatedXml = $translatedSitemap->buildXml([
+    ['loc' => 'https://example.com/produkte/zahnbehandlung/', 'lastmod' => '2026-07-13'],
+    // A still-published, paired WPML target object must collapse into the
+    // same Deepglot cluster instead of duplicating all localized entries.
+    ['loc' => 'https://example.com/en/products/dental-treatment/', 'lastmod' => '2026-07-13'],
+]);
+$translatedDoc = new DOMDocument();
+sitemapAssert($translatedDoc->loadXML($translatedXml) === true, 'Translated-slug sitemap is well-formed XML');
+$translatedXpath = new DOMXPath($translatedDoc);
+$translatedXpath->registerNamespace('s', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+$translatedXpath->registerNamespace('xhtml', 'http://www.w3.org/1999/xhtml');
+$urlNodes = $translatedXpath->query('//s:url');
+sitemapAssert($urlNodes !== false && $urlNodes->length === 3, 'Sitemap emits a separate <url> entry for source and every target language.');
+
+$expectedLocs = [
+    'https://example.com/produkte/zahnbehandlung/',
+    'https://example.com/en/products/dental-treatment/',
+    'https://example.com/fr/produits/soins-dentaires/',
+];
+$expectedAlternates = [
+    'de' => 'https://example.com/produkte/zahnbehandlung/',
+    'en' => 'https://example.com/en/products/dental-treatment/',
+    'fr' => 'https://example.com/fr/produits/soins-dentaires/',
+    'x-default' => 'https://example.com/produkte/zahnbehandlung/',
+];
+$actualLocs = [];
+foreach ($urlNodes as $urlNode) {
+    $locNode = $translatedXpath->query('./s:loc', $urlNode)?->item(0);
+    $actualLocs[] = $locNode?->textContent ?? '';
+    $alternateSet = [];
+    $alternateNodes = $translatedXpath->query('./xhtml:link[@rel="alternate"]', $urlNode);
+    foreach ($alternateNodes ?: [] as $alternateNode) {
+        if ($alternateNode instanceof DOMElement) {
+            $alternateSet[$alternateNode->getAttribute('hreflang')] = $alternateNode->getAttribute('href');
+        }
+    }
+    sitemapAssert($alternateSet === $expectedAlternates, 'Every localized <url> entry has an identical reciprocal alternate set.');
+}
+sort($actualLocs);
+sort($expectedLocs);
+sitemapAssert($actualLocs === $expectedLocs, 'Localized <loc> entries include every translated slug exactly once.');
 
 // 4. Subdomain routing uses only configured language hosts. A target without
 // a mapping follows SiteRouting's safe path-prefix fallback on the source host.

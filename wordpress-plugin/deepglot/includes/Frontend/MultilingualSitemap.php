@@ -212,7 +212,8 @@ class MultilingualSitemap
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">' . "\n";
-        $serialized = [];
+        $serializedClusters = [];
+        $serializedUrls = [];
 
         foreach ($entries as $entry) {
             $normalized = $this->normalizeEntry($entry);
@@ -225,7 +226,7 @@ class MultilingualSitemap
             $sourceLanguage = $this->routing->getSourceLanguage();
             $sourceUrl = $this->routing->buildUrlForLanguage($relative, $sourceLanguage);
 
-            if (!$this->isSafeInternalUrl($sourceUrl) || isset($serialized[$sourceUrl])) {
+            if (!$this->isSafeInternalUrl($sourceUrl) || isset($serializedClusters[$sourceUrl])) {
                 continue;
             }
 
@@ -243,32 +244,52 @@ class MultilingualSitemap
                 }
             }
 
-            if (!isset($alternates[$sourceLanguage])) {
+            if (
+                !isset($alternates[$sourceLanguage])
+                || count($alternates) !== count($languages)
+                || count($serializedUrls) + count($alternates) > self::MAX_ENTRIES
+            ) {
                 continue;
             }
 
-            $serialized[$sourceUrl] = true;
-            $xml .= "  <url>\n";
-            $xml .= '    <loc>' . $this->escapeXml($sourceUrl) . "</loc>\n";
-
-            if (isset($normalized['lastmod'])) {
-                $xml .= '    <lastmod>' . $this->escapeXml($normalized['lastmod']) . "</lastmod>\n";
+            $hasDuplicateLocalizedUrl = false;
+            foreach ($alternates as $localizedUrl) {
+                if (isset($serializedUrls[$localizedUrl])) {
+                    $hasDuplicateLocalizedUrl = true;
+                    break;
+                }
             }
 
-            foreach ($alternates as $language => $href) {
-                $xml .= '    <xhtml:link rel="alternate" hreflang="'
-                    . $this->escapeXml($language)
-                    . '" href="'
-                    . $this->escapeXml($href)
+            if ($hasDuplicateLocalizedUrl) {
+                continue;
+            }
+
+            $serializedClusters[$sourceUrl] = true;
+
+            foreach ($alternates as $localizedUrl) {
+                $serializedUrls[$localizedUrl] = true;
+                $xml .= "  <url>\n";
+                $xml .= '    <loc>' . $this->escapeXml($localizedUrl) . "</loc>\n";
+
+                if (isset($normalized['lastmod'])) {
+                    $xml .= '    <lastmod>' . $this->escapeXml($normalized['lastmod']) . "</lastmod>\n";
+                }
+
+                foreach ($alternates as $language => $href) {
+                    $xml .= '    <xhtml:link rel="alternate" hreflang="'
+                        . $this->escapeXml($language)
+                        . '" href="'
+                        . $this->escapeXml($href)
+                        . '" />' . "\n";
+                }
+
+                $xml .= '    <xhtml:link rel="alternate" hreflang="x-default" href="'
+                    . $this->escapeXml($alternates[$sourceLanguage])
                     . '" />' . "\n";
+                $xml .= "  </url>\n";
             }
 
-            $xml .= '    <xhtml:link rel="alternate" hreflang="x-default" href="'
-                . $this->escapeXml($alternates[$sourceLanguage])
-                . '" />' . "\n";
-            $xml .= "  </url>\n";
-
-            if (count($serialized) >= self::MAX_ENTRIES) {
+            if (count($serializedUrls) >= self::MAX_ENTRIES) {
                 break;
             }
         }
