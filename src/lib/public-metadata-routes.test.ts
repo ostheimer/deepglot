@@ -88,11 +88,14 @@ test("manifest exposes installable 192, 512, and maskable icons", () => {
   );
 });
 
-test("manifest launches in the selected locale without narrowing the app scope", () => {
-  const manifest = buildLocalizedManifest("bg");
+test("manifest keeps one app identity while launching in every selected locale", () => {
+  for (const locale of SITE_LOCALES) {
+    const manifest = buildLocalizedManifest(locale);
 
-  assert.equal(manifest.start_url, "/bg");
-  assert.equal(manifest.scope, "/");
+    assert.equal(manifest.id, "/", locale);
+    assert.equal(manifest.start_url, getMarketingPath(locale, "home"), locale);
+    assert.equal(manifest.scope, "/", locale);
+  }
 });
 
 test("manifest link carries the selected locale without relying on cookies", () => {

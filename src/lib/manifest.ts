@@ -26,6 +26,7 @@ export function getManifestHref(locale: SiteLocale): string {
 
 export function buildLocalizedManifest(locale: SiteLocale): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "Deepglot",
     short_name: "Deepglot",
     description:
