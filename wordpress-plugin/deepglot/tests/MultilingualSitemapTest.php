@@ -234,4 +234,42 @@ sitemapAssert(str_contains($subdomainXml, 'href="https://en.example.com/angebote
 sitemapAssert(str_contains($subdomainXml, 'href="https://example.com/fr/angebote/"'), 'Unmapped active target uses safe path-prefix fallback');
 sitemapAssert(!str_contains($subdomainXml, 'example.com/en/angebote/'), 'Mapped subdomain is not also path-prefixed');
 
+// 4b. A target-subdomain entry may arrive before its source counterpart (for
+// example from a legacy WPML inventory). Host-based language detection must
+// happen before canonicalizing translated slugs, otherwise /products/ is
+// incorrectly published as a new source cluster and suppresses /produkte/.
+$targetFirstSubdomainSitemap = makeSitemap(
+    'SUBDOMAIN',
+    ['en' => 'en.example.com'],
+    ['en' => ['produkte' => 'products']]
+);
+$targetFirstSubdomainXml = $targetFirstSubdomainSitemap->buildXml([
+    ['loc' => 'https://en.example.com/products/'],
+    ['loc' => 'https://example.com/produkte/'],
+]);
+$targetFirstDoc = new DOMDocument();
+sitemapAssert($targetFirstDoc->loadXML($targetFirstSubdomainXml) === true, 'Target-first subdomain sitemap is well-formed XML');
+$targetFirstXpath = new DOMXPath($targetFirstDoc);
+$targetFirstXpath->registerNamespace('s', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+$targetFirstLocNodes = $targetFirstXpath->query('//s:url/s:loc');
+$targetFirstLocs = [];
+foreach ($targetFirstLocNodes ?: [] as $targetFirstLocNode) {
+    $targetFirstLocs[] = $targetFirstLocNode->textContent;
+}
+$expectedTargetFirstLocs = [
+    'https://example.com/produkte/',
+    'https://en.example.com/products/',
+    'https://example.com/fr/produkte/',
+];
+sort($targetFirstLocs);
+sort($expectedTargetFirstLocs);
+sitemapAssert(
+    $targetFirstLocs === $expectedTargetFirstLocs,
+    'Target-first subdomain entries canonicalize through their host language into one correct localized cluster.'
+);
+sitemapAssert(
+    !str_contains($targetFirstSubdomainXml, 'https://example.com/products/'),
+    'Translated target slugs must never leak onto the source host.'
+);
+
 fwrite(STDOUT, "MultilingualSitemapTest: OK\n");

@@ -35,6 +35,10 @@ if (!function_exists('wp_is_json_request')) {
 if (!function_exists('is_admin')) {
     function is_admin() { return false; }
 }
+if (!function_exists('is_feed')) {
+    $GLOBALS['_deepglot_is_feed'] = false;
+    function is_feed() { return (bool) ($GLOBALS['_deepglot_is_feed'] ?? false); }
+}
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_options'] = [];
     function get_option($key, $default = false) { return $GLOBALS['_deepglot_options'][$key] ?? $default; }
@@ -152,5 +156,24 @@ sourceHreflangAssert(
     str_contains($processed, 'href="https://example.com/en/products/dental-treatment/"'),
     'Source response target hreflang must use translated slugs.'
 );
+
+// A non-HTML response may contain the literal string "<html>" as data. It
+// must remain byte-identical instead of being parsed and serialized as HTML.
+$rss = '<?xml version="1.0" encoding="UTF-8"?>'
+    . '<rss version="2.0"><channel><description><![CDATA[Example <html> fragment]]></description></channel></rss>';
+$atom = '<?xml version="1.0" encoding="UTF-8"?>'
+    . '<feed xmlns="http://www.w3.org/2005/Atom"><content type="html"><![CDATA[Literal <html> text]]></content></feed>';
+$json = '{"markup":"<html> is data, not a document"}';
+sourceHreflangAssert($buffer->processSource($rss) === $rss, 'RSS with literal <html> CDATA must pass through byte-identically.');
+sourceHreflangAssert($buffer->processSource($atom) === $atom, 'Atom with literal <html> CDATA must pass through byte-identically.');
+sourceHreflangAssert($buffer->processSource($json) === $json, 'Non-HTML responses containing <html> text must pass through byte-identically.');
+
+// WordPress identifies feed requests before the body is available. Avoid
+// starting the source metadata buffer at all when that signal is present.
+$GLOBALS['_deepglot_is_feed'] = true;
+$feedLevel = ob_get_level();
+$buffer->startBuffer();
+sourceHreflangAssert(ob_get_level() === $feedLevel, 'Known feed requests must not start the source metadata buffer.');
+$GLOBALS['_deepglot_is_feed'] = false;
 
 fwrite(STDOUT, "SourceHreflangOutputTest: OK\n");

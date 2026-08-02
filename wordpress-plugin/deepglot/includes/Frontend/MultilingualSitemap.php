@@ -379,8 +379,11 @@ class MultilingualSitemap
     private function relativeLocation(string $url): string
     {
         $path = (string) parse_url($url, PHP_URL_PATH);
+        $host = (string) parse_url($url, PHP_URL_HOST);
         $query = (string) parse_url($url, PHP_URL_QUERY);
-        $relative = $this->routing->getCanonicalPath($path !== '' ? $path : '/');
+        $path = $path !== '' ? $path : '/';
+        $language = $this->routing->detectLanguage($path, $host);
+        $relative = $this->routing->getCanonicalPath($path, $language);
 
         if ($query !== '') {
             $relative .= '?' . $query;

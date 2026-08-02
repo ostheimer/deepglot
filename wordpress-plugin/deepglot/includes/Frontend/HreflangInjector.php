@@ -16,6 +16,12 @@ use Deepglot\Support\SiteRouting;
  */
 class HreflangInjector
 {
+    private const FEED_MEDIA_TYPES = [
+        'application/rss+xml',
+        'application/atom+xml',
+        'application/feed+json',
+    ];
+
     private Options $options;
     private SiteRouting $routing;
 
@@ -75,8 +81,9 @@ class HreflangInjector
         foreach ($links as $link) {
             if (
                 $link instanceof \DOMElement
-                && strtolower($link->getAttribute('rel')) === 'alternate'
+                && $this->hasRelToken($link, 'alternate')
                 && $link->hasAttribute('hreflang')
+                && !$this->isFeedDiscoveryLink($link)
             ) {
                 $toRemove[] = $link;
             }
@@ -85,5 +92,19 @@ class HreflangInjector
         foreach ($toRemove as $link) {
             $head->removeChild($link);
         }
+    }
+
+    private function hasRelToken(\DOMElement $link, string $expected): bool
+    {
+        $tokens = preg_split('/\s+/u', strtolower(trim($link->getAttribute('rel')))) ?: [];
+
+        return in_array(strtolower($expected), $tokens, true);
+    }
+
+    private function isFeedDiscoveryLink(\DOMElement $link): bool
+    {
+        $mediaType = strtolower(trim(explode(';', $link->getAttribute('type'), 2)[0]));
+
+        return in_array($mediaType, self::FEED_MEDIA_TYPES, true);
     }
 }

@@ -149,7 +149,7 @@ class OutputBuffer
      */
     public function processSource(string $html): string
     {
-        if ($html === '' || stripos($html, '<html') === false) {
+        if (!$this->isHtmlDocument($html)) {
             return $html;
         }
 
@@ -169,6 +169,12 @@ class OutputBuffer
             return false;
         }
 
+        foreach (['is_feed', 'is_trackback', 'is_robots', 'is_favicon'] as $conditional) {
+            if (function_exists($conditional) && $conditional()) {
+                return false;
+            }
+        }
+
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
             return false;
         }
@@ -180,9 +186,23 @@ class OutputBuffer
         return true;
     }
 
+    private function isHtmlDocument(string $html): bool
+    {
+        if ($html === '') {
+            return false;
+        }
+
+        $withoutBom = preg_replace('/^\xEF\xBB\xBF/', '', $html) ?? $html;
+        $documentStart = ltrim($withoutBom);
+
+        return preg_match(
+            '/\A(?:<!--.*?-->\s*)*(?:<!doctype\s+html\b[^>]*>\s*)?<html(?:\s|>)/is',
+            $documentStart
+        ) === 1;
+    }
+
     private function detectTargetLanguage(): ?string
     {
-
         // The RequestRouter already stripped the language prefix from REQUEST_URI,
         // but it stored the detected language for us.
         $detected = $this->router->getCurrentLanguage();

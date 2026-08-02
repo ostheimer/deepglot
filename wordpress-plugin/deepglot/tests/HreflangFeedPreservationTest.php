@@ -65,8 +65,11 @@ $doc = new DOMDocument();
 $doc->loadHTML(
     '<!doctype html><html><head>'
     . '<link rel="alternate" type="application/rss+xml" title="News Feed" href="https://example.com/feed/">'
+    . '<link rel="alternate" type="application/rss+xml" hreflang="en" title="English News Feed" href="https://example.com/en/feed/">'
+    . '<link rel="alternate\tsearch" type="application/atom+xml; charset=UTF-8" hreflang="de" title="Atom Feed" href="https://example.com/atom.xml">'
     . '<link rel="alternate" hreflang="de" href="https://example.com/legacy-source/">'
     . '<link rel="ALTERNATE" hreflang="en" href="https://example.com/en/legacy-target/">'
+    . '<link rel="next  ALTERNATE" hreflang="it" href="https://example.com/legacy-token-target/">'
     . '</head><body></body></html>',
     LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
 );
@@ -78,10 +81,22 @@ hreflangFeedAssert(
     str_contains($html, 'title="News Feed"') && str_contains($html, 'href="https://example.com/feed/"'),
     'RSS/feed rel=alternate links without hreflang must survive Deepglot injection.'
 );
-hreflangFeedAssert(substr_count($html, 'hreflang="de"') === 1, 'Legacy source hreflang must be replaced exactly once.');
-hreflangFeedAssert(substr_count($html, 'hreflang="en"') === 1, 'Legacy target hreflang must be replaced exactly once.');
+hreflangFeedAssert(
+    str_contains($html, 'title="English News Feed"') && str_contains($html, 'href="https://example.com/en/feed/"'),
+    'Localized RSS discovery links must survive even when they carry hreflang.'
+);
+hreflangFeedAssert(
+    str_contains($html, 'title="Atom Feed"') && str_contains($html, 'href="https://example.com/atom.xml"'),
+    'Atom discovery links with rel token whitespace/case and hreflang must survive.'
+);
 hreflangFeedAssert(substr_count($html, 'hreflang="x-default"') === 1, 'x-default must be emitted exactly once.');
+hreflangFeedAssert(str_contains($html, 'href="https://example.com/produkte/"'), 'Replacement source hreflang must be emitted.');
 hreflangFeedAssert(str_contains($html, 'href="https://example.com/en/products/"'), 'Replacement hreflang must include translated target slugs.');
-hreflangFeedAssert(!str_contains($html, 'legacy-source') && !str_contains($html, 'legacy-target'), 'Stale WPML hreflang links must be removed.');
+hreflangFeedAssert(
+    !str_contains($html, 'legacy-source')
+    && !str_contains($html, 'legacy-target')
+    && !str_contains($html, 'legacy-token-target'),
+    'Only stale page-language alternates are removed, including mixed-case rel token lists.'
+);
 
 fwrite(STDOUT, "HreflangFeedPreservationTest: OK\n");
