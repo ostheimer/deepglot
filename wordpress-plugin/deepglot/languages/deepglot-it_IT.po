@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.11.2\n"
+"Project-Id-Version: Deepglot 0.11.3\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -530,20 +530,20 @@ msgstr "Se la destinazione è mancante o non valida, Switcher rimarrà al sicuro
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Anteprima del sito web per il posizionamento Switcher"
 
-#: includes/Api/Client.php:304
+#: includes/Api/Client.php:308
 #: includes/Sync/SettingsSync.php:62
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Non esiste API-Key per la sincronizzazione."
 
-#: includes/Api/Client.php:349
+#: includes/Api/Client.php:353
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Non esiste API-Key per la configurazione runtime."
 
-#: includes/Api/Client.php:410
+#: includes/Api/Client.php:420
 msgid "Deepglot API Fehler."
 msgstr "Deepglot Errore API."
 
-#: includes/Api/Client.php:611
+#: includes/Api/Client.php:621
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key non valido o revocato."
 

@@ -1,7 +1,8 @@
-import type {
-  TranslateTextsInput,
-  TranslationProviderName,
-  TranslationResult,
+import {
+  TranslationProviderResponseError,
+  type TranslateTextsInput,
+  type TranslationProviderName,
+  type TranslationResult,
 } from "@/lib/translation-types";
 import {
   DEFAULT_OPENAI_BASE_URL,
@@ -75,38 +76,65 @@ function getOpenAIMessageText(
     }
   }
 
-  throw new Error("OpenAI hat keine nutzbare Antwort geliefert.");
+  throw new TranslationProviderResponseError(
+    "OpenAI hat keine nutzbare Antwort geliefert."
+  );
 }
 
 function parseOpenAITranslations(
   rawContent: string,
   expectedCount: number
 ): TranslationResult[] {
-  let payload: OpenAITranslationPayload;
+  let rawPayload: unknown;
 
   try {
-    payload = JSON.parse(rawContent) as OpenAITranslationPayload;
+    rawPayload = JSON.parse(rawContent) as unknown;
   } catch {
-    throw new Error("OpenAI hat kein gueltiges JSON fuer die Uebersetzung geliefert.");
+    throw new TranslationProviderResponseError(
+      "OpenAI hat kein gueltiges JSON fuer die Uebersetzung geliefert."
+    );
   }
 
+  if (
+    !rawPayload ||
+    typeof rawPayload !== "object" ||
+    Array.isArray(rawPayload)
+  ) {
+    throw new TranslationProviderResponseError(
+      "OpenAI API response did not include a translation payload object."
+    );
+  }
+
+  const payload = rawPayload as OpenAITranslationPayload;
+
   if (!Array.isArray(payload.translations)) {
-    throw new Error("OpenAI-Antwort enthaelt kein 'translations'-Array.");
+    throw new TranslationProviderResponseError(
+      "OpenAI-Antwort enthaelt kein 'translations'-Array."
+    );
   }
 
   if (payload.translations.length !== expectedCount) {
-    throw new Error(
+    throw new TranslationProviderResponseError(
       `OpenAI hat ${payload.translations.length} statt ${expectedCount} Uebersetzungen geliefert.`
     );
   }
 
   return payload.translations.map((item, index) => {
     if (typeof item === "string") {
+      if (item.trim().length === 0) {
+        throw new TranslationProviderResponseError(
+          `OpenAI hat fuer Eintrag ${index + 1} keine gueltige Uebersetzung geliefert.`
+        );
+      }
       return { text: item };
     }
 
-    if (!item || typeof item.text !== "string") {
-      throw new Error(
+    if (
+      !item ||
+      typeof item.text !== "string" ||
+      item.text.trim().length === 0
+    ) {
+      throw new TranslationProviderResponseError(
         `OpenAI hat fuer Eintrag ${index + 1} keine gueltige Uebersetzung geliefert.`
       );
     }
@@ -166,7 +194,22 @@ export async function translateWithOpenAICompatible(
     );
   }
 
-  const data = (await response.json()) as OpenAIChatCompletionResponse;
+  let rawData: unknown;
+  try {
+    rawData = await response.json();
+  } catch {
+    throw new TranslationProviderResponseError(
+      "OpenAI hat kein gueltiges JSON-Antwortobjekt geliefert."
+    );
+  }
+
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    throw new TranslationProviderResponseError(
+      "OpenAI hat kein gueltiges JSON-Antwortobjekt geliefert."
+    );
+  }
+
+  const data = rawData as OpenAIChatCompletionResponse;
   const rawContent = getOpenAIMessageText(data.choices?.[0]?.message?.content);
 
   return parseOpenAITranslations(rawContent, texts.length);

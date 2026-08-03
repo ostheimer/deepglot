@@ -15,6 +15,23 @@ use Deepglot\Support\UrlLanguageResolver;
  */
 class OutputBuffer
 {
+    /** @var string[] */
+    private const PLAIN_PERMALINK_ID_QUERY_VARS = [
+        'p',
+        'page_id',
+        'attachment_id',
+    ];
+
+    /** @var string[] */
+    private const CANONICAL_QUERY_VARS = [
+        'p',
+        'page_id',
+        'attachment_id',
+        's',
+        'paged',
+        'post_type',
+    ];
+
     private Options $options;
     private UrlLanguageResolver $resolver;
     private HtmlTranslator $translator;
@@ -48,11 +65,11 @@ class OutputBuffer
 
     public function startBuffer(): void
     {
-        $targetLanguage = $this->detectTargetLanguage();
-
-        if ($targetLanguage === null) {
+        if (!$this->canProcessCurrentRequest()) {
             return;
         }
+
+        $targetLanguage = $this->detectTargetLanguage();
 
         // The admin toggle must gate the actual output pipeline, not only the
         // settings-sync payload. Bail before runtime config, exclusions, cache
@@ -66,7 +83,9 @@ class OutputBuffer
         }
 
         ob_start(function (string $html) use ($targetLanguage): string {
-            return $this->process($html, $targetLanguage);
+            return $targetLanguage === null
+                ? $this->processSource($html)
+                : $this->process($html, $targetLanguage);
         });
     }
 
@@ -109,8 +128,13 @@ class OutputBuffer
         // Step 3: inject hreflang tags.
         // Use the original (pre-rewrite) REQUEST_URI to get the canonical path.
         $rawUri        = RequestInput::server('REQUEST_URI', '/');
-        $canonicalPath = $this->routing->getCanonicalPath($rawUri);
-        $this->hreflangInjector->inject($doc, $canonicalPath);
+        $canonicalPath = $this->canonicalRequestLocation($rawUri);
+        $this->hreflangInjector->inject(
+            $doc,
+            $canonicalPath,
+            $targetLanguage,
+            $this->allowsFallbackCanonical()
+        );
 
         // Step 4: switch <html lang> to the target language and mark translate="no"
         // so browser extensions (Chrome auto-translate, etc.) don't double translate.
@@ -142,22 +166,261 @@ class OutputBuffer
         return $this->saveDocument($doc);
     }
 
+    /**
+     * Adds the reciprocal language cluster to a source-language response
+     * without translating content or rewriting source links.
+     */
+    public function processSource(string $html): string
+    {
+        if (!$this->isHtmlDocument($html)) {
+            return $html;
+        }
+
+        $doc = $this->loadDocument($html);
+        $rawUri = RequestInput::server('REQUEST_URI', '/');
+        $canonicalPath = $this->canonicalRequestLocation($rawUri);
+        $this->hreflangInjector->inject(
+            $doc,
+            $canonicalPath,
+            null,
+            $this->allowsFallbackCanonical()
+        );
+
+        return $this->saveDocument($doc);
+    }
+
     // -------------------------------------------------------------------------
 
-    private function detectTargetLanguage(): ?string
+    private function canProcessCurrentRequest(): bool
     {
         if (is_admin() || wp_doing_ajax() || wp_is_json_request()) {
-            return null;
+            return false;
+        }
+
+        foreach (['is_feed', 'is_trackback', 'is_robots', 'is_favicon'] as $conditional) {
+            if (function_exists($conditional) && $conditional()) {
+                return false;
+            }
         }
 
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
-            return null;
+            return false;
         }
 
         if (headers_sent()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function isHtmlDocument(string $html): bool
+    {
+        if ($html === '') {
+            return false;
+        }
+
+        $withoutBom = preg_replace('/^\xEF\xBB\xBF/', '', $html) ?? $html;
+        $documentStart = ltrim($withoutBom);
+
+        return preg_match(
+            '/\A(?:<!--.*?-->\s*)*(?:<!doctype\s+html\b[^>]*>\s*)?<html(?:\s|>)/is',
+            $documentStart
+        ) === 1;
+    }
+
+    private function allowsFallbackCanonical(): bool
+    {
+        $statusCode = http_response_code();
+
+        return $statusCode === false
+            || $statusCode === 0
+            || ($statusCode >= 200 && $statusCode < 300);
+    }
+
+    /**
+     * Keeps the small set of content-defining WordPress parameters in generated
+     * canonicals and hreflang URLs. Arbitrary request parameters are commonly
+     * campaign or click identifiers and must not create canonical URL variants.
+     */
+    private function canonicalRequestLocation(string $uri): string
+    {
+        $canonicalPath = $this->routing->getCanonicalPath($uri);
+        $rawQuery = wp_parse_url($uri, PHP_URL_QUERY);
+
+        if (!is_string($rawQuery) || $rawQuery === '') {
+            return $canonicalPath;
+        }
+
+        $query = $this->parseCanonicalQuery($rawQuery);
+        $plainPermalinkQuery = $this->canonicalPlainPermalinkIdQuery($query);
+
+        if ($plainPermalinkQuery !== null) {
+            if ($plainPermalinkQuery === []) {
+                return $canonicalPath;
+            }
+
+            return $canonicalPath . '?' . http_build_query(
+                $plainPermalinkQuery,
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            );
+        }
+
+        if (!array_key_exists('s', $query)) {
+            $paged = $this->canonicalSinglePositiveInteger($query, 'paged');
+            if ($paged === null || $paged === '1') {
+                return $canonicalPath;
+            }
+
+            return $canonicalPath . '?' . http_build_query(
+                ['paged' => $paged],
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            );
+        }
+
+        if (count($query['s']) !== 1) {
+            return $canonicalPath;
+        }
+
+        $canonicalQuery = ['s' => $query['s'][0]];
+
+        $paged = $this->canonicalSinglePositiveInteger($query, 'paged');
+        if ($paged !== null && $paged !== '1') {
+            $canonicalQuery['paged'] = $paged;
+        }
+
+        if (
+            isset($query['post_type'])
+            && count($query['post_type']) === 1
+            && preg_match('/\A[a-z0-9_-]{1,20}\z/', $query['post_type'][0]) === 1
+        ) {
+            $canonicalQuery['post_type'] = $query['post_type'][0];
+        }
+
+        return $canonicalPath . '?' . http_build_query(
+            $canonicalQuery,
+            '',
+            '&',
+            PHP_QUERY_RFC3986
+        );
+    }
+
+    /**
+     * Plain-permalink post, page and attachment IDs are the route itself. Keep
+     * exactly one scalar positive ID, while rejecting ambiguous, nested or
+     * otherwise malformed selectors.
+     *
+     * @param array<string, string[]> $query
+     * @return array<string, string>
+     */
+    private function canonicalPlainPermalinkIdQuery(array $query): ?array
+    {
+        $selectedKeys = [];
+
+        foreach (self::PLAIN_PERMALINK_ID_QUERY_VARS as $key) {
+            if (array_key_exists($key, $query)) {
+                $selectedKeys[] = $key;
+            }
+        }
+
+        if ($selectedKeys === []) {
             return null;
         }
 
+        if (count($selectedKeys) !== 1) {
+            return [];
+        }
+
+        $selectedKey = $selectedKeys[0];
+        if (count($query[$selectedKey]) !== 1) {
+            return [];
+        }
+
+        $selectedValue = $this->canonicalPositiveInteger($query[$selectedKey][0]);
+
+        if ($selectedValue === null) {
+            return [];
+        }
+
+        return [$selectedKey => $selectedValue];
+    }
+
+    /**
+     * Parses only exact canonical query-variable names. parse_str() cannot be
+     * used for this allowlist because it normalizes dots, spaces and NUL bytes
+     * in keys, which can turn an untrusted key into an allowed WordPress key.
+     *
+     * @return array<string, string[]>
+     */
+    private function parseCanonicalQuery(string $rawQuery): array
+    {
+        $query = [];
+
+        foreach (explode('&', $rawQuery) as $pair) {
+            [$rawKey, $rawValue] = array_pad(explode('=', $pair, 2), 2, '');
+            $key = urldecode($rawKey);
+
+            if (!in_array($key, self::CANONICAL_QUERY_VARS, true)) {
+                continue;
+            }
+
+            if (!isset($query[$key])) {
+                $query[$key] = [];
+            }
+
+            $query[$key][] = urldecode($rawValue);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param array<string, string[]> $query
+     */
+    private function canonicalSinglePositiveInteger(array $query, string $key): ?string
+    {
+        if (!isset($query[$key]) || count($query[$key]) !== 1) {
+            return null;
+        }
+
+        return $this->canonicalPositiveInteger($query[$key][0]);
+    }
+
+    /**
+     * Normalizes the decimal integers WordPress later represents as native
+     * integers. Rejecting values above PHP_INT_MAX avoids overflow-dependent
+     * canonical URLs on 32-bit and 64-bit hosts.
+     *
+     * @param mixed $value
+     */
+    private function canonicalPositiveInteger($value): ?string
+    {
+        if (!is_string($value) || preg_match('/\A[0-9]+\z/', $value) !== 1) {
+            return null;
+        }
+
+        $normalized = ltrim($value, '0');
+        if ($normalized === '') {
+            return null;
+        }
+
+        $maximum = (string) PHP_INT_MAX;
+        if (
+            strlen($normalized) > strlen($maximum)
+            || (strlen($normalized) === strlen($maximum) && strcmp($normalized, $maximum) > 0)
+        ) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function detectTargetLanguage(): ?string
+    {
         // The RequestRouter already stripped the language prefix from REQUEST_URI,
         // but it stored the detected language for us.
         $detected = $this->router->getCurrentLanguage();

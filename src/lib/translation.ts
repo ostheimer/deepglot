@@ -8,11 +8,12 @@ import {
   type TranslationProviderConfig,
   type TranslationSettingsLike,
 } from "@/lib/translation-config";
-import type {
-  TranslateTextsInput,
-  TranslationEnv,
-  TranslationProviderName,
-  TranslationResult,
+import {
+  TranslationProviderResponseError,
+  type TranslateTextsInput,
+  type TranslationEnv,
+  type TranslationProviderName,
+  type TranslationResult,
 } from "@/lib/translation-types";
 export { countWords } from "@/lib/translation-types";
 
@@ -67,19 +68,73 @@ async function translateWithProvider(
 }
 
 /**
- * Errors the fallback wrapper treats as "try the next provider":
- * quota / rate-limit responses, gateway/timeout errors and the catch-all
- * 5xx server errors. Auth failures, validation errors and other 4xx codes
- * are surfaced unchanged so the operator can see the real misconfiguration.
+ * Errors the fallback wrapper treats as "try the next provider": invalid
+ * provider response contracts, quota / rate-limit responses, gateway/timeout
+ * errors and catch-all 5xx server errors. Auth failures, local configuration
+ * errors and other 4xx codes are surfaced unchanged so the operator can see
+ * the real misconfiguration.
  */
+const RETRYABLE_TRANSPORT_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EPIPE",
+  "ETIMEDOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+]);
+
 function isProviderFailoverError(error: unknown): boolean {
+  if (error instanceof TranslationProviderResponseError) return true;
   if (!(error instanceof Error)) return false;
+
+  if (error.name === "AbortError" || error.name === "TimeoutError") {
+    return true;
+  }
+
+  let cause: unknown = (error as Error & { cause?: unknown }).cause;
+  for (let depth = 0; cause && depth < 3; depth += 1) {
+    if (typeof cause !== "object") break;
+
+    const code = (cause as { code?: unknown }).code;
+    if (
+      typeof code === "string" &&
+      RETRYABLE_TRANSPORT_ERROR_CODES.has(code.toUpperCase())
+    ) {
+      return true;
+    }
+
+    if (cause instanceof Error) {
+      if (cause.name === "AbortError" || cause.name === "TimeoutError") {
+        return true;
+      }
+      cause = (cause as Error & { cause?: unknown }).cause;
+      continue;
+    }
+    break;
+  }
+
   const message = error.message.toLowerCase();
-  if (message.includes("429") || message.includes("rate limit") || message.includes("quota")) {
+  if (
+    message.includes("408") ||
+    message.includes("429") ||
+    message.includes("rate limit") ||
+    message.includes("quota")
+  ) {
     return true;
   }
   if (/(\b5\d\d\b)/.test(message)) return true;
-  if (message.includes("econnreset") || message.includes("etimedout") || message.includes("network")) return true;
+  if (
+    message.includes("fetch failed") ||
+    message.includes("econnreset") ||
+    message.includes("etimedout") ||
+    message.includes("network")
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -118,10 +173,10 @@ export async function translateTexts(
       lastError = error;
       const hasNext = index < chain.length - 1;
 
-      // Quota / rate-limit / 5xx / network error with another provider still
-      // to try: warn rather than error — the request can still succeed via the
-      // fallback — but log the full upstream detail and the chain so a
-      // recurring failover is visible instead of hidden behind a truncation.
+      // Recoverable provider response / quota / rate-limit / 5xx / network
+      // error with another provider still to try: warn rather than error — the
+      // request can still succeed via the fallback — but log the full upstream
+      // detail and the chain so a recurring failover is visible.
       if (hasNext && isProviderFailoverError(error)) {
         console.warn(
           `[translation] provider ${candidate.provider} failed; falling back to ${chain[index + 1].provider} (chain: ${providerChain}). ${describeProviderError(error)}`

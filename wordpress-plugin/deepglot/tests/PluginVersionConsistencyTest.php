@@ -37,7 +37,7 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
-versionAssert($headerVersion === '0.11.2', 'WordPress.org submission release must be version 0.11.2');
+versionAssert($headerVersion === '0.11.3', 'WordPress.org submission release must be version 0.11.3');
 versionAssert($headerVersion === $constantVersion, 'Header and runtime versions must match');
 versionAssert(
     str_contains($readme, '(**v' . $headerVersion . '**)'),

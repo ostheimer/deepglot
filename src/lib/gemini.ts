@@ -1,6 +1,7 @@
-import type {
-  TranslateTextsInput,
-  TranslationResult,
+import {
+  TranslationProviderResponseError,
+  type TranslateTextsInput,
+  type TranslationResult,
 } from "@/lib/translation-types";
 import type { TranslationProviderConfig } from "@/lib/translation-config";
 
@@ -83,48 +84,82 @@ export async function translateWithGemini(
     throw new Error(`Gemini API error ${response.status}: ${detail}`);
   }
 
-  const data = (await response.json().catch(() => null)) as GeminiResponse | null;
-  if (!data) {
-    throw new Error("Gemini API returned an unparseable JSON envelope.");
+  const rawData = (await response.json().catch(() => null)) as unknown;
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    throw new TranslationProviderResponseError(
+      "Gemini API returned an unparseable JSON envelope."
+    );
   }
 
+  const data = rawData as GeminiResponse;
+
   if (data.promptFeedback?.blockReason) {
-    throw new Error(
+    throw new TranslationProviderResponseError(
       `Gemini blocked the translation prompt (${data.promptFeedback.blockReason}).`
     );
   }
 
   const rawText = collectCandidateText(data);
   if (!rawText) {
-    throw new Error("Gemini API response did not include any model text output.");
+    throw new TranslationProviderResponseError(
+      "Gemini API response did not include any model text output."
+    );
   }
 
   let parsed: ParsedGeminiPayload;
   try {
     parsed = JSON.parse(rawText) as ParsedGeminiPayload;
   } catch {
-    throw new Error("Gemini API response was not valid JSON.");
+    throw new TranslationProviderResponseError(
+      "Gemini API response was not valid JSON."
+    );
   }
 
-  const translations = Array.isArray(parsed?.translations) ? parsed.translations : [];
+  if (!Array.isArray(parsed?.translations)) {
+    throw new TranslationProviderResponseError(
+      "Gemini API response did not include a translations array."
+    );
+  }
 
-  return texts.map((source, index) => {
+  const translations = parsed.translations;
+
+  if (translations.length !== texts.length) {
+    throw new TranslationProviderResponseError(
+      `Gemini returned ${translations.length} instead of ${texts.length} translations.`
+    );
+  }
+
+  return texts.map((_, index) => {
     const entry = translations[index];
-    if (entry && typeof entry.text === "string" && entry.text.length > 0) {
+    if (
+      entry &&
+      typeof entry.text === "string" &&
+      entry.text.trim().length > 0
+    ) {
       const result: TranslationResult = { text: entry.text };
       if (typeof entry.detectedSourceLanguage === "string") {
         result.detectedSourceLanguage = entry.detectedSourceLanguage;
       }
       return result;
     }
-    return { text: source };
+    throw new TranslationProviderResponseError(
+      `Gemini returned no valid translation for entry ${index + 1}.`
+    );
   });
 }
 
 function collectCandidateText(data: GeminiResponse): string {
-  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const parts = data.candidates?.[0]?.content?.parts;
+  if (parts === undefined) {
+    return "";
+  }
+  if (!Array.isArray(parts)) {
+    throw new TranslationProviderResponseError(
+      "Gemini API response candidate parts were not an array."
+    );
+  }
   return parts
-    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
     .join("");
 }
 

@@ -7,6 +7,7 @@ use Deepglot\Admin\SettingsPage;
 use Deepglot\Api\Client;
 use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
+use Deepglot\Frontend\AvadaLiveSearchCompat;
 use Deepglot\Frontend\BrowserRedirector;
 use Deepglot\Frontend\DynamicAssets;
 use Deepglot\Frontend\DynamicTranslationController;
@@ -55,6 +56,7 @@ class Plugin
         $this->container->get(SettingsSync::class)->register();
         add_action('plugins_loaded', [$this, 'refreshRuntimeRouting'], 0);
         $this->container->get(RequestRouter::class)->register();
+        $this->container->get(AvadaLiveSearchCompat::class)->register();
         $this->container->get(BrowserRedirector::class)->register();
         $this->container->get(MultilingualSitemap::class)->register();
         $this->container->get(OutputBuffer::class)->register();
@@ -248,6 +250,13 @@ class Plugin
 
         $this->container->singleton(RequestRouter::class, function (Container $c) {
             return new RequestRouter($c->get(Options::class), $c->get(SiteRouting::class));
+        });
+
+        $this->container->singleton(AvadaLiveSearchCompat::class, function (Container $c) {
+            return new AvadaLiveSearchCompat(
+                $c->get(Options::class),
+                $c->get(RequestRouter::class)
+            );
         });
 
         $this->container->singleton(LinkRewriter::class, function (Container $c) {

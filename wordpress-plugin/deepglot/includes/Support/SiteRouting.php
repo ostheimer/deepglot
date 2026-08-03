@@ -112,6 +112,7 @@ class SiteRouting
     public function buildUrlForLanguage(string $path, string $language): string
     {
         [$canonicalPath, $query, $fragment] = $this->splitPath($path);
+        $canonicalPath = $this->getSiteRelativePath($canonicalPath);
         $normalizedLanguage = strtolower(trim($language));
 
         if ($normalizedLanguage !== $this->resolver->getSourceLanguage()) {
@@ -136,22 +137,62 @@ class SiteRouting
 
     public function buildHrefForLanguage(string $path, string $language): string
     {
-        [$canonicalPath, $query, $fragment] = $this->splitPath($path);
+        $localizedUrl = $this->buildUrlForLanguage($path, $language);
 
         if ($this->usesSubdomains()) {
-            return $this->buildUrlForLanguage($path, $language);
+            return $localizedUrl;
         }
 
-        $normalizedLanguage = strtolower(trim($language));
-        $localizedPath = $this->resolver->withLanguage($canonicalPath, $normalizedLanguage);
-        $localizedPath = $this->mapPathSegments(
-            $localizedPath,
-            $normalizedLanguage,
-            false,
-            $normalizedLanguage !== $this->resolver->getSourceLanguage()
-        );
+        $localizedPath = (string) wp_parse_url($localizedUrl, PHP_URL_PATH);
+        $query = (string) wp_parse_url($localizedUrl, PHP_URL_QUERY);
+        $fragment = (string) wp_parse_url($localizedUrl, PHP_URL_FRAGMENT);
 
         return $this->appendQueryAndFragment($localizedPath, $query, $fragment);
+    }
+
+    /**
+     * Returns the canonical localized URL when a target-language request uses
+     * stale source slugs, or null when the request is already canonical.
+     */
+    public function getCanonicalRedirectUrl(string $uri, string $host, string $language): ?string
+    {
+        $normalizedLanguage = strtolower(trim($language));
+        if (!in_array($normalizedLanguage, $this->resolver->getTargetLanguages(), true)) {
+            return null;
+        }
+
+        $requestPath = (string) wp_parse_url($uri, PHP_URL_PATH);
+        if ($requestPath === '') {
+            $requestPath = '/';
+        }
+
+        $query = (string) wp_parse_url($uri, PHP_URL_QUERY);
+        $canonicalPath = $this->getCanonicalPath($requestPath, $normalizedLanguage);
+        $canonicalUrl = $this->buildUrlForLanguage(
+            $this->appendQueryAndFragment($canonicalPath, $query, ''),
+            $normalizedLanguage
+        );
+
+        $canonicalHost = (string) wp_parse_url($canonicalUrl, PHP_URL_HOST);
+        if ($canonicalHost === '' || !$this->isInternalHost($canonicalHost)) {
+            return null;
+        }
+
+        $canonicalRequestPath = (string) wp_parse_url($canonicalUrl, PHP_URL_PATH);
+        if ($canonicalRequestPath === '') {
+            $canonicalRequestPath = '/';
+        }
+
+        $canonicalQuery = (string) wp_parse_url($canonicalUrl, PHP_URL_QUERY);
+        if (
+            $this->normalizeHost($host) === $this->normalizeHost($canonicalHost)
+            && $requestPath === $canonicalRequestPath
+            && $query === $canonicalQuery
+        ) {
+            return null;
+        }
+
+        return $canonicalUrl;
     }
 
     public function rewriteUrl(string $url, string $language): string
@@ -198,6 +239,16 @@ class SiteRouting
         return false;
     }
 
+    public function hostsMatch(string $left, string $right): bool
+    {
+        $normalizedLeft = $this->normalizeHost($left);
+        $normalizedRight = $this->normalizeHost($right);
+
+        return $normalizedLeft !== ''
+            && $normalizedRight !== ''
+            && $normalizedLeft === $normalizedRight;
+    }
+
     private function splitPath(string $path): array
     {
         $parsed = wp_parse_url($path);
@@ -231,8 +282,9 @@ class SiteRouting
     private function siteBaseUrlForHost(string $host): string
     {
         $scheme = (string) wp_parse_url($this->siteUrl, PHP_URL_SCHEME) ?: 'https';
+        $sitePath = rtrim((string) wp_parse_url($this->siteUrl, PHP_URL_PATH), '/');
 
-        return $scheme . '://' . $host;
+        return $scheme . '://' . $host . $sitePath;
     }
 
     private function normalizeHost(string $host): string
@@ -533,6 +585,19 @@ class SiteRouting
             explode('/', trim($sitePath, '/')),
             static fn (string $segment): bool => $segment !== ''
         ));
+    }
+
+    private function getSiteRelativePath(string $path): string
+    {
+        $segments = $this->getPathSegments($path);
+        $siteSegments = $this->getSitePathSegments();
+        $sitePathPrefixLength = $this->getSitePathPrefixLength($segments, $siteSegments);
+
+        if ($siteSegments !== [] && $sitePathPrefixLength === count($siteSegments)) {
+            $segments = array_slice($segments, $sitePathPrefixLength);
+        }
+
+        return $this->pathFromSegments($segments);
     }
 
     /**

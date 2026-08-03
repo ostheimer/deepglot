@@ -83,7 +83,7 @@ use Deepglot\Frontend\MultilingualSitemap;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\UrlLanguageResolver;
 
-function makeSitemap(string $mode = 'PATH_PREFIX', array $mappings = []): MultilingualSitemap
+function makeSitemap(string $mode = 'PATH_PREFIX', array $mappings = [], array $slugMappings = []): MultilingualSitemap
 {
     update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
         'enabled' => true,
@@ -94,7 +94,7 @@ function makeSitemap(string $mode = 'PATH_PREFIX', array $mappings = []): Multil
         'domain_mappings' => $mappings,
     ]));
     $options = new Options();
-    $routing = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://example.com', $mode, $mappings);
+    $routing = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://example.com', $mode, $mappings, $slugMappings);
     return new MultilingualSitemap($options, $routing);
 }
 
@@ -177,6 +177,55 @@ sitemapAssert(!str_contains($xml, 'evil.example') && !str_contains($xml, 'javasc
 $doc = new DOMDocument();
 sitemapAssert($doc->loadXML($xml) === true, 'Generated sitemap is well-formed XML');
 
+// 3b. Search engines need one <url><loc> entry per language version. Every
+// version must publish the exact same reciprocal alternate set, including
+// translated slugs, so no page is left out of the cluster.
+$translatedSitemap = makeSitemap('PATH_PREFIX', [], [
+    'en' => ['produkte' => 'products', 'zahnbehandlung' => 'dental-treatment'],
+    'fr' => ['produkte' => 'produits', 'zahnbehandlung' => 'soins-dentaires'],
+]);
+$translatedXml = $translatedSitemap->buildXml([
+    ['loc' => 'https://example.com/produkte/zahnbehandlung/', 'lastmod' => '2026-07-13'],
+    // A still-published, paired WPML target object must collapse into the
+    // same Deepglot cluster instead of duplicating all localized entries.
+    ['loc' => 'https://example.com/en/products/dental-treatment/', 'lastmod' => '2026-07-13'],
+]);
+$translatedDoc = new DOMDocument();
+sitemapAssert($translatedDoc->loadXML($translatedXml) === true, 'Translated-slug sitemap is well-formed XML');
+$translatedXpath = new DOMXPath($translatedDoc);
+$translatedXpath->registerNamespace('s', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+$translatedXpath->registerNamespace('xhtml', 'http://www.w3.org/1999/xhtml');
+$urlNodes = $translatedXpath->query('//s:url');
+sitemapAssert($urlNodes !== false && $urlNodes->length === 3, 'Sitemap emits a separate <url> entry for source and every target language.');
+
+$expectedLocs = [
+    'https://example.com/produkte/zahnbehandlung/',
+    'https://example.com/en/products/dental-treatment/',
+    'https://example.com/fr/produits/soins-dentaires/',
+];
+$expectedAlternates = [
+    'de' => 'https://example.com/produkte/zahnbehandlung/',
+    'en' => 'https://example.com/en/products/dental-treatment/',
+    'fr' => 'https://example.com/fr/produits/soins-dentaires/',
+    'x-default' => 'https://example.com/produkte/zahnbehandlung/',
+];
+$actualLocs = [];
+foreach ($urlNodes as $urlNode) {
+    $locNode = $translatedXpath->query('./s:loc', $urlNode)?->item(0);
+    $actualLocs[] = $locNode?->textContent ?? '';
+    $alternateSet = [];
+    $alternateNodes = $translatedXpath->query('./xhtml:link[@rel="alternate"]', $urlNode);
+    foreach ($alternateNodes ?: [] as $alternateNode) {
+        if ($alternateNode instanceof DOMElement) {
+            $alternateSet[$alternateNode->getAttribute('hreflang')] = $alternateNode->getAttribute('href');
+        }
+    }
+    sitemapAssert($alternateSet === $expectedAlternates, 'Every localized <url> entry has an identical reciprocal alternate set.');
+}
+sort($actualLocs);
+sort($expectedLocs);
+sitemapAssert($actualLocs === $expectedLocs, 'Localized <loc> entries include every translated slug exactly once.');
+
 // 4. Subdomain routing uses only configured language hosts. A target without
 // a mapping follows SiteRouting's safe path-prefix fallback on the source host.
 $subdomainSitemap = makeSitemap('SUBDOMAIN', ['en' => 'en.example.com']);
@@ -184,5 +233,43 @@ $subdomainXml = $subdomainSitemap->buildXml([['loc' => 'https://example.com/ange
 sitemapAssert(str_contains($subdomainXml, 'href="https://en.example.com/angebote/"'), 'Mapped target uses its configured subdomain');
 sitemapAssert(str_contains($subdomainXml, 'href="https://example.com/fr/angebote/"'), 'Unmapped active target uses safe path-prefix fallback');
 sitemapAssert(!str_contains($subdomainXml, 'example.com/en/angebote/'), 'Mapped subdomain is not also path-prefixed');
+
+// 4b. A target-subdomain entry may arrive before its source counterpart (for
+// example from a legacy WPML inventory). Host-based language detection must
+// happen before canonicalizing translated slugs, otherwise /products/ is
+// incorrectly published as a new source cluster and suppresses /produkte/.
+$targetFirstSubdomainSitemap = makeSitemap(
+    'SUBDOMAIN',
+    ['en' => 'en.example.com'],
+    ['en' => ['produkte' => 'products']]
+);
+$targetFirstSubdomainXml = $targetFirstSubdomainSitemap->buildXml([
+    ['loc' => 'https://en.example.com/products/'],
+    ['loc' => 'https://example.com/produkte/'],
+]);
+$targetFirstDoc = new DOMDocument();
+sitemapAssert($targetFirstDoc->loadXML($targetFirstSubdomainXml) === true, 'Target-first subdomain sitemap is well-formed XML');
+$targetFirstXpath = new DOMXPath($targetFirstDoc);
+$targetFirstXpath->registerNamespace('s', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+$targetFirstLocNodes = $targetFirstXpath->query('//s:url/s:loc');
+$targetFirstLocs = [];
+foreach ($targetFirstLocNodes ?: [] as $targetFirstLocNode) {
+    $targetFirstLocs[] = $targetFirstLocNode->textContent;
+}
+$expectedTargetFirstLocs = [
+    'https://example.com/produkte/',
+    'https://en.example.com/products/',
+    'https://example.com/fr/produkte/',
+];
+sort($targetFirstLocs);
+sort($expectedTargetFirstLocs);
+sitemapAssert(
+    $targetFirstLocs === $expectedTargetFirstLocs,
+    'Target-first subdomain entries canonicalize through their host language into one correct localized cluster.'
+);
+sitemapAssert(
+    !str_contains($targetFirstSubdomainXml, 'https://example.com/products/'),
+    'Translated target slugs must never leak onto the source host.'
+);
 
 fwrite(STDOUT, "MultilingualSitemapTest: OK\n");

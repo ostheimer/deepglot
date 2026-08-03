@@ -2,6 +2,7 @@ import { describe, it, after } from "node:test";
 import assert from "node:assert";
 
 import { translateWithGemini } from "./gemini";
+import { TranslationProviderResponseError } from "./translation-types";
 
 type RecordedRequest = { url: string; method: string; headers: Headers; body: string };
 
@@ -113,7 +114,7 @@ describe("translateWithGemini", () => {
     );
   });
 
-  it("falls back to the input text when the model returns fewer translations than requested", async () => {
+  it("rejects a partial result instead of returning cacheable source-text identities", async () => {
     installFetchMock(() => {
       const payload = {
         candidates: [
@@ -135,14 +136,62 @@ describe("translateWithGemini", () => {
       return new Response(JSON.stringify(payload));
     });
 
-    const result = await translateWithGemini(
-      { texts: ["First", "Second"], sourceLang: "de", targetLang: "en" },
-      { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
+    await assert.rejects(
+      () =>
+        translateWithGemini(
+          { texts: ["First", "Second"], sourceLang: "de", targetLang: "en" },
+          { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
+        ),
+      (error: unknown) =>
+        error instanceof TranslationProviderResponseError && /1.*2/.test(error.message)
+    );
+  });
+
+  it("classifies non-array candidate parts as a provider response error", async () => {
+    installFetchMock(() =>
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: { text: "not-an-array" } } }],
+        })
+      )
     );
 
-    assert.deepEqual(result, [
-      { text: "only-one" },
-      { text: "Second" },
-    ]);
+    await assert.rejects(
+      () =>
+        translateWithGemini(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
+        ),
+      (error: unknown) => error instanceof TranslationProviderResponseError
+    );
+  });
+
+  it("rejects whitespace-only translations", async () => {
+    installFetchMock(() =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({ translations: [{ text: " \t " }] }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      )
+    );
+
+    await assert.rejects(
+      () =>
+        translateWithGemini(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
+        ),
+      (error: unknown) => error instanceof TranslationProviderResponseError
+    );
   });
 });

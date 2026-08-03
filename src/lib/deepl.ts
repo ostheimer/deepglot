@@ -1,9 +1,10 @@
 // DeepL translation provider
 
-import type {
-  TranslateTextsInput,
-  TranslationEnv,
-  TranslationResult,
+import {
+  TranslationProviderResponseError,
+  type TranslateTextsInput,
+  type TranslationEnv,
+  type TranslationResult,
 } from "@/lib/translation-types";
 
 const DEEPL_API_URL = "https://api-free.deepl.com/v2"; // use api.deepl.com for Pro
@@ -47,8 +48,59 @@ export async function translateWithDeepL(
     throw new Error(`DeepL API Fehler ${response.status}: ${error}`);
   }
 
-  const data = await response.json();
-  return data.translations as TranslationResult[];
+  let rawData: unknown;
+  try {
+    rawData = await response.json();
+  } catch {
+    throw new TranslationProviderResponseError(
+      "DeepL API returned an unparseable JSON envelope."
+    );
+  }
+
+  if (!rawData || typeof rawData !== "object" || Array.isArray(rawData)) {
+    throw new TranslationProviderResponseError(
+      "DeepL API returned an invalid response envelope."
+    );
+  }
+
+  const translations = (rawData as { translations?: unknown }).translations;
+  if (!Array.isArray(translations)) {
+    throw new TranslationProviderResponseError(
+      "DeepL API response did not include a translations array."
+    );
+  }
+
+  if (translations.length !== texts.length) {
+    throw new TranslationProviderResponseError(
+      `DeepL returned ${translations.length} instead of ${texts.length} translations.`
+    );
+  }
+
+  return translations.map((entry, index) => {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      Array.isArray(entry) ||
+      typeof (entry as { text?: unknown }).text !== "string" ||
+      (entry as { text: string }).text.trim().length === 0
+    ) {
+      throw new TranslationProviderResponseError(
+        `DeepL returned no valid translation for entry ${index + 1}.`
+      );
+    }
+
+    const translation = entry as {
+      detected_source_language?: unknown;
+      text: string;
+    };
+    const result: TranslationResult = { text: translation.text };
+
+    if (typeof translation.detected_source_language === "string") {
+      result.detectedSourceLanguage = translation.detected_source_language;
+    }
+
+    return result;
+  });
 }
 
 /**
@@ -67,4 +119,3 @@ export async function getSupportedLanguages(): Promise<DeepLLanguage[]> {
 
   return response.json();
 }
-

@@ -103,6 +103,39 @@ assertSameRouting(
     $translatedSlugRouting->buildUrlForLanguage('/en/about-us/our-team/', 'de'),
     'Switching from a translated target URL back to the source language must restore canonical source slugs.'
 );
+assertSameRouting(
+    '/en/about-us/?q=0',
+    $translatedSlugRouting->buildHrefForLanguage('/ueber-uns/?q=0', 'en'),
+    'Root PATH_PREFIX href generation must remain unchanged.'
+);
+
+$subdirectoryTranslatedPathRouting = new SiteRouting(
+    $resolver,
+    'https://example.com/blog',
+    'PATH_PREFIX',
+    [],
+    ['en' => ['ueber-uns' => 'about-us']]
+);
+assertSameRouting(
+    '/blog/en/about-us/?q=0',
+    $subdirectoryTranslatedPathRouting->buildHrefForLanguage('/blog/ueber-uns/?q=0', 'en'),
+    'PATH_PREFIX href generation must place the language below the configured WordPress subdirectory without duplicating it.'
+);
+assertSameRouting(
+    '/blog/en/about-us/?q=relative',
+    $subdirectoryTranslatedPathRouting->buildHrefForLanguage('/ueber-uns/?q=relative', 'en'),
+    'A site-relative PATH_PREFIX href input must receive the configured WordPress subdirectory exactly once.'
+);
+assertSameRouting(
+    '/blog/en/about-us/?q=rewrite-absolute',
+    $subdirectoryTranslatedPathRouting->rewriteUrl('/blog/ueber-uns/?q=rewrite-absolute', 'en'),
+    'Relative URL rewriting must normalize a site-root-absolute path before adding the language prefix.'
+);
+assertSameRouting(
+    '/blog/en/about-us/?q=rewrite-relative',
+    $subdirectoryTranslatedPathRouting->rewriteUrl('/ueber-uns/?q=rewrite-relative', 'en'),
+    'Relative URL rewriting must add the WordPress subdirectory to site-relative input exactly once.'
+);
 
 $translatedSubdomainRouting = new SiteRouting(
     $resolver,
@@ -128,6 +161,45 @@ assertSameRouting(
     '/ueber-uns/',
     $translatedSubdomainRouting->getCanonicalPath('/about-us/', 'en'),
     'Subdomain requests must be able to reverse translated slugs using the detected target language.'
+);
+
+$subdirectoryTranslatedSubdomainRouting = new SiteRouting(
+    $resolver,
+    'https://example.com/blog',
+    'SUBDOMAIN',
+    ['en' => 'en.example.com'],
+    ['en' => ['ueber-uns' => 'about-us']]
+);
+assertSameRouting(
+    'https://en.example.com/blog/about-us/?ref=absolute',
+    $subdirectoryTranslatedSubdomainRouting->buildUrlForLanguage('/blog/ueber-uns/?ref=absolute', 'en'),
+    'Subdomain URL generation must normalize an absolute site-root path before adding the configured WordPress subdirectory.'
+);
+assertSameRouting(
+    'https://en.example.com/blog/about-us/?ref=relative',
+    $subdirectoryTranslatedSubdomainRouting->buildUrlForLanguage('/ueber-uns/?ref=relative', 'en'),
+    'Subdomain URL generation must add the configured WordPress subdirectory to a site-relative path exactly once.'
+);
+assertSameRouting(
+    'https://en.example.com/blog/about-us/?ref=href',
+    $subdirectoryTranslatedSubdomainRouting->buildHrefForLanguage('/blog/ueber-uns/?ref=href', 'en'),
+    'SUBDOMAIN href generation must continue returning an absolute localized URL.'
+);
+assertSameRouting(
+    'https://en.example.com/blog/about-us/?ref=source',
+    $subdirectoryTranslatedSubdomainRouting->rewriteUrl(
+        'https://example.com/blog/ueber-uns/?ref=source',
+        'en'
+    ),
+    'Rewriting an absolute source URL to a mapped subdomain must not duplicate the WordPress subdirectory.'
+);
+assertSameRouting(
+    'https://example.com/blog/ueber-uns/?ref=target',
+    $subdirectoryTranslatedSubdomainRouting->rewriteUrl(
+        'https://en.example.com/blog/about-us/?ref=target',
+        'de'
+    ),
+    'Rewriting an absolute target URL back to the source host must not duplicate the WordPress subdirectory.'
 );
 
 $languageNamedSlugRouting = new SiteRouting(
