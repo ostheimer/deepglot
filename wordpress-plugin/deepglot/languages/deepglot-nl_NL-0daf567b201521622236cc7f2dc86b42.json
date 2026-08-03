@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Taalschakelaar"
             ],
+            "Instanz-ID": [
+                "Instantie-ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Toont de taalwissel Deepglot. Stijl, vlag en volgorde volgen de plugin-instellingen."
+            ],
+            "Switcher-Instanz": [
+                "Switcher exemplaar"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Je kunt de ID vinden onder Instellingen \u2192 Deepglot \u2192 Taalwisselaar."
             ]
         }
     }

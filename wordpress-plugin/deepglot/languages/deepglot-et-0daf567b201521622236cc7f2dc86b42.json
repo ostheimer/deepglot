@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Keelevahetus"
             ],
+            "Instanz-ID": [
+                "Eksemplari ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "N\u00e4itab Deepglot keele l\u00fclitit. Stiil, m\u00e4rgistus ja j\u00e4rjestus j\u00e4rgige pistikprogrammi s\u00e4tteid."
+            ],
+            "Switcher-Instanz": [
+                "Switcher eksemplar"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "ID leiate jaotisest Seaded \u2192 Deepglot \u2192 Keelevahetaja."
             ]
         }
     }

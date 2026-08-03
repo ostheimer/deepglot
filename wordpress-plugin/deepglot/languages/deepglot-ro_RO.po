@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.7.0\n"
+"Project-Id-Version: Deepglot 0.11.2\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -15,8 +15,8 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: deepglot.php
-#: includes/Admin/SettingsPage.php:34
-#: includes/Admin/SettingsPage.php:35
+#: includes/Admin/SettingsPage.php:103
+#: includes/Admin/SettingsPage.php:104
 msgid "Deepglot"
 msgstr "Deepglot"
 
@@ -75,349 +75,546 @@ msgstr "Adăugați în meniu"
 msgid "Sprachschalter"
 msgstr "Comutator de voce"
 
-#: includes/Admin/SettingsPage.php:171
+#: includes/Admin/SettingsPage.php:60
+msgid "Deepglot: API-Key ungültig oder widerrufen."
+msgstr "Deepglot: API-Key invalid sau revocat."
+
+#: includes/Admin/SettingsPage.php:61
+msgid "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort."
+msgstr "Serverul Deepglot respinge orice cerere de traducere (HTTP 401). Conținutul care a fost deja memorat în cache va continua să fie livrat, dar nimic nou nu va fi tradus. Stocați un API-Key valid în setările Deepglot, apoi intră în vigoare imediat."
+
+#: includes/Admin/SettingsPage.php:63
+msgid "API-Key im Deepglot-Dashboard prüfen"
+msgstr "Verificați API-Key în tabloul de bord Deepglot"
+
+#: includes/Admin/SettingsPage.php:90
+msgid "Deepglot: Monatliches Wortlimit erreicht."
+msgstr "Deepglot: a fost atinsă limita lunară de cuvinte."
+
+#: includes/Admin/SettingsPage.php:91
+msgid "Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird."
+msgstr "Conținutul care a fost deja tradus va continua să fie livrat, dar textul nou sau modificat va rămâne în limba sursă până la resetarea sau creșterea cotei."
+
+#: includes/Admin/SettingsPage.php:93
+msgid "Kontingent im Deepglot-Dashboard prüfen"
+msgstr "Verificați cota în tabloul de bord Deepglot"
+
+#: includes/Admin/SettingsPage.php:263
+msgid "API-Key ungültig"
+msgstr "API-Key nevalid"
+
+#: includes/Admin/SettingsPage.php:266
 msgid "Aktiv"
 msgstr "Activ"
 
-#: includes/Admin/SettingsPage.php:174
+#: includes/Admin/SettingsPage.php:269
 msgid "Deaktiviert"
 msgstr "Dezactivat"
 
-#: includes/Admin/SettingsPage.php:177
+#: includes/Admin/SettingsPage.php:272
 msgid "Einrichtung erforderlich"
 msgstr "Este necesară configurarea"
 
-#: includes/Admin/SettingsPage.php:194
+#: includes/Admin/SettingsPage.php:295
 msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
 msgstr "Bun venit la Deepglot! Urmați cei trei pași de mai jos pentru a activa traducerea pe site-ul dvs. web."
 
-#: includes/Admin/SettingsPage.php:205
+#: includes/Admin/SettingsPage.php:306
 msgid "Deepglot einrichten"
 msgstr "Configurați Deepglot"
 
-#: includes/Admin/SettingsPage.php:206
+#: includes/Admin/SettingsPage.php:307
 msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
 msgstr "Tot ce aveți nevoie este un API-Key de pe tabloul de bord Deepglot - durează mai puțin de două minute."
 
-#: includes/Admin/SettingsPage.php:218
+#: includes/Admin/SettingsPage.php:319
 msgid "API-Key eintragen"
 msgstr "Introdu API-Key"
 
-#: includes/Admin/SettingsPage.php:221
+#: includes/Admin/SettingsPage.php:322
+msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
+msgstr "API-Key stocat este respins de serverul Deepglot (HTTP 401). În prezent, niciun conținut nou nu este tradus - introduceți o cheie validă și salvați."
+
+#: includes/Admin/SettingsPage.php:327
 msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
 msgstr "Creați un cont gratuit pe deepglot.ai, creați un proiect pentru site-ul dvs. și copiați API-Key."
 
-#: includes/Admin/SettingsPage.php:224
+#: includes/Admin/SettingsPage.php:330
 msgid "Zum Dashboard – API-Key erstellen"
 msgstr "Accesați tabloul de bord – creați API-Key"
 
-#: includes/Admin/SettingsPage.php:229
+#: includes/Admin/SettingsPage.php:335
 msgid "API-Key"
 msgstr "API-Key"
 
-#: includes/Admin/SettingsPage.php:240
+#: includes/Admin/SettingsPage.php:346
 msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
 msgstr "Puteți găsi cheia completă în Setări → API-Keys în proiectul dvs. Deepglot."
 
-#: includes/Admin/SettingsPage.php:244
+#: includes/Admin/SettingsPage.php:350
 msgid "Backend-URL"
 msgstr "Backend URL"
 
-#: includes/Admin/SettingsPage.php:252
+#: includes/Admin/SettingsPage.php:358
 msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
 msgstr "Implicit: https://deepglot.ai/api – modificați numai pentru Self-Hosting."
 
-#: includes/Admin/SettingsPage.php:264
+#: includes/Admin/SettingsPage.php:370
 msgid "Sprachen konfigurieren"
 msgstr "Configurați limbile"
 
-#: includes/Admin/SettingsPage.php:266
+#: includes/Admin/SettingsPage.php:372
 msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
 msgstr "Specificați limba originală și limbile de traducere dorite."
 
-#: includes/Admin/SettingsPage.php:270
+#: includes/Admin/SettingsPage.php:376
 msgid "Originalsprache"
 msgstr "Limba originală"
 
-#: includes/Admin/SettingsPage.php:281
+#: includes/Admin/SettingsPage.php:387
 msgid "Zielsprachen"
 msgstr "Limbi țintă"
 
-#: includes/Admin/SettingsPage.php:289
+#: includes/Admin/SettingsPage.php:395
 msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
 msgstr "Coduri ISO-639-1 separate prin virgulă, de ex. B. en, fr, it"
 
-#: includes/Admin/SettingsPage.php:301
+#: includes/Admin/SettingsPage.php:407
 msgid "Übersetzung aktivieren"
 msgstr "Activați traducerea"
 
-#: includes/Admin/SettingsPage.php:303
+#: includes/Admin/SettingsPage.php:409
 msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
 msgstr "După ce API-Key și limbile sunt salvate, activați aici traducerea automată."
 
-#: includes/Admin/SettingsPage.php:315
+#: includes/Admin/SettingsPage.php:421
 msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
 msgstr "Activați Deepglot pentru toate solicitările frontend"
 
+#: includes/Admin/SettingsPage.php:426
+msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
+msgstr "Traducerea este activată, dar rămâne nemișcată: API-Key este respinsă."
+
 #. translators: %1$s: source language, %2$s: target languages
-#: includes/Admin/SettingsPage.php:324
+#: includes/Admin/SettingsPage.php:434
 msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
 msgstr "Activ – paginile sunt traduse de la %1$s la %2$s sub /%3$s/ihre-seite/"
 
-#: includes/Admin/SettingsPage.php:344
+#: includes/Admin/SettingsPage.php:454
 msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
 msgstr "Redirecționează automat vizitatorii în funcție de limba browserului (opțional)"
 
-#: includes/Admin/SettingsPage.php:353
+#: includes/Admin/SettingsPage.php:463
 msgid "Erweiterte Einstellungen ausblenden"
 msgstr "Ascundeți setările avansate"
 
-#: includes/Admin/SettingsPage.php:353
-#: includes/Admin/SettingsPage.php:354
+#: includes/Admin/SettingsPage.php:463
+#: includes/Admin/SettingsPage.php:464
 msgid "Erweiterte Einstellungen anzeigen"
 msgstr "Afișează setările avansate"
 
-#: includes/Admin/SettingsPage.php:358
+#: includes/Admin/SettingsPage.php:468
 msgid "Ausgeschlossene URLs"
 msgstr "Excluse URLs"
 
-#: includes/Admin/SettingsPage.php:360
+#: includes/Admin/SettingsPage.php:470
 msgid "Eine URL oder ein Muster pro Zeile."
 msgstr "Un URL sau model pe linie."
 
-#: includes/Admin/SettingsPage.php:363
+#: includes/Admin/SettingsPage.php:473
 msgid "Routing-Modus"
 msgstr "Modul de rutare"
 
-#: includes/Admin/SettingsPage.php:366
+#: includes/Admin/SettingsPage.php:476
 msgid "Pfad-Präfix (/en/meine-seite)"
 msgstr "Prefixul căii (/en/meine-seite)"
 
-#: includes/Admin/SettingsPage.php:369
+#: includes/Admin/SettingsPage.php:479
 msgid "Subdomains (en.example.com)"
 msgstr "Subdomenii (en.example.com)"
 
-#: includes/Admin/SettingsPage.php:372
+#: includes/Admin/SettingsPage.php:482
 msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
 msgstr "Prefixul căii rămâne implicit. Pentru subdomenii, fiecare limbă țintă activă are nevoie de o gazdă."
 
-#: includes/Admin/SettingsPage.php:375
+#: includes/Admin/SettingsPage.php:485
 msgid "Domain-Zuordnungen"
 msgstr "Mapările domeniilor"
 
-#: includes/Admin/SettingsPage.php:383
+#: includes/Admin/SettingsPage.php:493
 msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
 msgstr "Format: sprachcode=host, o atribuire pe linie."
 
-#: includes/Admin/SettingsPage.php:395
+#: includes/Admin/SettingsPage.php:505
 msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
 msgstr "Traduceți e-mailurile WooCommerce și wp_mail"
 
-#: includes/Admin/SettingsPage.php:408
+#: includes/Admin/SettingsPage.php:518
 msgid "Suche in der Besuchersprache ausführen"
 msgstr "Efectuați căutarea în limba vizitatorului"
 
-#: includes/Admin/SettingsPage.php:421
+#: includes/Admin/SettingsPage.php:531
 msgid "AMP-Seiten übersetzen"
 msgstr "Traduceți pagini AMP"
 
-#: includes/Admin/SettingsPage.php:425
+#: includes/Admin/SettingsPage.php:544
+msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
+msgstr "Traduceți conținut reîncărcat dinamic (AJAX, derulare fără sfârșit, SPA)"
+
+#: includes/Admin/SettingsPage.php:548
 msgid "Ausgeschlossene CSS-Selektoren"
 msgstr "Selectorii CSS excluși"
 
-#: includes/Admin/SettingsPage.php:427
+#: includes/Admin/SettingsPage.php:550
 msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "O clasă, ID sau selector CSS pe linie."
 
-#: includes/Admin/SettingsPage.php:461
+#: includes/Admin/SettingsPage.php:584
+#: includes/Admin/SettingsPage.php:938
+#: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Comutator de limbă"
 
-#: includes/Admin/SettingsPage.php:462
+#: includes/Admin/SettingsPage.php:585
 msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
 msgstr "Cum și unde ar trebui să apară Language-Switcher pe site-ul dvs. web?"
 
-#: includes/Admin/SettingsPage.php:475
+#: includes/Admin/SettingsPage.php:598
 msgid "Switcher automatisch im Seitenfooter einfügen"
 msgstr "Inserați automat Switcher în subsolul paginii"
 
-#: includes/Admin/SettingsPage.php:479
+#: includes/Admin/SettingsPage.php:602
 msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
 msgstr "Alternativ: Shortcode [deepglot_switcher] sau PHP do_action('deepglot_language_switcher') în tema dvs."
 
-#: includes/Admin/SettingsPage.php:484
+#: includes/Admin/SettingsPage.php:607
+#: includes/Admin/SettingsPage.php:957
 msgid "Darstellung"
 msgstr "Prezentare"
 
-#: includes/Admin/SettingsPage.php:487
+#: includes/Admin/SettingsPage.php:610
+#: includes/Admin/SettingsPage.php:959
 msgid "Inline-Liste"
 msgstr "Lista inline"
 
-#: includes/Admin/SettingsPage.php:490
+#: includes/Admin/SettingsPage.php:613
+#: includes/Admin/SettingsPage.php:960
 msgid "Dropdown"
 msgstr "Drop down"
 
-#: includes/Admin/SettingsPage.php:496
+#: includes/Admin/SettingsPage.php:619
+#: includes/Admin/SettingsPage.php:964
 msgid "Flaggenstil"
 msgstr "Stilul steag"
 
-#: includes/Admin/SettingsPage.php:499
+#: includes/Admin/SettingsPage.php:622
 msgid "Rechteckig, matt"
 msgstr "Dreptunghiular, mat"
 
-#: includes/Admin/SettingsPage.php:502
+#: includes/Admin/SettingsPage.php:625
 msgid "Rechteckig, glänzend"
 msgstr "Dreptunghiular, strălucitor"
 
-#: includes/Admin/SettingsPage.php:505
+#: includes/Admin/SettingsPage.php:628
 msgid "Kreis, matt"
 msgstr "Cerc, mat"
 
-#: includes/Admin/SettingsPage.php:508
+#: includes/Admin/SettingsPage.php:631
 msgid "Kreis, glänzend"
 msgstr "Cerc, strălucitor"
 
-#: includes/Admin/SettingsPage.php:511
+#: includes/Admin/SettingsPage.php:634
 msgid "Ohne Flagge"
 msgstr "Fără steag"
 
-#: includes/Admin/SettingsPage.php:517
+#: includes/Admin/SettingsPage.php:640
+#: includes/Admin/SettingsPage.php:972
 msgid "Sprachbezeichnung"
 msgstr "Desemnarea limbii"
 
-#: includes/Admin/SettingsPage.php:520
+#: includes/Admin/SettingsPage.php:643
 msgid "Volle Bezeichnung („Deutsch\")"
 msgstr "Nume complet („germană”)"
 
-#: includes/Admin/SettingsPage.php:523
+#: includes/Admin/SettingsPage.php:646
 msgid "ISO-Code („DE\")"
 msgstr "ISO-Code („DE”)"
 
-#: includes/Admin/SettingsPage.php:529
+#: includes/Admin/SettingsPage.php:652
 msgid "Anzeigegerät"
 msgstr "Dispozitiv de afișare"
 
-#: includes/Admin/SettingsPage.php:532
+#: includes/Admin/SettingsPage.php:655
 msgid "Auf allen Geräten zeigen"
 msgstr "Afișați pe toate dispozitivele"
 
-#: includes/Admin/SettingsPage.php:535
+#: includes/Admin/SettingsPage.php:658
 msgid "Nur Desktop (auf Mobile ausblenden)"
 msgstr "Numai desktop (ascunde pe mobil)"
 
-#: includes/Admin/SettingsPage.php:538
+#: includes/Admin/SettingsPage.php:661
 msgid "Nur Mobile (auf Desktop ausblenden)"
 msgstr "Numai mobil (ascunde pe desktop)"
 
-#: includes/Admin/SettingsPage.php:544
+#: includes/Admin/SettingsPage.php:667
 msgid "Mobile-Breakpoint (px)"
 msgstr "Punct de întrerupere mobil (px)"
 
-#: includes/Admin/SettingsPage.php:556
+#: includes/Admin/SettingsPage.php:679
 msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
 msgstr "Implicit 768 px. Sub această lățime, o pagină este considerată „mobilă”."
 
-#: includes/Admin/SettingsPage.php:561
+#: includes/Admin/SettingsPage.php:684
 msgid "Position auf der Seite"
 msgstr "Poziție pe pagină"
 
-#: includes/Admin/SettingsPage.php:564
+#: includes/Admin/SettingsPage.php:687
 msgid "Inline (an der eingebetteten Stelle)"
 msgstr "Inline (în locația încorporată)"
 
-#: includes/Admin/SettingsPage.php:567
+#: includes/Admin/SettingsPage.php:690
 msgid "Floating: rechts unten"
 msgstr "Plutitor: dreapta jos"
 
-#: includes/Admin/SettingsPage.php:570
+#: includes/Admin/SettingsPage.php:693
 msgid "Floating: links unten"
 msgstr "Plutitor: stânga jos"
 
-#: includes/Admin/SettingsPage.php:573
+#: includes/Admin/SettingsPage.php:696
 msgid "Floating: rechts oben"
 msgstr "Plutitor: dreapta sus"
 
-#: includes/Admin/SettingsPage.php:576
+#: includes/Admin/SettingsPage.php:699
 msgid "Floating: links oben"
 msgstr "Plutitor: stânga sus"
 
-#: includes/Admin/SettingsPage.php:580
+#: includes/Admin/SettingsPage.php:703
 msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
 msgstr "„Floating” fixează Switcher în colțul cu poziție:fixă și derulează odată cu acesta. Combinat cu Auto-Inject = Weglot comportament implicit."
 
-#: includes/Admin/SettingsPage.php:595
+#: includes/Admin/SettingsPage.php:718
 msgid "Bezeichnung sichtbar"
 msgstr "Denumirea vizibilă"
 
-#: includes/Admin/SettingsPage.php:602
+#: includes/Admin/SettingsPage.php:725
 msgid "Reihenfolge der Sprachen"
 msgstr "Ordinea limbilor"
 
-#: includes/Admin/SettingsPage.php:621
+#: includes/Admin/SettingsPage.php:744
 msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
 msgstr "Rearanjați folosind drag & drop. Funcționează atât în ​​Shortcode, cât și în auto-injectare."
 
-#: includes/Admin/SettingsPage.php:625
+#: includes/Admin/SettingsPage.php:748
 msgid "Eigene Flaggen pro Sprache (optional)"
 msgstr "Steaguri proprii pentru fiecare limbă (opțional)"
 
-#: includes/Admin/SettingsPage.php:655
+#: includes/Admin/SettingsPage.php:778
 msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
 msgstr "Lăsați necompletat = steag implicit. Emoji (de exemplu, 🇺🇸 pentru piața EN→SUA) sau caracterele speciale de la URL la SVG/PNG. CSS sunt automat eliminate."
 
-#: includes/Admin/SettingsPage.php:660
+#: includes/Admin/SettingsPage.php:783
 msgid "Eigenes CSS für den Switcher"
 msgstr "Dețineți CSS pentru Switcher"
 
-#: includes/Admin/SettingsPage.php:668
+#: includes/Admin/SettingsPage.php:791
 msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
 msgstr "Inserat imediat înainte de Switcher ca etichetă <style>. „<” este eliminat automat, astfel încât nicio etichetă de script nu poate fi inserată."
 
-#: includes/Admin/SettingsPage.php:673
+#: includes/Admin/SettingsPage.php:803
+msgid "Weitere Switcher-Instanzen"
+msgstr "Mai multe Switcher instanțe"
+
+#: includes/Admin/SettingsPage.php:805
+msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
+msgstr "Creați Switcher independent pentru Shortcode, bloc, widget sau plasare automată. Switcher global existent rămâne ca instanță „implicit”."
+
+#: includes/Admin/SettingsPage.php:807
+msgid "Switcher-Vorlagen"
+msgstr "Switcher șabloane"
+
+#: includes/Admin/SettingsPage.php:835
+msgid "Neuer Switcher"
+msgstr "Switcher nou"
+
+#: includes/Admin/SettingsPage.php:846
 msgid "Einstellungen speichern"
 msgstr "Salvați setările"
 
 #. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:684
+#: includes/Admin/SettingsPage.php:857
 msgid "Hilfe & Dokumentation: %s"
 msgstr "Ajutor și documentație: %s"
 
-#: includes/Api/Client.php:198
-#: includes/Api/Client.php:304
-msgid "Deepglot API Fehler."
-msgstr "Deepglot eroare API."
+#: includes/Admin/SettingsPage.php:940
+msgid "Instanz entfernen"
+msgstr "Eliminați instanța"
 
-#: includes/Api/Client.php:219
-#: includes/Sync/SettingsSync.php:48
+#: includes/Admin/SettingsPage.php:949
+#: assets/js/block-switcher.js:51
+msgid "Instanz-ID"
+msgstr "ID de instanță"
+
+#: includes/Admin/SettingsPage.php:953
+msgid "Name"
+msgstr "nume"
+
+#: includes/Admin/SettingsPage.php:974
+msgid "Vollständiger Name"
+msgstr "Nume complet"
+
+#: includes/Admin/SettingsPage.php:975
+msgid "ISO-Code"
+msgstr "ISO-Code"
+
+#: includes/Admin/SettingsPage.php:979
+msgid "Position"
+msgstr "poziție"
+
+#: includes/Admin/SettingsPage.php:987
+msgid "Ausblenden auf"
+msgstr "Ascunde-te"
+
+#: includes/Admin/SettingsPage.php:989
+msgid "Keinem Gerät"
+msgstr "Niciun dispozitiv"
+
+#: includes/Admin/SettingsPage.php:990
+msgid "Mobilgeräten"
+msgstr "dispozitive mobile"
+
+#: includes/Admin/SettingsPage.php:991
+msgid "Desktop-Geräten"
+msgstr "Dispozitive desktop"
+
+#: includes/Admin/SettingsPage.php:995
+msgid "Breakpoint (px)"
+msgstr "Punct de întrerupere (px)"
+
+#: includes/Admin/SettingsPage.php:1002
+msgid "Instanz aktivieren"
+msgstr "Activați instanța"
+
+#: includes/Admin/SettingsPage.php:1004
+msgid "Automatisch platzieren"
+msgstr "Așezați automat"
+
+#: includes/Admin/SettingsPage.php:1006
+msgid "Beschriftung anzeigen"
+msgstr "Afișează legenda"
+
+#: includes/Admin/SettingsPage.php:1010
+msgid "Sprachreihenfolge"
+msgstr "Ordinea limbii"
+
+#: includes/Admin/SettingsPage.php:1015
+msgid "Eigene Flaggen"
+msgstr "Steaguri proprii"
+
+#: includes/Admin/SettingsPage.php:1024
+msgid "Eigenes CSS"
+msgstr "Deține CSS"
+
+#: includes/Admin/SettingsPage.php:1029
+msgid "DOM-Ziel für automatische Platzierung"
+msgstr "Țintă DOM pentru plasare automată"
+
+#: includes/Admin/SettingsPage.php:1032
+msgid "Element in der Vorschau auswählen"
+msgstr "Selectați elementul în previzualizare"
+
+#: includes/Admin/SettingsPage.php:1034
+msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
+msgstr "Dacă ținta lipsește sau este invalidă, Switcher va rămâne în siguranță în subsol."
+
+#: includes/Admin/SettingsPage.php:1038
+msgid "Website-Vorschau für die Switcher-Platzierung"
+msgstr "Previzualizarea site-ului pentru destinația de plasare Switcher"
+
+#: includes/Api/Client.php:304
+#: includes/Sync/SettingsSync.php:62
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Nu există API-Key pentru sincronizare."
 
-#: includes/Api/Client.php:263
+#: includes/Api/Client.php:349
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Nu există API-Key pentru configurația de rulare."
 
-#: includes/Api/RestApi.php:203
+#: includes/Api/Client.php:410
+msgid "Deepglot API Fehler."
+msgstr "Deepglot eroare API."
+
+#: includes/Api/Client.php:611
+msgid "Deepglot API-Key ungültig oder widerrufen."
+msgstr "Deepglot API-Key invalid sau revocat."
+
+#: includes/Api/RestApi.php:218
 msgid "Kein API-Key angegeben."
 msgstr "Nu API-Key specificat."
 
-#: includes/Api/RestApi.php:242
+#: includes/Api/RestApi.php:263
 msgid "Du benötigst Administrator-Rechte für diese Aktion."
 msgstr "Aveți nevoie de drepturi de administrator pentru această acțiune."
 
 #. translators: %d: seconds until reset
-#: includes/Api/RestApi.php:281
+#: includes/Api/RestApi.php:302
 msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
 msgstr "Prea multe cereri. Vă rugăm să așteptați %d secunde."
 
-#: includes/Frontend/LanguageSwitcher.php:236
+#: includes/Api/RestApi.php:423
+msgid "Monatliches Wortlimit ausgeschöpft."
+msgstr "Limita lunară de cuvinte epuizată."
+
+#: includes/Api/RestApi.php:431
+msgid "API-Key ungültig oder widerrufen."
+msgstr "API-Key invalid sau revocat."
+
+#: includes/Config/SwitcherTemplates.php:21
+msgid "Klassisches Dropdown"
+msgstr "Meniu derulant clasic"
+
+#: includes/Config/SwitcherTemplates.php:22
+msgid "Flagge und vollständiger Sprachname in einem kompakten Dropdown."
+msgstr "Semnal și numele complet al limbii într-un meniu derulant compact."
+
+#: includes/Config/SwitcherTemplates.php:31
+msgid "Minimaler Sprachcode"
+msgstr "Cod minim de limbă"
+
+#: includes/Config/SwitcherTemplates.php:32
+msgid "Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz."
+msgstr "ISO-Codes simple fără steaguri pentru navigare cu puțin spațiu."
+
+#: includes/Config/SwitcherTemplates.php:41
+msgid "Schwebende Flaggen"
+msgstr "Steaguri plutitoare"
+
+#: includes/Config/SwitcherTemplates.php:42
+msgid "Runde Flaggen als schwebender Umschalter unten rechts."
+msgstr "Steaguri rotunjite ca comutator plutitor în dreapta jos."
+
+#: includes/Frontend/DynamicTranslationController.php:151
+msgid "Zu viele Anfragen."
+msgstr "Prea multe cereri."
+
+#: includes/Frontend/DynamicTranslationController.php:308
+msgid "Nicht verfügbar."
+msgstr "Nu este disponibil."
+
+#: includes/Frontend/DynamicTranslationController.php:317
+msgid "Ungültige Herkunft."
+msgstr "Origine nevalidă."
+
+#. translators: %s: native language name.
+#: includes/Frontend/LanguageSwitcher.php:273
 msgid "Switch language to %s"
 msgstr "Schimbați limba la %s"
 
-#: includes/Frontend/LanguageSwitcher.php:251
+#. translators: %s: active language name.
+#: includes/Frontend/LanguageSwitcher.php:293
 msgid "Sprache: %s"
 msgstr "Limba: %s"
 
-#: includes/Frontend/NavMenuSwitcher.php:175
+#: includes/Frontend/NavMenuSwitcher.php:183
 msgid "Sprache wählen"
 msgstr "Alegeți limba"
 
@@ -429,14 +626,26 @@ msgstr "Afișează comutatorul de limbă Deepglot — stilurile/Flagge/Reihenfol
 msgid "Sprachumschalter in einer Widget-Area anzeigen."
 msgstr "Afișați comutatorul de limbă într-o zonă de widget."
 
-#: includes/Frontend/SwitcherWidget.php:83
+#: includes/Frontend/SwitcherWidget.php:87
 msgid "Titel:"
 msgstr "Titlu:"
 
-#: includes/Sync/SettingsSync.php:52
+#: includes/Frontend/SwitcherWidget.php:99
+msgid "Switcher-Instanz:"
+msgstr "Switcher instanță:"
+
+#: includes/Sync/SettingsSync.php:66
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Nu au fost configurate limbi țintă pentru sincronizare."
 
 #: assets/js/block-switcher.js:20
 msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
 msgstr "Afișează comutatorul de limbă Deepglot. Stil, semnalizare și ordine urmează setările pluginului."
+
+#: assets/js/block-switcher.js:49
+msgid "Switcher-Instanz"
+msgstr "Switcher instanță"
+
+#: assets/js/block-switcher.js:52
+msgid "Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter."
+msgstr "Puteți găsi ID-ul în Setări → Deepglot → Comutator de limbă."

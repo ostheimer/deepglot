@@ -68,6 +68,17 @@ versionAssert(
         && str_contains($rootReadme, 'Publishing the GitHub release does not automatically update customer WordPress sites.'),
     'Repository README must describe the stable release and customer-update boundary'
 );
+versionAssert(
+    str_contains(
+        $rootReadme,
+        'The currently documented live deployment on `meinhaushalt.at` is **v0.11.1**, origin/browser-verified on 2026-08-03.'
+    ),
+    'Repository README must reflect the live-verified meinhaushalt.at deployment from HANDOFF.md'
+);
+versionAssert(
+    !str_contains($rootReadme, 'The currently documented live deployment on `meinhaushalt.at` remains **v0.10.4**'),
+    'Repository README must not retain the superseded meinhaushalt.at v0.10.4 live state'
+);
 
 versionAssert(
     preg_match('/^ \* Requires at least:\s*([^\s]+)$/m', $plugin, $requiresWordPressMatch) === 1,

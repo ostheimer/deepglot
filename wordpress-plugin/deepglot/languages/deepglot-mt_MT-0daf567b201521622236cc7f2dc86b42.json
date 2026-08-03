@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Swi\u010b\u010b tal-lingwa"
             ],
+            "Instanz-ID": [
+                "ID tal-istanza"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Juri l-iswi\u010b\u010b tal-lingwa Deepglot. L-istil, il-bandiera u l-ordni jsegwu s-settings tal-plugin."
+            ],
+            "Switcher-Instanz": [
+                "Switcher istanza"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Tista' ssib l-ID ta\u0127t Settings \u2192 Deepglot \u2192 Language switcher."
             ]
         }
     }

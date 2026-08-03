@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Prep\u00edna\u010d jazyka"
             ],
+            "Instanz-ID": [
+                "ID in\u0161tancie"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Zobrazuje prep\u00edna\u010d jazyka Deepglot. \u0160t\u00fdl, pr\u00edznak a poradie sa riadia nastaveniami pluginu."
+            ],
+            "Switcher-Instanz": [
+                "Switcher in\u0161tancie"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "ID n\u00e1jdete v \u010dasti Nastavenia \u2192 Deepglot \u2192 Prep\u00edna\u010d jazykov."
             ]
         }
     }
