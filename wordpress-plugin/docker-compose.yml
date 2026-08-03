@@ -14,8 +14,9 @@
 #
 # Pre-submission gate — check the PACKAGED ARTIFACT, not the dev tree, so
 # packaging omissions and artifact-only findings are exercised: build the ZIP
-# with ../build-zip.sh, comment out the ./deepglot volume in BOTH services
-# below, `docker compose up -d --force-recreate wordpress`, then:
+# with `./build-zip.sh "$(git rev-parse --verify HEAD)" dist`, comment out the
+# ./deepglot volume in BOTH services below,
+# `docker compose up -d --force-recreate wordpress`, then:
 #   docker compose run --rm -v "$PWD/dist:/dist:ro" cli \
 #     wp plugin install /dist/deepglot-<version>.zip --force --activate
 #   docker compose run --rm cli wp plugin check deepglot
