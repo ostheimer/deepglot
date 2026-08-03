@@ -1,15 +1,27 @@
 # Local WordPress test environment for the Deepglot plugin.
 #
-# Usage (from wordpress-plugin/):
+# Iteration workflow — the DEV TREE is mounted read-only, so nothing in the
+# repo is modified and edits are visible on reload. Because the mount is the
+# source tree (not the packaged artifact), exclude test-only paths from the
+# check (from wordpress-plugin/):
 #   docker compose up -d
 #   docker compose run --rm cli wp core install --url=http://localhost:8090 \
 #     --title="Deepglot Test" --admin_user=admin --admin_password=admin \
 #     --admin_email=admin@example.com --skip-email
 #   docker compose run --rm cli wp plugin activate deepglot
 #   docker compose run --rm cli wp plugin install plugin-check --activate
+#   docker compose run --rm cli wp plugin check deepglot --exclude-directories=tests
+#
+# Pre-submission gate — check the PACKAGED ARTIFACT, not the dev tree, so
+# packaging omissions and artifact-only findings are exercised: build the ZIP
+# with ../build-zip.sh, comment out the ./deepglot volume in BOTH services
+# below, `docker compose up -d --force-recreate wordpress`, then:
+#   docker compose run --rm -v "$PWD/dist:/dist:ro" cli \
+#     wp plugin install /dist/deepglot-<version>.zip --force --activate
 #   docker compose run --rm cli wp plugin check deepglot
 #
-# The plugin directory is mounted read-only so nothing in the repo is modified.
+# WordPress is published on 127.0.0.1 only: the documented install uses
+# throwaway admin/admin credentials and must never be reachable off-machine.
 
 services:
   db:
@@ -33,7 +45,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8090:80"
+      - "127.0.0.1:8090:80"
     environment:
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_NAME: wordpress
