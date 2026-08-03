@@ -187,6 +187,12 @@ class RestApi
             // where the small ping still fits but larger pages no longer do).
             'quota_exhausted' => $connCode === 'quota_exhausted'
                                     || (bool) get_transient('deepglot_quota_exhausted'),
+            // True when the configured key is rejected outright (HTTP 401),
+            // from EITHER the ping above OR the circuit breaker a recent real
+            // translation armed. Unlike an exhausted quota this means nothing
+            // is being translated at all (#245).
+            'api_key_invalid' => $connCode === 'invalid_api_key'
+                                    || Client::hasInvalidApiKeyMarkerFor($this->options),
             'source_language' => $settings['source_language'],
             'target_languages'=> $settings['target_languages'],
             'api_key_prefix'  => !empty($settings['api_key'])
@@ -402,6 +408,12 @@ class RestApi
         $json = json_decode($body, true);
 
         if ($code === 200 && isset($json['to_words'])) {
+            Client::clearInvalidApiKeyMarkerForConfiguration(
+                $this->options,
+                $apiKey,
+                $baseUrl
+            );
+
             return [true, null, null];
         }
 
@@ -410,6 +422,14 @@ class RestApi
                 false,
                 __('Monatliches Wortlimit ausgeschöpft.', 'deepglot'),
                 'quota_exhausted',
+            ];
+        }
+
+        if ($code === 401) {
+            return [
+                false,
+                __('API-Key ungültig oder widerrufen.', 'deepglot'),
+                'invalid_api_key',
             ];
         }
 

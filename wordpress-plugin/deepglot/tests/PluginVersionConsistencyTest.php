@@ -37,7 +37,7 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
-versionAssert($headerVersion === '0.11.1', 'WordPress.org submission release must be version 0.11.1');
+versionAssert($headerVersion === '0.11.2', 'WordPress.org submission release must be version 0.11.2');
 versionAssert($headerVersion === $constantVersion, 'Header and runtime versions must match');
 versionAssert(
     str_contains($readme, '(**v' . $headerVersion . '**)'),
@@ -67,6 +67,17 @@ versionAssert(
     !str_contains($rootReadme, 'release candidate')
         && str_contains($rootReadme, 'Publishing the GitHub release does not automatically update customer WordPress sites.'),
     'Repository README must describe the stable release and customer-update boundary'
+);
+versionAssert(
+    str_contains(
+        $rootReadme,
+        'The currently documented live deployment on `meinhaushalt.at` is **v0.11.1**, origin/browser-verified on 2026-08-03.'
+    ),
+    'Repository README must reflect the live-verified meinhaushalt.at deployment from HANDOFF.md'
+);
+versionAssert(
+    !str_contains($rootReadme, 'The currently documented live deployment on `meinhaushalt.at` remains **v0.10.4**'),
+    'Repository README must not retain the superseded meinhaushalt.at v0.10.4 live state'
 );
 
 versionAssert(

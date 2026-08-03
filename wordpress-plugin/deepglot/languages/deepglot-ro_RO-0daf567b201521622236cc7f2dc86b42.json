@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Comutator de limb\u0103"
             ],
+            "Instanz-ID": [
+                "ID de instan\u021b\u0103"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Afi\u0219eaz\u0103 comutatorul de limb\u0103 Deepglot. Stil, semnalizare \u0219i ordine urmeaz\u0103 set\u0103rile pluginului."
+            ],
+            "Switcher-Instanz": [
+                "Switcher instan\u021b\u0103"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Pute\u021bi g\u0103si ID-ul \u00een Set\u0103ri \u2192 Deepglot \u2192 Comutator de limb\u0103."
             ]
         }
     }

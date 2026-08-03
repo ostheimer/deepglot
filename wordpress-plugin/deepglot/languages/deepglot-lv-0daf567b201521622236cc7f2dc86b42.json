@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Valodas sl\u0113dzis"
             ],
+            "Instanz-ID": [
+                "Gad\u012bjuma\u00a0ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Par\u0101da valodas sl\u0113dzi Deepglot. Stils, karodzi\u0146\u0161 un sec\u012bba izpildiet spraud\u0146a iestat\u012bjumus."
+            ],
+            "Switcher-Instanz": [
+                "Switcher gad\u012bjumu"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "ID varat atrast sada\u013c\u0101 Iestat\u012bjumi \u2192 Deepglot \u2192 Valodas p\u0101rsl\u0113dz\u0113js."
             ]
         }
     }

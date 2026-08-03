@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Changement de langue"
             ],
+            "Instanz-ID": [
+                "Instance ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Affiche le commutateur de langue Deepglot. Le style, le drapeau et l'ordre suivent les param\u00e8tres du plugin."
+            ],
+            "Switcher-Instanz": [
+                "Switcher instance"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Vous pouvez trouver l'ID sous Param\u00e8tres \u2192 Deepglot \u2192 S\u00e9lecteur de langue."
             ]
         }
     }

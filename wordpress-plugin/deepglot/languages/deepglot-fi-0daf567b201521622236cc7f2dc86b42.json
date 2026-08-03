@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Kielen vaihto"
             ],
+            "Instanz-ID": [
+                "Instance ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "N\u00e4ytt\u00e4\u00e4 Deepglot kielenvalitsimen. Tyyli, lippu ja j\u00e4rjestys noudattavat laajennuksen asetuksia."
+            ],
+            "Switcher-Instanz": [
+                "Switcher ilmentym\u00e4"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "L\u00f6yd\u00e4t tunnuksen kohdasta Asetukset \u2192 Deepglot \u2192 Kielenvaihto."
             ]
         }
     }

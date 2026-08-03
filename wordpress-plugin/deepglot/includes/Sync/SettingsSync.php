@@ -38,6 +38,10 @@ class SettingsSync
 
         if ($this->runtimeSourceChanged($oldValue, $newValue)) {
             $this->options->clearUrlSlugMappings();
+            // A new key or backend invalidates the cached 401 verdict. Without
+            // this reset a corrected key would only take effect once the
+            // circuit breaker's TTL expired (#245).
+            delete_transient(Client::INVALID_API_KEY_TRANSIENT);
         }
 
         $result = $this->sync($newValue);
@@ -62,13 +66,46 @@ class SettingsSync
             return new \WP_Error('deepglot_sync_missing_languages', __('Keine Zielsprachen für die Synchronisierung konfiguriert.', 'deepglot'));
         }
 
+        $requestApiKey = $apiKeyOverride !== null
+            ? trim($apiKeyOverride)
+            : trim((string) ($normalized['api_key'] ?? ''));
+        $requestBaseUrl = $baseUrlOverride !== null
+            ? untrailingslashit($baseUrlOverride)
+            : untrailingslashit((string) ($normalized['api_base_url'] ?? $this->options->getApiBaseUrl()));
+        $usesStoredCredentials = $apiKeyOverride === null && $baseUrlOverride === null;
+
         $settingsResult = $this->client->syncSettings($normalized, $apiKeyOverride, $baseUrlOverride);
 
         if (is_wp_error($settingsResult)) {
+            $this->maybeFlagInvalidStoredCredentials(
+                $settingsResult,
+                $usesStoredCredentials,
+                $requestApiKey,
+                $requestBaseUrl
+            );
             return $settingsResult;
         }
 
+        if ($usesStoredCredentials) {
+            // A successful settings-sync proves that the stored credentials
+            // are accepted. Clear their stale 401 immediately; a subsequent
+            // runtime-config 401 below will arm the marker again.
+            $this->client->clearInvalidApiKeyForConfiguration(
+                $requestApiKey,
+                $requestBaseUrl
+            );
+        }
+
         $runtimeResult = $this->refreshRuntimeConfig($apiKeyOverride, $baseUrlOverride, true);
+
+        if (is_wp_error($runtimeResult)) {
+            $this->maybeFlagInvalidStoredCredentials(
+                $runtimeResult,
+                $usesStoredCredentials,
+                $requestApiKey,
+                $requestBaseUrl
+            );
+        }
 
         return is_wp_error($runtimeResult) ? $runtimeResult : $settingsResult;
     }
@@ -239,5 +276,26 @@ class SettingsSync
         $newBaseUrl = untrailingslashit((string) ($newValue['api_base_url'] ?? ''));
 
         return $oldApiKey !== $newApiKey || $oldBaseUrl !== $newBaseUrl;
+    }
+
+    private function maybeFlagInvalidStoredCredentials(
+        \WP_Error $error,
+        bool $usesStoredCredentials,
+        string $apiKey,
+        string $baseUrl
+    ): void
+    {
+        if (!$usesStoredCredentials) {
+            return;
+        }
+
+        $data = method_exists($error, 'get_error_data')
+            ? $error->get_error_data()
+            : null;
+        $statusCode = is_array($data) ? (int) ($data['status'] ?? 0) : 0;
+
+        if ($statusCode === 401) {
+            $this->client->flagInvalidApiKeyForConfiguration($apiKey, $baseUrl);
+        }
     }
 }

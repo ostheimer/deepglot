@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.7.0\n"
+"Project-Id-Version: Deepglot 0.11.2\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -15,8 +15,8 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: deepglot.php
-#: includes/Admin/SettingsPage.php:34
-#: includes/Admin/SettingsPage.php:35
+#: includes/Admin/SettingsPage.php:103
+#: includes/Admin/SettingsPage.php:104
 msgid "Deepglot"
 msgstr "Deepglot"
 
@@ -75,349 +75,546 @@ msgstr "Pievienot izvēlnei"
 msgid "Sprachschalter"
 msgstr "Balss slēdzis"
 
-#: includes/Admin/SettingsPage.php:171
+#: includes/Admin/SettingsPage.php:60
+msgid "Deepglot: API-Key ungültig oder widerrufen."
+msgstr "Deepglot: API-Key nav derīgs vai atsaukts."
+
+#: includes/Admin/SettingsPage.php:61
+msgid "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort."
+msgstr "Deepglot serveris noraida jebkuru tulkošanas pieprasījumu (HTTP 401). Saturs, kas jau ir saglabāts kešatmiņā, tiks piegādāts, taču nekas jauns netiks tulkots. Saglabājiet derīgu API-Key Deepglot iestatījumos, un tad tas stājas spēkā nekavējoties."
+
+#: includes/Admin/SettingsPage.php:63
+msgid "API-Key im Deepglot-Dashboard prüfen"
+msgstr "Deepglot informācijas panelī pārbaudiet API-Key"
+
+#: includes/Admin/SettingsPage.php:90
+msgid "Deepglot: Monatliches Wortlimit erreicht."
+msgstr "Deepglot: sasniegts ikmēneša vārdu ierobežojums."
+
+#: includes/Admin/SettingsPage.php:91
+msgid "Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird."
+msgstr "Saturs, kas jau ir iztulkots, tiks piegādāts, bet jauns vai mainīts teksts paliks avota valodā, līdz kvota tiks atiestatīta vai palielināta."
+
+#: includes/Admin/SettingsPage.php:93
+msgid "Kontingent im Deepglot-Dashboard prüfen"
+msgstr "Pārbaudiet kvotu Deepglot informācijas panelī"
+
+#: includes/Admin/SettingsPage.php:263
+msgid "API-Key ungültig"
+msgstr "API-Key nav derīgs"
+
+#: includes/Admin/SettingsPage.php:266
 msgid "Aktiv"
 msgstr "Aktīvs"
 
-#: includes/Admin/SettingsPage.php:174
+#: includes/Admin/SettingsPage.php:269
 msgid "Deaktiviert"
 msgstr "Atspējots"
 
-#: includes/Admin/SettingsPage.php:177
+#: includes/Admin/SettingsPage.php:272
 msgid "Einrichtung erforderlich"
 msgstr "Nepieciešama iestatīšana"
 
-#: includes/Admin/SettingsPage.php:194
+#: includes/Admin/SettingsPage.php:295
 msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
 msgstr "Laipni lūdzam Deepglot! Veiciet tālāk norādītās trīs darbības, lai iespējotu tulkošanu savā vietnē."
 
-#: includes/Admin/SettingsPage.php:205
+#: includes/Admin/SettingsPage.php:306
 msgid "Deepglot einrichten"
 msgstr "Iestatīt Deepglot"
 
-#: includes/Admin/SettingsPage.php:206
+#: includes/Admin/SettingsPage.php:307
 msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
 msgstr "Viss, kas jums nepieciešams, ir API-Key no Deepglot informācijas paneļa — tas aizņem mazāk nekā divas minūtes."
 
-#: includes/Admin/SettingsPage.php:218
+#: includes/Admin/SettingsPage.php:319
 msgid "API-Key eintragen"
 msgstr "Ievadiet API-Key"
 
-#: includes/Admin/SettingsPage.php:221
+#: includes/Admin/SettingsPage.php:322
+msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
+msgstr "Deepglot serveris (HTTP 401) noraida saglabāto API-Key. Pašlaik netiek tulkots jauns saturs — ievadiet derīgu atslēgu un saglabājiet."
+
+#: includes/Admin/SettingsPage.php:327
 msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
 msgstr "Izveidojiet bezmaksas kontu vietnē deepglot.ai, izveidojiet projektu savai vietnei un kopējiet API-Key."
 
-#: includes/Admin/SettingsPage.php:224
+#: includes/Admin/SettingsPage.php:330
 msgid "Zum Dashboard – API-Key erstellen"
 msgstr "Dodieties uz informācijas paneli — izveidojiet API-Key"
 
-#: includes/Admin/SettingsPage.php:229
+#: includes/Admin/SettingsPage.php:335
 msgid "API-Key"
 msgstr "API-Key"
 
-#: includes/Admin/SettingsPage.php:240
+#: includes/Admin/SettingsPage.php:346
 msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
 msgstr "Pilnu atslēgu varat atrast sava Deepglot projekta sadaļā Iestatījumi → API-Keys."
 
-#: includes/Admin/SettingsPage.php:244
+#: includes/Admin/SettingsPage.php:350
 msgid "Backend-URL"
 msgstr "Aizmugursistēma URL"
 
-#: includes/Admin/SettingsPage.php:252
+#: includes/Admin/SettingsPage.php:358
 msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
 msgstr "Noklusējums: https://deepglot.ai/api — mainīt tikai Self-Hosting."
 
-#: includes/Admin/SettingsPage.php:264
+#: includes/Admin/SettingsPage.php:370
 msgid "Sprachen konfigurieren"
 msgstr "Konfigurēt valodas"
 
-#: includes/Admin/SettingsPage.php:266
+#: includes/Admin/SettingsPage.php:372
 msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
 msgstr "Norādiet oriģinālvalodu un vēlamās tulkošanas valodas."
 
-#: includes/Admin/SettingsPage.php:270
+#: includes/Admin/SettingsPage.php:376
 msgid "Originalsprache"
 msgstr "Oriģinālvaloda"
 
-#: includes/Admin/SettingsPage.php:281
+#: includes/Admin/SettingsPage.php:387
 msgid "Zielsprachen"
 msgstr "Mērķa valodas"
 
-#: includes/Admin/SettingsPage.php:289
+#: includes/Admin/SettingsPage.php:395
 msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
 msgstr "Ar komatu atdalīti ISO-639-1 kodi, piem. B. lv, fr, it"
 
-#: includes/Admin/SettingsPage.php:301
+#: includes/Admin/SettingsPage.php:407
 msgid "Übersetzung aktivieren"
 msgstr "Iespējot tulkošanu"
 
-#: includes/Admin/SettingsPage.php:303
+#: includes/Admin/SettingsPage.php:409
 msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
 msgstr "Kad API-Key un valodas ir saglabātas, iespējojiet automātisko tulkošanu šeit."
 
-#: includes/Admin/SettingsPage.php:315
+#: includes/Admin/SettingsPage.php:421
 msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
 msgstr "Aktivizējiet Deepglot visiem priekšgala pieprasījumiem"
 
+#: includes/Admin/SettingsPage.php:426
+msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
+msgstr "Tulkošana ir ieslēgta, bet nekustas: API-Key tiek noraidīts."
+
 #. translators: %1$s: source language, %2$s: target languages
-#: includes/Admin/SettingsPage.php:324
+#: includes/Admin/SettingsPage.php:434
 msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
 msgstr "Aktīvs — lapas tiek tulkotas no %1$s uz %2$s zem /%3$s/ihre-seite/"
 
-#: includes/Admin/SettingsPage.php:344
+#: includes/Admin/SettingsPage.php:454
 msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
 msgstr "Automātiski novirzīt apmeklētājus, pamatojoties uz pārlūkprogrammas valodu (neobligāti)"
 
-#: includes/Admin/SettingsPage.php:353
+#: includes/Admin/SettingsPage.php:463
 msgid "Erweiterte Einstellungen ausblenden"
 msgstr "Slēpt papildu iestatījumus"
 
-#: includes/Admin/SettingsPage.php:353
-#: includes/Admin/SettingsPage.php:354
+#: includes/Admin/SettingsPage.php:463
+#: includes/Admin/SettingsPage.php:464
 msgid "Erweiterte Einstellungen anzeigen"
 msgstr "Rādīt papildu iestatījumus"
 
-#: includes/Admin/SettingsPage.php:358
+#: includes/Admin/SettingsPage.php:468
 msgid "Ausgeschlossene URLs"
 msgstr "Izslēgti URLs"
 
-#: includes/Admin/SettingsPage.php:360
+#: includes/Admin/SettingsPage.php:470
 msgid "Eine URL oder ein Muster pro Zeile."
 msgstr "Viens URL vai raksts katrā rindā."
 
-#: includes/Admin/SettingsPage.php:363
+#: includes/Admin/SettingsPage.php:473
 msgid "Routing-Modus"
 msgstr "Maršrutēšanas režīms"
 
-#: includes/Admin/SettingsPage.php:366
+#: includes/Admin/SettingsPage.php:476
 msgid "Pfad-Präfix (/en/meine-seite)"
 msgstr "Ceļa prefikss (/en/meine-seite)"
 
-#: includes/Admin/SettingsPage.php:369
+#: includes/Admin/SettingsPage.php:479
 msgid "Subdomains (en.example.com)"
 msgstr "Apakšdomēni (en.example.com)"
 
-#: includes/Admin/SettingsPage.php:372
+#: includes/Admin/SettingsPage.php:482
 msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
 msgstr "Ceļa prefikss paliek noklusējuma. Apakšdomēnos katrai aktīvajai mērķa valodai ir nepieciešams saimniekdators."
 
-#: includes/Admin/SettingsPage.php:375
+#: includes/Admin/SettingsPage.php:485
 msgid "Domain-Zuordnungen"
 msgstr "Domēnu kartēšana"
 
-#: includes/Admin/SettingsPage.php:383
+#: includes/Admin/SettingsPage.php:493
 msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
 msgstr "Formāts: sprachcode=host, viens uzdevums katrā rindā."
 
-#: includes/Admin/SettingsPage.php:395
+#: includes/Admin/SettingsPage.php:505
 msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
 msgstr "Tulkot WooCommerce un wp_mail e-pastus"
 
-#: includes/Admin/SettingsPage.php:408
+#: includes/Admin/SettingsPage.php:518
 msgid "Suche in der Besuchersprache ausführen"
 msgstr "Veiciet meklēšanu apmeklētāja valodā"
 
-#: includes/Admin/SettingsPage.php:421
+#: includes/Admin/SettingsPage.php:531
 msgid "AMP-Seiten übersetzen"
 msgstr "Tulkot AMP lapas"
 
-#: includes/Admin/SettingsPage.php:425
+#: includes/Admin/SettingsPage.php:544
+msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
+msgstr "Tulkot dinamiski atkārtoti ielādētu saturu (AJAX, bezgalīgs ritināšana, SPA)"
+
+#: includes/Admin/SettingsPage.php:548
 msgid "Ausgeschlossene CSS-Selektoren"
 msgstr "Izslēgti CSS atlasītāji"
 
-#: includes/Admin/SettingsPage.php:427
+#: includes/Admin/SettingsPage.php:550
 msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Viena CSS klase, ID vai atlasītājs katrā rindā."
 
-#: includes/Admin/SettingsPage.php:461
+#: includes/Admin/SettingsPage.php:584
+#: includes/Admin/SettingsPage.php:938
+#: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Valodu pārslēdzējs"
 
-#: includes/Admin/SettingsPage.php:462
+#: includes/Admin/SettingsPage.php:585
 msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
 msgstr "Kā un kur jūsu vietnē jāparādās Language-Switcher?"
 
-#: includes/Admin/SettingsPage.php:475
+#: includes/Admin/SettingsPage.php:598
 msgid "Switcher automatisch im Seitenfooter einfügen"
 msgstr "Automātiski ievietot Switcher lapas kājenē"
 
-#: includes/Admin/SettingsPage.php:479
+#: includes/Admin/SettingsPage.php:602
 msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
 msgstr "Alternatīvi: Shortcode [deepglot_switcher] vai PHP do_action('deepglot_language_switcher') savā motīvā."
 
-#: includes/Admin/SettingsPage.php:484
+#: includes/Admin/SettingsPage.php:607
+#: includes/Admin/SettingsPage.php:957
 msgid "Darstellung"
 msgstr "Prezentācija"
 
-#: includes/Admin/SettingsPage.php:487
+#: includes/Admin/SettingsPage.php:610
+#: includes/Admin/SettingsPage.php:959
 msgid "Inline-Liste"
 msgstr "Iekļauts saraksts"
 
-#: includes/Admin/SettingsPage.php:490
+#: includes/Admin/SettingsPage.php:613
+#: includes/Admin/SettingsPage.php:960
 msgid "Dropdown"
 msgstr "Nolaižamajā lejā"
 
-#: includes/Admin/SettingsPage.php:496
+#: includes/Admin/SettingsPage.php:619
+#: includes/Admin/SettingsPage.php:964
 msgid "Flaggenstil"
 msgstr "Karoga stils"
 
-#: includes/Admin/SettingsPage.php:499
+#: includes/Admin/SettingsPage.php:622
 msgid "Rechteckig, matt"
 msgstr "Taisnstūrveida, matēts"
 
-#: includes/Admin/SettingsPage.php:502
+#: includes/Admin/SettingsPage.php:625
 msgid "Rechteckig, glänzend"
 msgstr "Taisnstūrveida, spīdīgi"
 
-#: includes/Admin/SettingsPage.php:505
+#: includes/Admin/SettingsPage.php:628
 msgid "Kreis, matt"
 msgstr "Aplis, matēts"
 
-#: includes/Admin/SettingsPage.php:508
+#: includes/Admin/SettingsPage.php:631
 msgid "Kreis, glänzend"
 msgstr "Aplis, spīdīgs"
 
-#: includes/Admin/SettingsPage.php:511
+#: includes/Admin/SettingsPage.php:634
 msgid "Ohne Flagge"
 msgstr "Bez karoga"
 
-#: includes/Admin/SettingsPage.php:517
+#: includes/Admin/SettingsPage.php:640
+#: includes/Admin/SettingsPage.php:972
 msgid "Sprachbezeichnung"
 msgstr "Valodas apzīmējums"
 
-#: includes/Admin/SettingsPage.php:520
+#: includes/Admin/SettingsPage.php:643
 msgid "Volle Bezeichnung („Deutsch\")"
 msgstr "Pilns vārds (“vācu”)"
 
-#: includes/Admin/SettingsPage.php:523
+#: includes/Admin/SettingsPage.php:646
 msgid "ISO-Code („DE\")"
 msgstr "ISO-Code (“DE”)"
 
-#: includes/Admin/SettingsPage.php:529
+#: includes/Admin/SettingsPage.php:652
 msgid "Anzeigegerät"
 msgstr "Displeja ierīce"
 
-#: includes/Admin/SettingsPage.php:532
+#: includes/Admin/SettingsPage.php:655
 msgid "Auf allen Geräten zeigen"
 msgstr "Rādīt visās ierīcēs"
 
-#: includes/Admin/SettingsPage.php:535
+#: includes/Admin/SettingsPage.php:658
 msgid "Nur Desktop (auf Mobile ausblenden)"
 msgstr "Tikai galddatoriem (paslēpt mobilajā ierīcē)"
 
-#: includes/Admin/SettingsPage.php:538
+#: includes/Admin/SettingsPage.php:661
 msgid "Nur Mobile (auf Desktop ausblenden)"
 msgstr "Tikai mobilajām ierīcēm (paslēpt galddatorā)"
 
-#: includes/Admin/SettingsPage.php:544
+#: includes/Admin/SettingsPage.php:667
 msgid "Mobile-Breakpoint (px)"
 msgstr "Mobilais pārtraukuma punkts (pikseļi)"
 
-#: includes/Admin/SettingsPage.php:556
+#: includes/Admin/SettingsPage.php:679
 msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
 msgstr "Noklusējuma 768 pikseļi. Zem šī platuma lapa tiek uzskatīta par “mobilo”."
 
-#: includes/Admin/SettingsPage.php:561
+#: includes/Admin/SettingsPage.php:684
 msgid "Position auf der Seite"
 msgstr "Pozīcija lapā"
 
-#: includes/Admin/SettingsPage.php:564
+#: includes/Admin/SettingsPage.php:687
 msgid "Inline (an der eingebetteten Stelle)"
 msgstr "Iekļauts (iegultajā vietā)"
 
-#: includes/Admin/SettingsPage.php:567
+#: includes/Admin/SettingsPage.php:690
 msgid "Floating: rechts unten"
 msgstr "Peldošs: apakšā pa labi"
 
-#: includes/Admin/SettingsPage.php:570
+#: includes/Admin/SettingsPage.php:693
 msgid "Floating: links unten"
 msgstr "Peldošs: apakšā pa kreisi"
 
-#: includes/Admin/SettingsPage.php:573
+#: includes/Admin/SettingsPage.php:696
 msgid "Floating: rechts oben"
 msgstr "Peldošs: augšējā labajā stūrī"
 
-#: includes/Admin/SettingsPage.php:576
+#: includes/Admin/SettingsPage.php:699
 msgid "Floating: links oben"
 msgstr "Peldošs: augšā pa kreisi"
 
-#: includes/Admin/SettingsPage.php:580
+#: includes/Admin/SettingsPage.php:703
 msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
 msgstr "\"Peldošs\" piesprauž Switcher stūrī ar pozīciju:fiksēts un ritina ar to. Apvienojumā ar Auto-Inject = Weglot noklusējuma darbība."
 
-#: includes/Admin/SettingsPage.php:595
+#: includes/Admin/SettingsPage.php:718
 msgid "Bezeichnung sichtbar"
 msgstr "Redzams apzīmējums"
 
-#: includes/Admin/SettingsPage.php:602
+#: includes/Admin/SettingsPage.php:725
 msgid "Reihenfolge der Sprachen"
 msgstr "Valodu kārtība"
 
-#: includes/Admin/SettingsPage.php:621
+#: includes/Admin/SettingsPage.php:744
 msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
 msgstr "Pārkārtot, izmantojot vilkšanu un nomešanu. Darbojas gan Shortcode, gan automātiskās ievadīšanas režīmā."
 
-#: includes/Admin/SettingsPage.php:625
+#: includes/Admin/SettingsPage.php:748
 msgid "Eigene Flaggen pro Sprache (optional)"
 msgstr "Katrai valodai savi karodziņi (pēc izvēles)"
 
-#: includes/Admin/SettingsPage.php:655
+#: includes/Admin/SettingsPage.php:778
 msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
 msgstr "Atstājiet tukšu = noklusējuma karodziņš. Emocijzīmes (piemēram, 🇺🇸 EN→ASV tirgum) vai URL līdz SVG/PNG. CSS speciālās rakstzīmes tiek automātiski noņemtas."
 
-#: includes/Admin/SettingsPage.php:660
+#: includes/Admin/SettingsPage.php:783
 msgid "Eigenes CSS für den Switcher"
 msgstr "CSS pieder Switcher"
 
-#: includes/Admin/SettingsPage.php:668
+#: includes/Admin/SettingsPage.php:791
 msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
 msgstr "Ievietots tieši pirms Switcher kā <style> taga. \"<\" tiek automātiski noņemts, lai nevarētu ievietot skripta tagu."
 
-#: includes/Admin/SettingsPage.php:673
+#: includes/Admin/SettingsPage.php:803
+msgid "Weitere Switcher-Instanzen"
+msgstr "Vairāk Switcher gadījumu"
+
+#: includes/Admin/SettingsPage.php:805
+msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
+msgstr "Izveidojiet neatkarīgu Switcher Shortcode, bloku, logrīku vai automātisko izvietojumu. Esošais globālais Switcher paliek kā “noklusējuma” gadījums."
+
+#: includes/Admin/SettingsPage.php:807
+msgid "Switcher-Vorlagen"
+msgstr "Switcher veidnes"
+
+#: includes/Admin/SettingsPage.php:835
+msgid "Neuer Switcher"
+msgstr "Jauns Switcher"
+
+#: includes/Admin/SettingsPage.php:846
 msgid "Einstellungen speichern"
 msgstr "Saglabājiet iestatījumus"
 
 #. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:684
+#: includes/Admin/SettingsPage.php:857
 msgid "Hilfe & Dokumentation: %s"
 msgstr "Palīdzība un dokumentācija: %s"
 
-#: includes/Api/Client.php:198
-#: includes/Api/Client.php:304
-msgid "Deepglot API Fehler."
-msgstr "Deepglot API kļūda."
+#: includes/Admin/SettingsPage.php:940
+msgid "Instanz entfernen"
+msgstr "Noņemt instanci"
 
-#: includes/Api/Client.php:219
-#: includes/Sync/SettingsSync.php:48
+#: includes/Admin/SettingsPage.php:949
+#: assets/js/block-switcher.js:51
+msgid "Instanz-ID"
+msgstr "Gadījuma ID"
+
+#: includes/Admin/SettingsPage.php:953
+msgid "Name"
+msgstr "nosaukums"
+
+#: includes/Admin/SettingsPage.php:974
+msgid "Vollständiger Name"
+msgstr "Pilns vārds"
+
+#: includes/Admin/SettingsPage.php:975
+msgid "ISO-Code"
+msgstr "ISO-Code"
+
+#: includes/Admin/SettingsPage.php:979
+msgid "Position"
+msgstr "pozīciju"
+
+#: includes/Admin/SettingsPage.php:987
+msgid "Ausblenden auf"
+msgstr "Paslēpties"
+
+#: includes/Admin/SettingsPage.php:989
+msgid "Keinem Gerät"
+msgstr "Nav ierīces"
+
+#: includes/Admin/SettingsPage.php:990
+msgid "Mobilgeräten"
+msgstr "mobilajām ierīcēm"
+
+#: includes/Admin/SettingsPage.php:991
+msgid "Desktop-Geräten"
+msgstr "Galddatoru ierīces"
+
+#: includes/Admin/SettingsPage.php:995
+msgid "Breakpoint (px)"
+msgstr "Pārtraukuma punkts (pikseļi)"
+
+#: includes/Admin/SettingsPage.php:1002
+msgid "Instanz aktivieren"
+msgstr "Aktivizēt instanci"
+
+#: includes/Admin/SettingsPage.php:1004
+msgid "Automatisch platzieren"
+msgstr "Novietojiet automātiski"
+
+#: includes/Admin/SettingsPage.php:1006
+msgid "Beschriftung anzeigen"
+msgstr "Rādīt parakstu"
+
+#: includes/Admin/SettingsPage.php:1010
+msgid "Sprachreihenfolge"
+msgstr "Valodu kārtība"
+
+#: includes/Admin/SettingsPage.php:1015
+msgid "Eigene Flaggen"
+msgstr "Pašu karogi"
+
+#: includes/Admin/SettingsPage.php:1024
+msgid "Eigenes CSS"
+msgstr "Pašu CSS"
+
+#: includes/Admin/SettingsPage.php:1029
+msgid "DOM-Ziel für automatische Platzierung"
+msgstr "DOM mērķis automātiskai izvietošanai"
+
+#: includes/Admin/SettingsPage.php:1032
+msgid "Element in der Vorschau auswählen"
+msgstr "Priekšskatījumā atlasiet elementu"
+
+#: includes/Admin/SettingsPage.php:1034
+msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
+msgstr "Ja mērķa nav vai tas nav derīgs, Switcher droši paliks kājenē."
+
+#: includes/Admin/SettingsPage.php:1038
+msgid "Website-Vorschau für die Switcher-Platzierung"
+msgstr "Vietnes priekšskatījums izvietojumam Switcher"
+
+#: includes/Api/Client.php:304
+#: includes/Sync/SettingsSync.php:62
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Sinhronizācijai nepastāv API-Key."
 
-#: includes/Api/Client.php:263
+#: includes/Api/Client.php:349
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Izpildlaika konfigurācijai nav API-Key."
 
-#: includes/Api/RestApi.php:203
+#: includes/Api/Client.php:410
+msgid "Deepglot API Fehler."
+msgstr "Deepglot API kļūda."
+
+#: includes/Api/Client.php:611
+msgid "Deepglot API-Key ungültig oder widerrufen."
+msgstr "Deepglot API-Key nederīgs vai atsaukts."
+
+#: includes/Api/RestApi.php:218
 msgid "Kein API-Key angegeben."
 msgstr "Nav norādīts API-Key."
 
-#: includes/Api/RestApi.php:242
+#: includes/Api/RestApi.php:263
 msgid "Du benötigst Administrator-Rechte für diese Aktion."
 msgstr "Lai veiktu šo darbību, ir nepieciešamas administratora tiesības."
 
 #. translators: %d: seconds until reset
-#: includes/Api/RestApi.php:281
+#: includes/Api/RestApi.php:302
 msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
 msgstr "Pārāk daudz pieprasījumu. Lūdzu, uzgaidiet %d sekundes."
 
-#: includes/Frontend/LanguageSwitcher.php:236
+#: includes/Api/RestApi.php:423
+msgid "Monatliches Wortlimit ausgeschöpft."
+msgstr "Mēneša vārdu ierobežojums ir izsmelts."
+
+#: includes/Api/RestApi.php:431
+msgid "API-Key ungültig oder widerrufen."
+msgstr "API-Key nederīgs vai atsaukts."
+
+#: includes/Config/SwitcherTemplates.php:21
+msgid "Klassisches Dropdown"
+msgstr "Klasisks nolaižamais saraksts"
+
+#: includes/Config/SwitcherTemplates.php:22
+msgid "Flagge und vollständiger Sprachname in einem kompakten Dropdown."
+msgstr "Karogs un pilns valodas nosaukums kompaktā nolaižamajā izvēlnē."
+
+#: includes/Config/SwitcherTemplates.php:31
+msgid "Minimaler Sprachcode"
+msgstr "Minimālais valodas kods"
+
+#: includes/Config/SwitcherTemplates.php:32
+msgid "Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz."
+msgstr "Vienkāršas ISO-Codes bez karogiem navigācijai ar maz vietas."
+
+#: includes/Config/SwitcherTemplates.php:41
+msgid "Schwebende Flaggen"
+msgstr "Peldošie karogi"
+
+#: includes/Config/SwitcherTemplates.php:42
+msgid "Runde Flaggen als schwebender Umschalter unten rechts."
+msgstr "Apaļi karodziņi kā peldošs slēdzis apakšējā labajā stūrī."
+
+#: includes/Frontend/DynamicTranslationController.php:151
+msgid "Zu viele Anfragen."
+msgstr "Pārāk daudz pieprasījumu."
+
+#: includes/Frontend/DynamicTranslationController.php:308
+msgid "Nicht verfügbar."
+msgstr "Nav pieejams."
+
+#: includes/Frontend/DynamicTranslationController.php:317
+msgid "Ungültige Herkunft."
+msgstr "Nederīga izcelsme."
+
+#. translators: %s: native language name.
+#: includes/Frontend/LanguageSwitcher.php:273
 msgid "Switch language to %s"
 msgstr "Pārslēgt valodu uz %s"
 
-#: includes/Frontend/LanguageSwitcher.php:251
+#. translators: %s: active language name.
+#: includes/Frontend/LanguageSwitcher.php:293
 msgid "Sprache: %s"
 msgstr "Valoda: %s"
 
-#: includes/Frontend/NavMenuSwitcher.php:175
+#: includes/Frontend/NavMenuSwitcher.php:183
 msgid "Sprache wählen"
 msgstr "Izvēlieties valodu"
 
@@ -429,14 +626,26 @@ msgstr "Parāda Deepglot valodas slēdzi — stili/Flagge/Reihenfolge atbilst sp
 msgid "Sprachumschalter in einer Widget-Area anzeigen."
 msgstr "Rādīt valodas pārslēdzēju logrīku apgabalā."
 
-#: includes/Frontend/SwitcherWidget.php:83
+#: includes/Frontend/SwitcherWidget.php:87
 msgid "Titel:"
 msgstr "Nosaukums:"
 
-#: includes/Sync/SettingsSync.php:52
+#: includes/Frontend/SwitcherWidget.php:99
+msgid "Switcher-Instanz:"
+msgstr "Switcher gadījums:"
+
+#: includes/Sync/SettingsSync.php:66
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Sinhronizācijai nav konfigurēta neviena mērķa valoda."
 
 #: assets/js/block-switcher.js:20
 msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
 msgstr "Parāda valodas slēdzi Deepglot. Stils, karodziņš un secība izpildiet spraudņa iestatījumus."
+
+#: assets/js/block-switcher.js:49
+msgid "Switcher-Instanz"
+msgstr "Switcher gadījumu"
+
+#: assets/js/block-switcher.js:52
+msgid "Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter."
+msgstr "ID varat atrast sadaļā Iestatījumi → Deepglot → Valodas pārslēdzējs."

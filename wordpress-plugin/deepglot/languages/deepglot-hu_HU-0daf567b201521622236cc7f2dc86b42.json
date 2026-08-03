@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Nyelvv\u00e1lt\u00e1s"
             ],
+            "Instanz-ID": [
+                "P\u00e9ld\u00e1nyazonos\u00edt\u00f3"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Megjelen\u00edti a Deepglot nyelvkapcsol\u00f3t. A st\u00edlus, a megjel\u00f6l\u00e9s \u00e9s a sorrend a be\u00e9p\u00fcl\u0151 modul be\u00e1ll\u00edt\u00e1sait k\u00f6veti."
+            ],
+            "Switcher-Instanz": [
+                "Switcher p\u00e9ld\u00e1ny"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Az azonos\u00edt\u00f3t a Be\u00e1ll\u00edt\u00e1sok \u2192 Deepglot \u2192 Nyelvv\u00e1lt\u00f3 men\u00fcpontban tal\u00e1lja."
             ]
         }
     }
