@@ -7,9 +7,9 @@ use Deepglot\Config\Options;
 class Client
 {
     /**
-     * Circuit breaker for a revoked or mistyped API key. While
-     * this transient is set, translation calls fail locally instead of
-     * queuing another round of doomed HTTP requests.
+     * Circuit breaker for a revoked or mistyped API key (#245). While this
+     * transient is set, translation calls fail locally instead of queuing
+     * another round of doomed HTTP requests.
      */
     public const INVALID_API_KEY_TRANSIENT = 'deepglot_invalid_api_key';
 
@@ -383,8 +383,8 @@ class Client
      * amount of retrying will fix it, and nothing on the site gets translated
      * until an operator intervenes. Arm the circuit breaker so the remaining
      * batches of this render and every following page view fail locally
-     * instead of blocking on the network, and so the admin
-     * notice plus the settings page can report the real state.
+     * instead of blocking on the network (#245), and so the admin notice
+     * plus the settings page can report the real state.
      *
      * Re-set on every 401, so the breaker clears roughly INVALID_API_KEY_TTL
      * after the key starts working again.

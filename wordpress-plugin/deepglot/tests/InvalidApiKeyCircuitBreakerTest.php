@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Reproduces the live finding from 2026-08-03 (jobspot.at): once the
+ * Reproduces the live finding from 2026-08-03 (jobspot.at, #245): once the
  * configured API key is revoked or mistyped, the SaaS answers every
  * translation request with HTTP 401
  * ({"code":"invalid_api_key","title":"Authentication failed"}).

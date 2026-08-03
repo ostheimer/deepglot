@@ -190,7 +190,7 @@ class RestApi
             // True when the configured key is rejected outright (HTTP 401),
             // from EITHER the ping above OR the circuit breaker a recent real
             // translation armed. Unlike an exhausted quota this means nothing
-            // is being translated at all.
+            // is being translated at all (#245).
             'api_key_invalid' => $connCode === 'invalid_api_key'
                                     || (bool) get_transient(Client::INVALID_API_KEY_TRANSIENT),
             'source_language' => $settings['source_language'],

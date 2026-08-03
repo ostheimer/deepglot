@@ -35,7 +35,7 @@ class SettingsPage
     }
 
     /**
-     * Surfaces a revoked, rotated, or mistyped API key (jobspot.at, 2026-08-03).
+     * Surfaces a revoked, rotated, or mistyped API key (#245).
      *
      * The Client sets the `deepglot_invalid_api_key` transient whenever the
      * backend answers a translation request with HTTP 401. Unlike an exhausted
@@ -248,7 +248,7 @@ class SettingsPage
         $settings   = $this->options->all();
         // A key the backend rejects with 401 is not a working setup, however
         // complete the form looks — reporting "Aktiv" here is what hid a live
-        // outage from the operator on jobspot.at (2026-08-03). $isSetup keeps
+        // outage from the operator on jobspot.at (#245). $isSetup keeps
         // meaning "a key is stored", so an existing site stays on the compact
         // form instead of dropping back into first-time onboarding copy.
         $keyInvalid = (bool) get_transient(self::INVALID_API_KEY_TRANSIENT);
