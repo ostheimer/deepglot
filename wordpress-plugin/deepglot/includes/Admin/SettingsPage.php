@@ -17,6 +17,9 @@ class SettingsPage
 
     private const DASHBOARD_URL = 'https://deepglot.ai';
 
+    /** Mirrors Deepglot\Api\Client::INVALID_API_KEY_TRANSIENT. */
+    private const INVALID_API_KEY_TRANSIENT = 'deepglot_invalid_api_key';
+
     public function __construct(Options $options)
     {
         $this->options = $options;
@@ -28,6 +31,39 @@ class SettingsPage
         add_action('admin_init', [$this, 'registerSettings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueueStyles']);
         add_action('admin_notices', [$this, 'maybeRenderQuotaNotice']);
+        add_action('admin_notices', [$this, 'maybeRenderInvalidApiKeyNotice']);
+    }
+
+    /**
+     * Surfaces a revoked, rotated, or mistyped API key (jobspot.at, 2026-08-03).
+     *
+     * The Client sets the `deepglot_invalid_api_key` transient whenever the
+     * backend answers a translation request with HTTP 401. Unlike an exhausted
+     * quota this stops translation completely — cached pages keep serving, but
+     * nothing new is ever translated. It is reported at error level because
+     * only an operator can fix it, and the transient's TTL clears the notice
+     * once the key works again.
+     */
+    public function maybeRenderInvalidApiKeyNotice(): void
+    {
+        if (!current_user_can('manage_options') || !get_transient(self::INVALID_API_KEY_TRANSIENT)) {
+            return;
+        }
+
+        // Project list — the API keys themselves live under
+        // /projekte/<id>/api-keys, and the plugin does not know the project id.
+        $settingsUrl = self::DASHBOARD_URL . '/projekte';
+        ?>
+        <div class="notice notice-error">
+            <p>
+                <strong><?php esc_html_e('Deepglot: API-Key ungültig oder widerrufen.', 'deepglot'); ?></strong>
+                <?php esc_html_e('Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort.', 'deepglot'); ?>
+                <a href="<?php echo esc_url($settingsUrl); ?>" target="_blank" rel="noopener noreferrer">
+                    <?php esc_html_e('API-Key im Deepglot-Dashboard prüfen', 'deepglot'); ?>
+                </a>
+            </p>
+        </div>
+        <?php
     }
 
     /**
@@ -104,7 +140,8 @@ class SettingsPage
         /* Status badge */
         .dg-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-left: 4px; }
         .dg-status.active { background: #dcfce7; color: #166534; }
-        .dg-status.inactive { background: #fee2e2; color: #991b1b; }
+        .dg-status.inactive,
+        .dg-status.invalid { background: #fee2e2; color: #991b1b; }
         .dg-status.unconfigured { background: #fef3c7; color: #92400e; }
 
         /* Setup wizard */
@@ -209,12 +246,21 @@ class SettingsPage
         }
 
         $settings   = $this->options->all();
+        // A key the backend rejects with 401 is not a working setup, however
+        // complete the form looks — reporting "Aktiv" here is what hid a live
+        // outage from the operator on jobspot.at (2026-08-03). $isSetup keeps
+        // meaning "a key is stored", so an existing site stays on the compact
+        // form instead of dropping back into first-time onboarding copy.
+        $keyInvalid = (bool) get_transient(self::INVALID_API_KEY_TRANSIENT);
         $isSetup    = !empty($settings['api_key']);
         $isEnabled  = !empty($settings['enabled']);
         $optKey     = Options::OPTION_KEY;
         $dashUrl    = self::DASHBOARD_URL;
 
-        if ($isEnabled && $isSetup) {
+        if ($keyInvalid) {
+            $statusClass = 'invalid';
+            $statusLabel = __('API-Key ungültig', 'deepglot');
+        } elseif ($isEnabled && $isSetup) {
             $statusClass = 'active';
             $statusLabel = __('Aktiv', 'deepglot');
         } elseif ($isSetup) {
@@ -265,11 +311,16 @@ class SettingsPage
 
                         <!-- Step 1: API-Key -->
                         <div class="dg-step">
-                            <div class="dg-step-num <?php echo $isSetup ? 'done' : ''; ?>">
-                                <?php echo $isSetup ? '✓' : '1'; ?>
+                            <div class="dg-step-num <?php echo $isSetup && !$keyInvalid ? 'done' : ''; ?>">
+                                <?php echo $isSetup && !$keyInvalid ? '✓' : '1'; ?>
                             </div>
                             <div class="dg-step-body">
                                 <h3><?php esc_html_e('API-Key eintragen', 'deepglot'); ?></h3>
+                                <?php if ($keyInvalid) : ?>
+                                <p style="margin:0 0 12px; font-size:12px; color:#991b1b; font-weight:600;">
+                                    <?php esc_html_e('Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere.', 'deepglot'); ?>
+                                </p>
+                                <?php endif; ?>
                                 <?php if (!$isSetup) : ?>
                                 <p>
                                     <?php esc_html_e('Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key.', 'deepglot'); ?>
@@ -369,7 +420,11 @@ class SettingsPage
                                         <?php esc_html_e('Deepglot für alle Frontend-Anfragen aktiv schalten', 'deepglot'); ?>
                                     </label>
                                 </div>
-                                <?php if ($isEnabled) : ?>
+                                <?php if ($isEnabled && $keyInvalid) : ?>
+                                    <p style="margin:10px 0 0; font-size:12px; color:#991b1b; font-weight:600;">
+                                        <?php esc_html_e('Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt.', 'deepglot'); ?>
+                                    </p>
+                                <?php elseif ($isEnabled) : ?>
                                     <p style="margin:10px 0 0; font-size:12px; color:#16a34a; font-weight:600;">
                                         ✓ <?php
                                             $langList = implode(', ', array_map('strtoupper', (array) $settings['target_languages']));

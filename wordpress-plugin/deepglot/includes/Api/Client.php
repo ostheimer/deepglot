@@ -6,6 +6,20 @@ use Deepglot\Config\Options;
 
 class Client
 {
+    /**
+     * Circuit breaker for a revoked or mistyped API key. While
+     * this transient is set, translation calls fail locally instead of
+     * queuing another round of doomed HTTP requests.
+     */
+    public const INVALID_API_KEY_TRANSIENT = 'deepglot_invalid_api_key';
+
+    /**
+     * Short enough that a key re-enabled on the SaaS side heals without an
+     * admin save, long enough that a busy site pays at most one failed batch
+     * per window instead of one per page view.
+     */
+    private const INVALID_API_KEY_TTL = 900;
+
     private Options $options;
 
     public function __construct(Options $options)
@@ -37,6 +51,10 @@ class Client
      */
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
+        if ($this->isApiKeyKnownInvalid()) {
+            return $this->invalidApiKeyError();
+        }
+
         return $this->buildTranslateResponse($this->dispatchTranslate(
             $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl, $bot)
         ));
@@ -72,6 +90,19 @@ class Client
 
         if (empty($payloads)) {
             return [];
+        }
+
+        // A page render fans out into several batches. With a known-invalid
+        // key every one of them would block on its own 401, which is what made
+        // uncached pages take 16.7 s on the live site — fail them all locally.
+        if ($this->isApiKeyKnownInvalid()) {
+            $shortCircuited = [];
+
+            foreach (array_keys($payloads) as $key) {
+                $shortCircuited[$key] = $this->invalidApiKeyError();
+            }
+
+            return $shortCircuited;
         }
 
         if (count($payloads) === 1) {
@@ -131,6 +162,11 @@ class Client
      */
     private function buildTranslateResponse($result)
     {
+        if ($result instanceof \WP_Error) {
+            $data = $result->get_error_data();
+            $this->maybeFlagInvalidApiKey(is_array($data) ? (int) ($data['status'] ?? 0) : 0);
+        }
+
         return $result;
     }
 
@@ -195,6 +231,7 @@ class Client
 
             if ($statusCode >= 400) {
                 $this->maybeFlagQuotaExhausted($statusCode);
+                $this->maybeFlagInvalidApiKey($statusCode);
                 $results[$key] = new \WP_Error(
                     'deepglot_api_error',
                     $this->getApiErrorMessage($decoded),
@@ -339,5 +376,44 @@ class Client
         if ($statusCode === 402 && function_exists('set_transient')) {
             set_transient('deepglot_quota_exhausted', time(), 3600);
         }
+    }
+
+    /**
+     * A 401 means the configured key is revoked, rotated, or mistyped — no
+     * amount of retrying will fix it, and nothing on the site gets translated
+     * until an operator intervenes. Arm the circuit breaker so the remaining
+     * batches of this render and every following page view fail locally
+     * instead of blocking on the network, and so the admin
+     * notice plus the settings page can report the real state.
+     *
+     * Re-set on every 401, so the breaker clears roughly INVALID_API_KEY_TTL
+     * after the key starts working again.
+     */
+    private function maybeFlagInvalidApiKey(int $statusCode): void
+    {
+        if ($statusCode === 401 && function_exists('set_transient')) {
+            set_transient(self::INVALID_API_KEY_TRANSIENT, time(), self::INVALID_API_KEY_TTL);
+        }
+    }
+
+    /**
+     * True while the circuit breaker is armed for the stored API key. Only the
+     * translate endpoints consult it: settings sync, runtime config, and the
+     * test-connection ping must stay reachable so a corrected key can be
+     * verified and saved.
+     */
+    private function isApiKeyKnownInvalid(): bool
+    {
+        return function_exists('get_transient')
+            && get_transient(self::INVALID_API_KEY_TRANSIENT) !== false;
+    }
+
+    private function invalidApiKeyError(): \WP_Error
+    {
+        return new \WP_Error(
+            'deepglot_invalid_api_key',
+            __('Deepglot API-Key ungültig oder widerrufen.', 'deepglot'),
+            ['status' => 401]
+        );
     }
 }

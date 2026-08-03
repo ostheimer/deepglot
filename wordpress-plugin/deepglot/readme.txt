@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.1
+Stable tag: 0.11.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.11.2 =
+* Detected a revoked or invalid API key (HTTP 401) and stopped retrying it on every page view.
+* Added a wp-admin error notice and an "API-Key ungültig" settings status instead of a misleading active state.
+* Cleared the invalid-key state immediately when a new API key or backend URL is saved.
+
 = 0.11.1 =
 * Preserved whitespace-prefixed `mailto:` and `tel:` action links during URL rewriting.
 * Restored full-language descriptions when the switcher displays ISO-code labels.
@@ -91,6 +96,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.11.2 =
+Reports an invalid or revoked API key in wp-admin and stops re-sending doomed translation requests on every page view. Requires PHP 8.0 or newer.
 
 = 0.11.1 =
 Preserves action links, restores descriptive ISO-code labels, and improves WordPress.org compatibility. Requires PHP 8.0 or newer.
