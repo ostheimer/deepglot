@@ -178,6 +178,99 @@ canonicalOutputAssert(
     'Target output canonical must include the active language and translated URL slug.'
 );
 
+$_SERVER['REQUEST_URI'] = '/?p=123&utm_source=newsletter';
+$plainPermalink = $buffer->processSource($withoutCanonical);
+$plainPermalinkCanonicals = canonicalOutputLinks($plainPermalink);
+$plainPermalinkHreflangs = canonicalOutputHreflangHrefs($plainPermalink);
+canonicalOutputAssert(
+    count($plainPermalinkCanonicals) === 1
+    && $plainPermalinkCanonicals[0]->getAttribute('href') === 'https://example.com/?p=123',
+    'A WordPress plain permalink must retain its content-defining post ID while dropping tracking parameters.'
+);
+canonicalOutputAssert(
+    ($plainPermalinkHreflangs['de'] ?? '') === 'https://example.com/?p=123'
+    && ($plainPermalinkHreflangs['en'] ?? '') === 'https://example.com/en/?p=123'
+    && ($plainPermalinkHreflangs['x-default'] ?? '') === 'https://example.com/?p=123',
+    'Plain-permalink hreflang URLs must retain the same post ID in every language.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?p=123&s=ignored&utm_source=newsletter';
+$plainPermalinkWithSearch = $buffer->processSource($withoutCanonical);
+$plainPermalinkWithSearchCanonicals = canonicalOutputLinks($plainPermalinkWithSearch);
+canonicalOutputAssert(
+    count($plainPermalinkWithSearchCanonicals) === 1
+    && $plainPermalinkWithSearchCanonicals[0]->getAttribute('href') === 'https://example.com/?p=123',
+    'A valid singular ID must take precedence over an additional search parameter, matching WordPress routing.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?page_id=0042&utm_campaign=duplicate';
+$plainPage = $buffer->processSource($withoutCanonical);
+$plainPageCanonicals = canonicalOutputLinks($plainPage);
+canonicalOutputAssert(
+    count($plainPageCanonicals) === 1
+    && $plainPageCanonicals[0]->getAttribute('href') === 'https://example.com/?page_id=42',
+    'A plain page permalink must retain and normalize its content-defining page ID.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?attachment_id=7&fbclid=campaign';
+$plainAttachment = $buffer->processSource($withoutCanonical);
+$plainAttachmentCanonicals = canonicalOutputLinks($plainAttachment);
+canonicalOutputAssert(
+    count($plainAttachmentCanonicals) === 1
+    && $plainAttachmentCanonicals[0]->getAttribute('href') === 'https://example.com/?attachment_id=7',
+    'A plain attachment permalink must retain its content-defining attachment ID.'
+);
+
+foreach ([
+    '/?p%5Bpost%5D=123&utm_source=newsletter',
+    '/?p=-1&utm_source=newsletter',
+    '/?p=0&utm_source=newsletter',
+    '/?p=1e3&utm_source=newsletter',
+    '/?p=%20123%20&utm_source=newsletter',
+    '/?p=' . PHP_INT_MAX . '0&utm_source=newsletter',
+    '/?p=123&p=456&utm_source=newsletter',
+    '/?p=123&page_id=42&utm_source=newsletter',
+    '/?page.id=42&utm_source=newsletter',
+    '/?attachment+id=7&utm_source=newsletter',
+    '/?p%00=123&utm_source=newsletter',
+] as $invalidPlainPermalink) {
+    $_SERVER['REQUEST_URI'] = $invalidPlainPermalink;
+    $invalidPlainOutput = $buffer->processSource($withoutCanonical);
+    $invalidPlainCanonicals = canonicalOutputLinks($invalidPlainOutput);
+    canonicalOutputAssert(
+        count($invalidPlainCanonicals) === 1
+        && $invalidPlainCanonicals[0]->getAttribute('href') === 'https://example.com/',
+        'Nested, non-positive or ambiguous plain-permalink identifiers must be discarded.'
+    );
+}
+
+$_SERVER['REQUEST_URI'] = '/?paged=2&utm_source=newsletter';
+$plainArchivePage = $buffer->processSource($withoutCanonical);
+$plainArchiveCanonicals = canonicalOutputLinks($plainArchivePage);
+canonicalOutputAssert(
+    count($plainArchiveCanonicals) === 1
+    && $plainArchiveCanonicals[0]->getAttribute('href') === 'https://example.com/?paged=2',
+    'A non-search plain archive must retain a valid page number greater than one.'
+);
+
+foreach ([
+    '/?paged=0&utm_source=newsletter',
+    '/?paged=1&utm_source=newsletter',
+    '/?paged%5Bpage%5D=2&utm_source=newsletter',
+    '/?paged=-2&utm_source=newsletter',
+    '/?paged=2e1&utm_source=newsletter',
+    '/?paged=%202%20&utm_source=newsletter',
+] as $invalidPlainPage) {
+    $_SERVER['REQUEST_URI'] = $invalidPlainPage;
+    $invalidPlainPageOutput = $buffer->processSource($withoutCanonical);
+    $invalidPlainPageCanonicals = canonicalOutputLinks($invalidPlainPageOutput);
+    canonicalOutputAssert(
+        count($invalidPlainPageCanonicals) === 1
+        && $invalidPlainPageCanonicals[0]->getAttribute('href') === 'https://example.com/',
+        'Page zero, page one and malformed non-search pagination must be discarded.'
+    );
+}
+
 $_SERVER['REQUEST_URI'] = '/?s=Zahnimplantat&utm_source=newsletter&gclid=campaign';
 $sourceSearch = $buffer->processSource($withoutCanonical);
 $sourceSearchCanonicals = canonicalOutputLinks($sourceSearch);

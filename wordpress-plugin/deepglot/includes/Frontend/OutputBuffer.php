@@ -15,6 +15,23 @@ use Deepglot\Support\UrlLanguageResolver;
  */
 class OutputBuffer
 {
+    /** @var string[] */
+    private const PLAIN_PERMALINK_ID_QUERY_VARS = [
+        'p',
+        'page_id',
+        'attachment_id',
+    ];
+
+    /** @var string[] */
+    private const CANONICAL_QUERY_VARS = [
+        'p',
+        'page_id',
+        'attachment_id',
+        's',
+        'paged',
+        'post_type',
+    ];
+
     private Options $options;
     private UrlLanguageResolver $resolver;
     private HtmlTranslator $translator;
@@ -222,10 +239,9 @@ class OutputBuffer
     }
 
     /**
-     * Keeps the small set of content-defining WordPress search parameters in
-     * generated canonicals and hreflang URLs. Arbitrary request parameters are
-     * commonly campaign or click identifiers and must not create separate
-     * canonical URL variants.
+     * Keeps the small set of content-defining WordPress parameters in generated
+     * canonicals and hreflang URLs. Arbitrary request parameters are commonly
+     * campaign or click identifiers and must not create canonical URL variants.
      */
     private function canonicalRequestLocation(string $uri): string
     {
@@ -236,32 +252,53 @@ class OutputBuffer
             return $canonicalPath;
         }
 
-        $query = [];
-        parse_str($rawQuery, $query);
+        $query = $this->parseCanonicalQuery($rawQuery);
+        $plainPermalinkQuery = $this->canonicalPlainPermalinkIdQuery($query);
 
-        if (!array_key_exists('s', $query) || !is_string($query['s'])) {
+        if ($plainPermalinkQuery !== null) {
+            if ($plainPermalinkQuery === []) {
+                return $canonicalPath;
+            }
+
+            return $canonicalPath . '?' . http_build_query(
+                $plainPermalinkQuery,
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            );
+        }
+
+        if (!array_key_exists('s', $query)) {
+            $paged = $this->canonicalSinglePositiveInteger($query, 'paged');
+            if ($paged === null || $paged === '1') {
+                return $canonicalPath;
+            }
+
+            return $canonicalPath . '?' . http_build_query(
+                ['paged' => $paged],
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            );
+        }
+
+        if (count($query['s']) !== 1) {
             return $canonicalPath;
         }
 
-        $canonicalQuery = ['s' => $query['s']];
+        $canonicalQuery = ['s' => $query['s'][0]];
 
-        if (
-            isset($query['paged'])
-            && is_string($query['paged'])
-            && preg_match('/\A[0-9]+\z/', $query['paged']) === 1
-        ) {
-            $paged = (int) $query['paged'];
-            if ($paged > 1) {
-                $canonicalQuery['paged'] = (string) $paged;
-            }
+        $paged = $this->canonicalSinglePositiveInteger($query, 'paged');
+        if ($paged !== null && $paged !== '1') {
+            $canonicalQuery['paged'] = $paged;
         }
 
         if (
             isset($query['post_type'])
-            && is_string($query['post_type'])
-            && preg_match('/\A[a-z0-9_-]{1,20}\z/', $query['post_type']) === 1
+            && count($query['post_type']) === 1
+            && preg_match('/\A[a-z0-9_-]{1,20}\z/', $query['post_type'][0]) === 1
         ) {
-            $canonicalQuery['post_type'] = $query['post_type'];
+            $canonicalQuery['post_type'] = $query['post_type'][0];
         }
 
         return $canonicalPath . '?' . http_build_query(
@@ -270,6 +307,116 @@ class OutputBuffer
             '&',
             PHP_QUERY_RFC3986
         );
+    }
+
+    /**
+     * Plain-permalink post, page and attachment IDs are the route itself. Keep
+     * exactly one scalar positive ID, while rejecting ambiguous, nested or
+     * otherwise malformed selectors.
+     *
+     * @param array<string, string[]> $query
+     * @return array<string, string>
+     */
+    private function canonicalPlainPermalinkIdQuery(array $query): ?array
+    {
+        $selectedKeys = [];
+
+        foreach (self::PLAIN_PERMALINK_ID_QUERY_VARS as $key) {
+            if (array_key_exists($key, $query)) {
+                $selectedKeys[] = $key;
+            }
+        }
+
+        if ($selectedKeys === []) {
+            return null;
+        }
+
+        if (count($selectedKeys) !== 1) {
+            return [];
+        }
+
+        $selectedKey = $selectedKeys[0];
+        if (count($query[$selectedKey]) !== 1) {
+            return [];
+        }
+
+        $selectedValue = $this->canonicalPositiveInteger($query[$selectedKey][0]);
+
+        if ($selectedValue === null) {
+            return [];
+        }
+
+        return [$selectedKey => $selectedValue];
+    }
+
+    /**
+     * Parses only exact canonical query-variable names. parse_str() cannot be
+     * used for this allowlist because it normalizes dots, spaces and NUL bytes
+     * in keys, which can turn an untrusted key into an allowed WordPress key.
+     *
+     * @return array<string, string[]>
+     */
+    private function parseCanonicalQuery(string $rawQuery): array
+    {
+        $query = [];
+
+        foreach (explode('&', $rawQuery) as $pair) {
+            [$rawKey, $rawValue] = array_pad(explode('=', $pair, 2), 2, '');
+            $key = urldecode($rawKey);
+
+            if (!in_array($key, self::CANONICAL_QUERY_VARS, true)) {
+                continue;
+            }
+
+            if (!isset($query[$key])) {
+                $query[$key] = [];
+            }
+
+            $query[$key][] = urldecode($rawValue);
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param array<string, string[]> $query
+     */
+    private function canonicalSinglePositiveInteger(array $query, string $key): ?string
+    {
+        if (!isset($query[$key]) || count($query[$key]) !== 1) {
+            return null;
+        }
+
+        return $this->canonicalPositiveInteger($query[$key][0]);
+    }
+
+    /**
+     * Normalizes the decimal integers WordPress later represents as native
+     * integers. Rejecting values above PHP_INT_MAX avoids overflow-dependent
+     * canonical URLs on 32-bit and 64-bit hosts.
+     *
+     * @param mixed $value
+     */
+    private function canonicalPositiveInteger($value): ?string
+    {
+        if (!is_string($value) || preg_match('/\A[0-9]+\z/', $value) !== 1) {
+            return null;
+        }
+
+        $normalized = ltrim($value, '0');
+        if ($normalized === '') {
+            return null;
+        }
+
+        $maximum = (string) PHP_INT_MAX;
+        if (
+            strlen($normalized) > strlen($maximum)
+            || (strlen($normalized) === strlen($maximum) && strcmp($normalized, $maximum) > 0)
+        ) {
+            return null;
+        }
+
+        return $normalized;
     }
 
     private function detectTargetLanguage(): ?string
