@@ -111,7 +111,7 @@ class OutputBuffer
         // Step 3: inject hreflang tags.
         // Use the original (pre-rewrite) REQUEST_URI to get the canonical path.
         $rawUri        = RequestInput::server('REQUEST_URI', '/');
-        $canonicalPath = $this->routing->getCanonicalPath($rawUri);
+        $canonicalPath = $this->canonicalRequestLocation($rawUri);
         $this->hreflangInjector->inject(
             $doc,
             $canonicalPath,
@@ -161,7 +161,7 @@ class OutputBuffer
 
         $doc = $this->loadDocument($html);
         $rawUri = RequestInput::server('REQUEST_URI', '/');
-        $canonicalPath = $this->routing->getCanonicalPath($rawUri);
+        $canonicalPath = $this->canonicalRequestLocation($rawUri);
         $this->hreflangInjector->inject(
             $doc,
             $canonicalPath,
@@ -219,6 +219,57 @@ class OutputBuffer
         return $statusCode === false
             || $statusCode === 0
             || ($statusCode >= 200 && $statusCode < 300);
+    }
+
+    /**
+     * Keeps the small set of content-defining WordPress search parameters in
+     * generated canonicals and hreflang URLs. Arbitrary request parameters are
+     * commonly campaign or click identifiers and must not create separate
+     * canonical URL variants.
+     */
+    private function canonicalRequestLocation(string $uri): string
+    {
+        $canonicalPath = $this->routing->getCanonicalPath($uri);
+        $rawQuery = wp_parse_url($uri, PHP_URL_QUERY);
+
+        if (!is_string($rawQuery) || $rawQuery === '') {
+            return $canonicalPath;
+        }
+
+        $query = [];
+        parse_str($rawQuery, $query);
+
+        if (!array_key_exists('s', $query) || !is_string($query['s'])) {
+            return $canonicalPath;
+        }
+
+        $canonicalQuery = ['s' => $query['s']];
+
+        if (
+            isset($query['paged'])
+            && is_string($query['paged'])
+            && preg_match('/\A[0-9]+\z/', $query['paged']) === 1
+        ) {
+            $paged = (int) $query['paged'];
+            if ($paged > 1) {
+                $canonicalQuery['paged'] = (string) $paged;
+            }
+        }
+
+        if (
+            isset($query['post_type'])
+            && is_string($query['post_type'])
+            && preg_match('/\A[a-z0-9_-]{1,20}\z/', $query['post_type']) === 1
+        ) {
+            $canonicalQuery['post_type'] = $query['post_type'];
+        }
+
+        return $canonicalPath . '?' . http_build_query(
+            $canonicalQuery,
+            '',
+            '&',
+            PHP_QUERY_RFC3986
+        );
     }
 
     private function detectTargetLanguage(): ?string

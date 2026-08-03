@@ -94,7 +94,7 @@ export async function translateWithGemini(
   const data = rawData as GeminiResponse;
 
   if (data.promptFeedback?.blockReason) {
-    throw new Error(
+    throw new TranslationProviderResponseError(
       `Gemini blocked the translation prompt (${data.promptFeedback.blockReason}).`
     );
   }
@@ -131,7 +131,11 @@ export async function translateWithGemini(
 
   return texts.map((_, index) => {
     const entry = translations[index];
-    if (entry && typeof entry.text === "string" && entry.text.length > 0) {
+    if (
+      entry &&
+      typeof entry.text === "string" &&
+      entry.text.trim().length > 0
+    ) {
       const result: TranslationResult = { text: entry.text };
       if (typeof entry.detectedSourceLanguage === "string") {
         result.detectedSourceLanguage = entry.detectedSourceLanguage;
@@ -145,9 +149,17 @@ export async function translateWithGemini(
 }
 
 function collectCandidateText(data: GeminiResponse): string {
-  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  const parts = data.candidates?.[0]?.content?.parts;
+  if (parts === undefined) {
+    return "";
+  }
+  if (!Array.isArray(parts)) {
+    throw new TranslationProviderResponseError(
+      "Gemini API response candidate parts were not an array."
+    );
+  }
   return parts
-    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .map((part) => (typeof part?.text === "string" ? part.text : ""))
     .join("");
 }
 

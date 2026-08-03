@@ -74,15 +74,67 @@ async function translateWithProvider(
  * errors and other 4xx codes are surfaced unchanged so the operator can see
  * the real misconfiguration.
  */
+const RETRYABLE_TRANSPORT_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EPIPE",
+  "ETIMEDOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+]);
+
 function isProviderFailoverError(error: unknown): boolean {
   if (error instanceof TranslationProviderResponseError) return true;
   if (!(error instanceof Error)) return false;
+
+  if (error.name === "AbortError" || error.name === "TimeoutError") {
+    return true;
+  }
+
+  let cause: unknown = (error as Error & { cause?: unknown }).cause;
+  for (let depth = 0; cause && depth < 3; depth += 1) {
+    if (typeof cause !== "object") break;
+
+    const code = (cause as { code?: unknown }).code;
+    if (
+      typeof code === "string" &&
+      RETRYABLE_TRANSPORT_ERROR_CODES.has(code.toUpperCase())
+    ) {
+      return true;
+    }
+
+    if (cause instanceof Error) {
+      if (cause.name === "AbortError" || cause.name === "TimeoutError") {
+        return true;
+      }
+      cause = (cause as Error & { cause?: unknown }).cause;
+      continue;
+    }
+    break;
+  }
+
   const message = error.message.toLowerCase();
-  if (message.includes("429") || message.includes("rate limit") || message.includes("quota")) {
+  if (
+    message.includes("408") ||
+    message.includes("429") ||
+    message.includes("rate limit") ||
+    message.includes("quota")
+  ) {
     return true;
   }
   if (/(\b5\d\d\b)/.test(message)) return true;
-  if (message.includes("econnreset") || message.includes("etimedout") || message.includes("network")) return true;
+  if (
+    message.includes("fetch failed") ||
+    message.includes("econnreset") ||
+    message.includes("etimedout") ||
+    message.includes("network")
+  ) {
+    return true;
+  }
   return false;
 }
 

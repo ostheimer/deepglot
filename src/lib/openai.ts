@@ -85,15 +85,27 @@ function parseOpenAITranslations(
   rawContent: string,
   expectedCount: number
 ): TranslationResult[] {
-  let payload: OpenAITranslationPayload;
+  let rawPayload: unknown;
 
   try {
-    payload = JSON.parse(rawContent) as OpenAITranslationPayload;
+    rawPayload = JSON.parse(rawContent) as unknown;
   } catch {
     throw new TranslationProviderResponseError(
       "OpenAI hat kein gueltiges JSON fuer die Uebersetzung geliefert."
     );
   }
+
+  if (
+    !rawPayload ||
+    typeof rawPayload !== "object" ||
+    Array.isArray(rawPayload)
+  ) {
+    throw new TranslationProviderResponseError(
+      "OpenAI API response did not include a translation payload object."
+    );
+  }
+
+  const payload = rawPayload as OpenAITranslationPayload;
 
   if (!Array.isArray(payload.translations)) {
     throw new TranslationProviderResponseError(
@@ -109,7 +121,7 @@ function parseOpenAITranslations(
 
   return payload.translations.map((item, index) => {
     if (typeof item === "string") {
-      if (item.length === 0) {
+      if (item.trim().length === 0) {
         throw new TranslationProviderResponseError(
           `OpenAI hat fuer Eintrag ${index + 1} keine gueltige Uebersetzung geliefert.`
         );
@@ -117,7 +129,11 @@ function parseOpenAITranslations(
       return { text: item };
     }
 
-    if (!item || typeof item.text !== "string" || item.text.length === 0) {
+    if (
+      !item ||
+      typeof item.text !== "string" ||
+      item.text.trim().length === 0
+    ) {
       throw new TranslationProviderResponseError(
         `OpenAI hat fuer Eintrag ${index + 1} keine gueltige Uebersetzung geliefert.`
       );

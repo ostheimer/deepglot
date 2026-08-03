@@ -111,6 +111,26 @@ function canonicalOutputLinks(string $html): array
     return $canonicals;
 }
 
+/** @return array<string, string> */
+function canonicalOutputHreflangHrefs(string $html): array
+{
+    $doc = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $doc->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_NOWARNING | LIBXML_NOERROR);
+    libxml_clear_errors();
+
+    $hrefs = [];
+    foreach ($doc->getElementsByTagName('link') as $link) {
+        if (!$link instanceof DOMElement || !$link->hasAttribute('hreflang')) {
+            continue;
+        }
+
+        $hrefs[$link->getAttribute('hreflang')] = $link->getAttribute('href');
+    }
+
+    return $hrefs;
+}
+
 update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
     'enabled' => true,
     'api_key' => 'dg_test_key',
@@ -156,6 +176,86 @@ canonicalOutputAssert(count($targetCanonicals) === 1, 'Target output must contai
 canonicalOutputAssert(
     $targetCanonicals[0]->getAttribute('href') === 'https://example.com/en/products/',
     'Target output canonical must include the active language and translated URL slug.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?s=Zahnimplantat&utm_source=newsletter&gclid=campaign';
+$sourceSearch = $buffer->processSource($withoutCanonical);
+$sourceSearchCanonicals = canonicalOutputLinks($sourceSearch);
+canonicalOutputAssert(
+    count($sourceSearchCanonicals) === 1
+    && $sourceSearchCanonicals[0]->getAttribute('href') === 'https://example.com/?s=Zahnimplantat',
+    'Source search output must keep only its relevant search query in the self-canonical.'
+);
+
+$_SERVER['REQUEST_URI'] = '/en/?s=Zahnimplantat&utm_medium=email&fbclid=campaign';
+$targetSearch = $buffer->process($withoutCanonical, 'en');
+$targetSearchCanonicals = canonicalOutputLinks($targetSearch);
+canonicalOutputAssert(
+    count($targetSearchCanonicals) === 1
+    && $targetSearchCanonicals[0]->getAttribute('href') === 'https://example.com/en/?s=Zahnimplantat',
+    'Target search output must keep only its relevant search query in the localized self-canonical.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?utm_source=newsletter&s=Zahn%C3%A4rzte+%26+Implantate';
+$encodedSearch = $buffer->processSource($withoutCanonical);
+$encodedSearchCanonicals = canonicalOutputLinks($encodedSearch);
+canonicalOutputAssert(
+    count($encodedSearchCanonicals) === 1
+    && $encodedSearchCanonicals[0]->getAttribute('href')
+        === 'https://example.com/?s=Zahn%C3%A4rzte%20%26%20Implantate',
+    'Search canonicals must use stable RFC 3986 encoding instead of copying arbitrary raw query syntax.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?utm_source=newsletter&paged=2&s=Zahnimplantat';
+$pagedSearch = $buffer->processSource($withoutCanonical);
+$pagedSearchCanonicals = canonicalOutputLinks($pagedSearch);
+$pagedSearchHreflangs = canonicalOutputHreflangHrefs($pagedSearch);
+canonicalOutputAssert(
+    count($pagedSearchCanonicals) === 1
+    && $pagedSearchCanonicals[0]->getAttribute('href')
+        === 'https://example.com/?s=Zahnimplantat&paged=2',
+    'A paginated source search must self-canonicalize to its own result page while dropping tracking parameters.'
+);
+canonicalOutputAssert(
+    ($pagedSearchHreflangs['de'] ?? '') === 'https://example.com/?s=Zahnimplantat&paged=2'
+    && ($pagedSearchHreflangs['en'] ?? '') === 'https://example.com/en/?s=Zahnimplantat&paged=2'
+    && ($pagedSearchHreflangs['x-default'] ?? '') === 'https://example.com/?s=Zahnimplantat&paged=2',
+    'Paginated search hreflang URLs must retain the same result page in every language.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?s=Zahnimplantat&paged=1&utm_campaign=duplicate';
+$firstSearchPage = $buffer->processSource($withoutCanonical);
+$firstSearchPageCanonicals = canonicalOutputLinks($firstSearchPage);
+canonicalOutputAssert(
+    count($firstSearchPageCanonicals) === 1
+    && $firstSearchPageCanonicals[0]->getAttribute('href') === 'https://example.com/?s=Zahnimplantat',
+    'An explicit first search page must canonicalize to the base search URL.'
+);
+
+$_SERVER['REQUEST_URI'] = '/en/?fbclid=campaign&post_type=page&s=Zahnimplantat';
+$postTypeSearch = $buffer->process($withoutCanonical, 'en');
+$postTypeSearchCanonicals = canonicalOutputLinks($postTypeSearch);
+$postTypeSearchHreflangs = canonicalOutputHreflangHrefs($postTypeSearch);
+canonicalOutputAssert(
+    count($postTypeSearchCanonicals) === 1
+    && $postTypeSearchCanonicals[0]->getAttribute('href')
+        === 'https://example.com/en/?s=Zahnimplantat&post_type=page',
+    'A post-type-specific target search must retain its result scope while dropping tracking parameters.'
+);
+canonicalOutputAssert(
+    ($postTypeSearchHreflangs['de'] ?? '') === 'https://example.com/?s=Zahnimplantat&post_type=page'
+    && ($postTypeSearchHreflangs['en'] ?? '') === 'https://example.com/en/?s=Zahnimplantat&post_type=page'
+    && ($postTypeSearchHreflangs['x-default'] ?? '') === 'https://example.com/?s=Zahnimplantat&post_type=page',
+    'Post-type-specific search hreflang URLs must retain the same result scope in every language.'
+);
+
+$_SERVER['REQUEST_URI'] = '/?s=Zahnimplantat&paged%5Bpage%5D=2&post_type%5B%5D=page&utm_medium=email';
+$nestedSearch = $buffer->processSource($withoutCanonical);
+$nestedSearchCanonicals = canonicalOutputLinks($nestedSearch);
+canonicalOutputAssert(
+    count($nestedSearchCanonicals) === 1
+    && $nestedSearchCanonicals[0]->getAttribute('href') === 'https://example.com/?s=Zahnimplantat',
+    'Nested or otherwise invalid semantic search parameters must be ignored safely.'
 );
 
 $withSeoCanonical = '<!doctype html><html lang="de"><head>'

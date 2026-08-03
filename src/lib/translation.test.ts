@@ -7,6 +7,46 @@ import {
   translateTexts,
 } from "@/lib/translation";
 
+function openAIResponse(translations: unknown): Response {
+  return new Response(
+    JSON.stringify({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({ translations }),
+          },
+        },
+      ],
+    })
+  );
+}
+
+function openAIModelContentResponse(content: string): Response {
+  return new Response(
+    JSON.stringify({
+      choices: [{ message: { content } }],
+    })
+  );
+}
+
+function geminiResponse(translations: unknown): Response {
+  return new Response(
+    JSON.stringify({
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify({ translations }),
+              },
+            ],
+          },
+        },
+      ],
+    })
+  );
+}
+
 test("counts words for usage tracking", () => {
   assert.equal(countWords("Hallo Welt"), 2);
   assert.equal(countWords("   one   two   three   "), 3);
@@ -319,6 +359,306 @@ test("falls back when a provider returns a JSON null envelope", async () => {
     assert.equal(geminiCalls, 1);
     assert.deepEqual(result, [
       { text: "fallback-after-null", detectedSourceLanguage: "de" },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back for native fetch transport errors", async (t) => {
+  const cases: Array<{ name: string; error: Error }> = [
+    {
+      name: "Undici cause code",
+      error: Object.assign(new TypeError("request transport failed"), {
+        cause: { code: "UND_ERR_CONNECT_TIMEOUT" },
+      }),
+    },
+    {
+      name: "timeout error",
+      error: Object.assign(new Error("The operation was aborted due to timeout"), {
+        name: "TimeoutError",
+      }),
+    },
+    {
+      name: "abort error",
+      error: Object.assign(new Error("This operation was aborted"), {
+        name: "AbortError",
+      }),
+    },
+  ];
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, async () => {
+      const originalFetch = globalThis.fetch;
+      let openaiCalls = 0;
+      let geminiCalls = 0;
+
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("openai.com")) {
+          openaiCalls += 1;
+          throw scenario.error;
+        }
+        if (url.includes("generativelanguage.googleapis.com")) {
+          geminiCalls += 1;
+          return geminiResponse([{ text: "transport-fallback" }]);
+        }
+        throw new Error(`Unexpected fetch url ${url}`);
+      }) as typeof fetch;
+
+      try {
+        const result = await translateTexts(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          }
+        );
+
+        assert.equal(openaiCalls, 1);
+        assert.equal(geminiCalls, 1);
+        assert.deepEqual(result, [{ text: "transport-fallback" }]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  }
+});
+
+test("falls back when OpenAI model content is JSON null", async () => {
+  const originalFetch = globalThis.fetch;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIModelContentResponse("null");
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([{ text: "fallback-after-inner-null" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [{ text: "fallback-after-inner-null" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back when Gemini returns non-array candidate parts", async () => {
+  const originalFetch = globalThis.fetch;
+  let geminiCalls = 0;
+  let openaiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: { text: "not-an-array" } } }],
+        })
+      );
+    }
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: "fallback-after-bad-parts" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "gemini",
+        GEMINI_API_KEY: "gemini-key",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "openai",
+      }
+    );
+
+    assert.equal(geminiCalls, 1);
+    assert.equal(openaiCalls, 1);
+    assert.deepEqual(result, [
+      {
+        detectedSourceLanguage: undefined,
+        text: "fallback-after-bad-parts",
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back when Gemini blocks the translation prompt", async () => {
+  const originalFetch = globalThis.fetch;
+  let geminiCalls = 0;
+  let openaiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(
+        JSON.stringify({ promptFeedback: { blockReason: "SAFETY" } })
+      );
+    }
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: "fallback-after-prompt-block" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "gemini",
+        GEMINI_API_KEY: "gemini-key",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "openai",
+      }
+    );
+
+    assert.equal(geminiCalls, 1);
+    assert.equal(openaiCalls, 1);
+    assert.equal(result[0]?.text, "fallback-after-prompt-block");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back when a provider returns HTTP 408", async () => {
+  const originalFetch = globalThis.fetch;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return new Response("request timeout", { status: 408 });
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([{ text: "fallback-after-http-408" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [{ text: "fallback-after-http-408" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back from whitespace-only OpenAI translations", async () => {
+  const originalFetch = globalThis.fetch;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: " \t " }]);
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([{ text: "openai-whitespace-fallback" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [{ text: "openai-whitespace-fallback" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back from whitespace-only Gemini translations", async () => {
+  const originalFetch = globalThis.fetch;
+  let geminiCalls = 0;
+  let openaiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([{ text: " \t " }]);
+    }
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: "gemini-whitespace-fallback" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "gemini",
+        GEMINI_API_KEY: "gemini-key",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "openai",
+      }
+    );
+
+    assert.equal(geminiCalls, 1);
+    assert.equal(openaiCalls, 1);
+    assert.deepEqual(result, [
+      {
+        detectedSourceLanguage: undefined,
+        text: "gemini-whitespace-fallback",
+      },
     ]);
   } finally {
     globalThis.fetch = originalFetch;

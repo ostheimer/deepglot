@@ -146,4 +146,52 @@ describe("translateWithGemini", () => {
         error instanceof TranslationProviderResponseError && /1.*2/.test(error.message)
     );
   });
+
+  it("classifies non-array candidate parts as a provider response error", async () => {
+    installFetchMock(() =>
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: { text: "not-an-array" } } }],
+        })
+      )
+    );
+
+    await assert.rejects(
+      () =>
+        translateWithGemini(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
+        ),
+      (error: unknown) => error instanceof TranslationProviderResponseError
+    );
+  });
+
+  it("rejects whitespace-only translations", async () => {
+    installFetchMock(() =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({ translations: [{ text: " \t " }] }),
+                  },
+                ],
+              },
+            },
+          ],
+        })
+      )
+    );
+
+    await assert.rejects(
+      () =>
+        translateWithGemini(
+          { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+          { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
+        ),
+      (error: unknown) => error instanceof TranslationProviderResponseError
+    );
+  });
 });
