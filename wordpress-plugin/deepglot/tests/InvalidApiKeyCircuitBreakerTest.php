@@ -71,6 +71,7 @@ if (!function_exists('get_option')) {
     $GLOBALS['_dgkey_transients'] = [];
     $GLOBALS['_dgkey_transient_ttls'] = [];
     $GLOBALS['_dgkey_remote_status'] = 200;
+    $GLOBALS['_dgkey_remote_statuses'] = [];
     $GLOBALS['_dgkey_remote_calls'] = 0;
     $GLOBALS['_dgkey_remote_urls'] = [];
     $GLOBALS['_dgkey_before_remote_response'] = null;
@@ -191,7 +192,9 @@ if (!function_exists('get_option')) {
     function wp_remote_request($url, $args = []) {
         $GLOBALS['_dgkey_remote_calls']++;
         $GLOBALS['_dgkey_remote_urls'][] = (string) $url;
-        $status = (int) $GLOBALS['_dgkey_remote_status'];
+        $status = $GLOBALS['_dgkey_remote_statuses'] !== []
+            ? (int) array_shift($GLOBALS['_dgkey_remote_statuses'])
+            : (int) $GLOBALS['_dgkey_remote_status'];
         $beforeResponse = $GLOBALS['_dgkey_before_remote_response'];
 
         if (is_callable($beforeResponse)) {
@@ -325,6 +328,7 @@ function dgkeyReset(int $remoteStatus = 200): void
     $GLOBALS['_dgkey_transients'] = [];
     $GLOBALS['_dgkey_transient_ttls'] = [];
     $GLOBALS['_dgkey_remote_status'] = $remoteStatus;
+    $GLOBALS['_dgkey_remote_statuses'] = [];
     $GLOBALS['_dgkey_remote_calls'] = 0;
     $GLOBALS['_dgkey_remote_urls'] = [];
     $GLOBALS['_dgkey_before_remote_response'] = null;
@@ -666,6 +670,46 @@ dgkeyAssert(
     'A successful stored-key sync must also release the request-local breaker.'
 );
 
+dgkeyStoreSettings(['api_key' => 'dg_stored_runtime_unavailable']);
+dgkeyArmStoredBreaker($client);
+$GLOBALS['_dgkey_remote_statuses'] = [200, 500];
+
+$runtimeFailure = $sync->sync();
+
+dgkeyAssert(
+    is_wp_error($runtimeFailure)
+    && (int) (($runtimeFailure->get_error_data()['status'] ?? 0)) === 500,
+    'A runtime-config 500 after an accepted stored settings-sync must still surface as an error.'
+);
+dgkeyAssert(
+    get_transient(DGKEY_TRANSIENT) === false,
+    'An accepted stored settings-sync must clear its invalid-key marker even when runtime-config later returns 500.'
+);
+
+$callsBeforeRuntimeFailureTranslation = $GLOBALS['_dgkey_remote_calls'];
+$translationAfterRuntimeFailure = $client->translate(['Trotz Runtime-Fehler'], 'de', 'en');
+dgkeyAssert(
+    !is_wp_error($translationAfterRuntimeFailure)
+    && $GLOBALS['_dgkey_remote_calls'] === $callsBeforeRuntimeFailureTranslation + 1,
+    'A non-auth runtime-config failure must not leave translation locally blocked until the marker TTL expires.'
+);
+
+dgkeyStoreSettings(['api_key' => 'dg_stored_runtime_unauthorized']);
+dgkeyArmStoredBreaker($client);
+$GLOBALS['_dgkey_remote_statuses'] = [200, 401];
+
+$runtimeUnauthorized = $sync->sync();
+
+dgkeyAssert(
+    is_wp_error($runtimeUnauthorized)
+    && (int) (($runtimeUnauthorized->get_error_data()['status'] ?? 0)) === 401,
+    'A runtime-config 401 after an accepted stored settings-sync must surface as an authentication error.'
+);
+dgkeyAssert(
+    Client::hasInvalidApiKeyMarkerFor($options),
+    'A runtime-config 401 must leave the stored configuration marked invalid.'
+);
+
 dgkeyReset(200);
 dgkeyStoreSettings(['api_key' => 'dg_stored_recovered']);
 set_transient(DGKEY_TRANSIENT, time(), 900);
@@ -685,23 +729,54 @@ dgkeyAssert(
 dgkeyStoreSettings(['api_key' => 'dg_stored_still_invalid']);
 dgkeyArmStoredBreaker($client);
 $storedMarker = get_transient(DGKEY_TRANSIENT);
-$healthyCandidateSettings = array_merge(
+$candidateRuntimeFailureSettings = array_merge(
     $GLOBALS['_dgkey_options']['deepglot_settings'],
     [
         'api_key' => 'dg_healthy_candidate',
         'api_base_url' => 'https://healthy-candidate.deepglot.test/api',
     ]
 );
-$candidateSuccess = $sync->sync(
-    $healthyCandidateSettings,
+$GLOBALS['_dgkey_remote_statuses'] = [200, 500];
+$candidateRuntimeFailure = $sync->sync(
+    $candidateRuntimeFailureSettings,
     'dg_healthy_candidate',
     'https://healthy-candidate.deepglot.test/api'
 );
 
-dgkeyAssert(!is_wp_error($candidateSuccess), 'A healthy candidate override must still sync successfully.');
+dgkeyAssert(
+    is_wp_error($candidateRuntimeFailure)
+    && (int) (($candidateRuntimeFailure->get_error_data()['status'] ?? 0)) === 500,
+    'A candidate runtime-config 500 must still surface as an error.'
+);
 dgkeyAssert(
     get_transient(DGKEY_TRANSIENT) === $storedMarker,
-    'A successful unsaved candidate must not clear the stored configuration\'s invalid-key marker.'
+    'An accepted unsaved candidate must not clear the stored configuration\'s marker.'
+);
+
+dgkeyReset(200);
+dgkeyStoreSettings(['api_key' => 'dg_stored_healthy']);
+$candidateRuntimeUnauthorizedSettings = array_merge(
+    $GLOBALS['_dgkey_options']['deepglot_settings'],
+    [
+        'api_key' => 'dg_candidate_runtime_unauthorized',
+        'api_base_url' => 'https://candidate-401.deepglot.test/api',
+    ]
+);
+$GLOBALS['_dgkey_remote_statuses'] = [200, 401];
+$candidateRuntimeUnauthorized = $sync->sync(
+    $candidateRuntimeUnauthorizedSettings,
+    'dg_candidate_runtime_unauthorized',
+    'https://candidate-401.deepglot.test/api'
+);
+
+dgkeyAssert(
+    is_wp_error($candidateRuntimeUnauthorized)
+    && (int) (($candidateRuntimeUnauthorized->get_error_data()['status'] ?? 0)) === 401,
+    'A candidate runtime-config 401 must still surface as an authentication error.'
+);
+dgkeyAssert(
+    get_transient(DGKEY_TRANSIENT) === false,
+    'A runtime-config 401 from an unsaved candidate must not arm the stored-key breaker.'
 );
 
 dgkeyStoreSettings(['api_key' => 'dg_stored_ping_recovered']);

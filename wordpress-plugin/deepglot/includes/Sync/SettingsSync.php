@@ -86,17 +86,22 @@ class SettingsSync
             return $settingsResult;
         }
 
+        if ($usesStoredCredentials) {
+            // A successful settings-sync proves that the stored credentials
+            // are accepted. Clear their stale 401 immediately; a subsequent
+            // runtime-config 401 below will arm the marker again.
+            $this->client->clearInvalidApiKeyForConfiguration(
+                $requestApiKey,
+                $requestBaseUrl
+            );
+        }
+
         $runtimeResult = $this->refreshRuntimeConfig($apiKeyOverride, $baseUrlOverride, true);
 
         if (is_wp_error($runtimeResult)) {
             $this->maybeFlagInvalidStoredCredentials(
                 $runtimeResult,
                 $usesStoredCredentials,
-                $requestApiKey,
-                $requestBaseUrl
-            );
-        } elseif ($usesStoredCredentials) {
-            $this->client->clearInvalidApiKeyForConfiguration(
                 $requestApiKey,
                 $requestBaseUrl
             );
