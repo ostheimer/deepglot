@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Promjena jezika"
             ],
+            "Instanz-ID": [
+                "ID instance"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Prikazuje promjenu jezika Deepglot. Stil, zastavica i poredak slijede postavke dodatka."
+            ],
+            "Switcher-Instanz": [
+                "Switcher instanca"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "ID mo\u017eete prona\u0107i pod Postavke \u2192 Deepglot \u2192 Promjena jezika."
             ]
         }
     }

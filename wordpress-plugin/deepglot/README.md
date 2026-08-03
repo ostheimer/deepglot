@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.11.1**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list. v0.11.1 preserves whitespace-prefixed action links, restores descriptive ISO-code switcher labels, and brings the package in line with WordPress.org Plugin Check. Publishing this package does not automatically install or update the plugin on customer sites.
+This directory contains the Deepglot WordPress plugin (**v0.11.2**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list. v0.11.2 surfaces a revoked or invalid API key (HTTP 401) in wp-admin and short-circuits further translation calls instead of re-sending every batch on each page view. v0.11.1 preserves whitespace-prefixed action links, restores descriptive ISO-code switcher labels, and brings the package in line with WordPress.org Plugin Check. Publishing this package does not automatically install or update the plugin on customer sites.
 
 ## Author
 

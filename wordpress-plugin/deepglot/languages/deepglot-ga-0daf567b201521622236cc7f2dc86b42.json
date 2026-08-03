@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Lasc teanga"
             ],
+            "Instanz-ID": [
+                "Aitheantas an Ch\u00e1is"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Taispe\u00e1in an lasc teanga Deepglot. St\u00edl, bratach agus ord lean na socruithe breise\u00e1n."
+            ],
+            "Switcher-Instanz": [
+                "Switcher shampla"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Is f\u00e9idir leat an t-aitheantas a fh\u00e1il faoi Socruithe \u2192 Deepglot \u2192 Malart\u00f3ir teanga."
             ]
         }
     }

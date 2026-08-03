@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Preklop jezika"
             ],
+            "Instanz-ID": [
+                "ID primerka"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Prika\u017ee preklop jezika Deepglot. Slog, zastavica in vrstni red sledijo nastavitvam vti\u010dnika."
+            ],
+            "Switcher-Instanz": [
+                "Switcher primerek"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "ID najdete pod Nastavitve \u2192 Deepglot \u2192 Preklop jezikov."
             ]
         }
     }

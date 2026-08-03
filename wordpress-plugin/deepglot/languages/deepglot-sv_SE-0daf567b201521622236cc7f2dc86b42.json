@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Spr\u00e5kv\u00e4xling"
             ],
+            "Instanz-ID": [
+                "F\u00f6rekomst-ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Visar spr\u00e5kv\u00e4xeln Deepglot. Stil, flagga och ordning f\u00f6ljer plugininst\u00e4llningarna."
+            ],
+            "Switcher-Instanz": [
+                "Switcher instans"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "Du hittar ID:t under Inst\u00e4llningar \u2192 Deepglot \u2192 Spr\u00e5kv\u00e4xlare."
             ]
         }
     }

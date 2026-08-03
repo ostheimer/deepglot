@@ -54,6 +54,17 @@ function readCache(): TranslationCache {
   return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8")) as TranslationCache;
 }
 
+function readPluginVersion() {
+  const bootstrap = fs.readFileSync(path.join(PLUGIN_DIR, "deepglot.php"), "utf8");
+  const match = bootstrap.match(/^ \* Version:\s*([^\s]+)$/m);
+
+  if (!match) {
+    throw new Error("Could not read the WordPress plugin version header.");
+  }
+
+  return match[1];
+}
+
 function writeCache(cache: TranslationCache) {
   fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
   fs.writeFileSync(CACHE_FILE, `${JSON.stringify(cache, null, 2)}\n`);
@@ -134,6 +145,54 @@ function parsePot(content: string): PotEntry[] {
       return entry;
     })
     .filter((entry) => entry.msgid !== "");
+}
+
+function readExistingPoTranslations(content: string) {
+  const translations: Record<string, string> = {};
+
+  for (const chunk of content.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean)) {
+    const lines = chunk.split("\n");
+    let msgid: string | undefined;
+    let msgstr: string | undefined;
+
+    for (let index = 0; index < lines.length; ) {
+      if (lines[index].startsWith("msgid ")) {
+        const parsed = parseStringBlock(lines, index);
+        msgid = parsed.value;
+        index = parsed.nextIndex;
+        continue;
+      }
+
+      if (lines[index].startsWith("msgstr ")) {
+        const parsed = parseStringBlock(lines, index);
+        msgstr = parsed.value;
+        index = parsed.nextIndex;
+        continue;
+      }
+
+      index += 1;
+    }
+
+    if (msgid && msgstr) {
+      translations[msgid] = msgstr;
+    }
+  }
+
+  return translations;
+}
+
+function seedCacheFromExistingPoFiles(cache: TranslationCache) {
+  for (const locale of WORDPRESS_LOCALES) {
+    const poFile = path.join(LANG_DIR, `deepglot-${locale.wpLocale}.po`);
+    if (!fs.existsSync(poFile)) continue;
+
+    const localeCache = (cache[locale.wpLocale] ??= {});
+    const existingTranslations = readExistingPoTranslations(fs.readFileSync(poFile, "utf8"));
+
+    for (const [message, translation] of Object.entries(existingTranslations)) {
+      localeCache[message] ??= translation;
+    }
+  }
 }
 
 function protectTokens(text: string) {
@@ -237,11 +296,11 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function renderHeader(locale: WordPressLocale) {
+function renderHeader(locale: WordPressLocale, pluginVersion: string) {
   return [
     'msgid ""',
     'msgstr ""',
-    poEscape("Project-Id-Version: Deepglot 0.7.0\n"),
+    poEscape(`Project-Id-Version: Deepglot ${pluginVersion}\n`),
     poEscape("Report-Msgid-Bugs-To: https://deepglot.ai\n"),
     poEscape("POT-Creation-Date: 2026-05-17 00:00+0000\n"),
     poEscape("PO-Revision-Date: 2026-05-17 00:00+0000\n"),
@@ -256,9 +315,14 @@ function renderHeader(locale: WordPressLocale) {
   ].join("\n");
 }
 
-function renderPo(entries: PotEntry[], locale: WordPressLocale, cache: TranslationCache) {
+function renderPo(
+  entries: PotEntry[],
+  locale: WordPressLocale,
+  cache: TranslationCache,
+  pluginVersion: string
+) {
   const localeCache = cache[locale.wpLocale] ?? {};
-  const chunks = [renderHeader(locale)];
+  const chunks = [renderHeader(locale, pluginVersion)];
 
   for (const entry of entries) {
     const lines = [...entry.comments];
@@ -293,12 +357,14 @@ function makeJson() {
 }
 
 async function main() {
+  const pluginVersion = readPluginVersion();
   makePot();
   const entries = parsePot(fs.readFileSync(POT_FILE, "utf8"));
   const sourceMessages = [...new Set(entries.map((entry) => entry.msgid))].sort((a, b) =>
     a.localeCompare(b)
   );
   const cache = readCache();
+  seedCacheFromExistingPoFiles(cache);
 
   console.log(`Collected ${sourceMessages.length} WordPress plugin messages.`);
 
@@ -309,7 +375,7 @@ async function main() {
   for (const locale of WORDPRESS_LOCALES) {
     const poFile = path.join(LANG_DIR, `deepglot-${locale.wpLocale}.po`);
     const moFile = path.join(LANG_DIR, `deepglot-${locale.wpLocale}.mo`);
-    fs.writeFileSync(poFile, renderPo(entries, locale, cache));
+    fs.writeFileSync(poFile, renderPo(entries, locale, cache, pluginVersion));
     compileMo(poFile, moFile);
   }
 

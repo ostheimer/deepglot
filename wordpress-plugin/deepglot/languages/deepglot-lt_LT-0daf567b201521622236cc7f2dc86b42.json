@@ -13,8 +13,17 @@
             "Deepglot Sprachschalter": [
                 "Deepglot Kalbos jungiklis"
             ],
+            "Instanz-ID": [
+                "Atvejo ID"
+            ],
             "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
                 "Rodomas Deepglot kalbos jungiklis. Stilius, \u017eym\u0117jimas ir tvarka vadovaukit\u0117s papildinio nustatymais."
+            ],
+            "Switcher-Instanz": [
+                "Switcher egzempliorius"
+            ],
+            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+                "ID rasite skiltyje Nustatymai \u2192 Deepglot \u2192 Kalbos perjungiklis."
             ]
         }
     }
