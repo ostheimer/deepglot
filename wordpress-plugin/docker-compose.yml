@@ -1,0 +1,62 @@
+# Local WordPress test environment for the Deepglot plugin.
+#
+# Usage (from wordpress-plugin/):
+#   docker compose up -d
+#   docker compose run --rm cli wp core install --url=http://localhost:8090 \
+#     --title="Deepglot Test" --admin_user=admin --admin_password=admin \
+#     --admin_email=admin@example.com --skip-email
+#   docker compose run --rm cli wp plugin activate deepglot
+#   docker compose run --rm cli wp plugin install plugin-check --activate
+#   docker compose run --rm cli wp plugin check deepglot
+#
+# The plugin directory is mounted read-only so nothing in the repo is modified.
+
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: wordpress
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8090:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    volumes:
+      - wp_data:/var/www/html
+      - ./deepglot:/var/www/html/wp-content/plugins/deepglot:ro
+
+  cli:
+    image: wordpress:cli
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    volumes:
+      - wp_data:/var/www/html
+      - ./deepglot:/var/www/html/wp-content/plugins/deepglot:ro
+
+volumes:
+  db_data:
+  wp_data:
