@@ -66,13 +66,41 @@ class SettingsSync
             return new \WP_Error('deepglot_sync_missing_languages', __('Keine Zielsprachen für die Synchronisierung konfiguriert.', 'deepglot'));
         }
 
+        $requestApiKey = $apiKeyOverride !== null
+            ? trim($apiKeyOverride)
+            : trim((string) ($normalized['api_key'] ?? ''));
+        $requestBaseUrl = $baseUrlOverride !== null
+            ? untrailingslashit($baseUrlOverride)
+            : untrailingslashit((string) ($normalized['api_base_url'] ?? $this->options->getApiBaseUrl()));
+        $usesStoredCredentials = $apiKeyOverride === null && $baseUrlOverride === null;
+
         $settingsResult = $this->client->syncSettings($normalized, $apiKeyOverride, $baseUrlOverride);
 
         if (is_wp_error($settingsResult)) {
+            $this->maybeFlagInvalidStoredCredentials(
+                $settingsResult,
+                $usesStoredCredentials,
+                $requestApiKey,
+                $requestBaseUrl
+            );
             return $settingsResult;
         }
 
         $runtimeResult = $this->refreshRuntimeConfig($apiKeyOverride, $baseUrlOverride, true);
+
+        if (is_wp_error($runtimeResult)) {
+            $this->maybeFlagInvalidStoredCredentials(
+                $runtimeResult,
+                $usesStoredCredentials,
+                $requestApiKey,
+                $requestBaseUrl
+            );
+        } elseif ($usesStoredCredentials) {
+            $this->client->clearInvalidApiKeyForConfiguration(
+                $requestApiKey,
+                $requestBaseUrl
+            );
+        }
 
         return is_wp_error($runtimeResult) ? $runtimeResult : $settingsResult;
     }
@@ -243,5 +271,26 @@ class SettingsSync
         $newBaseUrl = untrailingslashit((string) ($newValue['api_base_url'] ?? ''));
 
         return $oldApiKey !== $newApiKey || $oldBaseUrl !== $newBaseUrl;
+    }
+
+    private function maybeFlagInvalidStoredCredentials(
+        \WP_Error $error,
+        bool $usesStoredCredentials,
+        string $apiKey,
+        string $baseUrl
+    ): void
+    {
+        if (!$usesStoredCredentials) {
+            return;
+        }
+
+        $data = method_exists($error, 'get_error_data')
+            ? $error->get_error_data()
+            : null;
+        $statusCode = is_array($data) ? (int) ($data['status'] ?? 0) : 0;
+
+        if ($statusCode === 401) {
+            $this->client->flagInvalidApiKeyForConfiguration($apiKey, $baseUrl);
+        }
     }
 }

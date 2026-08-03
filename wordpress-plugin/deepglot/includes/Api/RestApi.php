@@ -192,7 +192,7 @@ class RestApi
             // translation armed. Unlike an exhausted quota this means nothing
             // is being translated at all (#245).
             'api_key_invalid' => $connCode === 'invalid_api_key'
-                                    || (bool) get_transient(Client::INVALID_API_KEY_TRANSIENT),
+                                    || Client::hasInvalidApiKeyMarkerFor($this->options),
             'source_language' => $settings['source_language'],
             'target_languages'=> $settings['target_languages'],
             'api_key_prefix'  => !empty($settings['api_key'])
@@ -408,6 +408,12 @@ class RestApi
         $json = json_decode($body, true);
 
         if ($code === 200 && isset($json['to_words'])) {
+            Client::clearInvalidApiKeyMarkerForConfiguration(
+                $this->options,
+                $apiKey,
+                $baseUrl
+            );
+
             return [true, null, null];
         }
 

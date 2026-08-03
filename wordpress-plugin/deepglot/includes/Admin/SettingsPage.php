@@ -2,6 +2,7 @@
 
 namespace Deepglot\Admin;
 
+use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Config\SwitcherTemplates;
 
@@ -16,9 +17,6 @@ class SettingsPage
     private Options $options;
 
     private const DASHBOARD_URL = 'https://deepglot.ai';
-
-    /** Mirrors Deepglot\Api\Client::INVALID_API_KEY_TRANSIENT. */
-    private const INVALID_API_KEY_TRANSIENT = 'deepglot_invalid_api_key';
 
     public function __construct(Options $options)
     {
@@ -46,7 +44,10 @@ class SettingsPage
      */
     public function maybeRenderInvalidApiKeyNotice(): void
     {
-        if (!current_user_can('manage_options') || !get_transient(self::INVALID_API_KEY_TRANSIENT)) {
+        if (
+            !current_user_can('manage_options')
+            || !Client::hasInvalidApiKeyMarkerFor($this->options)
+        ) {
             return;
         }
 
@@ -251,7 +252,7 @@ class SettingsPage
         // outage from the operator on jobspot.at (#245). $isSetup keeps
         // meaning "a key is stored", so an existing site stays on the compact
         // form instead of dropping back into first-time onboarding copy.
-        $keyInvalid = (bool) get_transient(self::INVALID_API_KEY_TRANSIENT);
+        $keyInvalid = Client::hasInvalidApiKeyMarkerFor($this->options);
         $isSetup    = !empty($settings['api_key']);
         $isEnabled  = !empty($settings['enabled']);
         $optKey     = Options::OPTION_KEY;

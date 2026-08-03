@@ -51,13 +51,17 @@ class Client
      */
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
-        if ($this->isApiKeyKnownInvalid()) {
+        $requestConfiguration = $this->translationRequestConfiguration();
+
+        if ($this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])) {
             return $this->invalidApiKeyError();
         }
 
         return $this->buildTranslateResponse($this->dispatchTranslate(
-            $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl, $bot)
-        ));
+            $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl, $bot),
+            $requestConfiguration['api_key'],
+            $requestConfiguration['base_url']
+        ), $requestConfiguration['identity']);
     }
 
     /**
@@ -92,10 +96,12 @@ class Client
             return [];
         }
 
+        $requestConfiguration = $this->translationRequestConfiguration();
+
         // A page render fans out into several batches. With a known-invalid
         // key every one of them would block on its own 401, which is what made
         // uncached pages take 16.7 s on the live site — fail them all locally.
-        if ($this->isApiKeyKnownInvalid()) {
+        if ($this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])) {
             $shortCircuited = [];
 
             foreach (array_keys($payloads) as $key) {
@@ -107,12 +113,26 @@ class Client
 
         if (count($payloads) === 1) {
             $singleKey = array_key_first($payloads);
-            $result = $this->dispatchTranslate($payloads[$singleKey]);
+            $result = $this->dispatchTranslate(
+                $payloads[$singleKey],
+                $requestConfiguration['api_key'],
+                $requestConfiguration['base_url']
+            );
 
-            return [$singleKey => $this->buildTranslateResponse($result)];
+            return [
+                $singleKey => $this->buildTranslateResponse(
+                    $result,
+                    $requestConfiguration['identity']
+                ),
+            ];
         }
 
-        $parallel = $this->dispatchTranslateParallel($payloads);
+        $parallel = $this->dispatchTranslateParallel(
+            $payloads,
+            $requestConfiguration['api_key'],
+            $requestConfiguration['base_url'],
+            $requestConfiguration['identity']
+        );
 
         if ($parallel !== null) {
             return $parallel;
@@ -120,9 +140,27 @@ class Client
 
         // Sequential fallback when the Requests v2 helper is not available.
         $results = [];
+        $invalidApiKeyDetected = false;
 
         foreach ($payloads as $key => $payload) {
-            $results[$key] = $this->buildTranslateResponse($this->dispatchTranslate($payload));
+            if (
+                $invalidApiKeyDetected
+                || $this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])
+            ) {
+                $results[$key] = $this->invalidApiKeyError();
+                continue;
+            }
+
+            $result = $this->buildTranslateResponse(
+                $this->dispatchTranslate(
+                    $payload,
+                    $requestConfiguration['api_key'],
+                    $requestConfiguration['base_url']
+                ),
+                $requestConfiguration['identity']
+            );
+            $results[$key] = $result;
+            $invalidApiKeyDetected = $this->apiErrorStatus($result) === 401;
         }
 
         return $results;
@@ -147,12 +185,13 @@ class Client
      * @param  array<string, mixed> $payload
      * @return mixed
      */
-    private function dispatchTranslate(array $payload)
+    private function dispatchTranslate(array $payload, string $apiKey, string $baseUrl)
     {
         return $this->request(
             'POST',
-            '/translate?api_key=' . rawurlencode($this->options->getApiKey()),
-            $payload
+            '/translate?api_key=' . rawurlencode($apiKey),
+            $payload,
+            $baseUrl
         );
     }
 
@@ -160,11 +199,14 @@ class Client
      * @param  mixed $result
      * @return mixed
      */
-    private function buildTranslateResponse($result)
+    private function buildTranslateResponse($result, string $requestIdentity)
     {
         if ($result instanceof \WP_Error) {
             $data = $result->get_error_data();
-            $this->maybeFlagInvalidApiKey(is_array($data) ? (int) ($data['status'] ?? 0) : 0);
+            $this->maybeFlagInvalidApiKey(
+                is_array($data) ? (int) ($data['status'] ?? 0) : 0,
+                $requestIdentity
+            );
         }
 
         return $result;
@@ -178,7 +220,12 @@ class Client
      * @param  array<int|string, array<string, mixed>> $payloads
      * @return array<int|string, array|\WP_Error>|null
      */
-    private function dispatchTranslateParallel(array $payloads): ?array
+    private function dispatchTranslateParallel(
+        array $payloads,
+        string $apiKey,
+        string $baseUrl,
+        string $requestIdentity
+    ): ?array
     {
         $requestsClass = '\\WpOrg\\Requests\\Requests';
 
@@ -186,8 +233,7 @@ class Client
             return null;
         }
 
-        $baseUrl = untrailingslashit($this->options->getApiBaseUrl());
-        $url = $baseUrl . '/translate?api_key=' . rawurlencode($this->options->getApiKey());
+        $url = untrailingslashit($baseUrl) . '/translate?api_key=' . rawurlencode($apiKey);
         $headers = [
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -231,7 +277,7 @@ class Client
 
             if ($statusCode >= 400) {
                 $this->maybeFlagQuotaExhausted($statusCode);
-                $this->maybeFlagInvalidApiKey($statusCode);
+                $this->maybeFlagInvalidApiKey($statusCode, $requestIdentity);
                 $results[$key] = new \WP_Error(
                     'deepglot_api_error',
                     $this->getApiErrorMessage($decoded),
@@ -379,33 +425,183 @@ class Client
     }
 
     /**
-     * A 401 means the configured key is revoked, rotated, or mistyped — no
-     * amount of retrying will fix it, and nothing on the site gets translated
-     * until an operator intervenes. Arm the circuit breaker so the remaining
-     * batches of this render and every following page view fail locally
-     * instead of blocking on the network (#245), and so the admin notice
-     * plus the settings page can report the real state.
-     *
-     * Re-set on every 401, so the breaker clears roughly INVALID_API_KEY_TTL
-     * after the key starts working again.
+     * Marks a 401 against the exact key/backend pair that made the request.
+     * The transient stores only a one-way fingerprint, never the API key.
      */
-    private function maybeFlagInvalidApiKey(int $statusCode): void
+    public function flagInvalidApiKeyForConfiguration(string $apiKey, string $baseUrl): void
     {
-        if ($statusCode === 401 && function_exists('set_transient')) {
-            set_transient(self::INVALID_API_KEY_TRANSIENT, time(), self::INVALID_API_KEY_TTL);
+        $this->storeInvalidApiKeyIdentity(self::configurationIdentity($apiKey, $baseUrl));
+    }
+
+    /**
+     * Clears a recovered stored configuration's persisted breaker.
+     */
+    public function clearInvalidApiKeyForConfiguration(string $apiKey, string $baseUrl): void
+    {
+        self::clearInvalidApiKeyMarkerForConfiguration($this->options, $apiKey, $baseUrl);
+    }
+
+    /**
+     * Clears only a marker belonging to the configuration that is still
+     * stored. Candidate or stale in-flight successes cannot heal another key.
+     */
+    public static function clearInvalidApiKeyMarkerForConfiguration(
+        Options $options,
+        string $apiKey,
+        string $baseUrl
+    ): void {
+        if (!function_exists('get_transient') || !function_exists('delete_transient')) {
+            return;
+        }
+
+        $identity = self::configurationIdentity($apiKey, $baseUrl);
+        $settings = $options->all();
+        $currentIdentity = self::configurationIdentity(
+            (string) ($settings['api_key'] ?? ''),
+            (string) ($settings['api_base_url'] ?? '')
+        );
+
+        if ($identity === '' || !hash_equals($identity, $currentIdentity)) {
+            return;
+        }
+
+        $marker = get_transient(self::INVALID_API_KEY_TRANSIENT);
+
+        if (
+            self::invalidApiKeyMarkerMatches($marker, $identity)
+            || self::isLegacyInvalidApiKeyMarker($marker)
+        ) {
+            delete_transient(self::INVALID_API_KEY_TRANSIENT);
         }
     }
 
     /**
-     * True while the circuit breaker is armed for the stored API key. Only the
-     * translate endpoints consult it: settings sync, runtime config, and the
-     * test-connection ping must stay reachable so a corrected key can be
-     * verified and saved.
+     * True only when the cached 401 belongs to the currently stored settings.
+     * A late response from an old key or backend can therefore never poison a
+     * replacement configuration saved while that request was still in flight.
      */
-    private function isApiKeyKnownInvalid(): bool
+    public static function hasInvalidApiKeyMarkerFor(Options $options): bool
     {
-        return function_exists('get_transient')
-            && get_transient(self::INVALID_API_KEY_TRANSIENT) !== false;
+        if (!function_exists('get_transient')) {
+            return false;
+        }
+
+        $settings = $options->all();
+
+        $identity = self::configurationIdentity(
+            (string) ($settings['api_key'] ?? ''),
+            (string) ($settings['api_base_url'] ?? '')
+        );
+        $marker = get_transient(self::INVALID_API_KEY_TRANSIENT);
+
+        return $identity !== ''
+            && (
+                self::invalidApiKeyMarkerMatches($marker, $identity)
+                || self::isLegacyInvalidApiKeyMarker($marker)
+            );
+    }
+
+    /**
+     * A 401 means the request's key is revoked, rotated, or mistyped. Arm the
+     * identity-bound breaker so remaining sequential batches of this render
+     * and later requests using the same configuration fail locally (#245).
+     */
+    private function maybeFlagInvalidApiKey(int $statusCode, string $requestIdentity): void
+    {
+        if ($statusCode === 401) {
+            $this->storeInvalidApiKeyIdentity($requestIdentity);
+        }
+    }
+
+    private function storeInvalidApiKeyIdentity(string $identity): void
+    {
+        if ($identity === '') {
+            return;
+        }
+
+        // Never let a stale in-flight failure overwrite the persisted verdict
+        // for a key or backend that an administrator has since replaced.
+        $currentIdentity = $this->translationRequestConfiguration()['identity'];
+        if (
+            !hash_equals($identity, $currentIdentity)
+            || !function_exists('set_transient')
+        ) {
+            return;
+        }
+
+        set_transient(
+            self::INVALID_API_KEY_TRANSIENT,
+            [
+                'identity' => $identity,
+                'flagged_at' => time(),
+            ],
+            self::INVALID_API_KEY_TTL
+        );
+    }
+
+    private function isApiKeyIdentityKnownInvalid(string $identity): bool
+    {
+        if ($identity === '' || !function_exists('get_transient')) {
+            return false;
+        }
+
+        $marker = get_transient(self::INVALID_API_KEY_TRANSIENT);
+
+        return self::invalidApiKeyMarkerMatches($marker, $identity)
+            || self::isLegacyInvalidApiKeyMarker($marker);
+    }
+
+    private static function invalidApiKeyMarkerMatches($marker, string $identity): bool
+    {
+        return is_array($marker)
+            && isset($marker['identity'])
+            && is_string($marker['identity'])
+            && hash_equals($marker['identity'], $identity);
+    }
+
+    private static function isLegacyInvalidApiKeyMarker($marker): bool
+    {
+        return is_int($marker)
+            || (is_string($marker) && ctype_digit($marker));
+    }
+
+    private function apiErrorStatus($result): int
+    {
+        if (!$result instanceof \WP_Error || !method_exists($result, 'get_error_data')) {
+            return 0;
+        }
+
+        $data = $result->get_error_data();
+
+        return is_array($data) ? (int) ($data['status'] ?? 0) : 0;
+    }
+
+    private static function configurationIdentity(string $apiKey, string $baseUrl): string
+    {
+        $normalizedApiKey = trim($apiKey);
+        $normalizedBaseUrl = untrailingslashit(trim($baseUrl));
+
+        if ($normalizedApiKey === '' || $normalizedBaseUrl === '') {
+            return '';
+        }
+
+        return hash('sha256', $normalizedBaseUrl . "\0" . $normalizedApiKey);
+    }
+
+    /**
+     * @return array{api_key: string, base_url: string, identity: string}
+     */
+    private function translationRequestConfiguration(): array
+    {
+        $settings = $this->options->all();
+        $apiKey = trim((string) ($settings['api_key'] ?? ''));
+        $baseUrl = untrailingslashit(trim((string) ($settings['api_base_url'] ?? '')));
+
+        return [
+            'api_key' => $apiKey,
+            'base_url' => $baseUrl,
+            'identity' => self::configurationIdentity($apiKey, $baseUrl),
+        ];
     }
 
     private function invalidApiKeyError(): \WP_Error
