@@ -1,0 +1,75 @@
+# Local WordPress test environment for the Deepglot plugin.
+#
+# Iteration workflow — the DEV TREE is mounted read-only, so nothing in the
+# repo is modified and edits are visible on reload. Because the mount is the
+# source tree (not the packaged artifact), exclude test-only paths from the
+# check (from wordpress-plugin/):
+#   docker compose up -d
+#   docker compose run --rm cli wp core install --url=http://localhost:8090 \
+#     --title="Deepglot Test" --admin_user=admin --admin_password=admin \
+#     --admin_email=admin@example.com --skip-email
+#   docker compose run --rm cli wp plugin activate deepglot
+#   docker compose run --rm cli wp plugin install plugin-check --activate
+#   docker compose run --rm cli wp plugin check deepglot --exclude-directories=tests
+#
+# Pre-submission gate — check the PACKAGED ARTIFACT, not the dev tree, so
+# packaging omissions and artifact-only findings are exercised: build the ZIP
+# with `./build-zip.sh "$(git rev-parse --verify HEAD)" dist`, comment out the
+# ./deepglot volume in BOTH services below,
+# `docker compose up -d --force-recreate wordpress`, then:
+#   docker compose run --rm -v "$PWD/dist:/dist:ro" cli \
+#     wp plugin install /dist/deepglot-<version>.zip --force --activate
+#   docker compose run --rm cli wp plugin check deepglot
+#
+# WordPress is published on 127.0.0.1 only: the documented install uses
+# throwaway admin/admin credentials and must never be reachable off-machine.
+
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: wordpress
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8090:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    volumes:
+      - wp_data:/var/www/html
+      - ./deepglot:/var/www/html/wp-content/plugins/deepglot:ro
+
+  cli:
+    image: wordpress:cli
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    volumes:
+      - wp_data:/var/www/html
+      - ./deepglot:/var/www/html/wp-content/plugins/deepglot:ro
+
+volumes:
+  db_data:
+  wp_data:
