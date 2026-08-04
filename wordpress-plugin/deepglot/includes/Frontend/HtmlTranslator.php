@@ -87,15 +87,19 @@ class HtmlTranslator
      */
     private const ATTR_SKIP_ANCESTORS = ['script', 'style', 'noscript', 'template'];
 
-    /**
-     * Maximum number of text nodes sent in one API request.
-     *
-     * The Deepglot backend translates each batch in a single OpenAI / DeepL
-     * call, so larger batches save round-trips at the cost of bigger prompts.
-     * 200 keeps the prompt comfortably below the model context window while
-     * roughly halving the number of sequential calls compared to 100.
-     */
+    /** Maximum number of text nodes sent in one API request. */
     private const BATCH_SIZE = 200;
+
+    /**
+     * Maximum UTF-8 source-text bytes sent in one API request.
+     *
+     * 2 KB is roughly 500 tokens for typical Latin-script website copy. It
+     * keeps the measured HD-Dental cold-page payload (4,273 source characters)
+     * out of one provider request while leaving room for JSON, provider
+     * instructions, and translated output. Using bytes is conservative for
+     * multibyte scripts.
+     */
+    private const BATCH_SOURCE_BYTE_BUDGET = 2000;
 
     private Client $client;
     private Options $options;
@@ -184,7 +188,7 @@ class HtmlTranslator
         // (Requests v2 / curl_multi) instead of paying one round trip per
         // batch. Single-batch pages keep the simpler translate() path.
         $apiResults = [];
-        $batches = array_chunk($missing, self::BATCH_SIZE);
+        $batches = $this->buildTranslationBatches($missing);
 
         if (count($batches) > 1) {
             $batchResults = $this->client->translateBatches($batches, $sourceLang, $targetLanguage, $requestUrl, $bot);
@@ -273,6 +277,52 @@ class HtmlTranslator
             'html' => $this->saveHtml($doc),
             'segments' => $segments,
         ];
+    }
+
+    /**
+     * Builds stable batches bounded by both item count and source-text size.
+     * A single text larger than the byte budget remains intact in its own
+     * batch because splitting it would break the API's one-to-one mapping.
+     *
+     * @param string[] $texts
+     * @return array<int, string[]>
+     */
+    private function buildTranslationBatches(array $texts): array
+    {
+        $batches = [];
+        $batch = [];
+        $batchBytes = 0;
+
+        foreach ($texts as $text) {
+            $textBytes = strlen($text);
+
+            if (
+                $batch !== []
+                && (
+                    count($batch) >= self::BATCH_SIZE
+                    || $batchBytes + $textBytes > self::BATCH_SOURCE_BYTE_BUDGET
+                )
+            ) {
+                $batches[] = $batch;
+                $batch = [];
+                $batchBytes = 0;
+            }
+
+            $batch[] = $text;
+            $batchBytes += $textBytes;
+
+            if ($textBytes > self::BATCH_SOURCE_BYTE_BUDGET) {
+                $batches[] = $batch;
+                $batch = [];
+                $batchBytes = 0;
+            }
+        }
+
+        if ($batch !== []) {
+            $batches[] = $batch;
+        }
+
+        return $batches;
     }
 
     // -------------------------------------------------------------------------

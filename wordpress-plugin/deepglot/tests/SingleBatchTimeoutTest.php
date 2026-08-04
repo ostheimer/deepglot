@@ -1,15 +1,14 @@
 <?php
 
 /**
- * Reproduces the HD Dental cold-page failure where a large Avada document
- * contains fewer than HtmlTranslator::BATCH_SIZE distinct strings. Those
- * pages use Client::translate() (the single-batch path). Production showed a
- * valid 36-string provider response taking just over the existing 30-second
- * translation timeout, so both single and parallel requests must allow the
- * same bounded 60-second window used for cold, content-heavy pages. A
- * provider response arriving after the shorter window
- * becomes WP_Error and HtmlTranslator deliberately fails open, leaving the
- * entire page in the source language.
+ * Verifies the bounded timeout independently from content-size batching. A
+ * short 36-string document stays below HtmlTranslator's 2,000-byte source
+ * budget and therefore exercises Client::translate() (the single-request
+ * path). The separate ParallelBatchesTest proves that 36 long strings cross
+ * that budget and use translateBatches() instead. Both request paths retain
+ * the 60-second window introduced after a valid provider response exceeded
+ * the previous 30-second limit; otherwise HtmlTranslator fails open and
+ * leaves the page in the source language.
  *
  * Run standalone: php tests/SingleBatchTimeoutTest.php
  */
@@ -186,7 +185,7 @@ update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
 ]));
 
 $paragraphs = '';
-for ($index = 0; $index < 84; $index++) {
+for ($index = 0; $index < 35; $index++) {
     $paragraphs .= sprintf('<p>Behandlungstext Nummer %02d</p>', $index);
 }
 
@@ -198,7 +197,7 @@ $translator = new HtmlTranslator(new Client($options), $options, new Translation
 $translated = $translator->translate($html, 'en', 'https://stage.example.test/en/');
 $requests = $GLOBALS['_deepglot_timeout_requests'];
 
-singleBatchTimeoutAssert(count($requests) === 1, 'An 85-string page must stay on the single-request path.');
+singleBatchTimeoutAssert(count($requests) === 1, 'A short 36-string page must stay on the single-request path.');
 singleBatchTimeoutAssert(
     (int) ($requests[0]['args']['timeout'] ?? 0) >= 60,
     'The single translation batch must receive a 60-second cold-page timeout budget.'
@@ -208,7 +207,7 @@ singleBatchTimeoutAssert(
     'The page title must be translated instead of silently failing open after 30 seconds.'
 );
 singleBatchTimeoutAssert(
-    str_contains($translated, '[en] Behandlungstext Nummer 83'),
+    str_contains($translated, '[en] Behandlungstext Nummer 34'),
     'The last body segment must be translated when the provider completes inside 60 seconds.'
 );
 
