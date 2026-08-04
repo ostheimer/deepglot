@@ -261,4 +261,44 @@ parallelAssert(
     'Small pages must still trigger at least one translate request.'
 );
 
+// 4. HD Dental's laser page contains only 36 distinct strings, but several
+// are long treatment paragraphs. Counting strings alone kept that cold page
+// in one provider request, which still exceeded the bounded 60-second HTTP
+// window. A content-size budget must split such pages into parallel batches
+// even though they stay far below the 200-string count ceiling.
+$contentHeavyClient = new DeepglotParallelFakeClient();
+$translator4 = new HtmlTranslator($contentHeavyClient, $options, new DeepglotParallelNullCache());
+$longParagraphs = '';
+
+for ($i = 0; $i < 35; $i++) {
+    $text = sprintf(
+        'Behandlungsabschnitt %02d: %s',
+        $i,
+        str_repeat('Dieser ausführliche Zahnarztlaser-Text erklärt Vorteile und Anwendung. ', 8)
+    );
+    $longParagraphs .= '<p>' . $text . '</p>';
+}
+
+$translated4 = $translator4->translate(
+    '<!DOCTYPE html><html><head><title>Zahnarztlaser</title></head><body>' . $longParagraphs . '</body></html>',
+    'en'
+);
+
+parallelAssert(
+    count($contentHeavyClient->batchCalls) >= 2,
+    sprintf(
+        'A 36-string content-heavy page must be split by content size, got %d parallel batch(es) and %d single call(s).',
+        count($contentHeavyClient->batchCalls),
+        $contentHeavyClient->singleCalls
+    )
+);
+parallelAssert(
+    $contentHeavyClient->singleCalls === 0,
+    'A content-heavy page must not use the oversized single-request path.'
+);
+parallelAssert(
+    substr_count($translated4, '[en] Behandlungsabschnitt') === 35,
+    'Every content-heavy paragraph must still receive its matching translation.'
+);
+
 fwrite(STDOUT, "ParallelBatchesTest: OK\n");

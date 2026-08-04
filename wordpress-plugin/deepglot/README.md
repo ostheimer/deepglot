@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.11.5**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list. v0.11.5 gives cold translation batches a bounded 60-second request window so valid large-page responses do not silently fall back to untranslated page content. v0.11.4 preserves numeric-looking source-slug mappings when the dedicated WordPress cache is read back, so existing translated routes continue resolving after runtime synchronization. Publishing this package does not automatically install or update the plugin on customer sites.
+This directory contains the Deepglot WordPress plugin (**v0.11.6**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list. v0.11.6 splits content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings, while v0.11.5 retains the bounded 60-second request window. Publishing this package does not automatically install or update the plugin on customer sites.
 
 ## Author
 
@@ -86,8 +86,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.11.5 this creates `deepglot-0.11.5.zip` and
-`deepglot-0.11.5.zip.sha256`. Build the same commit into two empty output
+For v0.11.6 this creates `deepglot-0.11.6.zip` and
+`deepglot-0.11.6.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test

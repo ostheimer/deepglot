@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.5
+Stable tag: 0.11.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.11.6 =
+* Split content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings.
+
 = 0.11.5 =
 * Extended the bounded translation request window to 60 seconds so valid cold large-page batches do not fall back to untranslated content.
 
@@ -107,6 +110,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.11.6 =
+Prevents content-heavy cold pages from exceeding the translation window as one oversized provider request. Requires PHP 8.0 or newer.
 
 = 0.11.5 =
 Allows cold large-page translations up to 60 seconds to complete instead of returning partially untranslated pages. Requires PHP 8.0 or newer.
