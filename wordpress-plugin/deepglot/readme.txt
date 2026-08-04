@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.3
+Stable tag: 0.11.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.11.4 =
+* Preserved numeric-looking source-slug mappings after persistence so existing translated routes remain resolvable.
+
 = 0.11.3 =
 * Hardened reciprocal canonical, hreflang, and multilingual sitemap output across source and translated routes.
 * Redirected stale translated slugs to current localized URLs, preserved semantic query routing, and suppressed source-only Avada AJAX suggestions on target-language pages.
@@ -101,6 +104,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.11.4 =
+Preserves translated routes whose source slug consists only of digits. Requires PHP 8.0 or newer.
 
 = 0.11.3 =
 Hardens localized SEO metadata and slug canonicalization, preserves search routing, and allows longer translation batches. Requires PHP 8.0 or newer.
