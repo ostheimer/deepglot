@@ -11,6 +11,10 @@
  * Run standalone: php tests/HtmlLangSwitchTest.php
  */
 
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__ . '/');
+}
+
 if (!function_exists('__')) {
     function __($text, $domain = null) {
         return $text;
@@ -31,6 +35,12 @@ if (!function_exists('add_query_arg')) {
     }
 }
 
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url($url, $component = -1) {
+        return parse_url($url, $component);
+    }
+}
+
 if (!function_exists('wp_doing_ajax')) {
     function wp_doing_ajax() { return false; }
 }
@@ -45,6 +55,25 @@ if (!function_exists('is_admin')) {
 
 if (!function_exists('headers_sent')) {
     function headers_sent() { return false; }
+}
+
+if (!function_exists('apply_filters')) {
+    $GLOBALS['_deepglot_translated_html_filter_calls'] = [];
+    $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = false;
+
+    function apply_filters($hook, $value, ...$args) {
+        if ($hook !== 'deepglot_translated_html') {
+            return $value;
+        }
+
+        $GLOBALS['_deepglot_translated_html_filter_calls'][] = $args;
+
+        if ($GLOBALS['_deepglot_translated_html_filter_invalid_result']) {
+            return ['invalid'];
+        }
+
+        return str_replace('youtube-de-id', 'youtube-en-id', (string) $value);
+    }
 }
 
 if (!function_exists('get_option')) {
@@ -109,6 +138,7 @@ require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
 require_once __DIR__ . '/../includes/Support/SiteRouting.php';
+require_once __DIR__ . '/../includes/Support/RequestInput.php';
 require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
 require_once __DIR__ . '/../includes/Support/HtmlDocument.php';
@@ -186,7 +216,9 @@ $buffer = new OutputBuffer($options, $resolver, $translator, $linkRewriter, $hre
 $html = '<!DOCTYPE html>'
     . '<html class="avada-html" lang="de" xml:lang="de">'
     . '<head><title>Hallo</title></head>'
-    . '<body><h1>Hallo Welt</h1></body></html>';
+    . '<body><h1>Hallo Welt</h1>'
+    . '<iframe src="https://www.youtube.com/embed/youtube-de-id?autoplay=0"></iframe>'
+    . '</body></html>';
 
 $processed = $buffer->process($html, 'en');
 
@@ -213,6 +245,25 @@ dgLangAssert(
 dgLangAssert(
     str_contains($processed, '[en] Hallo'),
     'Title text should be translated, got: ' . substr($processed, 0, 400)
+);
+dgLangAssert(
+    str_contains($processed, 'youtube-en-id'),
+    'Translated HTML filter must allow language-specific media replacement after the full output pipeline.'
+);
+dgLangAssert(
+    ($GLOBALS['_deepglot_translated_html_filter_calls'][0][0] ?? null) === 'en',
+    'Translated HTML filter must receive the target language.'
+);
+dgLangAssert(
+    ($GLOBALS['_deepglot_translated_html_filter_calls'][0][1] ?? null) === 'https://example.com/blog/',
+    'Translated HTML filter must receive the canonical request URL.'
+);
+
+$GLOBALS['_deepglot_translated_html_filter_invalid_result'] = true;
+$fallbackProcessed = $buffer->process($html, 'en');
+dgLangAssert(
+    is_string($fallbackProcessed) && str_contains($fallbackProcessed, 'youtube-de-id'),
+    'A non-string translated HTML filter result must fail safe to the completed unfiltered document.'
 );
 
 fwrite(STDOUT, "HtmlLangSwitchTest: OK\n");

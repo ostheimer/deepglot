@@ -163,7 +163,32 @@ class OutputBuffer
             $this->injectEditorShell($doc, $editorSegments);
         }
 
-        return $this->saveDocument($doc);
+        $translatedHtml = $this->saveDocument($doc);
+
+        if (!function_exists('apply_filters')) {
+            return $translatedHtml;
+        }
+
+        /**
+         * Filters the completed target-language HTML document.
+         *
+         * This is a trusted server-side extension point for site-specific
+         * replacements such as localized media embeds. A non-string result is
+         * ignored so one malformed callback cannot replace the response with
+         * an invalid value.
+         *
+         * @param string $translatedHtml Completed translated HTML.
+         * @param string $targetLanguage Target language code.
+         * @param string $requestUrl      Current request URL.
+         */
+        $filteredHtml = apply_filters(
+            'deepglot_translated_html',
+            $translatedHtml,
+            $targetLanguage,
+            $requestUrl
+        );
+
+        return is_string($filteredHtml) ? $filteredHtml : $translatedHtml;
     }
 
     /**
