@@ -3,9 +3,11 @@
 /**
  * Reproduces the HD Dental cold-page failure where a large Avada document
  * contains fewer than HtmlTranslator::BATCH_SIZE distinct strings. Those
- * pages use Client::translate() (the single-batch path), which historically
- * retained the generic 15-second HTTP timeout while parallel batches were
- * allowed 30 seconds. A provider response arriving after that shorter window
+ * pages use Client::translate() (the single-batch path). Production showed a
+ * valid 36-string provider response taking just over the existing 30-second
+ * translation timeout, so both single and parallel requests must allow the
+ * same bounded 60-second window used for cold, content-heavy pages. A
+ * provider response arriving after the shorter window
  * becomes WP_Error and HtmlTranslator deliberately fails open, leaving the
  * entire page in the source language.
  *
@@ -23,11 +25,18 @@ if (!class_exists('WP_Error')) {
     {
         public string $code;
         public string $message;
+        public mixed $data;
 
-        public function __construct(string $code, string $message)
+        public function __construct(string $code, string $message, mixed $data = null)
         {
             $this->code = $code;
             $this->message = $message;
+            $this->data = $data;
+        }
+
+        public function get_error_data(): mixed
+        {
+            return $this->data;
         }
     }
 }
@@ -109,11 +118,10 @@ if (!function_exists('wp_remote_request')) {
             'args' => $args,
         ];
 
-        // Model a translation provider that needs more than 15 seconds for
-        // the 85-string page but still completes within the established
-        // 30-second parallel-batch budget.
-        if ((int) ($args['timeout'] ?? 0) < 30) {
-            return new WP_Error('http_request_failed', 'Operation timed out after 15000 milliseconds');
+        // Model the Production laser page: a valid cold batch needs slightly
+        // more than 30 seconds but still completes inside a bounded minute.
+        if ((int) ($args['timeout'] ?? 0) < 60) {
+            return new WP_Error('http_request_failed', 'Operation timed out after 30002 milliseconds');
         }
 
         $payload = json_decode((string) ($args['body'] ?? ''), true);
@@ -192,16 +200,16 @@ $requests = $GLOBALS['_deepglot_timeout_requests'];
 
 singleBatchTimeoutAssert(count($requests) === 1, 'An 85-string page must stay on the single-request path.');
 singleBatchTimeoutAssert(
-    (int) ($requests[0]['args']['timeout'] ?? 0) >= 30,
-    'The single translation batch must receive the same 30-second timeout budget as parallel batches.'
+    (int) ($requests[0]['args']['timeout'] ?? 0) >= 60,
+    'The single translation batch must receive a 60-second cold-page timeout budget.'
 );
 singleBatchTimeoutAssert(
     str_contains($translated, '[en] Ihr Zahnarzt in Ungarn'),
-    'The page title must be translated instead of silently failing open after 15 seconds.'
+    'The page title must be translated instead of silently failing open after 30 seconds.'
 );
 singleBatchTimeoutAssert(
     str_contains($translated, '[en] Behandlungstext Nummer 83'),
-    'The last body segment must be translated when the provider completes inside 30 seconds.'
+    'The last body segment must be translated when the provider completes inside 60 seconds.'
 );
 
 fwrite(STDOUT, "SingleBatchTimeoutTest: OK\n");

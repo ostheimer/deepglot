@@ -21,7 +21,7 @@ class Client
     private const INVALID_API_KEY_TTL = 900;
 
     /** Translation providers may need longer than ordinary API operations. */
-    private const TRANSLATE_TIMEOUT_SECONDS = 30;
+    private const TRANSLATE_TIMEOUT_SECONDS = 60;
 
     private Options $options;
 
