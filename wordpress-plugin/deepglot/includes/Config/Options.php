@@ -1106,6 +1106,13 @@ class Options
             }
 
             foreach ($languageMappings as $originalSlug => $translatedSlug) {
+                // PHP coerces canonical decimal string array keys (for example
+                // "1279") to integers. Restore the persisted key's string
+                // representation before applying the normal slug validation.
+                if (is_int($originalSlug)) {
+                    $originalSlug = (string) $originalSlug;
+                }
+
                 $rows[] = [
                     'langTo' => $language,
                     'originalSlug' => $originalSlug,
