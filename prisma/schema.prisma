@@ -26,6 +26,7 @@ model User {
   memberships   OrganizationMember[]
   projectMemberships ProjectMember[]
   sentProjectInvitations ProjectInvitation[]
+  activityDigestDeliveries ActivityDigestDelivery[]
 }
 
 model Account {
@@ -82,6 +83,7 @@ model Organization {
   usageRecords UsageRecord[]
   translationBatchLogs TranslationBatchLog[]
   usageAlerts  UsageAlert[]
+  activityDigestDeliveries ActivityDigestDelivery[]
 }
 
 /// Dedup marker for the monthly word-quota warning emails to the org owner.
@@ -116,9 +118,11 @@ enum Plan {
 }
 
 model OrganizationMember {
-  id             String           @id @default(cuid())
-  role           OrganizationRole @default(MEMBER)
-  createdAt      DateTime         @default(now())
+  id                    String           @id @default(cuid())
+  role                  OrganizationRole @default(MEMBER)
+  activityDigestEnabled Boolean          @default(false)
+  activityDigestLocale  String           @default("en")
+  createdAt             DateTime         @default(now())
 
   userId         String
   organizationId String
@@ -127,6 +131,26 @@ model OrganizationMember {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
+}
+
+/// Per-recipient claim for a complete weekly activity period. The unique key
+/// prevents duplicate emails when Vercel retries or two cron invocations race.
+model ActivityDigestDelivery {
+  id          String    @id @default(cuid())
+  periodStart DateTime
+  periodEnd   DateTime
+  claimedAt   DateTime  @default(now())
+  sentAt      DateTime?
+
+  organizationId  String
+  recipientUserId String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipient    User         @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, recipientUserId, periodStart])
+  @@index([periodStart])
+  @@index([recipientUserId])
 }
 
 enum OrganizationRole {

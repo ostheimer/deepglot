@@ -136,6 +136,7 @@ Features:
 - Subdomain support (`de.example.com`) (implemented; live QA pending — requires `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`)
 - Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
 - Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive email to the organization owner when 90% or 100% of the monthly word limit is reached
+- Opt-in weekly workspace activity digest with new-translation, manual-edit, and translation-request totals; quiet weeks are skipped and retry-safe delivery claims prevent duplicate emails
 - Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
 - 33 PHP fixtures plus the dynamic-translator and visual-switcher JavaScript regressions, covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, independent switchers, AMP, multilingual sitemap, WooCommerce email, caching, exclusions, metadata, routing, REST API quota status, dynamic translation, runtime-config races, and bot cache-poisoning prevention
 
