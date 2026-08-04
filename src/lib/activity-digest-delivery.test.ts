@@ -129,15 +129,61 @@ test("uses an atomic stale-only reclaim and lease-owned completion writes", () =
   );
   assert.match(
     source,
-    /deleteMany\([\s\S]*id: claim\.id,[\s\S]*claimedAt: claim\.claimedAt,[\s\S]*sentAt: null/,
+    /releaseDigestSendClaim\([\s\S]*sentAt: ACTIVITY_DIGEST_SEND_PENDING_SENTINEL/,
   );
   assert.match(
     source,
-    /updateMany\([\s\S]*id: claim\.id,[\s\S]*claimedAt: claim\.claimedAt,[\s\S]*sentAt: null/,
+    /markDigestSendPending\([\s\S]*sentAt: ACTIVITY_DIGEST_SEND_PENDING_SENTINEL/,
+  );
+  assert.match(
+    source,
+    /recordDigestSendCompleted\([\s\S]*sentAt: ACTIVITY_DIGEST_SEND_PENDING_SENTINEL/,
   );
   assert.match(
     source,
     /mapWithConcurrency\(\s*recipients,\s*ACTIVITY_DIGEST_SEND_CONCURRENCY,/,
+  );
+});
+
+test("stale reclaim does not take over a pending-send sentinel claim", async () => {
+  const {
+    ACTIVITY_DIGEST_CLAIM_TTL_MS,
+    ACTIVITY_DIGEST_SEND_PENDING_SENTINEL,
+    acquireActivityDigestClaim,
+  } = await deliveryModule;
+  const now = new Date("2026-08-03T08:30:00.000Z");
+  const uniqueError = new Prisma.PrismaClientKnownRequestError("duplicate", {
+    code: "P2002",
+    clientVersion: "test",
+  });
+
+  const claim = await acquireActivityDigestClaim(
+    {
+      organizationId: "org-a",
+      recipientUserId: "user-a",
+      periodStart: new Date("2026-07-27T00:00:00.000Z"),
+      periodEnd: new Date("2026-08-03T00:00:00.000Z"),
+    },
+    now,
+    {
+      create: async () => {
+        throw uniqueError;
+      },
+      reclaim: async ({ staleBefore, claimedAt }) => {
+        assert.equal(
+          staleBefore.toISOString(),
+          new Date(now.getTime() - ACTIVITY_DIGEST_CLAIM_TTL_MS).toISOString(),
+        );
+        assert.equal(claimedAt, now);
+        return null;
+      },
+    },
+  );
+
+  assert.equal(claim, null);
+  assert.equal(
+    ACTIVITY_DIGEST_SEND_PENDING_SENTINEL.toISOString(),
+    "1970-01-01T00:00:00.000Z",
   );
 });
 
