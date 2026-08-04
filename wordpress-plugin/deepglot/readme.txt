@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.6
+Stable tag: 0.11.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.11.7 =
+* Added a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds.
+
 = 0.11.6 =
 * Split content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings.
 
@@ -110,6 +113,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.11.7 =
+Allows trusted site-specific callbacks to localize media embeds after the full translation pipeline. Requires PHP 8.0 or newer.
 
 = 0.11.6 =
 Prevents content-heavy cold pages from exceeding the translation window as one oversized provider request. Requires PHP 8.0 or newer.
