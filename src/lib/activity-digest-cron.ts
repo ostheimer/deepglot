@@ -4,10 +4,10 @@ import {
   type CronRequest,
 } from "@/lib/cron-auth";
 
-export const WEBHOOK_PROCESS_CRON_PATH = "/api/webhooks/process";
-export const WEBHOOK_PROCESS_CRON_SCHEDULE = "*/5 * * * *";
+export const ACTIVITY_DIGEST_CRON_PATH = "/api/cron/activity-digest";
+export const ACTIVITY_DIGEST_CRON_SCHEDULE = "0 8 * * 1";
 
-export function isWebhookProcessRequestAuthorized(
+export function isActivityDigestRequestAuthorized(
   request: CronRequest,
   env: CronAuthEnv = process.env
 ) {

@@ -365,9 +365,13 @@ export async function ensureTestLoginUser() {
       userId: user.id,
       organizationId: organization.id,
       role: "OWNER",
+      activityDigestEnabled: false,
+      activityDigestLocale: "en",
     },
     update: {
       role: "OWNER",
+      activityDigestEnabled: false,
+      activityDigestLocale: "en",
     },
   });
 

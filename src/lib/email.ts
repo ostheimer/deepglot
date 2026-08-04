@@ -1,5 +1,7 @@
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import type { ActivityDigestSummary } from "@/lib/activity-digest";
+import { getIntlLocale } from "@/lib/locale-formatting";
 const CLOUDFLARE_EMAIL_API_BASE_URL =
   "https://api.cloudflare.com/client/v4/accounts";
 
@@ -169,6 +171,335 @@ function escapeHtmlText(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function formatActivityDigestPeriod(
+  summary: ActivityDigestSummary,
+  locale: SiteLocale
+) {
+  const formatter = new Intl.DateTimeFormat(getIntlLocale(locale), {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const inclusiveEnd = new Date(summary.period.end.getTime() - 1);
+
+  return `${formatter.format(summary.period.start)}–${formatter.format(inclusiveEnd)}`;
+}
+
+function getActivityDigestEmailCopy(locale: SiteLocale) {
+  return {
+    subject: uiText(
+      locale,
+      "Your Deepglot weekly digest – {organization}",
+      "Dein Deepglot-Wochenrückblick – {organization}"
+    ),
+    textIntro: uiText(
+      locale,
+      "Here is your Deepglot weekly activity digest.",
+      "Hier ist dein Deepglot-Wochenrückblick."
+    ),
+    workspace: uiText(locale, "Workspace", "Workspace"),
+    period: uiText(locale, "Activity period", "Zeitraum"),
+    newTranslation: uiText(
+      locale,
+      "{count} new translation",
+      "{count} neue Übersetzung"
+    ),
+    newTranslations: uiText(
+      locale,
+      "{count} new translations",
+      "{count} neue Übersetzungen"
+    ),
+    word: uiText(locale, "{count} word", "{count} Wort"),
+    words: uiText(locale, "{count} words", "{count} Wörter"),
+    manualEdit: uiText(
+      locale,
+      "{count} manual edit",
+      "{count} manuelle Bearbeitung"
+    ),
+    manualEdits: uiText(
+      locale,
+      "{count} manual edits",
+      "{count} manuelle Bearbeitungen"
+    ),
+    translationRequest: uiText(
+      locale,
+      "{count} translation request",
+      "{count} Übersetzungsanfrage"
+    ),
+    translationRequests: uiText(
+      locale,
+      "{count} translation requests",
+      "{count} Übersetzungsanfragen"
+    ),
+    openActivity: uiText(locale, "View activity", "Aktivität öffnen"),
+    emailSettings: uiText(locale, "Email settings", "E-Mail-Einstellungen"),
+    heading: uiText(
+      locale,
+      "Weekly activity digest",
+      "Wochenrückblick"
+    ),
+    completeWeekIntro: uiText(
+      locale,
+      "Here is your activity from the last complete week.",
+      "Hier ist deine Aktivität der letzten vollständigen Woche."
+    ),
+    newTranslationsLabel: uiText(
+      locale,
+      "New translations",
+      "Neue Übersetzungen"
+    ),
+    manualEditsLabel: uiText(locale, "Manual edits", "Manuell bearbeitet"),
+    translationRequestsLabel: uiText(
+      locale,
+      "Translation requests",
+      "Übersetzungsanfragen"
+    ),
+    footer: uiText(
+      locale,
+      "You receive this email because the weekly digest is enabled for this workspace.",
+      "Du erhältst diese E-Mail, weil der Wochenrückblick für diesen Workspace aktiviert ist."
+    ),
+    changeSettings: uiText(locale, "Change settings", "Einstellungen ändern"),
+  };
+}
+
+type ActivityDigestEmailCopy = ReturnType<typeof getActivityDigestEmailCopy>;
+
+function applyActivityDigestCount(template: string, formattedCount: string) {
+  return template.replace("{count}", formattedCount);
+}
+
+function activityDigestMetricCopy({
+  locale,
+  summary,
+  copy,
+}: {
+  locale: SiteLocale;
+  summary: ActivityDigestSummary;
+  copy: ActivityDigestEmailCopy;
+}) {
+  const numbers = new Intl.NumberFormat(getIntlLocale(locale));
+  const newTranslations = numbers.format(summary.totals.newTranslations);
+  const newWords = numbers.format(summary.totals.newWords);
+  const manualTranslations = numbers.format(summary.totals.manualTranslations);
+  const manualWords = numbers.format(summary.totals.manualWords);
+  const translationRequests = numbers.format(summary.totals.translationRequests);
+
+  return {
+    newTranslations: applyActivityDigestCount(
+      summary.totals.newTranslations === 1
+        ? copy.newTranslation
+        : copy.newTranslations,
+      newTranslations
+    ),
+    newWords: applyActivityDigestCount(
+      summary.totals.newWords === 1 ? copy.word : copy.words,
+      newWords
+    ),
+    manualTranslations: applyActivityDigestCount(
+      summary.totals.manualTranslations === 1
+        ? copy.manualEdit
+        : copy.manualEdits,
+      manualTranslations
+    ),
+    manualWords: applyActivityDigestCount(
+      summary.totals.manualWords === 1 ? copy.word : copy.words,
+      manualWords
+    ),
+    translationRequests: applyActivityDigestCount(
+      summary.totals.translationRequests === 1
+        ? copy.translationRequest
+        : copy.translationRequests,
+      translationRequests
+    ),
+  };
+}
+
+function formatActivityDigestRequestCardLabel(
+  locale: SiteLocale,
+  label: string
+) {
+  const escapedLabel = escapeHtmlText(label);
+
+  if (locale === "de" && label === "Übersetzungsanfragen") {
+    return "Übersetzungs-<br>Anfragen";
+  }
+
+  if (locale === "en" && label === "Translation requests") {
+    return "Translation<br>requests";
+  }
+
+  return escapedLabel;
+}
+
+export function buildActivityDigestEmailPayload({
+  to,
+  from,
+  locale,
+  summary,
+  dashboardUrl,
+  settingsUrl,
+}: {
+  to: string;
+  from: string;
+  locale: SiteLocale;
+  summary: ActivityDigestSummary;
+  dashboardUrl: string;
+  settingsUrl: string;
+}) {
+  const numbers = new Intl.NumberFormat(getIntlLocale(locale));
+  const period = formatActivityDigestPeriod(summary, locale);
+  const copy = getActivityDigestEmailCopy(locale);
+  const metrics = activityDigestMetricCopy({ locale, summary, copy });
+  const subject = copy.subject.replace(
+    "{organization}",
+    summary.organizationName
+  );
+  const projectLines = summary.projects.map((project) => {
+    const name = project.domain || project.name;
+    const newTranslations = applyActivityDigestCount(
+      project.newTranslations === 1
+        ? copy.newTranslation
+        : copy.newTranslations,
+      numbers.format(project.newTranslations)
+    );
+    const manualTranslations = applyActivityDigestCount(
+      project.manualTranslations === 1 ? copy.manualEdit : copy.manualEdits,
+      numbers.format(project.manualTranslations)
+    );
+    const translationRequests = applyActivityDigestCount(
+      project.translationRequests === 1
+        ? copy.translationRequest
+        : copy.translationRequests,
+      numbers.format(project.translationRequests)
+    );
+
+    return `${name}: ${newTranslations}, ${manualTranslations}, ${translationRequests}`;
+  });
+  const text = [
+    copy.textIntro,
+    `${copy.workspace}: ${summary.organizationName}`,
+    `${copy.period}: ${period}`,
+    `${metrics.newTranslations} (${metrics.newWords})`,
+    `${metrics.manualTranslations} (${metrics.manualWords})`,
+    metrics.translationRequests,
+    ...projectLines,
+    `${copy.openActivity}: ${dashboardUrl}`,
+    `${copy.emailSettings}: ${settingsUrl}`,
+  ].join("\n\n");
+  const htmlOrganizationName = escapeHtmlText(summary.organizationName);
+  const htmlDashboardUrl = escapeHtmlText(dashboardUrl);
+  const htmlSettingsUrl = escapeHtmlText(settingsUrl);
+  const htmlProjects = summary.projects
+    .map((project) => {
+      const newTranslations = applyActivityDigestCount(
+        project.newTranslations === 1
+          ? copy.newTranslation
+          : copy.newTranslations,
+        numbers.format(project.newTranslations)
+      );
+      const manualTranslations = applyActivityDigestCount(
+        project.manualTranslations === 1 ? copy.manualEdit : copy.manualEdits,
+        numbers.format(project.manualTranslations)
+      );
+      const translationRequests = applyActivityDigestCount(
+        project.translationRequests === 1
+          ? copy.translationRequest
+          : copy.translationRequests,
+        numbers.format(project.translationRequests)
+      );
+
+      return `
+        <tr>
+          <td style="padding:12px 0;border-top:1px solid #e5e7eb">
+            <strong style="color:#111827">${escapeHtmlText(project.domain || project.name)}</strong>
+            ${project.domain && project.name !== project.domain ? `<div style="color:#6b7280;font-size:12px">${escapeHtmlText(project.name)}</div>` : ""}
+            <div style="margin-top:4px;color:#4b5563;font-size:13px">
+              ${escapeHtmlText(newTranslations)}
+              &nbsp;&middot;&nbsp; ${escapeHtmlText(manualTranslations)}
+              &nbsp;&middot;&nbsp; ${escapeHtmlText(translationRequests)}
+            </div>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return {
+    from,
+    to,
+    subject,
+    text,
+    html: `
+      <div style="margin:0;background:#f5f6f8;padding:32px 16px;font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">
+          <div style="padding:24px 28px;background:#d92f19;color:#ffffff">
+            <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Deepglot</div>
+            <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2">${escapeHtmlText(copy.heading)}</h1>
+          </div>
+          <div style="padding:28px">
+            <p style="margin:0;color:#4b5563">${escapeHtmlText(copy.completeWeekIntro)}</p>
+            <h2 style="margin:20px 0 2px;font-size:24px">${htmlOrganizationName}</h2>
+            <p style="margin:0;color:#6b7280">${escapeHtmlText(period)}</p>
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-collapse:separate;border-spacing:8px 0;table-layout:fixed">
+              <tr>
+                <td width="33.33%" valign="top">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed">
+                    <tr>
+                      <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
+                        <div style="font-size:28px;font-weight:800;color:#d92f19">${numbers.format(summary.totals.newTranslations)}</div>
+                        <div style="font-size:13px;font-weight:700">${escapeHtmlText(copy.newTranslationsLabel)}</div>
+                        <div style="font-size:12px;color:#6b7280">${escapeHtmlText(metrics.newWords)}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td width="33.33%" valign="top">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed">
+                    <tr>
+                      <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
+                        <div style="font-size:28px;font-weight:800;color:#d92f19">${numbers.format(summary.totals.manualTranslations)}</div>
+                        <div style="font-size:13px;font-weight:700">${escapeHtmlText(copy.manualEditsLabel)}</div>
+                        <div style="font-size:12px;color:#6b7280">${escapeHtmlText(metrics.manualWords)}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td width="33.33%" valign="top">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed">
+                    <tr>
+                      <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
+                        <div style="font-size:28px;font-weight:800;color:#d92f19">${numbers.format(summary.totals.translationRequests)}</div>
+                        <div style="font-size:13px;font-weight:700">${formatActivityDigestRequestCardLabel(locale, copy.translationRequestsLabel)}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-collapse:collapse">
+              ${htmlProjects}
+            </table>
+
+            <p style="margin:28px 0 0">
+              <a href="${htmlDashboardUrl}" style="display:inline-block;background:#d92f19;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:8px;font-weight:700">
+                ${escapeHtmlText(copy.openActivity)}
+              </a>
+            </p>
+            <p style="margin:24px 0 0;color:#6b7280;font-size:12px">
+              ${escapeHtmlText(copy.footer)}
+              <a href="${htmlSettingsUrl}" style="color:#6b7280">${escapeHtmlText(copy.changeSettings)}</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
 }
 
 export async function sendPasswordResetEmail({
@@ -517,4 +848,62 @@ export async function sendProjectInvitationEmail({
   }
 
   return { sent: true as const, provider: "cloudflare" as const, result: data.result };
+}
+
+export async function sendActivityDigestEmail({
+  to,
+  locale,
+  summary,
+  dashboardUrl,
+  settingsUrl,
+  signal,
+}: {
+  to: string;
+  locale: SiteLocale;
+  summary: ActivityDigestSummary;
+  dashboardUrl: string;
+  settingsUrl: string;
+  signal?: AbortSignal;
+}) {
+  const config = getCloudflareEmailConfig();
+
+  if (!config) {
+    return { sent: false, reason: "email_not_configured" as const };
+  }
+
+  const response = await fetch(buildCloudflareEmailApiUrl(config.accountId), {
+    method: "POST",
+    signal,
+    headers: {
+      Authorization: `Bearer ${config.apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      buildActivityDigestEmailPayload({
+        to,
+        from: config.from,
+        locale,
+        summary,
+        dashboardUrl,
+        settingsUrl,
+      })
+    ),
+  });
+  const data = (await response.json().catch(() => null)) as
+    | CloudflareEmailResponse
+    | null;
+
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      `Cloudflare Email Sending failed: ${
+        data ? formatCloudflareEmailError(data) : response.statusText
+      }`
+    );
+  }
+
+  return {
+    sent: true as const,
+    provider: "cloudflare" as const,
+    result: data.result,
+  };
 }
