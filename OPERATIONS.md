@@ -34,7 +34,8 @@ Expected behavior:
 - Production requests without `Authorization: Bearer <CRON_SECRET>` return `401`.
 - Missing Cloudflare email configuration returns `503` with `configured: false`.
 - Successful responses report `eligible`, `sent`, `duplicates`, `withoutActivity`, and `failed` without exposing recipient addresses.
-- A provider failure removes the unsent claim so a later Vercel retry can send it; successful claims remain unique per workspace, recipient, and period.
+- A provider failure removes the owned unsent claim so a later Vercel retry can send it. Unsent claims abandoned by a crashed invocation are reclaimed after 15 minutes; successful claims remain unique per workspace, recipient, and period.
+- Organization owners/admins receive totals for every workspace project. Members receive activity only for projects they can access, and sends run with at most four recipients in parallel.
 - Imports and manual-save batches are not counted as runtime translation requests. Manual saves are reported separately, while newly created translation-cache entries supply the new-translation and word totals.
 
 ## Rate-Limit Monitoring

@@ -5,6 +5,7 @@ import {
   buildActivityDigestEmailPayload,
   sendActivityDigestEmail,
 } from "@/lib/email";
+import { SITE_LOCALES } from "@/lib/site-locale";
 
 const summary = {
   organizationName: "Medizin & <Pflege>",
@@ -130,6 +131,126 @@ test("builds an English digest with an exclusive period end rendered inclusively
   assert.equal(payload.subject, "Your Deepglot weekly digest – Medizin & <Pflege>");
   assert.match(payload.text, /July 27, 2026–August 2, 2026/);
   assert.match(payload.text, /2,147 translation requests/);
+});
+
+test("localizes all visible digest copy for French recipients", () => {
+  const payload = buildActivityDigestEmailPayload({
+    to: "owner@example.com",
+    from: "Deepglot <noreply@deepglot.ai>",
+    locale: "fr",
+    summary,
+    dashboardUrl: "https://deepglot.ai/fr/projects",
+    settingsUrl: "https://deepglot.ai/fr/settings",
+  });
+
+  assert.equal(
+    payload.subject,
+    "Votre résumé hebdomadaire Deepglot – Medizin & <Pflege>"
+  );
+  assert.match(payload.text, /Voici votre résumé d’activité hebdomadaire Deepglot\./);
+  assert.match(payload.text, /Espace de travail: Medizin & <Pflege>/);
+  assert.match(payload.text, /Période d'activité: 27 juillet 2026–2 août 2026/);
+  assert.match(payload.text, /198 nouvelles traductions/);
+  assert.match(payload.text, /2 434 mots/);
+  assert.match(payload.text, /2 modifications manuelles/);
+  assert.match(payload.text, /2 147 demandes de traduction/);
+  assert.match(payload.text, /Afficher l'activité: https:\/\/deepglot\.ai\/fr\/projects/);
+  assert.match(payload.text, /Paramètres de messagerie: https:\/\/deepglot\.ai\/fr\/settings/);
+  assert.match(payload.html, /Medizin &amp; &lt;Pflege&gt;/);
+  assert.match(payload.html, /Jugend &amp; &lt;Med&gt;/);
+  assert.doesNotMatch(
+    `${payload.subject}\n${payload.text}\n${payload.html}`,
+    /Weekly activity digest|Here is your|New translations|Manual edits|Translation requests|Open activity|Change settings/
+  );
+});
+
+test("localizes all visible digest copy for Spanish recipients", () => {
+  const payload = buildActivityDigestEmailPayload({
+    to: "owner@example.com",
+    from: "Deepglot <noreply@deepglot.ai>",
+    locale: "es",
+    summary,
+    dashboardUrl: "https://deepglot.ai/es/projects",
+    settingsUrl: "https://deepglot.ai/es/settings",
+  });
+
+  assert.equal(
+    payload.subject,
+    "Su resumen semanal Deepglot – Medizin & <Pflege>"
+  );
+  assert.match(payload.text, /Aquí está su resumen de actividades semanales Deepglot\./);
+  assert.match(payload.text, /Espacio de trabajo: Medizin & <Pflege>/);
+  assert.match(payload.text, /Periodo de actividad: 27 de julio de 2026–2 de agosto de 2026/);
+  assert.match(payload.text, /198 nuevas traducciones/);
+  assert.match(payload.text, /2434 palabras/);
+  assert.match(payload.text, /2 ediciones manuales/);
+  assert.match(payload.text, /2147 solicitudes de traducción/);
+  assert.match(payload.text, /Ver actividad: https:\/\/deepglot\.ai\/es\/projects/);
+  assert.match(payload.text, /Configuración de correo electrónico: https:\/\/deepglot\.ai\/es\/settings/);
+  assert.match(payload.html, /Medizin &amp; &lt;Pflege&gt;/);
+  assert.match(payload.html, /Jugend &amp; &lt;Med&gt;/);
+  assert.doesNotMatch(
+    `${payload.subject}\n${payload.text}\n${payload.html}`,
+    /Weekly activity digest|Here is your|New translations|Manual edits|Translation requests|Open activity|Change settings/
+  );
+});
+
+test("does not fall back to English digest copy for any supported locale", () => {
+  const englishFragments = [
+    "your deepglot weekly digest",
+    "here is your deepglot weekly activity digest",
+    "weekly activity digest",
+    "here is your activity from the last complete week",
+    "new translations",
+    "manual edits",
+    "translation requests",
+    "view activity",
+    "email settings",
+    "you receive this email because the weekly digest is enabled",
+    "change settings",
+  ];
+
+  for (const locale of SITE_LOCALES) {
+    if (locale === "en" || locale === "de") continue;
+
+    const payload = buildActivityDigestEmailPayload({
+      to: "owner@example.com",
+      from: "Deepglot <noreply@deepglot.ai>",
+      locale,
+      summary,
+      dashboardUrl: `https://deepglot.ai/${locale}/projects`,
+      settingsUrl: `https://deepglot.ai/${locale}/settings`,
+    });
+    const visibleCopy = `${payload.subject}\n${payload.text}\n${payload.html}`.toLowerCase();
+
+    for (const fragment of englishFragments) {
+      assert.equal(
+        visibleCopy.includes(fragment),
+        false,
+        `${locale} digest contains English fallback copy: ${fragment}`
+      );
+    }
+  }
+});
+
+test("uses an unambiguous activity-period label in Bulgarian and Croatian", () => {
+  const cases = [
+    { locale: "bg" as const, label: "Период на дейност" },
+    { locale: "hr" as const, label: "Razdoblje aktivnosti" },
+  ];
+
+  for (const { locale, label } of cases) {
+    const payload = buildActivityDigestEmailPayload({
+      to: "owner@example.com",
+      from: "Deepglot <noreply@deepglot.ai>",
+      locale,
+      summary,
+      dashboardUrl: `https://deepglot.ai/${locale}/projects`,
+      settingsUrl: `https://deepglot.ai/${locale}/settings`,
+    });
+
+    assert.match(payload.text, new RegExp(`${label}:`));
+  }
 });
 
 test("sends the activity digest through the existing Cloudflare email provider", async (t) => {

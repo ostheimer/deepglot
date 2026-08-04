@@ -188,14 +188,99 @@ function formatActivityDigestPeriod(
   return `${formatter.format(summary.period.start)}–${formatter.format(inclusiveEnd)}`;
 }
 
+function getActivityDigestEmailCopy(locale: SiteLocale) {
+  return {
+    subject: uiText(
+      locale,
+      "Your Deepglot weekly digest – {organization}",
+      "Dein Deepglot-Wochenrückblick – {organization}"
+    ),
+    textIntro: uiText(
+      locale,
+      "Here is your Deepglot weekly activity digest.",
+      "Hier ist dein Deepglot-Wochenrückblick."
+    ),
+    workspace: uiText(locale, "Workspace", "Workspace"),
+    period: uiText(locale, "Activity period", "Zeitraum"),
+    newTranslation: uiText(
+      locale,
+      "{count} new translation",
+      "{count} neue Übersetzung"
+    ),
+    newTranslations: uiText(
+      locale,
+      "{count} new translations",
+      "{count} neue Übersetzungen"
+    ),
+    word: uiText(locale, "{count} word", "{count} Wort"),
+    words: uiText(locale, "{count} words", "{count} Wörter"),
+    manualEdit: uiText(
+      locale,
+      "{count} manual edit",
+      "{count} manuelle Bearbeitung"
+    ),
+    manualEdits: uiText(
+      locale,
+      "{count} manual edits",
+      "{count} manuelle Bearbeitungen"
+    ),
+    translationRequest: uiText(
+      locale,
+      "{count} translation request",
+      "{count} Übersetzungsanfrage"
+    ),
+    translationRequests: uiText(
+      locale,
+      "{count} translation requests",
+      "{count} Übersetzungsanfragen"
+    ),
+    openActivity: uiText(locale, "View activity", "Aktivität öffnen"),
+    emailSettings: uiText(locale, "Email settings", "E-Mail-Einstellungen"),
+    heading: uiText(
+      locale,
+      "Weekly activity digest",
+      "Wochenrückblick"
+    ),
+    completeWeekIntro: uiText(
+      locale,
+      "Here is your activity from the last complete week.",
+      "Hier ist deine Aktivität der letzten vollständigen Woche."
+    ),
+    newTranslationsLabel: uiText(
+      locale,
+      "New translations",
+      "Neue Übersetzungen"
+    ),
+    manualEditsLabel: uiText(locale, "Manual edits", "Manuell bearbeitet"),
+    translationRequestsLabel: uiText(
+      locale,
+      "Translation requests",
+      "Übersetzungsanfragen"
+    ),
+    footer: uiText(
+      locale,
+      "You receive this email because the weekly digest is enabled for this workspace.",
+      "Du erhältst diese E-Mail, weil der Wochenrückblick für diesen Workspace aktiviert ist."
+    ),
+    changeSettings: uiText(locale, "Change settings", "Einstellungen ändern"),
+  };
+}
+
+type ActivityDigestEmailCopy = ReturnType<typeof getActivityDigestEmailCopy>;
+
+function applyActivityDigestCount(template: string, formattedCount: string) {
+  return template.replace("{count}", formattedCount);
+}
+
 function activityDigestMetricCopy({
   locale,
   summary,
+  copy,
 }: {
   locale: SiteLocale;
   summary: ActivityDigestSummary;
+  copy: ActivityDigestEmailCopy;
 }) {
-  const de = locale === "de";
   const numbers = new Intl.NumberFormat(getIntlLocale(locale));
   const newTranslations = numbers.format(summary.totals.newTranslations);
   const newWords = numbers.format(summary.totals.newWords);
@@ -204,22 +289,50 @@ function activityDigestMetricCopy({
   const translationRequests = numbers.format(summary.totals.translationRequests);
 
   return {
-    newTranslations: de
-      ? `${newTranslations} ${summary.totals.newTranslations === 1 ? "neue Übersetzung" : "neue Übersetzungen"}`
-      : `${newTranslations} new ${summary.totals.newTranslations === 1 ? "translation" : "translations"}`,
-    newWords: de
-      ? `${newWords} ${summary.totals.newWords === 1 ? "Wort" : "Wörter"}`
-      : `${newWords} ${summary.totals.newWords === 1 ? "word" : "words"}`,
-    manualTranslations: de
-      ? `${manualTranslations} ${summary.totals.manualTranslations === 1 ? "manuelle Bearbeitung" : "manuelle Bearbeitungen"}`
-      : `${manualTranslations} manual ${summary.totals.manualTranslations === 1 ? "edit" : "edits"}`,
-    manualWords: de
-      ? `${manualWords} ${summary.totals.manualWords === 1 ? "Wort" : "Wörter"}`
-      : `${manualWords} ${summary.totals.manualWords === 1 ? "word" : "words"}`,
-    translationRequests: de
-      ? `${translationRequests} ${summary.totals.translationRequests === 1 ? "Übersetzungsanfrage" : "Übersetzungsanfragen"}`
-      : `${translationRequests} translation ${summary.totals.translationRequests === 1 ? "request" : "requests"}`,
+    newTranslations: applyActivityDigestCount(
+      summary.totals.newTranslations === 1
+        ? copy.newTranslation
+        : copy.newTranslations,
+      newTranslations
+    ),
+    newWords: applyActivityDigestCount(
+      summary.totals.newWords === 1 ? copy.word : copy.words,
+      newWords
+    ),
+    manualTranslations: applyActivityDigestCount(
+      summary.totals.manualTranslations === 1
+        ? copy.manualEdit
+        : copy.manualEdits,
+      manualTranslations
+    ),
+    manualWords: applyActivityDigestCount(
+      summary.totals.manualWords === 1 ? copy.word : copy.words,
+      manualWords
+    ),
+    translationRequests: applyActivityDigestCount(
+      summary.totals.translationRequests === 1
+        ? copy.translationRequest
+        : copy.translationRequests,
+      translationRequests
+    ),
   };
+}
+
+function formatActivityDigestRequestCardLabel(
+  locale: SiteLocale,
+  label: string
+) {
+  const escapedLabel = escapeHtmlText(label);
+
+  if (locale === "de" && label === "Übersetzungsanfragen") {
+    return "Übersetzungs-<br>Anfragen";
+  }
+
+  if (locale === "en" && label === "Translation requests") {
+    return "Translation<br>requests";
+  }
+
+  return escapedLabel;
 }
 
 export function buildActivityDigestEmailPayload({
@@ -237,51 +350,82 @@ export function buildActivityDigestEmailPayload({
   dashboardUrl: string;
   settingsUrl: string;
 }) {
-  const de = locale === "de";
   const numbers = new Intl.NumberFormat(getIntlLocale(locale));
   const period = formatActivityDigestPeriod(summary, locale);
-  const metrics = activityDigestMetricCopy({ locale, summary });
-  const subject = de
-    ? `Dein Deepglot-Wochenrückblick – ${summary.organizationName}`
-    : `Your Deepglot weekly digest – ${summary.organizationName}`;
+  const copy = getActivityDigestEmailCopy(locale);
+  const metrics = activityDigestMetricCopy({ locale, summary, copy });
+  const subject = copy.subject.replace(
+    "{organization}",
+    summary.organizationName
+  );
   const projectLines = summary.projects.map((project) => {
     const name = project.domain || project.name;
-    return de
-      ? `${name}: ${numbers.format(project.newTranslations)} neue Übersetzungen, ${numbers.format(project.manualTranslations)} manuelle Bearbeitungen, ${numbers.format(project.translationRequests)} Übersetzungsanfragen`
-      : `${name}: ${numbers.format(project.newTranslations)} new translations, ${numbers.format(project.manualTranslations)} manual edits, ${numbers.format(project.translationRequests)} translation requests`;
+    const newTranslations = applyActivityDigestCount(
+      project.newTranslations === 1
+        ? copy.newTranslation
+        : copy.newTranslations,
+      numbers.format(project.newTranslations)
+    );
+    const manualTranslations = applyActivityDigestCount(
+      project.manualTranslations === 1 ? copy.manualEdit : copy.manualEdits,
+      numbers.format(project.manualTranslations)
+    );
+    const translationRequests = applyActivityDigestCount(
+      project.translationRequests === 1
+        ? copy.translationRequest
+        : copy.translationRequests,
+      numbers.format(project.translationRequests)
+    );
+
+    return `${name}: ${newTranslations}, ${manualTranslations}, ${translationRequests}`;
   });
   const text = [
-    de
-      ? "Hier ist dein Deepglot-Wochenrückblick."
-      : "Here is your Deepglot weekly activity digest.",
-    `${de ? "Workspace" : "Workspace"}: ${summary.organizationName}`,
-    `${de ? "Zeitraum" : "Period"}: ${period}`,
+    copy.textIntro,
+    `${copy.workspace}: ${summary.organizationName}`,
+    `${copy.period}: ${period}`,
     `${metrics.newTranslations} (${metrics.newWords})`,
     `${metrics.manualTranslations} (${metrics.manualWords})`,
     metrics.translationRequests,
     ...projectLines,
-    `${de ? "Aktivität öffnen" : "Open activity"}: ${dashboardUrl}`,
-    `${de ? "E-Mail-Einstellungen" : "Email settings"}: ${settingsUrl}`,
+    `${copy.openActivity}: ${dashboardUrl}`,
+    `${copy.emailSettings}: ${settingsUrl}`,
   ].join("\n\n");
   const htmlOrganizationName = escapeHtmlText(summary.organizationName);
   const htmlDashboardUrl = escapeHtmlText(dashboardUrl);
   const htmlSettingsUrl = escapeHtmlText(settingsUrl);
   const htmlProjects = summary.projects
-    .map(
-      (project) => `
+    .map((project) => {
+      const newTranslations = applyActivityDigestCount(
+        project.newTranslations === 1
+          ? copy.newTranslation
+          : copy.newTranslations,
+        numbers.format(project.newTranslations)
+      );
+      const manualTranslations = applyActivityDigestCount(
+        project.manualTranslations === 1 ? copy.manualEdit : copy.manualEdits,
+        numbers.format(project.manualTranslations)
+      );
+      const translationRequests = applyActivityDigestCount(
+        project.translationRequests === 1
+          ? copy.translationRequest
+          : copy.translationRequests,
+        numbers.format(project.translationRequests)
+      );
+
+      return `
         <tr>
           <td style="padding:12px 0;border-top:1px solid #e5e7eb">
             <strong style="color:#111827">${escapeHtmlText(project.domain || project.name)}</strong>
             ${project.domain && project.name !== project.domain ? `<div style="color:#6b7280;font-size:12px">${escapeHtmlText(project.name)}</div>` : ""}
             <div style="margin-top:4px;color:#4b5563;font-size:13px">
-              ${numbers.format(project.newTranslations)} ${de ? "neue Übersetzungen" : "new translations"}
-              &nbsp;&middot;&nbsp; ${numbers.format(project.manualTranslations)} ${de ? "manuelle Bearbeitungen" : "manual edits"}
-              &nbsp;&middot;&nbsp; ${numbers.format(project.translationRequests)} ${de ? "Übersetzungsanfragen" : "translation requests"}
+              ${escapeHtmlText(newTranslations)}
+              &nbsp;&middot;&nbsp; ${escapeHtmlText(manualTranslations)}
+              &nbsp;&middot;&nbsp; ${escapeHtmlText(translationRequests)}
             </div>
           </td>
         </tr>
-      `
-    )
+      `;
+    })
     .join("");
 
   return {
@@ -294,10 +438,10 @@ export function buildActivityDigestEmailPayload({
         <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">
           <div style="padding:24px 28px;background:#d92f19;color:#ffffff">
             <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Deepglot</div>
-            <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2">${de ? "Wochenrückblick" : "Weekly activity digest"}</h1>
+            <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2">${escapeHtmlText(copy.heading)}</h1>
           </div>
           <div style="padding:28px">
-            <p style="margin:0;color:#4b5563">${de ? "Hier ist deine Aktivität der letzten vollständigen Woche." : "Here is your activity from the last complete week."}</p>
+            <p style="margin:0;color:#4b5563">${escapeHtmlText(copy.completeWeekIntro)}</p>
             <h2 style="margin:20px 0 2px;font-size:24px">${htmlOrganizationName}</h2>
             <p style="margin:0;color:#6b7280">${escapeHtmlText(period)}</p>
 
@@ -308,8 +452,8 @@ export function buildActivityDigestEmailPayload({
                     <tr>
                       <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
                         <div style="font-size:28px;font-weight:800;color:#d92f19">${numbers.format(summary.totals.newTranslations)}</div>
-                        <div style="font-size:13px;font-weight:700">${de ? "Neue Übersetzungen" : "New translations"}</div>
-                        <div style="font-size:12px;color:#6b7280">${metrics.newWords}</div>
+                        <div style="font-size:13px;font-weight:700">${escapeHtmlText(copy.newTranslationsLabel)}</div>
+                        <div style="font-size:12px;color:#6b7280">${escapeHtmlText(metrics.newWords)}</div>
                       </td>
                     </tr>
                   </table>
@@ -319,8 +463,8 @@ export function buildActivityDigestEmailPayload({
                     <tr>
                       <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
                         <div style="font-size:28px;font-weight:800;color:#d92f19">${numbers.format(summary.totals.manualTranslations)}</div>
-                        <div style="font-size:13px;font-weight:700">${de ? "Manuell bearbeitet" : "Manual edits"}</div>
-                        <div style="font-size:12px;color:#6b7280">${metrics.manualWords}</div>
+                        <div style="font-size:13px;font-weight:700">${escapeHtmlText(copy.manualEditsLabel)}</div>
+                        <div style="font-size:12px;color:#6b7280">${escapeHtmlText(metrics.manualWords)}</div>
                       </td>
                     </tr>
                   </table>
@@ -330,7 +474,7 @@ export function buildActivityDigestEmailPayload({
                     <tr>
                       <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
                         <div style="font-size:28px;font-weight:800;color:#d92f19">${numbers.format(summary.totals.translationRequests)}</div>
-                        <div style="font-size:13px;font-weight:700">${de ? "Übersetzungs-<br>Anfragen" : "Translation<br>requests"}</div>
+                        <div style="font-size:13px;font-weight:700">${formatActivityDigestRequestCardLabel(locale, copy.translationRequestsLabel)}</div>
                       </td>
                     </tr>
                   </table>
@@ -344,12 +488,12 @@ export function buildActivityDigestEmailPayload({
 
             <p style="margin:28px 0 0">
               <a href="${htmlDashboardUrl}" style="display:inline-block;background:#d92f19;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:8px;font-weight:700">
-                ${de ? "Aktivität öffnen" : "Open activity"}
+                ${escapeHtmlText(copy.openActivity)}
               </a>
             </p>
             <p style="margin:24px 0 0;color:#6b7280;font-size:12px">
-              ${de ? "Du erhältst diese E-Mail, weil der Wochenrückblick für diesen Workspace aktiviert ist." : "You receive this email because the weekly digest is enabled for this workspace."}
-              <a href="${htmlSettingsUrl}" style="color:#6b7280">${de ? "Einstellungen ändern" : "Change settings"}</a>
+              ${escapeHtmlText(copy.footer)}
+              <a href="${htmlSettingsUrl}" style="color:#6b7280">${escapeHtmlText(copy.changeSettings)}</a>
             </p>
           </div>
         </div>
