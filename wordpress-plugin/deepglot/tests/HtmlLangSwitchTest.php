@@ -60,6 +60,7 @@ if (!function_exists('headers_sent')) {
 if (!function_exists('apply_filters')) {
     $GLOBALS['_deepglot_translated_html_filter_calls'] = [];
     $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = false;
+    $GLOBALS['_deepglot_translated_html_filter_empty_result'] = false;
     $GLOBALS['_deepglot_translated_html_filter_throws'] = false;
 
     function apply_filters($hook, $value, ...$args) {
@@ -71,6 +72,10 @@ if (!function_exists('apply_filters')) {
 
         if ($GLOBALS['_deepglot_translated_html_filter_throws']) {
             throw new RuntimeException('Site-specific translated HTML filter failed.');
+        }
+
+        if ($GLOBALS['_deepglot_translated_html_filter_empty_result']) {
+            return '';
         }
 
         if ($GLOBALS['_deepglot_translated_html_filter_invalid_result']) {
@@ -270,6 +275,15 @@ dgLangAssert(
     is_string($fallbackProcessed) && str_contains($fallbackProcessed, 'youtube-de-id'),
     'A non-string translated HTML filter result must fail safe to the completed unfiltered document.'
 );
+
+$GLOBALS['_deepglot_translated_html_filter_invalid_result'] = false;
+$GLOBALS['_deepglot_translated_html_filter_empty_result'] = true;
+$emptyFallbackProcessed = $buffer->process($html, 'en');
+dgLangAssert(
+    is_string($emptyFallbackProcessed) && str_contains($emptyFallbackProcessed, 'youtube-de-id'),
+    'An empty translated HTML filter result must fail safe to the completed unfiltered document.'
+);
+$GLOBALS['_deepglot_translated_html_filter_empty_result'] = false;
 
 $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = false;
 $GLOBALS['_deepglot_translated_html_filter_throws'] = true;
