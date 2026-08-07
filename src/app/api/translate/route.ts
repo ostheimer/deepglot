@@ -44,6 +44,19 @@ import { resetTranslationWorkflowAfterContentEdit } from "@/lib/translation-work
 
 export const runtime = "nodejs";
 
+/**
+ * Fresh translations are provider-bound work: even chunked and parallelized
+ * (see `resolveTranslationChunking`) a large page takes several seconds, and a
+ * failover to the next provider doubles that.
+ *
+ * Pinned rather than left to the platform default, which was high enough that
+ * three requests in 24h burned a full 300s on a hung upstream. 120s is sized
+ * from the parts: a chunk needs ~16s, `DEFAULT_PROVIDER_TIMEOUT_MS` caps one
+ * provider call at 45s, and a chain is primary + fallback — so a worst-case
+ * hang-then-recover still finishes here, while a runaway dies 2.5x sooner.
+ */
+export const maxDuration = 120;
+
 // WordType - same values as the legacy translation contract for drop-in compatibility
 export const WordType = {
   OTHER: 0,

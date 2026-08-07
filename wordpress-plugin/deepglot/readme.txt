@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.7
+Stable tag: 0.12.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.12.0 =
+* Page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first view of a new page is fast and every later view is served fully translated from the cache.
+* Added background cache warming, which also retries requests that failed instead of silently dropping them, so a page can no longer stay untranslated permanently.
+* Added the `deepglot_max_sync_batches` filter to translate inline again on fast providers, and `deepglot_api_timeout` to tune the request budget.
+
 = 0.11.7 =
 * Added a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds.
 
@@ -113,6 +118,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.0 =
+Moves fresh translations off the page render into a background job, so cold pages load fast instead of waiting for the translation API. Requires PHP 8.0 or newer.
 
 = 0.11.7 =
 Allows trusted site-specific callbacks to localize media embeds after the full translation pipeline. Requires PHP 8.0 or newer.

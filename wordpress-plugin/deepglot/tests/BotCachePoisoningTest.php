@@ -124,7 +124,7 @@ class DeepglotPoisoningFakeClient extends Client
 
     public function __construct() {}
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
     {
         $this->calls[] = ['texts' => array_values($texts), 'bot' => $bot];
 

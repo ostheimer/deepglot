@@ -2,6 +2,7 @@
 
 import {
   TranslationProviderResponseError,
+  providerAbortSignal,
   type TranslateTextsInput,
   type TranslationEnv,
   type TranslationResult,
@@ -20,7 +21,8 @@ export type DeepLLanguage = {
  */
 export async function translateWithDeepL(
   { texts, sourceLang, targetLang }: TranslateTextsInput,
-  env: TranslationEnv = process.env
+  env: TranslationEnv = process.env,
+  signal: AbortSignal = providerAbortSignal(env)
 ): Promise<TranslationResult[]> {
   const apiKey = env.DEEPL_API_KEY;
   if (!apiKey) throw new Error("DEEPL_API_KEY nicht konfiguriert");
@@ -41,6 +43,7 @@ export async function translateWithDeepL(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: params.toString(),
+    signal,
   });
 
   if (!response.ok) {

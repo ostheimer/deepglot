@@ -10,12 +10,17 @@ import {
 } from "@/lib/translation-config";
 import {
   TranslationProviderResponseError,
+  providerAbortSignal,
   type TranslateTextsInput,
   type TranslationEnv,
   type TranslationProviderName,
   type TranslationResult,
 } from "@/lib/translation-types";
 export { countWords } from "@/lib/translation-types";
+export {
+  DEFAULT_PROVIDER_TIMEOUT_MS,
+  resolveProviderTimeoutMs,
+} from "@/lib/translation-types";
 
 function translateWithMock({
   texts,
@@ -49,17 +54,21 @@ async function translateWithProvider(
   env: TranslationEnv,
   config: TranslationProviderConfig
 ): Promise<TranslationResult[]> {
+  // Per attempt, not per chain: a slow primary must not eat the fallback's
+  // budget before it has even been tried.
+  const signal = providerAbortSignal(env);
+
   switch (config.provider) {
     case "openai":
     case "openrouter":
     case "ollama":
     case "openai-compatible":
-      return translateWithOpenAICompatible(input, config);
+      return translateWithOpenAICompatible(input, config, signal);
     case "gemini":
-      return translateWithGemini(input, config);
+      return translateWithGemini(input, config, signal);
     case "deepl":
       validateTranslationProviderConfig(config);
-      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey });
+      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey }, signal);
     case "mock":
       return translateWithMock(input);
     default:
@@ -155,13 +164,128 @@ function describeProviderError(error: unknown): string {
     : message;
 }
 
+/**
+ * Every text of a request used to go into a single chat completion, so the
+ * response time scaled with the total output-token count and pushed cold
+ * WordPress pages (100–160 segments) past the plugin's request timeout — the
+ * client gave up, the page fell back to source language and the work was
+ * wasted.
+ *
+ * Splitting the batch into chunks that run concurrently makes the latency
+ * track the *slowest chunk* instead of the whole page. It also keeps each
+ * completion short enough that the strict `translations` array contract in the
+ * provider adapters stays reliable on large pages.
+ *
+ * Sizing comes from a measurement against production on 2026-08-03, taken from
+ * the jobspot.at webserver, with each size sent twice so a full SaaS cache hit
+ * isolates the fixed cost:
+ *
+ *     segments   fresh   cached   provider
+ *            1   10.4s     1.4s       9.0s
+ *           12   20.1s     1.4s      18.7s
+ *           25   31.7s     1.3s      30.4s
+ *           50   40.5s     1.4s      39.1s
+ *
+ * So the request's own work is only ~1.4s; the provider costs ~9s before it
+ * translates anything, plus ~0.9s per segment. Chunks below roughly 8 segments
+ * therefore buy almost nothing (the fixed 9s dominates) while multiplying the
+ * number of provider calls, so 8 is the point where the curve flattens.
+ */
+export const DEFAULT_TRANSLATION_CHUNK_SIZE = 8;
+
+/**
+ * Upper bound on concurrent provider calls per request. High enough that a
+ * typical page finishes in a single wave, low enough to stay clear of provider
+ * rate limits — a 429 would push the whole chunk onto the fallback provider.
+ */
+export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
+
+function positiveIntSetting(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt((raw ?? "").trim(), 10);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function resolveTranslationChunking(
+  env: TranslationEnv = process.env
+): { size: number; concurrency: number } {
+  return {
+    size: positiveIntSetting(
+      env.TRANSLATION_CHUNK_SIZE,
+      DEFAULT_TRANSLATION_CHUNK_SIZE
+    ),
+    concurrency: positiveIntSetting(
+      env.TRANSLATION_CHUNK_CONCURRENCY,
+      DEFAULT_TRANSLATION_CHUNK_CONCURRENCY
+    ),
+  };
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+/**
+ * Runs `worker` over `items` with at most `limit` in flight, preserving input
+ * order in the result. The first rejection propagates — a partially translated
+ * batch would be silently wrong, so the caller must see the failure.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const runners = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      for (let index = cursor++; index < items.length; index = cursor++) {
+        results[index] = await worker(items[index], index);
+      }
+    }
+  );
+
+  await Promise.all(runners);
+
+  return results;
+}
+
 export async function translateTexts(
   input: TranslateTextsInput,
   env: TranslationEnv = process.env,
   settings?: TranslationSettingsLike | null
 ): Promise<TranslationResult[]> {
+  if (input.texts.length === 0) {
+    return [];
+  }
+
   const primary = resolveTranslationProviderConfig({ settings, env });
   const chain = buildFallbackProviderChain(primary, env);
+  const { size, concurrency } = resolveTranslationChunking(env);
+  const chunks = chunk(input.texts, size);
+
+  const translatedChunks = await mapWithConcurrency(
+    chunks,
+    concurrency,
+    (texts) => translateChunk({ ...input, texts }, env, chain)
+  );
+
+  return translatedChunks.flat();
+}
+
+async function translateChunk(
+  input: TranslateTextsInput,
+  env: TranslationEnv,
+  chain: TranslationProviderConfig[]
+): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
 
   let lastError: unknown = null;

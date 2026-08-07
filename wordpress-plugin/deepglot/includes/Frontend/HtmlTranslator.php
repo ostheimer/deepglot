@@ -7,6 +7,7 @@ use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
 use Deepglot\Support\TranslationCache;
+use Deepglot\Support\TranslationWarmer;
 
 /**
  * Parses an HTML document, extracts translatable text nodes, sends them
@@ -101,17 +102,62 @@ class HtmlTranslator
      */
     private const BATCH_SOURCE_BYTE_BUDGET = 2000;
 
+    /**
+     * Maximum number of API requests a single page render may wait for.
+     *
+     * The default is 0: the render path is cache-only and every fresh
+     * translation is handed to `TranslationWarmer`. That is not a fallback, it
+     * is what the latency forces — measured against production on 2026-08-03,
+     * a batch costs ~9s before the provider translates anything, so there is
+     * no batch size that is both worth sending and fast enough for a page
+     * load. Blocking the visitor buys a 25–40s page; deferring buys one
+     * source-language render, after which the cache is warm and every later
+     * request is fast.
+     *
+     * Sites on a fast provider (DeepL, a local model) can raise this via
+     * `deepglot_max_sync_batches` to translate inline again — each unit is one
+     * additional request the visitor waits for.
+     */
+    public const MAX_SYNC_BATCHES = 0;
+
     private Client $client;
     private Options $options;
     private TranslationCache $cache;
     private JsonLdTranslator $jsonLd;
+    private ?TranslationWarmer $warmer;
 
-    public function __construct(Client $client, Options $options, TranslationCache $cache, ?JsonLdTranslator $jsonLd = null)
-    {
+    public function __construct(
+        Client $client,
+        Options $options,
+        TranslationCache $cache,
+        ?JsonLdTranslator $jsonLd = null,
+        ?TranslationWarmer $warmer = null
+    ) {
         $this->client  = $client;
         $this->options = $options;
         $this->cache   = $cache;
         $this->jsonLd  = $jsonLd ?? new JsonLdTranslator();
+        $this->warmer  = $warmer;
+    }
+
+    /**
+     * API requests a render may wait for. 0 is meaningful: it makes the render
+     * path cache-only and moves every fresh translation into the background.
+     *
+     * Without a warmer there is nowhere to defer to, so deferring would drop
+     * the content entirely — translate everything inline in that case.
+     */
+    private function maxSyncBatches(): int
+    {
+        if ($this->warmer === null) {
+            return PHP_INT_MAX;
+        }
+
+        $limit = function_exists('apply_filters')
+            ? apply_filters('deepglot_max_sync_batches', self::MAX_SYNC_BATCHES)
+            : self::MAX_SYNC_BATCHES;
+
+        return is_numeric($limit) && (int) $limit >= 0 ? (int) $limit : self::MAX_SYNC_BATCHES;
     }
 
     /**
@@ -187,18 +233,48 @@ class HtmlTranslator
         // through translateBatches() so the client can run them in parallel
         // (Requests v2 / curl_multi) instead of paying one round trip per
         // batch. Single-batch pages keep the simpler translate() path.
+        //
+        // Only a bounded number of batches is translated inline. Fresh
+        // translations are provider-bound work — measured from the jobspot.at
+        // webserver on 2026-08-03, a batch costs ~9s before the provider
+        // returns anything, plus ~0.9s per segment — so waiting for a whole
+        // cold page means a 25–40s render. Whatever is not translated inline
+        // is queued for background warming instead, which converges the page
+        // on the next request rather than on this visitor's patience.
         $apiResults = [];
         $batches = $this->buildTranslationBatches($missing);
+        $syncLimit = $this->maxSyncBatches();
 
-        if (count($batches) > 1) {
-            $batchResults = $this->client->translateBatches($batches, $sourceLang, $targetLanguage, $requestUrl, $bot);
+        $syncBatches = $syncLimit > 0 ? array_slice($batches, 0, $syncLimit) : [];
+        $deferred = array_merge([], ...array_slice($batches, count($syncBatches)));
+
+        if (count($syncBatches) > 1) {
+            $batchResults = $this->client->translateBatches($syncBatches, $sourceLang, $targetLanguage, $requestUrl, $bot);
 
             foreach ($batchResults as $result) {
                 $this->mergeTranslateResult($apiResults, $result);
             }
-        } elseif (!empty($batches)) {
-            $result = $this->client->translate($batches[0], $sourceLang, $targetLanguage, $requestUrl, $bot);
+        } elseif (!empty($syncBatches)) {
+            $result = $this->client->translate($syncBatches[0], $sourceLang, $targetLanguage, $requestUrl, $bot);
             $this->mergeTranslateResult($apiResults, $result);
+        }
+
+        // Whatever did not come back — a failed batch, a partial response —
+        // must not be lost: without a retry path the page stays in the source
+        // language on every later request too, because nothing was written to
+        // the cache.
+        foreach ($syncBatches as $batch) {
+            foreach ($batch as $text) {
+                if (!isset($apiResults[$text])) {
+                    $deferred[] = $text;
+                }
+            }
+        }
+
+        // Bot traffic is served cache-only (issue #147) and must never trigger
+        // quota spend, so crawlers observe but never fill the warm queue.
+        if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
+            $this->warmer->enqueue($deferred, $sourceLang, $targetLanguage);
         }
 
         // Persist new translations in cache. On bot requests the SaaS is
