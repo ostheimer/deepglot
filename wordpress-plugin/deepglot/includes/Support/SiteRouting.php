@@ -221,6 +221,27 @@ class SiteRouting
         return $this->buildUrlForLanguage($relative, $language);
     }
 
+    public function isWordPressInfrastructureUrl(string $url): bool
+    {
+        $isAbsolute = preg_match('#^https?://#i', $url) === 1;
+        $host = $isAbsolute
+            ? (string) wp_parse_url($url, PHP_URL_HOST)
+            : '';
+
+        if ($isAbsolute && !$this->isInternalHost($host)) {
+            return false;
+        }
+
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $language = $this->detectLanguage($path !== '' ? $path : '/', $host);
+
+        return $this->isWordPressInfrastructurePath(
+            $this->getPathSegments($path),
+            (string) $language,
+            !$isAbsolute
+        );
+    }
+
     public function isInternalHost(string $host): bool
     {
         $normalizedHost = $this->normalizeHost($host);
