@@ -83,7 +83,7 @@ class DeepglotWooFakeClient extends Client
     {
     }
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
     {
         $this->calls[] = compact('texts', 'langFrom', 'langTo', 'requestUrl');
 
@@ -97,6 +97,7 @@ class DeepglotWooFakeClient extends Client
 class DeepglotWooFakeHtmlTranslator extends HtmlTranslator
 {
     public array $calls = [];
+    public array $inlineCalls = [];
 
     public function __construct()
     {
@@ -105,6 +106,16 @@ class DeepglotWooFakeHtmlTranslator extends HtmlTranslator
     public function translate(string $html, string $targetLanguage, string $requestUrl = '', int $bot = 0): string
     {
         $this->calls[] = [
+            'html' => $html,
+            'targetLanguage' => $targetLanguage,
+        ];
+
+        return $html;
+    }
+
+    public function translateInline(string $html, string $targetLanguage, string $requestUrl = '', int $bot = 0): string
+    {
+        $this->inlineCalls[] = [
             'html' => $html,
             'targetLanguage' => $targetLanguage,
         ];
@@ -199,7 +210,7 @@ assertSameWoo(
     $translator->translateMailContent('<p>Ihre Bestellung wurde empfangen.</p>'),
     'HTML WooCommerce email content should use the stored checkout language.'
 );
-assertSameWoo('en', $htmlTranslator->calls[0]['targetLanguage'] ?? null, 'HTML email translation should be called with the stored target language.');
+assertSameWoo('en', $htmlTranslator->inlineCalls[0]['targetLanguage'] ?? null, 'HTML email translation must use the synchronous path even when page renders are cache-only.');
 
 assertSameWoo(
     '[en] Ihre Bestellung',
@@ -216,6 +227,7 @@ assertSameWoo('en', $client->calls[0]['langTo'] ?? null, 'Plain-text email trans
 
 $translator->clearEmailContext($htmlEmail);
 $htmlTranslator->calls = [];
+$htmlTranslator->inlineCalls = [];
 
 $plainTextEmail = new DeepglotWooFakeEmail($order, true);
 $translator->captureEmailContext('Ihre Bestellung', $plainTextEmail);
@@ -226,6 +238,7 @@ assertSameWoo(
     'Plain-text WooCommerce email bodies should be skipped in v1.'
 );
 assertSameWoo([], $htmlTranslator->calls, 'Plain-text email bodies should not call the HTML translator.');
+assertSameWoo([], $htmlTranslator->inlineCalls, 'Plain-text email bodies should not call the synchronous HTML translator.');
 
 $unsupportedOrder = new DeepglotWooFakeOrder(['_deepglot_checkout_language' => 'it']);
 

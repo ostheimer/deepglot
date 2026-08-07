@@ -52,7 +52,7 @@ class Client
      *                              serves it cache-only. See BotDetector.
      * @return array|\WP_Error      On success: ['from_words' => [...], 'to_words' => [...]].
      */
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
     {
         $requestConfiguration = $this->translationRequestConfiguration();
 
@@ -63,7 +63,8 @@ class Client
         return $this->buildTranslateResponse($this->dispatchTranslate(
             $this->buildTranslatePayload($texts, $langFrom, $langTo, $requestUrl, $bot),
             $requestConfiguration['api_key'],
-            $requestConfiguration['base_url']
+            $requestConfiguration['base_url'],
+            $timeout
         ), $requestConfiguration['identity']);
     }
 
@@ -79,7 +80,7 @@ class Client
      * @param  array<int|string, string[]> $batches
      * @return array<int|string, array|\WP_Error>
      */
-    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0): array
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null): array
     {
         if (empty($batches)) {
             return [];
@@ -119,7 +120,8 @@ class Client
             $result = $this->dispatchTranslate(
                 $payloads[$singleKey],
                 $requestConfiguration['api_key'],
-                $requestConfiguration['base_url']
+                $requestConfiguration['base_url'],
+                $timeout
             );
 
             return [
@@ -134,7 +136,8 @@ class Client
             $payloads,
             $requestConfiguration['api_key'],
             $requestConfiguration['base_url'],
-            $requestConfiguration['identity']
+            $requestConfiguration['identity'],
+            $timeout
         );
 
         if ($parallel !== null) {
@@ -144,6 +147,7 @@ class Client
         // Sequential fallback when the Requests v2 helper is not available.
         $results = [];
         $invalidApiKeyDetected = false;
+        $deadline = microtime(true) + $this->resolveTranslateTimeout($timeout);
 
         foreach ($payloads as $key => $payload) {
             if (
@@ -154,11 +158,21 @@ class Client
                 continue;
             }
 
+            $remainingTimeout = (int) ceil($deadline - microtime(true));
+            if ($remainingTimeout <= 0) {
+                $results[$key] = new \WP_Error(
+                    'deepglot_api_timeout',
+                    __('Deepglot API Fehler.', 'deepglot')
+                );
+                continue;
+            }
+
             $result = $this->buildTranslateResponse(
                 $this->dispatchTranslate(
                     $payload,
                     $requestConfiguration['api_key'],
-                    $requestConfiguration['base_url']
+                    $requestConfiguration['base_url'],
+                    $remainingTimeout
                 ),
                 $requestConfiguration['identity']
             );
@@ -188,14 +202,35 @@ class Client
      * @param  array<string, mixed> $payload
      * @return mixed
      */
-    private function dispatchTranslate(array $payload, string $apiKey, string $baseUrl)
+    /**
+     * Resolves the timeout for a translate call. Background warming passes a
+     * longer budget because no visitor is waiting on it, and
+     * `deepglot_api_timeout` lets an operator adapt the default to their
+     * site's real API latency without editing plugin code.
+     */
+    private function resolveTranslateTimeout(?int $timeout): int
+    {
+        if ($timeout !== null && $timeout > 0) {
+            return $timeout;
+        }
+
+        $filtered = function_exists('apply_filters')
+            ? apply_filters('deepglot_api_timeout', self::TRANSLATE_TIMEOUT_SECONDS)
+            : self::TRANSLATE_TIMEOUT_SECONDS;
+
+        return is_numeric($filtered) && (int) $filtered > 0
+            ? (int) $filtered
+            : self::TRANSLATE_TIMEOUT_SECONDS;
+    }
+
+    private function dispatchTranslate(array $payload, string $apiKey, string $baseUrl, ?int $timeout = null)
     {
         return $this->request(
             'POST',
             '/translate?api_key=' . rawurlencode($apiKey),
             $payload,
             $baseUrl,
-            self::TRANSLATE_TIMEOUT_SECONDS
+            $this->resolveTranslateTimeout($timeout)
         );
     }
 
@@ -228,7 +263,8 @@ class Client
         array $payloads,
         string $apiKey,
         string $baseUrl,
-        string $requestIdentity
+        string $requestIdentity,
+        ?int $timeout = null
     ): ?array
     {
         $requestsClass = '\\WpOrg\\Requests\\Requests';
@@ -254,7 +290,7 @@ class Client
                 'headers' => $headers,
                 'data' => is_string($body) ? $body : '',
                 'options' => [
-                    'timeout' => self::TRANSLATE_TIMEOUT_SECONDS,
+                    'timeout' => $this->resolveTranslateTimeout($timeout),
                     'connect_timeout' => 10,
                     'useragent' => 'Deepglot WordPress Plugin/' . (defined('DEEPGLOT_PLUGIN_VERSION') ? DEEPGLOT_PLUGIN_VERSION : 'dev'),
                 ],

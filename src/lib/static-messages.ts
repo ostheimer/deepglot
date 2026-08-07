@@ -688,6 +688,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Served from the local translation cache": "Сервира се от локалния кеш за превод",
+    "Fast pages, local translation cache": "Бързи страници, локален кеш за превод",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Студените страници се изобразяват, без да се чака доставчик на AI. Deepglot превежда липсващото съдържание във фонов режим, съхранява го локално и изчиства поддържаните кешове на страници, когато е готово.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Доказан подход за изходен буфер за Elementor, WooCommerce, Yoast SEO и други — със синхронен редактор и имейл изход, където повторният опит на заден план не може да помогне.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Месечно)",
     "{count} manual edit": "{count} ръчно редактиране",
@@ -1635,6 +1639,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Served from the local translation cache": "Poslužuje se iz lokalne predmemorije prijevoda",
+    "Fast pages, local translation cache": "Brze stranice, predmemorija lokalnog prijevoda",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Hladne stranice renderiraju se bez čekanja na pružatelja umjetne inteligencije. Deepglot prevodi sadržaj koji nedostaje u pozadini, pohranjuje ga lokalno i čisti podržane predmemorije stranica kada je spreman.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Dokazani pristup izlaznog međuspremnika za Elementor, WooCommerce, Yoast SEO i više — sa sinkronim uređivačem i izlazom e-pošte gdje ponovni pokušaj u pozadini ne može pomoći.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mjesečno)",
     "{count} manual edit": "{count} ručno uređivanje",
@@ -2582,6 +2590,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Served from the local translation cache": "Obsluhováno z místní překladové mezipaměti",
+    "Fast pages, local translation cache": "Rychlé stránky, místní překladová mezipaměť",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Studené stránky se vykreslují bez čekání na poskytovatele AI. Deepglot přeloží chybějící obsah na pozadí, uloží jej lokálně a vyčistí podporované mezipaměti stránek, když je připraven.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Osvědčený přístup k vyrovnávací paměti pro Elementor, WooCommerce, Yoast SEO a další – se synchronním editorem a e-mailovým výstupem, kde opakování na pozadí nepomůže.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(měsíčně)",
     "{count} manual edit": "{count} ruční úprava",
@@ -3529,6 +3541,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Served from the local translation cache": "Serveres fra den lokale oversættelsescache",
+    "Fast pages, local translation cache": "Hurtige sider, lokal oversættelsescache",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Kolde sider gengives uden at vente på en AI-udbyder. Deepglot oversætter manglende indhold i baggrunden, gemmer det lokalt og sletter understøttede sidecaches, når det er klar.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "En gennemprøvet output-buffer-tilgang til Elementor, WooCommerce, Yoast SEO og mere – med synkron editor og e-mail-output, hvor et genforsøg i baggrunden ikke kan hjælpe.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Månedligt)",
     "{count} manual edit": "{count} manuel redigering",
@@ -4476,6 +4492,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Served from the local translation cache": "Geserveerd vanuit de lokale vertaalcache",
+    "Fast pages, local translation cache": "Snelle pagina's, lokale vertaalcache",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Koude pagina's worden weergegeven zonder te wachten op een AI-provider. Deepglot vertaalt ontbrekende inhoud op de achtergrond, slaat deze lokaal op en leegt ondersteunde paginacaches wanneer deze gereed zijn.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Een bewezen uitvoerbufferaanpak voor Elementor, WooCommerce, Yoast SEO en meer – met synchrone editor en e-mailuitvoer waarbij een nieuwe poging op de achtergrond niet kan helpen.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Maandelijks)",
     "{count} manual edit": "{count} handmatige bewerking",
@@ -5423,6 +5443,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Served from the local translation cache": "Esitatakse kohalikust tõlkevahemälust",
+    "Fast pages, local translation cache": "Kiired lehed, kohalik tõlkevahemälu",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Külmad lehed renderdatakse ilma tehisintellekti pakkujat ootamata. Deepglot tõlgib puuduva sisu taustal, salvestab selle kohapeal ja tühjendab toetatud lehe vahemälu, kui see on valmis.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Tõestatud väljundpuhvri lähenemine Elementorile, WooCommerce'ile, Yoast SEO-le ja teistele – sünkroonse redaktori ja meiliväljundiga, mille puhul taustal uuesti proovimine ei aita.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(igakuine)",
     "{count} manual edit": "{count} käsitsi redigeerimine",
@@ -6370,6 +6394,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Served from the local translation cache": "Toimitetaan paikallisesta käännösvälimuistista",
+    "Fast pages, local translation cache": "Nopeat sivut, paikallinen käännösvälimuisti",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Kylmät sivut renderöidään odottamatta tekoälyn tarjoajaa. Deepglot kääntää puuttuvan sisällön taustalla, tallentaa sen paikallisesti ja tyhjentää tuetut sivuvälimuistit, kun se on valmis.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Todistettu tulospuskurilähestymistapa Elementorille, WooCommercelle, Yoast SEO:lle ja muille – synkronisella editorilla ja sähköpostitulosteella, joissa taustalla oleva uudelleenyritys ei auta.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Kuukausittain)",
     "{count} manual edit": "{count} manuaalinen muokkaus",
@@ -7317,6 +7345,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Served from the local translation cache": "Servi à partir du cache de traduction local",
+    "Fast pages, local translation cache": "Pages rapides, cache de traduction local",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Les pages froides s'affichent sans attendre un fournisseur d'IA. Deepglot traduit le contenu manquant en arrière-plan, le stocke localement et purge les caches de pages prises en charge lorsqu'il est prêt.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Une approche éprouvée de tampon de sortie pour Elementor, WooCommerce, Yoast SEO et plus encore – avec un éditeur synchrone et une sortie d'e-mail lorsqu'une nouvelle tentative en arrière-plan ne peut pas aider.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Mensuel)",
     "{count} manual edit": "{count} modification manuelle",
@@ -8264,6 +8296,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Served from the local translation cache": "Σερβίρεται από την τοπική προσωρινή μνήμη μετάφρασης",
+    "Fast pages, local translation cache": "Γρήγορες σελίδες, τοπική προσωρινή μνήμη μετάφρασης",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Οι κρύες σελίδες αποδίδονται χωρίς να περιμένουμε έναν πάροχο τεχνητής νοημοσύνης. Το Deepglot μεταφράζει περιεχόμενο που λείπει στο παρασκήνιο, το αποθηκεύει τοπικά και εκκαθαρίζει τις υποστηριζόμενες κρυφές μνήμες σελίδων όταν είναι έτοιμο.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Μια αποδεδειγμένη προσέγγιση buffer εξόδου για το Elementor, το WooCommerce, το Yoast SEO και άλλα — με σύγχρονο πρόγραμμα επεξεργασίας και έξοδο email όπου η επανάληψη στο παρασκήνιο δεν μπορεί να βοηθήσει.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Μηνιαία)",
     "{count} manual edit": "{count} μη αυτόματη επεξεργασία",
@@ -9211,6 +9247,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Served from the local translation cache": "A helyi fordítási gyorsítótárból szolgálják ki",
+    "Fast pages, local translation cache": "Gyors oldalak, helyi fordítási gyorsítótár",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "A hideg oldalak anélkül jelennek meg, hogy AI-szolgáltatóra várnának. A Deepglot lefordítja a hiányzó tartalmat a háttérben, helyben tárolja, és kiüríti a támogatott oldalgyorsítótárakat, amikor készen áll.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Bevált kimeneti puffer megközelítés az Elementor, a WooCommerce, a Yoast SEO és más rendszerek számára – szinkron szerkesztővel és e-mail kimenettel, ahol a háttérben végzett újrapróbálkozás nem segíthet.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(havonta)",
     "{count} manual edit": "{count} kézi szerkesztés",
@@ -10158,6 +10198,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Served from the local translation cache": "Seirbheáilte ón taisce aistriúcháin áitiúil",
+    "Fast pages, local translation cache": "Leathanaigh tapa, taisce aistriúcháin áitiúil",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Rindreáil leathanaigh fuar gan fanacht le soláthraí AI. Aistríonn Deepglot ábhar atá in easnamh sa chúlra, stórálann sé go háitiúil é, agus glanann sé taisce leathanaigh a dtacaítear leo nuair a bhíonn sé réidh.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Cur chuige maolánach aschuir cruthaithe le haghaidh Elementor, WooCommerce, Yoast SEO agus eile – le heagarthóir sioncronach agus aschur ríomhphoist nuair nach féidir le hathiarracht chúlra cabhrú.",
     "'Wk' w": "‘Wk’ w",
     "(Monthly)": "(míosúil)",
     "{count} manual edit": "{count} eagarthóireacht láimhe",
@@ -11105,6 +11149,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Served from the local translation cache": "Servito dalla cache di traduzione locale",
+    "Fast pages, local translation cache": "Pagine veloci, cache di traduzione locale",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Il rendering delle pagine fredde avviene senza attendere un fornitore di intelligenza artificiale. Deepglot traduce il contenuto mancante in background, lo archivia localmente ed elimina le cache delle pagine supportate quando è pronto.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Un approccio comprovato con buffer di output per Elementor, WooCommerce, Yoast SEO e altro ancora, con editor sincrono e output e-mail dove un nuovo tentativo in background non può essere d'aiuto.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mensile)",
     "{count} manual edit": "{count} modifica manuale",
@@ -12052,6 +12100,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Served from the local translation cache": "Pasniedz no vietējās tulkošanas kešatmiņas",
+    "Fast pages, local translation cache": "Ātras lapas, vietējā tulkošanas kešatmiņa",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Aukstās lapas tiek renderētas, negaidot AI nodrošinātāju. Deepglot tulko trūkstošo saturu fonā, saglabā to lokāli un iztīra atbalstītās lapu kešatmiņas, kad tas ir gatavs.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Pārbaudīta izvades bufera pieeja Elementor, WooCommerce, Yoast SEO un citām sistēmām — ar sinhronu redaktoru un e-pasta izvadi, kur atkārtots mēģinājums fonā nevar palīdzēt.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Katru mēnesi)",
     "{count} manual edit": "{count} manuāla rediģēšana",
@@ -12999,6 +13051,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Served from the local translation cache": "Pateikiama iš vietinės vertimo talpyklos",
+    "Fast pages, local translation cache": "Greiti puslapiai, vietinė vertimo talpykla",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Šalti puslapiai pateikiami nelaukiant AI teikėjo. Deepglot išverčia trūkstamą turinį fone, išsaugo jį vietoje ir išvalo palaikomas puslapių talpyklas, kai jis paruoštas.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Patikimas išvesties buferio metodas, skirtas „Elementor“, „WooCommerce“, „Yoast SEO“ ir kitoms sistemoms – su sinchroniniu redaktoriumi ir el. pašto išvestimi, kai pakartotinis bandymas fone nepadės.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(kas mėnesį)",
     "{count} manual edit": "{count} redaguoti rankiniu būdu",
@@ -13946,6 +14002,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Served from the local translation cache": "Innotifikat mill-cache tat-traduzzjoni lokali",
+    "Fast pages, local translation cache": "Paġni veloċi, cache tat-traduzzjoni lokali",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Paġni kesħin jirrendu mingħajr stennija għal fornitur tal-AI. Deepglot jittraduċi l-kontenut nieqes fl-isfond, jaħżnu lokalment u jnaddaf il-caches tal-paġni appoġġjati meta jkun lest.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Approċċ ippruvat ta' buffer tal-output għal Elementor, WooCommerce, Yoast SEO u oħrajn – b'editur sinkroniku u output tal-email fejn prova mill-ġdid fl-isfond ma tistax tgħin.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Kull xahar)",
     "{count} manual edit": "{count} editjar manwali",
@@ -14893,6 +14953,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Served from the local translation cache": "Podawane z lokalnej pamięci podręcznej tłumaczeń",
+    "Fast pages, local translation cache": "Szybkie strony, lokalna pamięć podręczna tłumaczeń",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Zimne strony renderują się bez czekania na dostawcę AI. Deepglot tłumaczy brakującą treść w tle, przechowuje ją lokalnie i czyści pamięć podręczną obsługiwanych stron, gdy jest gotowa.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Sprawdzone podejście z buforem wyjściowym dla Elementor, WooCommerce, Yoast SEO i innych – z synchronicznym edytorem i wyjściem e-mail, gdzie ponowna próba w tle nie może pomóc.",
     "'Wk' w": "„Wk” w",
     "(Monthly)": "(Miesięcznie)",
     "{count} manual edit": "{count} edycja ręczna",
@@ -15840,6 +15904,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Served from the local translation cache": "Servido a partir do cache de tradução local",
+    "Fast pages, local translation cache": "Páginas rápidas, cache de tradução local",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "As páginas frias são renderizadas sem esperar por um provedor de IA. Deepglot traduz o conteúdo ausente em segundo plano, armazena-o localmente e limpa os caches de páginas compatíveis quando estiver pronto.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Uma abordagem comprovada de buffer de saída para Elementor, WooCommerce, Yoast SEO e outros – com editor síncrono e saída de e-mail onde uma nova tentativa em segundo plano não pode ajudar.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Mensal)",
     "{count} manual edit": "{count} edição manual",
@@ -16787,6 +16855,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Served from the local translation cache": "Servit din memoria cache de traducere locală",
+    "Fast pages, local translation cache": "Pagini rapide, cache de traducere locală",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Paginile reci sunt afișate fără a aștepta un furnizor AI. Deepglot traduce conținutul lipsă în fundal, îl stochează local și șterge memoria cache a paginilor acceptate când este gata.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "O abordare dovedită a tamponului de ieșire pentru Elementor, WooCommerce, Yoast SEO și altele – cu editor sincron și ieșire de e-mail în care o reîncercare în fundal nu poate ajuta.",
     "'Wk' w": "„Wk” w",
     "(Monthly)": "(lunar)",
     "{count} manual edit": "{count} editare manuală",
@@ -17734,6 +17806,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Served from the local translation cache": "Podávané z miestnej prekladovej vyrovnávacej pamäte",
+    "Fast pages, local translation cache": "Rýchle stránky, lokálna prekladová vyrovnávacia pamäť",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Studené stránky sa vykresľujú bez čakania na poskytovateľa AI. Deepglot preloží chýbajúci obsah na pozadí, uloží ho lokálne a keď bude pripravený, vyčistí podporované vyrovnávacie pamäte stránok.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Osvedčený prístup k výstupnej vyrovnávacej pamäti pre Elementor, WooCommerce, Yoast SEO a ďalšie – so synchrónnym editorom a e-mailovým výstupom, kde opakovanie na pozadí nepomôže.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mesačne)",
     "{count} manual edit": "{count} manuálna úprava",
@@ -18681,6 +18757,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Served from the local translation cache": "Postreženo iz lokalnega predpomnilnika prevodov",
+    "Fast pages, local translation cache": "Hitre strani, lokalni predpomnilnik prevodov",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Hladne strani se upodabljajo brez čakanja na ponudnika AI. Deepglot prevede manjkajočo vsebino v ozadju, jo shrani lokalno in počisti podprte predpomnilnike strani, ko je pripravljena.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Preizkušen pristop izhodnega medpomnilnika za Elementor, WooCommerce, Yoast SEO in druge – s sinhronim urejevalnikom in izpisom e-pošte, kjer ponovni poskus v ozadju ne more pomagati.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mesečno)",
     "{count} manual edit": "{count} ročno urejanje",
@@ -19628,6 +19708,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Served from the local translation cache": "Servido desde el caché de traducción local",
+    "Fast pages, local translation cache": "Páginas rápidas, caché de traducción local",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Las páginas frías se procesan sin esperar a un proveedor de IA. Deepglot traduce el contenido faltante en segundo plano, lo almacena localmente y limpia los cachés de páginas compatibles cuando está listo.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Un enfoque probado de búfer de salida para Elementor, WooCommerce, Yoast SEO y más, con editor sincrónico y salida de correo electrónico donde un reintento en segundo plano no puede ayudar.",
     "'Wk' w": "'Semana' w",
     "(Monthly)": "(Mensual)",
     "{count} manual edit": "{count} edición manual",
@@ -20575,6 +20659,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Served from the local translation cache": "Serveras från den lokala översättningscachen",
+    "Fast pages, local translation cache": "Snabba sidor, lokal översättningscache",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Kalla sidor återges utan att vänta på en AI-leverantör. Deepglot översätter saknat innehåll i bakgrunden, lagrar det lokalt och rensar cacheminne som stöds när det är klart.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "En beprövad utgångsbuffertmetod för Elementor, WooCommerce, Yoast SEO och fler – med synkron redigerare och e-postutdata där ett omförsök i bakgrunden inte kan hjälpa.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Månatlig)",
     "{count} manual edit": "{count} manuell redigering",

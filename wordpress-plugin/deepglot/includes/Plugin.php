@@ -26,6 +26,7 @@ use Deepglot\Frontend\WpRocketCompat;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\TranslationCache;
+use Deepglot\Support\TranslationWarmer;
 use Deepglot\Support\UrlLanguageResolver;
 use Deepglot\Support\WordPressInfrastructure;
 use Deepglot\Sync\SettingsSync;
@@ -54,6 +55,7 @@ class Plugin
         $this->container->get(NavMenuMetaBox::class)->register();
         $this->container->get(RestApi::class)->register();
         $this->container->get(SettingsSync::class)->register();
+        $this->container->get(TranslationWarmer::class)->register();
         add_action('plugins_loaded', [$this, 'refreshRuntimeRouting'], 0);
         $this->container->get(RequestRouter::class)->register();
         $this->container->get(AvadaLiveSearchCompat::class)->register();
@@ -240,11 +242,21 @@ class Plugin
             return new TranslationCache();
         });
 
+        $this->container->singleton(TranslationWarmer::class, function (Container $c) {
+            return new TranslationWarmer(
+                $c->get(Client::class),
+                $c->get(Options::class),
+                $c->get(TranslationCache::class)
+            );
+        });
+
         $this->container->singleton(HtmlTranslator::class, function (Container $c) {
             return new HtmlTranslator(
                 $c->get(Client::class),
                 $c->get(Options::class),
-                $c->get(TranslationCache::class)
+                $c->get(TranslationCache::class),
+                null,
+                $c->get(TranslationWarmer::class)
             );
         });
 
