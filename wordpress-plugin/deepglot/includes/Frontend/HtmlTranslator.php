@@ -175,18 +175,37 @@ class HtmlTranslator
     }
 
     /**
-     * @return array{html: string, segments: array<int, array<string, string>>}
+     * Translates an HTML document synchronously even when normal page renders
+     * are configured as cache-only. Use this for one-shot output such as
+     * emails, where a background warm-up cannot improve the already-sent
+     * document.
      */
-    public function translateForEditor(string $html, string $targetLanguage, string $requestUrl = ''): array
+    public function translateInline(string $html, string $targetLanguage, string $requestUrl = '', int $bot = 0): string
     {
-        // The visual editor is always a human session.
-        return $this->translateDocument($html, $targetLanguage, true, $requestUrl, 0);
+        return $this->translateDocument($html, $targetLanguage, false, $requestUrl, $bot, true)['html'];
     }
 
     /**
      * @return array{html: string, segments: array<int, array<string, string>>}
      */
-    private function translateDocument(string $html, string $targetLanguage, bool $annotateSegments, string $requestUrl = '', int $bot = 0): array
+    public function translateForEditor(string $html, string $targetLanguage, string $requestUrl = ''): array
+    {
+        // The visual editor needs the translated segments in this response;
+        // a background warm-up cannot populate the current editing session.
+        return $this->translateDocument($html, $targetLanguage, true, $requestUrl, 0, true);
+    }
+
+    /**
+     * @return array{html: string, segments: array<int, array<string, string>>}
+     */
+    private function translateDocument(
+        string $html,
+        string $targetLanguage,
+        bool $annotateSegments,
+        string $requestUrl = '',
+        int $bot = 0,
+        bool $forceSynchronous = false
+    ): array
     {
         if ($html === '') {
             return ['html' => $html, 'segments' => []];
@@ -243,7 +262,7 @@ class HtmlTranslator
         // on the next request rather than on this visitor's patience.
         $apiResults = [];
         $batches = $this->buildTranslationBatches($missing);
-        $syncLimit = $this->maxSyncBatches();
+        $syncLimit = $forceSynchronous ? PHP_INT_MAX : $this->maxSyncBatches();
 
         $syncBatches = $syncLimit > 0 ? array_slice($batches, 0, $syncLimit) : [];
         $deferred = array_merge([], ...array_slice($batches, count($syncBatches)));
@@ -274,7 +293,7 @@ class HtmlTranslator
         // Bot traffic is served cache-only (issue #147) and must never trigger
         // quota spend, so crawlers observe but never fill the warm queue.
         if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
-            $this->warmer->enqueue($deferred, $sourceLang, $targetLanguage);
+            $this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl);
         }
 
         // Persist new translations in cache. On bot requests the SaaS is

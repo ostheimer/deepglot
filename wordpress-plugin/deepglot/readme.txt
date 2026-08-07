@@ -44,6 +44,10 @@ No. Translation happens on rendered output. Source content remains in the origin
 
 Cached translations remain available. Uncached content falls back to the source language, and administrators see a quota notice.
 
+= Why can the first translated page view still show the source language? =
+
+Since version 0.12.0, ordinary page requests do not wait for a slow translation provider. The first view queues uncached text for an immediately due WP-Cron job. After the job succeeds, Deepglot stores the translations locally and purges affected URLs in WP Rocket, W3 Total Cache, LiteSpeed Cache, and WP Super Cache. If later views remain in the source language, verify that WP-Cron or the host's system cron is running and purge any other page-cache plugin manually.
+
 == External services ==
 
 By default, this plugin connects to the Deepglot service at `https://deepglot.ai/api/`. A compatible self-hosted API base URL can be selected in the settings.
@@ -64,8 +68,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.0 =
-* Page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first view of a new page is fast and every later view is served fully translated from the cache.
-* Added background cache warming, which also retries requests that failed instead of silently dropping them, so a page can no longer stay untranslated permanently.
+* Ordinary page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first cold view is fast and later views converge after WP-Cron succeeds.
+* Added bounded, atomically locked background cache warming. Failed and partial results remain queued, and supported full-page caches are purged after warming completes.
+* Kept visual-editor previews and WooCommerce HTML emails synchronous because those one-off outputs cannot converge on a later page request.
 * Added the `deepglot_max_sync_batches` filter to translate inline again on fast providers, and `deepglot_api_timeout` to tune the request budget.
 
 = 0.11.7 =

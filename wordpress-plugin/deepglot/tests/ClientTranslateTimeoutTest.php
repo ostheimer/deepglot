@@ -25,6 +25,7 @@ if (!function_exists('__')) {
 
     $GLOBALS['_deepglot_requests'] = [];
     $GLOBALS['_deepglot_filters'] = [];
+    $GLOBALS['_deepglot_request_delay_us'] = 0;
 
     function get_option($key, $default = false) {
         return $key === 'deepglot_settings'
@@ -76,6 +77,13 @@ if (!function_exists('__')) {
     function wp_remote_request($url, $args) {
         $GLOBALS['_deepglot_requests'][] = ['url' => $url, 'args' => $args];
 
+        $delay = (int) ($GLOBALS['_deepglot_request_delay_us'] ?? 0);
+        $GLOBALS['_deepglot_request_delay_us'] = 0;
+
+        if ($delay > 0) {
+            usleep($delay);
+        }
+
         return [
             'response' => ['code' => 200],
             'body' => json_encode(['from_words' => [], 'to_words' => []]),
@@ -106,6 +114,11 @@ if (!function_exists('__')) {
         public function get_error_message(): string
         {
             return $this->message;
+        }
+
+        public function get_error_data(): array
+        {
+            return $this->data;
         }
     }
 }
@@ -161,7 +174,30 @@ timeoutAssert(
     'translateBatches() must forward an explicit timeout to the single-batch path.'
 );
 
-// 3. Operators can tune the default without editing plugin code.
+// 3. The timeout is a budget for the whole sequential fallback, not a fresh
+//    allowance for every batch. Otherwise six 120s batches can block cron for
+//    twelve minutes on WordPress versions without Requests v2.
+$beforeBudgetedRun = count($GLOBALS['_deepglot_requests']);
+$GLOBALS['_deepglot_request_delay_us'] = 1_100_000;
+$budgetedResults = $client->translateBatches(
+    [['Erster Stapel'], ['Zweiter Stapel']],
+    'de',
+    'en',
+    '',
+    0,
+    1
+);
+
+timeoutAssert(
+    count($GLOBALS['_deepglot_requests']) - $beforeBudgetedRun === 1,
+    'The sequential fallback must not start another request after its total deadline expired.'
+);
+timeoutAssert(
+    is_wp_error($budgetedResults[1] ?? null),
+    'A batch skipped after the total deadline must return a WP_Error.'
+);
+
+// 4. Operators can tune the default without editing plugin code.
 add_filter('deepglot_api_timeout', static fn() => 45);
 $client->translate(['Hallo Welt'], 'de', 'en');
 timeoutAssert(
@@ -170,7 +206,7 @@ timeoutAssert(
 );
 $GLOBALS['_deepglot_filters'] = [];
 
-// 4. Control-plane calls stay short: they run inside frontend requests
+// 5. Control-plane calls stay short: they run inside frontend requests
 //    (Plugin::refreshRuntimeRouting) where a slow SaaS must never add latency.
 $client->fetchRuntimeConfig();
 timeoutAssert(

@@ -147,6 +147,7 @@ class Client
         // Sequential fallback when the Requests v2 helper is not available.
         $results = [];
         $invalidApiKeyDetected = false;
+        $deadline = microtime(true) + $this->resolveTranslateTimeout($timeout);
 
         foreach ($payloads as $key => $payload) {
             if (
@@ -157,12 +158,21 @@ class Client
                 continue;
             }
 
+            $remainingTimeout = (int) ceil($deadline - microtime(true));
+            if ($remainingTimeout <= 0) {
+                $results[$key] = new \WP_Error(
+                    'deepglot_api_timeout',
+                    __('Deepglot API Fehler.', 'deepglot')
+                );
+                continue;
+            }
+
             $result = $this->buildTranslateResponse(
                 $this->dispatchTranslate(
                     $payload,
                     $requestConfiguration['api_key'],
                     $requestConfiguration['base_url'],
-                    $timeout
+                    $remainingTimeout
                 ),
                 $requestConfiguration['identity']
             );

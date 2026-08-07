@@ -46,6 +46,15 @@ if (!function_exists('get_option')) {
         return true;
     }
 
+    function add_option($key, $value, $deprecated = '', $autoload = true) {
+        if (array_key_exists($key, $GLOBALS['_deepglot_options'])) {
+            return false;
+        }
+
+        $GLOBALS['_deepglot_options'][$key] = $value;
+        return true;
+    }
+
     function delete_option($key) {
         unset($GLOBALS['_deepglot_options'][$key]);
         return true;
@@ -100,6 +109,7 @@ $GLOBALS['_deepglot_filters'] = [];
 $GLOBALS['_deepglot_actions'] = [];
 $GLOBALS['_deepglot_scheduled'] = [];
 $GLOBALS['_deepglot_spawned_cron'] = 0;
+$GLOBALS['_deepglot_purged_urls'] = [];
 
 if (!function_exists('add_filter')) {
     function add_filter($hook, $callback, $priority = 10, $args = 1) {
@@ -136,6 +146,13 @@ if (!function_exists('add_filter')) {
 
     function wp_doing_cron() {
         return false;
+    }
+
+    function rocket_clean_files($urls) {
+        $GLOBALS['_deepglot_purged_urls'] = array_merge(
+            $GLOBALS['_deepglot_purged_urls'],
+            is_array($urls) ? $urls : [$urls]
+        );
     }
 }
 
@@ -183,6 +200,14 @@ class DeepglotWarmFakeClient extends Client
     /** @var int[] Indexes (per translateBatches call) that must fail. */
     public array $failingBatchIndexes = [];
 
+    /** @var int[] Indexes that return only the first requested translation. */
+    public array $partialBatchIndexes = [];
+
+    /** @var callable|null Runs once while a warm API request is in flight. */
+    public $duringBatchCall = null;
+
+    public int $translateBatchesCalls = 0;
+
     public function __construct() {}
 
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
@@ -199,6 +224,14 @@ class DeepglotWarmFakeClient extends Client
 
     public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null): array
     {
+        $this->translateBatchesCalls++;
+
+        if (is_callable($this->duringBatchCall)) {
+            $callback = $this->duringBatchCall;
+            $this->duringBatchCall = null;
+            $callback();
+        }
+
         $results = [];
 
         foreach ($batches as $index => $batch) {
@@ -210,9 +243,13 @@ class DeepglotWarmFakeClient extends Client
                 continue;
             }
 
+            $returnedBatch = in_array($index, $this->partialBatchIndexes, true)
+                ? array_slice($batch, 0, 1)
+                : $batch;
+
             $results[$index] = [
-                'from_words' => $batch,
-                'to_words' => array_map(static fn(string $text) => '[en] ' . $text, $batch),
+                'from_words' => $returnedBatch,
+                'to_words' => array_map(static fn(string $text) => '[en] ' . $text, $returnedBatch),
             ];
         }
 
@@ -230,6 +267,7 @@ class DeepglotWarmFakeClient extends Client
         $this->batchCalls = [];
         $this->timeouts = [];
         $this->singleCalls = 0;
+        $this->translateBatchesCalls = 0;
     }
 }
 
@@ -290,7 +328,13 @@ function warmResetEnvironment(): void
     $GLOBALS['_deepglot_filters'] = [];
     $GLOBALS['_deepglot_scheduled'] = [];
     $GLOBALS['_deepglot_spawned_cron'] = 0;
-    unset($GLOBALS['_deepglot_options'][TranslationWarmer::QUEUE_OPTION]);
+    $GLOBALS['_deepglot_purged_urls'] = [];
+
+    foreach (array_keys($GLOBALS['_deepglot_options']) as $key) {
+        if (str_starts_with((string) $key, 'deepglot_warm_')) {
+            unset($GLOBALS['_deepglot_options'][$key]);
+        }
+    }
 }
 
 $options = new Options();
@@ -359,6 +403,10 @@ foreach ($texts as $text) {
 warmAssert(
     (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0) > 0,
     'Queuing warm work must schedule the background event.'
+);
+warmAssert(
+    (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? PHP_INT_MAX) <= time(),
+    'The event must already be due when the immediate shutdown cron spawn runs.'
 );
 
 // -----------------------------------------------------------------------------
@@ -482,6 +530,10 @@ warmAssert(
 );
 
 $warmer->run();
+warmAssert(
+    in_array('https://jobspot.at/en/async/', $GLOBALS['_deepglot_purged_urls'], true),
+    'The render request URL must follow deferred work into the page-cache purge.'
+);
 $client->reset();
 $rendered = $translator->translate($html, 'en', 'https://jobspot.at/en/async/', BotDetector::HUMAN);
 
@@ -538,6 +590,120 @@ $warmer->enqueue(['Beta', 'Gamma'], 'de', 'en');
 warmAssert(
     ($warmer->pending()['de|en'] ?? []) === ['Alpha', 'Beta', 'Gamma'],
     'Repeated enqueues must deduplicate instead of piling up.'
+);
+
+// -----------------------------------------------------------------------------
+// 6. Human-only contexts that cannot converge on a later page request must
+//    stay synchronous even when ordinary page renders default to cache-only.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$translator = new HtmlTranslator($client, $options, $cache, null, $warmer);
+$editorResult = $translator->translateForEditor(
+    '<!DOCTYPE html><html><body><p>Vorschau</p></body></html>',
+    'en',
+    'https://example.com/editor/'
+);
+
+warmAssert(
+    !empty($client->batchCalls),
+    'The visual editor must translate cold content synchronously.'
+);
+warmAssert(
+    str_contains($editorResult['html'], '[en] Vorschau') && !empty($editorResult['segments']),
+    'The visual editor must receive translated, annotated segments on its first request.'
+);
+
+// -----------------------------------------------------------------------------
+// 7. A render may enqueue new work while cron is translating an older queue
+//    snapshot. That work must survive the completed run.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->enqueue(['Alpha'], 'de', 'en');
+$client->duringBatchCall = static function () use ($warmer): void {
+    $warmer->enqueue(['Später hinzugefügt'], 'de', 'en');
+};
+$warmer->run();
+
+warmAssert(
+    in_array('Später hinzugefügt', $warmer->pending()['de|en'] ?? [], true),
+    'Work enqueued during a warm run must not be overwritten by the stale queue snapshot.'
+);
+
+// A successful HTTP response can still contain fewer pairs than requested.
+// Every omitted text needs to remain queued for another attempt.
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->partialBatchIndexes = [0];
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->enqueue(['Alpha', 'Beta'], 'de', 'en');
+$warmer->run();
+
+warmAssert(
+    ($warmer->pending()['de|en'] ?? []) === ['Beta'],
+    'Texts omitted from a partial successful response must remain queued.'
+);
+
+// A failure on one page must not keep an unrelated, fully warmed page trapped
+// behind its stale full-page cache. URL tracking therefore follows each page's
+// own text set rather than the whole language-pair backlog.
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->partialBatchIndexes = [0];
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->enqueue(['Alpha'], 'de', 'en', 'https://example.com/en/alpha/');
+$warmer->enqueue(['Beta'], 'de', 'en', 'https://example.com/en/beta/');
+$warmer->run();
+
+warmAssert(
+    in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_purged_urls'], true),
+    'A fully warmed page must be purged even while another page in the language pair remains queued.'
+);
+warmAssert(
+    !in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_purged_urls'], true),
+    'A page with untranslated queued text must not be purged early.'
+);
+
+// -----------------------------------------------------------------------------
+// 8. Once a page has converged in the translation cache, its full-page cache
+//    must be purged or visitors can keep receiving the earlier source render.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->enqueue(['Alpha'], 'de', 'en', 'https://example.com/en/alpha/');
+$warmer->run();
+
+warmAssert(
+    in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_purged_urls'], true),
+    'A completed warm run must purge the affected page from supported full-page caches.'
+);
+
+// -----------------------------------------------------------------------------
+// 9. The cron lock must be an atomic option claim. A live owner prevents a
+//    second runner from dispatching the same provider work.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->enqueue(['Alpha'], 'de', 'en');
+update_option(TranslationWarmer::LOCK_OPTION, [
+    'owner' => 'another-cron-run',
+    'expires' => time() + TranslationWarmer::LOCK_TTL,
+], false);
+$warmer->run();
+
+warmAssert(
+    $client->translateBatchesCalls === 0,
+    'A live atomic lock owner must prevent duplicate warm provider calls.'
 );
 
 fwrite(STDOUT, "ColdPageWarmupTest: OK\n");

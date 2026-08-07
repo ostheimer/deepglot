@@ -243,12 +243,21 @@ async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
   const results = new Array<R>(items.length);
   let cursor = 0;
+  let failed = false;
 
   const runners = Array.from(
     { length: Math.max(1, Math.min(limit, items.length)) },
     async () => {
-      for (let index = cursor++; index < items.length; index = cursor++) {
-        results[index] = await worker(items[index], index);
+      while (!failed) {
+        const index = cursor++;
+        if (index >= items.length) return;
+
+        try {
+          results[index] = await worker(items[index], index);
+        } catch (error) {
+          failed = true;
+          throw error;
+        }
       }
     }
   );

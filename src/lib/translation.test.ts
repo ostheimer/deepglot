@@ -967,6 +967,55 @@ test("surfaces a failing chunk instead of returning a partially translated batch
   }
 });
 
+test("does not start more provider chunks after one concurrent chunk fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  console.error = () => {};
+  let calls = 0;
+
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
+
+    if (calls === 1) {
+      return new Response('{"error":{"message":"Invalid API key"}}', { status: 401 });
+    }
+
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    return openAIResponse(texts.map((text) => ({ text: `en:${text}` })));
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 6 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_CHUNK_SIZE: "1",
+            TRANSLATION_CHUNK_CONCURRENCY: "2",
+          }
+        ),
+      /401/
+    );
+
+    // Let the already-running second request finish. It must observe the
+    // failure before pulling another chunk from the shared cursor.
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(calls, 2, "only the two in-flight chunks may reach the provider");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
 /**
  * Three requests in 24h hit "Vercel Runtime Timeout Error: Task timed out
  * after 300 seconds" on /api/translate because the provider adapters called
@@ -986,7 +1035,11 @@ test("gives every provider call a deadline so a hung upstream cannot pin the req
     if (url.includes("openai.com")) {
       // Never answers. Mirrors undici: reject with the signal's reason on abort.
       return new Promise((_resolve, reject) => {
+        // AbortSignal.timeout() uses an unref'ed timer on newer Node releases.
+        // Keep the test process alive long enough to observe that deadline.
+        const watchdog = setTimeout(() => reject(new Error("abort deadline was not observed")), 1_000);
         init?.signal?.addEventListener("abort", () => {
+          clearTimeout(watchdog);
           reject((init.signal as AbortSignal & { reason?: unknown }).reason);
         });
       });

@@ -168,6 +168,19 @@ test("showcase image alternative text follows the selected locale", () => {
   );
 });
 
+test("translation-cache status stays clear of the bottom language tabs", () => {
+  const source = readFileSync(
+    path.join(SRC_DIR, "components", "marketing", "hero-language-preview.tsx"),
+    "utf8"
+  );
+  const statusClass = source.match(
+    /data-testid="translation-cache-status"\s+className="([^"]+)"/
+  )?.[1] ?? "";
+
+  assert.match(statusClass, /top-/);
+  assert.doesNotMatch(statusClass, /bottom-/);
+});
+
 test("marketing hero headline can wrap long localized words inside the clipped hero shell", () => {
   const source = readFileSync(
     path.join(SRC_DIR, "components", "marketing", "marketing-home.tsx"),

@@ -82,9 +82,9 @@ const MARKETING_COPY = {
     features: [
       {
         icon: FEATURE_ICONS.fast,
-        title: "Fast translation pipeline",
+        title: "Fast pages, local translation cache",
         description:
-          "All strings from a page in one API request, with low latency through batching and local caching.",
+          "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.",
       },
       {
         icon: FEATURE_ICONS.control,
@@ -103,7 +103,7 @@ const MARKETING_COPY = {
         icon: FEATURE_ICONS.plugin,
         title: "WordPress-first plugin",
         description:
-          "A proven output-buffer approach with strong compatibility for Elementor, WooCommerce, Yoast SEO, and more.",
+          "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.",
       },
       {
         icon: FEATURE_ICONS.seo,
@@ -171,9 +171,9 @@ const MARKETING_COPY = {
     features: [
       {
         icon: FEATURE_ICONS.fast,
-        title: "Blitzschnelle Übersetzung",
+        title: "Schnelle Seiten, lokaler Übersetzungs-Cache",
         description:
-          "Alle Strings einer Seite in einem API-Call, mit minimaler Latenz durch intelligentes Batching und lokalen Cache.",
+          "Kalte Seiten rendern, ohne auf einen KI-Provider zu warten. Deepglot übersetzt fehlende Inhalte im Hintergrund, speichert sie lokal und leert unterstützte Seiten-Caches, sobald sie bereit sind.",
       },
       {
         icon: FEATURE_ICONS.control,
@@ -192,7 +192,7 @@ const MARKETING_COPY = {
         icon: FEATURE_ICONS.plugin,
         title: "WordPress Plugin",
         description:
-          "Bewährter ob_start-Ansatz für hohe Kompatibilität mit Elementor, WooCommerce, Yoast SEO und mehr.",
+          "Bewährter Output-Buffer-Ansatz für Elementor, WooCommerce, Yoast SEO und mehr — mit synchronen Editor- und E-Mail-Ausgaben, wo eine spätere Hintergrundübersetzung nicht hilft.",
       },
       {
         icon: FEATURE_ICONS.seo,
