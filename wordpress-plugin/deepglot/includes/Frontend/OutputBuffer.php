@@ -192,7 +192,7 @@ class OutputBuffer
             return $translatedHtml;
         }
 
-        return is_string($filteredHtml) && $filteredHtml !== ''
+        return is_string($filteredHtml) && trim($filteredHtml) !== ''
             ? $filteredHtml
             : $translatedHtml;
     }

@@ -61,6 +61,7 @@ if (!function_exists('apply_filters')) {
     $GLOBALS['_deepglot_translated_html_filter_calls'] = [];
     $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = false;
     $GLOBALS['_deepglot_translated_html_filter_empty_result'] = false;
+    $GLOBALS['_deepglot_translated_html_filter_whitespace_result'] = false;
     $GLOBALS['_deepglot_translated_html_filter_throws'] = false;
 
     function apply_filters($hook, $value, ...$args) {
@@ -76,6 +77,10 @@ if (!function_exists('apply_filters')) {
 
         if ($GLOBALS['_deepglot_translated_html_filter_empty_result']) {
             return '';
+        }
+
+        if ($GLOBALS['_deepglot_translated_html_filter_whitespace_result']) {
+            return " \n\t";
         }
 
         if ($GLOBALS['_deepglot_translated_html_filter_invalid_result']) {
@@ -284,6 +289,14 @@ dgLangAssert(
     'An empty translated HTML filter result must fail safe to the completed unfiltered document.'
 );
 $GLOBALS['_deepglot_translated_html_filter_empty_result'] = false;
+
+$GLOBALS['_deepglot_translated_html_filter_whitespace_result'] = true;
+$whitespaceFallbackProcessed = $buffer->process($html, 'en');
+dgLangAssert(
+    is_string($whitespaceFallbackProcessed) && str_contains($whitespaceFallbackProcessed, 'youtube-de-id'),
+    'A whitespace-only translated HTML filter result must fail safe to the completed unfiltered document.'
+);
+$GLOBALS['_deepglot_translated_html_filter_whitespace_result'] = false;
 
 $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = false;
 $GLOBALS['_deepglot_translated_html_filter_throws'] = true;
