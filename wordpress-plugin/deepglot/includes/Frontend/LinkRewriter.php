@@ -57,7 +57,11 @@ class LinkRewriter
             $value = $node->getAttribute($attr);
             $normalizedValue = $this->withoutLeadingHtmlWhitespace($value);
 
-            if ($normalizedValue === '' || !$this->isInternalUrl($normalizedValue)) {
+            if (
+                $normalizedValue === ''
+                || !$this->isInternalUrl($normalizedValue)
+                || $this->routing->isWordPressInfrastructureUrl($normalizedValue)
+            ) {
                 continue;
             }
 
@@ -154,6 +158,7 @@ class LinkRewriter
                 array_intersect($relTokens, ['canonical', 'shortlink']) !== []
                 && $normalizedHref !== ''
                 && $this->isInternalUrl($normalizedHref)
+                && !$this->routing->isWordPressInfrastructureUrl($normalizedHref)
             ) {
                 $existing = $this->detectUrlLanguage($normalizedHref);
 
