@@ -141,9 +141,64 @@
         });
     }
 
+    function setupLanguageOrder() {
+        var list = document.getElementById('dg-switcher-order');
+        if (!list) return;
+
+        var dragging = null;
+
+        list.addEventListener('dragstart', function (event) {
+            var item = event.target.closest('.dg-sortable-item');
+            if (!item || !list.contains(item)) return;
+            dragging = item;
+            item.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+
+            // Firefox requires a payload before it starts a drag operation.
+            try {
+                event.dataTransfer.setData('text/plain', item.dataset.lang || '');
+            } catch {
+                // The list remains usable when a browser blocks dataTransfer.
+            }
+        });
+
+        list.addEventListener('dragend', function () {
+            if (dragging) dragging.classList.remove('dragging');
+            list.querySelectorAll('.drag-over').forEach(function (item) {
+                item.classList.remove('drag-over');
+            });
+            dragging = null;
+        });
+
+        list.addEventListener('dragover', function (event) {
+            event.preventDefault();
+            if (!dragging) return;
+
+            var target = event.target.closest('.dg-sortable-item');
+            if (!target || target === dragging || !list.contains(target)) return;
+
+            list.querySelectorAll('.drag-over').forEach(function (item) {
+                item.classList.remove('drag-over');
+            });
+            target.classList.add('drag-over');
+
+            var rect = target.getBoundingClientRect();
+            if (event.clientY < rect.top + rect.height / 2) {
+                list.insertBefore(dragging, target);
+            } else {
+                list.insertBefore(dragging, target.nextSibling);
+            }
+        });
+
+        list.addEventListener('drop', function (event) {
+            event.preventDefault();
+        });
+    }
+
     function initialize() {
         document.querySelectorAll('[data-deepglot-instance-editor]').forEach(setupEditor);
         setupTemplates();
+        setupLanguageOrder();
     }
 
     window.DeepglotSwitcherEditor = {

@@ -118,8 +118,13 @@ class SettingsPage
         if ($hook !== 'settings_page_deepglot') {
             return;
         }
-        // Inline styles keep the plugin dependency-free.
-        add_action('admin_head', [$this, 'printStyles']);
+
+        wp_enqueue_style(
+            'deepglot-admin-settings',
+            DEEPGLOT_PLUGIN_URL . 'assets/css/admin-settings.css',
+            [],
+            DEEPGLOT_PLUGIN_VERSION
+        );
         wp_enqueue_script(
             'deepglot-switcher-editor',
             DEEPGLOT_PLUGIN_URL . 'assets/js/switcher-editor.js',
@@ -127,117 +132,6 @@ class SettingsPage
             DEEPGLOT_PLUGIN_VERSION,
             true
         );
-    }
-
-    public function printStyles(): void
-    {
-        ?>
-        <style>
-        /* ── Deepglot Admin Styles ── */
-        #deepglot-wrap { max-width: 760px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-        #deepglot-wrap h1 { display: flex; align-items: center; gap: 10px; font-size: 1.5rem; margin-bottom: 0; }
-        #deepglot-wrap .dg-logo { width: 32px; height: 32px; display: block; object-fit: contain; flex-shrink: 0; }
-
-        /* Status badge */
-        .dg-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-left: 4px; }
-        .dg-status.active { background: #dcfce7; color: #166534; }
-        .dg-status.inactive,
-        .dg-status.invalid { background: #fee2e2; color: #991b1b; }
-        .dg-status.unconfigured { background: #fef3c7; color: #92400e; }
-
-        /* Setup wizard */
-        .dg-wizard { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 28px 32px; margin: 20px 0; }
-        .dg-wizard-header { margin-bottom: 24px; }
-        .dg-wizard-header h2 { margin: 0 0 6px; font-size: 1.1rem; color: #111827; }
-        .dg-wizard-header p { margin: 0; color: #6b7280; font-size: 0.875rem; }
-        .dg-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 28px; }
-        .dg-step { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid #f3f4f6; }
-        .dg-step:last-child { border-bottom: none; }
-        .dg-step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #d92f19; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
-        .dg-step-num.done { background: #16a34a; }
-        .dg-step-body { flex: 1; }
-        .dg-step-body h3 { margin: 0 0 6px; font-size: 0.9375rem; color: #111827; }
-        .dg-step-body p { margin: 0 0 12px; color: #6b7280; font-size: 0.875rem; line-height: 1.5; }
-
-        /* Form elements */
-        .dg-field { margin-bottom: 14px; }
-        .dg-field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
-        .dg-field input[type="text"],
-        .dg-field input[type="url"],
-        .dg-field input[type="password"] { width: 100%; max-width: 460px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: monospace; color: #111827; }
-        .dg-field input:focus { outline: none; border-color: #f03b22; box-shadow: 0 0 0 2px rgba(240,59,34,.15); }
-        .dg-field .description { margin: 5px 0 0; font-size: 12px; color: #9ca3af; }
-        .dg-lang-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
-        .dg-lang-row .dg-field { flex: 1; min-width: 140px; }
-
-        /* Buttons */
-        .dg-btn-primary { background: #d92f19; color: #fff; border: none; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-        .dg-btn-primary:hover { background: #c62812; }
-        .dg-btn-outline { background: transparent; color: #c62812; border: 1.5px solid #f03b22; padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
-        .dg-btn-outline:hover { background: #fff0ec; color: #c62812; border-color: #c62812; }
-
-        /* Alert */
-        .dg-alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
-        .dg-alert.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
-        .dg-alert.warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
-        .dg-alert.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
-
-        /* Toggle */
-        .dg-toggle-row { display: flex; align-items: center; gap: 12px; }
-        .dg-toggle-row label { font-size: 13px; color: #374151; cursor: pointer; }
-        input[type="checkbox"].dg-toggle { width: 36px; height: 20px; appearance: none; background: #d1d5db; border-radius: 10px; cursor: pointer; position: relative; transition: background .2s; }
-        input[type="checkbox"].dg-toggle:checked { background: #f03b22; }
-        input[type="checkbox"].dg-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-        input[type="checkbox"].dg-toggle:checked::after { left: 18px; }
-
-        /* Advanced section */
-        .dg-advanced-toggle { font-size: 12px; color: #6b7280; cursor: pointer; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; }
-        .dg-advanced-toggle:hover { color: #c62812; }
-        .dg-advanced { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e5e7eb; }
-        .dg-advanced.open { display: block; }
-        .dg-advanced textarea { width: 100%; max-width: 460px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; font-family: monospace; color: #374151; resize: vertical; }
-
-        /* Footer actions */
-        .dg-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
-        .dg-help { font-size: 12px; color: #9ca3af; margin-top: 8px; }
-        .dg-help a { color: #c62812; text-decoration: none; }
-
-        /* Switcher section */
-        .dg-section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 460px; }
-        .dg-section-grid .dg-field { margin-bottom: 0; }
-        .dg-section-grid select { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
-
-        /* Drag-and-drop sortable list */
-        .dg-sortable { list-style: none; padding: 0; margin: 8px 0 0; max-width: 460px; }
-        .dg-sortable-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 10px 14px;
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            margin-bottom: 6px;
-            cursor: grab;
-            user-select: none;
-            font-size: 13px;
-            transition: background .12s, border-color .12s;
-        }
-        .dg-sortable-item:hover { background: #f3f4f6; }
-        .dg-sortable-item.dragging { opacity: 0.4; cursor: grabbing; }
-        .dg-sortable-item.drag-over { border-color: #f03b22; background: #fff0ec; }
-        .dg-drag-handle { color: #9ca3af; font-size: 14px; line-height: 1; }
-        .dg-sortable-label { font-weight: 600; color: #111827; letter-spacing: 0.5px; }
-        .dg-sortable-native { color: #6b7280; font-weight: 400; margin-left: 4px; }
-
-        /* Independent switcher instances + same-origin visual picker */
-        .dg-switcher-templates { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 16px; }
-        .dg-switcher-instance { border: 1px solid #dbeafe; background: #f8fafc; border-radius: 10px; padding: 16px; margin: 12px 0; }
-        .dg-switcher-instance__header { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
-        .dg-switcher-instance__header strong { color: #1e3a8a; }
-        .dg-switcher-preview { width: 100%; min-height: 280px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; margin-top: 8px; }
-        .dg-switcher-instance.is-selecting .dg-switcher-preview { outline: 3px solid rgba(240,59,34,.3); }
-        .dg-switcher-instance textarea { width: 100%; min-height: 70px; font-family: monospace; }
-        </style>
-        <?php
     }
 
     public function render(): void
@@ -779,18 +673,6 @@ class SettingsPage
                         </p>
                     </div>
 
-                    <div class="dg-field" style="margin-top:18px;">
-                        <label for="dg_switcher_custom_css"><?php esc_html_e('Eigenes CSS für den Switcher', 'deepglot'); ?></label>
-                        <textarea
-                            id="dg_switcher_custom_css"
-                            name="<?php echo esc_attr($optKey); ?>[switcher_custom_css]"
-                            rows="6"
-                            style="width:100%; max-width:460px; font-family:monospace; font-size:12px;"
-                            placeholder=".deepglot-switcher li a { color: #333; }"
-                        ><?php echo esc_textarea((string) ($settings['switcher_custom_css'] ?? '')); ?></textarea>
-                        <p class="description"><?php esc_html_e('Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann.', 'deepglot'); ?></p>
-                    </div>
-
                     <?php
                     $previewUrl = add_query_arg('deepglot-switcher-preview', '1', home_url('/'));
                     $savedInstances = array_values(array_filter(
@@ -863,55 +745,6 @@ class SettingsPage
                 </div><!-- /.dg-wizard -->
             </form>
 
-            <script>
-            (function () {
-                var list = document.getElementById('dg-switcher-order');
-                if (!list) return;
-                var dragging = null;
-
-                list.addEventListener('dragstart', function (event) {
-                    var item = event.target.closest('.dg-sortable-item');
-                    if (!item || !list.contains(item)) return;
-                    dragging = item;
-                    item.classList.add('dragging');
-                    event.dataTransfer.effectAllowed = 'move';
-                    // Firefox needs payload on dataTransfer for dragstart to fire.
-                    try { event.dataTransfer.setData('text/plain', item.dataset.lang || ''); } catch (e) {}
-                });
-
-                list.addEventListener('dragend', function () {
-                    if (dragging) dragging.classList.remove('dragging');
-                    list.querySelectorAll('.drag-over').forEach(function (el) {
-                        el.classList.remove('drag-over');
-                    });
-                    dragging = null;
-                });
-
-                list.addEventListener('dragover', function (event) {
-                    event.preventDefault();
-                    if (!dragging) return;
-                    var target = event.target.closest('.dg-sortable-item');
-                    if (!target || target === dragging || !list.contains(target)) return;
-
-                    list.querySelectorAll('.drag-over').forEach(function (el) {
-                        el.classList.remove('drag-over');
-                    });
-                    target.classList.add('drag-over');
-
-                    var rect = target.getBoundingClientRect();
-                    var midY = rect.top + rect.height / 2;
-                    if (event.clientY < midY) {
-                        list.insertBefore(dragging, target);
-                    } else {
-                        list.insertBefore(dragging, target.nextSibling);
-                    }
-                });
-
-                list.addEventListener('drop', function (event) {
-                    event.preventDefault();
-                });
-            })();
-            </script>
         </div>
         <?php
     }
@@ -1018,11 +851,6 @@ class SettingsPage
                         <input type="text" name="<?php echo esc_attr($prefix . '[custom_flags][' . $language . ']'); ?>" value="<?php echo esc_attr((string) (($instance['custom_flags'][$language] ?? ''))); ?>" placeholder="<?php echo esc_attr(strtoupper($language) . ': 🇦🇹 oder https://…'); ?>" />
                     <?php endforeach; ?>
                 </div>
-            </div>
-
-            <div class="dg-field">
-                <label for="<?php echo esc_attr($idPrefix . '-css'); ?>"><?php esc_html_e('Eigenes CSS', 'deepglot'); ?></label>
-                <textarea id="<?php echo esc_attr($idPrefix . '-css'); ?>" name="<?php echo esc_attr($prefix . '[custom_css]'); ?>" data-switcher-field="custom_css"><?php echo esc_textarea((string) ($instance['custom_css'] ?? '')); ?></textarea>
             </div>
 
             <div class="dg-field">

@@ -117,8 +117,8 @@
 }
 
 /* ISO 639-1 → most-recognised flag. Multi-country languages pick a
-   conventional default; admins who want a different flag can override per
-   language via switcher_custom_css. */
+   conventional default; admins can choose a different flag per language in
+   the switcher settings. */
 .deepglot-flag--de::before { content: "🇩🇪"; }
 .deepglot-flag--en::before { content: "🇬🇧"; }
 .deepglot-flag--fr::before { content: "🇫🇷"; }

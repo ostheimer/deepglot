@@ -190,7 +190,7 @@ class TranslationWarmer
         // 30s, which would kill the run mid-flight and waste the words the SaaS
         // already translated.
         if (function_exists('set_time_limit')) {
-            @set_time_limit(self::TIMEOUT * 3); // phpcs:ignore WordPress.PHP.NoSilencedErrors -- disabled by hosts in safe mode.
+            @set_time_limit(self::TIMEOUT * 3); // phpcs:ignore WordPress.PHP.NoSilencedErrors, Squiz.PHP.DiscouragedFunctions.Discouraged -- A bounded cron worker needs enough time to finish; hosts may disable this function.
         }
 
         try {
@@ -503,7 +503,7 @@ class TranslationWarmer
             : (is_array($expectedRaw) || is_object($expectedRaw) ? serialize($expectedRaw) : (string) $expectedRaw);
 
         if (empty($next)) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional deletion prevents lost concurrent enqueues.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Conditional deletion is an atomic compare-and-set; the option cache is cleared below.
             $changed = $wpdb->delete(
                 $wpdb->options,
                 [
@@ -517,7 +517,7 @@ class TranslationWarmer
                 ? maybe_serialize($next)
                 : serialize($next);
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update prevents lost concurrent enqueues.
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Conditional update is an atomic compare-and-set; the option cache is cleared below.
             $changed = $wpdb->update(
                 $wpdb->options,
                 ['option_value' => $nextStored],
@@ -725,6 +725,7 @@ class TranslationWarmer
             }
 
             if (function_exists('do_action')) {
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- This is LiteSpeed Cache's public purge hook.
                 do_action('litespeed_purge_url', $url);
             }
         }

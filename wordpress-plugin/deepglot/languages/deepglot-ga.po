@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -40,40 +40,40 @@ msgstr "Andreas Ostheimer"
 msgid "https://www.ostheimer.at"
 msgstr "https://www.ostheimer.at"
 
-#: includes/Admin/NavMenuMetaBox.php:26
+#: includes/Admin/NavMenuMetaBox.php:39
+msgid "Sprachschalter"
+msgstr "Athrú gutha"
+
+#: includes/Admin/NavMenuMetaBox.php:47
 #: includes/Frontend/SwitcherBlock.php:58
 #: includes/Frontend/SwitcherWidget.php:25
 #: assets/js/block-switcher.js:19
 msgid "Deepglot Sprachschalter"
 msgstr "Deepglot Lasc teanga"
 
-#: includes/Admin/NavMenuMetaBox.php:41
+#: includes/Admin/NavMenuMetaBox.php:62
 msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
 msgstr "Cuirtear leis iontráil lasc teanga a leathnaíonn go huathoibríoch in iontráil amháin in aghaidh na teanga nuair a bhreathnaítear air."
 
-#: includes/Admin/NavMenuMetaBox.php:44
+#: includes/Admin/NavMenuMetaBox.php:65
 msgid "Anzeige-Modus"
 msgstr "Mód taispeána"
 
-#: includes/Admin/NavMenuMetaBox.php:49
+#: includes/Admin/NavMenuMetaBox.php:70
 msgid "Liste (jede Sprache als eigener Menüpunkt)"
 msgstr "Liosta (gach teanga mar mhír roghchláir ar leith)"
 
-#: includes/Admin/NavMenuMetaBox.php:55
+#: includes/Admin/NavMenuMetaBox.php:76
 msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
 msgstr "Anuas (teanga ghníomhach mar thuismitheoir, roghanna eile mar fho-roghchlár)"
 
-#: includes/Admin/NavMenuMetaBox.php:61
+#: includes/Admin/NavMenuMetaBox.php:82
 msgid "Aktive Sprache aus der Liste ausblenden"
 msgstr "Folaigh teanga ghníomhach ón liosta"
 
-#: includes/Admin/NavMenuMetaBox.php:71
+#: includes/Admin/NavMenuMetaBox.php:92
 msgid "Zum Menü hinzufügen"
 msgstr "Cuir leis an roghchlár"
-
-#: includes/Admin/NavMenuMetaBox.php:98
-msgid "Sprachschalter"
-msgstr "Athrú gutha"
 
 #: includes/Admin/SettingsPage.php:60
 msgid "Deepglot: API-Key ungültig oder widerrufen."
@@ -99,451 +99,440 @@ msgstr "Leanfar d’inneachar a aistríodh cheana a sheachadadh, ach fanfaidh t�
 msgid "Kontingent im Deepglot-Dashboard prüfen"
 msgstr "Seiceáil cuóta ar an deais Deepglot"
 
-#: includes/Admin/SettingsPage.php:263
+#: includes/Admin/SettingsPage.php:157
 msgid "API-Key ungültig"
 msgstr "API-Key neamhbhailí"
 
-#: includes/Admin/SettingsPage.php:266
+#: includes/Admin/SettingsPage.php:160
 msgid "Aktiv"
 msgstr "Gníomhach"
 
-#: includes/Admin/SettingsPage.php:269
+#: includes/Admin/SettingsPage.php:163
 msgid "Deaktiviert"
 msgstr "faoi ​​mhíchumas"
 
-#: includes/Admin/SettingsPage.php:272
+#: includes/Admin/SettingsPage.php:166
 msgid "Einrichtung erforderlich"
 msgstr "Socrú ag teastáil"
 
-#: includes/Admin/SettingsPage.php:295
+#: includes/Admin/SettingsPage.php:189
 msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
 msgstr "Fáilte go dtí Deepglot! Lean na trí chéim thíos chun aistriúchán a chumasú ar do shuíomh Gréasáin."
 
-#: includes/Admin/SettingsPage.php:306
+#: includes/Admin/SettingsPage.php:200
 msgid "Deepglot einrichten"
 msgstr "Socraigh Deepglot"
 
-#: includes/Admin/SettingsPage.php:307
+#: includes/Admin/SettingsPage.php:201
 msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
 msgstr "Níl uait ach API-Key ón deais Deepglot - tógann sé níos lú ná dhá nóiméad."
 
-#: includes/Admin/SettingsPage.php:319
+#: includes/Admin/SettingsPage.php:213
 msgid "API-Key eintragen"
 msgstr "Cuir isteach API-Key"
 
-#: includes/Admin/SettingsPage.php:322
+#: includes/Admin/SettingsPage.php:216
 msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
 msgstr "Diúltaíonn an freastalaí Deepglot (HTTP 401) an API-Key atá stóráilte. Níl aon ábhar nua á aistriú faoi láthair - cuir isteach eochair bhailí agus sábháil."
 
-#: includes/Admin/SettingsPage.php:327
+#: includes/Admin/SettingsPage.php:221
 msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
 msgstr "Cruthaigh cuntas saor in aisce ar deepglot.ai, cruthaigh tionscadal do do shuíomh Gréasáin agus cóipeáil an API-Key."
 
-#: includes/Admin/SettingsPage.php:330
+#: includes/Admin/SettingsPage.php:224
 msgid "Zum Dashboard – API-Key erstellen"
 msgstr "Téigh go dtí an painéal - cruthaigh API-Key"
 
-#: includes/Admin/SettingsPage.php:335
+#: includes/Admin/SettingsPage.php:229
 msgid "API-Key"
 msgstr "API-Key"
 
-#: includes/Admin/SettingsPage.php:346
+#: includes/Admin/SettingsPage.php:240
 msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
 msgstr "Is féidir leat an eochair iomlán a fháil faoi Socruithe → API-Keys i do thionscadal Deepglot."
 
-#: includes/Admin/SettingsPage.php:350
+#: includes/Admin/SettingsPage.php:244
 msgid "Backend-URL"
 msgstr "Inneall URL"
 
-#: includes/Admin/SettingsPage.php:358
+#: includes/Admin/SettingsPage.php:252
 msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
 msgstr "Réamhshocrú: https://deepglot.ai/api – athrú amháin do Self-Hosting."
 
-#: includes/Admin/SettingsPage.php:370
+#: includes/Admin/SettingsPage.php:264
 msgid "Sprachen konfigurieren"
 msgstr "Cumraigh teangacha"
 
-#: includes/Admin/SettingsPage.php:372
+#: includes/Admin/SettingsPage.php:266
 msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
 msgstr "Sonraigh an teanga bhunaidh agus na teangacha aistriúcháin atá uait."
 
-#: includes/Admin/SettingsPage.php:376
+#: includes/Admin/SettingsPage.php:270
 msgid "Originalsprache"
 msgstr "Teanga bhunaidh"
 
-#: includes/Admin/SettingsPage.php:387
+#: includes/Admin/SettingsPage.php:281
 msgid "Zielsprachen"
 msgstr "Sprioctheangacha"
 
-#: includes/Admin/SettingsPage.php:395
+#: includes/Admin/SettingsPage.php:289
 msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
 msgstr "Cóid ISO-639-1 scartha le camóg, e.g. B. ga, fr, é"
 
-#: includes/Admin/SettingsPage.php:407
+#: includes/Admin/SettingsPage.php:301
 msgid "Übersetzung aktivieren"
 msgstr "Cumasaigh aistriúchán"
 
-#: includes/Admin/SettingsPage.php:409
+#: includes/Admin/SettingsPage.php:303
 msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
 msgstr "Nuair a bheidh API-Key agus teangacha sábháilte, cumasaigh aistriúchán uathoibríoch anseo."
 
-#: includes/Admin/SettingsPage.php:421
+#: includes/Admin/SettingsPage.php:315
 msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
 msgstr "Gníomhachtaigh Deepglot le haghaidh gach iarratas tosaigh"
 
-#: includes/Admin/SettingsPage.php:426
+#: includes/Admin/SettingsPage.php:320
 msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
 msgstr "Cuirtear an t-aistriúchán ar siúl, ach fanann sé fós: Diúltaítear don API-Key."
 
 #. translators: %1$s: source language, %2$s: target languages
-#: includes/Admin/SettingsPage.php:434
+#: includes/Admin/SettingsPage.php:328
 msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
 msgstr "Gníomhach – aistrítear leathanaigh ó %1$s go %2$s faoi /%3$s/ihre-seite/"
 
-#: includes/Admin/SettingsPage.php:454
+#: includes/Admin/SettingsPage.php:348
 msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
 msgstr "Athsheolaidh cuairteoirí go huathoibríoch bunaithe ar theanga an bhrabhsálaí (roghnach)"
 
-#: includes/Admin/SettingsPage.php:463
+#: includes/Admin/SettingsPage.php:357
 msgid "Erweiterte Einstellungen ausblenden"
 msgstr "Folaigh ardsocruithe"
 
-#: includes/Admin/SettingsPage.php:463
-#: includes/Admin/SettingsPage.php:464
+#: includes/Admin/SettingsPage.php:357
+#: includes/Admin/SettingsPage.php:358
 msgid "Erweiterte Einstellungen anzeigen"
 msgstr "Taispeáin ardsocruithe"
 
-#: includes/Admin/SettingsPage.php:468
+#: includes/Admin/SettingsPage.php:362
 msgid "Ausgeschlossene URLs"
 msgstr "Eisiata URLs"
 
-#: includes/Admin/SettingsPage.php:470
+#: includes/Admin/SettingsPage.php:364
 msgid "Eine URL oder ein Muster pro Zeile."
 msgstr "URL amháin nó patrún in aghaidh an líne."
 
-#: includes/Admin/SettingsPage.php:473
+#: includes/Admin/SettingsPage.php:367
 msgid "Routing-Modus"
 msgstr "Modh ródaithe"
 
-#: includes/Admin/SettingsPage.php:476
+#: includes/Admin/SettingsPage.php:370
 msgid "Pfad-Präfix (/en/meine-seite)"
 msgstr "Réimír conaire (/en/meine-seite)"
 
-#: includes/Admin/SettingsPage.php:479
+#: includes/Admin/SettingsPage.php:373
 msgid "Subdomains (en.example.com)"
 msgstr "Fofhearainn (ga.example.com)"
 
-#: includes/Admin/SettingsPage.php:482
+#: includes/Admin/SettingsPage.php:376
 msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
 msgstr "Tá an réimír cosáin fós mar an réamhshocrú. Maidir le fofhearainn, tá ósta ag teastáil ó gach sprioctheanga ghníomhach."
 
-#: includes/Admin/SettingsPage.php:485
+#: includes/Admin/SettingsPage.php:379
 msgid "Domain-Zuordnungen"
 msgstr "Léarscáileanna fearainn"
 
-#: includes/Admin/SettingsPage.php:493
+#: includes/Admin/SettingsPage.php:387
 msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
 msgstr "Formáid: sprachcode=host, tasc amháin in aghaidh an líne."
 
-#: includes/Admin/SettingsPage.php:505
+#: includes/Admin/SettingsPage.php:399
 msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
 msgstr "Aistrigh ríomhphoist WooCommerce agus wp_mail"
 
-#: includes/Admin/SettingsPage.php:518
+#: includes/Admin/SettingsPage.php:412
 msgid "Suche in der Besuchersprache ausführen"
 msgstr "Déan cuardach i dteanga an chuairteora"
 
-#: includes/Admin/SettingsPage.php:531
+#: includes/Admin/SettingsPage.php:425
 msgid "AMP-Seiten übersetzen"
 msgstr "Aistrigh leathanaigh AMP"
 
-#: includes/Admin/SettingsPage.php:544
+#: includes/Admin/SettingsPage.php:438
 msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
 msgstr "Aistrigh inneachar atá athluchtaithe go dinimiciúil (AJAX, scrollbharra gan teorainn, SPA)"
 
-#: includes/Admin/SettingsPage.php:548
+#: includes/Admin/SettingsPage.php:442
 msgid "Ausgeschlossene CSS-Selektoren"
 msgstr "Roghnóirí CSS as an áireamh"
 
-#: includes/Admin/SettingsPage.php:550
+#: includes/Admin/SettingsPage.php:444
 msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Rang amháin CSS, ID nó roghnóir in aghaidh an líne."
 
-#: includes/Admin/SettingsPage.php:584
-#: includes/Admin/SettingsPage.php:938
-#: includes/Config/SwitcherTemplates.php:115
+#: includes/Admin/SettingsPage.php:478
+#: includes/Admin/SettingsPage.php:771
+#: includes/Config/SwitcherTemplates.php:114
 msgid "Sprachumschalter"
 msgstr "Malartóir teanga"
 
-#: includes/Admin/SettingsPage.php:585
+#: includes/Admin/SettingsPage.php:479
 msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
 msgstr "Conas agus cén áit ar cheart don Language-Switcher a bheith le feiceáil ar do shuíomh Gréasáin?"
 
-#: includes/Admin/SettingsPage.php:598
+#: includes/Admin/SettingsPage.php:492
 msgid "Switcher automatisch im Seitenfooter einfügen"
 msgstr "Cuir Switcher isteach go huathoibríoch i mbuntásc an leathanaigh"
 
-#: includes/Admin/SettingsPage.php:602
+#: includes/Admin/SettingsPage.php:496
 msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
 msgstr "Nó: Shortcode [deepglot_switcher] nó PHP do_action (‘deepglot_language_switcher’) i do théama."
 
-#: includes/Admin/SettingsPage.php:607
-#: includes/Admin/SettingsPage.php:957
+#: includes/Admin/SettingsPage.php:501
+#: includes/Admin/SettingsPage.php:790
 msgid "Darstellung"
 msgstr "Léiriú"
 
-#: includes/Admin/SettingsPage.php:610
-#: includes/Admin/SettingsPage.php:959
+#: includes/Admin/SettingsPage.php:504
+#: includes/Admin/SettingsPage.php:792
 msgid "Inline-Liste"
 msgstr "Liosta inlíne"
 
-#: includes/Admin/SettingsPage.php:613
-#: includes/Admin/SettingsPage.php:960
+#: includes/Admin/SettingsPage.php:507
+#: includes/Admin/SettingsPage.php:793
 msgid "Dropdown"
 msgstr "Buail síos"
 
-#: includes/Admin/SettingsPage.php:619
-#: includes/Admin/SettingsPage.php:964
+#: includes/Admin/SettingsPage.php:513
+#: includes/Admin/SettingsPage.php:797
 msgid "Flaggenstil"
 msgstr "Stíl na brataí"
 
-#: includes/Admin/SettingsPage.php:622
+#: includes/Admin/SettingsPage.php:516
 msgid "Rechteckig, matt"
 msgstr "Dronuilleogach, neamhlonrach"
 
-#: includes/Admin/SettingsPage.php:625
+#: includes/Admin/SettingsPage.php:519
 msgid "Rechteckig, glänzend"
 msgstr "Dronuilleogach, lonracha"
 
-#: includes/Admin/SettingsPage.php:628
+#: includes/Admin/SettingsPage.php:522
 msgid "Kreis, matt"
 msgstr "Ciorcal, neamhlonrach"
 
-#: includes/Admin/SettingsPage.php:631
+#: includes/Admin/SettingsPage.php:525
 msgid "Kreis, glänzend"
 msgstr "Ciorcal, lonracha"
 
-#: includes/Admin/SettingsPage.php:634
+#: includes/Admin/SettingsPage.php:528
 msgid "Ohne Flagge"
 msgstr "Gan bratach"
 
-#: includes/Admin/SettingsPage.php:640
-#: includes/Admin/SettingsPage.php:972
+#: includes/Admin/SettingsPage.php:534
+#: includes/Admin/SettingsPage.php:805
 msgid "Sprachbezeichnung"
 msgstr "Ainmniú teanga"
 
-#: includes/Admin/SettingsPage.php:643
+#: includes/Admin/SettingsPage.php:537
 msgid "Volle Bezeichnung („Deutsch\")"
 msgstr "Ainm iomlán (“Gearmáinis”)"
 
-#: includes/Admin/SettingsPage.php:646
+#: includes/Admin/SettingsPage.php:540
 msgid "ISO-Code („DE\")"
 msgstr "ISO-Code (“DE”)"
 
-#: includes/Admin/SettingsPage.php:652
+#: includes/Admin/SettingsPage.php:546
 msgid "Anzeigegerät"
 msgstr "Gléas taispeána"
 
-#: includes/Admin/SettingsPage.php:655
+#: includes/Admin/SettingsPage.php:549
 msgid "Auf allen Geräten zeigen"
 msgstr "Taispeáin ar gach gléas"
 
-#: includes/Admin/SettingsPage.php:658
+#: includes/Admin/SettingsPage.php:552
 msgid "Nur Desktop (auf Mobile ausblenden)"
 msgstr "Deasc amháin (folaigh ar fhóin phóca)"
 
-#: includes/Admin/SettingsPage.php:661
+#: includes/Admin/SettingsPage.php:555
 msgid "Nur Mobile (auf Desktop ausblenden)"
 msgstr "Fón póca amháin (folaigh ar an deasc)"
 
-#: includes/Admin/SettingsPage.php:667
+#: includes/Admin/SettingsPage.php:561
 msgid "Mobile-Breakpoint (px)"
 msgstr "Brisphointe soghluaiste (px)"
 
-#: includes/Admin/SettingsPage.php:679
+#: includes/Admin/SettingsPage.php:573
 msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
 msgstr "Réamhshocrú 768px. Faoin leithead seo, meastar leathanach a bheith “soghluaiste”."
 
-#: includes/Admin/SettingsPage.php:684
+#: includes/Admin/SettingsPage.php:578
 msgid "Position auf der Seite"
 msgstr "Seasamh ar an leathanach"
 
-#: includes/Admin/SettingsPage.php:687
+#: includes/Admin/SettingsPage.php:581
 msgid "Inline (an der eingebetteten Stelle)"
 msgstr "Inlíne (ag an suíomh leabaithe)"
 
-#: includes/Admin/SettingsPage.php:690
+#: includes/Admin/SettingsPage.php:584
 msgid "Floating: rechts unten"
 msgstr "Snámh: bun ar dheis"
 
-#: includes/Admin/SettingsPage.php:693
+#: includes/Admin/SettingsPage.php:587
 msgid "Floating: links unten"
 msgstr "Snámh: bun ar chlé"
 
-#: includes/Admin/SettingsPage.php:696
+#: includes/Admin/SettingsPage.php:590
 msgid "Floating: rechts oben"
 msgstr "Snámh: barr ar dheis"
 
-#: includes/Admin/SettingsPage.php:699
+#: includes/Admin/SettingsPage.php:593
 msgid "Floating: links oben"
 msgstr "Snámh: barr ar chlé"
 
-#: includes/Admin/SettingsPage.php:703
+#: includes/Admin/SettingsPage.php:597
 msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
 msgstr "\"Snámh\" bioráin an Switcher go dtí an choirnéal agus seasamh:seasta agus scrollaigh leis. Comhcheangailte le hiompar réamhshocraithe Auto-Inject = Weglot."
 
-#: includes/Admin/SettingsPage.php:718
+#: includes/Admin/SettingsPage.php:612
 msgid "Bezeichnung sichtbar"
 msgstr "Ainmniú le feiceáil"
 
-#: includes/Admin/SettingsPage.php:725
+#: includes/Admin/SettingsPage.php:619
 msgid "Reihenfolge der Sprachen"
 msgstr "Ord na dteangacha"
 
-#: includes/Admin/SettingsPage.php:744
+#: includes/Admin/SettingsPage.php:638
 msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
 msgstr "Déan athshocrú le tarraing & scaoil. Oibríonn sé i Shortcode agus instealladh uathoibríoch."
 
-#: includes/Admin/SettingsPage.php:748
+#: includes/Admin/SettingsPage.php:642
 msgid "Eigene Flaggen pro Sprache (optional)"
 msgstr "Bratacha féin in aghaidh na teanga (roghnach)"
 
-#: includes/Admin/SettingsPage.php:778
+#: includes/Admin/SettingsPage.php:672
 msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
 msgstr "Fág bán = bratach réamhshocraithe. Baintear carachtair speisialta go huathoibríoch le Emoji (m.sh. 🇺🇸 do mhargadh EN→SAM) nó URL go SVG/PNG. CSS."
 
-#: includes/Admin/SettingsPage.php:783
-msgid "Eigenes CSS für den Switcher"
-msgstr "Féin CSS don Switcher"
-
-#: includes/Admin/SettingsPage.php:791
-msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
-msgstr "Cuireadh isteach díreach roimh an Switcher mar an chlib <style>. Baintear \"<\" go huathoibríoch ionas nach féidir aon chlib script a chur isteach."
-
-#: includes/Admin/SettingsPage.php:803
+#: includes/Admin/SettingsPage.php:685
 msgid "Weitere Switcher-Instanzen"
 msgstr "Níos mó cásanna Switcher"
 
-#: includes/Admin/SettingsPage.php:805
+#: includes/Admin/SettingsPage.php:687
 msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
 msgstr "Cruthaigh Switcher neamhspleách le haghaidh Shortcode, blocáil, giuirléidí nó socrúchán uathoibríoch. Tá an Switcher domhanda atá ann cheana féin mar an “réamhshocraithe”."
 
-#: includes/Admin/SettingsPage.php:807
+#: includes/Admin/SettingsPage.php:689
 msgid "Switcher-Vorlagen"
 msgstr "Switcher teimpléid"
 
-#: includes/Admin/SettingsPage.php:835
+#: includes/Admin/SettingsPage.php:717
 msgid "Neuer Switcher"
 msgstr "Switcher nua"
 
-#: includes/Admin/SettingsPage.php:846
+#: includes/Admin/SettingsPage.php:728
 msgid "Einstellungen speichern"
 msgstr "Sábháil socruithe"
 
 #. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:857
+#: includes/Admin/SettingsPage.php:739
 msgid "Hilfe & Dokumentation: %s"
 msgstr "Cabhair & Doiciméadúchán: %s"
 
-#: includes/Admin/SettingsPage.php:940
+#: includes/Admin/SettingsPage.php:773
 msgid "Instanz entfernen"
 msgstr "Bain sampla"
 
-#: includes/Admin/SettingsPage.php:949
+#: includes/Admin/SettingsPage.php:782
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "Aitheantas an Cháis"
 
-#: includes/Admin/SettingsPage.php:953
+#: includes/Admin/SettingsPage.php:786
 msgid "Name"
 msgstr "ainm"
 
-#: includes/Admin/SettingsPage.php:974
+#: includes/Admin/SettingsPage.php:807
 msgid "Vollständiger Name"
 msgstr "Ainm iomlán"
 
-#: includes/Admin/SettingsPage.php:975
+#: includes/Admin/SettingsPage.php:808
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:979
+#: includes/Admin/SettingsPage.php:812
 msgid "Position"
 msgstr "seasamh"
 
-#: includes/Admin/SettingsPage.php:987
+#: includes/Admin/SettingsPage.php:820
 msgid "Ausblenden auf"
 msgstr "Folaigh ar"
 
-#: includes/Admin/SettingsPage.php:989
+#: includes/Admin/SettingsPage.php:822
 msgid "Keinem Gerät"
 msgstr "Gan gléas"
 
-#: includes/Admin/SettingsPage.php:990
+#: includes/Admin/SettingsPage.php:823
 msgid "Mobilgeräten"
 msgstr "gléasanna soghluaiste"
 
-#: includes/Admin/SettingsPage.php:991
+#: includes/Admin/SettingsPage.php:824
 msgid "Desktop-Geräten"
 msgstr "Gléasanna deisce"
 
-#: includes/Admin/SettingsPage.php:995
+#: includes/Admin/SettingsPage.php:828
 msgid "Breakpoint (px)"
 msgstr "Brisphointe (px)"
 
-#: includes/Admin/SettingsPage.php:1002
+#: includes/Admin/SettingsPage.php:835
 msgid "Instanz aktivieren"
 msgstr "Gníomhachtaigh shampla"
 
-#: includes/Admin/SettingsPage.php:1004
+#: includes/Admin/SettingsPage.php:837
 msgid "Automatisch platzieren"
 msgstr "Áit go huathoibríoch"
 
-#: includes/Admin/SettingsPage.php:1006
+#: includes/Admin/SettingsPage.php:839
 msgid "Beschriftung anzeigen"
 msgstr "Taispeáin fotheideal"
 
-#: includes/Admin/SettingsPage.php:1010
+#: includes/Admin/SettingsPage.php:843
 msgid "Sprachreihenfolge"
 msgstr "Ord teanga"
 
-#: includes/Admin/SettingsPage.php:1015
+#: includes/Admin/SettingsPage.php:848
 msgid "Eigene Flaggen"
 msgstr "Bratacha féin"
 
-#: includes/Admin/SettingsPage.php:1024
-msgid "Eigenes CSS"
-msgstr "Féin CSS"
-
-#: includes/Admin/SettingsPage.php:1029
+#: includes/Admin/SettingsPage.php:857
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "Sprioc DOM le haghaidh socrúcháin uathoibríoch"
 
-#: includes/Admin/SettingsPage.php:1032
+#: includes/Admin/SettingsPage.php:860
 msgid "Element in der Vorschau auswählen"
 msgstr "Roghnaigh eilimint sa réamhamharc"
 
-#: includes/Admin/SettingsPage.php:1034
+#: includes/Admin/SettingsPage.php:862
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Má tá an sprioc in easnamh nó má tá sé neamhbhailí, fanfaidh an Switcher go sábháilte sa bhuntásc."
 
-#: includes/Admin/SettingsPage.php:1038
+#: includes/Admin/SettingsPage.php:866
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Réamhamharc ar an suíomh Gréasáin don socrúchán Switcher"
 
-#: includes/Api/Client.php:308
+#: includes/Api/Client.php:165
+#: includes/Api/Client.php:456
+msgid "Deepglot API Fehler."
+msgstr "Earráid API Deepglot."
+
+#: includes/Api/Client.php:344
 #: includes/Sync/SettingsSync.php:62
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Níl API-Key ann don sioncronú."
 
-#: includes/Api/Client.php:353
+#: includes/Api/Client.php:389
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Níl API-Key ann do chumraíocht an ama rite."
 
-#: includes/Api/Client.php:420
-msgid "Deepglot API Fehler."
-msgstr "Earráid API Deepglot."
-
-#: includes/Api/Client.php:621
+#: includes/Api/Client.php:657
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key neamhbhailí nó cúlghairthe."
 
@@ -605,12 +594,12 @@ msgid "Ungültige Herkunft."
 msgstr "Bunús neamhbhailí."
 
 #. translators: %s: native language name.
-#: includes/Frontend/LanguageSwitcher.php:273
+#: includes/Frontend/LanguageSwitcher.php:289
 msgid "Switch language to %s"
 msgstr "Athraigh teanga go %s"
 
 #. translators: %s: active language name.
-#: includes/Frontend/LanguageSwitcher.php:293
+#: includes/Frontend/LanguageSwitcher.php:299
 msgid "Sprache: %s"
 msgstr "Teanga: %s"
 

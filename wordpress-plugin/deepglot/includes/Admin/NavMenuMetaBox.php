@@ -17,6 +17,27 @@ class NavMenuMetaBox
     public function register(): void
     {
         add_action('admin_init', [$this, 'addMetaBox']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+    }
+
+    public function enqueueAssets(string $hook): void
+    {
+        if ($hook !== 'nav-menus.php') {
+            return;
+        }
+
+        wp_enqueue_script(
+            'deepglot-nav-menu-metabox',
+            DEEPGLOT_PLUGIN_URL . 'assets/js/nav-menu-metabox.js',
+            ['nav-menu'],
+            DEEPGLOT_PLUGIN_VERSION,
+            true
+        );
+        wp_localize_script(
+            'deepglot-nav-menu-metabox',
+            'deepglotNavMenuMetabox',
+            ['label' => __('Sprachschalter', 'deepglot')]
+        );
     }
 
     public function addMetaBox(): void
@@ -75,45 +96,6 @@ class NavMenuMetaBox
             </p>
         </div>
 
-        <script>
-        (function () {
-            var btn = document.getElementById('deepglot-nav-submit');
-            if (!btn) return;
-            btn.addEventListener('click', function () {
-                var mode = document.querySelector('input[name="deepglot-nav-mode"]:checked');
-                var modeValue = mode ? mode.value : 'list';
-                var hideCurrent = document.getElementById('deepglot-nav-hide-current');
-                var hide = hideCurrent && hideCurrent.checked;
-
-                var classes = ['deepglot-switcher'];
-                if (modeValue === 'dropdown') { classes.push('deepglot-mode-dropdown'); }
-                if (hide) { classes.push('deepglot-hide-current'); }
-
-                if (typeof wpNavMenu !== 'undefined' && wpNavMenu.addLinkToMenu) {
-                    // Use WP's own helper so the new item slots into the
-                    // selected menu, picks up the right db_id, and shows
-                    // the spinner exactly like a normal Custom Link add.
-                    wpNavMenu.addLinkToMenu(
-                        '#deepglot-switcher',
-                        <?php echo wp_json_encode(__('Sprachschalter', 'deepglot')); ?>,
-                        'deepglot-nav-menu',
-                        function () {
-                            // Apply our marker classes to the freshly
-                            // inserted item by finding the most recent
-                            // pending menu item.
-                            var items = document.querySelectorAll('#menu-to-edit > li');
-                            if (!items.length) return;
-                            var last = items[items.length - 1];
-                            var input = last.querySelector('input.edit-menu-item-classes');
-                            if (input) { input.value = classes.join(' '); }
-                            var hidden = last.querySelector('input.menu-item-classes');
-                            if (hidden) { hidden.value = classes.join(' '); }
-                        }
-                    );
-                }
-            });
-        })();
-        </script>
         <?php
     }
 }

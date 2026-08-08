@@ -49,7 +49,6 @@ export default async function SwitcherPage({ params }: PageProps) {
 
   const s = project.settings;
   const flagStyleId = "switcher-flag-style";
-  const customCssId = "switcher-custom-css";
   const flagTypes = localizeCopy(locale, FLAG_TYPES);
   const originalEditLabel =
     uiText(locale, "Edit original language appearance", "Darstellung der Originalsprache bearbeiten");
@@ -133,26 +132,6 @@ export default async function SwitcherPage({ params }: PageProps) {
             </select>
             <p className="text-xs text-gray-400">
               {uiText(locale, "Style of country flags.", "Art der Länderflaggen.")}
-            </p>
-          </div>
-
-          {/* Custom CSS */}
-          <div className="space-y-1.5">
-            <Label
-              htmlFor={customCssId}
-              className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
-            >
-              {uiText(locale, "Custom CSS", "Benutzerdefiniertes CSS")}
-            </Label>
-            <textarea
-              id={customCssId}
-              defaultValue={s?.switcherCustomCss ?? ".language-selector {\n  margin-bottom: 20px;\n}"}
-              rows={5}
-              readOnly
-              className="w-full rounded-md border border-input bg-gray-50 px-3 py-2 text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y"
-            />
-            <p className="text-xs text-gray-400">
-              {uiText(locale, "CSS applied to the language switcher or your website.", "CSS das auf den Sprachauswähler oder deine Website angewendet wird.")}
             </p>
           </div>
 

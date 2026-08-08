@@ -4,8 +4,8 @@
  * Pins the new responsive-hide options that let a site owner show the
  * switcher only on desktop or only on mobile (Weglot-parity: their
  * per-switcher `display_device` + `pixel_cutoff` controls). The
- * renderer emits a scoped <style> block with @media rules so no JS is
- * needed — pure CSS toggle.
+ * renderer attaches scoped @media rules to the enqueued switcher stylesheet
+ * so no JS is needed — pure CSS toggle.
  *
  * Contract:
  *   - new option `switcher_responsive_hide` enum: 'none' (default),
@@ -45,6 +45,7 @@ if (!function_exists('add_action')) {
 if (!function_exists('wp_register_style')) {
     function wp_register_style(...$args) { return true; }
     function wp_enqueue_style(...$args) { return true; }
+    function wp_add_inline_style(...$args) { $GLOBALS['_deepglot_inline_styles'][] = $args; return true; }
     function wp_register_script(...$args) { return true; }
     function wp_enqueue_script(...$args) { return true; }
 }
@@ -111,6 +112,13 @@ function makeRhSwitcher(array $overrides = []): LanguageSwitcher
     return new LanguageSwitcher($options, $routing);
 }
 
+function captureRhCss(LanguageSwitcher $switcher): string
+{
+    $GLOBALS['_deepglot_inline_styles'] = [];
+    $switcher->enqueueStyles();
+    return implode('', array_map(static fn (array $args): string => (string) ($args[1] ?? ''), $GLOBALS['_deepglot_inline_styles']));
+}
+
 // 1. New defaults present + sensible.
 $defaults = Options::defaults();
 rhAssert(array_key_exists('switcher_responsive_hide', $defaults), 'switcher_responsive_hide default missing');
@@ -144,40 +152,40 @@ $opts2 = new Options();
 rhAssert($opts2->getSwitcherResponsiveHide() === 'mobile', 'Accessor returns saved hide value');
 rhAssert($opts2->getSwitcherResponsiveBreakpoint() === 600, 'Accessor returns saved breakpoint');
 
-// 6. hide=none → no @media block in output.
-$noneHtml = (makeRhSwitcher(['switcher_responsive_hide' => 'none']))->renderShortcode([]);
-rhAssert(!str_contains($noneHtml, '@media'), 'hide=none: no @media rule in output');
+// 6. hide=none → no generated @media rule.
+$noneCss = captureRhCss(makeRhSwitcher(['switcher_responsive_hide' => 'none']));
+rhAssert(!str_contains($noneCss, '@media'), 'hide=none: no @media rule is attached');
 
 // 7. hide=mobile → max-width @media block with display:none.
-$mobileHtml = (makeRhSwitcher([
+$mobileCss = captureRhCss(makeRhSwitcher([
     'switcher_responsive_hide' => 'mobile',
     'switcher_responsive_breakpoint' => 600,
-]))->renderShortcode([]);
-rhAssert(str_contains($mobileHtml, '@media'), 'hide=mobile: @media block present');
+]));
+rhAssert(str_contains($mobileCss, '@media'), 'hide=mobile: @media block present');
 rhAssert(
-    preg_match('/@media[^{]*max-width:\s*600px[^{]*\{[^}]*display\s*:\s*none/i', $mobileHtml) === 1,
-    'hide=mobile: @media (max-width: 600px) { display: none } emitted: ' . substr($mobileHtml, 0, 400)
+    preg_match('/@media[^{]*max-width:\s*600px[^{]*\{[^}]*display\s*:\s*none/i', $mobileCss) === 1,
+    'hide=mobile: @media (max-width: 600px) { display: none } attached: ' . substr($mobileCss, 0, 400)
 );
 
 // 8. hide=desktop → min-width @media block at breakpoint+1px so 768
 // is treated as the last mobile width.
-$desktopHtml = (makeRhSwitcher([
+$desktopCss = captureRhCss(makeRhSwitcher([
     'switcher_responsive_hide' => 'desktop',
     'switcher_responsive_breakpoint' => 768,
-]))->renderShortcode([]);
+]));
 rhAssert(
-    preg_match('/@media[^{]*min-width:\s*769px/i', $desktopHtml) === 1,
-    'hide=desktop: @media (min-width: 769px) — breakpoint+1 so 768 is the last mobile width: ' . substr($desktopHtml, 0, 400)
+    preg_match('/@media[^{]*min-width:\s*769px/i', $desktopCss) === 1,
+    'hide=desktop: @media (min-width: 769px) — breakpoint+1 so 768 is the last mobile width: ' . substr($desktopCss, 0, 400)
 );
 rhAssert(
-    preg_match('/min-width:\s*769px[^{]*\{[^}]*display\s*:\s*none/i', $desktopHtml) === 1,
+    preg_match('/min-width:\s*769px[^{]*\{[^}]*display\s*:\s*none/i', $desktopCss) === 1,
     'hide=desktop: @media min-width:769 block ends with display:none rule'
 );
 
 // 9. The @media rule is scoped to .deepglot-switcher (not html or
 // body) so it can't accidentally hide unrelated content.
 rhAssert(
-    preg_match('/\.deepglot-switcher\s*\{?[^}]*display\s*:\s*none/i', $mobileHtml) === 1,
+    preg_match('/\.deepglot-switcher[^}]*display\s*:\s*none/i', $mobileCss) === 1,
     '@media rule targets .deepglot-switcher only'
 );
 

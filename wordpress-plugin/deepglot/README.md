@@ -1,6 +1,6 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.1**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
 
 v0.12.0 stops ordinary page renders from waiting on fresh translations: uncached or failed segments enter a bounded background WP-Cron queue, and supported full-page caches are purged after the local translation cache is warm. The first cold view can show source content; a later view converges after cron succeeds. Visual-editor previews and WooCommerce HTML emails remain synchronous because they cannot converge on a later page request. Sites on a fast provider can translate ordinary pages inline again via `deepglot_max_sync_batches`.
 
@@ -66,11 +66,11 @@ The plugin ships a complete translation pipeline:
   follow path-prefix or configured subdomain routing; translation exclusions
   and external URLs are rejected before XML serialization.
 - An opt-in client-side translator for content loaded after page render (see below).
-- WP Rocket compatibility: `switcher.css` and the switcher's inline `<style>`
-  blocks are excluded from "Remove Unused CSS" and minification
-  (`WpRocketCompat`), because WP Rocket's used-CSS pipeline re-encodes the
-  emoji flag glyphs as HTML entities — invalid CSS that renders as literal
-  text instead of flags.
+- WP Rocket compatibility: `switcher.css` and the responsive/custom-flag rules
+  attached through WordPress's stylesheet API are excluded from "Remove Unused
+  CSS" and minification (`WpRocketCompat`), because WP Rocket's used-CSS
+  pipeline re-encodes emoji flag glyphs as HTML entities — invalid CSS that
+  renders as literal text instead of flags.
 - UTF-8-safe serialization: every DOM round-trip goes through
   `Support\HtmlDocument`. `DOMDocument::saveHTML()` only emits raw UTF-8 when
   libxml can read the encoding from the classic
@@ -90,8 +90,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.0 this creates `deepglot-0.12.0.zip` and
-`deepglot-0.12.0.zip.sha256`. Build the same commit into two empty output
+For v0.12.1 this creates `deepglot-0.12.1.zip` and
+`deepglot-0.12.1.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test

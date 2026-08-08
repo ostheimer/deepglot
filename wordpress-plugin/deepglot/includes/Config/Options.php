@@ -100,7 +100,6 @@ class Options
             'switcher_show_label' => true,
             'switcher_label_format' => 'full_name',
             'switcher_language_order' => [],
-            'switcher_custom_css' => '',
             'switcher_position' => 'inline',
             'switcher_responsive_hide' => 'none',
             'switcher_responsive_breakpoint' => self::SWITCHER_BREAKPOINT_DEFAULT,
@@ -210,7 +209,6 @@ class Options
                 'full_name'
             ),
             'switcher_language_order' => $this->normalizeLanguageList($input['switcher_language_order'] ?? []),
-            'switcher_custom_css' => trim((string) ($input['switcher_custom_css'] ?? '')),
             'switcher_position' => $this->sanitizeEnum(
                 (string) ($input['switcher_position'] ?? 'inline'),
                 self::SWITCHER_POSITIONS,
@@ -397,7 +395,6 @@ class Options
             'show_label' => !empty($raw['show_label']),
             'label_format' => $this->sanitizeEnum((string) ($raw['label_format'] ?? 'full_name'), self::SWITCHER_LABEL_FORMATS, 'full_name'),
             'language_order' => $this->normalizeLanguageList($raw['language_order'] ?? []),
-            'custom_css' => trim((string) ($raw['custom_css'] ?? '')),
             'position' => $this->sanitizeEnum((string) ($raw['position'] ?? 'inline'), self::SWITCHER_POSITIONS, 'inline'),
             'responsive_hide' => $this->sanitizeEnum((string) ($raw['responsive_hide'] ?? 'none'), self::SWITCHER_RESPONSIVE_HIDE_VALUES, 'none'),
             'responsive_breakpoint' => $this->sanitizeBreakpoint($raw['responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT),
@@ -424,7 +421,6 @@ class Options
             'show_label' => !empty($settings['switcher_show_label']),
             'label_format' => $this->sanitizeEnum((string) ($settings['switcher_label_format'] ?? 'full_name'), self::SWITCHER_LABEL_FORMATS, 'full_name'),
             'language_order' => $this->normalizeLanguageList($settings['switcher_language_order'] ?? []),
-            'custom_css' => trim((string) ($settings['switcher_custom_css'] ?? '')),
             'position' => $this->sanitizeEnum((string) ($settings['switcher_position'] ?? 'inline'), self::SWITCHER_POSITIONS, 'inline'),
             'responsive_hide' => $this->sanitizeEnum((string) ($settings['switcher_responsive_hide'] ?? 'none'), self::SWITCHER_RESPONSIVE_HIDE_VALUES, 'none'),
             'responsive_breakpoint' => $this->sanitizeBreakpoint($settings['switcher_responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT),
@@ -694,12 +690,6 @@ class Options
         return $this->normalizeLanguageList($stored);
     }
 
-    public function getSwitcherCustomCss(): string
-    {
-        $options = $this->all();
-        return (string) ($options['switcher_custom_css'] ?? '');
-    }
-
     /**
      * Per-language flag overrides: assoc array<lang, emoji|url>.
      * Already sanitised + scoped to configured languages by sanitize().
@@ -834,9 +824,6 @@ class Options
             }
             if (array_key_exists('languageOrder', $switcher)) {
                 $settings['switcher_language_order'] = $this->normalizeLanguageList($switcher['languageOrder']);
-            }
-            if (array_key_exists('customCss', $switcher)) {
-                $settings['switcher_custom_css'] = trim((string) $switcher['customCss']);
             }
             if (array_key_exists('position', $switcher)) {
                 $settings['switcher_position'] = $this->sanitizeEnum(

@@ -16,7 +16,6 @@
  *     in the DOM for screen readers (visually-hidden span)
  *   - language order overrides the default [source, ...targets] order and
  *     ignores languages that are not configured
- *   - custom CSS is emitted in a scoped <style> block before the nav
  *   - auto-inject toggles register a wp_footer hook
  *
  * Run standalone: php tests/LanguageSwitcherRenderingTest.php
@@ -223,27 +222,7 @@ switcherRenderAssert($posFr2 !== false && $posDe2 !== false && $posEn2 !== false
 switcherRenderAssert($posFr2 < $posDe2 && $posDe2 < $posEn2, 'Order follows switcher_language_order: ' . $orderedHtml);
 switcherRenderAssert(!str_contains($orderedHtml, 'hreflang="zz"'), 'Unconfigured language is not rendered');
 
-// 8. Custom CSS is emitted in a scoped <style> tag immediately before the
-// nav so the cascade overrides default switcher.css rules.
-$css = ".deepglot-switcher{background:hotpink}";
-$customCss = makeSwitcher(['switcher_custom_css' => $css]);
-$cssHtml = $customCss->renderShortcode([]);
-switcherRenderAssert(str_contains($cssHtml, '<style'), 'Custom CSS wrapper present: ' . $cssHtml);
-switcherRenderAssert(str_contains($cssHtml, $css), 'Custom CSS contents preserved verbatim');
-$cssStylePos = strpos($cssHtml, '<style');
-$cssNavPos   = strpos($cssHtml, '<aside');
-switcherRenderAssert($cssStylePos !== false && $cssNavPos !== false && $cssStylePos < $cssNavPos, 'Custom CSS emitted before switcher wrapper');
-
-// Custom CSS must NOT break out of its <style> tag. A malicious admin
-// submission with a closing tag should be neutralised. The renderer must
-// either escape the closing tag or strip it — empty output for the broken
-// CSS would silently drop user intent, so prefer escaping.
-$xssCss = ".x{}</style><script>alert(1)</script>";
-$xssSwitcher = makeSwitcher(['switcher_custom_css' => $xssCss]);
-$xssHtml = $xssSwitcher->renderShortcode([]);
-switcherRenderAssert(!str_contains($xssHtml, '<script>alert(1)</script>'), 'Custom CSS must not allow <script> breakout');
-
-// 9. Auto-inject toggle registers a wp_footer action; toggle off omits it.
+// 8. Auto-inject toggle registers a wp_footer action; toggle off omits it.
 $GLOBALS['_deepglot_actions'] = [];
 $auto = makeSwitcher(['switcher_auto_inject' => true]);
 $auto->register();
@@ -256,7 +235,7 @@ $manual->register();
 $footerCallbacksOff = $GLOBALS['_deepglot_actions']['wp_footer'] ?? [];
 switcherRenderAssert(count($footerCallbacksOff) === 0, 'Auto-inject off must not register wp_footer hook');
 
-// 10. Shortcode `style="dropdown"` att still wins over the saved option so
+// 9. Shortcode `style="dropdown"` att still wins over the saved option so
 // templates that embed `[deepglot_switcher style="dropdown"]` keep working
 // after the upgrade.
 $override = makeSwitcher(['switcher_default_style' => 'list']);

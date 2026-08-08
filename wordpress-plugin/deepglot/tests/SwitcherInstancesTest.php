@@ -35,6 +35,7 @@ if (!function_exists('add_action')) {
 if (!function_exists('wp_register_style')) {
     function wp_register_style(...$args) { return true; }
     function wp_enqueue_style(...$args) { return true; }
+    function wp_add_inline_style(...$args) { return true; }
     function wp_register_script(...$args) { return true; }
     function wp_enqueue_script(...$args) { return true; }
 }
@@ -185,7 +186,6 @@ $switcher = buildInstanceSwitcher([
                 'auto_inject' => true,
                 'style' => 'dropdown',
                 'flag_style' => 'circle_glossy',
-                'custom_css' => '.deepglot-switcher{color:red}',
                 'selector' => 'header.site-header > nav.primary-nav',
             ]
         ),
@@ -197,7 +197,6 @@ instanceAssert(str_contains($defaultHtml, 'data-deepglot-instance="default"'), '
 instanceAssert(str_contains($headerHtml, 'data-deepglot-instance="header-main"'), 'Shortcode instance attribute selects named instance');
 instanceAssert(str_contains($headerHtml, 'deepglot-switcher--dropdown'), 'Named instance uses its own style');
 instanceAssert(str_contains($headerHtml, 'deepglot-switcher--flag-circle_glossy'), 'Named instance uses its own flag style');
-instanceAssert(str_contains($headerHtml, '.deepglot-switcher[data-deepglot-instance="header-main"]{color:red}'), 'Named instance custom CSS is scoped to that instance');
 instanceAssert(!str_contains($headerHtml, 'data-deepglot-target'), 'Explicit shortcode placement is not moved by an auto-placement selector');
 preg_match('/<input\s+id="([^"]+)"/', $defaultHtml, $defaultId);
 preg_match('/<input\s+id="([^"]+)"/', $headerHtml, $headerId);

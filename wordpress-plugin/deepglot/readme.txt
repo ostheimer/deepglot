@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.0
+Stable tag: 0.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,10 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.12.1 =
+* Removed arbitrary custom CSS input from language-switcher settings and runtime configuration.
+* Loaded admin and nav-menu assets through WordPress enqueue APIs and attached generated responsive and flag rules through the registered switcher stylesheet.
+
 = 0.12.0 =
 * Ordinary page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first cold view is fast and later views converge after WP-Cron succeeds.
 * Added bounded, atomically locked background cache warming. Failed and partial results remain queued, and supported full-page caches are purged after warming completes.
@@ -123,6 +127,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.1 =
+Addresses WordPress.org review feedback by removing arbitrary CSS input and loading plugin assets through WordPress APIs. Requires PHP 8.0 or newer.
 
 = 0.12.0 =
 Moves fresh translations off the page render into a background job, so cold pages load fast instead of waiting for the translation API. Requires PHP 8.0 or newer.

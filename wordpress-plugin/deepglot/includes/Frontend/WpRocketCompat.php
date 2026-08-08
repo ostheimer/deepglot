@@ -15,8 +15,8 @@ namespace Deepglot\Frontend;
  *
  * The fix is to tell WP Rocket to leave the switcher CSS alone:
  * keep the original switcher.css <link> tag (RUCSS + minify exclusions)
- * and preserve the per-instance inline <style> blocks that
- * LanguageSwitcher emits (custom CSS / responsive hide / custom flags).
+ * and preserve the generated responsive and custom-flag rules that
+ * WordPress attaches to that registered stylesheet.
  *
  * The filters are registered unconditionally: they only ever fire when
  * WP Rocket itself applies them, and the used-CSS cache can be
@@ -26,12 +26,10 @@ namespace Deepglot\Frontend;
 class WpRocketCompat
 {
     /**
-     * Substring RUCSS matches against an inline <style> tag's attributes.
-     * Covers all three blocks emitted by LanguageSwitcher:
-     * deepglot-switcher__custom-css, deepglot-switcher__responsive-css
-     * and deepglot-switcher__custom-flags.
+     * WordPress gives CSS added through wp_add_inline_style() this id.
+     * RUCSS matches this substring against the generated tag attributes.
      */
-    private const INLINE_ATTR_PATTERN = 'deepglot-switcher__';
+    private const INLINE_ATTR_PATTERN = 'deepglot-switcher-inline-css';
 
     /**
      * Substring RUCSS matches against an inline <style> tag's contents.

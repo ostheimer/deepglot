@@ -88,7 +88,7 @@ switcherAssert(array_key_exists('switcher_flag_style', $defaults), 'switcher_fla
 switcherAssert(array_key_exists('switcher_show_label', $defaults), 'switcher_show_label default missing');
 switcherAssert(array_key_exists('switcher_label_format', $defaults), 'switcher_label_format default missing');
 switcherAssert(array_key_exists('switcher_language_order', $defaults), 'switcher_language_order default missing');
-switcherAssert(array_key_exists('switcher_custom_css', $defaults), 'switcher_custom_css default missing');
+switcherAssert(!array_key_exists('switcher_custom_css', $defaults), 'arbitrary CSS must not be part of the settings contract');
 
 switcherAssert($defaults['switcher_auto_inject'] === false, 'switcher_auto_inject default must be off (opt-in)');
 switcherAssert($defaults['switcher_default_style'] === 'list', 'switcher_default_style must default to list');
@@ -96,7 +96,6 @@ switcherAssert($defaults['switcher_flag_style'] === 'rectangle_mat', 'switcher_f
 switcherAssert($defaults['switcher_show_label'] === true, 'switcher_show_label default must be on');
 switcherAssert($defaults['switcher_label_format'] === 'full_name', 'switcher_label_format must default to full_name');
 switcherAssert($defaults['switcher_language_order'] === [], 'switcher_language_order default must be empty array');
-switcherAssert($defaults['switcher_custom_css'] === '', 'switcher_custom_css default must be empty string');
 
 // 2. Sanitization clamps every option to safe values so a malformed admin
 // form submission cannot poison the runtime renderer.
@@ -116,7 +115,7 @@ switcherAssert($sanitized['switcher_default_style'] === 'list', 'invalid switche
 switcherAssert($sanitized['switcher_flag_style'] === 'rectangle_mat', 'valid flag style passes through');
 switcherAssert($sanitized['switcher_label_format'] === 'full_name', 'invalid label format must fall back to full_name');
 switcherAssert($sanitized['switcher_language_order'] === ['en', 'de', 'fr'], 'language order must lowercase, dedupe, strip non-ISO entries (got ' . json_encode($sanitized['switcher_language_order']) . ')');
-switcherAssert($sanitized['switcher_custom_css'] === '.deepglot-switcher{color:red;}', 'custom CSS must be trimmed');
+switcherAssert(!array_key_exists('switcher_custom_css', $sanitized), 'admin-submitted arbitrary CSS must be discarded');
 
 $sanitizedTwo = $options->sanitize([
     'switcher_default_style' => 'dropdown',
@@ -145,7 +144,6 @@ update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
     'switcher_show_label' => false,
     'switcher_label_format' => 'iso_code',
     'switcher_language_order' => ['en', 'de', 'fr'],
-    'switcher_custom_css' => '.x{color:blue}',
 ]));
 
 switcherAssert($options->shouldAutoInjectSwitcher() === true, 'shouldAutoInjectSwitcher accessor missing or wrong');
@@ -154,11 +152,11 @@ switcherAssert($options->getSwitcherFlagStyle() === 'none', 'getSwitcherFlagStyl
 switcherAssert($options->shouldShowSwitcherLabel() === false, 'shouldShowSwitcherLabel accessor missing or wrong');
 switcherAssert($options->getSwitcherLabelFormat() === 'iso_code', 'getSwitcherLabelFormat accessor missing or wrong');
 switcherAssert($options->getSwitcherLanguageOrder() === ['en', 'de', 'fr'], 'getSwitcherLanguageOrder accessor missing or wrong');
-switcherAssert($options->getSwitcherCustomCss() === '.x{color:blue}', 'getSwitcherCustomCss accessor missing or wrong');
 
 // 5. Runtime config from SaaS can override switcher fields, mirroring how
 // runtime exclusions already work. Future-proof for two-way sync without
 // rewriting the WP admin form contract.
+update_option(Options::OPTION_KEY, Options::defaults());
 $options->applyRuntimeConfig([
     'switcher' => [
         'autoInject' => false,
@@ -174,6 +172,9 @@ $options->applyRuntimeConfig([
 switcherAssert($options->shouldAutoInjectSwitcher() === false, 'runtime config overrides autoInject');
 switcherAssert($options->getSwitcherFlagStyle() === 'circle_mat', 'runtime config overrides flagStyle');
 switcherAssert($options->getSwitcherLanguageOrder() === ['fr', 'en'], 'runtime config overrides languageOrder');
-switcherAssert($options->getSwitcherCustomCss() === '.from-saas{color:green}', 'runtime config overrides customCss');
+switcherAssert(
+    !array_key_exists('switcher_custom_css', get_option(Options::OPTION_KEY, [])),
+    'runtime config must ignore arbitrary CSS'
+);
 
 fwrite(STDOUT, "SwitcherSettingsTest: OK\n");

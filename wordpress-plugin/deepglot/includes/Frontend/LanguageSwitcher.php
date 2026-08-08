@@ -124,6 +124,23 @@ class LanguageSwitcher
 
         wp_enqueue_style('deepglot-switcher');
 
+        $dynamicCss = '';
+        foreach ($this->options->getSwitcherInstances() as $instance) {
+            $instanceId = (string) ($instance['id'] ?? 'default');
+            $dynamicCss .= $this->buildResponsiveCss(
+                (string) ($instance['responsive_hide'] ?? 'none'),
+                (int) ($instance['responsive_breakpoint'] ?? Options::SWITCHER_BREAKPOINT_DEFAULT),
+                $instanceId
+            );
+            $dynamicCss .= $this->buildCustomFlagsCss(
+                is_array($instance['custom_flags'] ?? null) ? $instance['custom_flags'] : [],
+                $instanceId
+            );
+        }
+        if ($dynamicCss !== '') {
+            wp_add_inline_style('deepglot-switcher', $dynamicCss);
+        }
+
         // Tiny progressive-enhancement script: syncs aria-expanded on the
         // wrapper with the checkbox state so screen readers see the live
         // open/closed status. CSS still drives the visual toggle; the JS
@@ -185,7 +202,6 @@ class LanguageSwitcher
         $showLabel     = (bool) ($instance['show_label'] ?? $this->options->shouldShowSwitcherLabel());
         $languageOrder = is_array($instance['language_order'] ?? null) ? $instance['language_order'] : [];
         $position      = (string) ($instance['position'] ?? $this->options->getSwitcherPosition());
-        $customCss     = (string) ($instance['custom_css'] ?? $this->options->getSwitcherCustomCss());
         $autoRedirect  = $this->options->shouldAutoRedirect();
 
         $configured   = array_values(array_unique(array_merge([$sourceLang], $targetLangs)));
@@ -279,16 +295,6 @@ class LanguageSwitcher
         }
         $items .= '</ul>';
 
-        $css           = $this->renderCustomCss($customCss, $instanceId);
-        $responsiveCss = $this->renderResponsiveCss(
-            (string) ($instance['responsive_hide'] ?? 'none'),
-            (int) ($instance['responsive_breakpoint'] ?? Options::SWITCHER_BREAKPOINT_DEFAULT),
-            $instanceId
-        );
-        $customFlags   = $this->renderCustomFlagsCss(
-            is_array($instance['custom_flags'] ?? null) ? $instance['custom_flags'] : [],
-            $instanceId
-        );
         /* translators: %s: active language name. */
         $ariaLabel     = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
@@ -312,7 +318,7 @@ class LanguageSwitcher
             ? ' data-deepglot-target="' . esc_attr($targetSelector) . '"'
             : '';
 
-        return $css . $responsiveCss . $customFlags . $marker . sprintf(
+        return $marker . sprintf(
             '<aside class="%s" data-deepglot-no-translate data-deepglot-instance="%s"%s tabindex="0"%s aria-label="%s">%s%s</aside>',
             esc_attr(implode(' ', $wrapperClasses)),
             esc_attr($instanceId),
@@ -331,7 +337,7 @@ class LanguageSwitcher
      * last mobile width — matches the common `max-width: 768px` /
      * `min-width: 769px` convention site themes already use.
      */
-    private function renderResponsiveCss(string $hide, int $breakpoint, string $instanceId): string
+    private function buildResponsiveCss(string $hide, int $breakpoint, string $instanceId): string
     {
         if ($hide === 'none') {
             return '';
@@ -343,14 +349,14 @@ class LanguageSwitcher
             $mediaQuery = '@media (min-width: ' . ($breakpoint + 1) . 'px)';
         }
 
-        return '<style class="deepglot-switcher__responsive-css">'
-            . $mediaQuery
-            . ' { .deepglot-switcher[data-deepglot-instance="' . esc_attr($instanceId) . '"] { display: none !important; } }'
-            . '</style>';
+        $safeInstanceId = preg_replace('/[^a-z0-9_-]/i', '', $instanceId);
+
+        return $mediaQuery
+            . ' { .deepglot-switcher[data-deepglot-instance="' . $safeInstanceId . '"] { display: none !important; } }';
     }
 
     /**
-     * Emit a scoped <style> block with per-language flag overrides.
+     * Build scoped per-language flag overrides.
      * Emoji values become `::before { content: "🇺🇸" }` overrides;
      * HTTPS URLs become `background-image: url("…")` with the default
      * emoji ::before reset to empty so the default flag does not stack
@@ -361,14 +367,15 @@ class LanguageSwitcher
      *
      * @param array<string,string> $customFlags
      */
-    private function renderCustomFlagsCss(array $customFlags, string $instanceId): string
+    private function buildCustomFlagsCss(array $customFlags, string $instanceId): string
     {
         if (empty($customFlags)) {
             return '';
         }
 
         $rules = '';
-        $scope = '.deepglot-switcher[data-deepglot-instance="' . esc_attr($instanceId) . '"] ';
+        $safeInstanceId = preg_replace('/[^a-z0-9_-]/i', '', $instanceId);
+        $scope = '.deepglot-switcher[data-deepglot-instance="' . $safeInstanceId . '"] ';
         foreach ($customFlags as $lang => $value) {
             $langSafe = preg_replace('/[^a-z0-9_-]/i', '', $lang);
             if ($langSafe === '') {
@@ -394,11 +401,7 @@ class LanguageSwitcher
             }
         }
 
-        if ($rules === '') {
-            return '';
-        }
-
-        return '<style class="deepglot-switcher__custom-flags">' . $rules . '</style>';
+        return $rules;
     }
 
     /**
@@ -485,32 +488,4 @@ class LanguageSwitcher
         return $href . $separator . 'deepglot-explicit=1' . $fragment;
     }
 
-    /**
-     * Wrap admin-provided CSS in a scoped <style> tag. Any '<' is stripped
-     * because legitimate CSS never needs it (no comparison operators, no
-     * tag-like syntax) and removing it neutralises any `</style>` /
-     * `<script>` breakout that a hostile or sloppy paste could smuggle in.
-     */
-    private function renderCustomCss(string $css, string $instanceId): string
-    {
-        $css = trim($css);
-        if ($css === '') {
-            return '';
-        }
-
-        $safe = str_replace('<', '', $css);
-
-        // Preserve the migrated global/default CSS byte-for-byte. New named
-        // instances scope the conventional `.deepglot-switcher` selector so
-        // editing one instance does not restyle its siblings.
-        if ($instanceId !== 'default') {
-            $safe = str_replace(
-                '.deepglot-switcher',
-                '.deepglot-switcher[data-deepglot-instance="' . $instanceId . '"]',
-                $safe
-            );
-        }
-
-        return '<style class="deepglot-switcher__custom-css">' . $safe . '</style>';
-    }
 }

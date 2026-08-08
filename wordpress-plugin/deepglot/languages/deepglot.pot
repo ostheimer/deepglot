@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/deepglot\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-04T18:17:12+00:00\n"
+"POT-Creation-Date: 2026-08-08T17:47:09+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.11.0\n"
 "X-Domain: deepglot\n"
@@ -41,39 +41,39 @@ msgstr ""
 msgid "https://www.ostheimer.at"
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:26
+#: includes/Admin/NavMenuMetaBox.php:39
+msgid "Sprachschalter"
+msgstr ""
+
+#: includes/Admin/NavMenuMetaBox.php:47
 #: includes/Frontend/SwitcherBlock.php:58
 #: includes/Frontend/SwitcherWidget.php:25
 #: assets/js/block-switcher.js:19
 msgid "Deepglot Sprachschalter"
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:41
+#: includes/Admin/NavMenuMetaBox.php:62
 msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:44
+#: includes/Admin/NavMenuMetaBox.php:65
 msgid "Anzeige-Modus"
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:49
+#: includes/Admin/NavMenuMetaBox.php:70
 msgid "Liste (jede Sprache als eigener Menüpunkt)"
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:55
+#: includes/Admin/NavMenuMetaBox.php:76
 msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:61
+#: includes/Admin/NavMenuMetaBox.php:82
 msgid "Aktive Sprache aus der Liste ausblenden"
 msgstr ""
 
-#: includes/Admin/NavMenuMetaBox.php:71
+#: includes/Admin/NavMenuMetaBox.php:92
 msgid "Zum Menü hinzufügen"
-msgstr ""
-
-#: includes/Admin/NavMenuMetaBox.php:98
-msgid "Sprachschalter"
 msgstr ""
 
 #: includes/Admin/SettingsPage.php:60
@@ -100,451 +100,440 @@ msgstr ""
 msgid "Kontingent im Deepglot-Dashboard prüfen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:263
+#: includes/Admin/SettingsPage.php:157
 msgid "API-Key ungültig"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:266
+#: includes/Admin/SettingsPage.php:160
 msgid "Aktiv"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:269
+#: includes/Admin/SettingsPage.php:163
 msgid "Deaktiviert"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:272
+#: includes/Admin/SettingsPage.php:166
 msgid "Einrichtung erforderlich"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:295
+#: includes/Admin/SettingsPage.php:189
 msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:306
+#: includes/Admin/SettingsPage.php:200
 msgid "Deepglot einrichten"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:307
+#: includes/Admin/SettingsPage.php:201
 msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:319
+#: includes/Admin/SettingsPage.php:213
 msgid "API-Key eintragen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:322
+#: includes/Admin/SettingsPage.php:216
 msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:327
+#: includes/Admin/SettingsPage.php:221
 msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:330
+#: includes/Admin/SettingsPage.php:224
 msgid "Zum Dashboard – API-Key erstellen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:335
+#: includes/Admin/SettingsPage.php:229
 msgid "API-Key"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:346
+#: includes/Admin/SettingsPage.php:240
 msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:350
+#: includes/Admin/SettingsPage.php:244
 msgid "Backend-URL"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:358
+#: includes/Admin/SettingsPage.php:252
 msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:370
+#: includes/Admin/SettingsPage.php:264
 msgid "Sprachen konfigurieren"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:372
+#: includes/Admin/SettingsPage.php:266
 msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:376
+#: includes/Admin/SettingsPage.php:270
 msgid "Originalsprache"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:387
+#: includes/Admin/SettingsPage.php:281
 msgid "Zielsprachen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:395
+#: includes/Admin/SettingsPage.php:289
 msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:407
+#: includes/Admin/SettingsPage.php:301
 msgid "Übersetzung aktivieren"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:409
+#: includes/Admin/SettingsPage.php:303
 msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:421
+#: includes/Admin/SettingsPage.php:315
 msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:426
+#: includes/Admin/SettingsPage.php:320
 msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
 msgstr ""
 
 #. translators: %1$s: source language, %2$s: target languages
-#: includes/Admin/SettingsPage.php:434
+#: includes/Admin/SettingsPage.php:328
 msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:454
+#: includes/Admin/SettingsPage.php:348
 msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:463
+#: includes/Admin/SettingsPage.php:357
 msgid "Erweiterte Einstellungen ausblenden"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:463
-#: includes/Admin/SettingsPage.php:464
+#: includes/Admin/SettingsPage.php:357
+#: includes/Admin/SettingsPage.php:358
 msgid "Erweiterte Einstellungen anzeigen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:468
+#: includes/Admin/SettingsPage.php:362
 msgid "Ausgeschlossene URLs"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:470
+#: includes/Admin/SettingsPage.php:364
 msgid "Eine URL oder ein Muster pro Zeile."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:473
+#: includes/Admin/SettingsPage.php:367
 msgid "Routing-Modus"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:476
+#: includes/Admin/SettingsPage.php:370
 msgid "Pfad-Präfix (/en/meine-seite)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:479
+#: includes/Admin/SettingsPage.php:373
 msgid "Subdomains (en.example.com)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:482
+#: includes/Admin/SettingsPage.php:376
 msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:485
+#: includes/Admin/SettingsPage.php:379
 msgid "Domain-Zuordnungen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:493
+#: includes/Admin/SettingsPage.php:387
 msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:505
+#: includes/Admin/SettingsPage.php:399
 msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:518
+#: includes/Admin/SettingsPage.php:412
 msgid "Suche in der Besuchersprache ausführen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:531
+#: includes/Admin/SettingsPage.php:425
 msgid "AMP-Seiten übersetzen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:544
+#: includes/Admin/SettingsPage.php:438
 msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:548
+#: includes/Admin/SettingsPage.php:442
 msgid "Ausgeschlossene CSS-Selektoren"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:550
+#: includes/Admin/SettingsPage.php:444
 msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:584
-#: includes/Admin/SettingsPage.php:938
-#: includes/Config/SwitcherTemplates.php:115
+#: includes/Admin/SettingsPage.php:478
+#: includes/Admin/SettingsPage.php:771
+#: includes/Config/SwitcherTemplates.php:114
 msgid "Sprachumschalter"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:585
+#: includes/Admin/SettingsPage.php:479
 msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:598
+#: includes/Admin/SettingsPage.php:492
 msgid "Switcher automatisch im Seitenfooter einfügen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:602
+#: includes/Admin/SettingsPage.php:496
 msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:607
-#: includes/Admin/SettingsPage.php:957
+#: includes/Admin/SettingsPage.php:501
+#: includes/Admin/SettingsPage.php:790
 msgid "Darstellung"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:610
-#: includes/Admin/SettingsPage.php:959
+#: includes/Admin/SettingsPage.php:504
+#: includes/Admin/SettingsPage.php:792
 msgid "Inline-Liste"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:613
-#: includes/Admin/SettingsPage.php:960
+#: includes/Admin/SettingsPage.php:507
+#: includes/Admin/SettingsPage.php:793
 msgid "Dropdown"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:619
-#: includes/Admin/SettingsPage.php:964
+#: includes/Admin/SettingsPage.php:513
+#: includes/Admin/SettingsPage.php:797
 msgid "Flaggenstil"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:622
+#: includes/Admin/SettingsPage.php:516
 msgid "Rechteckig, matt"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:625
+#: includes/Admin/SettingsPage.php:519
 msgid "Rechteckig, glänzend"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:628
+#: includes/Admin/SettingsPage.php:522
 msgid "Kreis, matt"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:631
+#: includes/Admin/SettingsPage.php:525
 msgid "Kreis, glänzend"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:634
+#: includes/Admin/SettingsPage.php:528
 msgid "Ohne Flagge"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:640
-#: includes/Admin/SettingsPage.php:972
+#: includes/Admin/SettingsPage.php:534
+#: includes/Admin/SettingsPage.php:805
 msgid "Sprachbezeichnung"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:643
+#: includes/Admin/SettingsPage.php:537
 msgid "Volle Bezeichnung („Deutsch\")"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:646
+#: includes/Admin/SettingsPage.php:540
 msgid "ISO-Code („DE\")"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:652
+#: includes/Admin/SettingsPage.php:546
 msgid "Anzeigegerät"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:655
+#: includes/Admin/SettingsPage.php:549
 msgid "Auf allen Geräten zeigen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:658
+#: includes/Admin/SettingsPage.php:552
 msgid "Nur Desktop (auf Mobile ausblenden)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:661
+#: includes/Admin/SettingsPage.php:555
 msgid "Nur Mobile (auf Desktop ausblenden)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:667
+#: includes/Admin/SettingsPage.php:561
 msgid "Mobile-Breakpoint (px)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:679
+#: includes/Admin/SettingsPage.php:573
 msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:684
+#: includes/Admin/SettingsPage.php:578
 msgid "Position auf der Seite"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:687
+#: includes/Admin/SettingsPage.php:581
 msgid "Inline (an der eingebetteten Stelle)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:690
+#: includes/Admin/SettingsPage.php:584
 msgid "Floating: rechts unten"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:693
+#: includes/Admin/SettingsPage.php:587
 msgid "Floating: links unten"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:696
+#: includes/Admin/SettingsPage.php:590
 msgid "Floating: rechts oben"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:699
+#: includes/Admin/SettingsPage.php:593
 msgid "Floating: links oben"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:703
+#: includes/Admin/SettingsPage.php:597
 msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:718
+#: includes/Admin/SettingsPage.php:612
 msgid "Bezeichnung sichtbar"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:725
+#: includes/Admin/SettingsPage.php:619
 msgid "Reihenfolge der Sprachen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:744
+#: includes/Admin/SettingsPage.php:638
 msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:748
+#: includes/Admin/SettingsPage.php:642
 msgid "Eigene Flaggen pro Sprache (optional)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:778
+#: includes/Admin/SettingsPage.php:672
 msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:783
-msgid "Eigenes CSS für den Switcher"
-msgstr ""
-
-#: includes/Admin/SettingsPage.php:791
-msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
-msgstr ""
-
-#: includes/Admin/SettingsPage.php:803
+#: includes/Admin/SettingsPage.php:685
 msgid "Weitere Switcher-Instanzen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:805
+#: includes/Admin/SettingsPage.php:687
 msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:807
+#: includes/Admin/SettingsPage.php:689
 msgid "Switcher-Vorlagen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:835
+#: includes/Admin/SettingsPage.php:717
 msgid "Neuer Switcher"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:846
+#: includes/Admin/SettingsPage.php:728
 msgid "Einstellungen speichern"
 msgstr ""
 
 #. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:857
+#: includes/Admin/SettingsPage.php:739
 msgid "Hilfe & Dokumentation: %s"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:940
+#: includes/Admin/SettingsPage.php:773
 msgid "Instanz entfernen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:949
+#: includes/Admin/SettingsPage.php:782
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:953
+#: includes/Admin/SettingsPage.php:786
 msgid "Name"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:974
+#: includes/Admin/SettingsPage.php:807
 msgid "Vollständiger Name"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:975
+#: includes/Admin/SettingsPage.php:808
 msgid "ISO-Code"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:979
+#: includes/Admin/SettingsPage.php:812
 msgid "Position"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:987
+#: includes/Admin/SettingsPage.php:820
 msgid "Ausblenden auf"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:989
+#: includes/Admin/SettingsPage.php:822
 msgid "Keinem Gerät"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:990
+#: includes/Admin/SettingsPage.php:823
 msgid "Mobilgeräten"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:991
+#: includes/Admin/SettingsPage.php:824
 msgid "Desktop-Geräten"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:995
+#: includes/Admin/SettingsPage.php:828
 msgid "Breakpoint (px)"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1002
+#: includes/Admin/SettingsPage.php:835
 msgid "Instanz aktivieren"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1004
+#: includes/Admin/SettingsPage.php:837
 msgid "Automatisch platzieren"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1006
+#: includes/Admin/SettingsPage.php:839
 msgid "Beschriftung anzeigen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1010
+#: includes/Admin/SettingsPage.php:843
 msgid "Sprachreihenfolge"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1015
+#: includes/Admin/SettingsPage.php:848
 msgid "Eigene Flaggen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1024
-msgid "Eigenes CSS"
-msgstr ""
-
-#: includes/Admin/SettingsPage.php:1029
+#: includes/Admin/SettingsPage.php:857
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1032
+#: includes/Admin/SettingsPage.php:860
 msgid "Element in der Vorschau auswählen"
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1034
+#: includes/Admin/SettingsPage.php:862
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr ""
 
-#: includes/Admin/SettingsPage.php:1038
+#: includes/Admin/SettingsPage.php:866
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr ""
 
-#: includes/Api/Client.php:308
+#: includes/Api/Client.php:165
+#: includes/Api/Client.php:456
+msgid "Deepglot API Fehler."
+msgstr ""
+
+#: includes/Api/Client.php:344
 #: includes/Sync/SettingsSync.php:62
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr ""
 
-#: includes/Api/Client.php:353
+#: includes/Api/Client.php:389
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr ""
 
-#: includes/Api/Client.php:420
-msgid "Deepglot API Fehler."
-msgstr ""
-
-#: includes/Api/Client.php:621
+#: includes/Api/Client.php:657
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr ""
 
@@ -606,12 +595,12 @@ msgid "Ungültige Herkunft."
 msgstr ""
 
 #. translators: %s: native language name.
-#: includes/Frontend/LanguageSwitcher.php:273
+#: includes/Frontend/LanguageSwitcher.php:289
 msgid "Switch language to %s"
 msgstr ""
 
 #. translators: %s: active language name.
-#: includes/Frontend/LanguageSwitcher.php:293
+#: includes/Frontend/LanguageSwitcher.php:299
 msgid "Sprache: %s"
 msgstr ""
 

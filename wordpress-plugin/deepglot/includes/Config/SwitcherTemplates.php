@@ -88,7 +88,6 @@ final class SwitcherTemplates
             'show_label' => true,
             'label_format' => 'full_name',
             'language_order' => [],
-            'custom_css' => '',
             'position' => 'inline',
             'responsive_hide' => 'none',
             'responsive_breakpoint' => Options::SWITCHER_BREAKPOINT_DEFAULT,

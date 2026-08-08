@@ -15,8 +15,8 @@
  *   - sanitization preserves only configured languages (drops orphans
  *     that no longer match source/target), enforces a length cap, and
  *     rejects `<`, `"` and other class/attr breakouts.
- *   - renderer emits a scoped <style> block BEFORE <aside> with one
- *     rule per overridden language:
+ *   - enqueueStyles() attaches scoped rules to the registered switcher
+ *     stylesheet, with one rule per overridden language:
  *       .deepglot-flag--{lang}::before { content: "🇺🇸"; }
  *     or for URL values:
  *       .deepglot-flag--{lang} { background-image: url("…"); }
@@ -40,6 +40,7 @@ if (!function_exists('add_action')) {
 if (!function_exists('wp_register_style')) {
     function wp_register_style(...$a){return true;}
     function wp_enqueue_style(...$a){return true;}
+    function wp_add_inline_style(...$a){$GLOBALS['_deepglot_inline_styles'][]=$a;return true;}
     function wp_register_script(...$a){return true;}
     function wp_enqueue_script(...$a){return true;}
 }
@@ -89,6 +90,12 @@ function makeCfSwitcher(array $overrides = []): LanguageSwitcher {
     if (!isset($_SERVER['REQUEST_URI'])) $_SERVER['REQUEST_URI'] = '/';
     if (!isset($_SERVER['HTTP_HOST']))   $_SERVER['HTTP_HOST']   = 'example.com';
     return new LanguageSwitcher($options, $routing);
+}
+
+function captureCfCss(LanguageSwitcher $switcher): string {
+    $GLOBALS['_deepglot_inline_styles'] = [];
+    $switcher->enqueueStyles();
+    return implode('', array_map(static fn (array $args): string => (string) ($args[1] ?? ''), $GLOBALS['_deepglot_inline_styles']));
 }
 
 // 1. Default exists, empty by default (no per-language overrides for
@@ -155,53 +162,44 @@ update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
 $opts2 = new Options();
 cfAssert($opts2->getSwitcherCustomFlags() === ['en' => '🇺🇸', 'fr' => '🇨🇦'], 'getSwitcherCustomFlags accessor returns saved map');
 
-// 6. Renderer with NO overrides emits no extra <style> block beyond the
-// (optional) custom_css and responsive_css.
-$plainHtml = (makeCfSwitcher())->renderShortcode([]);
+// 6. No overrides attach no dynamic flag rules.
+$plainCss = captureCfCss(makeCfSwitcher());
 cfAssert(
-    strpos($plainHtml, '.deepglot-flag--') === false
-        || substr_count($plainHtml, '.deepglot-flag--') === 0,
-    'No flag overrides emitted when switcher_custom_flags is empty: ' . substr($plainHtml, 0, 200)
+    strpos($plainCss, '.deepglot-flag--') === false,
+    'No flag overrides attached when switcher_custom_flags is empty: ' . substr($plainCss, 0, 200)
 );
 
 // 7. Renderer with one emoji override emits a single ::before rule for
 // the overridden language only.
-$cfHtml = (makeCfSwitcher([
+$cfCss = captureCfCss(makeCfSwitcher([
     'switcher_custom_flags' => ['en' => '🇺🇸'],
-]))->renderShortcode([]);
+]));
 cfAssert(
-    preg_match('/\.deepglot-flag--en::before\s*\{[^}]*content\s*:\s*["\']🇺🇸["\']/u', $cfHtml) === 1,
-    'en override emits .deepglot-flag--en::before { content: "🇺🇸" }: ' . substr($cfHtml, 0, 400)
+    preg_match('/\.deepglot-flag--en::before\s*\{[^}]*content\s*:\s*["\']🇺🇸["\']/u', $cfCss) === 1,
+    'en override attaches .deepglot-flag--en::before { content: "🇺🇸" }: ' . substr($cfCss, 0, 400)
 );
 cfAssert(
-    strpos($cfHtml, '.deepglot-flag--de::before') === false,
+    strpos($cfCss, '.deepglot-flag--de::before') === false,
     'Non-overridden languages do not get a rule (de stays on default flag)'
 );
 
 // 8. URL values get emitted as background-image with content reset.
-$urlHtml = (makeCfSwitcher([
+$urlCss = captureCfCss(makeCfSwitcher([
     'switcher_custom_flags' => [
         'en' => 'https://example.com/flags/us.svg',
     ],
-]))->renderShortcode([]);
+]));
 cfAssert(
-    preg_match('/\.deepglot-flag--en\s*\{[^}]*background-image\s*:\s*url\(["\']?https:\/\/example\.com\/flags\/us\.svg["\']?\)/i', $urlHtml) === 1,
-    'URL custom flag emitted as background-image: ' . substr($urlHtml, 0, 400)
+    preg_match('/\.deepglot-flag--en\s*\{[^}]*background-image\s*:\s*url\(["\']?https:\/\/example\.com\/flags\/us\.svg["\']?\)/i', $urlCss) === 1,
+    'URL custom flag attached as background-image: ' . substr($urlCss, 0, 400)
 );
 cfAssert(
-    preg_match('/\.deepglot-flag--en::before\s*\{[^}]*content\s*:\s*["\']{2}/', $urlHtml) === 1
-        || preg_match('/\.deepglot-flag--en::before\s*\{[^}]*content\s*:\s*\'\'/', $urlHtml) === 1,
+    preg_match('/\.deepglot-flag--en::before\s*\{[^}]*content\s*:\s*["\']{2}/', $urlCss) === 1
+        || preg_match('/\.deepglot-flag--en::before\s*\{[^}]*content\s*:\s*\'\'/', $urlCss) === 1,
     'URL override also resets ::before content so the default emoji does not stack on top'
 );
 
-// 9. The override <style> is emitted BEFORE the <aside> so its rules
-// land in cascade order before the generic switcher.css.
-$cfStylePos = strpos($cfHtml, '<style class="deepglot-switcher__custom-flags">');
-$asidePos   = strpos($cfHtml, '<aside ');
-cfAssert($cfStylePos !== false, 'A scoped <style class="deepglot-switcher__custom-flags"> block is emitted');
-cfAssert($cfStylePos < $asidePos, 'Custom-flag <style> sits before the <aside>');
-
-// 10. Runtime config sub-object can drive the map from SaaS.
+// 9. Runtime config sub-object can drive the map from SaaS.
 $opts3 = new Options();
 $opts3->applyRuntimeConfig([
     'switcher' => [
