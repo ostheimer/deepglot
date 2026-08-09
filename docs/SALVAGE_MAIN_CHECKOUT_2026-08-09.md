@@ -28,11 +28,86 @@ This is a preservation snapshot, not a product change and not a merge/PR candida
 
 The modified paths are the dashboard/form/component formatting set, `package-lock.json`, `vercel.json`, and the digest webhook files; all compare cleanly with `git diff --quiet origin/main -- <path>`.
 
+Exact tracked paths:
+
+- `package-lock.json`
+- `src/app/(dashboard)/abonnement/karte-rechnungen/page.tsx`
+- `src/app/(dashboard)/abonnement/uebersicht/page.tsx`
+- `src/app/(dashboard)/dashboard/page.tsx`
+- `src/app/(dashboard)/einstellungen/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/api-keys/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/einstellungen/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/einstellungen/setup/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/einstellungen/sprachmodell/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/einstellungen/switcher/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/statistiken/anfragen/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/statistiken/seitenaufrufe/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/uebersetzungen/slugs/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/uebersetzungen/sprachen/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/uebersetzungen/urls/page.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/uebersetzungen/visuell/page.tsx`
+- `src/app/(dashboard)/projekte/neu/page.tsx`
+- `src/components/abonnement/auto-upgrade-toggle.tsx`
+- `src/components/abonnement/billing-address-form.tsx`
+- `src/components/abonnement/plan-switcher.tsx`
+- `src/components/abonnement/portal-button.tsx`
+- `src/components/auth/accept-invite-card.tsx`
+- `src/components/auth/forgot-password-card.tsx`
+- `src/components/auth/login-card.tsx`
+- `src/components/auth/reset-password-card.tsx`
+- `src/components/auth/signup-card.tsx`
+- `src/components/einstellungen/password-change-form.tsx`
+- `src/components/einstellungen/profile-settings-form.tsx`
+- `src/components/projekte/add-language-dialog.tsx`
+- `src/components/projekte/create-api-key-dialog.tsx`
+- `src/components/projekte/enable-page-views-button.tsx`
+- `src/components/projekte/exclusions-manager.tsx`
+- `src/components/projekte/glossary-table.tsx`
+- `src/components/projekte/import-export-panel.tsx`
+- `src/components/projekte/language-model-settings-card.tsx`
+- `src/components/projekte/pdf-translation-panel.tsx`
+- `src/components/projekte/project-members-manager.tsx`
+- `src/components/projekte/project-webhooks-manager.tsx`
+- `src/components/projekte/projects-table.tsx`
+- `src/components/projekte/runtime-sync-banner.tsx`
+- `src/components/projekte/settings-toggle.tsx`
+- `src/components/projekte/translation-memory-toggle.tsx`
+- `src/components/projekte/translation-workflow-panel.tsx`
+- `src/components/projekte/visual-editor-launcher.tsx`
+- `src/components/statistiken/analytics-range-selector.tsx`
+- `src/lib/webhook-cron.test.ts`
+- `src/lib/webhook-cron.ts`
+- `vercel.json`
+
 ### Replaced or superseded by merged main work (33 paths)
 
 The Activity Digest and product-brand/marketing work overlaps merged commits #251, #256, and #236. The local versions are older or intermediate variants; main contains later versions of the same surfaces. This includes the Digest schema/email/settings/docs work, the public-brand styles/components, `design-qa.md`, and the associated acceptance tests.
 
 No patch from this group should be reapplied wholesale: it is intentionally retained in this snapshot only for line-level historical recovery.
+
+Superseded tracked paths:
+
+- `OPERATIONS.md`, `README.md`, `ROADMAP.md`, `package.json`, `prisma/schema.prisma`
+- `src/app/(auth)/layout.tsx`
+- `src/app/(dashboard)/projekte/[projektId]/einstellungen/wordpress/page.tsx`
+- `src/app/globals.css`
+- `src/components/abonnement/billing-sidebar-nav.tsx`, `src/components/abonnement/usage-charts.tsx`
+- `src/components/dashboard/sidebar.tsx`
+- `src/components/marketing/developer-docs.tsx`, `src/components/marketing/marketing-home.tsx`, `src/components/marketing/marketing-nav.tsx`, `src/components/marketing/pricing-grid.tsx`, `src/components/marketing/pricing-page.tsx`, `src/components/marketing/simple-marketing-page.tsx`
+- `src/components/projekte/project-sidebar.tsx`
+- `src/components/site/language-switcher.tsx`
+- `src/components/statistiken/translation-requests-chart.tsx`
+- `src/lib/email.test.ts`, `src/lib/email.ts`
+
+Superseded untracked paths:
+
+- `design-qa.md`
+- `src/components/einstellungen/activity-digest-preferences.tsx`
+- `src/components/marketing/hero-language-preview.tsx`
+- `src/lib/activity-digest-delivery.ts`, `src/lib/activity-digest-email.test.ts`, `src/lib/activity-digest-wiring.test.ts`
+- `src/lib/brand-color-acceptance.test.ts`
+- `src/lib/hero-language-preview.test.ts`, `src/lib/hero-language-preview.ts`
+- `src/lib/marketing-hero-locale.test.ts`, `src/lib/marketing-hero-locale.ts`
 
 ### Potentially unique but mixed WordPress work (19 paths)
 
@@ -46,6 +121,28 @@ These changes have no byte-identical counterpart in `origin/main` and are retain
 - WP Rocket Delay-JS exclusion for the dynamic translator.
 
 The implementation spans `wordpress-plugin/deepglot/assets/js/dynamic-translator.js`, `includes/{Api,Frontend,Support}`, and their PHP/JS tests. It is deliberately not a product PR: it was written against the older URL-slug branch and overlaps subsequent plugin releases.
+
+Potentially unique paths:
+
+- `wordpress-plugin/deepglot/assets/js/dynamic-translator.js`
+- `wordpress-plugin/deepglot/includes/Api/Client.php`
+- `wordpress-plugin/deepglot/includes/Frontend/DynamicAssets.php`
+- `wordpress-plugin/deepglot/includes/Frontend/HtmlTranslator.php`
+- `wordpress-plugin/deepglot/includes/Frontend/LinkRewriter.php`
+- `wordpress-plugin/deepglot/includes/Frontend/NavMenuSwitcher.php`
+- `wordpress-plugin/deepglot/includes/Frontend/OutputBuffer.php`
+- `wordpress-plugin/deepglot/includes/Frontend/WpRocketCompat.php`
+- `wordpress-plugin/deepglot/includes/Support/TranslationRules.php`
+- `wordpress-plugin/deepglot/tests/AccessibilityAttributeTranslationTest.php`
+- `wordpress-plugin/deepglot/tests/ClientProblemDetailsTest.php`
+- `wordpress-plugin/deepglot/tests/DynamicTranslatorAssetTest.js`
+- `wordpress-plugin/deepglot/tests/HtmlLangSwitchTest.php`
+- `wordpress-plugin/deepglot/tests/LinkRewriterTest.php`
+- `wordpress-plugin/deepglot/tests/NavMenuSwitcherTest.php`
+- `wordpress-plugin/deepglot/tests/ParallelBatchesTest.php`
+- `wordpress-plugin/deepglot/tests/RawTextEntityEncodingTest.php`
+- `wordpress-plugin/deepglot/tests/TranslationRulesTest.php`
+- `wordpress-plugin/deepglot/tests/WpRocketCompatTest.php`
 
 ### Clear non-product artifacts (6 paths)
 
