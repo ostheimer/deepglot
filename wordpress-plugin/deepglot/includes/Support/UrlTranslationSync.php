@@ -355,6 +355,13 @@ class UrlTranslationSync
             return;
         }
 
+        if (
+            $this->hasActiveLock()
+            || (int) ($job['updated_at'] ?? 0) >= time() - self::WATCHDOG_STALE_AFTER
+        ) {
+            return;
+        }
+
         $scheduled = wp_next_scheduled(self::HOOK);
         if (!$scheduled || (int) $scheduled < time() - self::WATCHDOG_STALE_AFTER) {
             $this->schedule(0);
@@ -379,11 +386,11 @@ class UrlTranslationSync
         }
 
         $parts = explode('.', $token);
-        if (count($parts) !== 5) {
+        if (count($parts) !== 6) {
             return false;
         }
 
-        [$tokenJobId, $expires, $language, $nonce, $signature] = $parts;
+        [$tokenJobId, $expires, $language, $nonce, $urlHash, $signature] = $parts;
         $jobId = (string) ($job['id'] ?? '');
         $secret = (string) ($job['request_secret'] ?? '');
         if (
@@ -394,13 +401,20 @@ class UrlTranslationSync
             || (int) $expires < time()
             || preg_match('/^[a-z0-9_-]{2,16}$/', $language) !== 1
             || preg_match('/^[a-f0-9]{16}$/', $nonce) !== 1
+            || preg_match('/^[a-f0-9]{64}$/', $urlHash) !== 1
             || preg_match('/^[a-f0-9]{64}$/', $signature) !== 1
         ) {
             return false;
         }
 
-        $payload = implode('.', [$tokenJobId, $expires, $language, $nonce]);
-        return hash_equals(hash_hmac('sha256', $payload, $secret), $signature);
+        $payload = implode('.', [$tokenJobId, $expires, $language, $nonce, $urlHash]);
+        if (!hash_equals(hash_hmac('sha256', $payload, $secret), $signature)) {
+            return false;
+        }
+
+        $currentIdentity = $this->currentRequestIdentity();
+        return $currentIdentity !== null
+            && hash_equals($urlHash, hash('sha256', $currentIdentity));
     }
 
     /**
@@ -457,7 +471,9 @@ class UrlTranslationSync
         }
 
         $now = time();
-        if ((int) ($job['next_run_at'] ?? 0) > $now) {
+        $nextRunAt = (int) ($job['next_run_at'] ?? 0);
+        if ($nextRunAt > $now) {
+            $this->schedule(max(1, $nextRunAt - $now));
             return;
         }
 
@@ -710,6 +726,11 @@ class UrlTranslationSync
         string $requestSecret
     )
     {
+        $requestIdentity = $this->requestIdentity($url);
+        if ($requestIdentity === null) {
+            return new \WP_Error('deepglot_url_sync_unsafe_request');
+        }
+
         // A new signed nonce for every attempt prevents intermediaries from
         // replaying an earlier cold response or forging sync diagnostics.
         $nonce = substr(hash(
@@ -721,9 +742,10 @@ class UrlTranslationSync
             (string) (time() + self::SYNC_TOKEN_TTL),
             $language,
             $nonce,
+            hash('sha256', $requestIdentity),
         ]);
         $token = $payload . '.' . hash_hmac('sha256', $payload, $requestSecret);
-        $requestUrl = add_query_arg([self::QUERY_ARG => $token], $url);
+        $requestUrl = $this->appendControlQuery($url, $token);
 
         return wp_safe_remote_get($requestUrl, [
             'timeout' => self::REQUEST_TIMEOUT,
@@ -736,6 +758,77 @@ class UrlTranslationSync
                 'Cache-Control' => 'no-cache, no-store',
             ],
         ]);
+    }
+
+    private function currentRequestIdentity(): ?string
+    {
+        $host = RequestInput::server('HTTP_HOST');
+        if ($host === '') {
+            return null;
+        }
+
+        $uri = $this->stripQueryArg(RequestInput::server('REQUEST_URI', '/'));
+        $path = str_starts_with($uri, '/') ? $uri : '/' . $uri;
+        return $this->requestIdentity('https://' . $host . $path);
+    }
+
+    private function requestIdentity(string $url): ?string
+    {
+        $parts = wp_parse_url($url);
+        if (
+            !is_array($parts)
+            || empty($parts['host'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+        ) {
+            return null;
+        }
+
+        $host = strtolower(rtrim((string) $parts['host'], '.'));
+        $port = isset($parts['port']) ? (int) $parts['port'] : 0;
+        $origin = $host;
+        if ($port > 0 && $port !== 80 && $port !== 443) {
+            $origin .= ':' . $port;
+        }
+
+        $path = (string) ($parts['path'] ?? '/');
+        if ($path === '') {
+            $path = '/';
+        } elseif (!str_starts_with($path, '/')) {
+            $path = '/' . $path;
+        }
+
+        $identity = $origin . $path;
+        if (isset($parts['query']) && $parts['query'] !== '') {
+            $identity .= '?' . $parts['query'];
+        }
+
+        return $identity;
+    }
+
+    private function appendControlQuery(string $url, string $token): string
+    {
+        $fragment = '';
+        $fragmentAt = strpos($url, '#');
+        if ($fragmentAt !== false) {
+            $fragment = substr($url, $fragmentAt);
+            $url = substr($url, 0, $fragmentAt);
+        }
+
+        if (!str_contains($url, '?')) {
+            $separator = '?';
+        } elseif (str_ends_with($url, '?') || str_ends_with($url, '&')) {
+            $separator = '';
+        } else {
+            $separator = '&';
+        }
+
+        return $url
+            . $separator
+            . rawurlencode(self::QUERY_ARG)
+            . '='
+            . rawurlencode($token)
+            . $fragment;
     }
 
     /** @param array<string,mixed> $job */
@@ -1061,6 +1154,12 @@ class UrlTranslationSync
         }
 
         return add_option(self::LOCK_OPTION, $lock, '', false) ? $owner : null;
+    }
+
+    private function hasActiveLock(): bool
+    {
+        $lock = get_option(self::LOCK_OPTION, false);
+        return is_array($lock) && (int) ($lock['expires'] ?? 0) > time();
     }
 
     private function releaseLock(string $owner): void

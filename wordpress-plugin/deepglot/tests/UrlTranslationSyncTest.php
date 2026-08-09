@@ -188,6 +188,7 @@ function syncReset(): void
     $GLOBALS['_dg_sync_during_request'] = null;
     $GLOBALS['_dg_sync_lock_seen'] = null;
     $_GET = [];
+    unset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']);
 }
 
 /** @return array{0: UrlTranslationSync, 1: UrlSyncFakeSitemap, 2: UrlSyncFakeWarmer} */
@@ -313,7 +314,12 @@ syncAssert(
     'Expired or unknown preview tokens must fail closed.'
 );
 
-// 2. Public query contract accepts only a live HMAC-signed active-job token.
+// 2. Public query contract accepts only a live HMAC-signed token for the exact
+// target URL (including its ordinary query, excluding the control argument).
+syncReset();
+[$sync] = syncFixture([[
+    'loc' => 'https://example.com/a/?topic=one&tag=a&tag=b&encoded=%2Fkeep%2F',
+]]);
 $activePreview = $sync->preview(['en'], 1);
 $status = $sync->start(['en'], 1, (string) $activePreview['preview_token']);
 syncAssert(!is_wp_error($status), 'A fresh confirmed preview must create the active query-contract job.');
@@ -322,15 +328,41 @@ $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => 
     'x-deepglot-sync-language' => 'en',
 ]];
 $sync->run();
-parse_str((string) parse_url($GLOBALS['_dg_sync_requests'][0]['url'], PHP_URL_QUERY), $controlQuery);
-$token = (string) ($controlQuery[UrlTranslationSync::QUERY_ARG] ?? '');
-$_GET[UrlTranslationSync::QUERY_ARG] = $token;
+$requestedUrl = $GLOBALS['_dg_sync_requests'][0]['url'];
+syncAssert(
+    str_contains($requestedUrl, 'tag=a&tag=b&encoded=%2Fkeep%2F'),
+    'Appending the signed control token must preserve duplicate query keys and original encoding.'
+);
+$requestedParts = parse_url($requestedUrl);
+$_SERVER['HTTP_HOST'] = (string) ($requestedParts['host'] ?? '');
+$_SERVER['REQUEST_URI'] = (string) ($requestedParts['path'] ?? '/');
+if (!empty($requestedParts['query'])) {
+    $_SERVER['REQUEST_URI'] .= '?' . $requestedParts['query'];
+}
+parse_str((string) ($requestedParts['query'] ?? ''), $_GET);
+$token = (string) ($_GET[UrlTranslationSync::QUERY_ARG] ?? '');
 syncAssert($sync->isCurrentRequest(), 'The active job token must authorize the control query.');
 syncAssert(!array_key_exists('request_secret', $sync->status()), 'The HMAC secret must never leak through public job status.');
+
+$_SERVER['REQUEST_URI'] = str_replace('/en/a/', '/en/b/', $_SERVER['REQUEST_URI']);
+syncAssert(
+    !$sync->isCurrentRequest(),
+    'A token issued for snapshot URL A must not authorize another internal URL B.'
+);
+$_SERVER['REQUEST_URI'] = str_replace('/en/b/', '/en/a/', $_SERVER['REQUEST_URI']);
+$_SERVER['REQUEST_URI'] = str_replace('topic=one', 'topic=two', $_SERVER['REQUEST_URI']);
+syncAssert(
+    !$sync->isCurrentRequest(),
+    'A token must not authorize a different ordinary query on the same host and path.'
+);
+$_SERVER['REQUEST_URI'] = str_replace('topic=two', 'topic=one', $_SERVER['REQUEST_URI']);
+
 $_GET[UrlTranslationSync::QUERY_ARG] = substr($token, 0, -1) . ($token[-1] === 'a' ? 'b' : 'a');
 syncAssert(!$sync->isCurrentRequest(), 'A forged signature must not be trusted even when the job ID prefix matches.');
 $rawJob = get_option(UrlTranslationSync::JOB_OPTION, []);
-$expiredPayload = implode('.', [$rawJob['id'], time() - 1, 'en', 'expirednonce']);
+$expiredParts = explode('.', $token);
+$expiredParts[1] = (string) (time() - 1);
+$expiredPayload = implode('.', array_slice($expiredParts, 0, -1));
 $_GET[UrlTranslationSync::QUERY_ARG] = $expiredPayload . '.' . hash_hmac('sha256', $expiredPayload, $rawJob['request_secret']);
 syncAssert(!$sync->isCurrentRequest(), 'A correctly signed but expired control token must not be trusted.');
 $_GET[UrlTranslationSync::QUERY_ARG] = $token;
@@ -497,14 +529,57 @@ syncAssert(
     'A pause issued during the loopback request must not be overwritten by the runner outcome.'
 );
 
-// An init watchdog must repair a due active job whose cron event disappeared.
+// The init watchdog must not race a fresh runner whose one-shot cron event has
+// already been removed while its loopback request is still in flight.
 syncReset();
 [$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
 syncPreviewAndStart($sync, ['en'], 1);
 $GLOBALS['_dg_sync_scheduled'] = [];
 $sync->register();
 syncAssert(isset($GLOBALS['_dg_sync_actions']['init']), 'URL sync must register an init watchdog.');
+$GLOBALS['_dg_sync_watchdog_scheduled_during_request'] = null;
+$GLOBALS['_dg_sync_during_request'] = static function () use ($sync): void {
+    $sync->watchdog();
+    $GLOBALS['_dg_sync_watchdog_scheduled_during_request'] = isset(
+        $GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK]
+    );
+};
+$sync->run();
+syncAssert(
+    $GLOBALS['_dg_sync_watchdog_scheduled_during_request'] === false,
+    'Watchdog must not schedule over a runner that still owns the active lock.'
+);
+
+// A freshly updated due job also gets a grace window even if its lock has just
+// been released; stale due jobs still need watchdog repair.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_scheduled'] = [];
+$sync->watchdog();
+syncAssert(
+    !isset($GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK]),
+    'Watchdog must not repair a due job whose state was updated moments ago.'
+);
+$job = get_option(UrlTranslationSync::JOB_OPTION, []);
+$job['updated_at'] = time() - 120;
+$job['next_run_at'] = 0;
+update_option(UrlTranslationSync::JOB_OPTION, $job, false);
 $sync->watchdog();
 syncAssert(isset($GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK]), 'Watchdog must restore missing cron for an overdue active job.');
+
+// If an early retry event still occurs, it must schedule itself at the durable
+// next_run_at instead of returning silently and stranding the job.
+$job = get_option(UrlTranslationSync::JOB_OPTION, []);
+$job['status'] = 'queued';
+$job['next_run_at'] = time() + 120;
+$job['updated_at'] = time();
+update_option(UrlTranslationSync::JOB_OPTION, $job, false);
+$GLOBALS['_dg_sync_scheduled'] = [];
+$sync->run();
+syncAssert(
+    (int) ($GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK] ?? 0) >= $job['next_run_at'],
+    'A runner invoked before next_run_at must schedule the durable follow-up event.'
+);
 
 fwrite(STDOUT, "UrlTranslationSyncTest: OK\n");

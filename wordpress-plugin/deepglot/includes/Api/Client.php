@@ -317,8 +317,21 @@ class Client
             $decoded = json_decode($body, true);
 
             if ($statusCode >= 400) {
+                $responseHeaders = $response->headers ?? [];
+                $retryAfter = '';
+
+                if (is_array($responseHeaders)) {
+                    $responseHeaders = array_change_key_case($responseHeaders, CASE_LOWER);
+                    $retryAfter = $responseHeaders['retry-after'] ?? '';
+                } elseif ($responseHeaders instanceof \ArrayAccess) {
+                    $retryAfter = $responseHeaders['retry-after'] ?? '';
+                }
+
                 $this->maybeFlagQuotaExhausted($statusCode);
-                $this->maybeFlagRateLimited($statusCode);
+                $this->maybeFlagRateLimited(
+                    $statusCode,
+                    is_scalar($retryAfter) ? (string) $retryAfter : ''
+                );
                 $this->maybeFlagInvalidApiKey($statusCode, $requestIdentity);
                 $results[$key] = new \WP_Error(
                     'deepglot_api_error',

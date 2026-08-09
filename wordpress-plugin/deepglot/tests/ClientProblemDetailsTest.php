@@ -89,6 +89,36 @@ require_once __DIR__ . '/../includes/Api/Client.php';
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($value) {
+        return json_encode($value);
+    }
+}
+
+if (!class_exists('\\WpOrg\\Requests\\Requests')) {
+    class ClientProblemParallelRequestsStub
+    {
+        public static function request_multiple(array $requests): array
+        {
+            $responses = [];
+
+            foreach (array_keys($requests) as $key) {
+                $responses[$key] = (object) [
+                    'status_code' => 429,
+                    'body' => json_encode(['detail' => 'Parallel rate limit.']),
+                    'headers' => new ArrayObject([
+                        'retry-after' => $GLOBALS['_deepglot_parallel_retry_after'],
+                    ]),
+                ];
+            }
+
+            return $responses;
+        }
+    }
+
+    class_alias(ClientProblemParallelRequestsStub::class, 'WpOrg\\Requests\\Requests');
+}
+
 function clientProblemCheck($condition, string $message): void
 {
     if ($condition !== true) {
@@ -131,6 +161,22 @@ $retryAt = Client::rateLimitRetryAt();
 clientProblemCheck(
     $retryAt >= time() + 110 && $retryAt <= time() + 130,
     'The client must persist a bounded Retry-After marker for background backpressure.'
+);
+
+$GLOBALS['_deepglot_parallel_retry_after'] = '1800';
+$GLOBALS['_deepglot_problem_transients'] = [];
+$parallelRateLimited = $client->translateBatches([
+    ['first'],
+    ['second'],
+], 'de', 'en');
+clientProblemCheck(
+    count(array_filter($parallelRateLimited, 'is_wp_error')) === 2,
+    'Parallel 429 responses must remain API errors.'
+);
+$parallelRetryAt = Client::rateLimitRetryAt();
+clientProblemCheck(
+    $parallelRetryAt >= time() + 1790 && $parallelRetryAt <= time() + 1810,
+    'The parallel client must preserve a numeric Retry-After header instead of falling back to 15 minutes.'
 );
 
 fwrite(STDOUT, "ClientProblemDetailsTest: OK\n");

@@ -31,6 +31,10 @@ urlSyncAdminAssert(
     'Admin must carry the confirmed offset and expose the next bounded batch.'
 );
 urlSyncAdminAssert(
+    str_contains($settings, "in_array(\$state, ['completed', 'completed_with_errors'], true)"),
+    'A completed job must preserve next-batch pagination even when some URLs failed.'
+);
+urlSyncAdminAssert(
     str_contains($settings, 'name="sync_action" value="retry_failed"'),
     'Completed jobs with failures must expose an explicit retry action.'
 );

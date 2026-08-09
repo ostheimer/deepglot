@@ -1078,7 +1078,8 @@ class SettingsPage
             (array) ($status['urls'] ?? []),
             static fn($item): bool => is_array($item) && (string) ($item['state'] ?? '') === 'failed'
         )), 0, 50);
-        $nextSourceOffset = $state === 'completed' && isset($status['next_source_offset'])
+        $nextSourceOffset = in_array($state, ['completed', 'completed_with_errors'], true)
+            && isset($status['next_source_offset'])
             ? max(0, (int) $status['next_source_offset'])
             : 0;
         ?>
