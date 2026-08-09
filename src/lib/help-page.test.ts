@@ -69,6 +69,10 @@ test("help visual layout keeps digest and release content responsive", () => {
   assert.match(source, /grid gap-4 md:grid-cols-2/);
   assert.match(source, /max-w-6xl px-5 py-16 sm:px-8/);
   assert.match(source, /\[overflow-wrap:anywhere\]/);
+  assert.match(
+    source,
+    /data-testid="help-rate-limit-backoff"[\s\S]*?<h2 className="[^"]*\[overflow-wrap:anywhere\][^"]*"/,
+  );
   assert.match(source, /aria-label=\{de \? "Hilfebereiche" : "Help sections"\}/);
 
   const navigationOrder = [
