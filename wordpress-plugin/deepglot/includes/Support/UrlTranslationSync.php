@@ -910,6 +910,36 @@ class UrlTranslationSync
                 return;
             }
 
+            $originStatus = $this->probePublicStatus(
+                (string) ($item['url'] ?? ''),
+                true
+            );
+            if (is_wp_error($originStatus)) {
+                $this->retryItem(
+                    $job,
+                    $index,
+                    $item,
+                    'origin_status_request_failed',
+                    $now
+                );
+                return;
+            }
+
+            $originCode = wp_remote_retrieve_response_code($originStatus);
+            $originLocation = trim((string) wp_remote_retrieve_header(
+                $originStatus,
+                'location'
+            ));
+            if ($originCode !== 200 || $originLocation !== '') {
+                $originError = $originCode >= 300 && $originCode < 400
+                    ? 'origin_status_redirect_' . $originCode
+                    : ($originCode !== 200
+                        ? 'origin_status_http_' . $originCode
+                        : 'origin_status_location');
+                $this->retryItem($job, $index, $item, $originError, $now);
+                return;
+            }
+
             $item['failure_count'] = 0;
             $item['state'] = 'completed';
             $item['next_attempt_at'] = 0;
@@ -942,13 +972,14 @@ class UrlTranslationSync
     }
 
     /**
-     * Verifies the public cache key without a query string. The bot signature
-     * keeps HtmlTranslator cache-only, so this probe can neither call a
-     * provider nor add missing text to TranslationWarmer.
+     * Verifies the target without a query string, either through the public
+     * cache key or with an invalid login cookie that bypasses the page cache.
+     * The bot signature keeps HtmlTranslator cache-only, so neither probe can
+     * call a provider or add missing text to TranslationWarmer.
      *
      * @return array<string,mixed>|\WP_Error
      */
-    private function probePublicStatus(string $url)
+    private function probePublicStatus(string $url, bool $bypassPageCache = false)
     {
         $parts = wp_parse_url($url);
         if (!$this->isSafeInternalParts($parts)) {
@@ -962,15 +993,22 @@ class UrlTranslationSync
         }
         $probeUrl .= (string) ($parts['path'] ?? '/');
 
+        $headers = [
+            'Accept' => 'text/html,application/xhtml+xml',
+        ];
+        if ($bypassPageCache) {
+            // WP Engine bypasses its page cache for wordpress_logged_in_*
+            // cookies. This static invalid value cannot authenticate to WP.
+            $headers['Cookie'] = 'wordpress_logged_in_deepglot_probe=invalid';
+        }
+
         return wp_safe_remote_get($probeUrl, [
             'timeout' => self::REQUEST_TIMEOUT,
             'redirection' => 0,
             'sslverify' => true,
             'limit_response_size' => 1,
             'user-agent' => 'DeepglotCacheProbeBot/0.12 (+https://deepglot.ai)',
-            'headers' => [
-                'Accept' => 'text/html,application/xhtml+xml',
-            ],
+            'headers' => $headers,
         ]);
     }
 
