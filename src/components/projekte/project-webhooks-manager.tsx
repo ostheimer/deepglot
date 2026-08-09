@@ -316,7 +316,7 @@ export function ProjectWebhooksManager({
         </div>
         <Button
           type="button"
-          className="bg-indigo-600 hover:bg-indigo-700"
+          className="bg-brand-600 hover:bg-brand-700"
           onClick={openCreateDialog}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -553,7 +553,7 @@ export function ProjectWebhooksManager({
                 type="checkbox"
                 checked={form.enabled}
                 onChange={(event) => updateForm("enabled", event.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                className="h-4 w-4 rounded border-gray-300 text-brand-600"
               />
               <span className="text-sm text-gray-700">{copy.active}</span>
             </label>
@@ -572,7 +572,7 @@ export function ProjectWebhooksManager({
                       type="checkbox"
                       checked={form.eventTypes.includes(eventType)}
                       onChange={() => toggleEventType(eventType)}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                      className="h-4 w-4 rounded border-gray-300 text-brand-600"
                     />
                     <span className="text-sm text-gray-700">{eventType}</span>
                   </label>
@@ -587,7 +587,7 @@ export function ProjectWebhooksManager({
             </Button>
             <Button
               type="button"
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-brand-600 hover:bg-brand-700"
               disabled={isPending || !form.url.trim() || form.eventTypes.length === 0}
               onClick={() => void submitForm()}
             >

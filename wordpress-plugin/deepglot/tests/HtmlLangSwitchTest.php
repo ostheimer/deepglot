@@ -47,6 +47,11 @@ if (!function_exists('headers_sent')) {
     function headers_sent() { return false; }
 }
 
+if (!function_exists('nocache_headers')) {
+    $GLOBALS['_deepglot_nocache_calls'] = 0;
+    function nocache_headers() { $GLOBALS['_deepglot_nocache_calls']++; }
+}
+
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_options'] = [];
 
@@ -154,6 +159,19 @@ class DeepglotLangNullCache extends TranslationCache
     }
 }
 
+class DeepglotLangIncompleteClient extends Client
+{
+    public function __construct() {}
+
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    {
+        return [
+            'from_words' => $texts,
+            'to_words' => [],
+        ];
+    }
+}
+
 function dgLangAssert(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -213,6 +231,39 @@ dgLangAssert(
 dgLangAssert(
     str_contains($processed, '[en] Hallo'),
     'Title text should be translated, got: ' . substr($processed, 0, 400)
+);
+dgLangAssert(
+    ($GLOBALS['_deepglot_nocache_calls'] ?? 0) === 0,
+    'A complete translation stays cacheable.'
+);
+
+// A provider failure makes HtmlTranslator return the original document
+// atomically. That fallback must never be cached as a successful /en/ page,
+// otherwise WP Engine keeps serving German copy under lang="en" even after
+// the provider recovers.
+$fallbackTranslator = new HtmlTranslator(
+    new DeepglotLangIncompleteClient(),
+    $options,
+    new DeepglotLangNullCache()
+);
+$fallbackBuffer = new OutputBuffer(
+    $options,
+    $resolver,
+    $fallbackTranslator,
+    $linkRewriter,
+    $hreflang,
+    $router,
+    $routing
+);
+$fallbackProcessed = $fallbackBuffer->process($html, 'en');
+
+dgLangAssert(
+    str_contains($fallbackProcessed, 'Hallo Welt'),
+    'An incomplete provider response keeps the page atomic in the source language.'
+);
+dgLangAssert(
+    ($GLOBALS['_deepglot_nocache_calls'] ?? 0) === 1,
+    'An atomic source-language fallback on /en/ must emit no-cache headers.'
 );
 
 fwrite(STDOUT, "HtmlLangSwitchTest: OK\n");

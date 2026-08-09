@@ -114,10 +114,19 @@ test("schedules the webhook processor in vercel.json", () => {
   const vercelConfigPath = path.join(process.cwd(), "vercel.json");
   const vercelConfig = JSON.parse(fs.readFileSync(vercelConfigPath, "utf8"));
 
-  assert.deepEqual(vercelConfig.crons, [
+  assert.deepEqual(
+    vercelConfig.crons.find(
+      (cron: { path: string }) => cron.path === WEBHOOK_PROCESS_CRON_PATH
+    ),
     {
       path: WEBHOOK_PROCESS_CRON_PATH,
       schedule: WEBHOOK_PROCESS_CRON_SCHEDULE,
-    },
-  ]);
+    }
+  );
+  assert.equal(
+    vercelConfig.crons.filter(
+      (cron: { path: string }) => cron.path === WEBHOOK_PROCESS_CRON_PATH
+    ).length,
+    1
+  );
 });

@@ -45,7 +45,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <p className="text-sm font-medium text-indigo-600">
+        <p className="text-sm font-medium text-brand-600">
           {uiText(locale, "Provider & model", "Anbieter & Modell")}
         </p>
         <h2 className="mt-1 text-2xl font-bold text-gray-900">
@@ -58,7 +58,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <Sparkles className="h-5 w-5 text-indigo-600" />
+          <Sparkles className="h-5 w-5 text-brand-600" />
           <p className="mt-3 text-sm font-semibold text-gray-900">
             {uiText(locale, "Current OpenAI series", "Aktuelle OpenAI-Serie")}
           </p>
@@ -67,7 +67,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <Cpu className="h-5 w-5 text-indigo-600" />
+          <Cpu className="h-5 w-5 text-brand-600" />
           <p className="mt-3 text-sm font-semibold text-gray-900">
             {uiText(locale, "Gateway-ready", "Gateway-fähig")}
           </p>
@@ -76,7 +76,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
           </p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <ShieldCheck className="h-5 w-5 text-indigo-600" />
+          <ShieldCheck className="h-5 w-5 text-brand-600" />
           <p className="mt-3 text-sm font-semibold text-gray-900">
             {uiText(locale, "Protected keys", "Schlüssel geschützt")}
           </p>

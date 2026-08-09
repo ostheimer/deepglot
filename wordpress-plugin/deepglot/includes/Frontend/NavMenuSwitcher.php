@@ -228,7 +228,7 @@ class NavMenuSwitcher
                 'post_name'        => 'deepglot-switcher-' . $lang,
                 'classes'          => $this->classesFor($lang, false, $isActive && !$dropdown),
                 'xfn'              => '',
-                'description'      => $this->labelFor($lang, 'full_name'),
+                'description'      => '',
                 'attr_title'       => $this->labelFor($lang, 'full_name'),
                 'target'           => '',
             ];

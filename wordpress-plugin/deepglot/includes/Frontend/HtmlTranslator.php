@@ -7,6 +7,7 @@ use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
 use Deepglot\Support\TranslationCache;
+use Deepglot\Support\TranslationRules;
 
 /**
  * Parses an HTML document, extracts translatable text nodes, sends them
@@ -65,6 +66,7 @@ class HtmlTranslator
         'img' => ['alt'],
         'a' => ['title', 'aria-label'],
         'button' => ['title', 'aria-label'],
+        'div' => ['aria-label', 'data-tooltip'],
         'input' => ['placeholder', 'aria-label'],
         'textarea' => ['placeholder', 'aria-label'],
         'select' => ['aria-label'],
@@ -101,6 +103,7 @@ class HtmlTranslator
     private Options $options;
     private TranslationCache $cache;
     private JsonLdTranslator $jsonLd;
+    private bool $lastTranslationComplete = true;
 
     public function __construct(Client $client, Options $options, TranslationCache $cache, ?JsonLdTranslator $jsonLd = null)
     {
@@ -134,10 +137,24 @@ class HtmlTranslator
     }
 
     /**
+     * Whether the most recent translation call resolved every extracted text.
+     *
+     * A false result means translate() returned the original document as an
+     * atomic fallback. Callers can use this to prevent that temporary source-
+     * language response from entering a full-page cache under a translated URL.
+     */
+    public function wasLastTranslationComplete(): bool
+    {
+        return $this->lastTranslationComplete;
+    }
+
+    /**
      * @return array{html: string, segments: array<int, array<string, string>>}
      */
     private function translateDocument(string $html, string $targetLanguage, bool $annotateSegments, string $requestUrl = '', int $bot = 0): array
     {
+        $this->lastTranslationComplete = true;
+
         if ($html === '') {
             return ['html' => $html, 'segments' => []];
         }
@@ -145,6 +162,7 @@ class HtmlTranslator
         $sourceLang = $this->options->getSourceLanguage();
 
         $doc = $this->loadHtml($html);
+        $initialBodyElements = $this->collectDirectBodyElements($doc);
 
         // Collect all translatable DOMText nodes, head metadata attributes,
         // accessibility-relevant body attributes (img alt, aria-label,
@@ -158,7 +176,10 @@ class HtmlTranslator
         $jsonLdMutations = $this->jsonLd->collect($doc);
 
         if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
-            return ['html' => $html, 'segments' => []];
+            if (!$annotateSegments) {
+                $this->markInitialDomElements($initialBodyElements);
+            }
+            return ['html' => $this->saveHtml($doc), 'segments' => []];
         }
 
         // Deduplicate texts so we don't pay twice for the same string.
@@ -170,7 +191,7 @@ class HtmlTranslator
         }
 
         $texts = array_values(array_unique(array_merge(
-            array_map(static fn(\DOMText $n) => $n->data, $nodes),
+            array_map(static fn(\DOMText $n) => trim($n->data), $nodes),
             array_map(static fn(\DOMAttr $a) => $a->value, $attrs),
             $jsonLdStrings
         )));
@@ -189,12 +210,28 @@ class HtmlTranslator
         if (count($batches) > 1) {
             $batchResults = $this->client->translateBatches($batches, $sourceLang, $targetLanguage, $requestUrl, $bot);
 
-            foreach ($batchResults as $result) {
-                $this->mergeTranslateResult($apiResults, $result);
+            foreach ($batches as $batchIndex => $batch) {
+                $result = array_key_exists($batchIndex, $batchResults)
+                    ? $batchResults[$batchIndex]
+                    : null;
+
+                // A single failed parallel request must not leave the page in
+                // a mixed-language state. Retry only that batch once through
+                // the regular client path; successful siblings are retained.
+                if (!$this->isUsableTranslateResult($result, $batch)) {
+                    $result = $this->client->translate($batch, $sourceLang, $targetLanguage, $requestUrl, $bot);
+                }
+
+                if ($this->isUsableTranslateResult($result, $batch)) {
+                    $this->mergeTranslateResult($apiResults, $result);
+                }
             }
         } elseif (!empty($batches)) {
             $result = $this->client->translate($batches[0], $sourceLang, $targetLanguage, $requestUrl, $bot);
-            $this->mergeTranslateResult($apiResults, $result);
+
+            if ($this->isUsableTranslateResult($result, $batches[0])) {
+                $this->mergeTranslateResult($apiResults, $result);
+            }
         }
 
         // Persist new translations in cache. On bot requests the SaaS is
@@ -219,6 +256,18 @@ class HtmlTranslator
 
         $all = array_merge($cached, $apiResults);
 
+        // Keep successful batches cached so a later request can converge, but
+        // never render a response that mixes translated and source-language
+        // segments after the bounded retry has failed. The original document
+        // is the only atomic fallback because no DOM mutations have happened
+        // at this point.
+        foreach ($texts as $text) {
+            if (!isset($all[$text])) {
+                $this->lastTranslationComplete = false;
+                return ['html' => $html, 'segments' => []];
+            }
+        }
+
         if (empty($all) && empty($jsonLdMutations)) {
             return ['html' => $html, 'segments' => []];
         }
@@ -229,8 +278,9 @@ class HtmlTranslator
 
         foreach ($nodes as $node) {
             $original = $node->data;
+            $translationKey = trim($original);
 
-            if (isset($all[$original])) {
+            if (isset($all[$translationKey])) {
                 // Editor mode wraps translated text in <span data-deepglot-segment-id>
                 // for the visual editor. <head> children (notably <title>) cannot
                 // host inline spans without producing invalid markup, so they are
@@ -239,7 +289,7 @@ class HtmlTranslator
                     $this->replaceNodeWithSegment(
                         $node,
                         $original,
-                        $all[$original],
+                        $all[$translationKey],
                         $sourceLang,
                         $targetLanguage,
                         $segmentIndex,
@@ -249,7 +299,7 @@ class HtmlTranslator
                     continue;
                 }
 
-                $node->data = $all[$original];
+                $node->data = $this->restoreTextNodeWhitespace($original, $all[$translationKey]);
             }
         }
 
@@ -269,6 +319,12 @@ class HtmlTranslator
             $this->jsonLd->apply($jsonLdMutations, $all, $targetLanguage);
         }
 
+        // The visual editor does not load DynamicAssets and owns its annotated
+        // DOM, so only normal front-end output needs recovery markers.
+        if (!$annotateSegments) {
+            $this->markInitialDomElements($initialBodyElements);
+        }
+
         return [
             'html' => $this->saveHtml($doc),
             'segments' => $segments,
@@ -278,6 +334,58 @@ class HtmlTranslator
     // -------------------------------------------------------------------------
     // DOM helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Capture the server-rendered body roots before translation mutates the
+     * document. The dynamic pass uses their marker to distinguish them from
+     * widgets that were injected before its MutationObserver started.
+     *
+     * @return \DOMElement[]
+     */
+    private function collectDirectBodyElements(\DOMDocument $doc): array
+    {
+        $body = $doc->getElementsByTagName('body')->item(0);
+        if (!$body instanceof \DOMElement) {
+            return [];
+        }
+
+        $elements = [];
+        foreach ($body->childNodes as $child) {
+            if (!$child instanceof \DOMElement) {
+                continue;
+            }
+
+            // Raw-text roots excluded by both server extraction paths are
+            // never candidates for the dynamic walker. Leaving them untouched
+            // also preserves its byte-sensitive script/style contract.
+            $tag = strtolower($child->tagName);
+            if (
+                in_array($tag, self::SKIP_TAGS, true)
+                && in_array($tag, self::ATTR_SKIP_ANCESTORS, true)
+            ) {
+                continue;
+            }
+
+            $elements[] = $child;
+        }
+
+        return $elements;
+    }
+
+    /** @param \DOMElement[] $elements */
+    private function markInitialDomElements(array $elements): void
+    {
+        // WordPress resolves TranslationRules through the plugin autoloader.
+        // Standalone PHP contract tests load HtmlTranslator directly, so keep
+        // the canonical literal as a compatibility fallback there.
+        $attribute = class_exists(TranslationRules::class)
+            ? TranslationRules::INITIAL_DOM_ATTR
+            : 'data-deepglot-initial-dom';
+
+        foreach ($elements as $element) {
+            $element->setAttribute($attribute, '');
+        }
+    }
 
     /**
      * @return \DOMText[]
@@ -364,6 +472,53 @@ class HtmlTranslator
         }
     }
 
+    /**
+     * Checks that a response contains one string translation for every text
+     * in the originating batch. Response order may differ, but partial or
+     * malformed responses are retried instead of being silently accepted.
+     *
+     * @param mixed    $result
+     * @param string[] $batch
+     */
+    private function isUsableTranslateResult($result, array $batch): bool
+    {
+        if (
+            is_wp_error($result)
+            || !is_array($result)
+            || !isset($result['from_words'], $result['to_words'])
+            || !is_array($result['from_words'])
+            || !is_array($result['to_words'])
+        ) {
+            return false;
+        }
+
+        $translatedOriginals = [];
+
+        foreach ($result['from_words'] as $index => $original) {
+            if (
+                !is_string($original)
+                || !isset($result['to_words'][$index])
+                || !is_string($result['to_words'][$index])
+            ) {
+                return false;
+            }
+
+            $translatedOriginals[$original] = true;
+        }
+
+        if (count($translatedOriginals) !== count($batch)) {
+            return false;
+        }
+
+        foreach ($batch as $original) {
+            if (!isset($translatedOriginals[$original])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function isInsideHead(\DOMNode $node): bool
     {
         $ancestor = $node->parentNode;
@@ -377,6 +532,18 @@ class HtmlTranslator
         }
 
         return false;
+    }
+
+    /**
+     * Restores presentation whitespace stripped from a DOM text node before
+     * it was used as an API/cache key. Attribute and JSON-LD values do not use
+     * this path and retain their existing translation semantics.
+     */
+    private function restoreTextNodeWhitespace(string $originalText, string $translatedText): string
+    {
+        preg_match('/^(\s*)(.*?)(\s*)$/us', $originalText, $parts);
+
+        return ($parts[1] ?? '') . trim($translatedText) . ($parts[3] ?? '');
     }
 
     /**

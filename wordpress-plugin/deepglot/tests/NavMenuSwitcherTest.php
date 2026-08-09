@@ -186,6 +186,12 @@ navAssert(count($parents) === 1, 'Dropdown mode: exactly one top-level item (the
 navAssert(count($children) === 2, 'Dropdown mode: alternatives become children, got ' . count($children));
 $parent = array_values($parents)[0];
 navAssert($parent->title === 'Deutsch', 'Dropdown parent is the active language (Deutsch on /)');
+foreach ($children as $child) {
+    navAssert(
+        $child->description === '',
+        'Dropdown language descriptions stay empty so Avada/UberMenu does not repeat the label: ' . $child->title
+    );
+}
 
 // 5. hide_current mode drops the active language from the list entirely
 // — useful when the switcher only shows alternatives.

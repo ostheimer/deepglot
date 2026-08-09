@@ -379,7 +379,7 @@ export function ProjectMembersManager({
           <p className="mt-1 max-w-2xl text-sm text-gray-500">{copy.description}</p>
         </div>
         <Button
-          className="bg-indigo-600 hover:bg-indigo-700"
+          className="bg-brand-600 hover:bg-brand-700"
           onClick={() => setInviteOpen(true)}
         >
           <UserPlus className="h-4 w-4" />
@@ -410,7 +410,7 @@ export function ProjectMembersManager({
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-indigo-100 text-xs font-semibold text-indigo-700">
+                      <AvatarFallback className="bg-brand-100 text-xs font-semibold text-brand-700">
                         {getInitial(member.user?.name ?? member.email)}
                       </AvatarFallback>
                     </Avatar>
@@ -564,7 +564,7 @@ export function ProjectMembersManager({
                     <p className="truncate text-xs text-gray-500">{admin.user.email}</p>
                   </div>
                 </div>
-                <Badge className="border-0 bg-indigo-100 text-indigo-700">
+                <Badge className="border-0 bg-brand-100 text-brand-700">
                   {admin.role === "OWNER" ? copy.owner : copy.admin}
                 </Badge>
               </div>
@@ -631,7 +631,7 @@ export function ProjectMembersManager({
               </Button>
               <Button
                 type="submit"
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-brand-600 hover:bg-brand-700"
                 disabled={isPending}
               >
                 {isPending ? copy.sendingInvite : copy.sendInvite}

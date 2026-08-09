@@ -18,7 +18,7 @@ export function AnalyticsRangeSelector({
         name="zeitraum"
         defaultValue={zeitraum}
         onChange={(event) => event.currentTarget.form?.requestSubmit()}
-        className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

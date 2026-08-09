@@ -10,6 +10,7 @@ if (!function_exists('__')) {
     }
 
     $GLOBALS['_deepglot_problem_body'] = '{}';
+    $GLOBALS['_deepglot_problem_args'] = [];
 
     function get_option($key, $default = false) {
         return $key === 'deepglot_settings'
@@ -25,7 +26,12 @@ if (!function_exists('__')) {
         return rtrim((string) $value, '/');
     }
 
+    function wp_json_encode($value) {
+        return json_encode($value);
+    }
+
     function wp_remote_request($url, $args) {
+        $GLOBALS['_deepglot_problem_args'] = $args;
         return [
             'response' => ['code' => 400],
             'body' => $GLOBALS['_deepglot_problem_body'],
@@ -103,6 +109,12 @@ $legacy = $client->listLanguages();
 clientProblemCheck(
     $legacy->get_error_message() === 'Legacy-only message.',
     'Client must retain compatibility with legacy error-only responses.'
+);
+
+$client->translate(['Ein großer Seitenblock'], 'de', 'en');
+clientProblemCheck(
+    ($GLOBALS['_deepglot_problem_args']['timeout'] ?? 0) >= 30,
+    'Translation requests and their bounded retries need at least 30 seconds before WordPress aborts them.'
 );
 
 fwrite(STDOUT, "ClientProblemDetailsTest: OK\n");

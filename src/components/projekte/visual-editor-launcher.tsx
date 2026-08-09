@@ -63,7 +63,7 @@ export function VisualEditorLauncher({
       </select>
       <Button
         type="button"
-        className="bg-indigo-600 hover:bg-indigo-700"
+        className="bg-brand-600 hover:bg-brand-700"
         disabled={isPending || languages.length === 0}
         onClick={() => void startEditor()}
       >

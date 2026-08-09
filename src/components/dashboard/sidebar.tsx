@@ -67,7 +67,7 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
         className="h-16 flex items-center gap-2 px-6 border-b border-gray-100 hover:bg-gray-50"
         aria-label="Deepglot dashboard"
       >
-        <Globe className="h-6 w-6 text-indigo-600" />
+        <Globe className="h-6 w-6 text-brand-600" />
         <span className="text-lg font-bold text-gray-900">Deepglot</span>
       </Link>
 
@@ -82,7 +82,7 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-brand-50 text-brand-700"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
@@ -102,7 +102,7 @@ export function DashboardSidebar({ user }: DashboardSidebarProps) {
           <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.image ?? undefined} />
-            <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-semibold">
+            <AvatarFallback className="bg-brand-100 text-brand-700 text-xs font-semibold">
               {user.name?.charAt(0).toUpperCase() ?? user.email?.charAt(0).toUpperCase() ?? "?"}
             </AvatarFallback>
           </Avatar>

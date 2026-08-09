@@ -280,7 +280,7 @@ class Client
 
         $args = [
             'method' => $method,
-            'timeout' => 15,
+            'timeout' => 30,
             'headers' => [
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',

@@ -51,8 +51,8 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
       </h2>
 
       <div className="bg-white border border-gray-200 rounded-xl p-8 text-center max-w-lg mx-auto">
-        <div className="h-16 w-16 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-4">
-          <Paintbrush className="h-8 w-8 text-indigo-600" />
+        <div className="h-16 w-16 rounded-2xl bg-brand-50 flex items-center justify-center mx-auto mb-4">
+          <Paintbrush className="h-8 w-8 text-brand-600" />
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           {uiText(locale, "Edit translations directly on your website", "Übersetzungen direkt auf deiner Website bearbeiten")}
@@ -93,7 +93,7 @@ export default async function VisuellerEditorPage({ params }: PageProps) {
               uiText(locale, "Save translations to the database automatically", "Übersetzungen automatisch in der Datenbank speichern"),
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 flex-shrink-0" />
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-600 flex-shrink-0" />
                 {feature}
               </li>
             ))}

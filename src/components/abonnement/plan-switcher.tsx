@@ -104,7 +104,7 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
             }
             onClick={() => setYearly((value) => !value)}
             className={`relative inline-flex h-5 w-10 shrink-0 items-center rounded-full transition-colors ${
-              yearly ? "bg-indigo-600" : "bg-gray-300"
+              yearly ? "bg-brand-600" : "bg-gray-300"
             }`}
           >
             <span
@@ -169,7 +169,7 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
                     hasExistingSubscription ? handlePortal() : handleUpgrade(key)
                   }
                   disabled={pending !== null}
-                  className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                  className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
                 >
                   {(hasExistingSubscription && pending === "__portal") ||
                   pending === key
@@ -196,7 +196,7 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
             type="button"
             onClick={handlePortal}
             disabled={pending !== null}
-            className="text-sm font-medium text-indigo-600 hover:underline disabled:opacity-50"
+            className="text-sm font-medium text-brand-600 hover:underline disabled:opacity-50"
           >
             {pending === "__portal"
               ? locale === "de"

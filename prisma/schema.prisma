@@ -17,15 +17,16 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // for credentials provider
+  password      String? // for credentials provider
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  memberships   OrganizationMember[]
-  projectMemberships ProjectMember[]
-  sentProjectInvitations ProjectInvitation[]
+  accounts                 Account[]
+  sessions                 Session[]
+  memberships              OrganizationMember[]
+  projectMemberships       ProjectMember[]
+  sentProjectInvitations   ProjectInvitation[]
+  activityDigestDeliveries ActivityDigestDelivery[]
 }
 
 model Account {
@@ -76,12 +77,13 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members      OrganizationMember[]
-  projects     Project[]
-  subscription Subscription?
-  usageRecords UsageRecord[]
-  translationBatchLogs TranslationBatchLog[]
-  usageAlerts  UsageAlert[]
+  members                  OrganizationMember[]
+  projects                 Project[]
+  subscription             Subscription?
+  usageRecords             UsageRecord[]
+  translationBatchLogs     TranslationBatchLog[]
+  usageAlerts              UsageAlert[]
+  activityDigestDeliveries ActivityDigestDelivery[]
 }
 
 /// Dedup marker for the monthly word-quota warning emails to the org owner.
@@ -91,8 +93,8 @@ model Organization {
 model UsageAlert {
   id             String   @id @default(cuid())
   organizationId String
-  month          Int      // YYYYMM, e.g. 202606 — matches UsageRecord.month
-  threshold      Int      // percent of the effective limit, e.g. 90 or 100
+  month          Int // YYYYMM, e.g. 202606 — matches UsageRecord.month
+  threshold      Int // percent of the effective limit, e.g. 90 or 100
   sentAt         DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -116,17 +118,39 @@ enum Plan {
 }
 
 model OrganizationMember {
-  id             String           @id @default(cuid())
-  role           OrganizationRole @default(MEMBER)
-  createdAt      DateTime         @default(now())
+  id                    String           @id @default(cuid())
+  role                  OrganizationRole @default(MEMBER)
+  activityDigestEnabled Boolean          @default(false)
+  activityDigestLocale  String           @default("en")
+  createdAt             DateTime         @default(now())
 
   userId         String
   organizationId String
 
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
+}
+
+/// Per-recipient claim for a complete weekly activity period. The unique key
+/// prevents duplicate emails when Vercel retries or two cron invocations race.
+model ActivityDigestDelivery {
+  id          String    @id @default(cuid())
+  periodStart DateTime
+  periodEnd   DateTime
+  claimedAt   DateTime  @default(now())
+  sentAt      DateTime?
+
+  organizationId  String
+  recipientUserId String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipient    User         @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, recipientUserId, periodStart])
+  @@index([periodStart])
+  @@index([recipientUserId])
 }
 
 enum OrganizationRole {
@@ -138,36 +162,36 @@ enum OrganizationRole {
 // ─── Projects (Websites / WordPress Instanzen) ────────────────────────────
 
 model Project {
-  id             String    @id @default(cuid())
-  name           String
-  domain         String    // e.g. "example.com"
-  originalLang   String    @default("de") // ISO 639-1
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  domain       String // e.g. "example.com"
+  originalLang String   @default("de") // ISO 639-1
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  languages      ProjectLanguage[]
-  translations   Translation[]
-  apiKeys        ApiKey[]
-  usageRecords   UsageRecord[]
-  glossaryRules  GlossaryRule[]
-  urlSlugs       UrlSlug[]
-  exclusions     TranslationExclusion[]
-  translatedUrls TranslatedUrl[]
-  settings       ProjectSettings?
-  members        ProjectMember[]
-  invitations    ProjectInvitation[]
-  domainMappings ProjectDomainMapping[]
+  languages            ProjectLanguage[]
+  translations         Translation[]
+  apiKeys              ApiKey[]
+  usageRecords         UsageRecord[]
+  glossaryRules        GlossaryRule[]
+  urlSlugs             UrlSlug[]
+  exclusions           TranslationExclusion[]
+  translatedUrls       TranslatedUrl[]
+  settings             ProjectSettings?
+  members              ProjectMember[]
+  invitations          ProjectInvitation[]
+  domainMappings       ProjectDomainMapping[]
   translationBatchLogs TranslationBatchLog[]
-  webhookEndpoints WebhookEndpoint[]
-  webhookDeliveries WebhookDelivery[]
+  webhookEndpoints     WebhookEndpoint[]
+  webhookDeliveries    WebhookDelivery[]
 }
 
 model ProjectLanguage {
   id        String   @id @default(cuid())
-  langCode  String   // ISO 639-1, e.g. "en", "fr"
+  langCode  String // ISO 639-1, e.g. "en", "fr"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -181,11 +205,11 @@ model ProjectLanguage {
 
 model Translation {
   id             String                    @id @default(cuid())
-  originalHash   String                    // md5 of (originalText + langFrom + langTo)
+  originalHash   String // md5 of (originalText + langFrom + langTo)
   originalText   String
   translatedText String
-  langFrom       String                    // ISO 639-1
-  langTo         String                    // ISO 639-1
+  langFrom       String // ISO 639-1
+  langTo         String // ISO 639-1
   source         TranslationSource         @default(DEEPL)
   isManual       Boolean                   @default(false) // manually edited
   wordCount      Int                       @default(0)
@@ -193,10 +217,10 @@ model Translation {
   createdAt      DateTime                  @default(now())
   updatedAt      DateTime                  @updatedAt
 
-  projectId   String
+  projectId    String
   assignedToId String?
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignedTo  ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo   ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
@@ -223,14 +247,14 @@ enum TranslationWorkflowStatus {
 // ─── API Keys (Plugin-Authentifizierung) ──────────────────────────────────
 
 model ApiKey {
-  id          String    @id @default(cuid())
-  name        String
-  key         String    @unique // hashed
-  keyPrefix   String    // first 8 chars for display, e.g. "dg_live_"
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(cuid())
+  name       String
+  key        String    @unique // hashed
+  keyPrefix  String // first 8 chars for display, e.g. "dg_live_"
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -239,16 +263,16 @@ model ApiKey {
 // ─── Stripe Subscriptions ─────────────────────────────────────────────────
 
 model Subscription {
-  id                   String             @id @default(cuid())
-  stripeCustomerId     String             @unique
-  stripeSubscriptionId String?            @unique
-  stripePriceId        String?
+  id                     String             @id @default(cuid())
+  stripeCustomerId       String             @unique
+  stripeSubscriptionId   String?            @unique
+  stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
-  status               SubscriptionStatus @default(INACTIVE)
-  plan                 Plan               @default(FREE)
-  wordsLimit           Int                @default(10000) // words per month
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  status                 SubscriptionStatus @default(INACTIVE)
+  plan                   Plan               @default(FREE)
+  wordsLimit             Int                @default(10000) // words per month
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -265,43 +289,43 @@ enum SubscriptionStatus {
 // ─── Project Settings ─────────────────────────────────────────────────────
 
 model ProjectSettings {
-  id                      String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // General
-  autoSwitch              Boolean  @default(false)
-  displayAiNotice         Boolean  @default(false)
-  automaticTranslation    Boolean  @default(true)
-  translationMemory       Boolean  @default(false)
-  websiteType             String?  // Blog, Corporate, E-Commerce, etc.
-  industryType            String?  // Health & medical, etc.
-  translationProvider     String?  // openai, openrouter, ollama, openai-compatible, deepl, mock
-  translationModel        String?
-  translationBaseUrl      String?
+  autoSwitch                 Boolean     @default(false)
+  displayAiNotice            Boolean     @default(false)
+  automaticTranslation       Boolean     @default(true)
+  translationMemory          Boolean     @default(false)
+  websiteType                String? // Blog, Corporate, E-Commerce, etc.
+  industryType               String? // Health & medical, etc.
+  translationProvider        String? // openai, openrouter, ollama, openai-compatible, deepl, mock
+  translationModel           String?
+  translationBaseUrl         String?
   translationApiKeyEncrypted String?
   translationApiKeyUpdatedAt DateTime?
-  routingMode             RoutingMode @default(PATH_PREFIX)
-  runtimeSyncedAt         DateTime?
+  routingMode                RoutingMode @default(PATH_PREFIX)
+  runtimeSyncedAt            DateTime?
 
   // Language Switcher
-  switcherDisplayName     Boolean  @default(true)
-  switcherFullName        Boolean  @default(true)
-  switcherFlags           Boolean  @default(true)
-  switcherDropdown        Boolean  @default(true)
-  switcherFlagsType       String   @default("rectangle_mat")
-  switcherCustomCss       String?
+  switcherDisplayName Boolean @default(true)
+  switcherFullName    Boolean @default(true)
+  switcherFlags       Boolean @default(true)
+  switcherDropdown    Boolean @default(true)
+  switcherFlagsType   String  @default("rectangle_mat")
+  switcherCustomCss   String?
 
   // WordPress-specific
-  translateEmails         Boolean  @default(false)
-  translateSearch         Boolean  @default(false)
-  translateAmp            Boolean  @default(false)
+  translateEmails Boolean @default(false)
+  translateSearch Boolean @default(false)
+  translateAmp    Boolean @default(false)
 
   // Page views tracking
-  pageViewsEnabled        Boolean  @default(false)
+  pageViewsEnabled Boolean @default(false)
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  projectId String @unique
+  projectId String  @unique
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
@@ -316,13 +340,13 @@ model ProjectMember {
   id        String      @id @default(cuid())
   email     String
   role      ProjectRole @default(TRANSLATOR)
-  langCode  String?     // language they are responsible for
+  langCode  String? // language they are responsible for
   createdAt DateTime    @default(now())
 
-  projectId String
-  userId    String?
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  projectId            String
+  userId               String?
+  project              Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                 User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   assignedTranslations Translation[] @relation("TranslationAssignment")
 
   @@unique([projectId, email])
@@ -360,8 +384,8 @@ model GlossaryRule {
   id             String   @id @default(cuid())
   originalTerm   String
   translatedTerm String
-  langFrom       String   // ISO 639-1
-  langTo         String   // ISO 639-1
+  langFrom       String // ISO 639-1
+  langTo         String // ISO 639-1
   caseSensitive  Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -393,7 +417,7 @@ model UrlSlug {
   id             String   @id @default(cuid())
   originalSlug   String
   translatedSlug String?
-  langTo         String   // ISO 639-1
+  langTo         String // ISO 639-1
   urlCount       Int      @default(0) // how many URLs use this slug
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -408,10 +432,10 @@ model UrlSlug {
 // ─── Translation Exclusions ───────────────────────────────────────────────
 
 model TranslationExclusion {
-  id        String          @id @default(cuid())
+  id        String        @id @default(cuid())
   type      ExclusionType
-  value     String          // URL pattern, CSS selector, or regex
-  createdAt DateTime        @default(now())
+  value     String // URL pattern, CSS selector, or regex
+  createdAt DateTime      @default(now())
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -421,22 +445,22 @@ model TranslationExclusion {
 }
 
 enum ExclusionType {
-  URL         // full URL or wildcard
-  CSS_CLASS   // CSS class selector
-  CSS_ID      // CSS ID selector
-  REGEX       // regex pattern
+  URL // full URL or wildcard
+  CSS_CLASS // CSS class selector
+  CSS_ID // CSS ID selector
+  REGEX // regex pattern
 }
 
 // ─── Translated URLs (Statistiken pro URL) ────────────────────────────────
 
 model TranslatedUrl {
-  id          String   @id @default(cuid())
-  urlPath     String   // e.g. "/hautkrebsvorsorge-muttermalkontrolle-wien"
-  langTo      String   // ISO 639-1
-  wordCount   Int      @default(0)
-  requestCount Int     @default(0) // how often this URL was translated
-  lastSeenAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  urlPath      String // e.g. "/hautkrebsvorsorge-muttermalkontrolle-wien"
+  langTo       String // ISO 639-1
+  wordCount    Int      @default(0)
+  requestCount Int      @default(0) // how often this URL was translated
+  lastSeenAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -474,8 +498,8 @@ model TranslationBatchLog {
 
 model UsageRecord {
   id        String   @id @default(cuid())
-  words     Int      // words translated
-  month     Int      // YYYYMM, e.g. 202603
+  words     Int // words translated
+  month     Int // YYYYMM, e.g. 202603
   createdAt DateTime @default(now())
 
   organizationId String
@@ -533,16 +557,16 @@ enum WebhookProcessorRunStatus {
 }
 
 model WebhookEndpoint {
-  id                 String    @id @default(cuid())
+  id                 String                 @id @default(cuid())
   url                String
   secret             String
   eventTypes         String[]
-  enabled            Boolean   @default(true)
+  enabled            Boolean                @default(true)
   lastDeliveryStatus WebhookDeliveryStatus?
   lastDeliveryAt     DateTime?
   lastDeliveryCode   Int?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

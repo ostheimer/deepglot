@@ -83,7 +83,7 @@ export default function NeuesProjektPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Globe className="h-4 w-4 text-indigo-600" />
+              <Globe className="h-4 w-4 text-brand-600" />
               {uiText(locale, "Website information", "Website-Informationen")}
             </CardTitle>
           </CardHeader>
@@ -150,8 +150,8 @@ export default function NeuesProjektPage() {
                         onClick={() => toggleLanguage(lang.code)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
                           isSelected
-                            ? "bg-indigo-600 text-white border-indigo-600"
-                            : "bg-white text-gray-700 border-gray-300 hover:border-indigo-400"
+                            ? "bg-brand-600 text-white border-brand-600"
+                            : "bg-white text-gray-700 border-gray-300 hover:border-brand-400"
                         }`}
                       >
                         {isSelected && <X className="h-3 w-3" />}
@@ -166,7 +166,7 @@ export default function NeuesProjektPage() {
                 )}
               </div>
               {selectedLangs.length > 0 && (
-                <p className="text-xs text-indigo-600 mt-2">
+                <p className="text-xs text-brand-600 mt-2">
                   {selectedLangs.length}{" "}
                   {locale === "de"
                     ? `Sprache${selectedLangs.length > 1 ? "n" : ""} ausgewählt`
@@ -190,7 +190,7 @@ export default function NeuesProjektPage() {
           </Button>
           <Button
             type="submit"
-            className="bg-indigo-600 hover:bg-indigo-700"
+            className="bg-brand-600 hover:bg-brand-700"
             disabled={isLoading}
           >
             {isLoading

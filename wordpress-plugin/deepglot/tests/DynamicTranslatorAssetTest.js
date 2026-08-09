@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const scriptPath = path.resolve(__dirname, '../assets/js/dynamic-translator.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-function createHarness(fetchHandler) {
+function createHarness(fetchHandler, beforeScript) {
   const timers = [];
   const fetchCalls = [];
   let observerId = 0;
@@ -57,7 +57,10 @@ function createHarness(fetchHandler) {
     }
 
     appendChild(child) {
+      const previous = this.childNodes[this.childNodes.length - 1];
+      if (previous) previous.nextSibling = child;
       child.parentNode = this;
+      child.nextSibling = null;
       this.childNodes.push(child);
       notify({ type: 'childList', target: this, addedNodes: [child] });
       return child;
@@ -177,10 +180,12 @@ function createHarness(fetchHandler) {
       skipTags: ['script', 'style', 'pre', 'code', 'textarea', 'noscript', 'svg', 'math'],
       excludeSelectors: [],
       noTranslateAttr: 'data-deepglot-no-translate',
+      initialDomAttr: 'data-deepglot-initial-dom',
       attrSkipTags: ['script', 'style', 'noscript', 'template'],
       attrMap: {
         img: ['alt'],
         button: ['title', 'aria-label'],
+        div: ['aria-label', 'data-tooltip'],
         input: ['placeholder', 'aria-label'],
         textarea: ['placeholder', 'aria-label'],
       },
@@ -206,6 +211,10 @@ function createHarness(fetchHandler) {
       return fetchHandler(payload.texts, options);
     },
   };
+
+  if (typeof beforeScript === 'function') {
+    beforeScript(document);
+  }
 
   vm.runInNewContext(scriptSource, context, { filename: scriptPath });
 
@@ -254,6 +263,44 @@ async function testProcessedTextNodeCanBeTranslatedAfterChanging() {
 
   assert.deepEqual(harness.fetchCalls, [['1 item'], ['2 items']]);
   assert.equal(text.data, '2 Artikel');
+}
+
+async function testExistingDynamicTextIsTranslatedWhenScriptStarts() {
+  let existingText;
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    'Cookie Einstellungen': 'Cookie settings',
+  }), (document) => {
+    // The server-rendered page before the footer script is already English and
+    // must not be sent through the de→en API again. A cookie manager can append
+    // its UI to the end of <body> before the footer translator executes; that
+    // post-script subtree is the only pre-existing content we need to recover.
+    const serverPage = document.createElement('div');
+    serverPage.setAttribute('data-deepglot-initial-dom', '');
+    serverPage.appendChild(document.createTextNode('Dermatologist Vienna'));
+    document.body.appendChild(serverPage);
+
+    // Reproduce the race in which the cookie manager appends its root before
+    // the browser reaches the Deepglot footer script. DOM order alone cannot
+    // distinguish it from server HTML, but the server marker can.
+    const cookieUi = document.createElement('div');
+    cookieUi.setAttribute('aria-label', 'Cookie Einstellungen');
+    cookieUi.setAttribute('data-tooltip', 'Cookie Einstellungen');
+    existingText = document.createTextNode('Cookie Einstellungen');
+    cookieUi.appendChild(existingText);
+    document.body.appendChild(cookieUi);
+
+    const script = document.createElement('script');
+    script.setAttribute('data-deepglot-initial-dom', '');
+    document.body.appendChild(script);
+    document.currentScript = script;
+  });
+
+  await harness.runTimers();
+
+  assert.deepEqual(harness.fetchCalls, [['Cookie Einstellungen']]);
+  assert.equal(existingText.data, 'Cookie settings');
+  assert.equal(existingText.parentNode.getAttribute('aria-label'), 'Cookie settings');
+  assert.equal(existingText.parentNode.getAttribute('data-tooltip'), 'Cookie settings');
 }
 
 async function testAttributeMutationsAreTranslated() {
@@ -444,6 +491,7 @@ async function testQuotaExhaustedStopsFurtherRequests() {
 
 async function main() {
   const tests = [
+    testExistingDynamicTextIsTranslatedWhenScriptStarts,
     testProcessedTextNodeCanBeTranslatedAfterChanging,
     testAttributeMutationsAreTranslated,
     testPropertyOnlyButtonInputValueIsTranslatedOnInsert,

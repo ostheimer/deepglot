@@ -113,7 +113,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
           {project.languages.slice(0, 3).map((l) => (
             <Badge
               key={l.id}
-              className="text-xs bg-indigo-50 text-indigo-600 border-0 px-1.5 py-0"
+              className="text-xs bg-brand-50 text-brand-600 border-0 px-1.5 py-0"
             >
               {l.langCode.toUpperCase()}
             </Badge>
@@ -142,7 +142,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
                         className={cn(
                           "flex items-center justify-between px-2 py-1.5 rounded-md text-sm transition-colors",
                           isActive
-                            ? "bg-indigo-50 text-indigo-700 font-medium"
+                            ? "bg-brand-50 text-brand-700 font-medium"
                             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                         )}
                       >
@@ -151,7 +151,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
                           {item.label}
                         </span>
                         {"badge" in item && item.badge && (
-                          <Badge className="text-xs py-0 px-1.5 bg-indigo-600 text-white border-0">
+                          <Badge className="text-xs py-0 px-1.5 bg-brand-600 text-white border-0">
                             {item.badge}
                           </Badge>
                         )}

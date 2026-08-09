@@ -1,5 +1,7 @@
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import type { ActivityDigestSummary } from "@/lib/activity-digest";
+import { getIntlLocale } from "@/lib/locale-formatting";
 const CLOUDFLARE_EMAIL_API_BASE_URL =
   "https://api.cloudflare.com/client/v4/accounts";
 
@@ -88,7 +90,7 @@ export function buildPasswordResetEmailPayload({
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
         <p>${copy.intro}</p>
         <p>
-          <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${resetUrl}" style="display:inline-block;background:#df351c;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             ${copy.action}
           </a>
         </p>
@@ -142,7 +144,7 @@ export function buildProjectInvitationEmailPayload({
         <p>${copy.intro}</p>
         <p style="color:#374151">${projectLine}${inviterLine ? `<br>${inviterLine}` : ""}</p>
         <p>
-          <a href="${inviteUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${inviteUrl}" style="display:inline-block;background:#df351c;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             ${copy.action}
           </a>
         </p>
@@ -169,6 +171,191 @@ function escapeHtmlText(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function formatActivityDigestPeriod(
+  summary: ActivityDigestSummary,
+  locale: SiteLocale
+) {
+  const formatter = new Intl.DateTimeFormat(getIntlLocale(locale), {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const inclusiveEnd = new Date(summary.period.end.getTime() - 1);
+
+  return `${formatter.format(summary.period.start)}–${formatter.format(inclusiveEnd)}`;
+}
+
+function activityDigestMetricCopy({
+  locale,
+  summary,
+}: {
+  locale: SiteLocale;
+  summary: ActivityDigestSummary;
+}) {
+  const de = locale === "de";
+  const numbers = new Intl.NumberFormat(getIntlLocale(locale));
+  const newTranslations = numbers.format(summary.totals.newTranslations);
+  const newWords = numbers.format(summary.totals.newWords);
+  const manualTranslations = numbers.format(summary.totals.manualTranslations);
+  const manualWords = numbers.format(summary.totals.manualWords);
+  const translationRequests = numbers.format(summary.totals.translationRequests);
+
+  return {
+    newTranslations: de
+      ? `${newTranslations} ${summary.totals.newTranslations === 1 ? "neue Übersetzung" : "neue Übersetzungen"}`
+      : `${newTranslations} new ${summary.totals.newTranslations === 1 ? "translation" : "translations"}`,
+    newWords: de
+      ? `${newWords} ${summary.totals.newWords === 1 ? "Wort" : "Wörter"}`
+      : `${newWords} ${summary.totals.newWords === 1 ? "word" : "words"}`,
+    manualTranslations: de
+      ? `${manualTranslations} ${summary.totals.manualTranslations === 1 ? "manuelle Bearbeitung" : "manuelle Bearbeitungen"}`
+      : `${manualTranslations} manual ${summary.totals.manualTranslations === 1 ? "edit" : "edits"}`,
+    manualWords: de
+      ? `${manualWords} ${summary.totals.manualWords === 1 ? "Wort" : "Wörter"}`
+      : `${manualWords} ${summary.totals.manualWords === 1 ? "word" : "words"}`,
+    translationRequests: de
+      ? `${translationRequests} ${summary.totals.translationRequests === 1 ? "Übersetzungsanfrage" : "Übersetzungsanfragen"}`
+      : `${translationRequests} translation ${summary.totals.translationRequests === 1 ? "request" : "requests"}`,
+  };
+}
+
+export function buildActivityDigestEmailPayload({
+  to,
+  from,
+  locale,
+  summary,
+  dashboardUrl,
+  settingsUrl,
+}: {
+  to: string;
+  from: string;
+  locale: SiteLocale;
+  summary: ActivityDigestSummary;
+  dashboardUrl: string;
+  settingsUrl: string;
+}) {
+  const de = locale === "de";
+  const numbers = new Intl.NumberFormat(getIntlLocale(locale));
+  const period = formatActivityDigestPeriod(summary, locale);
+  const metrics = activityDigestMetricCopy({ locale, summary });
+  const subject = de
+    ? `Dein Deepglot-Wochenrückblick – ${summary.organizationName}`
+    : `Your Deepglot weekly digest – ${summary.organizationName}`;
+  const projectLines = summary.projects.map((project) => {
+    const name = project.domain || project.name;
+    return de
+      ? `${name}: ${numbers.format(project.newTranslations)} neue Übersetzungen, ${numbers.format(project.manualTranslations)} manuelle Bearbeitungen, ${numbers.format(project.translationRequests)} Übersetzungsanfragen`
+      : `${name}: ${numbers.format(project.newTranslations)} new translations, ${numbers.format(project.manualTranslations)} manual edits, ${numbers.format(project.translationRequests)} translation requests`;
+  });
+  const text = [
+    de
+      ? "Hier ist dein Deepglot-Wochenrückblick."
+      : "Here is your Deepglot weekly activity digest.",
+    `${de ? "Workspace" : "Workspace"}: ${summary.organizationName}`,
+    `${de ? "Zeitraum" : "Period"}: ${period}`,
+    `${metrics.newTranslations} (${metrics.newWords})`,
+    `${metrics.manualTranslations} (${metrics.manualWords})`,
+    metrics.translationRequests,
+    ...projectLines,
+    `${de ? "Aktivität öffnen" : "Open activity"}: ${dashboardUrl}`,
+    `${de ? "E-Mail-Einstellungen" : "Email settings"}: ${settingsUrl}`,
+  ].join("\n\n");
+  const htmlOrganizationName = escapeHtmlText(summary.organizationName);
+  const htmlDashboardUrl = escapeHtmlText(dashboardUrl);
+  const htmlSettingsUrl = escapeHtmlText(settingsUrl);
+  const htmlProjects = summary.projects
+    .map(
+      (project) => `
+        <tr>
+          <td style="padding:12px 0;border-top:1px solid #e5e7eb">
+            <strong style="color:#111827">${escapeHtmlText(project.domain || project.name)}</strong>
+            ${project.domain && project.name !== project.domain ? `<div style="color:#6b7280;font-size:12px">${escapeHtmlText(project.name)}</div>` : ""}
+            <div style="margin-top:4px;color:#4b5563;font-size:13px">
+              ${numbers.format(project.newTranslations)} ${de ? "neue Übersetzungen" : "new translations"}
+              &nbsp;&middot;&nbsp; ${numbers.format(project.manualTranslations)} ${de ? "manuelle Bearbeitungen" : "manual edits"}
+              &nbsp;&middot;&nbsp; ${numbers.format(project.translationRequests)} ${de ? "Übersetzungsanfragen" : "translation requests"}
+            </div>
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+
+  return {
+    from,
+    to,
+    subject,
+    text,
+    html: `
+      <div style="margin:0;background:#f5f6f8;padding:32px 16px;font-family:Arial,sans-serif;line-height:1.5;color:#111827">
+        <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">
+          <div style="padding:24px 28px;background:#df351c;color:#ffffff">
+            <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Deepglot</div>
+            <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2">${de ? "Wochenrückblick" : "Weekly activity digest"}</h1>
+          </div>
+          <div style="padding:28px">
+            <p style="margin:0;color:#4b5563">${de ? "Hier ist deine Aktivität der letzten vollständigen Woche." : "Here is your activity from the last complete week."}</p>
+            <h2 style="margin:20px 0 2px;font-size:24px">${htmlOrganizationName}</h2>
+            <p style="margin:0;color:#6b7280">${escapeHtmlText(period)}</p>
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-collapse:separate;border-spacing:8px 0;table-layout:fixed">
+              <tr>
+                <td width="33.33%" valign="top">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed">
+                    <tr>
+                      <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
+                        <div style="font-size:28px;font-weight:800;color:#df351c">${numbers.format(summary.totals.newTranslations)}</div>
+                        <div style="font-size:13px;font-weight:700">${de ? "Neue Übersetzungen" : "New translations"}</div>
+                        <div style="font-size:12px;color:#6b7280">${metrics.newWords}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td width="33.33%" valign="top">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed">
+                    <tr>
+                      <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
+                        <div style="font-size:28px;font-weight:800;color:#df351c">${numbers.format(summary.totals.manualTranslations)}</div>
+                        <div style="font-size:13px;font-weight:700">${de ? "Manuell bearbeitet" : "Manual edits"}</div>
+                        <div style="font-size:12px;color:#6b7280">${metrics.manualWords}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+                <td width="33.33%" valign="top">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed">
+                    <tr>
+                      <td style="padding:16px 4px;background:#fff4f1;border-radius:12px;text-align:center">
+                        <div style="font-size:28px;font-weight:800;color:#df351c">${numbers.format(summary.totals.translationRequests)}</div>
+                        <div style="font-size:13px;font-weight:700">${de ? "Übersetzungs-<br>Anfragen" : "Translation<br>requests"}</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-collapse:collapse">
+              ${htmlProjects}
+            </table>
+
+            <p style="margin:28px 0 0">
+              <a href="${htmlDashboardUrl}" style="display:inline-block;background:#df351c;color:#ffffff;text-decoration:none;padding:11px 16px;border-radius:8px;font-weight:700">
+                ${de ? "Aktivität öffnen" : "Open activity"}
+              </a>
+            </p>
+            <p style="margin:24px 0 0;color:#6b7280;font-size:12px">
+              ${de ? "Du erhältst diese E-Mail, weil der Wochenrückblick für diesen Workspace aktiviert ist." : "You receive this email because the weekly digest is enabled for this workspace."}
+              <a href="${htmlSettingsUrl}" style="color:#6b7280">${de ? "Einstellungen ändern" : "Change settings"}</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
 }
 
 export async function sendPasswordResetEmail({
@@ -267,7 +454,7 @@ export function buildDuplicateSubscriptionAlertEmailPayload({
           Orphaned subscription — cancel and refund manually: <strong>${orphanedSubscriptionId}</strong>
         </p>
         <p>
-          <a href="${stripeUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${stripeUrl}" style="display:inline-block;background:#df351c;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             Open in Stripe
           </a>
         </p>
@@ -396,7 +583,7 @@ export function buildQuotaAlertEmailPayload({
         <p style="color:#374151">${deLead}</p>
         <p style="color:#374151"><strong>${htmlUsageLine}</strong></p>
         <p>
-          <a href="${dashboardUrl}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
+          <a href="${dashboardUrl}" style="display:inline-block;background:#df351c;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:700">
             Open usage / Nutzung öffnen
           </a>
         </p>
@@ -517,4 +704,62 @@ export async function sendProjectInvitationEmail({
   }
 
   return { sent: true as const, provider: "cloudflare" as const, result: data.result };
+}
+
+export async function sendActivityDigestEmail({
+  to,
+  locale,
+  summary,
+  dashboardUrl,
+  settingsUrl,
+  signal,
+}: {
+  to: string;
+  locale: SiteLocale;
+  summary: ActivityDigestSummary;
+  dashboardUrl: string;
+  settingsUrl: string;
+  signal?: AbortSignal;
+}) {
+  const config = getCloudflareEmailConfig();
+
+  if (!config) {
+    return { sent: false, reason: "email_not_configured" as const };
+  }
+
+  const response = await fetch(buildCloudflareEmailApiUrl(config.accountId), {
+    method: "POST",
+    signal,
+    headers: {
+      Authorization: `Bearer ${config.apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      buildActivityDigestEmailPayload({
+        to,
+        from: config.from,
+        locale,
+        summary,
+        dashboardUrl,
+        settingsUrl,
+      })
+    ),
+  });
+  const data = (await response.json().catch(() => null)) as
+    | CloudflareEmailResponse
+    | null;
+
+  if (!response.ok || !data?.success) {
+    throw new Error(
+      `Cloudflare Email Sending failed: ${
+        data ? formatCloudflareEmailError(data) : response.statusText
+      }`
+    );
+  }
+
+  return {
+    sent: true as const,
+    provider: "cloudflare" as const,
+    result: data.result,
+  };
 }

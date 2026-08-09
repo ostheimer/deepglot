@@ -60,7 +60,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">
           {uiText(locale, "URL slugs for", "URL Slugs für")}{" "}
-          <span className="text-indigo-600">
+          <span className="text-brand-600">
             {activeLang.charAt(0).toUpperCase() + activeLang.slice(1)}
           </span>
         </h2>
@@ -80,7 +80,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
             size="sm"
             className={`h-8 px-3 text-xs font-medium transition-colors ${
               activeLang === l.langCode
-                ? "bg-indigo-600 text-white hover:bg-indigo-600 hover:text-white"
+                ? "bg-brand-600 text-white hover:bg-brand-600 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >

@@ -273,7 +273,7 @@ export function ExclusionsManager({
         </div>
         <Button
           type="button"
-          className="bg-indigo-600 hover:bg-indigo-700"
+          className="bg-brand-600 hover:bg-brand-700"
           onClick={openCreateDialog}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -433,7 +433,7 @@ export function ExclusionsManager({
             </Button>
             <Button
               type="button"
-              className="bg-indigo-600 hover:bg-indigo-700"
+              className="bg-brand-600 hover:bg-brand-700"
               onClick={() => void submitForm()}
               disabled={isPending || !isFormValid}
             >

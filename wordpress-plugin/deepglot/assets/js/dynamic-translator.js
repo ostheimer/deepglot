@@ -36,6 +36,7 @@
   var attrSkipTags = toSet(cfg.attrSkipTags || ['script', 'style', 'noscript', 'template']);
 
   var noTranslateAttr = cfg.noTranslateAttr || 'data-deepglot-no-translate';
+  var initialDomAttr = cfg.initialDomAttr || 'data-deepglot-initial-dom';
   var minLength = cfg.minLength || 2;
   var batchSize = cfg.batchSize || 200;
   var maxTextLength = cfg.maxTextLength || 5000;
@@ -350,9 +351,31 @@
 
   function start() {
     if (!document.body) return;
-    // The initial DOM is already server-translated — only watch for changes.
     observer = new MutationObserver(onMutations);
     observer.observe(document.body, OBSERVE);
+
+    // A delayed script can start after cookie/chat widgets have already been
+    // inserted. Server-rendered body roots carry a marker; only when at least
+    // one such trusted root exists do we recover unmarked direct element roots.
+    // Old cache pages and atomic source fallbacks have no markers, so they are
+    // deliberately not scanned and cannot be double-translated or billed.
+    var bodyChildren = document.body.childNodes || [];
+    var hasInitialRoot = false;
+    for (var i = 0; i < bodyChildren.length; i++) {
+      if (bodyChildren[i].nodeType === 1 && bodyChildren[i].hasAttribute(initialDomAttr)) {
+        hasInitialRoot = true;
+        break;
+      }
+    }
+    if (hasInitialRoot) {
+      for (var j = 0; j < bodyChildren.length; j++) {
+        var child = bodyChildren[j];
+        if (child.nodeType === 1 && !child.hasAttribute(initialDomAttr)) {
+          walk(child);
+        }
+      }
+    }
+    if (pendingNodes.length || pendingAttrs.length) scheduleFlush();
   }
 
   // This script loads in the footer, so document.body already exists: start

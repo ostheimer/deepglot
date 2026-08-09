@@ -27,6 +27,9 @@ class TranslationRules
     /** Attribute that opts an element (and its whole subtree) out of translation. */
     public const NO_TRANSLATE_ATTR = 'data-deepglot-no-translate';
 
+    /** Marks direct body elements that were present in translated server HTML. */
+    public const INITIAL_DOM_ATTR = 'data-deepglot-initial-dom';
+
     /**
      * Ancestor tags that block *attribute* translation. Deliberately narrower
      * than SKIP_TAGS: `<textarea>` text content is never translated, but its
@@ -61,6 +64,7 @@ class TranslationRules
         'img' => ['alt'],
         'a' => ['title', 'aria-label'],
         'button' => ['title', 'aria-label'],
+        'div' => ['aria-label', 'data-tooltip'],
         'input' => ['placeholder', 'aria-label'],
         'textarea' => ['placeholder', 'aria-label'],
         'select' => ['aria-label'],
