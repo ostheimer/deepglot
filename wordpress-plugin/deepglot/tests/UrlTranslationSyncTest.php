@@ -428,7 +428,10 @@ $signedRequests = array_values(array_filter(
     )
 ));
 syncAssert(count($signedRequests) === 2, 'One cron run must open at most two signed target URLs.');
-syncAssert(count($GLOBALS['_dg_sync_requests']) === 4, 'Each completed target may add one bounded public status probe.');
+syncAssert(
+    count($GLOBALS['_dg_sync_requests']) === 6,
+    'Each completed target must add bounded public-cache and origin-bypass status probes.'
+);
 foreach ($signedRequests as $request) {
     syncAssert(($request['args']['redirection'] ?? null) === 0, 'Sync requests must not follow redirects.');
     syncAssert(($request['args']['sslverify'] ?? null) === true, 'TLS verification must stay enabled.');
@@ -513,6 +516,45 @@ syncAssert(
     $sync->status()['status'] === 'completed_with_errors'
         && $sync->status()['failed'] === 1,
     'Repeated public-cache redirects must stop at the existing no-progress retry cap.'
+);
+
+// A split edge can return a stale target-language HIT to an origin loopback
+// while a cache-bypassing request to the same query-free target is already 404.
+// The stale edge HIT must never be enough to complete the sitemap item.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/removed-treatment/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'en',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-cache' => 'HIT',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 404], 'headers' => []];
+$sync->run();
+$splitEdge = $sync->status();
+syncAssert(
+    $splitEdge['status'] !== 'completed'
+        && $splitEdge['retry_count'] === 1
+        && $splitEdge['last_error'] === 'origin_status_http_404',
+    'A stale target cache HIT must never hide a query-free origin 404 for the same URL.'
+);
+syncAssert(
+    count($GLOBALS['_dg_sync_requests']) === 3
+        && $GLOBALS['_dg_sync_requests'][2]['url'] === 'https://example.com/en/removed-treatment/'
+        && ($GLOBALS['_dg_sync_requests'][2]['args']['redirection'] ?? null) === 0
+        && ($GLOBALS['_dg_sync_requests'][2]['args']['sslverify'] ?? null) === true
+        && ($GLOBALS['_dg_sync_requests'][2]['args']['limit_response_size'] ?? null) === 1
+        && preg_match(
+            '/bot/i',
+            (string) ($GLOBALS['_dg_sync_requests'][2]['args']['user-agent'] ?? '')
+        ) === 1
+        && str_contains(
+            (string) ($GLOBALS['_dg_sync_requests'][2]['args']['headers']['Cookie'] ?? ''),
+            'wordpress_logged_in_deepglot_probe='
+        ),
+    'Completion must repeat the exact query-free target with an invalid cache-bypass cookie.'
 );
 
 // 5. Transient failures back off; redirects are failures, never followed.
