@@ -526,6 +526,40 @@ class DeepglotWarmFakeClient extends Client
     }
 }
 
+/** Existing integrations may customize only the original public batch API. */
+class DeepglotWarmLegacyBatchOverrideClient extends Client
+{
+    public int $calls = 0;
+
+    /** @var array<int, string[][]> */
+    public array $dispatched = [];
+
+    public function __construct() {}
+
+    public function translateBatches(
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    ): array {
+        $this->calls++;
+        $this->dispatched[] = $batches;
+
+        return array_map(
+            static fn(array $batch): array => [
+                'from_words' => $batch,
+                'to_words' => array_map(
+                    static fn(string $text): string => '[legacy] ' . $text,
+                    $batch
+                ),
+            ],
+            $batches
+        );
+    }
+}
+
 class DeepglotWarmSettingsClient extends DeepglotWarmFakeClient
 {
     public function syncSettings(?array $settings = null, ?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
@@ -2744,6 +2778,64 @@ warmCollectAssert(
 warmCollectAssert(
     count($resultSwitchEventsForB) === 1,
     'A result-loop identity switch must plan exactly one immediate additive B event.'
+);
+
+// -----------------------------------------------------------------------------
+// 39. A warmer dispatch must preserve existing Client subclasses that override
+//     only the original public translateBatches() method. Identity-scoped cron
+//     protection must still prevent that override from running for stale work.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$legacyDispatchKeyA = 'dg_legacy_dispatch_a';
+$legacyDispatchBaseA = 'https://legacy-dispatch-a.deepglot.test/api';
+$legacyDispatchKeyB = 'dg_legacy_dispatch_b';
+$legacyDispatchBaseB = 'https://legacy-dispatch-b.deepglot.test/api';
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => $legacyDispatchKeyA,
+    'api_base_url' => $legacyDispatchBaseA,
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$legacyDispatchIdentityA = warmRateIdentity($options);
+$legacyDispatchClient = new DeepglotWarmLegacyBatchOverrideClient();
+$legacyDispatchCache = new DeepglotWarmArrayCache();
+$legacyDispatchWarmer = new TranslationWarmer(
+    $legacyDispatchClient,
+    $options,
+    $legacyDispatchCache
+);
+$legacyDispatchWarmer->enqueue(['Legacy override queue'], 'de', 'en');
+unset(
+    $GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK],
+    $GLOBALS['_deepglot_scheduled_args'][TranslationWarmer::HOOK]
+);
+$legacyDispatchWarmer->runForIdentity($legacyDispatchIdentityA);
+warmCollectAssert(
+    $legacyDispatchClient->calls === 1
+        && $legacyDispatchClient->dispatched === [[['Legacy override queue']]],
+    'The warmer must dispatch exactly once through an existing translateBatches override.'
+);
+
+$legacyDispatchWarmer->enqueue(['Stale identity queue'], 'de', 'en');
+$legacyDispatchQueueBefore = get_option(TranslationWarmer::QUEUE_OPTION, false);
+unset(
+    $GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK],
+    $GLOBALS['_deepglot_scheduled_args'][TranslationWarmer::HOOK]
+);
+$GLOBALS['_deepglot_scheduled_event_log'] = [];
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => $legacyDispatchKeyB,
+    'api_base_url' => $legacyDispatchBaseB,
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$legacyDispatchWarmer->runForIdentity($legacyDispatchIdentityA);
+warmCollectAssert(
+    $legacyDispatchClient->calls === 1
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyDispatchQueueBefore,
+    'A stale identity event must not invoke a legacy batch override or reconcile its queue.'
 );
 
 if ($GLOBALS['_deepglot_collected_failures'] !== []) {

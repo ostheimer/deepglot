@@ -364,7 +364,7 @@ class TranslationWarmer
             $dispatchIdentity = $runIdentity;
             $results = empty($processed)
                 ? []
-                : $this->client->translateBatchesForExpectedIdentity(
+                : $this->dispatchBatchesForIdentity(
                     $runIdentity,
                     $processed,
                     $sourceLang,
@@ -555,6 +555,58 @@ class TranslationWarmer
         }
 
         return $pairs;
+    }
+
+    /**
+     * Preserve Client subclasses that predate the identity-aware batch API.
+     * Modern implementations retain the Client's atomic configuration check;
+     * a legacy-only override is reached only after the Warmer has revalidated
+     * the identity immediately before dispatch.
+     *
+     * @param array<int|string, string[]> $batches
+     * @return array<int|string, array|\WP_Error>
+     */
+    private function dispatchBatchesForIdentity(
+        string $expectedIdentity,
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl,
+        int $bot,
+        ?int $timeout
+    ): array {
+        $legacyMethod = new \ReflectionMethod($this->client, 'translateBatches');
+        $identityMethod = new \ReflectionMethod(
+            $this->client,
+            'translateBatchesForExpectedIdentity'
+        );
+        $usesLegacyOnlyOverride = $legacyMethod->getDeclaringClass()->getName() !== Client::class
+            && $identityMethod->getDeclaringClass()->getName() === Client::class;
+
+        if ($usesLegacyOnlyOverride) {
+            if (!$this->identityIsCurrent($expectedIdentity)) {
+                return [];
+            }
+
+            return $this->client->translateBatches(
+                $batches,
+                $langFrom,
+                $langTo,
+                $requestUrl,
+                $bot,
+                $timeout
+            );
+        }
+
+        return $this->client->translateBatchesForExpectedIdentity(
+            $expectedIdentity,
+            $batches,
+            $langFrom,
+            $langTo,
+            $requestUrl,
+            $bot,
+            $timeout
+        );
     }
 
     /** Current one-way API-key/backend identity; never persists raw config. */
