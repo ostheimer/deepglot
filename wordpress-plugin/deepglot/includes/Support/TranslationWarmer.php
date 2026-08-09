@@ -75,8 +75,8 @@ class TranslationWarmer
     private Options $options;
     private TranslationCache $cache;
 
-    /** One loopback nudge per request, no matter how often we enqueue. */
-    private bool $spawnRegistered = false;
+    /** One non-blocking WP-Cron nudge per request, no matter how often we enqueue. */
+    private bool $spawnAttempted = false;
 
     public function __construct(Client $client, Options $options, TranslationCache $cache)
     {
@@ -362,24 +362,32 @@ class TranslationWarmer
             return;
         }
 
-        if (!$force && wp_next_scheduled(self::HOOK)) {
+        $scheduledAt = wp_next_scheduled(self::HOOK);
+
+        if ($force || !$scheduledAt) {
+            // The event must be due before the nudge below calls spawn_cron(),
+            // otherwise WordPress would spend a loopback without draining this
+            // queue. This happens only after the queue mutation is durable.
+            wp_schedule_single_event(time(), self::HOOK);
+            $scheduledAt = wp_next_scheduled(self::HOOK);
+        }
+
+        // WordPress otherwise starts cron on a later request, which can leave
+        // a low-traffic page untranslated for minutes. Spawn immediately once
+        // the queue and an already-due event are durable. In particular, an
+        // output-buffer callback can enqueue after WordPress has dispatched
+        // `shutdown`, so a callback registered there would never execute in
+        // that request. Core's loopback is non-blocking and protected by its
+        // own `doing_cron` lock; hosts that run a system cron opted out of it.
+        if (!is_numeric($scheduledAt) || (int) $scheduledAt > time()) {
             return;
         }
 
-        // The shutdown callback below invokes spawn_cron() immediately. The
-        // event must already be due at that moment or the loopback is wasted.
-        wp_schedule_single_event(time(), self::HOOK);
-
-        // WordPress only spawns cron on a later request, which on a low-traffic
-        // page can be minutes away. Nudge it from this request's shutdown so
-        // the page converges within seconds; the loopback core performs is
-        // non-blocking and rate-limited by its own `doing_cron` lock. Sites
-        // that run a real system cron opted out of loopbacks — respect that.
         if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) {
             return;
         }
 
-        if (!function_exists('add_action') || !function_exists('spawn_cron')) {
+        if (!function_exists('spawn_cron')) {
             return;
         }
 
@@ -387,14 +395,12 @@ class TranslationWarmer
             return;
         }
 
-        if ($this->spawnRegistered) {
+        if ($this->spawnAttempted) {
             return;
         }
 
-        $this->spawnRegistered = true;
-        add_action('shutdown', static function (): void {
-            spawn_cron();
-        });
+        $this->spawnAttempted = true;
+        spawn_cron();
     }
 
     /**
