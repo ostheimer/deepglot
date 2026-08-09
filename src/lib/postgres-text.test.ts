@@ -88,6 +88,7 @@ test("translation, batch, import, manual, and event writes keep the persistence 
     "src/app/api/translate/route.ts",
     "src/app/api/projects/[projektId]/manual-translations/route.ts",
     "src/app/api/projects/[projektId]/import/route.ts",
+    "src/lib/project-translation-import.ts",
     "src/lib/translation-batches.ts",
   ]) {
     assert.match(source(file), /assertPostgresTextFields\(/, file);

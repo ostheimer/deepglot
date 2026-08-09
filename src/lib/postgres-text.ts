@@ -50,7 +50,8 @@ export function countPostgresNul(value: string): number {
 
 /**
  * Inspect without logging. This is used by request validation so callers can
- * return a structured 4xx response before any provider or database work.
+ * return a structured 4xx response before provider translation and
+ * translation-domain persistence.
  */
 export function inspectPostgresText(
   value: string,

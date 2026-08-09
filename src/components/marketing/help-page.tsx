@@ -159,8 +159,8 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               </h2>
               <p className="mt-5 text-lg leading-8 text-[#58636d]">
                 {de
-                  ? "PostgreSQL kann das NUL-Zeichen U+0000 weder in Text noch in JSON speichern. Deepglot lehnt es deshalb in API-, Editor- und Import-Eingaben vor Anbieter- und Datenbankarbeit mit einem Validierungsfehler ab. Andere gültige Unicode-Zeichen bleiben unverändert."
-                  : "PostgreSQL cannot store the U+0000 null byte in text or JSON. Deepglot therefore rejects it in API, editor, and import input with a validation error before provider or database work. Other valid Unicode characters remain unchanged."}
+                  ? "PostgreSQL kann das NUL-Zeichen U+0000 weder in Text noch in JSON speichern. Deepglot lehnt es deshalb in API-, Editor- und Import-Eingaben vor Anbieteraufrufen und vor der Persistenz von Übersetzungsinhalten mit einem Validierungsfehler ab. Andere gültige Unicode-Zeichen bleiben unverändert."
+                  : "PostgreSQL cannot store the U+0000 null byte in text or JSON. Deepglot therefore rejects it in API, editor, and import input with a validation error before provider calls and before translation content is persisted. Other valid Unicode characters remain unchanged."}
               </p>
               <p className="mt-4 text-sm leading-7 text-[#58636d]">
                 {de

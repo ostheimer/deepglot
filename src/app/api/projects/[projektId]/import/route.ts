@@ -8,7 +8,6 @@ import {
   parseGlossaryCsv,
   parsePoTranslations,
   parseSlugsCsv,
-  parseTranslationsCsv,
 } from "@/lib/import-export";
 import {
   canAccessProject,
@@ -19,6 +18,10 @@ import {
 } from "@/lib/project-access";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { getCookieLocale } from "@/lib/request-locale";
+import {
+  importTranslationsCsv,
+  ProjectTranslationImportError,
+} from "@/lib/project-translation-import";
 import { recordTranslationBatch } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
 import { workflowResetFieldsIfTranslatedTextChanged } from "@/lib/translation-workflow";
@@ -316,146 +319,6 @@ async function importTranslationsPo(
   return { importedRows: rows.length };
 }
 
-async function importTranslationsCsv(
-  content: string,
-  { project, access, locale, emitRowEvents }: ImportContext
-) {
-  const rows = parseImport(() => parseTranslationsCsv(content), locale);
-  assertRowLimit(rows.length, locale);
-  assertLanguagesAllowed(
-    access,
-    rows.map((row) => row.langTo),
-    locale
-  );
-
-  for (const row of rows) {
-    if (!row.originalText || !row.translatedText) {
-      throw new ImportError(
-        t(
-          locale,
-          `Zeile ${row.line}: Übersetzungsdaten unvollständig`,
-          `Line ${row.line}: translation data is incomplete`
-        )
-      );
-    }
-  }
-
-  await writeInChunks(rows, locale, async (row, tx) => {
-    const originalHash = computeTranslationHash(
-      row.originalText,
-      row.langFrom,
-      row.langTo
-    );
-    const existing = await tx.translation.findUnique({
-      where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      select: {
-        id: true,
-        workflowStatus: true,
-        assignedToId: true,
-        translatedText: true,
-      },
-    });
-    assertPostgresTextFields(
-      {
-        originalText: row.originalText,
-        translatedText: row.translatedText,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-      },
-      { boundary: "translation_import_persistence", index: row.line },
-    );
-    const translation = await tx.translation.upsert({
-      where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      create: {
-        projectId: project.id,
-        originalHash,
-        originalText: row.originalText,
-        translatedText: row.translatedText,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-        isManual: true,
-        source: "IMPORT",
-        wordCount: countWords(row.originalText),
-      },
-      update: {
-        translatedText: row.translatedText,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-        isManual: true,
-        source: "IMPORT",
-        ...(existing
-          ? workflowResetFieldsIfTranslatedTextChanged(
-              existing,
-              row.translatedText,
-            )
-          : {}),
-      },
-    });
-
-    if (emitRowEvents) {
-      await queueProjectWebhookEvent(
-        {
-          projectId: project.id,
-          eventType: existing ? "translation.updated" : "translation.created",
-          payload: {
-            type: existing ? "translation.updated" : "translation.created",
-            translationId: translation.id,
-            originalText: translation.originalText,
-            translatedText: translation.translatedText,
-            langFrom: translation.langFrom,
-            langTo: translation.langTo,
-            imported: true,
-          },
-        },
-        tx
-      );
-    }
-  });
-
-  // Attribute imported words per language pair instead of lumping everything
-  // under the first row's languages.
-  const wordsByPair = new Map<
-    string,
-    { langFrom: string; langTo: string; words: number }
-  >();
-  for (const row of rows) {
-    const key = JSON.stringify([row.langFrom, row.langTo]);
-    const entry =
-      wordsByPair.get(key) ??
-      { langFrom: row.langFrom, langTo: row.langTo, words: 0 };
-    entry.words += countWords(row.originalText);
-    wordsByPair.set(key, entry);
-  }
-
-  for (const { langFrom, langTo, words } of wordsByPair.values()) {
-    await recordTranslationBatch({
-      organizationId: project.organizationId,
-      projectId: project.id,
-      langFrom,
-      langTo,
-      provider: "import",
-      totalWords: words,
-      cachedWords: 0,
-      manualWords: words,
-      glossaryWords: 0,
-      translatedWords: 0,
-    });
-  }
-
-  await queueProjectWebhookEvent({
-    projectId: project.id,
-    eventType: "import.completed",
-    payload: {
-      type: "import.completed",
-      asset: "translations",
-      format: "csv",
-      importedRows: rows.length,
-    },
-  });
-
-  return { importedRows: rows.length };
-}
-
 async function importGlossaryCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
@@ -704,7 +567,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
-    if (error instanceof ImportError) {
+    if (
+      error instanceof ImportError ||
+      error instanceof ProjectTranslationImportError
+    ) {
       return NextResponse.json(
         { error: error.message },
         { status: error.status }
