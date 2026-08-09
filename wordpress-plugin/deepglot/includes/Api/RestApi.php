@@ -3,6 +3,7 @@
 namespace Deepglot\Api;
 
 use Deepglot\Config\Options;
+use Deepglot\Support\UrlTranslationSync;
 use Deepglot\Sync\SettingsSync;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -18,6 +19,8 @@ use WP_Error;
  * PATCH /wp-json/deepglot/v1/settings         – Partial update
  * GET  /wp-json/deepglot/v1/status            – Plugin status + connection health
  * POST /wp-json/deepglot/v1/test-connection   – Verify API key against backend
+ * GET/POST/DELETE /wp-json/deepglot/v1/url-sync – Control bounded URL sync
+ * POST /wp-json/deepglot/v1/url-sync/preview – Preview the immutable URL snapshot
  *
  * Security
  * --------
@@ -40,11 +43,17 @@ class RestApi
 
     private Options $options;
     private SettingsSync $settingsSync;
+    private ?UrlTranslationSync $urlSync;
 
-    public function __construct(Options $options, SettingsSync $settingsSync)
+    public function __construct(
+        Options $options,
+        SettingsSync $settingsSync,
+        ?UrlTranslationSync $urlSync = null
+    )
     {
         $this->options = $options;
         $this->settingsSync = $settingsSync;
+        $this->urlSync = $urlSync;
     }
 
     public function register(): void
@@ -105,6 +114,89 @@ class RestApi
                     'description'       => 'Backend URL to test against (defaults to stored URL).',
                 ],
             ],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/url-sync', [
+            [
+                'methods'             => 'GET',
+                'callback'            => [$this, 'getUrlSync'],
+                'permission_callback' => [$this, 'checkPermission'],
+            ],
+            [
+                'methods'             => 'POST',
+                'callback'            => [$this, 'startUrlSync'],
+                'permission_callback' => [$this, 'checkPermission'],
+                'args'                => [
+                    'target_languages' => [
+                        'required' => true,
+                        'type' => 'array',
+                        'items' => ['type' => 'string'],
+                    ],
+                    'max_urls' => [
+                        'required' => false,
+                        'type' => 'integer',
+                        'minimum' => 1,
+                        'maximum' => UrlTranslationSync::MAX_URLS,
+                    ],
+                    'preview_token' => [
+                        'required' => true,
+                        'type' => 'string',
+                        'sanitize_callback' => 'sanitize_text_field',
+                    ],
+                    'source_offset' => [
+                        'required' => false,
+                        'type' => 'integer',
+                        'minimum' => 0,
+                        'maximum' => UrlTranslationSync::MAX_SOURCE_OFFSET,
+                    ],
+                ],
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [$this, 'cancelUrlSync'],
+                'permission_callback' => [$this, 'checkPermission'],
+            ],
+        ]);
+
+        register_rest_route(self::NAMESPACE, '/url-sync/preview', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'previewUrlSync'],
+            'permission_callback' => [$this, 'checkPermission'],
+            'args'                => [
+                'target_languages' => [
+                    'required' => true,
+                    'type' => 'array',
+                    'items' => ['type' => 'string'],
+                ],
+                'max_urls' => [
+                    'required' => false,
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'maximum' => UrlTranslationSync::MAX_URLS,
+                ],
+                'source_offset' => [
+                    'required' => false,
+                    'type' => 'integer',
+                    'minimum' => 0,
+                    'maximum' => UrlTranslationSync::MAX_SOURCE_OFFSET,
+                ],
+            ],
+        ]);
+
+        foreach (['pause', 'resume'] as $action) {
+            register_rest_route(self::NAMESPACE, '/url-sync/' . $action, [
+                'methods'             => 'POST',
+                'callback'            => $action === 'pause'
+                    ? [$this, 'pauseUrlSync']
+                    : [$this, 'resumeUrlSync'],
+                'permission_callback' => [$this, 'checkPermission'],
+            ]);
+        }
+
+        register_rest_route(self::NAMESPACE, '/url-sync/retry-failed', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'retryFailedUrlSync'],
+            'permission_callback' => [$this, 'checkPermission'],
         ]);
     }
 
@@ -245,6 +337,108 @@ class RestApi
         }
 
         return new WP_REST_Response(['ok' => true, 'synced' => true], 200);
+    }
+
+    public function getUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        if (($error = $this->urlSyncRequestError($request)) !== null) {
+            return $error;
+        }
+
+        return new WP_REST_Response($this->urlSync->status(), 200);
+    }
+
+    public function startUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        if (($error = $this->urlSyncRequestError($request)) !== null) {
+            return $error;
+        }
+
+        $languages = $request->get_param('target_languages');
+        $limit = $request->get_param('max_urls');
+        $previewToken = $request->get_param('preview_token');
+        $sourceOffset = $request->get_param('source_offset');
+        $result = $this->urlSync->start(
+            is_array($languages) ? $languages : [],
+            is_numeric($limit) ? (int) $limit : UrlTranslationSync::MAX_URLS,
+            is_scalar($previewToken) ? (string) $previewToken : '',
+            is_numeric($sourceOffset) ? (int) $sourceOffset : 0
+        );
+
+        return is_wp_error($result)
+            ? $this->errorResponse($result)
+            : new WP_REST_Response($result, 202);
+    }
+
+    public function previewUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        if (($error = $this->urlSyncRequestError($request)) !== null) {
+            return $error;
+        }
+
+        $languages = $request->get_param('target_languages');
+        $limit = $request->get_param('max_urls');
+        $sourceOffset = $request->get_param('source_offset');
+        $result = $this->urlSync->preview(
+            is_array($languages) ? $languages : [],
+            is_numeric($limit) ? (int) $limit : UrlTranslationSync::MAX_URLS,
+            is_numeric($sourceOffset) ? (int) $sourceOffset : 0
+        );
+
+        return is_wp_error($result)
+            ? $this->errorResponse($result)
+            : new WP_REST_Response($result, 200);
+    }
+
+    public function pauseUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        return $this->controlUrlSync($request, 'pause');
+    }
+
+    public function resumeUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        return $this->controlUrlSync($request, 'resume');
+    }
+
+    public function cancelUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        return $this->controlUrlSync($request, 'cancel');
+    }
+
+    public function retryFailedUrlSync(WP_REST_Request $request): WP_REST_Response
+    {
+        return $this->controlUrlSync($request, 'retryFailed');
+    }
+
+    private function controlUrlSync(WP_REST_Request $request, string $action): WP_REST_Response
+    {
+        if (($error = $this->urlSyncRequestError($request)) !== null) {
+            return $error;
+        }
+
+        $changed = $this->urlSync->{$action}();
+
+        return new WP_REST_Response([
+            'ok' => $changed,
+            'job' => $this->urlSync->status(),
+        ], $changed ? 200 : 409);
+    }
+
+    private function urlSyncRequestError(WP_REST_Request $request): ?WP_REST_Response
+    {
+        $rateLimitError = $this->checkRateLimit($request);
+        if (is_wp_error($rateLimitError)) {
+            return $this->errorResponse($rateLimitError);
+        }
+
+        if ($this->urlSync === null) {
+            return new WP_REST_Response([
+                'code' => 'deepglot_url_sync_unavailable',
+                'message' => __('URL-Synchronisierung ist nicht verfügbar.', 'deepglot'),
+            ], 501);
+        }
+
+        return null;
     }
 
     // -------------------------------------------------------------------------

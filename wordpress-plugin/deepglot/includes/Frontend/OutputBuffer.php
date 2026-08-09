@@ -7,6 +7,7 @@ use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
+use Deepglot\Support\UrlTranslationSync;
 use Deepglot\Support\UrlLanguageResolver;
 
 /**
@@ -39,6 +40,7 @@ class OutputBuffer
     private HreflangInjector $hreflangInjector;
     private RequestRouter $router;
     private SiteRouting $routing;
+    private ?UrlTranslationSync $urlSync;
 
     public function __construct(
         Options $options,
@@ -47,7 +49,8 @@ class OutputBuffer
         LinkRewriter $linkRewriter,
         HreflangInjector $hreflangInjector,
         RequestRouter $router,
-        SiteRouting $routing
+        SiteRouting $routing,
+        ?UrlTranslationSync $urlSync = null
     ) {
         $this->options          = $options;
         $this->resolver         = $resolver;
@@ -56,6 +59,7 @@ class OutputBuffer
         $this->hreflangInjector = $hreflangInjector;
         $this->router           = $router;
         $this->routing          = $routing;
+        $this->urlSync          = $urlSync;
     }
 
     public function register(): void
@@ -121,6 +125,8 @@ class OutputBuffer
         } else {
             $html = $this->translator->translate($html, $targetLanguage, $requestUrl, $bot);
         }
+
+        $this->emitUrlSyncDiagnostics($targetLanguage);
 
         // Steps 2 + 3 need the DOM, so load once.
         $doc = $this->loadDocument($html);
@@ -473,6 +479,7 @@ class OutputBuffer
 
     private function currentRequestUrl(): string
     {
+        $originalUri = $this->router->getOriginalRequestUri();
         $uri = RequestInput::server('REQUEST_URI', '/');
         $targetLanguage = $this->detectTargetLanguage();
 
@@ -491,11 +498,49 @@ class OutputBuffer
     {
         $uri = RequestInput::server('REQUEST_URI', '/');
 
+        if (
+            $this->urlSync !== null
+            && $this->urlSync->isCurrentRequest($originalUri)
+        ) {
+            $uri = $this->urlSync->stripQueryArg($originalUri ?? $uri);
+        }
+
         if (function_exists('home_url')) {
             return home_url($uri);
         }
 
         return $uri;
+    }
+
+    /**
+     * A controlled sync must distinguish a fully warm page from an HTTP 200
+     * that still contains source-language fallbacks. These headers are only
+     * emitted for the current signed job token and the response is never
+     * reusable as a public full-page-cache object.
+     */
+    private function emitUrlSyncDiagnostics(string $targetLanguage): void
+    {
+        if (
+            $this->urlSync === null
+            || !$this->urlSync->isCurrentRequest($this->router->getOriginalRequestUri())
+        ) {
+            return;
+        }
+
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+
+        if (headers_sent()) {
+            return;
+        }
+
+        header('X-Deepglot-Sync: 1');
+        header('X-Deepglot-Sync-Language: ' . $targetLanguage);
+        header(
+            'X-Deepglot-Sync-Pending-Segments: '
+            . $this->translator->getLastPendingSegmentCount()
+        );
     }
 
     /**

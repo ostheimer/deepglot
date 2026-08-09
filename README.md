@@ -117,6 +117,8 @@ v0.12.0 operational semantics:
 - The first cold target-language view can intentionally render source content; it queues missing segments and returns without waiting for the provider.
 - WP-Cron claims the bounded queue atomically, keeps failed or partial results pending, preserves work enqueued during a run, and applies one total timeout budget to sequential fallback requests.
 - Successful warming stores translations locally and purges completed URLs from WP Rocket, W3 Total Cache, and LiteSpeed Cache. WP Super Cache exposes only a global purge, so Deepglot waits until the tracked URL queue is empty; pages that are still pending stay cached. Hosts with `DISABLE_WP_CRON` must invoke WordPress cron themselves; unsupported page-cache plugins may require a manual purge.
+- Administrators can explicitly preview and confirm a bounded sitemap URL synchronization from `Settings -> Deepglot` or the authenticated `/wp-json/deepglot/v1/url-sync` routes. Each immutable batch contains at most 250 safe internal target URLs, opens at most two pages per cron run, respects queue and API-rate-limit backpressure, and supports status, pause, resume, cancellation, and failed-only retry. A source offset continues large sites in bounded batches. It is not a permanent crawler.
+- A completed URL-synchronization job confirms that the WordPress-origin queue has drained. Operators must still purge unsupported full-page caches and verify a query-free public target-language response.
 - Visual-editor previews and WooCommerce HTML emails remain synchronous because these one-off outputs cannot converge on a later request.
 
 Features:
@@ -141,12 +143,13 @@ Features:
 - Browser-language auto redirect with bot-detection skip, cookie preference, and admin/feed context guards
 - AMP translation option enforced before runtime sync, cache, and provider work
 - Multilingual sitemap at `/deepglot-sitemap.xml` with validated internal source/target/`x-default` alternatives and `robots.txt` discovery
+- Operator-triggered sitemap URL synchronization with a fixed snapshot, hard URL limits, queue backpressure, retry/backoff, and automatic pauses for exhausted quota or an invalid API key
 - Subdomain support (`de.example.com`) (implemented; live QA pending — requires `DEEPGLOT_PHASE6_SUBDOMAIN_HOST`)
 - Bot detection via dedicated `BotDetector` class (UA → BotType mapping); bot traffic served cache-only to prevent quota burn
 - Word quota exhaustion alerts: wp-admin notice, dashboard warning banner (≥90%/100%), proactive email to the organization owner when 90% or 100% of the monthly word limit is reached
 - Opt-in weekly workspace activity digest with new-translation, manual-edit, and translation-request totals; quiet weeks are skipped and retry-safe delivery claims prevent duplicate emails
 - Quota probe via `quota_probe: true` in status/test-connection pings; `quota_exhausted` response stops dynamic translation
-- 56 PHP fixtures plus the dynamic-translator and visual-switcher JavaScript regressions, covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, independent switchers, AMP, multilingual sitemap, synchronous WooCommerce email/editor output, bounded background warming, cache purges, request deadlines, caching, exclusions, metadata, routing, REST API quota status, dynamic translation, runtime-config races, and bot cache-poisoning prevention
+- 58 PHP fixtures plus the dynamic-translator and visual-switcher JavaScript regressions, covering URL resolution, HTML parsing, link rewriting, JSON-LD, accessibility attributes, browser redirect, independent switchers, AMP, multilingual sitemap, controlled URL synchronization, synchronous WooCommerce email/editor output, bounded background warming, cache purges, request deadlines, caching, exclusions, metadata, routing, REST API quota status, dynamic translation, runtime-config races, and bot cache-poisoning prevention
 
 Run the full WordPress suite locally:
 

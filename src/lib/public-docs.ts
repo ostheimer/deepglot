@@ -270,6 +270,13 @@ export const WORDPRESS_REST_ENDPOINTS = [
   "PATCH /wp-json/deepglot/v1/settings",
   "GET /wp-json/deepglot/v1/status",
   "POST /wp-json/deepglot/v1/test-connection",
+  "GET /wp-json/deepglot/v1/url-sync",
+  "POST /wp-json/deepglot/v1/url-sync/preview",
+  "POST /wp-json/deepglot/v1/url-sync",
+  "POST /wp-json/deepglot/v1/url-sync/pause",
+  "POST /wp-json/deepglot/v1/url-sync/resume",
+  "POST /wp-json/deepglot/v1/url-sync/retry-failed",
+  "DELETE /wp-json/deepglot/v1/url-sync",
   "POST /wp-json/deepglot/v1/translate-dynamic",
 ] as const;
 

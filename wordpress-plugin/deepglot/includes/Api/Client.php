@@ -12,6 +12,7 @@ class Client
      * another round of doomed HTTP requests.
      */
     public const INVALID_API_KEY_TRANSIENT = 'deepglot_invalid_api_key';
+    public const RATE_LIMIT_TRANSIENT = 'deepglot_rate_limited';
 
     /**
      * Short enough that a key re-enabled on the SaaS side heals without an
@@ -316,7 +317,21 @@ class Client
             $decoded = json_decode($body, true);
 
             if ($statusCode >= 400) {
+                $responseHeaders = $response->headers ?? [];
+                $retryAfter = '';
+
+                if (is_array($responseHeaders)) {
+                    $responseHeaders = array_change_key_case($responseHeaders, CASE_LOWER);
+                    $retryAfter = $responseHeaders['retry-after'] ?? '';
+                } elseif ($responseHeaders instanceof \ArrayAccess) {
+                    $retryAfter = $responseHeaders['retry-after'] ?? '';
+                }
+
                 $this->maybeFlagQuotaExhausted($statusCode);
+                $this->maybeFlagRateLimited(
+                    $statusCode,
+                    is_scalar($retryAfter) ? (string) $retryAfter : ''
+                );
                 $this->maybeFlagInvalidApiKey($statusCode, $requestIdentity);
                 $results[$key] = new \WP_Error(
                     'deepglot_api_error',
@@ -432,6 +447,12 @@ class Client
 
         if ($statusCode >= 400) {
             $this->maybeFlagQuotaExhausted((int) $statusCode);
+            $this->maybeFlagRateLimited(
+                (int) $statusCode,
+                function_exists('wp_remote_retrieve_header')
+                    ? (string) wp_remote_retrieve_header($response, 'retry-after')
+                    : ''
+            );
 
             return new \WP_Error(
                 'deepglot_api_error',
@@ -468,6 +489,32 @@ class Client
         if ($statusCode === 402 && function_exists('set_transient')) {
             set_transient('deepglot_quota_exhausted', time(), 3600);
         }
+    }
+
+    private function maybeFlagRateLimited(int $statusCode, string $retryAfter = ''): void
+    {
+        if ($statusCode !== 429 || !function_exists('set_transient')) {
+            return;
+        }
+
+        $delay = ctype_digit(trim($retryAfter)) ? (int) trim($retryAfter) : 900;
+        $delay = max(60, min(3600, $delay));
+        set_transient(
+            self::RATE_LIMIT_TRANSIENT,
+            ['retry_at' => time() + $delay],
+            $delay
+        );
+    }
+
+    public static function rateLimitRetryAt(): int
+    {
+        if (!function_exists('get_transient')) {
+            return 0;
+        }
+
+        $marker = get_transient(self::RATE_LIMIT_TRANSIENT);
+        $retryAt = is_array($marker) ? (int) ($marker['retry_at'] ?? 0) : 0;
+        return $retryAt > time() ? $retryAt : 0;
     }
 
     /**

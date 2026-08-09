@@ -195,6 +195,12 @@ class RequestRouter
         return $this->currentLanguage;
     }
 
+    /** Returns REQUEST_URI as received before any language-route rewrite. */
+    public function getOriginalRequestUri(): ?string
+    {
+        return $this->originalRequestUri;
+    }
+
     /**
      * Strips the language prefix from REQUEST_URI so WordPress routes
      * /en/sample-page exactly the same as /sample-page.

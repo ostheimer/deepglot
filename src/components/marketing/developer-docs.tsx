@@ -143,6 +143,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Ab Version 0.12.0 wartet ein normaler Seitenaufruf standardmäßig nicht auf neue Übersetzungen. Fehlende Segmente werden in einer begrenzten, deduplizierten Warteschlange gesammelt und durch WP-Cron übersetzt. Visueller Editor und WooCommerce-E-Mails bleiben synchron, weil diese Ausgaben nicht bei einem späteren Aufruf automatisch konvergieren."
               : "From version 0.12.0, an ordinary page request does not wait for fresh translations by default. Missing segments enter a bounded, deduplicated queue and are translated by WP-Cron. The visual editor and WooCommerce emails remain synchronous because those outputs cannot converge automatically on a later request."}
           </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Administratoren können unter Einstellungen → Deepglot eine begrenzte URL-Synchronisierung aus der Deepglot-Sitemap starten. Vor dem Start ist eine nebenwirkungsfreie Vorschau mit festem Snapshot und Beispiel-URLs zu bestätigen. Jeder Batch umfasst höchstens 250 Zielseiten, füllt kontrolliert dieselbe Übersetzungswarteschlange und lässt sich pausieren, fortsetzen oder abbrechen. Es gibt keinen permanenten Hintergrundcrawler."
+              : "Administrators can start a bounded URL synchronization from the Deepglot sitemap under Settings → Deepglot. A side-effect-free preview with an immutable snapshot and sample URLs must be confirmed before it starts. Each batch contains at most 250 target pages, feeds the same translation queue at a controlled rate, and can be paused, resumed, or cancelled. It is not a permanent background crawler."}
+          </p>
           <ul className="mt-6 grid gap-3 font-mono text-sm md:grid-cols-2">
             {WORDPRESS_REST_ENDPOINTS.map((endpoint) => <li key={endpoint} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3">{endpoint}</li>)}
           </ul>
@@ -163,10 +168,10 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {[
               {
-                title: de ? "1. Warteschlange befüllen" : "1. Fill the queue",
+                title: de ? "1. URLs synchronisieren" : "1. Synchronize URLs",
                 body: de
-                  ? "Öffne die Zielsprache als normaler menschlicher Besucher. Bots lösen aus Kontingentgründen keine neue Übersetzung aus."
-                  : "Open the target language as an ordinary human visitor. Bots never trigger fresh translation work to protect quota.",
+                  ? "Erstelle in den Deepglot-Einstellungen zunächst eine kleine URL-Vorschau und bestätige den unveränderlichen Snapshot. Der Lauf verwendet nur interne Sitemap-Ziele, zeigt den aggregierten Fortschritt, pausiert bei vollem Kontingent oder ungültigem API-Key und wartet bei API-Ratenlimits automatisch. Einzelne Seiten können weiterhin durch einen normalen menschlichen Aufruf angestoßen werden."
+                  : "Create a small URL preview in the Deepglot settings first, then confirm the immutable snapshot. The job uses only internal sitemap targets, reports aggregate progress, pauses on exhausted quota or an invalid API key, and automatically backs off on API rate limits. Individual pages can still be triggered by an ordinary human visit.",
               },
               {
                 title: de ? "2. WP-Cron prüfen" : "2. Check WP-Cron",
@@ -177,8 +182,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               {
                 title: de ? "3. Seiten-Cache prüfen" : "3. Check page caches",
                 body: de
-                  ? "WP Rocket, W3 Total Cache und LiteSpeed Cache leeren fertige URLs einzeln. WP Super Cache wird global erst geleert, wenn die verfolgte URL-Warteschlange leer ist; ausstehende Seiten bleiben bis dahin gecacht. Bei anderen Cache-Plugins leere den Full-Page-Cache manuell."
-                  : "WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache is purged globally only when the tracked URL queue is empty, so pending pages remain cached. Purge other page-cache plugins manually.",
+                  ? "Der Status ‚Abgeschlossen‘ bestätigt die abgearbeitete Warteschlange am WordPress-Ursprung, nicht die öffentliche Cache-Ausgabe. WP Rocket, W3 Total Cache und LiteSpeed Cache leeren fertige URLs einzeln. WP Super Cache wird global erst geleert, wenn die verfolgte URL-Warteschlange leer ist; ausstehende Seiten bleiben bis dahin gecacht. Bei anderen Full-Page-Caches leere den Seiten-Cache manuell, behalte den Deepglot-Übersetzungs-Cache und prüfe die Zielsprachseite anschließend ohne Sync-Parameter."
+                  : "The completed status confirms the processed queue at the WordPress origin, not the public page-cache response. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache is purged globally only when the tracked URL queue is empty, so pending pages remain cached. For other full-page caches, purge the page cache manually, keep Deepglot's translation cache, and then verify the target-language page without sync parameters.",
               },
             ].map((item) => (
               <article key={item.title} className="rounded-md border border-[#d8d6ce] bg-white p-5">
