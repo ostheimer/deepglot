@@ -209,8 +209,8 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               </h2>
               <p className="mt-5 text-lg leading-8 text-[#58636d]">
                 {de
-                  ? "Ein HTTP 429 ist eine vorübergehende Begrenzung, kein verbrauchtes Monatskontingent. Deepglot übernimmt Retry-After als Sekundenwert oder HTTP-Datum und begrenzt die Wartezeit auf 1 bis 300 Sekunden. Fehlt ein gültiger Wert, gelten 60 Sekunden. Das Stundenlimit selbst wurde dabei nicht angehoben."
-                  : "HTTP 429 is a temporary limit, not exhausted monthly quota. Deepglot accepts Retry-After as delta seconds or an HTTP date and bounds the delay to 1 to 300 seconds. An invalid or missing value uses 60 seconds. This does not raise the hourly threshold."}
+                  ? "Ein HTTP 429 ist eine vorübergehende Begrenzung, kein verbrauchtes Monatskontingent. Deepglot übernimmt Retry-After als Sekundenwert oder HTTP-Datum und begrenzt die Wartezeit auf 1 bis 3.600 Sekunden. Fehlt ein gültiger Wert, gelten 60 Sekunden. Das Stundenlimit selbst wurde dabei nicht angehoben. Mit einem Idempotency-Key teilen gleichzeitige Aufrufe dieselbe 429-Antwort bis zum verbleibenden Retry-After; danach wird die Anfrage neu ausgeführt. Ein aktiver 429-Marker stoppt synchrone Visual-Editor- und E-Mail-Aufrufe sowie bereits fällige Warmup-Läufe lokal bis retry_at. Ein identischer 422-Stapel wird über einen konfigurationsgebundenen HMAC-Fingerabdruck eine Stunde lang unterdrückt; dabei werden keine Rohtexte, API-Schlüssel oder URLs gespeichert. Normale folgende Stapel laufen weiter, und ein Schlüssel- oder Backendwechsel heilt den Marker sofort."
+                  : "HTTP 429 is a temporary limit, not exhausted monthly quota. Deepglot accepts Retry-After as delta seconds or an HTTP date and bounds the delay to 1 to 3,600 seconds. An invalid or missing value uses 60 seconds. This does not raise the hourly threshold. With an Idempotency-Key, concurrent calls share the same 429 response until the remaining Retry-After expires; after that, the request executes again. An active 429 marker stops synchronous visual-editor and email calls and already-due warm-up runs locally until retry_at. An identical 422 batch is suppressed through a configuration-bound HMAC fingerprint for one hour; no raw text, API keys, or URLs are stored. Normal following batches continue, and a key or backend change heals the marker immediately."}
               </p>
             </div>
 
@@ -234,8 +234,8 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                   step: "3",
                   title: de ? "Cache und Queue schützen" : "Protect cache and queues",
                   body: de
-                    ? "Die Warmup-Queue wartet bis Retry-After. Dynamische Besucheranfragen werden nicht sofort wiederholt; Cache-Treffer bleiben verfügbar, sonst bleibt vorübergehend der Quelltext sichtbar."
-                    : "The warmup queue waits until Retry-After. Dynamic visitor requests are not immediately retried; cache hits remain available and other content temporarily stays in the source language.",
+                    ? "Die Warmup-Queue wartet bis Retry-After. Ein 422 velocity_request_too_large ist nicht wiederholbar: Teile die Anfrage oder PDF in kleinere Einheiten. Cache-Treffer bleiben verfügbar, sonst bleibt der Quelltext sichtbar."
+                    : "The warmup queue waits until Retry-After. A 422 velocity_request_too_large is not retryable: split the request or PDF into smaller units. Cache hits remain available and other content stays in the source language.",
                 },
               ].map((item) => (
                 <article key={item.step} className="rounded-md border border-[#d8d6ce] bg-white p-6">

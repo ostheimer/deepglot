@@ -47,7 +47,9 @@ Cached translations remain available. Uncached content falls back to the source 
 
 = What happens when Deepglot returns HTTP 429? =
 
-The plugin respects Retry-After as delta seconds or a strict RFC HTTP date, using a bounded delay of one second to five minutes and a 60-second fallback for missing, relative, or invalid values. The first 429 stops the remaining sequential batches; parallel batches already in flight keep their own responses and the browser keeps the longest delay. Background warming waits for the bounded delay, and dynamic visitor requests are not immediately retried. Cached translations remain available while uncached content stays in the source language.
+The plugin respects Retry-After as delta seconds or a strict RFC HTTP date, using a bounded delay of one second to one hour and a 60-second fallback for missing, relative, or invalid values. The first 429 stops the remaining sequential batches; parallel batches already in flight keep their own responses and the browser keeps the longest delay. An active 429 marker locally stops synchronous visual-editor and WooCommerce email calls and already-due warmer runs until `retry_at`. Background warming waits for the bounded delay, and dynamic visitor requests are not immediately retried. Cached translations remain available while uncached content stays in the source language.
+
+A permanent `422 velocity_request_too_large` means one request cannot fit the hourly policy even in an empty window. The plugin keeps source language content available, does not schedule an automatic timer retry for that response, and requires the request or PDF to be split into smaller inputs. For one hour, an identical batch is suppressed by a configuration-bound HMAC fingerprint; the marker stores no raw translation text, API key, or URL. Normal following batches continue, and an API key or backend change heals the marker immediately.
 
 = Why can the first translated page view still show the source language? =
 

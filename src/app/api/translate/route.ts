@@ -35,8 +35,10 @@ import {
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
+  API_IDEMPOTENCY_RETENTION_MS,
   PrismaApiIdempotencyStore,
   executeIdempotently,
+  reportApiIdempotencyReplay,
   validateApiIdempotencyKey,
   type StoredApiResponse,
 } from "@/lib/api-idempotency";
@@ -472,16 +474,29 @@ async function executeAuthenticatedTranslateRequest(
       });
 
       if (!velocity.allowed) {
-        return apiProblem({
-          status: 429,
-          title: "Translation velocity limited",
-          detail:
-            "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
-          code: "velocity_limited",
-          instance: "/api/translate",
-          extensions: { retry_after: velocity.retryAfterSeconds },
-          headers: buildRateLimitHeaders(velocity),
-        });
+        if (velocity.outcome === "oversize") {
+          return apiProblem({
+            status: 422,
+            title: "Translation request too large",
+            detail:
+              "Diese einzelne Anfrage überschreitet das vollständige Wortgeschwindigkeitslimit und muss in kleinere Anfragen geteilt werden.",
+            code: "velocity_request_too_large",
+            instance: "/api/translate",
+          });
+        }
+
+        if (velocity.outcome === "blocked") {
+          return apiProblem({
+            status: 429,
+            title: "Translation velocity limited",
+            detail:
+              "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
+            code: "velocity_limited",
+            instance: "/api/translate",
+            extensions: { retry_after: velocity.retryAfterSeconds },
+            headers: buildRateLimitHeaders(velocity),
+          });
+        }
       }
 
       velocityReservation = {
@@ -758,6 +773,19 @@ async function executeAuthenticatedTranslateRequest(
 
 const translateIdempotencyStore = new PrismaApiIdempotencyStore();
 
+function translateIdempotencyResponseRetentionMs(response: StoredApiResponse) {
+  if (response.status !== 429) {
+    return API_IDEMPOTENCY_RETENTION_MS;
+  }
+
+  const parsedRetryAfter = Number(response.headers["retry-after"]);
+  const retryAfterSeconds =
+    Number.isInteger(parsedRetryAfter) && parsedRetryAfter > 0
+      ? Math.min(parsedRetryAfter, 3_600)
+      : 60;
+  return retryAfterSeconds * 1_000;
+}
+
 async function captureApiResponse(response: NextResponse): Promise<StoredApiResponse> {
   const text = await response.text();
   const contentType = response.headers.get("content-type") ?? "";
@@ -852,11 +880,14 @@ export async function POST(req: NextRequest) {
     // The atomic claim happens before request rate limits, cache analytics,
     // quota/velocity reservations, provider calls, usage, or webhooks. Only the
     // winning request executes that complete side-effect pipeline.
+    const idempotencyScope = `${apiKeyRecord.id}:POST:/api/translate`;
     const result = await executeIdempotently({
-      scope: `${apiKeyRecord.id}:POST:/api/translate`,
+      scope: idempotencyScope,
       key: idempotencyKey,
       requestBody: parsedBody,
       store: translateIdempotencyStore,
+      responseRetentionMs: translateIdempotencyResponseRetentionMs,
+      // Retry-After bounds replay retention for transient 429 responses.
       execute: async () =>
         captureApiResponse(
           await executeAuthenticatedTranslateRequest(
@@ -875,6 +906,15 @@ export async function POST(req: NextRequest) {
           "Dieser Idempotency-Key wurde bereits mit einem anderen Request-Body verwendet.",
         code: "idempotency_conflict",
         instance: "/api/translate",
+      });
+    }
+
+    if (result.kind === "replayed") {
+      reportApiIdempotencyReplay({
+        scope: idempotencyScope,
+        key: idempotencyKey,
+        response: result.response,
+        retentionMs: translateIdempotencyResponseRetentionMs(result.response),
       });
     }
 

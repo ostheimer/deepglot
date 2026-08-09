@@ -73,6 +73,10 @@ export function PdfTranslationPanel({
       "Too many fresh words are being translated. Try again later.",
       "Aktuell werden zu viele neue Wörter übersetzt. Versuche es später erneut."
     ),
+    velocity_request_too_large: t(
+      "Split the PDF into smaller files so each request fits the plan velocity cap.",
+      "Teile die PDF-Datei in kleinere Dateien, damit jede Anfrage in das Wortgeschwindigkeitslimit des Tarifs passt."
+    ),
     provider_failed: t(
       "The configured translation provider could not process the PDF.",
       "Der konfigurierte Übersetzungsanbieter konnte die PDF-Datei nicht verarbeiten."

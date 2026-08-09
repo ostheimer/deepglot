@@ -36,3 +36,9 @@ test("PDF UI states the bounded text-only and reflow behavior", () => {
   assert.match(panelSource, /monthly word quota/);
   assert.match(panelSource, /Western European/);
 });
+
+test("PDF UI explains that permanent velocity oversize must be split", () => {
+  assert.match(panelSource, /velocity_request_too_large/);
+  assert.match(panelSource, /Split the PDF into smaller files/);
+  assert.match(panelSource, /Teile die PDF-Datei in kleinere Dateien/);
+});

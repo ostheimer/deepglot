@@ -247,7 +247,7 @@ class RateLimitedFakeClient extends Client
 
         return new WP_Error('deepglot_api_error', 'Translation velocity limited', [
             'status' => 429,
-            'retry_after' => 37,
+            'retry_after' => 1800,
             'retry_after_source' => 'delta-seconds',
             'retry_after_capped' => false,
         ]);
@@ -608,7 +608,7 @@ $responseData = $response->get_data();
 $ipBucket = get_transient($ipKey);
 $ticketBucket = get_transient($ticketKey);
 dynCheck($client->callCount === 1, 'A dynamic cache miss reaches the SaaS once before the 429 is known.');
-dynCheck(($responseData['retry_after'] ?? null) === 37, 'The dynamic response must forward the bounded 429 backoff.');
+dynCheck(($responseData['retry_after'] ?? null) === 1800, 'The dynamic response must preserve a fixed-window 429 backoff beyond five minutes.');
 dynCheck(is_array($ipBucket) && (int) $ipBucket['spent'] === 0, 'A dynamic 429 must roll back the per-IP budget.');
 dynCheck(is_array($ticketBucket) && (int) $ticketBucket['spent'] === 0, 'A dynamic 429 must roll back the ticket budget.');
 

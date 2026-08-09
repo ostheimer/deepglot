@@ -120,3 +120,28 @@ test("PDF velocity limits preserve Retry-After in the response contract", async 
     retry_after: 73,
   });
 });
+
+test("an oversized PDF request is non-retryable and has no Retry-After", async () => {
+  const handler = createPdfTranslationPostHandler({
+    getUserId: async () => "user-1",
+    translateProjectPdf: async () => {
+      throw new PdfTranslationError(
+        "Split the PDF so each request fits the plan velocity cap.",
+        "velocity_request_too_large",
+        422,
+      );
+    },
+  });
+
+  const response = await handler(uploadRequest(), {
+    params: Promise.resolve({ projektId: "project-1" }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 422);
+  assert.equal(response.headers.get("Retry-After"), null);
+  assert.deepEqual(body, {
+    error: "Split the PDF so each request fits the plan velocity cap.",
+    code: "velocity_request_too_large",
+  });
+});

@@ -457,7 +457,7 @@ async function testRateLimitBackoffStopsImmediateDynamicRequests() {
   const harness = createHarness(async () => jsonResponse({
     from_words: [],
     to_words: [],
-    retry_after: 60,
+    retry_after: 3600,
   }));
 
   const first = harness.document.createTextNode('First rate-limited string');
@@ -476,7 +476,14 @@ async function testRateLimitBackoffStopsImmediateDynamicRequests() {
   );
   assert.equal(second.data, 'Second rate-limited string');
 
-  await harness.advanceTime(60_000);
+  await harness.advanceTime(300_000);
+  assert.deepEqual(
+    harness.fetchCalls,
+    [['First rate-limited string']],
+    'The old five-minute cap must not create another retry wave inside the known hourly window.'
+  );
+
+  await harness.advanceTime(3_300_000);
   assert.deepEqual(
     harness.fetchCalls,
     [['First rate-limited string'], ['Second rate-limited string']],

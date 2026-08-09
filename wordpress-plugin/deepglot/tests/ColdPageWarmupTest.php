@@ -40,6 +40,7 @@ if (!function_exists('__')) {
 
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_options'] = [];
+    $GLOBALS['_deepglot_transients'] = [];
 
     function get_option($key, $default = false) {
         return $GLOBALS['_deepglot_options'][$key] ?? $default;
@@ -65,14 +66,16 @@ if (!function_exists('get_option')) {
     }
 
     function get_transient($key) {
-        return false;
+        return $GLOBALS['_deepglot_transients'][$key] ?? false;
     }
 
     function set_transient($key, $value, $ttl = 0) {
+        $GLOBALS['_deepglot_transients'][$key] = $value;
         return true;
     }
 
     function delete_transient($key) {
+        unset($GLOBALS['_deepglot_transients'][$key]);
         return true;
     }
 
@@ -242,6 +245,11 @@ class DeepglotWarmFakeClient extends Client
     /** @var int[] Indexes that return a classified SaaS 429. */
     public array $rateLimitedBatchIndexes = [];
 
+    public int $rateLimitRetryAfter = 120;
+
+    /** @var int[] Indexes that return permanent request oversize. */
+    public array $oversizedBatchIndexes = [];
+
     /** @var int[] Indexes that return only the first requested translation. */
     public array $partialBatchIndexes = [];
 
@@ -288,9 +296,17 @@ class DeepglotWarmFakeClient extends Client
             if (in_array($index, $this->rateLimitedBatchIndexes, true)) {
                 $results[$index] = new DeepglotWarmFakeWpError('rate-limited-' . $index, [
                     'status' => 429,
-                    'retry_after' => 120,
+                    'retry_after' => $this->rateLimitRetryAfter,
                     'retry_after_source' => 'delta-seconds',
                     'retry_after_capped' => false,
+                ]);
+                continue;
+            }
+
+            if (in_array($index, $this->oversizedBatchIndexes, true)) {
+                $results[$index] = new DeepglotWarmFakeWpError('oversized-' . $index, [
+                    'status' => 422,
+                    'api_code' => 'velocity_request_too_large',
                 ]);
                 continue;
             }
@@ -321,6 +337,7 @@ class DeepglotWarmFakeClient extends Client
         $this->singleCalls = 0;
         $this->translateBatchesCalls = 0;
         $this->rateLimitedBatchIndexes = [];
+        $this->oversizedBatchIndexes = [];
     }
 }
 
@@ -388,6 +405,7 @@ function warmResetEnvironment(): void
     $GLOBALS['_deepglot_w3tc_purged_urls'] = [];
     $GLOBALS['_deepglot_litespeed_purged_urls'] = [];
     $GLOBALS['_deepglot_wp_super_cache_purges'] = 0;
+    $GLOBALS['_deepglot_transients'] = [];
 
     foreach (array_keys($GLOBALS['_deepglot_options']) as $key) {
         if (str_starts_with((string) $key, 'deepglot_warm_')) {
@@ -968,5 +986,257 @@ warmAssert(
     (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0) === $scheduledAfterRateLimit,
     'A visitor enqueue must preserve the delayed warm event instead of creating an immediate retry loop.'
 );
+
+// -----------------------------------------------------------------------------
+// 11. The SaaS velocity limit is organization-wide. After one language pair
+//     returns 429, the same cron run must not spend more requests on another
+//     pair; untouched work stays queued for the delayed retry.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->rateLimitedBatchIndexes = [0];
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->enqueue(['English pending'], 'de', 'en');
+$warmer->enqueue(['French untouched'], 'de', 'fr');
+$beforeCrossLanguageRateLimit = time();
+$warmer->run();
+$scheduledAfterCrossLanguageRateLimit = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+
+warmAssert(
+    $client->translateBatchesCalls === 1,
+    'An organization-wide 429 must stop the outer language-pair loop after exactly one client call.'
+);
+warmAssert(
+    ($warmer->pending()['de|en'] ?? []) === ['English pending']
+        && ($warmer->pending()['de|fr'] ?? []) === ['French untouched'],
+    'The rate-limited pair and every untouched language pair must remain queued unchanged.'
+);
+warmAssert(
+    $scheduledAfterCrossLanguageRateLimit >= $beforeCrossLanguageRateLimit + 119
+        && $scheduledAfterCrossLanguageRateLimit <= $beforeCrossLanguageRateLimit + 121
+        && (int) get_option(TranslationWarmer::BACKOFF_OPTION, 0) === $scheduledAfterCrossLanguageRateLimit,
+    'A cross-language 429 must persist and schedule the bounded Retry-After delay.'
+);
+
+// -----------------------------------------------------------------------------
+// 12. The SaaS velocity limiter uses a fixed one-hour window. A known reset
+//     must not be shortened to five minutes and retried up to twelve times.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->rateLimitedBatchIndexes = [0];
+$client->rateLimitRetryAfter = 3600;
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->enqueue(['Full fixed-window delay'], 'de', 'en');
+$beforeFixedWindowRateLimit = time();
+$warmer->run();
+$scheduledAfterFixedWindowRateLimit = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+
+warmAssert(
+    $scheduledAfterFixedWindowRateLimit >= $beforeFixedWindowRateLimit + 3599
+        && $scheduledAfterFixedWindowRateLimit <= $beforeFixedWindowRateLimit + 3601,
+    'A known hourly Retry-After must schedule near 3,600 seconds, not the former 300-second cap.'
+);
+
+// -----------------------------------------------------------------------------
+// 13. If an inline page request already received 429, enqueue must reuse the
+//     client marker instead of immediately nudging the same work into cron.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$knownRetryAt = time() + 3600;
+set_transient(Client::RATE_LIMIT_TRANSIENT, ['retry_at' => $knownRetryAt], 3600);
+$client = new DeepglotWarmFakeClient();
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->enqueue(['Inline 429 pending'], 'de', 'en');
+$scheduledAfterInlineRateLimit = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+
+warmAssert(
+    $scheduledAfterInlineRateLimit >= $knownRetryAt - 1
+        && $scheduledAfterInlineRateLimit <= $knownRetryAt + 1
+        && (int) get_option(TranslationWarmer::BACKOFF_OPTION, 0) === $scheduledAfterInlineRateLimit,
+    'A synchronous page 429 must flow into the persisted delayed warmer schedule.'
+);
+warmAssert(
+    $GLOBALS['_deepglot_spawned_cron'] === 0,
+    'A synchronous page 429 must not immediately nudge WP-Cron during its known backoff.'
+);
+
+// -----------------------------------------------------------------------------
+// 14. Permanent oversize is not a timer condition. Keep the batch for an
+//     operator-visible split, but do not create an automatic cron retry loop.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->oversizedBatchIndexes = [0];
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->register();
+$warmer->enqueue(['Permanently oversized batch'], 'de', 'en');
+warmRunScheduledEvent();
+
+warmAssert(
+    $client->translateBatchesCalls === 1
+        && ($warmer->pending()['de|en'] ?? []) === ['Permanently oversized batch'],
+    'An oversized batch must remain queued without being mistaken for success.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK])
+        && (int) get_option(TranslationWarmer::BACKOFF_OPTION, 0) === 0,
+    'Permanent oversize must not create a Retry-After timer loop.'
+);
+
+$callsAfterPermanentOversize = $client->translateBatchesCalls;
+$warmer->enqueue(['Permanently oversized batch'], 'de', 'en');
+warmRunScheduledEvent();
+warmAssert(
+    $client->translateBatchesCalls === $callsAfterPermanentOversize,
+    'An identical visitor enqueue must not resend a batch already classified as permanent oversize.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'A repeated permanent oversize enqueue must not recreate an automatic timer loop.'
+);
+
+// -----------------------------------------------------------------------------
+// 15. A newly classified oversized batch must not suppress the follow-up that
+//     ordinary work beyond this run's budget still needs. The follow-up skips
+//     the fingerprinted batch, completes normal work, then ends timer-free.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->oversizedBatchIndexes = [0];
+$deferredCache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $deferredCache);
+$warmer->register();
+$oversizedQueue = [];
+for ($index = 0; $index < 301; $index++) {
+    $oversizedQueue[] = 'Permanently oversized segment ' . $index;
+}
+$warmer->enqueue($oversizedQueue, 'de', 'en');
+warmRunScheduledEvent();
+
+warmAssert(
+    $client->translateBatchesCalls === 1
+        && count($warmer->pending()['de|en'] ?? []) === 51,
+    'The oversized batch and one deferred normal segment must remain while five normal batches complete.'
+);
+warmAssert(
+    isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'A new permanent oversize result must not suppress the follow-up required by ordinary deferred work.'
+);
+
+$client->oversizedBatchIndexes = [];
+warmRunScheduledEvent();
+warmAssert(
+    $client->translateBatchesCalls === 2
+        && count($warmer->pending()['de|en'] ?? []) === 50
+        && isset($deferredCache->getMany([$oversizedQueue[300]], 'de', 'en')[$oversizedQueue[300]]),
+    'The follow-up must skip the fingerprinted batch and finish the deferred normal segment.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'After ordinary deferred work completes, the known permanent oversize batch must not create a timer loop.'
+);
+
+// -----------------------------------------------------------------------------
+// 16. Blocking a proven oversized leading batch must not starve ordinary work
+//     that still fits in a later batch of the same language pair.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->oversizedBatchIndexes = [0];
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->register();
+$mixedQueue = [];
+for ($index = 0; $index < 50; $index++) {
+    $mixedQueue[] = 'Oversized leading segment ' . $index;
+}
+$mixedQueue[] = 'Ordinary trailing work';
+$warmer->enqueue($mixedQueue, 'de', 'en');
+warmRunScheduledEvent();
+
+warmAssert(
+    $client->translateBatchesCalls === 1
+        && count($warmer->pending()['de|en'] ?? []) === 50,
+    'Permanent oversize must stay queued while the ordinary trailing batch completes.'
+);
+warmAssert(
+    isset($cache->getMany(['Ordinary trailing work'], 'de', 'en')['Ordinary trailing work']),
+    'A proven oversized leading batch must not starve normal work that still fits.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'Mixed oversize and completed work must not leave an automatic retry timer.'
+);
+
+// -----------------------------------------------------------------------------
+// 17. A cron event may already be due when a separate synchronous render learns
+//     about a later 429. run() must consult the client marker again before send.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->register();
+$warmer->enqueue(['Already due before 429'], 'de', 'en');
+$laterRetryAt = time() + 1800;
+set_transient(Client::RATE_LIMIT_TRANSIENT, ['retry_at' => $laterRetryAt], 1800);
+warmRunScheduledEvent();
+$rescheduledAfterLateMarker = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+
+warmAssert(
+    $client->translateBatchesCalls === 0,
+    'A due warmer event must recheck a later 429 marker before any client call.'
+);
+warmAssert(
+    $rescheduledAfterLateMarker >= $laterRetryAt - 1
+        && $rescheduledAfterLateMarker <= $laterRetryAt + 1
+        && (int) get_option(TranslationWarmer::BACKOFF_OPTION, 0) === $rescheduledAfterLateMarker,
+    'A due warmer event must persist and move itself to the later client retry_at.'
+);
+
+// -----------------------------------------------------------------------------
+// 18. The one-hour suppression contract must cover every oversized batch still
+//     in the bounded per-language queues. An arbitrary global marker cap must
+//     not evict older shapes into an automatic resend/starvation loop.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->oversizedBatchIndexes = [0, 1, 2, 3, 4, 5];
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->register();
+
+foreach (['en', 'fr', 'it', 'es'] as $targetLanguage) {
+    $largePermanentQueue = [];
+    for ($index = 0; $index < TranslationWarmer::MAX_QUEUE; $index++) {
+        $largePermanentQueue[] = $targetLanguage . ' permanent segment ' . $index;
+    }
+    $warmer->enqueue($largePermanentQueue, 'de', $targetLanguage);
+}
+
+$oversizeRuns = 0;
+while (isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]) && $oversizeRuns < 30) {
+    warmRunScheduledEvent();
+    $oversizeRuns++;
+}
+
+$dispatchedBatchShapes = array_map(
+    static fn(array $batch): string => hash('sha256', serialize($batch)),
+    $client->batchCalls
+);
+warmAssert(
+    count($dispatchedBatchShapes) === 80
+        && count(array_unique($dispatchedBatchShapes)) === 80,
+    'Every queued oversized batch shape must be sent at most once during its one-hour suppression window.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'After all oversized batch shapes are classified, the automatic Cron chain must end without starvation.'
+);
+foreach (['en', 'fr', 'it', 'es'] as $targetLanguage) {
+    warmAssert(
+        count($warmer->pending()['de|' . $targetLanguage] ?? []) === TranslationWarmer::MAX_QUEUE,
+        'Permanent oversized texts must remain queued for an explicit split or changed configuration.'
+    );
+}
 
 fwrite(STDOUT, "ColdPageWarmupTest: OK\n");

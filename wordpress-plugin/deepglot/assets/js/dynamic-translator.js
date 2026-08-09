@@ -308,7 +308,7 @@
       if (isFinite(retryAfter) && retryAfter > 0) {
         rateLimitedUntil = Math.max(
           rateLimitedUntil,
-          Date.now() + Math.min(retryAfter, 300) * 1000
+          Date.now() + Math.min(retryAfter, 3600) * 1000
         );
         scheduleRateLimitWake();
       }

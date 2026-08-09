@@ -215,6 +215,12 @@ if (!function_exists('get_option')) {
                 'status' => 402,
                 'detail' => 'Monatliches Wortlimit erreicht',
             ]);
+        } elseif ($status === 422) {
+            $body = json_encode([
+                'code' => 'velocity_request_too_large',
+                'status' => 422,
+                'detail' => 'Split the request below the plan velocity cap.',
+            ]);
         } elseif ($status === 429) {
             $body = json_encode([
                 'code' => 'velocity_limited',
@@ -573,7 +579,7 @@ dgkeyReset(429);
 $GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '9999'];
 $cappedRetryAfter = $client->translate(['Hallo Welt'], 'de', 'en');
 $cappedRetryData = $cappedRetryAfter instanceof WP_Error ? $cappedRetryAfter->get_error_data() : [];
-dgkeyAssert(($cappedRetryData['retry_after'] ?? null) === 300, 'Retry-After must be capped at five minutes.');
+dgkeyAssert(($cappedRetryData['retry_after'] ?? null) === 3600, 'Retry-After must preserve the known hourly reset up to one hour.');
 dgkeyAssert(($cappedRetryData['retry_after_capped'] ?? null) === true, 'A capped header must be classified as capped.');
 
 dgkeyReset(429);
@@ -596,6 +602,52 @@ foreach ([1, 2] as $deferredKey) {
         'Sequential batch ' . $deferredKey . ' must inherit the bounded 429 backoff without another request.'
     );
 }
+
+// A later synchronous render must fail locally while the known 429 window is
+// active. Both single and batch entrypoints share this send gate.
+$GLOBALS['_dgkey_remote_status'] = 200;
+$callsAfterRateLimit = $GLOBALS['_dgkey_remote_calls'];
+$locallyLimitedSingle = $client->translate(['Later synchronous render'], 'de', 'en');
+$locallyLimitedBatches = $client->translateBatches(
+    [['Later batch render']],
+    'de',
+    'en'
+);
+$locallyLimitedSingleData = $locallyLimitedSingle instanceof WP_Error
+    ? $locallyLimitedSingle->get_error_data()
+    : [];
+$locallyLimitedBatch = $locallyLimitedBatches[0] ?? null;
+$locallyLimitedBatchData = $locallyLimitedBatch instanceof WP_Error
+    ? $locallyLimitedBatch->get_error_data()
+    : [];
+dgkeyAssert(
+    $GLOBALS['_dgkey_remote_calls'] === $callsAfterRateLimit,
+    'An active 429 marker must block both synchronous Client entrypoints before any HTTP call.'
+);
+dgkeyAssert(
+    $locallyLimitedSingle instanceof WP_Error
+        && ($locallyLimitedSingleData['status'] ?? null) === 429
+        && (int) ($locallyLimitedSingleData['retry_after'] ?? 0) > 0,
+    'A locally blocked synchronous call must preserve bounded 429 metadata.'
+);
+dgkeyAssert(
+    $locallyLimitedBatch instanceof WP_Error
+        && ($locallyLimitedBatchData['status'] ?? null) === 429
+        && (int) ($locallyLimitedBatchData['retry_after'] ?? 0) > 0,
+    'A locally blocked batch call must preserve bounded 429 metadata for every input key.'
+);
+
+dgkeyReset(422);
+$oversized = $client->translate(['Request that cannot fit'], 'de', 'en');
+$oversizedData = $oversized instanceof WP_Error ? $oversized->get_error_data() : [];
+dgkeyAssert(is_wp_error($oversized), 'Permanent velocity oversize must remain an API error.');
+dgkeyAssert(($oversizedData['status'] ?? null) === 422, 'Permanent velocity oversize must preserve HTTP 422.');
+dgkeyAssert(
+    ($oversizedData['api_code'] ?? null) === 'velocity_request_too_large',
+    'The plugin must expose the non-retryable oversize code without inspecting raw response text.'
+);
+dgkeyAssert(!array_key_exists('retry_after', $oversizedData), 'Permanent oversize must not expose Retry-After metadata.');
+dgkeyAssert(Client::rateLimitRetryAt() === 0, 'Permanent oversize must not arm the rate-limit retry timer.');
 
 // -----------------------------------------------------------------------------
 // 6. Saving a corrected key clears the breaker immediately — otherwise the

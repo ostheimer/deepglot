@@ -287,6 +287,11 @@ test("consumeTranslateWordVelocity rejects oversized requests without mutating f
   assert.equal(oversized.allowed, false);
   assert.equal(oversized.outcome, "oversize");
   assert.equal(oversized.remaining, 1_000);
+  assert.equal(
+    oversized.retryAfterSeconds,
+    0,
+    "an inherently oversized request must not advertise a retry window",
+  );
 
   const fullFreshWindow = await consumeTranslateWordVelocity({
     ...base,
@@ -305,6 +310,7 @@ test("consumeTranslateWordVelocity rejects oversized requests without mutating f
   assert.equal(oversizedAfterReset.allowed, false);
   assert.equal(oversizedAfterReset.outcome, "oversize");
   assert.equal(oversizedAfterReset.remaining, 1_000);
+  assert.equal(oversizedAfterReset.retryAfterSeconds, 0);
 
   const fullExpiredWindow = await consumeTranslateWordVelocity({
     ...base,
@@ -387,7 +393,7 @@ test("reports allowed, blocked, and oversize velocity outcomes without tenant or
     freshWords: 1_200,
     limit: 1_000,
     remaining: 1_000,
-    retryAfterSeconds: 3_600,
+    retryAfterSeconds: 0,
     windowSeconds: 3_600,
   });
   const serialized = JSON.stringify(entries);

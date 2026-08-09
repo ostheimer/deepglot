@@ -451,12 +451,22 @@ export async function translateProjectPdf(
     requestFingerprintInput: JSON.stringify([langTo, parsed.pages]),
   });
   if (!velocity.allowed) {
-    throw new PdfTranslationError(
-      "The translation velocity limit is currently reached. Try again later.",
-      "velocity_limited",
-      429,
-      velocity.retryAfterSeconds,
-    );
+    if (velocity.outcome === "oversize") {
+      throw new PdfTranslationError(
+        "Split the PDF into smaller files so each request fits the plan velocity cap.",
+        "velocity_request_too_large",
+        422,
+      );
+    }
+
+    if (velocity.outcome === "blocked") {
+      throw new PdfTranslationError(
+        "The translation velocity limit is currently reached. Try again later.",
+        "velocity_limited",
+        429,
+        velocity.retryAfterSeconds,
+      );
+    }
   }
 
   const translate = dependencies.translateTexts ?? translateTexts;

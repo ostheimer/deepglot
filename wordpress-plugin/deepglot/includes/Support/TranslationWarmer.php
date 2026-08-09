@@ -41,6 +41,10 @@ class TranslationWarmer
     /** Persisted next-attempt timestamp after a classified SaaS 429. */
     public const BACKOFF_OPTION = 'deepglot_warm_backoff_until';
 
+    /** Privacy-safe fingerprints for batch shapes proven permanently oversize. */
+    private const OVERSIZE_BATCH_TRANSIENT = 'deepglot_warm_oversize_batches';
+    private const OVERSIZE_BATCH_TTL = 3600;
+
     /** Long enough to cover MAX_BATCHES_PER_RUN slow requests. */
     public const LOCK_TTL = 300;
 
@@ -149,6 +153,21 @@ class TranslationWarmer
             });
         }
 
+        $now = time();
+        $knownBackoffUntil = min(
+            $now + Client::MAX_RATE_LIMIT_BACKOFF,
+            max(
+                Client::rateLimitRetryAt(),
+                (int) get_option(self::BACKOFF_OPTION, 0)
+            )
+        );
+
+        if ($knownBackoffUntil > $now) {
+            update_option(self::BACKOFF_OPTION, $knownBackoffUntil, false);
+            $this->schedule(true, $knownBackoffUntil - $now);
+            return;
+        }
+
         $this->schedule();
     }
 
@@ -180,11 +199,19 @@ class TranslationWarmer
             return;
         }
 
-        $backoffUntil = (int) get_option(self::BACKOFF_OPTION, 0);
-        if ($backoffUntil > time()) {
+        $now = time();
+        $backoffUntil = min(
+            $now + Client::MAX_RATE_LIMIT_BACKOFF,
+            max(
+                (int) get_option(self::BACKOFF_OPTION, 0),
+                Client::rateLimitRetryAt()
+            )
+        );
+        if ($backoffUntil > $now) {
             // Defensive path for manual/duplicate cron invocations: do not
             // contact SaaS before its bounded Retry-After window has elapsed.
-            $this->schedule(true, $backoffUntil - time());
+            update_option(self::BACKOFF_OPTION, $backoffUntil, false);
+            $this->schedule(true, $backoffUntil - $now);
             return;
         }
         if ($backoffUntil > 0 && function_exists('delete_option')) {
@@ -226,6 +253,7 @@ class TranslationWarmer
         $completedByKey = [];
         $remainingByKey = [];
         $rateLimitBackoff = 0;
+        $oversizeMarkers = $this->readOversizeBatchMarkers($queue);
 
         foreach ($queue as $key => $texts) {
             if ($budget <= 0) {
@@ -255,21 +283,44 @@ class TranslationWarmer
                 continue;
             }
 
-            $batches   = array_chunk($missing, self::BATCH_SIZE);
-            $processed = array_slice($batches, 0, $budget);
-            $budget   -= count($processed);
+            $batches = array_chunk($missing, self::BATCH_SIZE);
+            $processed = [];
+            $blockedBatches = [];
+            $deferredBatches = [];
 
-            $results = $this->client->translateBatches(
-                $processed,
-                $sourceLang,
-                $targetLang,
-                '',
-                0,
-                self::TIMEOUT
-            );
+            foreach ($batches as $batch) {
+                $fingerprint = $this->oversizeBatchFingerprint(
+                    $sourceLang,
+                    $targetLang,
+                    $batch
+                );
+                if (isset($oversizeMarkers[$fingerprint])) {
+                    $blockedBatches[] = $batch;
+                    continue;
+                }
+                if ($budget > 0) {
+                    $processed[] = $batch;
+                    $budget--;
+                } else {
+                    $deferredBatches[] = $batch;
+                }
+            }
+
+            $results = empty($processed)
+                ? []
+                : $this->client->translateBatches(
+                    $processed,
+                    $sourceLang,
+                    $targetLang,
+                    '',
+                    0,
+                    self::TIMEOUT
+                );
 
             $translations = [];
-            $failed = [];
+            $failed = empty($blockedBatches)
+                ? []
+                : array_merge([], ...$blockedBatches);
 
             foreach ($processed as $index => $batch) {
                 $result = $results[$index] ?? null;
@@ -284,6 +335,18 @@ class TranslationWarmer
                                     Client::MAX_RATE_LIMIT_BACKOFF,
                                     (int) ($errorData['retry_after'] ?? Client::DEFAULT_RATE_LIMIT_BACKOFF)
                                 ))
+                            );
+                        }
+                        if (
+                            is_array($errorData)
+                            && (int) ($errorData['status'] ?? 0) === 422
+                            && ($errorData['api_code'] ?? '') === 'velocity_request_too_large'
+                        ) {
+                            $this->rememberOversizeBatch(
+                                $oversizeMarkers,
+                                $sourceLang,
+                                $targetLang,
+                                $batch
                             );
                         }
                     }
@@ -308,7 +371,6 @@ class TranslationWarmer
                 $this->cache->setMany($translations, $sourceLang, $targetLang);
             }
 
-            $deferredBatches = array_slice($batches, count($processed));
             $untouched = $untouched || !empty($deferredBatches);
 
             $remaining = array_values(array_unique(array_merge(
@@ -318,6 +380,14 @@ class TranslationWarmer
 
             $remainingByKey[$key] = $remaining;
             $completedByKey[$key] = array_values(array_diff($texts, $remaining));
+
+            if ($rateLimitBackoff > 0) {
+                // The SaaS velocity window is organization-wide. Reconcile
+                // this pair, then leave every unvisited pair untouched until
+                // the bounded delayed retry instead of spending more calls.
+                $untouched = true;
+                break;
+            }
         }
 
         // Re-read after the provider calls: a frontend request may have
@@ -385,6 +455,124 @@ class TranslationWarmer
         }
 
         return $pairs;
+    }
+
+    /**
+     * Keep markers only for exact batch forms that are still present in the
+     * bounded queues. This bounds marker storage to queued work without
+     * evicting an active form into an automatic resend loop.
+     *
+     * @param array<string, string[]> $queue
+     * @return array<string, int> Active fingerprint => expiry timestamps.
+     */
+    private function readOversizeBatchMarkers(array $queue): array
+    {
+        if (!function_exists('get_transient')) {
+            return [];
+        }
+
+        $stored = get_transient(self::OVERSIZE_BATCH_TRANSIENT);
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        $now = time();
+        $active = [];
+        $queuedFingerprints = $this->queuedBatchFingerprints($queue);
+        foreach ($stored as $fingerprint => $expiresAt) {
+            if (
+                is_string($fingerprint)
+                && preg_match('/^[a-f0-9]{64}$/D', $fingerprint) === 1
+                && is_numeric($expiresAt)
+                && (int) $expiresAt > $now
+                && isset($queuedFingerprints[$fingerprint])
+            ) {
+                $active[$fingerprint] = min(
+                    (int) $expiresAt,
+                    $now + self::OVERSIZE_BATCH_TTL
+                );
+            }
+        }
+
+        return $active;
+    }
+
+    /**
+     * Stores only a configuration-bound one-way fingerprint and its own
+     * bounded expiry. Rewriting the transient never extends older entries.
+     *
+     * @param array<string, int> $markers
+     * @param string[] $batch
+     */
+    private function rememberOversizeBatch(
+        array &$markers,
+        string $sourceLang,
+        string $targetLang,
+        array $batch
+    ): void {
+        if (!function_exists('set_transient')) {
+            return;
+        }
+
+        $fingerprint = $this->oversizeBatchFingerprint(
+            $sourceLang,
+            $targetLang,
+            $batch
+        );
+        if (!isset($markers[$fingerprint])) {
+            $markers[$fingerprint] = time() + self::OVERSIZE_BATCH_TTL;
+        }
+
+        $ttl = max(1, max($markers) - time());
+        set_transient(self::OVERSIZE_BATCH_TRANSIENT, $markers, $ttl);
+    }
+
+    /**
+     * @param array<string, string[]> $queue
+     * @return array<string, true>
+     */
+    private function queuedBatchFingerprints(array $queue): array
+    {
+        $fingerprints = [];
+
+        foreach ($queue as $key => $texts) {
+            [$sourceLang, $targetLang] = $this->parseQueueKey($key);
+            if ($sourceLang === '' || $targetLang === '') {
+                continue;
+            }
+
+            foreach (array_chunk($texts, self::BATCH_SIZE) as $batch) {
+                $fingerprints[$this->oversizeBatchFingerprint(
+                    $sourceLang,
+                    $targetLang,
+                    $batch
+                )] = true;
+            }
+        }
+
+        return $fingerprints;
+    }
+
+    /**
+     * @param string[] $batch
+     */
+    private function oversizeBatchFingerprint(
+        string $sourceLang,
+        string $targetLang,
+        array $batch
+    ): string {
+        $configurationKey = hash(
+            'sha256',
+            untrailingslashit(trim($this->options->getApiBaseUrl()))
+                . "\0"
+                . trim($this->options->getApiKey())
+        );
+        $shape = json_encode(
+            [$sourceLang, $targetLang, array_values($batch)],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        return hash_hmac('sha256', "v1\0" . (is_string($shape) ? $shape : ''), $configurationKey);
     }
 
     private function schedule(bool $force = false, int $delaySeconds = 0): void

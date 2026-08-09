@@ -542,13 +542,15 @@ export async function consumeTranslateWordVelocity({
   });
 
   if (!reserved) {
+    const outcome = safeCost > safeLimit ? "oversize" : "blocked";
     return {
       allowed: false,
-      outcome: safeCost > safeLimit ? "oversize" : "blocked",
+      outcome,
       limit: safeLimit,
       remaining: Math.max(0, safeLimit - bucket.count),
       resetAt: bucket.resetAt,
-      retryAfterSeconds: secondsUntil(bucket.resetAt, now),
+      retryAfterSeconds:
+        outcome === "oversize" ? 0 : secondsUntil(bucket.resetAt, now),
     };
   }
 

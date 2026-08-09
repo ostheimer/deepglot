@@ -173,6 +173,14 @@ clientProblemCheck(
     count(array_filter($parallelRateLimited, 'is_wp_error')) === 2,
     'Parallel 429 responses must remain API errors.'
 );
+$firstParallelError = reset($parallelRateLimited);
+$firstParallelData = $firstParallelError instanceof WP_Error
+    ? $firstParallelError->get_error_data()
+    : [];
+clientProblemCheck(
+    ($firstParallelData['retry_after'] ?? null) === 1800,
+    'Parallel errors must preserve a fixed-window Retry-After beyond the former five-minute cap.'
+);
 $parallelRetryAt = Client::rateLimitRetryAt();
 clientProblemCheck(
     $parallelRetryAt >= time() + 1790 && $parallelRetryAt <= time() + 1810,

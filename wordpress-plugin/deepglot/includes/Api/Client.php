@@ -24,8 +24,8 @@ class Client
     /** Conservative fallback when a 429 omits or malforms Retry-After. */
     public const DEFAULT_RATE_LIMIT_BACKOFF = 60;
 
-    /** Never let an upstream header stall plugin queues for longer than this. */
-    public const MAX_RATE_LIMIT_BACKOFF = 300;
+    /** Preserve the fixed hourly velocity window, but never exceed one hour. */
+    public const MAX_RATE_LIMIT_BACKOFF = 3600;
 
     /** Translation providers may need longer than ordinary API operations. */
     private const TRANSLATE_TIMEOUT_SECONDS = 60;
@@ -65,6 +65,11 @@ class Client
 
         if ($this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])) {
             return $this->invalidApiKeyError();
+        }
+
+        $rateLimitError = $this->activeRateLimitError();
+        if ($rateLimitError !== null) {
+            return $rateLimitError;
         }
 
         return $this->buildTranslateResponse($this->dispatchTranslate(
@@ -117,6 +122,17 @@ class Client
 
             foreach (array_keys($payloads) as $key) {
                 $shortCircuited[$key] = $this->invalidApiKeyError();
+            }
+
+            return $shortCircuited;
+        }
+
+        $rateLimitError = $this->activeRateLimitError();
+        if ($rateLimitError !== null) {
+            $shortCircuited = [];
+
+            foreach (array_keys($payloads) as $key) {
+                $shortCircuited[$key] = $this->activeRateLimitError() ?? $rateLimitError;
             }
 
             return $shortCircuited;
@@ -337,15 +353,7 @@ class Client
             $decoded = json_decode($body, true);
 
             if ($statusCode >= 400) {
-                $responseHeaders = $response->headers ?? [];
-                $retryAfter = '';
-
-                if (is_array($responseHeaders)) {
-                    $responseHeaders = array_change_key_case($responseHeaders, CASE_LOWER);
-                    $retryAfter = $responseHeaders['retry-after'] ?? '';
-                } elseif ($responseHeaders instanceof \ArrayAccess) {
-                    $retryAfter = $responseHeaders['retry-after'] ?? '';
-                }
+                $retryAfter = $this->responseHeader($response, 'Retry-After');
 
                 $this->maybeFlagQuotaExhausted($statusCode);
                 $this->maybeFlagRateLimited(
@@ -356,7 +364,7 @@ class Client
                 $results[$key] = $this->apiError(
                     $statusCode,
                     $decoded,
-                    $this->responseHeader($response, 'Retry-After')
+                    $retryAfter
                 );
                 continue;
             }
@@ -495,6 +503,10 @@ class Client
     {
         $data = ['status' => $statusCode, 'body' => $decoded];
 
+        if (is_array($decoded) && isset($decoded['code']) && is_string($decoded['code'])) {
+            $data['api_code'] = $decoded['code'];
+        }
+
         if ($statusCode === 429) {
             $data = array_merge($data, $this->classifyRetryAfter($retryAfterHeader));
         }
@@ -590,12 +602,38 @@ class Client
         );
     }
 
+    /** Returns a local 429 while the bounded shared retry window is active. */
+    private function activeRateLimitError(): ?\WP_Error
+    {
+        $retryAt = self::rateLimitRetryAt();
+        if ($retryAt <= 0) {
+            return null;
+        }
+
+        return $this->rateLimitedError([
+            'retry_after' => max(
+                1,
+                min(self::MAX_RATE_LIMIT_BACKOFF, $retryAt - time())
+            ),
+            'retry_after_source' => 'stored-marker',
+            'retry_after_capped' => false,
+        ]);
+    }
+
     /** Reads a case-insensitive Requests v2 response header. */
     private function responseHeader($response, string $name)
     {
         $headers = is_object($response) ? ($response->headers ?? null) : null;
 
         if (is_array($headers)) {
+            foreach ($headers as $header => $value) {
+                if (strtolower((string) $header) === strtolower($name)) {
+                    return $value;
+                }
+            }
+        }
+
+        if ($headers instanceof \Traversable) {
             foreach ($headers as $header => $value) {
                 if (strtolower((string) $header) === strtolower($name)) {
                     return $value;
@@ -650,12 +688,14 @@ class Client
             return;
         }
 
-        $delay = ctype_digit(trim($retryAfter)) ? (int) trim($retryAfter) : 900;
-        $delay = max(60, min(3600, $delay));
+        $classified = $this->classifyRetryAfter($retryAfter);
+        $delay = (int) $classified['retry_after'];
+        $retryAt = max(self::rateLimitRetryAt(), time() + $delay);
+        $ttl = max(1, $retryAt - time());
         set_transient(
             self::RATE_LIMIT_TRANSIENT,
-            ['retry_at' => time() + $delay],
-            $delay
+            ['retry_at' => $retryAt],
+            $ttl
         );
     }
 
