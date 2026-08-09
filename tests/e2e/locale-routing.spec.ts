@@ -20,6 +20,22 @@ async function switchMarketingLanguage(page: Page, languageName: string) {
   await page.getByRole("menuitem", { name: new RegExp(languageName, "i") }).click();
 }
 
+async function expectNoHorizontalOverflow(page: Page, path: string) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            Math.max(
+              document.documentElement.scrollWidth,
+              document.body.scrollWidth
+            ) <= document.documentElement.clientWidth + 1
+        ),
+      { message: `${path} should not overflow horizontally` }
+    )
+    .toBe(true);
+}
+
 test.describe("locale routing", () => {
   test("keeps localized homepages inside narrow responsive layouts", async ({
     page,
@@ -222,6 +238,47 @@ test.describe("locale routing", () => {
     await page.getByLabel("Footer").getByRole("link", { name: "Terms" }).click();
     await expect(page).toHaveURL(/\/terms$/);
     await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
+  });
+
+  test("opens the bilingual help surface through canonical and internal routes", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto("/help");
+
+    await expect(page).toHaveURL(/\/help$/);
+    await expect(
+      page.getByRole("heading", { name: "Deepglot, explained clearly" })
+    ).toBeVisible();
+    await expect(page.getByTestId("help-weekly-digest")).toBeVisible();
+    await expect(page.getByTestId("help-wordpress-releases")).toBeVisible();
+    await expect(page).toHaveTitle(/Help \| Deepglot/);
+    await page.screenshot({
+      path: "output/playwright/help-en-desktop.png",
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/de/hilfe");
+
+    await expect(page).toHaveURL(/\/de\/hilfe$/);
+    await expect(
+      page.getByRole("heading", { name: "Deepglot verständlich erklärt" })
+    ).toBeVisible();
+    await expect(page.getByTestId("help-weekly-digest")).toBeVisible();
+    await expect(page.getByTestId("help-wordpress-releases")).toBeVisible();
+    await expect(page).toHaveTitle(/Hilfe \| Deepglot/);
+    await expectNoHorizontalOverflow(page, "/de/hilfe");
+    await page.screenshot({
+      path: "output/playwright/help-de-mobile.png",
+      fullPage: true,
+    });
+
+    await page.goto("/fr/help");
+    await expect(page).toHaveURL(/\/help$/);
+    await expect(
+      page.getByRole("heading", { name: "Deepglot, explained clearly" })
+    ).toBeVisible();
   });
 
   test("redirects unsupported editorial locales to the real English surfaces", async ({

@@ -53,6 +53,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             ["api-reference", de ? "API-Referenz" : "API reference"],
             ["wordpress", "WordPress"],
             ["wordpress-operations", de ? "Betriebshilfe" : "Operations help"],
+            ["activity-digest", de ? "Wochenrückblick" : "Weekly digest"],
+            ["wordpress-releases", de ? "Plugin-Releases" : "Plugin releases"],
             ["errors", de ? "Fehler und Wiederholungen" : "Errors and retries"],
             ["webhooks", "Webhooks"],
             ["project-surfaces", de ? "Projektoberflächen" : "Project surfaces"],
@@ -185,6 +187,61 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             {de
               ? "Der Filter deepglot_max_sync_batches kann eine begrenzte Zahl von Batches wieder im Seitenaufruf übersetzen. Für externe KI-Provider ist der asynchrone Standard empfohlen."
               : "The deepglot_max_sync_batches filter can translate a bounded number of batches during the page request. The asynchronous default is recommended for external AI providers."}
+          </div>
+        </section>
+
+        <section id="activity-digest" className="scroll-mt-8 pt-20">
+          <h2 className="text-3xl font-bold">{de ? "Wöchentlicher Workspace-Rückblick" : "Weekly workspace activity digest"}</h2>
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Der Wochenrückblick ist ein Opt-in pro Benutzer und Workspace. Die Einstellung wird in den Kontoeinstellungen gespeichert; die PATCH-Route aktualisiert sowohl den Aktivierungsstatus als auch die gewünschte E-Mail-Sprache."
+              : "The weekly digest is opt-in per user and workspace. The preference is stored in account settings; the PATCH route updates both the enabled state and the requested email locale."}
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {[
+              {
+                title: de ? "Zeitraum und Inhalt" : "Period and content",
+                body: de
+                  ? "Der Cron-Prozessor aggregiert die letzte vollständige UTC-Woche von Montag bis Montag. Er zählt neue Übersetzungen und Wörter, manuelle Übersetzungen und Wörter sowie Laufzeit-Übersetzungsanfragen — Import- und manuelle Batches werden nicht als Laufzeitanfragen gezählt."
+                  : "The cron processor aggregates the previous complete UTC Monday-to-Monday week. It counts new translations and words, manual translations and words, and runtime translation requests; import and manual batches are not counted as runtime requests.",
+              },
+              {
+                title: de ? "Zustellung und Wiederholung" : "Delivery and retry behavior",
+                body: de
+                  ? "Der geschützte Vercel-Cron läuft montags um 08:00 UTC. Wochen ohne Aktivität werden übersprungen. Ein eindeutiger Claim pro Benutzer, Workspace und Zeitraum verhindert Doppelzustellungen bei parallelen Aufrufen; fehlgeschlagene Sendungen geben ihren Claim frei."
+                  : "The protected Vercel Cron runs at 08:00 UTC on Monday. Quiet weeks are skipped. A unique claim per user, workspace, and period prevents duplicate deliveries across concurrent invocations; failed sends release their claim for retry.",
+              },
+            ].map((item) => (
+              <article key={item.title} className="rounded-md border border-[#d8d6ce] bg-white p-5">
+                <h3 className="font-semibold text-[#071521]">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-gray-600">{item.body}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-5 text-sm leading-6 text-gray-600">
+            {de ? "Autoritative Implementierung:" : "Authoritative implementation:"}{" "}
+            <code>src/lib/activity-digest.ts</code>, <code>src/lib/activity-digest-delivery.ts</code>, <code>src/lib/activity-digest-cron.ts</code>, <code>src/components/einstellungen/activity-digest-preferences.tsx</code>.
+          </p>
+        </section>
+
+        <section id="wordpress-releases" className="scroll-mt-8 pt-20">
+          <h2 className="text-3xl font-bold">{de ? "WordPress v0.11.4 bis v0.11.7" : "WordPress v0.11.4 through v0.11.7"}</h2>
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Die Releases sind als Git-Tags dokumentiert und bilden die Grundlage für die aktuelle v0.12.0-Implementierung. Ein GitHub-Release oder ZIP-Bau installiert kein Kunden-Plugin automatisch; produktive Installation und Live-QA bleiben getrennte Freigaben."
+              : "These releases are documented as Git tags and form the basis for the current v0.12.0 implementation. A GitHub release or ZIP build does not automatically install a customer plugin; production installation and live QA remain separate approvals."}
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {[
+              ["v0.11.4", de ? "Numerische Quell-Slugs bleiben nach dem Cache-Readback zugeordnet." : "Numeric-only source slugs remain mapped after dedicated cache readback."],
+              ["v0.11.5", de ? "Übersetzungsstapel erhalten ein begrenztes 60-Sekunden-Anfragefenster." : "Translation batches receive a bounded 60-second request window."],
+              ["v0.11.6", de ? "Große kalte Seiten werden nach String-Anzahl und 2.000 UTF-8-Bytes in geordnete parallele Anfragen geteilt." : "Large cold pages split into ordered parallel requests bounded by string count and 2,000 UTF-8 bytes."],
+              ["v0.11.7", de ? "Ein vertrauenswürdiger finaler HTML-Filter kann sprachabhängige Medien sicher lokalisieren und fällt bei leerem Ergebnis zurück." : "A trusted final HTML filter can localize language-specific media safely and falls back when the callback returns empty."],
+            ].map(([version, description]) => (
+              <div key={version} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3 text-sm leading-6">
+                <strong className="mr-2 font-mono">{version}</strong>{description}
+              </div>
+            ))}
           </div>
         </section>
 
