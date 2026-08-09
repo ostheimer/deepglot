@@ -17,12 +17,14 @@ function versionAssert(bool $condition, string $message): void
 $plugin = file_get_contents(__DIR__ . '/../deepglot.php');
 $readme = file_get_contents(__DIR__ . '/../README.md');
 $wordpressReadme = file_get_contents(__DIR__ . '/../readme.txt');
+$dynamicTranslator = file_get_contents(__DIR__ . '/../assets/js/dynamic-translator.js');
 $license = file_get_contents(__DIR__ . '/../LICENSE');
 $rootReadme = file_get_contents(__DIR__ . '/../../../README.md');
 
 versionAssert(is_string($plugin), 'Plugin bootstrap must be readable');
 versionAssert(is_string($readme), 'Plugin README must be readable');
 versionAssert(is_string($wordpressReadme), 'WordPress.org readme must be readable');
+versionAssert(is_string($dynamicTranslator), 'Dynamic translator asset must be readable');
 versionAssert(is_string($license), 'Plugin license must be readable');
 versionAssert(is_string($rootReadme), 'Repository README must be readable');
 versionAssert(
@@ -37,7 +39,12 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
-versionAssert($headerVersion === '0.12.0', 'WordPress.org submission release must be version 0.12.0');
+versionAssert($headerVersion === '0.12.1', 'Prepared WordPress.org release must be version 0.12.1');
+versionAssert(
+    !str_contains($dynamicTranslator, 'var rateLimitedUntil = 0;')
+        || version_compare($headerVersion, '0.12.1', '>='),
+    'Behavior-changing dynamic-translator.js Retry-After logic must ship under version 0.12.1 or newer'
+);
 versionAssert($headerVersion === $constantVersion, 'Header and runtime versions must match');
 versionAssert(
     str_contains($readme, '(**v' . $headerVersion . '**)'),
@@ -71,7 +78,7 @@ versionAssert(
 versionAssert(
     str_contains(
         $rootReadme,
-        'The currently documented live deployment on `meinhaushalt.at` is **v0.12.0** from commit `cccc9ba`, deployed and warm-up-verified on 2026-08-09'
+        'The currently documented live deployment on `meinhaushalt.at` is **v0.12.0** from commit `e53ae62`, deployed on 2026-08-10'
     ),
     'Repository README must reflect the live-verified meinhaushalt.at deployment from HANDOFF.md'
 );

@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.0
+Stable tag: 0.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,7 +57,7 @@ Since version 0.12.0, ordinary page requests do not wait for a slow translation 
 
 = How do I translate existing pages without opening every URL? =
 
-Under `Settings -> Deepglot`, create a URL preview with a small limit and the required target languages, review the sample URLs, and explicitly confirm the immutable snapshot. One batch contains at most 250 safe internal entries from the multilingual sitemap and opens at most two target pages per cron run. The job reports aggregate progress and can be paused, resumed, cancelled, or retried for failed URLs. It pauses when the quota is exhausted or the API key is invalid and automatically backs off on API rate limits. Continue large sites with the next bounded batch. This is an explicit administrator action, not a permanent crawler.
+Under `Settings -> Deepglot`, create a URL preview with a small limit and the required target languages, review the sample URLs, and explicitly confirm the immutable snapshot. When WordPress recognizes a safe HTTPS request on the same host as an internal target still stored with HTTP, the preview changes only that target's scheme to HTTPS; semantic query parameters and fragments are preserved. It never copies a foreign request host, and genuine redirects remain failures. One batch contains at most 250 safe internal entries from the multilingual sitemap and opens at most two target pages per cron run. The job reports aggregate progress and can be paused, resumed, cancelled, or retried for failed URLs. It pauses when the quota is exhausted or the API key is invalid and automatically backs off on API rate limits. Continue large sites with the next bounded batch. This is an explicit administrator action, not a permanent crawler.
 
 == External services ==
 
@@ -78,11 +78,15 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.12.1 =
+* Assigned a new public asset version to the Retry-After-aware dynamic translator so WordPress and intermediary caches do not keep serving the older browser behavior.
+* Preserved bounded Retry-After signals on HTTP 429, stopped later sequential batches, and delayed warm and dynamic follow-up requests instead of immediately retrying.
+* Corrected stale same-host HTTP targets to HTTPS during URL-sync preview when WordPress recognizes the current request as HTTPS, while preserving semantic query parameters and fragments and never copying a foreign request host.
+
 = 0.12.0 =
 * Ordinary page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first cold view is fast and later views converge after WP-Cron succeeds.
 * Added bounded, atomically locked background cache warming. Failed and partial results remain queued, and supported full-page caches are purged after warming completes.
 * Added administrator-triggered URL synchronization from a bounded internal sitemap snapshot, with progress, pause, resume, cancel, backpressure, retry, quota, and invalid-key controls.
-* Preserved bounded Retry-After signals on HTTP 429, stopped later sequential batches, and delayed warm and dynamic follow-up requests instead of immediately retrying.
 * Kept visual-editor previews and WooCommerce HTML emails synchronous because those one-off outputs cannot converge on a later page request.
 * Added the `deepglot_max_sync_batches` filter to translate inline again on fast providers, and `deepglot_api_timeout` to tune the request budget.
 
@@ -136,6 +140,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.1 =
+Refreshes the dynamic translator asset for bounded Retry-After handling and corrects safe same-host HTTPS URL-sync previews. Preparing or publishing the package does not update customer sites automatically.
 
 = 0.12.0 =
 Moves fresh translations off the page render into a background job, so cold pages load fast instead of waiting for the translation API. Requires PHP 8.0 or newer.

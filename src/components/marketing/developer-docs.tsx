@@ -145,8 +145,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
-              ? "Administratoren können unter Einstellungen → Deepglot eine begrenzte URL-Synchronisierung aus der Deepglot-Sitemap starten. Vor dem Start ist eine nebenwirkungsfreie Vorschau mit festem Snapshot und Beispiel-URLs zu bestätigen. Jeder Batch umfasst höchstens 250 Zielseiten, füllt kontrolliert dieselbe Übersetzungswarteschlange und lässt sich pausieren, fortsetzen oder abbrechen. Es gibt keinen permanenten Hintergrundcrawler."
-              : "Administrators can start a bounded URL synchronization from the Deepglot sitemap under Settings → Deepglot. A side-effect-free preview with an immutable snapshot and sample URLs must be confirmed before it starts. Each batch contains at most 250 target pages, feeds the same translation queue at a controlled rate, and can be paused, resumed, or cancelled. It is not a permanent background crawler."}
+              ? "Administratoren können unter Einstellungen → Deepglot eine begrenzte URL-Synchronisierung aus der Deepglot-Sitemap starten. Vor dem Start ist eine nebenwirkungsfreie Vorschau mit festem Snapshot und Beispiel-URLs zu bestätigen. Erkennt WordPress eine sichere HTTPS-Anfrage auf demselben Host wie eine noch mit HTTP gespeicherte interne Ziel-URL, verwendet der Snapshot dieselbe interne Ziel-URL mit HTTPS. Semantische Query-Parameter und Fragmente bleiben erhalten. Ein fremder Request-Host wird niemals übernommen, und tatsächliche Weiterleitungen bleiben Fehler. Jeder Batch umfasst höchstens 250 Zielseiten, füllt kontrolliert dieselbe Übersetzungswarteschlange und lässt sich pausieren, fortsetzen oder abbrechen. Es gibt keinen permanenten Hintergrundcrawler."
+              : "Administrators can start a bounded URL synchronization from the Deepglot sitemap under Settings → Deepglot. A side-effect-free preview with an immutable snapshot and sample URLs must be confirmed before it starts. When WordPress recognizes a safe HTTPS request on the same host as an internal target still stored with HTTP, the snapshot uses the same internal target with HTTPS. Semantic query parameters and fragments are preserved. A foreign request host is never copied, and genuine redirects remain failures. Each batch contains at most 250 target pages, feeds the same translation queue at a controlled rate, and can be paused, resumed, or cancelled. It is not a permanent background crawler."}
           </p>
           <ul className="mt-6 grid gap-3 font-mono text-sm md:grid-cols-2">
             {WORDPRESS_REST_ENDPOINTS.map((endpoint) => <li key={endpoint} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3">{endpoint}</li>)}
@@ -175,8 +175,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               {
                 title: de ? "1. URLs synchronisieren" : "1. Synchronize URLs",
                 body: de
-                  ? "Erstelle in den Deepglot-Einstellungen zunächst eine kleine URL-Vorschau und bestätige den unveränderlichen Snapshot. Der Lauf verwendet nur interne Sitemap-Ziele, zeigt den aggregierten Fortschritt, pausiert bei vollem Kontingent oder ungültigem API-Key und wartet bei API-Ratenlimits automatisch. Einzelne Seiten können weiterhin durch einen normalen menschlichen Aufruf angestoßen werden."
-                  : "Create a small URL preview in the Deepglot settings first, then confirm the immutable snapshot. The job uses only internal sitemap targets, reports aggregate progress, pauses on exhausted quota or an invalid API key, and automatically backs off on API rate limits. Individual pages can still be triggered by an ordinary human visit.",
+                  ? "Erstelle in den Deepglot-Einstellungen zunächst eine kleine URL-Vorschau und bestätige den unveränderlichen Snapshot. Prüfe, dass ein veraltetes HTTP-Ziel auf demselben sicheren Host mit HTTPS erscheint und dass semantische Query-Parameter erhalten bleiben. Der Lauf verwendet nur interne Sitemap-Ziele, zeigt den aggregierten Fortschritt, pausiert bei vollem Kontingent oder ungültigem API-Key und wartet bei API-Ratenlimits automatisch. Einzelne Seiten können weiterhin durch einen normalen menschlichen Aufruf angestoßen werden."
+                  : "Create a small URL preview in the Deepglot settings first, then confirm the immutable snapshot. Verify that a stale HTTP target on the same safe host appears with HTTPS and that semantic query parameters are preserved. The job uses only internal sitemap targets, reports aggregate progress, pauses on exhausted quota or an invalid API key, and automatically backs off on API rate limits. Individual pages can still be triggered by an ordinary human visit.",
               },
               {
                 title: de ? "2. WP-Cron prüfen" : "2. Check WP-Cron",
@@ -243,8 +243,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           <h2 className="text-3xl font-bold">{de ? "WordPress v0.11.4 bis v0.11.7" : "WordPress v0.11.4 through v0.11.7"}</h2>
           <p className="mt-5 max-w-4xl leading-7 text-gray-700">
             {de
-              ? "Die Releases sind als Git-Tags dokumentiert und bilden die Grundlage für die aktuelle v0.12.0-Implementierung. Ein GitHub-Release oder ZIP-Bau installiert kein Kunden-Plugin automatisch; produktive Installation und Live-QA bleiben getrennte Freigaben."
-              : "These releases are documented as Git tags and form the basis for the current v0.12.0 implementation. A GitHub release or ZIP build does not automatically install a customer plugin; production installation and live QA remain separate approvals."}
+              ? "Die Releases sind als Git-Tags dokumentiert und bilden die Grundlage für die aktuelle v0.12.1-Implementierung. v0.12.1 vergibt für den Retry-After-fähigen dynamischen Übersetzer eine neue öffentliche Asset-Version. Ein GitHub-Release oder ZIP-Bau installiert kein Kunden-Plugin automatisch; produktive Installation und Live-QA bleiben getrennte Freigaben."
+              : "These releases are documented as Git tags and form the basis for the current v0.12.1 implementation. v0.12.1 assigns a new public asset version to the Retry-After-aware dynamic translator. A GitHub release or ZIP build does not automatically install a customer plugin; production installation and live QA remain separate approvals."}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {[

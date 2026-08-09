@@ -86,10 +86,13 @@ test("runbook and handoff retain the completed v0.12.0 production warm-up eviden
   const operations = source("OPERATIONS.md");
   const handoff = source("HANDOFF.md");
 
-  for (const documentation of [readme, operations, handoff]) {
+  for (const documentation of [operations, handoff]) {
     assert.match(documentation, /commit `cccc9ba`/);
     assert.match(documentation, /warm-up-verified|warm-up acceptance/i);
   }
+
+  assert.match(readme, /commit `e53ae62`/);
+  assert.match(readme, /deployed on 2026-08-10/);
 
   assert.match(operations, /synthetic one-shot provider failure/i);
   assert.match(operations, /`blocking=false`, `timeout=0\.01`/);
@@ -97,9 +100,9 @@ test("runbook and handoff retain the completed v0.12.0 production warm-up eviden
   assert.match(operations, /\| 50 \| 18,735 ms \| 1,225 ms \| 15\.29× \|/);
   assert.match(operations, /All eight matching `\/api\/translate` requests were HTTP 200/);
   assert.match(operations, /contained four `\/api\/translate` events/);
-  assert.match(handoff, /installed normalized tree is `644edad/);
+  assert.match(handoff, /installed normalized tree is `cf64f415/);
   assert.match(handoff, /warm-up queues empty, no scheduled warm-up event/);
-  assert.match(handoff, /Vercel Production deployment `dpl_DLwoXpjKFJJ6BpweArYLTMpB2atn` is `Ready`/);
+  assert.match(handoff, /Vercel Production deployment `dpl_3etfxXvu771q97kHrtUKX6GbWwzv` is `Ready`/);
   assert.doesNotMatch(readme, /follow-up warm-up acceptance remains/);
   assert.doesNotMatch(handoff, /warm-up cron\/cache acceptance remains open/);
 });

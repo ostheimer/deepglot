@@ -1,12 +1,15 @@
-# Deepglot Handoff - 2026-08-09
+# Deepglot Handoff - 2026-08-10
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
 ## Current repository evidence
 
 - The original handoff began from `4d649aa` (`feat(wp-plugin): warm translations in the background instead of blocking renders (#276)`); use the current Git history rather than that historical SHA when preparing another deploy.
-- The repository's WordPress plugin source is **v0.12.0**. The authoritative bootstrap, README, WordPress.org readme, and version-consistency test agree on that version. `meinhaushalt.at` runs **v0.12.0** from commit `cccc9ba`, deployed and warm-up-verified on 2026-08-09. The reproducible ZIP SHA-256 is `e109c2e4ba6668e6e6a24d5390babcc1dd7b4665a24b48d1b1e725f27745a3cd`; the installed normalized tree is `644edad40f42fe33266614faea21cfec58972f8487d978c8e4c8ac3df1dc42c1`. Rollback archive: `/usr/www/users/meinhaus/dev/deepglot-backups/deepglot-0.12.0-before-cccc9ba-20260809-late-cron.tar.gz` (SHA-256 `e1393a812496bbdd4893112d44737376cac7d4cbef63fd57403e487d1b6a1d38`). GitHub releases currently go through **v0.11.7**; there is no `wp-plugin-v0.12.0` tag in this checkout.
+- The repository's WordPress plugin source targets **v0.12.1**. The bootstrap, README, WordPress.org readme, package expectations, and translation-catalog metadata are prepared for that version. This is repository/package preparation only: no v0.12.1 tag, GitHub release, WordPress.org publication, ZIP hash, customer deployment, or live acceptance is recorded. GitHub releases currently go through **v0.11.7**.
+- `meinhaushalt.at` currently runs the **v0.12.0** package built from merge commit `e53ae62e4adfebdf994055519740d8e3cd438849`, deployed on 2026-08-10 after the earlier commit `cccc9ba` warm-up acceptance. The exact ZIP SHA-256 is `7dba2f6c16d585bb0a293411afd590922ab94988327872149e0a669bdc02c0bb`; the installed normalized tree is `cf64f41517fc3671b255338f1361434d5805f73787a047fcd685558cde3ebe1b`. Rollback archive: `/usr/www/users/meinhaus/dev/deepglot-backups/deepglot-0.12.0-before-e53ae62-20260810-011027.tar.gz` (SHA-256 `43e490b2b523e15c5754b3e7217fc77b32e2b25cd79f085aa464de917832849`). The semantic API-key/backend identity stayed `58bb236f6307b416b55e8bff6ac3f52d8ed4108a9f9d39396c731fa18e588fc6`; the plugin remained active with de→en path-prefix routing. There is no `wp-plugin-v0.12.0` tag in this checkout.
+- v0.12.1 source assigns a new public asset version to the Retry-After-aware dynamic translator and corrects stale same-host HTTP URL-sync targets to HTTPS when WordPress recognizes the current request as HTTPS. Those behaviors remain pending release and live verification.
 - v0.12.0's source behavior is background warming for ordinary cold pages, with bounded queue claims, partial-result retention, supported full-page-cache purges, and synchronous visual-editor/WooCommerce email paths. The first cold target-language view can therefore show source content until WP-Cron completes the work.
+- The `e53ae62` production drill passed translation-only 429 gating, identity-bound backoff, control-plane 429 isolation, permanent singleton-422 suppression, bounded multi-text splitting, privacy-safe 64-hex HMAC markers, queue cleanup, and public `/` + `/en/` smoke checks. Its one-URL synchronization exposed the stale HTTP-origin redirect bug now fixed in v0.12.1; the old `?ver=0.12.0` dynamic-translator URL also remained cached on the pre-fix bytes, which is why v0.12.1 must receive a new public asset version before final acceptance.
 - The v0.11.4–v0.11.7 release notes are authoritative in `wordpress-plugin/deepglot/readme.txt`, `wordpress-plugin/deepglot/README.md`, and the public bilingual help/docs surfaces. They cover numeric source slugs, the 60-second legacy window, 2,000 UTF-8-byte/200-string bounds, and the trusted final HTML filter.
 - The weekly activity digest is implemented as an opt-in per user/workspace. It summarizes the previous complete UTC week, skips quiet weeks, scopes projects by membership, and uses atomic per-period delivery claims with retry-safe failure handling. Its schedule is `0 8 * * 1`, protected by `CRON_SECRET`.
 - Stripe configuration and production billing state are not inferred from this file. Run the read-only `npm run acceptance:stripe -- --mode live --env-file .env.production.local` check in an authorized environment before making a current live claim. Never put keys, customer data, or unverified live assertions in this handoff.
@@ -121,9 +124,9 @@ This file captures the current project state so work can continue in a new chat 
 
 Latest already-completed checks:
 
-- GitHub Actions `main` CI passed for commit `cccc9ba` (run `31333691351`).
-- Vercel Production deployment `dpl_DLwoXpjKFJJ6BpweArYLTMpB2atn` is `Ready` and serves the `deepglot.ai` and `www.deepglot.ai` aliases. The live English and German Help pages contain the v0.12.0 WP-Cron copy.
-- The meinhaushalt.at v0.12.0 package, background queue, retry, localized cache purge, translated repeat, and cleanup checks passed as recorded above.
+- GitHub Actions `main` CI passed for commit `e53ae62e4adfebdf994055519740d8e3cd438849` (run `31341002063`).
+- Vercel Production deployment `dpl_3etfxXvu771q97kHrtUKX6GbWwzv` is `Ready` and serves the `deepglot.ai` and `www.deepglot.ai` aliases. The live English and German Help/docs pages contain the v0.12.0 WP-Cron and bounded 429/422 copy.
+- The meinhaushalt.at v0.12.0 `e53ae62` package, semantic configuration preservation, PHP lint, translation-only 429/422 drill, public route smoke, and cleanup checks passed. URL-sync HTTPS completion and the canonical dynamic-translator asset remain explicitly pending v0.12.1.
 - A prior Stripe live acceptance passed, but current Omnimed CLI-key cleanup and a fresh Stripe readback are tracked separately; do not treat the historical pass as their completion.
 
 Run these before starting a new larger implementation branch:

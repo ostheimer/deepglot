@@ -1,6 +1,8 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.1**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+
+v0.12.1 assigns a new public asset version to the Retry-After behavior introduced after v0.12.0, so WordPress and intermediary caches cannot keep serving the older dynamic translator. It also corrects stale same-host HTTP targets to HTTPS during URL-sync preview when WordPress recognizes the current request as HTTPS, without copying an untrusted request host or dropping semantic query parameters and fragments. This repository state prepares the package only; it is not evidence of a tag, WordPress.org publication, customer installation, or live acceptance.
 
 v0.12.0 stops ordinary page renders from waiting on fresh translations: uncached or failed segments enter a bounded background WP-Cron queue, and supported full-page caches are purged after the local translation cache is warm. Administrators can preview and confirm an immutable batch of up to 250 safe internal sitemap URLs from `Settings → Deepglot`; the job can be monitored, paused, resumed, cancelled, or retried for failed URLs and is not a permanent crawler. The first cold view can show source content; a later view converges after cron succeeds. Once a queue mutation and immediately due event are durable, Deepglot makes at most one non-blocking WP-Cron nudge in that request. It respects `DISABLE_WP_CRON` and active cron contexts, so system-cron sites and cron runs never receive a recursive loopback. The warmer retains the localized public request URL even after request routing rewrites the path internally. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually; WP Super Cache is global and waits until the tracked queue has fully drained so pending pages stay cached. A completed URL-sync job still requires a query-free public target-language check, and unsupported full-page caches may need a manual purge. Visual-editor previews and WooCommerce HTML emails remain synchronous because they cannot converge on a later page request. Sites on a fast provider can translate ordinary pages inline again via `deepglot_max_sync_batches`.
 
@@ -78,6 +80,11 @@ The plugin ships a complete translation pipeline:
   status/pause/resume/cancel/failed-only-retry controls in wp-admin and the
   authenticated `/wp-json/deepglot/v1/url-sync` routes. Large sites continue
   through explicit source-offset batches instead of one oversized option row.
+  If WordPress recognizes a safe HTTPS request on the same host as an internal
+  target still stored with HTTP, the preview changes only that target's scheme
+  to HTTPS. Semantic query parameters and fragments are preserved. The request
+  host is used only for the same-host check and is never copied; genuine
+  redirects remain failures.
   A completed job confirms that the origin queue has drained; operators must
   still purge unsupported full-page caches and verify a query-free public
   target-language response.
@@ -106,8 +113,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.0 this creates `deepglot-0.12.0.zip` and
-`deepglot-0.12.0.zip.sha256`. Build the same commit into two empty output
+For v0.12.1 this creates `deepglot-0.12.1.zip` and
+`deepglot-0.12.1.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test
