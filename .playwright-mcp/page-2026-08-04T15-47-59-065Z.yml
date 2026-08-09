@@ -1,0 +1,378 @@
+- generic [active] [ref=f5e1]:
+  - link [ref=f5e3] [cursor=pointer]:
+    - /url: /en/
+  - generic [ref=f5e5]:
+    - link [ref=f5e6] [cursor=pointer]:
+      - /url: tel:+436769333778
+      - img "call" [ref=f5e7]
+      - text: "AT: +43 676 933 3778"
+    - link [ref=f5e8] [cursor=pointer]:
+      - /url: tel:+36202111211
+      - img "call" [ref=f5e9]
+      - text: "HU: +36 20 211 1211"
+    - link [ref=f5e10] [cursor=pointer]:
+      - /url: mailto:info@hd-dental.net
+      - img "call" [ref=f5e11]
+      - text: info@hd-dental.net
+  - generic [ref=f5e12] [cursor=pointer]: EN
+  - generic [ref=f5e13]:
+    - link "EN" [ref=f5e14] [cursor=pointer]:
+      - /url: /en/
+    - link "DE" [ref=f5e15] [cursor=pointer]:
+      - /url: /en/
+  - link "Skip to content" [ref=f5e16] [cursor=pointer]:
+    - /url: /en/#content
+  - generic [ref=f5e18]:
+    - generic [ref=f5e22]:
+      - navigation "Main Menu" [ref=f5e23]:
+        - list [ref=f5e24]:
+          - listitem [ref=f5e25] [cursor=pointer]:
+            - link "Startseite" [ref=f5e26]:
+              - /url: https://hd-dental.net/en/
+          - listitem [ref=f5e28] [cursor=pointer]:
+            - link "Über uns" [ref=f5e29]:
+              - /url: https://hd-dental.net/en/about-us/
+          - listitem [ref=f5e31] [cursor=pointer]:
+            - link "Behandlungen" [ref=f5e32]:
+              - /url: https://hd-dental.net/en/treatments/
+          - listitem [ref=f5e34] [cursor=pointer]:
+            - link "Kostenplan" [ref=f5e35]:
+              - /url: https://hd-dental.net/en/cost-estimate/
+          - listitem [ref=f5e37] [cursor=pointer]:
+            - link "Hightech" [ref=f5e38]:
+              - /url: https://hd-dental.net/en/high-tech-devices/
+          - listitem [ref=f5e40] [cursor=pointer]:
+            - link "Galerie" [ref=f5e41]:
+              - /url: https://hd-dental.net/en/our-clinic/
+          - listitem [ref=f5e43] [cursor=pointer]:
+            - link "News" [ref=f5e44]:
+              - /url: https://hd-dental.net/en/news/
+          - listitem [ref=f5e46] [cursor=pointer]:
+            - link "Anreise" [ref=f5e47]:
+              - /url: https://hd-dental.net/en/directions/
+          - listitem [ref=f5e49] [cursor=pointer]:
+            - link "Kontakt" [ref=f5e50]:
+              - /url: https://hd-dental.net/en/contact-us/
+          - listitem [ref=f5e52] [cursor=pointer]:
+            - link "AGB" [ref=f5e53]:
+              - /url: https://hd-dental.net/en/terms-and-conditions/
+      - text:   -
+    - main [ref=f5e56]:
+      - generic [ref=f5e60]:
+        - generic [ref=f5e63]:
+          - generic [ref=f5e65]:
+            - heading "Ihr Zahnarzt in Ungarn" [level=1] [ref=f5e67]
+            - img "HD Dental Smiley" [ref=f5e71]
+          - generic [ref=f5e75]:
+            - heading "über uns" [level=2] [ref=f5e77]
+            - heading "Wer sind wir?" [level=2] [ref=f5e79]
+            - generic [ref=f5e80]:
+              - paragraph [ref=f5e81]:
+                - text: "Eine gut gelaunte Zahnarztpraxis in Ungarn, unweit der österreichischen Grenze. Unser Profil:"
+                - link "Zahnbehandlungen – preisgünstig und schnell" [ref=f5e82] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/treatments/
+                - text: .
+              - paragraph [ref=f5e83]: Die wirtschaftliche Umgebung erlaubt uns, unsere Leistungen zu wesentlich niedrigeren Preisen anzubieten als in anderen Ländern. Die große Kapazität der Praxis macht Wartezeiten überflüssig.
+              - paragraph [ref=f5e84]: "Wir bemühen uns konstant, unseren Patienten eine entspannte und ruhige Atmosphäre zu garantieren. Termindruck ist uns unbekannt: Soweit möglich, richten wir uns individuell auf Ihre Bedürfnisse ein."
+          - generic [ref=f5e86]:
+            - heading "Wo sind wir?" [level=2] [ref=f5e88]
+            - generic [ref=f5e89]:
+              - paragraph [ref=f5e90]: Die Praxis befindet sich direkt hinter der österreichisch-ungarischen Grenze in Mosonmagyaróvár, 70 km südöstlich von Wien. Mit dem Flugzeug sind wir binnen 2 Stunden aus ganz Europa zu erreichen.
+              - paragraph [ref=f5e91]: Im Umfeld der Behandlung bieten wir Ihnen viele Serviceleistungen wie kostenlosen Transfer vom Flughafen (und zurück), Hilfe bei der Zimmersuche und Buchung, bis zur Organisation Ihrer Sight-Seeing Touren. Wir sind als Ihr Zahnarzt in Ungarn für Sie da.
+              - paragraph [ref=f5e92]:
+                - text: Wo sind wir genau?
+                - link "Lageplan" [ref=f5e93] [cursor=pointer]:
+                  - /url: https://goo.gl/maps/L3ZvBYjA14Cx8RU9A
+                - text: Wie erreichen Sie uns?
+                - link "Anreise" [ref=f5e94] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/directions/
+              - paragraph [ref=f5e95]: Wir beraten Sie gerne und geben Ihnen alle notwendigen Informationen. Falls Sie Fragen haben, auf die Sie hier keine Antwort finden, nehmen Sie Kontakt mit uns auf.
+        - generic [ref=f5e109]:
+          - generic [ref=f5e110]:
+            - heading [level=2]
+            - paragraph [ref=f5e111]:
+              - generic [ref=f5e112]: wie funktioniert das
+          - iframe [ref=f5e116]:
+            - generic [ref=f6e1]:
+              - generic "YouTube-Videoplayer" [ref=f6e3]
+              - generic [ref=f6e5]:
+                - generic:
+                  - generic:
+                    - button "Video abspielen" [ref=f6e10] [cursor=pointer]
+                    - button "Steuerelemente des Videoplayers ausblenden" [ref=f6e12] [cursor=pointer]
+                    - generic [ref=f6e14]:
+                      - generic [ref=f6e19]:
+                        - generic [ref=f6e20]:
+                          - link "HD Dental DE" [ref=f6e21] [cursor=pointer]:
+                            - /url: https://www.youtube.com/watch?v=oFLAaGgV02s
+                          - link "HD Dental" [ref=f6e22] [cursor=pointer]:
+                            - /url: /channel/UCTPCSfGEmb3aD-9FgekdsWQ
+                        - generic [ref=f6e24]:
+                          - button [ref=f6e25] [cursor=pointer]
+                          - generic [ref=f6e27]:
+                            - generic: HD Dental
+                            - generic: 3 Abonnenten
+                      - generic [ref=f6e28]:
+                        - button "Teilen" [ref=f6e31] [cursor=pointer]
+                        - link "Auf YouTube ansehen" [ref=f6e42] [cursor=pointer]:
+                          - /url: https://www.youtube.com/watch?v=oFLAaGgV02s
+                          - generic [ref=f6e43]: Ansehen auf
+        - generic [ref=f5e118]:
+          - generic [ref=f5e120]:
+            - heading "referenzen" [level=2] [ref=f5e122]
+            - generic [ref=f5e125]:
+              - blockquote [ref=f5e126]:
+                - paragraph [ref=f5e129]: Die Behandlung wurde mit mir genau besprochen und geplant. Ich wurde über alles informiert und wurde gut durch meine Behandlung geführt. Die Gastfreundlichkeit war super. Da ich nicht aus Ungarn komme, und ich mit dem Flugzeug angereist bin , wurde mir sogar ein Auto gestellt damit ich…
+              - generic [ref=f5e131]:
+                - generic [ref=f5e132]: 
+                - strong [ref=f5e134]: Lea
+          - generic [ref=f5e139]:
+            - blockquote [ref=f5e140]:
+              - paragraph [ref=f5e143]: Kunst kommt von Können” und Dr Kannmann kann es und ist ein wahrer Künstler… Durch Zufall ( nach enttäuschender Erfahrung in Mosonmagyarovar) besuchte ich Dr Kannmanns kleine feeundliche Klinik. Die Beratung der Kostenvoranschlag und selbstverständlich die Behandlung…
+            - generic [ref=f5e145]:
+              - generic [ref=f5e146]: 
+              - strong [ref=f5e148]: Françoise
+          - generic [ref=f5e153]:
+            - blockquote [ref=f5e154]:
+              - paragraph [ref=f5e157]: Die ausführlicher Beratung half mir meine Entscheidung über die Art der Behandlung leichter zu treffen. Die Behandlung war sehr professionell und das Personal sehr freundlich. Der Zeitrahmen für die neuen Zähne war angenehm kurz. Mit dem Ergebnis bin ich sehr zufrieden und kann Dr…
+            - generic [ref=f5e159]:
+              - generic [ref=f5e160]: 
+              - strong [ref=f5e162]: Karl
+        - generic [ref=f5e164]:
+          - generic [ref=f5e166]:
+            - heading "Sie sind einzigartig und verdienen nur das Beste!" [level=2] [ref=f5e168]
+            - heading "HD-Dental wurde von Global Clinic Rating als die beste Zahnklinik weltweit eingestuft!" [level=3] [ref=f5e170]
+          - generic [ref=f5e174]:
+            - link [ref=f5e177] [cursor=pointer]:
+              - /url: https://hd-dental.net/en/wp-content/uploads/2017/07/temos-certificate-hd-dental.jpg/
+              - img "Temos Certificate" [ref=f5e178]
+            - link [ref=f5e181] [cursor=pointer]:
+              - /url: https://hd-dental.net/en/wp-content/uploads/2017/07/hd-dental-global-clinic-rating.jpg/
+              - img "Certificate Global Clinic Rating" [ref=f5e182]
+            - link [ref=f5e185] [cursor=pointer]:
+              - /url: https://hd-dental.net/en/wp-content/uploads/2017/07/hd-dental-global-clinic-rating-gold-rating.jpg/
+              - img "Gold Clinic – Global Clinic Rating" [ref=f5e186]
+            - link [ref=f5e187] [cursor=pointer]:
+              - /url: /en/
+            - link [ref=f5e191] [cursor=pointer]:
+              - /url: https://hd-dental.net/en/wp-content/uploads/2017/07/temos_dental-standards_ieeaawardcert2019-724x1024.jpg/
+              - img "Temos International GmbH Certificate" [ref=f5e192]
+          - generic [ref=f5e199]:
+            - group "1 / 20" [ref=f5e200]:
+              - link [ref=f5e203] [cursor=pointer]:
+                - /url: https://trusted-dentists.de/d/ungarn-hd-dental-frank-kannmann/
+                - 'img "Siegel von Trusted Dentists für HD-Dental: Ausgezeichnete Praxis" [ref=f5e204]'
+            - group "2 / 20" [ref=f5e205]
+            - group "3 / 20" [ref=f5e208]:
+              - link [ref=f5e211] [cursor=pointer]:
+                - /url: https://www.globalclinicrating.com/dental/hungary/3047896-mosonmagyarovar/hd-dental_mosonmagyarovar
+            - group "4 / 20" [ref=f5e212]:
+              - link [ref=f5e215] [cursor=pointer]:
+                - /url: https://www.globalclinicrating.com/dental/all-countries/page-1
+            - group "5 / 20" [ref=f5e216]:
+              - link [ref=f5e219] [cursor=pointer]:
+                - /url: https://www.globalclinicrating.com/dental/hungary/3047896-mosonmagyarovar/hd-dental_mosonmagyarovar
+            - group "6 / 20" [ref=f5e220]:
+              - link [ref=f5e223] [cursor=pointer]:
+                - /url: http://www.hd-dental.net/images/1485259022141-69cd0e52-c444-40fa-a86b-5563b821f141_.jpg
+            - group "7 / 20" [ref=f5e224]:
+              - link [ref=f5e227] [cursor=pointer]:
+                - /url: https://www.temos-worldwide.com/
+            - group "8 / 20" [ref=f5e228]:
+              - link [ref=f5e231] [cursor=pointer]:
+                - /url: http://www.dmwv.de/
+            - group "9 / 20" [ref=f5e232]:
+              - link [ref=f5e235] [cursor=pointer]:
+                - /url: http://www.deutsche-im-ausland.org/adressen-im-ausland/address/europa/ungarn/deutsche-zahnarztpraxis-in-ungarn.html
+            - group "10 / 20" [ref=f5e236]
+            - group "11 / 20" [ref=f5e239]:
+              - link [ref=f5e242] [cursor=pointer]:
+                - /url: https://trusted-dentists.de/d/ungarn-hd-dental-frank-kannmann/
+                - 'img "Siegel von Trusted Dentists für HD-Dental: Ausgezeichnete Praxis" [ref=f5e243]'
+            - group "12 / 20" [ref=f5e244]
+            - group "13 / 20" [ref=f5e247]:
+              - link [ref=f5e250] [cursor=pointer]:
+                - /url: https://www.globalclinicrating.com/dental/hungary/3047896-mosonmagyarovar/hd-dental_mosonmagyarovar
+            - group "14 / 20" [ref=f5e251]:
+              - link [ref=f5e254] [cursor=pointer]:
+                - /url: https://www.globalclinicrating.com/dental/all-countries/page-1
+            - group "15 / 20" [ref=f5e255]:
+              - link [ref=f5e258] [cursor=pointer]:
+                - /url: https://www.globalclinicrating.com/dental/hungary/3047896-mosonmagyarovar/hd-dental_mosonmagyarovar
+            - group "16 / 20" [ref=f5e259]:
+              - link [ref=f5e262] [cursor=pointer]:
+                - /url: http://www.hd-dental.net/images/1485259022141-69cd0e52-c444-40fa-a86b-5563b821f141_.jpg
+            - group "17 / 20" [ref=f5e263]:
+              - link [ref=f5e266] [cursor=pointer]:
+                - /url: https://www.temos-worldwide.com/
+            - group "18 / 20" [ref=f5e267]:
+              - link [ref=f5e270] [cursor=pointer]:
+                - /url: http://www.dmwv.de/
+            - group "19 / 20" [ref=f5e271]:
+              - link [ref=f5e274] [cursor=pointer]:
+                - /url: http://www.deutsche-im-ausland.org/adressen-im-ausland/address/europa/ungarn/deutsche-zahnarztpraxis-in-ungarn.html
+            - group "20 / 20" [ref=f5e275]
+        - generic [ref=f5e279]:
+          - generic [ref=f5e281]:
+            - 'heading "Tauchen Sie in virtuelle Realität ein: Wenn Sie zurückkommen, sind Ihre Zähne fertig!" [level=3] [ref=f5e283]'
+            - img "VR-Brille bei Ihrem Zahnarzt in Ungarn" [ref=f5e289]
+          - generic [ref=f5e291]:
+            - heading "Warum sollten Sie sich für einen Zahnarzt in Ungarn entscheiden?" [level=3] [ref=f5e293]
+            - generic [ref=f5e295]:
+              - paragraph [ref=f5e296]: Dank internationaler Klientel, die unser Land für mehr als 20 Jahre besucht, sind die privaten Zahnkliniken in Ungarn mit der modernsten Technologie ausgestattet und HD-Dental ist eine davon.
+              - paragraph [ref=f5e297]: Ungarische Zahnärzte werden in allen Bereichen der allgemeinen Zahnmedizin ausgebildet. Ihre Qualifikation ist in der Europäischen Union anerkannt und viele von ihnen arbeiten im Ausland.
+            - heading "Ist das wirklich so billig?" [level=3] [ref=f5e299]
+            - generic [ref=f5e301]:
+              - paragraph [ref=f5e302]: Ungarn bietet eine große Auswahl an Zahnkliniken, die ihren Besuchern zu einem viel günstigeren Preis zur Verfügung stehen als in USA und UK.
+              - paragraph [ref=f5e303]:
+                - text: Wenn Sie sich für eine
+                - link "Zahnbehandlung in unserer Klinik" [ref=f5e304] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/treatments/
+                - text: entscheiden, können Sie wirklich eine ganze Menge Geld sparen. Dieselbe Behandlung kann bei uns um 50 % weniger kosten als in USA oder UK. Aufgrund der günstigen Wirtschaftbedingungen in Ungarn können wir unseren Patienten eine Behandlung von höchster Qualität und oft zu erstaunlich niedrigen Preisen anbieten.
+              - paragraph [ref=f5e305]: Zum großen Teil ermöglichen uns das geringere Betriebs- und Lohnkosten, während wir Materialien der gleichen, gut bekannten Marken verwenden wie in der ganzen Welt.
+        - generic [ref=f5e307]:
+          - heading "kontakt" [level=2] [ref=f5e311]
+          - generic [ref=f5e313]:
+            - heading "Kontakt" [level=2] [ref=f5e315]
+            - generic [ref=f5e317]:
+              - list [ref=f5e319]:
+                - listitem [ref=f5e320]:
+                  - textbox "Name*" [ref=f5e322]:
+                    - /placeholder: Name *
+                - listitem [ref=f5e323]:
+                  - textbox "E-Mail*" [ref=f5e325]:
+                    - /placeholder: E-Mail *
+                - listitem [ref=f5e326]:
+                  - textbox "Telefon*" [ref=f5e328]:
+                    - /placeholder: Telefon *
+                - listitem [ref=f5e329]:
+                  - textbox "Ihre Nachricht*" [ref=f5e331]:
+                    - /placeholder: Ihre Nachricht *
+                - listitem [ref=f5e332]:
+                  - list [ref=f5e334]:
+                    - listitem [ref=f5e335]:
+                      - checkbox "Ich stimme der Datenverarbeitung zu" [ref=f5e336]
+                      - generic [ref=f5e337] [cursor=pointer]: Ich stimme der Datenverarbeitung zu
+                  - generic [ref=f5e338]:
+                    - text: Mit dem Absenden dieses Formulars erklären Sie sich einverstanden von uns telefonisch oder per E-Mail kontaktiert zu werden und stimmen dem Speichern Ihrer übermittelten Daten zu. Es gilt unsere
+                    - link "Datenschutzerklärung" [ref=f5e339] [cursor=pointer]:
+                      - /url: https://hd-dental.net/en/datenschutzerklaerung/
+                    - text: .
+              - button "Absenden" [ref=f5e341] [cursor=pointer]
+        - generic [ref=f5e347]:
+          - heading "wie funktioniert das" [level=2] [ref=f5e349]
+          - iframe [ref=f5e353]:
+            - generic [ref=f7e1]:
+              - generic "YouTube-Videoplayer" [ref=f7e3]
+              - generic [ref=f7e5]:
+                - generic:
+                  - generic:
+                    - button "Video abspielen" [ref=f7e10] [cursor=pointer]
+                    - button "Steuerelemente des Videoplayers ausblenden" [ref=f7e12] [cursor=pointer]
+                    - generic [ref=f7e14]:
+                      - generic [ref=f7e19]:
+                        - generic [ref=f7e20]:
+                          - link "HD Dental DE" [ref=f7e21] [cursor=pointer]:
+                            - /url: https://www.youtube.com/watch?v=oFLAaGgV02s
+                          - link "HD Dental" [ref=f7e22] [cursor=pointer]:
+                            - /url: /channel/UCTPCSfGEmb3aD-9FgekdsWQ
+                        - generic [ref=f7e24]:
+                          - button [ref=f7e25] [cursor=pointer]
+                          - generic [ref=f7e27]:
+                            - generic: HD Dental
+                            - generic: 3 Abonnenten
+                      - generic [ref=f7e28]:
+                        - button "Teilen" [ref=f7e31] [cursor=pointer]
+                        - link "Auf YouTube ansehen" [ref=f7e42] [cursor=pointer]:
+                          - /url: https://www.youtube.com/watch?v=oFLAaGgV02s
+                          - generic [ref=f7e43]: Ansehen auf
+          - generic [ref=f5e354]: "Wie gesehen bei:"
+        - generic [ref=f5e370]:
+          - generic [ref=f5e373]: soziale medien
+          - generic [ref=f5e380]:
+            - link "facebook" [ref=f5e381] [cursor=pointer]:
+              - /url: https://www.facebook.com/HDdental/
+              - text: 
+            - link "twitter" [ref=f5e382] [cursor=pointer]:
+              - /url: https://twitter.com/@dentistkannmann
+              - text: 
+            - link "youtube" [ref=f5e383] [cursor=pointer]:
+              - /url: https://www.youtube.com/channel/UC1khkk-FPmCrK8s5PSZTPrA?view_as=subscriber
+              - text: 
+        - generic [ref=f5e395]:
+          - generic [ref=f5e397]:
+            - heading "hd-dental.net" [level=2] [ref=f5e399]
+            - list [ref=f5e403]:
+              - listitem [ref=f5e404]:
+                - link "Startseite" [ref=f5e405] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/
+              - listitem [ref=f5e406]:
+                - link "Über uns" [ref=f5e407] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/about-us/
+              - listitem [ref=f5e408]:
+                - link "Unser Team" [ref=f5e409] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/about-us/our-team/
+              - listitem [ref=f5e410]:
+                - link "Behandlungen" [ref=f5e411] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/treatments/
+              - listitem [ref=f5e412]:
+                - link "Kostenplan" [ref=f5e413] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/cost-estimate/
+              - listitem [ref=f5e414]:
+                - link "Hightech" [ref=f5e415] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/high-tech-devices/
+              - listitem [ref=f5e416]:
+                - link "Galerie" [ref=f5e417] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/our-clinic/
+              - listitem [ref=f5e418]:
+                - link "News" [ref=f5e419] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/news/
+              - listitem [ref=f5e420]:
+                - link "Anreise" [ref=f5e421] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/directions/
+              - listitem [ref=f5e422]:
+                - link "Kontakt" [ref=f5e423] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/contact-us/
+              - listitem [ref=f5e424]:
+                - link "AGB" [ref=f5e425] [cursor=pointer]:
+                  - /url: https://hd-dental.net/en/terms-and-conditions/
+          - generic [ref=f5e427]:
+            - heading "kontakt" [level=2] [ref=f5e429]
+            - generic [ref=f5e430]:
+              - paragraph [ref=f5e431]:
+                - strong [ref=f5e432]: HD-Dental
+              - paragraph [ref=f5e433]: Ihr Zahnarzt in Ungarn.
+              - paragraph [ref=f5e434]:
+                - link "Kert Utca 21 Mosonmagyaróvár 9200 Ungarn" [ref=f5e435] [cursor=pointer]:
+                  - /url: https://www.google.sk/maps/place/Mosonmagyar%C3%B3v%C3%A1r,+Kert+u.+21,+9200+Ma%C4%8Farsko/@47.8752958,17.2722609,17z/data=!3m1!4b1!4m5!3m4!1s0x476c77e1fd722075:0x9db2e22c7893856c!8m2!3d47.8752922!4d17.2744496
+              - paragraph [ref=f5e436]:
+                - text: "Mobile:"
+                - link "+36 20 211 1211" [ref=f5e437] [cursor=pointer]:
+                  - /url: tel:+36202111211
+              - paragraph [ref=f5e438]:
+                - text: "AT:"
+                - link "+43 676 933 3778" [ref=f5e439] [cursor=pointer]:
+                  - /url: tel:+436769333778
+              - paragraph [ref=f5e440]:
+                - link "info@hd-dental.net" [ref=f5e441] [cursor=pointer]:
+                  - /url: mailto:info@hd-dental.net
+          - generic [ref=f5e444]:
+            - paragraph [ref=f5e445]:
+              - link [ref=f5e446] [cursor=pointer]:
+                - /url: https://www.google.sk/maps/place/Mosonmagyar%C3%B3v%C3%A1r,+Kert+u.+21,+9200+Ma%C4%8Farsko/@47.8752958,17.2722609,17z/data=!3m1!4b1!4m5!3m4!1s0x476c77e1fd722075:0x9db2e22c7893856c!8m2!3d47.8752922!4d17.2744496
+            - paragraph [ref=f5e449]:
+              - link [ref=f5e450] [cursor=pointer]:
+                - /url: https://www.google.sk/maps/place/Mosonmagyar%C3%B3v%C3%A1r,+Kert+u.+21,+9200+Ma%C4%8Farsko/@47.8752958,17.2722609,17z/data=!3m1!4b1!4m5!3m4!1s0x476c77e1fd722075:0x9db2e22c7893856c!8m2!3d47.8752922!4d17.2744496
+                - strong [ref=f5e451]: Auf der
+                - strong [ref=f5e452]: Karte
+                - strong [ref=f5e453]: suchen
+    - contentinfo [ref=f5e455]:
+      - generic [ref=f5e459]:
+        - text: Copyright hd-dental.net |
+        - link "Ostheimer Webdesign & Online Marketing" [ref=f5e460] [cursor=pointer]:
+          - /url: http://www.ostheimer.at
+  - region "Go to Top":
+    - link " Go to Top":
+      - /url: /en/
+      - text: 
+      - generic: Go to Top
