@@ -36,6 +36,9 @@ test("operations runbook documents the unchanged evidence-gated velocity policy"
     "configuration-bound HMAC fingerprint",
     "No raw translation text, API key, or URL",
     "API key or backend changes",
+    "automatically splits a multi-text 422 batch",
+    "existing six-batch run budget",
+    "only a text that still returns 422 alone",
   ]) {
     assert.ok(operations.includes(required), `Operations runbook omits: ${required}`);
   }
@@ -82,14 +85,20 @@ test("bilingual help and its visual explain the bounded queue backoff", () => {
   assert.match(help, /keeps the longest delay/);
   assert.match(help, /aktiver 429-Marker[^"]*Editor- und E-Mail-Aufrufe[^"]*fällige Warmup-Läufe/i);
   assert.match(help, /active 429 marker[^"]*editor and email calls[^"]*due warm-up runs/i);
-  assert.match(help, /konfigurationsgebundenen HMAC-Fingerabdruck[^"]*eine Stunde/i);
-  assert.match(help, /configuration-bound HMAC fingerprint[^"]*one hour/i);
+  assert.match(help, /bis zu einer Stunde[^"]*konfigurationsgebundenen HMAC-Fingerabdruck/i);
+  assert.match(help, /up to one hour[^"]*configuration-bound HMAC fingerprint/i);
   assert.match(help, /keine Rohtexte, API-Schlüssel oder URLs/i);
   assert.match(help, /no raw text, API keys, or URLs/i);
   assert.match(help, /normale folgende Stapel/i);
   assert.match(help, /normal following batches/i);
   assert.match(help, /Schlüssel- oder Backendwechsel/i);
   assert.match(help, /key or backend change/i);
+  assert.match(help, /WordPress-Warmer[^\"]*mehrteiligen 422-Stapel[^\"]*automatisch/i);
+  assert.match(help, /WordPress warmer[^\"]*multi-text 422 batch[^\"]*automatically/i);
+  assert.match(help, /einzeln zu großer Text[^\"]*einer Stunde/i);
+  assert.match(help, /text that is still too large alone[^\"]*one hour/i);
+  assert.match(help, /API-Anfragen und PDFs[^\"]*kleiner teilen/i);
+  assert.match(help, /API requests and PDFs[^\"]*split/i);
 });
 
 test("public WordPress copy sets accurate Retry-After expectations", () => {
@@ -110,7 +119,67 @@ test("public WordPress copy sets accurate Retry-After expectations", () => {
     assert.match(source, /no raw translation text, API key, or URL/i);
     assert.match(source, /normal following batches/i);
     assert.match(source, /API key or backend change/i);
+    assert.match(source, /automatically splits a multi-text 422 batch/i);
+    assert.match(source, /six-batch run budget/i);
+    assert.match(source, /only a text that still returns 422 alone/i);
+    assert.match(source, /API requests and PDFs.*split/i);
   }
   assert.match(directoryReadme, /stops the remaining sequential batches/i);
   assert.match(developerReadme, /does not immediately retry failed visitor-facing work/i);
+});
+
+test("WordPress docs bind translation backoff to the configuration that received the 429", () => {
+  const operations = read("OPERATIONS.md");
+  const help = read("src/components/marketing/help-page.tsx");
+  const developerDocs = read("src/components/marketing/developer-docs.tsx");
+  const pluginDocs = [
+    read("wordpress-plugin/deepglot/README.md"),
+    read("wordpress-plugin/deepglot/readme.txt"),
+  ];
+
+  assert.match(operations, /Only translation 429 responses set the active marker/i);
+  assert.match(operations, /marker and warmer backoff are bound to the API key and backend/i);
+  assert.match(operations, /Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations/i);
+
+  assert.match(help, /Nur Translation-429-Antworten setzen den aktiven Marker/);
+  assert.match(help, /Marker und Warmer-Wartezustand sind an API-Schlüssel und Backend gebunden/);
+  assert.match(help, /Konfigurationswechsel, verspätete Antworten der alten Konfiguration und alte ungebundene Marker blockieren keine neuen Übersetzungen/);
+  assert.match(help, /Only translation 429 responses set the active marker/i);
+  assert.match(help, /marker and warmer backoff are bound to the API key and backend/i);
+  assert.match(help, /Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations/i);
+
+  for (const source of pluginDocs) {
+    assert.match(source, /Only translation 429 responses set the active marker/i);
+    assert.match(source, /marker and warmer backoff are bound to the API key and backend/i);
+    assert.match(source, /Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations/i);
+  }
+
+  assert.match(developerDocs, /Nur Translation-429-Antworten setzen den aktiven Marker/);
+  assert.match(developerDocs, /Only translation 429 responses set the active marker/i);
+});
+
+test("WordPress docs distinguish tracked 422 split shapes from blocked singletons", () => {
+  const operations = read("OPERATIONS.md");
+  const help = read("src/components/marketing/help-page.tsx");
+  const pluginDocs = [
+    read("wordpress-plugin/deepglot/README.md"),
+    read("wordpress-plugin/deepglot/readme.txt"),
+  ];
+
+  assert.match(operations, /Every 422 batch shape is tracked for up to one hour by a configuration-bound HMAC fingerprint to drive bounded splitting/i);
+  assert.match(operations, /Only a text that still returns 422 alone is blocked from automatic resend/i);
+  assert.match(operations, /No raw translation text, API key, or URL/i);
+
+  assert.match(help, /Jede 422-Stapelform[^"]*bis zu einer Stunde[^"]*konfigurationsgebundenen HMAC-Fingerabdruck[^"]*begrenzte Aufteilung/i);
+  assert.match(help, /Nur ein Text, der allein weiterhin 422 liefert,[^"]*von automatischen Wiederholungen ausgeschlossen/i);
+  assert.match(help, /Every 422 batch shape[^"]*up to one hour[^"]*configuration-bound HMAC fingerprint[^"]*bounded splitting/i);
+  assert.match(help, /Only a text that still returns 422 alone[^"]*blocked from automatic resend/i);
+  assert.doesNotMatch(help, /nur ein einzeln zu großer Text bleibt markiert/i);
+  assert.doesNotMatch(help, /only a text still too large alone remains marked/i);
+
+  for (const source of pluginDocs) {
+    assert.match(source, /Every 422 batch shape is tracked for up to one hour by a configuration-bound HMAC fingerprint to drive bounded splitting/i);
+    assert.match(source, /Only a text that still returns 422 alone is blocked from automatic resend/i);
+    assert.match(source, /no raw translation text, API key, or URL/i);
+  }
 });

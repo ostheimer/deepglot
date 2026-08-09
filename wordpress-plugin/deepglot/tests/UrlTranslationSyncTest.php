@@ -38,6 +38,8 @@ class WP_Error
 $GLOBALS['_dg_sync_options'] = [];
 $GLOBALS['_dg_sync_transients'] = [];
 $GLOBALS['_dg_sync_scheduled'] = [];
+$GLOBALS['_dg_sync_scheduled_args'] = [];
+$GLOBALS['_dg_sync_scheduled_event_log'] = [];
 $GLOBALS['_dg_sync_actions'] = [];
 $GLOBALS['_dg_sync_requests'] = [];
 $GLOBALS['_dg_sync_safe_requests'] = 0;
@@ -60,15 +62,28 @@ function set_transient(string $key, $value, int $ttl = 0): bool { $GLOBALS['_dg_
 function delete_transient(string $key): bool { unset($GLOBALS['_dg_sync_transients'][$key]); return true; }
 function wp_cache_delete(string $key, string $group = ''): bool { return true; }
 function wp_generate_uuid4(): string { static $i = 0; $i++; return sprintf('00000000-0000-4000-8000-%012d', $i); }
-function wp_next_scheduled(string $hook, array $args = []) { return $GLOBALS['_dg_sync_scheduled'][$hook] ?? false; }
+function wp_next_scheduled(string $hook, array $args = [])
+{
+    return ($GLOBALS['_dg_sync_scheduled_args'][$hook] ?? []) === $args
+        ? ($GLOBALS['_dg_sync_scheduled'][$hook] ?? false)
+        : false;
+}
 function wp_schedule_single_event(int $timestamp, string $hook, array $args = []): bool
 {
     $GLOBALS['_dg_sync_scheduled'][$hook] = $timestamp;
+    $GLOBALS['_dg_sync_scheduled_args'][$hook] = $args;
+    $GLOBALS['_dg_sync_scheduled_event_log'][] = [
+        'timestamp' => $timestamp,
+        'hook' => $hook,
+        'args' => $args,
+    ];
     return true;
 }
 function wp_unschedule_event(int $timestamp, string $hook, array $args = []): bool
 {
-    unset($GLOBALS['_dg_sync_scheduled'][$hook]);
+    if (($GLOBALS['_dg_sync_scheduled_args'][$hook] ?? []) === $args) {
+        unset($GLOBALS['_dg_sync_scheduled'][$hook], $GLOBALS['_dg_sync_scheduled_args'][$hook]);
+    }
     return true;
 }
 function add_action(string $hook, $callback, int $priority = 10, int $args = 1): bool
@@ -178,11 +193,22 @@ function syncAssert(bool $condition, string $message): void
     }
 }
 
+$GLOBALS['_dg_sync_collected_failures'] = [];
+
+function syncCollectAssert(bool $condition, string $message): void
+{
+    if (!$condition) {
+        $GLOBALS['_dg_sync_collected_failures'][] = $message;
+    }
+}
+
 function syncReset(): void
 {
     $GLOBALS['_dg_sync_options'] = [];
     $GLOBALS['_dg_sync_transients'] = [];
     $GLOBALS['_dg_sync_scheduled'] = [];
+    $GLOBALS['_dg_sync_scheduled_args'] = [];
+    $GLOBALS['_dg_sync_scheduled_event_log'] = [];
     $GLOBALS['_dg_sync_actions'] = [];
     $GLOBALS['_dg_sync_requests'] = [];
     $GLOBALS['_dg_sync_safe_requests'] = 0;
@@ -619,7 +645,13 @@ syncAssert($sync->status()['status'] === 'paused_invalid_key', 'An invalid API k
 syncReset();
 [$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
 syncPreviewAndStart($sync, ['en'], 1);
-set_transient(Client::RATE_LIMIT_TRANSIENT, ['retry_at' => time() + 300], 300);
+set_transient(Client::RATE_LIMIT_TRANSIENT, [
+    'retry_at' => time() + 300,
+    'identity' => hash(
+        'sha256',
+        Options::defaults()['api_base_url'] . "\0" . 'dg_test_key'
+    ),
+], 300);
 $sync->run();
 syncAssert($sync->status()['status'] === 'backoff_rate_limit', 'A provider rate limit must enter automatic backoff.');
 syncAssert($sync->status()['next_run_at'] >= time() + 290, 'Rate-limit backoff must honor the persisted retry time.');
@@ -712,5 +744,114 @@ syncAssert(
     (int) ($GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK] ?? 0) >= $job['next_run_at'],
     'A runner invoked before next_run_at must schedule the durable follow-up event.'
 );
+
+// 8. URL sync must recognize and create the warmer's identity-scoped events.
+// Existing legacy no-argument events may be honored during upgrade, but the
+// sync path must never create a new run(null) event.
+$warmerIdentity = static function (Options $options): string {
+    $settings = $options->all();
+    return hash(
+        'sha256',
+        untrailingslashit((string) ($settings['api_base_url'] ?? ''))
+            . "\0"
+            . (string) ($settings['api_key'] ?? '')
+    );
+};
+$ensureWarmerScheduled = new ReflectionMethod(
+    UrlTranslationSync::class,
+    'ensureWarmerScheduled'
+);
+
+syncReset();
+[$sync, , , $options] = syncFixture([]);
+$currentWarmerIdentity = $warmerIdentity($options);
+$GLOBALS['_dg_sync_scheduled'][TranslationWarmer::HOOK] = time();
+$GLOBALS['_dg_sync_scheduled_args'][TranslationWarmer::HOOK] = [$currentWarmerIdentity];
+$ensureWarmerScheduled->invoke($sync);
+syncCollectAssert(
+    $GLOBALS['_dg_sync_scheduled_event_log'] === []
+        && ($GLOBALS['_dg_sync_scheduled_args'][TranslationWarmer::HOOK] ?? null) === [$currentWarmerIdentity],
+    'URL sync must recognize an existing current-identity warmer event instead of adding an argument-less duplicate.'
+);
+
+syncReset();
+[$sync, , , $options] = syncFixture([]);
+$oldSyncWarmerIdentity = $warmerIdentity($options);
+$GLOBALS['_dg_sync_scheduled'][TranslationWarmer::HOOK] = time() + 300;
+$GLOBALS['_dg_sync_scheduled_args'][TranslationWarmer::HOOK] = [$oldSyncWarmerIdentity];
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_sync_replacement_key',
+    'api_base_url' => 'https://sync-replacement.deepglot.test/api',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]), false);
+$replacementSyncWarmerIdentity = $warmerIdentity($options);
+$ensureWarmerScheduled->invoke($sync);
+$newArgumentlessWarmerEvents = array_filter(
+    $GLOBALS['_dg_sync_scheduled_event_log'],
+    static fn(array $event): bool => ($event['hook'] ?? '') === TranslationWarmer::HOOK
+        && ($event['args'] ?? []) === []
+);
+$newReplacementWarmerEvents = array_filter(
+    $GLOBALS['_dg_sync_scheduled_event_log'],
+    static fn(array $event): bool => ($event['hook'] ?? '') === TranslationWarmer::HOOK
+        && ($event['args'] ?? []) === [$replacementSyncWarmerIdentity]
+);
+syncCollectAssert(
+    $newArgumentlessWarmerEvents === [],
+    'After a configuration switch URL sync must not create a stale run(null) warmer event.'
+);
+syncCollectAssert(
+    $newReplacementWarmerEvents !== [],
+    'After a configuration switch URL sync must schedule only the replacement identity warmer event.'
+);
+
+syncReset();
+[$sync] = syncFixture([]);
+$legacyWarmerEvent = time();
+$GLOBALS['_dg_sync_scheduled'][TranslationWarmer::HOOK] = $legacyWarmerEvent;
+$GLOBALS['_dg_sync_scheduled_args'][TranslationWarmer::HOOK] = [];
+$ensureWarmerScheduled->invoke($sync);
+syncCollectAssert(
+    $GLOBALS['_dg_sync_scheduled_event_log'] === []
+        && ($GLOBALS['_dg_sync_scheduled'][TranslationWarmer::HOOK] ?? null) === $legacyWarmerEvent,
+    'An existing legacy no-argument warmer event may be read during upgrade but must not be newly planned.'
+);
+
+// A future argument-less event can belong to configuration A. After an
+// upgrade and switch to B it must not strand current pending work until A's
+// unscoped timestamp when no current B retry/backoff justifies that delay.
+syncReset();
+[$sync, , , $options] = syncFixture([]);
+$futureLegacyWarmerEvent = time() + 3600;
+$GLOBALS['_dg_sync_scheduled'][TranslationWarmer::HOOK] = $futureLegacyWarmerEvent;
+$GLOBALS['_dg_sync_scheduled_args'][TranslationWarmer::HOOK] = [];
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_sync_after_legacy_key',
+    'api_base_url' => 'https://sync-after-legacy.deepglot.test/api',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]), false);
+$afterLegacyIdentity = $warmerIdentity($options);
+$ensureWarmerScheduled->invoke($sync);
+$afterLegacyImmediateEvents = array_filter(
+    $GLOBALS['_dg_sync_scheduled_event_log'],
+    static fn(array $event): bool => ($event['hook'] ?? '') === TranslationWarmer::HOOK
+        && ($event['args'] ?? []) === [$afterLegacyIdentity]
+        && (int) ($event['timestamp'] ?? PHP_INT_MAX) <= time() + 1
+);
+syncCollectAssert(
+    $afterLegacyImmediateEvents !== [],
+    'A future unscoped legacy A event must not strand current identity B work after upgrade.'
+);
+
+if ($GLOBALS['_dg_sync_collected_failures'] !== []) {
+    foreach ($GLOBALS['_dg_sync_collected_failures'] as $failure) {
+        fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
+    }
+    exit(1);
+}
 
 fwrite(STDOUT, "UrlTranslationSyncTest: OK\n");

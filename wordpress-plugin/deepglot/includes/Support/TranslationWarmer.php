@@ -94,7 +94,7 @@ class TranslationWarmer
 
     public function register(): void
     {
-        add_action(self::HOOK, [$this, 'run']);
+        add_action(self::HOOK, [$this, 'run'], 10, 1);
     }
 
     /**
@@ -153,21 +153,34 @@ class TranslationWarmer
             });
         }
 
+        $retryIdentity = $this->configurationIdentity();
         $now = time();
         $knownBackoffUntil = min(
             $now + Client::MAX_RATE_LIMIT_BACKOFF,
             max(
-                Client::rateLimitRetryAt(),
-                (int) get_option(self::BACKOFF_OPTION, 0)
+                Client::rateLimitRetryAtForIdentity($retryIdentity),
+                $this->backoffRetryAtForIdentity($retryIdentity)
             )
         );
 
         if ($knownBackoffUntil > $now) {
-            update_option(self::BACKOFF_OPTION, $knownBackoffUntil, false);
-            $this->schedule(true, $knownBackoffUntil - $now);
+            if (
+                $this->identityIsCurrent($retryIdentity)
+                && $this->storeBackoffUntil($knownBackoffUntil, $retryIdentity)
+                && $this->identityIsCurrent($retryIdentity)
+            ) {
+                $this->schedule(true, $knownBackoffUntil - $now, $retryIdentity);
+            } else {
+                // The retry belongs to an old snapshot. Leave it scoped to A
+                // and plan current configuration B immediately/additively.
+                $this->schedule();
+            }
             return;
         }
 
+        // Cron events are scoped to the current one-way configuration
+        // identity. A stale event can remain until WordPress consumes it;
+        // current work is planned additively without a global clear.
         $this->schedule();
     }
 
@@ -186,6 +199,15 @@ class TranslationWarmer
      */
     public function run(): void
     {
+        $args = func_get_args();
+        $scheduledIdentity = isset($args[0]) && is_string($args[0])
+            ? $args[0]
+            : null;
+        $this->runForIdentity($scheduledIdentity);
+    }
+
+    public function runForIdentity(?string $scheduledIdentity = null): void
+    {
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
             $this->writeQueue([]);
             $this->writeUrlQueue([]);
@@ -193,7 +215,25 @@ class TranslationWarmer
             return;
         }
 
+        $currentIdentity = $this->configurationIdentity();
+        if (
+            is_string($scheduledIdentity)
+            && $scheduledIdentity !== ''
+            && (
+                $currentIdentity === ''
+                || !hash_equals($scheduledIdentity, $currentIdentity)
+            )
+        ) {
+            $this->schedule();
+            return;
+        }
+
         $queue = $this->readQueue();
+
+        if (!$this->identityIsCurrent($currentIdentity)) {
+            $this->schedule();
+            return;
+        }
 
         if (empty($queue)) {
             return;
@@ -203,15 +243,22 @@ class TranslationWarmer
         $backoffUntil = min(
             $now + Client::MAX_RATE_LIMIT_BACKOFF,
             max(
-                (int) get_option(self::BACKOFF_OPTION, 0),
-                Client::rateLimitRetryAt()
+                $this->backoffRetryAtForIdentity($currentIdentity),
+                Client::rateLimitRetryAtForIdentity($currentIdentity)
             )
         );
         if ($backoffUntil > $now) {
             // Defensive path for manual/duplicate cron invocations: do not
             // contact SaaS before its bounded Retry-After window has elapsed.
-            update_option(self::BACKOFF_OPTION, $backoffUntil, false);
-            $this->schedule(true, $backoffUntil - $now);
+            if (
+                $this->identityIsCurrent($currentIdentity)
+                && $this->storeBackoffUntil($backoffUntil, $currentIdentity)
+                && $this->identityIsCurrent($currentIdentity)
+            ) {
+                $this->schedule(true, $backoffUntil - $now, $currentIdentity);
+            } else {
+                $this->schedule();
+            }
             return;
         }
         if ($backoffUntil > 0 && function_exists('delete_option')) {
@@ -235,7 +282,7 @@ class TranslationWarmer
         }
 
         try {
-            $this->drain($queue);
+            $this->drain($queue, $currentIdentity);
         } finally {
             $this->releaseLock($lockOwner);
         }
@@ -246,14 +293,15 @@ class TranslationWarmer
     /**
      * @param array<string, string[]> $queue
      */
-    private function drain(array $queue): void
+    private function drain(array $queue, string $runIdentity): void
     {
         $budget = self::MAX_BATCHES_PER_RUN;
         $untouched = false;
         $completedByKey = [];
         $remainingByKey = [];
         $rateLimitBackoff = 0;
-        $oversizeMarkers = $this->readOversizeBatchMarkers($queue);
+        $rateLimitIdentity = null;
+        $oversizeMarkers = $this->readOversizeBatchMarkers($queue, $runIdentity);
 
         foreach ($queue as $key => $texts) {
             if ($budget <= 0) {
@@ -283,18 +331,20 @@ class TranslationWarmer
                 continue;
             }
 
-            $batches = array_chunk($missing, self::BATCH_SIZE);
+            $batches = $this->partitionBatchesAroundOversizePrefixes(
+                $missing,
+                $sourceLang,
+                $targetLang,
+                $runIdentity,
+                $oversizeMarkers
+            );
             $processed = [];
             $blockedBatches = [];
             $deferredBatches = [];
 
-            foreach ($batches as $batch) {
-                $fingerprint = $this->oversizeBatchFingerprint(
-                    $sourceLang,
-                    $targetLang,
-                    $batch
-                );
-                if (isset($oversizeMarkers[$fingerprint])) {
+            foreach ($batches as $batchState) {
+                $batch = $batchState['batch'];
+                if ($batchState['blocked']) {
                     $blockedBatches[] = $batch;
                     continue;
                 }
@@ -306,9 +356,16 @@ class TranslationWarmer
                 }
             }
 
+            if (!$this->identityIsCurrent($runIdentity)) {
+                $this->schedule();
+                return;
+            }
+
+            $dispatchIdentity = $runIdentity;
             $results = empty($processed)
                 ? []
-                : $this->client->translateBatches(
+                : $this->client->translateBatchesForExpectedIdentity(
+                    $runIdentity,
                     $processed,
                     $sourceLang,
                     $targetLang,
@@ -317,7 +374,13 @@ class TranslationWarmer
                     self::TIMEOUT
                 );
 
+            if (!$this->identityIsCurrent($runIdentity)) {
+                $this->schedule();
+                return;
+            }
+
             $translations = [];
+            $oversizeBatchesToRemember = [];
             $failed = empty($blockedBatches)
                 ? []
                 : array_merge([], ...$blockedBatches);
@@ -329,6 +392,13 @@ class TranslationWarmer
                     if (is_wp_error($result) && method_exists($result, 'get_error_data')) {
                         $errorData = $result->get_error_data();
                         if (is_array($errorData) && (int) ($errorData['status'] ?? 0) === 429) {
+                            $responseIdentity = $errorData['rate_limit_identity'] ?? $dispatchIdentity;
+                            if (
+                                is_string($responseIdentity)
+                                && preg_match('/^[a-f0-9]{64}$/D', $responseIdentity) === 1
+                            ) {
+                                $rateLimitIdentity = $responseIdentity;
+                            }
                             $rateLimitBackoff = max(
                                 $rateLimitBackoff,
                                 max(1, min(
@@ -342,12 +412,10 @@ class TranslationWarmer
                             && (int) ($errorData['status'] ?? 0) === 422
                             && ($errorData['api_code'] ?? '') === 'velocity_request_too_large'
                         ) {
-                            $this->rememberOversizeBatch(
-                                $oversizeMarkers,
-                                $sourceLang,
-                                $targetLang,
-                                $batch
-                            );
+                            $oversizeBatchesToRemember[] = $batch;
+                            if (count($batch) > 1) {
+                                $untouched = true;
+                            }
                         }
                     }
                     // Keep failed texts queued so a later run retries them.
@@ -365,6 +433,24 @@ class TranslationWarmer
                         $failed[] = $text;
                     }
                 }
+            }
+
+            // Result inspection may invoke application hooks. Revalidate only
+            // after every response has been evaluated and before committing
+            // any cache, queue, URL, or oversize-marker state.
+            if (!$this->identityIsCurrent($runIdentity)) {
+                $this->schedule();
+                return;
+            }
+
+            foreach ($oversizeBatchesToRemember as $oversizeBatch) {
+                $this->rememberOversizeBatch(
+                    $oversizeMarkers,
+                    $sourceLang,
+                    $targetLang,
+                    $oversizeBatch,
+                    $runIdentity
+                );
             }
 
             if (!empty($translations)) {
@@ -420,8 +506,22 @@ class TranslationWarmer
         // exactly when translating them is worth attempting again.
         if ($rateLimitBackoff > 0) {
             $backoffUntil = time() + $rateLimitBackoff;
-            update_option(self::BACKOFF_OPTION, $backoffUntil, false);
-            $this->schedule(true, $rateLimitBackoff);
+            if (
+                is_string($rateLimitIdentity)
+                && $this->storeBackoffUntil($backoffUntil, $rateLimitIdentity)
+            ) {
+                if ($this->identityIsCurrent($rateLimitIdentity)) {
+                    $this->schedule(
+                        true,
+                        max(1, $this->backoffRetryAtForIdentity($rateLimitIdentity) - time()),
+                        $rateLimitIdentity
+                    );
+                } else {
+                    $this->schedule();
+                }
+            } elseif ($untouched) {
+                $this->schedule();
+            }
         } elseif ($untouched) {
             $this->schedule(true);
         }
@@ -457,15 +557,93 @@ class TranslationWarmer
         return $pairs;
     }
 
+    /** Current one-way API-key/backend identity; never persists raw config. */
+    private function configurationIdentity(): string
+    {
+        return Client::configurationIdentityForOptions($this->options);
+    }
+
+    private function identityIsCurrent(string $identity): bool
+    {
+        $currentIdentity = $this->configurationIdentity();
+
+        return $identity !== ''
+            && $currentIdentity !== ''
+            && hash_equals($identity, $currentIdentity);
+    }
+
+    /** Returns only the backoff bound to an explicit identity snapshot. */
+    private function backoffRetryAtForIdentity(string $identity): int
+    {
+        $marker = get_option(self::BACKOFF_OPTION, false);
+        $retryAt = is_array($marker) ? (int) ($marker['retry_at'] ?? 0) : 0;
+        $markerIdentity = is_array($marker) ? ($marker['identity'] ?? null) : null;
+
+        if (
+            $retryAt <= time()
+            || !is_string($markerIdentity)
+            || $identity === ''
+            || !hash_equals($markerIdentity, $identity)
+        ) {
+            // This reader owns only the marker snapshot it observed. A
+            // different-identity writer may already have replaced the option
+            // and event, so cleanup is deferred instead of deleting shared
+            // state without compare-and-swap support.
+            return 0;
+        }
+
+        return min($retryAt, time() + Client::MAX_RATE_LIMIT_BACKOFF);
+    }
+
+    /** Persists the longest bounded delay only for the still-current identity. */
+    private function storeBackoffUntil(int $retryAt, string $requestIdentity): bool
+    {
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            if (!$this->identityIsCurrent($requestIdentity)) {
+                return false;
+            }
+
+            $raw = get_option(self::BACKOFF_OPTION, false);
+            $existingRetryAt = is_array($raw)
+                && ($raw['identity'] ?? null) === $requestIdentity
+                ? (int) ($raw['retry_at'] ?? 0)
+                : 0;
+            $boundedRetryAt = min(
+                time() + Client::MAX_RATE_LIMIT_BACKOFF,
+                max($existingRetryAt, $retryAt)
+            );
+            $next = [
+                'retry_at' => $boundedRetryAt,
+                'identity' => $requestIdentity,
+            ];
+
+            if (!$this->identityIsCurrent($requestIdentity)) {
+                return false;
+            }
+
+            if ($next === $raw) {
+                return true;
+            }
+
+            if ($this->compareAndStoreOption(self::BACKOFF_OPTION, $raw, $next)) {
+                return true;
+            }
+
+            $this->clearOptionCache(self::BACKOFF_OPTION);
+        }
+
+        return false;
+    }
+
     /**
      * Keep markers only for exact batch forms that are still present in the
      * bounded queues. This bounds marker storage to queued work without
      * evicting an active form into an automatic resend loop.
      *
      * @param array<string, string[]> $queue
-     * @return array<string, int> Active fingerprint => expiry timestamps.
+     * @return array<string, array{expires_at: int, length: int, action: string}>
      */
-    private function readOversizeBatchMarkers(array $queue): array
+    private function readOversizeBatchMarkers(array $queue, string $configurationIdentity): array
     {
         if (!function_exists('get_transient')) {
             return [];
@@ -477,20 +655,58 @@ class TranslationWarmer
         }
 
         $now = time();
-        $active = [];
-        $queuedFingerprints = $this->queuedBatchFingerprints($queue);
-        foreach ($stored as $fingerprint => $expiresAt) {
+        $unbound = [];
+        foreach ($stored as $fingerprint => $marker) {
+            $expiresAt = is_array($marker)
+                ? (int) ($marker['expires_at'] ?? 0)
+                : (is_numeric($marker) ? (int) $marker : 0);
+            $length = is_array($marker) && is_numeric($marker['length'] ?? null)
+                ? (int) $marker['length']
+                : 0;
+            $action = is_array($marker) && in_array(($marker['action'] ?? ''), ['block', 'split'], true)
+                ? (string) $marker['action']
+                : ($length > 1 ? 'split' : 'block');
             if (
                 is_string($fingerprint)
                 && preg_match('/^[a-f0-9]{64}$/D', $fingerprint) === 1
-                && is_numeric($expiresAt)
-                && (int) $expiresAt > $now
-                && isset($queuedFingerprints[$fingerprint])
+                && $expiresAt > $now
+                && $length >= 0
+                && $length <= self::BATCH_SIZE
             ) {
-                $active[$fingerprint] = min(
-                    (int) $expiresAt,
-                    $now + self::OVERSIZE_BATCH_TTL
-                );
+                $unbound[$fingerprint] = [
+                    'expires_at' => min($expiresAt, $now + self::OVERSIZE_BATCH_TTL),
+                    'length' => $length,
+                    'action' => $action,
+                ];
+            }
+        }
+
+        $active = [];
+        foreach ($queue as $key => $texts) {
+            [$sourceLang, $targetLang] = $this->parseQueueKey($key);
+            if ($sourceLang === '' || $targetLang === '') {
+                continue;
+            }
+
+            $matchedFingerprints = [];
+            $this->partitionBatchesAroundOversizePrefixes(
+                $texts,
+                $sourceLang,
+                $targetLang,
+                $configurationIdentity,
+                $unbound,
+                $matchedFingerprints
+            );
+            foreach ($matchedFingerprints as $fingerprint => $length) {
+                $active[$fingerprint] = [
+                    'expires_at' => $unbound[$fingerprint]['expires_at'],
+                    'length' => $length,
+                    'action' => $length > 1
+                        ? ((int) ($unbound[$fingerprint]['length'] ?? 0) === 0
+                            ? 'split'
+                            : ($unbound[$fingerprint]['action'] ?? 'split'))
+                        : 'block',
+                ];
             }
         }
 
@@ -501,14 +717,15 @@ class TranslationWarmer
      * Stores only a configuration-bound one-way fingerprint and its own
      * bounded expiry. Rewriting the transient never extends older entries.
      *
-     * @param array<string, int> $markers
+     * @param array<string, array{expires_at: int, length: int, action: string}> $markers
      * @param string[] $batch
      */
     private function rememberOversizeBatch(
         array &$markers,
         string $sourceLang,
         string $targetLang,
-        array $batch
+        array $batch,
+        string $configurationIdentity
     ): void {
         if (!function_exists('set_transient')) {
             return;
@@ -517,40 +734,219 @@ class TranslationWarmer
         $fingerprint = $this->oversizeBatchFingerprint(
             $sourceLang,
             $targetLang,
-            $batch
+            $batch,
+            $configurationIdentity
         );
         if (!isset($markers[$fingerprint])) {
-            $markers[$fingerprint] = time() + self::OVERSIZE_BATCH_TTL;
+            $markers[$fingerprint] = [
+                'expires_at' => time() + self::OVERSIZE_BATCH_TTL,
+                'length' => count($batch),
+                'action' => count($batch) > 1 ? 'split' : 'block',
+            ];
+        } elseif (count($batch) > 1) {
+            // Migrate the pre-action schema without extending its own expiry.
+            $markers[$fingerprint]['length'] = count($batch);
+            $markers[$fingerprint]['action'] = 'split';
         }
 
-        $ttl = max(1, max($markers) - time());
+        $ttl = max(
+            1,
+            max(array_column($markers, 'expires_at')) - time()
+        );
         set_transient(self::OVERSIZE_BATCH_TRANSIENT, $markers, $ttl);
     }
 
     /**
-     * @param array<string, string[]> $queue
-     * @return array<string, true>
+     * Splits a current queue chunk at known permanent prefixes. The longest
+     * matching prefix wins; an appended tail remains a separate normal batch.
+     * Legacy timestamp-only markers are checked defensively without changing
+     * the persisted privacy boundary.
+     *
+     * @param string[] $texts
+     * @param array<string, array{expires_at: int, length: int, action: string}> $markers
+     * @return array<int, array{batch: string[], blocked: bool}>
      */
-    private function queuedBatchFingerprints(array $queue): array
-    {
-        $fingerprints = [];
+    private function partitionBatchesAroundOversizePrefixes(
+        array $texts,
+        string $sourceLang,
+        string $targetLang,
+        string $configurationIdentity,
+        array $markers,
+        ?array &$matchedFingerprints = null
+    ): array {
+        $partitioned = [];
+        $markerLengths = $this->oversizeMarkerLengths($markers);
 
-        foreach ($queue as $key => $texts) {
-            [$sourceLang, $targetLang] = $this->parseQueueKey($key);
-            if ($sourceLang === '' || $targetLang === '') {
-                continue;
-            }
-
-            foreach (array_chunk($texts, self::BATCH_SIZE) as $batch) {
-                $fingerprints[$this->oversizeBatchFingerprint(
+        foreach (array_chunk($texts, self::BATCH_SIZE) as $chunk) {
+            $partitioned = array_merge(
+                $partitioned,
+                $this->partitionOversizeChunk(
+                    $chunk,
                     $sourceLang,
                     $targetLang,
-                    $batch
-                )] = true;
+                    $configurationIdentity,
+                    $markers,
+                    $markerLengths,
+                    $matchedFingerprints
+                )
+            );
+        }
+
+        return $partitioned;
+    }
+
+    /**
+     * @param string[] $chunk
+     * @param array<string, array{expires_at: int, length: int, action: string}> $markers
+     * @param int[] $markerLengths
+     * @return array<int, array{batch: string[], blocked: bool}>
+     */
+    private function partitionOversizeChunk(
+        array $chunk,
+        string $sourceLang,
+        string $targetLang,
+        string $configurationIdentity,
+        array $markers,
+        array $markerLengths,
+        ?array &$matchedFingerprints
+    ): array {
+        if (empty($chunk)) {
+            return [];
+        }
+
+        $match = $this->knownOversizePrefix(
+            $chunk,
+            $sourceLang,
+            $targetLang,
+            $configurationIdentity,
+            $markers,
+            $markerLengths
+        );
+        if ($match === null) {
+            return [['batch' => $chunk, 'blocked' => false]];
+        }
+
+        if ($matchedFingerprints !== null) {
+            $matchedFingerprints[$match['fingerprint']] = $match['length'];
+        }
+        $prefix = array_slice($chunk, 0, $match['length']);
+        $tail = array_slice($chunk, $match['length']);
+
+        if ($match['action'] === 'split' && count($prefix) > 1) {
+            $leftSize = (int) ceil(count($prefix) / 2);
+            $partitioned = array_merge(
+                $this->partitionOversizeChunk(
+                    array_slice($prefix, 0, $leftSize),
+                    $sourceLang,
+                    $targetLang,
+                    $configurationIdentity,
+                    $markers,
+                    $markerLengths,
+                    $matchedFingerprints
+                ),
+                $this->partitionOversizeChunk(
+                    array_slice($prefix, $leftSize),
+                    $sourceLang,
+                    $targetLang,
+                    $configurationIdentity,
+                    $markers,
+                    $markerLengths,
+                    $matchedFingerprints
+                )
+            );
+        } else {
+            $partitioned = [['batch' => $prefix, 'blocked' => true]];
+        }
+
+        return array_merge(
+            $partitioned,
+            $this->partitionOversizeChunk(
+                $tail,
+                $sourceLang,
+                $targetLang,
+                $configurationIdentity,
+                $markers,
+                $markerLengths,
+                $matchedFingerprints
+            )
+        );
+    }
+
+    /**
+     * Build the candidate-length index once for the complete partition. Legacy
+     * timestamp-only markers may match any bounded batch length.
+     *
+     * @param array<string, array{expires_at: int, length: int, action: string}> $markers
+     * @return int[] Descending unique candidate lengths.
+     */
+    private function oversizeMarkerLengths(array $markers): array
+    {
+        $lengths = [];
+        $hasLegacyMarker = false;
+
+        foreach ($markers as $marker) {
+            $length = (int) ($marker['length'] ?? 0);
+            if ($length > 0 && $length <= self::BATCH_SIZE) {
+                $lengths[$length] = true;
+            } elseif ($length === 0) {
+                $hasLegacyMarker = true;
             }
         }
 
-        return $fingerprints;
+        if ($hasLegacyMarker) {
+            foreach (range(1, self::BATCH_SIZE) as $length) {
+                $lengths[$length] = true;
+            }
+        }
+
+        $indexed = array_keys($lengths);
+        rsort($indexed, SORT_NUMERIC);
+
+        return $indexed;
+    }
+
+    /**
+     * @param string[] $batch
+     * @param array<string, array{expires_at: int, length: int, action: string}> $markers
+     * @param int[] $markerLengths
+     * @return array{fingerprint: string, length: int, action: string}|null
+     */
+    private function knownOversizePrefix(
+        array $batch,
+        string $sourceLang,
+        string $targetLang,
+        string $configurationIdentity,
+        array $markers,
+        array $markerLengths
+    ): ?array {
+        foreach ($markerLengths as $length) {
+            if ($length > count($batch)) {
+                continue;
+            }
+            $fingerprint = $this->oversizeBatchFingerprint(
+                $sourceLang,
+                $targetLang,
+                array_slice($batch, 0, $length),
+                $configurationIdentity
+            );
+            if (
+                isset($markers[$fingerprint])
+                && (
+                    (int) ($markers[$fingerprint]['length'] ?? 0) === 0
+                    || (int) $markers[$fingerprint]['length'] === $length
+                )
+            ) {
+                return [
+                    'fingerprint' => $fingerprint,
+                    'length' => $length,
+                    'action' => $length > 1
+                        ? ($markers[$fingerprint]['action'] ?? 'split')
+                        : 'block',
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -559,40 +955,53 @@ class TranslationWarmer
     private function oversizeBatchFingerprint(
         string $sourceLang,
         string $targetLang,
-        array $batch
+        array $batch,
+        string $configurationIdentity
     ): string {
-        $configurationKey = hash(
-            'sha256',
-            untrailingslashit(trim($this->options->getApiBaseUrl()))
-                . "\0"
-                . trim($this->options->getApiKey())
-        );
         $shape = json_encode(
             [$sourceLang, $targetLang, array_values($batch)],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
 
-        return hash_hmac('sha256', "v1\0" . (is_string($shape) ? $shape : ''), $configurationKey);
+        return hash_hmac(
+            'sha256',
+            "v1\0" . (is_string($shape) ? $shape : ''),
+            $configurationIdentity
+        );
     }
 
-    private function schedule(bool $force = false, int $delaySeconds = 0): void
+    private function schedule(
+        bool $force = false,
+        int $delaySeconds = 0,
+        ?string $identity = null
+    ): void
     {
         if (!function_exists('wp_schedule_single_event')) {
             return;
         }
 
         $delaySeconds = max(0, min(Client::MAX_RATE_LIMIT_BACKOFF, $delaySeconds));
+        $eventArgs = [$identity ?? $this->configurationIdentity()];
 
-        if ($force && $delaySeconds > 0 && function_exists('wp_clear_scheduled_hook')) {
-            wp_clear_scheduled_hook(self::HOOK);
+        if ($force && function_exists('wp_clear_scheduled_hook')) {
+            wp_clear_scheduled_hook(self::HOOK, $eventArgs);
         }
 
-        $scheduledAt = wp_next_scheduled(self::HOOK);
+        $scheduledAt = wp_next_scheduled(self::HOOK, $eventArgs);
         if ($force || !$scheduledAt) {
             // Persist the queue before creating either an immediately due
             // event or the bounded Retry-After event that replaces it.
-            wp_schedule_single_event(time() + $delaySeconds, self::HOOK);
-            $scheduledAt = wp_next_scheduled(self::HOOK);
+            wp_schedule_single_event(time() + $delaySeconds, self::HOOK, $eventArgs);
+            $scheduledAt = wp_next_scheduled(self::HOOK, $eventArgs);
+        }
+
+        if (
+            $identity !== null
+            && !$this->identityIsCurrent($identity)
+            && $this->configurationIdentity() !== ''
+        ) {
+            $this->schedule();
+            return;
         }
 
         // A delayed Retry-After event must never be nudged immediately.

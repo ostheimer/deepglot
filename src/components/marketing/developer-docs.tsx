@@ -162,6 +162,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
+              ? "Nur Translation-429-Antworten setzen den aktiven Marker. Marker und Warmer-Wartezustand sind an API-Schlüssel und Backend gebunden; Konfigurationswechsel, verspätete Antworten der alten Konfiguration und alte ungebundene Marker blockieren keine neuen Übersetzungen."
+              : "Only translation 429 responses set the active marker. The marker and warmer backoff are bound to the API key and backend; configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
               ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
               : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
           </p>

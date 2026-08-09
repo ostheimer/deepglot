@@ -76,12 +76,20 @@ if (!function_exists('get_option')) {
     $GLOBALS['_dgkey_remote_calls'] = 0;
     $GLOBALS['_dgkey_remote_urls'] = [];
     $GLOBALS['_dgkey_before_remote_response'] = null;
+    $GLOBALS['_dgkey_after_get_option'] = null;
+    $GLOBALS['_dgkey_after_get_transient'] = null;
     $GLOBALS['_dgkey_can_manage'] = true;
 
     function get_option($key, $default = false) {
-        return array_key_exists($key, $GLOBALS['_dgkey_options'])
+        $value = array_key_exists($key, $GLOBALS['_dgkey_options'])
             ? $GLOBALS['_dgkey_options'][$key]
             : $default;
+        $callback = $GLOBALS['_dgkey_after_get_option'] ?? null;
+        if (is_callable($callback)) {
+            $callback($key, $value);
+        }
+
+        return $value;
     }
 
     function update_option($key, $value, $autoload = null) {
@@ -98,7 +106,13 @@ if (!function_exists('get_option')) {
     }
 
     function get_transient($key) {
-        return $GLOBALS['_dgkey_transients'][$key] ?? false;
+        $value = $GLOBALS['_dgkey_transients'][$key] ?? false;
+        $callback = $GLOBALS['_dgkey_after_get_transient'] ?? null;
+        if (is_callable($callback)) {
+            $callback($key, $value);
+        }
+
+        return $value;
     }
 
     function set_transient($key, $value, $ttl = 0) {
@@ -354,12 +368,15 @@ function dgkeyReset(int $remoteStatus = 200): void
 {
     $GLOBALS['_dgkey_transients'] = [];
     $GLOBALS['_dgkey_transient_ttls'] = [];
+    unset($GLOBALS['_dgkey_options'][Client::RATE_LIMIT_OPTION]);
     $GLOBALS['_dgkey_remote_status'] = $remoteStatus;
     $GLOBALS['_dgkey_remote_statuses'] = [];
     $GLOBALS['_dgkey_remote_headers'] = [];
     $GLOBALS['_dgkey_remote_calls'] = 0;
     $GLOBALS['_dgkey_remote_urls'] = [];
     $GLOBALS['_dgkey_before_remote_response'] = null;
+    $GLOBALS['_dgkey_after_get_option'] = null;
+    $GLOBALS['_dgkey_after_get_transient'] = null;
 }
 
 function dgkeyStoreSettings(array $overrides = []): void
@@ -538,6 +555,40 @@ dgkeyAssert(
 );
 
 // -----------------------------------------------------------------------------
+// 5a. Plugin control-plane 429s have their own endpoint limits. They must not
+//     arm the translation marker and suppress otherwise available translation.
+// -----------------------------------------------------------------------------
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '120'];
+$runtimeLimited = $client->fetchRuntimeConfig();
+$GLOBALS['_dgkey_remote_status'] = 200;
+$translatedAfterRuntimeLimit = $client->translate(['Hallo'], 'de', 'en');
+dgkeyAssert(is_wp_error($runtimeLimited), 'A runtime-config 429 must still surface as WP_Error.');
+dgkeyAssert(
+    !is_wp_error($translatedAfterRuntimeLimit) && $GLOBALS['_dgkey_remote_calls'] === 2,
+    'A runtime-config 429 must not block the next translation before its HTTP request.'
+);
+dgkeyAssert(
+    Client::rateLimitRetryAt() === 0,
+    'A runtime-config 429 must not arm the translation-specific rate-limit marker.'
+);
+
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '120'];
+$settingsLimited = $client->syncSettings();
+$GLOBALS['_dgkey_remote_status'] = 200;
+$translatedAfterSettingsLimit = $client->translate(['Hallo'], 'de', 'en');
+dgkeyAssert(is_wp_error($settingsLimited), 'A settings-sync 429 must still surface as WP_Error.');
+dgkeyAssert(
+    !is_wp_error($translatedAfterSettingsLimit) && $GLOBALS['_dgkey_remote_calls'] === 2,
+    'A settings-sync 429 must not block the next translation before its HTTP request.'
+);
+dgkeyAssert(
+    Client::rateLimitRetryAt() === 0,
+    'A settings-sync 429 must not arm the translation-specific rate-limit marker.'
+);
+
+// -----------------------------------------------------------------------------
 // 5b. A SaaS 429 preserves a bounded Retry-After classification. Sequential
 //     fallback stops after the first 429 instead of amplifying it across the
 //     remaining page batches.
@@ -648,6 +699,258 @@ dgkeyAssert(
 );
 dgkeyAssert(!array_key_exists('retry_after', $oversizedData), 'Permanent oversize must not expose Retry-After metadata.');
 dgkeyAssert(Client::rateLimitRetryAt() === 0, 'Permanent oversize must not arm the rate-limit retry timer.');
+
+// -----------------------------------------------------------------------------
+// 5c. Translation backoff belongs to the exact key/backend identity that saw
+//     the 429. A replacement configuration must send immediately, and a stale
+//     in-flight response must never poison the replacement identity.
+// -----------------------------------------------------------------------------
+dgkeyReset(429);
+dgkeyStoreSettings([
+    'api_key' => 'dg_rate_limited_old',
+    'api_base_url' => 'https://rate-old.deepglot.test/api',
+]);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '3600'];
+$oldIdentityLimited = $client->translate(['Old identity request'], 'de', 'en');
+dgkeyAssert(is_wp_error($oldIdentityLimited), 'The old translation identity must receive its own 429.');
+
+dgkeyStoreSettings([
+    'api_key' => 'dg_rate_healthy_new',
+    'api_base_url' => 'https://rate-new.deepglot.test/api',
+]);
+$GLOBALS['_dgkey_remote_status'] = 200;
+$callsBeforeNewRateIdentity = $GLOBALS['_dgkey_remote_calls'];
+$newIdentityResponse = $client->translate(['New identity request'], 'de', 'en');
+dgkeyAssert(
+    !is_wp_error($newIdentityResponse)
+        && $GLOBALS['_dgkey_remote_calls'] === $callsBeforeNewRateIdentity + 1,
+    'A translation 429 for an old key/backend must not locally block the replacement identity.'
+);
+dgkeyAssert(
+    str_starts_with((string) end($GLOBALS['_dgkey_remote_urls']), 'https://rate-new.deepglot.test/api/'),
+    'The first request after a rate-limited identity change must reach the replacement backend.'
+);
+
+dgkeyReset(429);
+dgkeyStoreSettings([
+    'api_key' => 'dg_stale_rate_old',
+    'api_base_url' => 'https://stale-rate-old.deepglot.test/api',
+]);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '3600'];
+$GLOBALS['_dgkey_before_remote_response'] = static function (): void {
+    dgkeyStoreSettings([
+        'api_key' => 'dg_stale_rate_new',
+        'api_base_url' => 'https://stale-rate-new.deepglot.test/api',
+    ]);
+};
+$staleRateResponse = $client->translate(['Stale rate request'], 'de', 'en');
+dgkeyAssert(is_wp_error($staleRateResponse), 'The stale in-flight request must still surface its own 429.');
+dgkeyAssert(
+    get_transient(Client::RATE_LIMIT_TRANSIENT) === false,
+    'A stale in-flight 429 must not persist a translation marker after key/backend replacement.'
+);
+
+$GLOBALS['_dgkey_before_remote_response'] = null;
+$GLOBALS['_dgkey_remote_status'] = 200;
+$callsBeforeStaleRateReplacement = $GLOBALS['_dgkey_remote_calls'];
+$staleRateReplacementResponse = $client->translate(['Replacement after stale rate'], 'de', 'en');
+dgkeyAssert(
+    !is_wp_error($staleRateReplacementResponse)
+        && $GLOBALS['_dgkey_remote_calls'] === $callsBeforeStaleRateReplacement + 1,
+    'A stale old-identity 429 must not short-circuit the replacement configuration.'
+);
+
+$rateMarkerSerialization = json_encode(get_transient(Client::RATE_LIMIT_TRANSIENT));
+foreach (['dg_stale_rate_old', 'dg_stale_rate_new', 'stale-rate-old.deepglot.test', 'stale-rate-new.deepglot.test'] as $privateRateValue) {
+    dgkeyAssert(
+        !is_string($rateMarkerSerialization) || !str_contains($rateMarkerSerialization, $privateRateValue),
+        'The translation marker must never persist raw key/backend material.'
+    );
+}
+
+dgkeyReset(200);
+dgkeyStoreSettings([
+    'api_key' => 'dg_legacy_marker_recovery',
+    'api_base_url' => 'https://legacy-marker.deepglot.test/api',
+]);
+$legacyRateMarker = ['retry_at' => time() + 3600];
+set_transient(Client::RATE_LIMIT_TRANSIENT, $legacyRateMarker, 3600);
+$callsBeforeLegacyRateMarker = $GLOBALS['_dgkey_remote_calls'];
+$legacyRateMarkerResponse = $client->translate(['Legacy marker recovery'], 'de', 'en');
+dgkeyAssert(
+    !is_wp_error($legacyRateMarkerResponse)
+        && $GLOBALS['_dgkey_remote_calls'] === $callsBeforeLegacyRateMarker + 1,
+    'An unbound legacy rate-limit marker must fail open and allow the current translation request.'
+);
+dgkeyAssert(
+    get_transient(Client::RATE_LIMIT_TRANSIENT) === $legacyRateMarker,
+    'An unbound legacy rate-limit marker must be left for bounded TTL cleanup instead of a racy delete.'
+);
+
+// -----------------------------------------------------------------------------
+// 5d. A stale reader owns only its identity snapshot. If a concurrent request
+//     has already stored a valid marker for the replacement configuration, the
+//     old reader may ignore that marker but must not delete it.
+// -----------------------------------------------------------------------------
+dgkeyReset(200);
+$staleReaderIdentity = hash(
+    'sha256',
+    "https://race-old.deepglot.test/api\0dg_race_old"
+);
+dgkeyStoreSettings([
+    'api_key' => 'dg_race_new',
+    'api_base_url' => 'https://race-new.deepglot.test/api',
+]);
+$currentWriterIdentity = hash(
+    'sha256',
+    "https://race-new.deepglot.test/api\0dg_race_new"
+);
+$currentWriterMarker = [
+    'retry_at' => time() + 600,
+    'identity' => $currentWriterIdentity,
+];
+set_transient(Client::RATE_LIMIT_TRANSIENT, $currentWriterMarker, 600);
+
+$activeRateLimitError = new ReflectionMethod(Client::class, 'activeRateLimitError');
+$staleReaderResult = $activeRateLimitError->invoke($client, $staleReaderIdentity);
+dgkeyAssert(
+    $staleReaderResult === null,
+    'A stale identity reader must fail open instead of applying a replacement identity marker.'
+);
+dgkeyAssert(
+    get_transient(Client::RATE_LIMIT_TRANSIENT) === $currentWriterMarker,
+    'A stale identity reader must not delete a marker concurrently written for the replacement identity.'
+);
+
+$callsBeforeCurrentWriterGate = $GLOBALS['_dgkey_remote_calls'];
+$currentWriterGate = $client->translate(['Replacement marker remains active'], 'de', 'en');
+$currentWriterGateData = $currentWriterGate instanceof WP_Error
+    ? $currentWriterGate->get_error_data()
+    : [];
+dgkeyAssert(
+    $currentWriterGate instanceof WP_Error
+        && ($currentWriterGateData['status'] ?? null) === 429
+        && $GLOBALS['_dgkey_remote_calls'] === $callsBeforeCurrentWriterGate,
+    'The replacement identity must still apply its valid local marker after the stale read.'
+);
+
+// -----------------------------------------------------------------------------
+// 5e. A stale A response may pass its current-identity check before B becomes
+//     current. If B then stores a valid marker before A writes, A must not
+//     overwrite B's marker or reopen B's HTTP gate.
+// -----------------------------------------------------------------------------
+dgkeyReset(200);
+dgkeyStoreSettings([
+    'api_key' => 'dg_marker_writer_a',
+    'api_base_url' => 'https://marker-writer-a.deepglot.test/api',
+]);
+$staleMarkerWriterIdentity = hash(
+    'sha256',
+    "https://marker-writer-a.deepglot.test/api\0dg_marker_writer_a"
+);
+$currentMarkerWriterIdentity = hash(
+    'sha256',
+    "https://marker-writer-b.deepglot.test/api\0dg_marker_writer_b"
+);
+$currentMarkerWriterMarker = [
+    'retry_at' => time() + 900,
+    'identity' => $currentMarkerWriterIdentity,
+];
+$flagRateLimited = new ReflectionMethod(Client::class, 'maybeFlagRateLimited');
+$GLOBALS['_dgkey_after_get_option'] = static function ($key, $value) use (
+    $currentMarkerWriterMarker,
+    $currentMarkerWriterIdentity,
+    $flagRateLimited,
+    $client
+): void {
+    if ($key !== Client::RATE_LIMIT_OPTION) {
+        return;
+    }
+
+    $GLOBALS['_dgkey_after_get_option'] = null;
+    dgkeyStoreSettings([
+        'api_key' => 'dg_marker_writer_b',
+        'api_base_url' => 'https://marker-writer-b.deepglot.test/api',
+    ]);
+    $flagRateLimited->invoke($client, 429, '900', $currentMarkerWriterIdentity);
+};
+$flagRateLimited->invoke($client, 429, '300', $staleMarkerWriterIdentity);
+$currentMarkerWriterMap = get_option(Client::RATE_LIMIT_OPTION, false);
+dgkeyAssert(
+    is_array($currentMarkerWriterMap)
+        && (int) ($currentMarkerWriterMap[$currentMarkerWriterIdentity] ?? 0)
+            >= (int) $currentMarkerWriterMarker['retry_at'] - 1,
+    'A stale identity A response must not overwrite a concurrently stored identity B marker.'
+);
+$callsBeforeConcurrentWriterGate = $GLOBALS['_dgkey_remote_calls'];
+$concurrentWriterGate = $client->translate(['Concurrent writer gate'], 'de', 'en');
+$concurrentWriterGateData = $concurrentWriterGate instanceof WP_Error
+    ? $concurrentWriterGate->get_error_data()
+    : [];
+dgkeyAssert(
+    $concurrentWriterGate instanceof WP_Error
+        && ($concurrentWriterGateData['status'] ?? null) === 429
+        && $GLOBALS['_dgkey_remote_calls'] === $callsBeforeConcurrentWriterGate,
+    'The concurrent identity B marker must keep B locally gated after the stale A response finishes.'
+);
+
+// A shorter same-identity response that paused before its write must preserve
+// the longer marker written while it was paused.
+dgkeyReset(200);
+dgkeyStoreSettings([
+    'api_key' => 'dg_same_identity_max',
+    'api_base_url' => 'https://same-identity-max.deepglot.test/api',
+]);
+$sameIdentityMax = hash(
+    'sha256',
+    "https://same-identity-max.deepglot.test/api\0dg_same_identity_max"
+);
+$sameIdentityLongRetryAt = time() + 900;
+$GLOBALS['_dgkey_after_get_option'] = static function ($key, $value) use (
+    $flagRateLimited,
+    $client,
+    $sameIdentityMax
+): void {
+    if ($key !== Client::RATE_LIMIT_OPTION) {
+        return;
+    }
+
+    $GLOBALS['_dgkey_after_get_option'] = null;
+    $flagRateLimited->invoke($client, 429, '900', $sameIdentityMax);
+};
+$flagRateLimited->invoke($client, 429, '120', $sameIdentityMax);
+$sameIdentityStored = get_option(Client::RATE_LIMIT_OPTION, false);
+dgkeyAssert(
+    is_array($sameIdentityStored)
+        && (int) ($sameIdentityStored[$sameIdentityMax] ?? 0) >= $sameIdentityLongRetryAt - 1
+        && Client::rateLimitRetryAtForIdentity($sameIdentityMax) >= $sameIdentityLongRetryAt - 1,
+    'A stale shorter same-identity Client writer must preserve the longer retry_at and effective TTL.'
+);
+
+// During upgrade the CAS map and the former global transient can overlap. The
+// longer matching value wins; reading the map first must not shorten legacy.
+dgkeyReset(200);
+dgkeyStoreSettings([
+    'api_key' => 'dg_upgrade_max',
+    'api_base_url' => 'https://upgrade-max.deepglot.test/api',
+]);
+$upgradeMaxIdentity = hash(
+    'sha256',
+    "https://upgrade-max.deepglot.test/api\0dg_upgrade_max"
+);
+$upgradeMapRetryAt = time() + 120;
+$upgradeLegacyRetryAt = time() + 900;
+update_option(Client::RATE_LIMIT_OPTION, [
+    $upgradeMaxIdentity => $upgradeMapRetryAt,
+], false);
+set_transient(Client::RATE_LIMIT_TRANSIENT, [
+    'retry_at' => $upgradeLegacyRetryAt,
+    'identity' => $upgradeMaxIdentity,
+], 900);
+dgkeyAssert(
+    Client::rateLimitRetryAtForIdentity($upgradeMaxIdentity) >= $upgradeLegacyRetryAt - 1,
+    'Client upgrade reads must take the longer matching retry across the CAS map and legacy transient.'
+);
 
 // -----------------------------------------------------------------------------
 // 6. Saving a corrected key clears the breaker immediately — otherwise the
