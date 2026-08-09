@@ -155,6 +155,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Der erste Aufruf einer noch nicht übersetzten Seite kann bewusst den Quelltext zeigen. Er legt die fehlenden Segmente in die Warm-up-Warteschlange; ein sofort fälliges WP-Cron-Ereignis verarbeitet sie im Hintergrund. Nach erfolgreichem Abschluss löscht Deepglot betroffene Seiten aus unterstützten Full-Page-Caches, damit der nächste Aufruf die lokal gespeicherte Übersetzung erhält."
               : "The first request for a page without cached translations can intentionally show source content. It places missing segments in the warm-up queue, and an immediately due WP-Cron event processes them in the background. After success, Deepglot purges affected pages from supported full-page caches so the next request receives the locally cached translation."}
           </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
+              : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
+          </p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {[
               {
@@ -172,8 +177,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               {
                 title: de ? "3. Seiten-Cache prüfen" : "3. Check page caches",
                 body: de
-                  ? "WP Rocket, W3 Total Cache, LiteSpeed Cache und WP Super Cache werden automatisch geleert. Bei anderen Cache-Plugins leere den Full-Page-Cache manuell; der Deepglot-Übersetzungs-Cache muss erhalten bleiben."
-                  : "WP Rocket, W3 Total Cache, LiteSpeed Cache, and WP Super Cache are purged automatically. For other cache plugins, purge the full-page cache manually and keep Deepglot's translation cache intact.",
+                  ? "WP Rocket, W3 Total Cache und LiteSpeed Cache leeren fertige URLs einzeln. WP Super Cache wird global erst geleert, wenn die verfolgte URL-Warteschlange leer ist; ausstehende Seiten bleiben bis dahin gecacht. Bei anderen Cache-Plugins leere den Full-Page-Cache manuell."
+                  : "WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache is purged globally only when the tracked URL queue is empty, so pending pages remain cached. Purge other page-cache plugins manually.",
               },
             ].map((item) => (
               <article key={item.title} className="rounded-md border border-[#d8d6ce] bg-white p-5">

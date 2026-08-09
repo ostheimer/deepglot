@@ -78,7 +78,10 @@ class OutputBuffer
             return;
         }
 
-        if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
+        // RequestRouter has already rewritten a localized slug to its source
+        // path. Exclusions are configured against that canonical source URL;
+        // the localized public URL is reserved for analytics and cache purges.
+        if ($this->options->isUrlExcluded($this->sourceRequestUrl())) {
             return;
         }
 
@@ -469,6 +472,22 @@ class OutputBuffer
     }
 
     private function currentRequestUrl(): string
+    {
+        $uri = RequestInput::server('REQUEST_URI', '/');
+        $targetLanguage = $this->detectTargetLanguage();
+
+        // RequestRouter has already reduced a localized request to its
+        // canonical source path by the time the output buffer runs. Rebuild
+        // the public localized URL so analytics and background cache purges
+        // follow the page the visitor actually requested.
+        if ($targetLanguage !== null) {
+            return $this->routing->buildUrlForLanguage($uri, $targetLanguage);
+        }
+
+        return $this->sourceRequestUrl();
+    }
+
+    private function sourceRequestUrl(): string
     {
         $uri = RequestInput::server('REQUEST_URI', '/');
 

@@ -8,6 +8,7 @@ const HELP_PAGE = path.join(
   "src/components/marketing/help-page.tsx"
 );
 const README = path.join(process.cwd(), "README.md");
+const OPERATIONS = path.join(process.cwd(), "OPERATIONS.md");
 const POSTGRES_TEXT = path.join(process.cwd(), "src/lib/postgres-text.ts");
 
 test("bilingual help explains the NUL rejection and provider fallback boundary", () => {
@@ -36,9 +37,15 @@ test("bilingual help explains the NUL rejection and provider fallback boundary",
 
 test("documentation and source limit the guarantee to translation persistence", () => {
   const readme = readFileSync(README, "utf8");
+  const operations = readFileSync(OPERATIONS, "utf8");
   const source = readFileSync(POSTGRES_TEXT, "utf8");
 
   assert.match(readme, /before provider calls or translation-content persistence/);
+  assert.match(
+    operations,
+    /before provider translation or translation-content persistence/,
+  );
+  assert.doesNotMatch(operations, /before provider or persistence work/);
   assert.match(
     source,
     /before provider translation and\s+\* translation-domain persistence/,

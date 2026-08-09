@@ -64,4 +64,22 @@ test("help visual layout keeps digest and release content responsive", () => {
   assert.match(source, /max-w-6xl px-5 py-16 sm:px-8/);
   assert.match(source, /\[overflow-wrap:anywhere\]/);
   assert.match(source, /aria-label=\{de \? "Hilfebereiche" : "Help sections"\}/);
+
+  const navigationOrder = [
+    'href="#weekly-digest"',
+    'href="#wordpress-warmup"',
+    'href="#text-safety"',
+    'href="#wordpress-releases"',
+  ].map((marker) => source.indexOf(marker));
+  const sectionOrder = [
+    'id="weekly-digest"',
+    'id="wordpress-warmup"',
+    'id="text-safety"',
+    'id="wordpress-releases"',
+  ].map((marker) => source.indexOf(marker));
+
+  assert.ok(navigationOrder.every((position) => position >= 0));
+  assert.deepEqual([...navigationOrder].sort((left, right) => left - right), navigationOrder);
+  assert.ok(sectionOrder.every((position) => position >= 0));
+  assert.deepEqual([...sectionOrder].sort((left, right) => left - right), sectionOrder);
 });

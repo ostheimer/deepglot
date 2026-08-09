@@ -110,6 +110,9 @@ $GLOBALS['_deepglot_actions'] = [];
 $GLOBALS['_deepglot_scheduled'] = [];
 $GLOBALS['_deepglot_spawned_cron'] = 0;
 $GLOBALS['_deepglot_purged_urls'] = [];
+$GLOBALS['_deepglot_w3tc_purged_urls'] = [];
+$GLOBALS['_deepglot_litespeed_purged_urls'] = [];
+$GLOBALS['_deepglot_wp_super_cache_purges'] = 0;
 
 if (!function_exists('add_filter')) {
     function add_filter($hook, $callback, $priority = 10, $args = 1) {
@@ -128,6 +131,16 @@ if (!function_exists('add_filter')) {
     function add_action($hook, $callback, $priority = 10, $args = 1) {
         $GLOBALS['_deepglot_actions'][$hook][] = $callback;
         return true;
+    }
+
+    function do_action($hook, ...$args) {
+        if ($hook === 'litespeed_purge_url' && isset($args[0])) {
+            $GLOBALS['_deepglot_litespeed_purged_urls'][] = (string) $args[0];
+        }
+
+        foreach ($GLOBALS['_deepglot_actions'][$hook] ?? [] as $callback) {
+            $callback(...$args);
+        }
     }
 
     function wp_next_scheduled($hook, $args = []) {
@@ -153,6 +166,14 @@ if (!function_exists('add_filter')) {
             $GLOBALS['_deepglot_purged_urls'],
             is_array($urls) ? $urls : [$urls]
         );
+    }
+
+    function w3tc_flush_url($url) {
+        $GLOBALS['_deepglot_w3tc_purged_urls'][] = (string) $url;
+    }
+
+    function wp_cache_clear_cache() {
+        $GLOBALS['_deepglot_wp_super_cache_purges']++;
     }
 }
 
@@ -326,15 +347,29 @@ function warmBuildPage(int $segmentCount): array
 function warmResetEnvironment(): void
 {
     $GLOBALS['_deepglot_filters'] = [];
+    $GLOBALS['_deepglot_actions'] = [];
     $GLOBALS['_deepglot_scheduled'] = [];
     $GLOBALS['_deepglot_spawned_cron'] = 0;
     $GLOBALS['_deepglot_purged_urls'] = [];
+    $GLOBALS['_deepglot_w3tc_purged_urls'] = [];
+    $GLOBALS['_deepglot_litespeed_purged_urls'] = [];
+    $GLOBALS['_deepglot_wp_super_cache_purges'] = 0;
 
     foreach (array_keys($GLOBALS['_deepglot_options']) as $key) {
         if (str_starts_with((string) $key, 'deepglot_warm_')) {
             unset($GLOBALS['_deepglot_options'][$key]);
         }
     }
+}
+
+function warmRunScheduledEvent(): void
+{
+    warmAssert(
+        isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+        'A warmup cron event must be scheduled before it can run.'
+    );
+    unset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]);
+    do_action(TranslationWarmer::HOOK);
 }
 
 $options = new Options();
@@ -510,6 +545,7 @@ warmAssert(
 $client = new DeepglotWarmFakeClient();
 $cache = new DeepglotWarmArrayCache();
 $warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->register();
 $translator = new HtmlTranslator($client, $options, $cache, null, $warmer);
 $rendered = $translator->translate($html, 'en', 'https://jobspot.at/en/async/', BotDetector::HUMAN);
 
@@ -529,7 +565,20 @@ warmAssert(
     'A cache-only render must serve the source text unchanged.'
 );
 
-$warmer->run();
+warmAssert(
+    count($GLOBALS['_deepglot_actions'][TranslationWarmer::HOOK] ?? []) === 1,
+    'The registered WordPress cron hook must point to the warmer callback.'
+);
+warmAssert(
+    count($GLOBALS['_deepglot_actions']['shutdown'] ?? []) === 1,
+    'A cold page must register exactly one immediate shutdown cron nudge.'
+);
+do_action('shutdown');
+warmAssert(
+    $GLOBALS['_deepglot_spawned_cron'] === 1,
+    'The shutdown callback must execute spawn_cron() exactly once.'
+);
+warmRunScheduledEvent();
 warmAssert(
     in_array('https://jobspot.at/en/async/', $GLOBALS['_deepglot_purged_urls'], true),
     'The render request URL must follow deferred work into the page-cache purge.'
@@ -650,17 +699,21 @@ warmAssert(
     'Texts omitted from a partial successful response must remain queued.'
 );
 
-// A failure on one page must not keep an unrelated, fully warmed page trapped
-// behind its stale full-page cache. URL tracking therefore follows each page's
-// own text set rather than the whole language-pair backlog.
+// A failure on one page must not keep URL-specific caches for an unrelated,
+// fully warmed page stale. WP Super Cache exposes only a global purge, so it
+// must wait until every tracked page has converged instead of also purging a
+// page that remains pending. A later visitor then schedules the retry through
+// the real registered cron hook.
 warmResetEnvironment();
 $client = new DeepglotWarmFakeClient();
 $client->partialBatchIndexes = [0];
 $cache = new DeepglotWarmArrayCache();
 $warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->register();
 $warmer->enqueue(['Alpha'], 'de', 'en', 'https://example.com/en/alpha/');
 $warmer->enqueue(['Beta'], 'de', 'en', 'https://example.com/en/beta/');
-$warmer->run();
+do_action('shutdown');
+warmRunScheduledEvent();
 
 warmAssert(
     in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_purged_urls'], true),
@@ -669,6 +722,72 @@ warmAssert(
 warmAssert(
     !in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_purged_urls'], true),
     'A page with untranslated queued text must not be purged early.'
+);
+warmAssert(
+    in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_w3tc_purged_urls'], true)
+        && !in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_w3tc_purged_urls'], true),
+    'W3 Total Cache must purge only the completed URL.'
+);
+warmAssert(
+    in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_litespeed_purged_urls'], true)
+        && !in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_litespeed_purged_urls'], true),
+    'LiteSpeed Cache must purge only the completed URL.'
+);
+warmAssert(
+    $GLOBALS['_deepglot_wp_super_cache_purges'] === 0,
+    'WP Super Cache must not globally purge while any tracked page remains pending.'
+);
+warmAssert(
+    ($warmer->pending()['de|en'] ?? []) === ['Beta'],
+    'The omitted page text must remain queued after the first cron run.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'A partial provider response must not spin an immediate retry loop.'
+);
+
+// Simulate the next visitor request: WordPress rebuilds hook registrations,
+// the visitor re-enqueues its still-missing segment, and a second cron run
+// completes the cache lifecycle.
+$GLOBALS['_deepglot_actions'] = [];
+$GLOBALS['_deepglot_scheduled'] = [];
+$GLOBALS['_deepglot_spawned_cron'] = 0;
+$client->partialBatchIndexes = [];
+$retryWarmer = new TranslationWarmer($client, $options, $cache);
+$retryWarmer->register();
+$retryWarmer->enqueue(['Beta'], 'de', 'en', 'https://example.com/en/beta/');
+do_action('shutdown');
+warmRunScheduledEvent();
+
+warmAssert(
+    empty($retryWarmer->pending()),
+    'A later visitor and second cron run must complete the pending retry.'
+);
+warmAssert(
+    in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_purged_urls'], true)
+        && in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_w3tc_purged_urls'], true)
+        && in_array('https://example.com/en/beta/', $GLOBALS['_deepglot_litespeed_purged_urls'], true),
+    'The retry completion must purge the second URL from every URL-aware cache integration.'
+);
+warmAssert(
+    $GLOBALS['_deepglot_wp_super_cache_purges'] === 1,
+    'WP Super Cache must receive one global purge only after all tracked pages complete.'
+);
+
+$client->reset();
+$retryTranslator = new HtmlTranslator($client, $options, $cache, null, $retryWarmer);
+$retryHtml = '<!DOCTYPE html><html><body><p>Alpha</p><p>Beta</p></body></html>';
+$retryRendered = $retryTranslator->translate(
+    $retryHtml,
+    'en',
+    'https://example.com/en/retry/',
+    BotDetector::HUMAN
+);
+warmAssert(
+    empty($client->batchCalls)
+        && str_contains($retryRendered, '[en] Alpha')
+        && str_contains($retryRendered, '[en] Beta'),
+    'After retry completion a later render must use the local cache without another provider call.'
 );
 
 // -----------------------------------------------------------------------------
@@ -685,6 +804,12 @@ $warmer->run();
 warmAssert(
     in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_purged_urls'], true),
     'A completed warm run must purge the affected page from supported full-page caches.'
+);
+warmAssert(
+    in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_w3tc_purged_urls'], true)
+        && in_array('https://example.com/en/alpha/', $GLOBALS['_deepglot_litespeed_purged_urls'], true)
+        && $GLOBALS['_deepglot_wp_super_cache_purges'] === 1,
+    'A fully completed queue must exercise W3TC, LiteSpeed, and WP Super Cache purges.'
 );
 
 // -----------------------------------------------------------------------------
