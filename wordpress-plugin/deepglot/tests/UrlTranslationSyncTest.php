@@ -139,11 +139,13 @@ require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/TranslationWarmer.php';
 require_once __DIR__ . '/../includes/Frontend/MultilingualSitemap.php';
+require_once __DIR__ . '/../includes/Frontend/RequestRouter.php';
 require_once __DIR__ . '/../includes/Support/UrlTranslationSync.php';
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Frontend\MultilingualSitemap;
+use Deepglot\Frontend\RequestRouter;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationWarmer;
 use Deepglot\Support\UrlLanguageResolver;
@@ -191,7 +193,7 @@ function syncReset(): void
     unset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']);
 }
 
-/** @return array{0: UrlTranslationSync, 1: UrlSyncFakeSitemap, 2: UrlSyncFakeWarmer} */
+/** @return array{0: UrlTranslationSync, 1: UrlSyncFakeSitemap, 2: UrlSyncFakeWarmer, 3: Options, 4: SiteRouting} */
 function syncFixture(array $entries): array
 {
     $options = new Options();
@@ -213,7 +215,7 @@ function syncFixture(array $entries): array
     $sitemap->entries = $entries;
     $warmer = new UrlSyncFakeWarmer();
 
-    return [new UrlTranslationSync($options, $routing, $sitemap, $warmer), $sitemap, $warmer];
+    return [new UrlTranslationSync($options, $routing, $sitemap, $warmer), $sitemap, $warmer, $options, $routing];
 }
 
 /** @return array<string,mixed> */
@@ -317,8 +319,8 @@ syncAssert(
 // 2. Public query contract accepts only a live HMAC-signed token for the exact
 // target URL (including its ordinary query, excluding the control argument).
 syncReset();
-[$sync] = syncFixture([[
-    'loc' => 'https://example.com/a/?topic=one&tag=a&tag=b&encoded=%2Fkeep%2F',
+[$sync, , , $options, $routing] = syncFixture([[
+    'loc' => 'https://example.com/?topic=one&tag=a&tag=b&encoded=%2Fkeep%2F',
 ]]);
 $activePreview = $sync->preview(['en'], 1);
 $status = $sync->start(['en'], 1, (string) $activePreview['preview_token']);
@@ -344,27 +346,51 @@ $token = (string) ($_GET[UrlTranslationSync::QUERY_ARG] ?? '');
 syncAssert($sync->isCurrentRequest(), 'The active job token must authorize the control query.');
 syncAssert(!array_key_exists('request_secret', $sync->status()), 'The HMAC secret must never leak through public job status.');
 
-$_SERVER['REQUEST_URI'] = str_replace('/en/a/', '/en/b/', $_SERVER['REQUEST_URI']);
+$originalLocalizedUri = $_SERVER['REQUEST_URI'];
+$router = new RequestRouter($options, $routing);
+$router->rewriteRequestUri();
+syncAssert(
+    !str_starts_with((string) $_SERVER['REQUEST_URI'], '/en/'),
+    'RequestRouter must reproduce the Stage rewrite by stripping /en/ before output processing.'
+);
 syncAssert(
     !$sync->isCurrentRequest(),
+    'The already rewritten REQUEST_URI cannot satisfy the URL-bound token by itself.'
+);
+syncAssert(
+    method_exists($router, 'getOriginalRequestUri'),
+    'RequestRouter must expose its original localized URI for downstream sync authorization.'
+);
+syncAssert(
+    $sync->isCurrentRequest($router->getOriginalRequestUri()),
+    'Sync diagnostics must authorize against RequestRouter original URI after /en/ was stripped.'
+);
+$outputBufferSource = file_get_contents(__DIR__ . '/../includes/Frontend/OutputBuffer.php');
+syncAssert(
+    is_string($outputBufferSource)
+        && str_contains($outputBufferSource, 'isCurrentRequest($this->router->getOriginalRequestUri())'),
+    'OutputBuffer must pass RequestRouter original URI explicitly to sync authorization.'
+);
+
+$otherUri = '/en/b/?' . (string) ($requestedParts['query'] ?? '');
+syncAssert(
+    !$sync->isCurrentRequest($otherUri),
     'A token issued for snapshot URL A must not authorize another internal URL B.'
 );
-$_SERVER['REQUEST_URI'] = str_replace('/en/b/', '/en/a/', $_SERVER['REQUEST_URI']);
-$_SERVER['REQUEST_URI'] = str_replace('topic=one', 'topic=two', $_SERVER['REQUEST_URI']);
+$changedQueryUri = str_replace('topic=one', 'topic=two', $originalLocalizedUri);
 syncAssert(
-    !$sync->isCurrentRequest(),
+    !$sync->isCurrentRequest($changedQueryUri),
     'A token must not authorize a different ordinary query on the same host and path.'
 );
-$_SERVER['REQUEST_URI'] = str_replace('topic=two', 'topic=one', $_SERVER['REQUEST_URI']);
 
 $_GET[UrlTranslationSync::QUERY_ARG] = substr($token, 0, -1) . ($token[-1] === 'a' ? 'b' : 'a');
-syncAssert(!$sync->isCurrentRequest(), 'A forged signature must not be trusted even when the job ID prefix matches.');
+syncAssert(!$sync->isCurrentRequest($originalLocalizedUri), 'A forged signature must not be trusted even when the job ID prefix matches.');
 $rawJob = get_option(UrlTranslationSync::JOB_OPTION, []);
 $expiredParts = explode('.', $token);
 $expiredParts[1] = (string) (time() - 1);
 $expiredPayload = implode('.', array_slice($expiredParts, 0, -1));
 $_GET[UrlTranslationSync::QUERY_ARG] = $expiredPayload . '.' . hash_hmac('sha256', $expiredPayload, $rawJob['request_secret']);
-syncAssert(!$sync->isCurrentRequest(), 'A correctly signed but expired control token must not be trusted.');
+syncAssert(!$sync->isCurrentRequest($originalLocalizedUri), 'A correctly signed but expired control token must not be trusted.');
 $_GET[UrlTranslationSync::QUERY_ARG] = $token;
 syncAssert(
     $sync->stripQueryArg('/en/offer/?topic=a&' . UrlTranslationSync::QUERY_ARG . '=' . rawurlencode($token) . '#details') === '/en/offer/?topic=a#details',

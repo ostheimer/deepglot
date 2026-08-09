@@ -373,7 +373,7 @@ class UrlTranslationSync
      * non-terminal job. A copied job ID or random public query parameter can
      * therefore never opt a response into sync-only headers/cache behaviour.
      */
-    public function isCurrentRequest(): bool
+    public function isCurrentRequest(?string $requestUri = null): bool
     {
         $token = RequestInput::query(self::QUERY_ARG);
         if ($token === '') {
@@ -412,7 +412,7 @@ class UrlTranslationSync
             return false;
         }
 
-        $currentIdentity = $this->currentRequestIdentity();
+        $currentIdentity = $this->currentRequestIdentity($requestUri);
         return $currentIdentity !== null
             && hash_equals($urlHash, hash('sha256', $currentIdentity));
     }
@@ -760,14 +760,16 @@ class UrlTranslationSync
         ]);
     }
 
-    private function currentRequestIdentity(): ?string
+    private function currentRequestIdentity(?string $requestUri = null): ?string
     {
         $host = RequestInput::server('HTTP_HOST');
         if ($host === '') {
             return null;
         }
 
-        $uri = $this->stripQueryArg(RequestInput::server('REQUEST_URI', '/'));
+        $uri = $this->stripQueryArg(
+            $requestUri ?? RequestInput::server('REQUEST_URI', '/')
+        );
         $path = str_starts_with($uri, '/') ? $uri : '/' . $uri;
         return $this->requestIdentity('https://' . $host . $path);
     }

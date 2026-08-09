@@ -479,6 +479,7 @@ class OutputBuffer
 
     private function currentRequestUrl(): string
     {
+        $originalUri = $this->router->getOriginalRequestUri();
         $uri = RequestInput::server('REQUEST_URI', '/');
         $targetLanguage = $this->detectTargetLanguage();
 
@@ -497,8 +498,11 @@ class OutputBuffer
     {
         $uri = RequestInput::server('REQUEST_URI', '/');
 
-        if ($this->urlSync !== null && $this->urlSync->isCurrentRequest()) {
-            $uri = $this->urlSync->stripQueryArg($uri);
+        if (
+            $this->urlSync !== null
+            && $this->urlSync->isCurrentRequest($originalUri)
+        ) {
+            $uri = $this->urlSync->stripQueryArg($originalUri ?? $uri);
         }
 
         if (function_exists('home_url')) {
@@ -516,7 +520,10 @@ class OutputBuffer
      */
     private function emitUrlSyncDiagnostics(string $targetLanguage): void
     {
-        if ($this->urlSync === null || !$this->urlSync->isCurrentRequest()) {
+        if (
+            $this->urlSync === null
+            || !$this->urlSync->isCurrentRequest($this->router->getOriginalRequestUri())
+        ) {
             return;
         }
 
