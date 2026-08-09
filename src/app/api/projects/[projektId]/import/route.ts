@@ -22,6 +22,12 @@ import { getCookieLocale } from "@/lib/request-locale";
 import { recordTranslationBatch } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
 import { workflowResetFieldsIfTranslatedTextChanged } from "@/lib/translation-workflow";
+import {
+  assertPostgresTextFields,
+  inspectPostgresText,
+  PostgresTextBoundaryError,
+  reportPostgresTextRejection,
+} from "@/lib/postgres-text";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -58,10 +64,27 @@ class ImportError extends Error {
  * ImportError, so actionable messages (e.g. "Invalid CSV headers. Expected …
  * but received …") reach the client instead of a generic "Import failed".
  */
-function parseImport<T>(parse: () => T): T {
+function parseImport<T>(parse: () => T, locale: SiteLocale): T {
   try {
     return parse();
   } catch (error) {
+    if (error instanceof PostgresTextBoundaryError) {
+      reportPostgresTextRejection(error);
+      const position = error.event.index
+        ? t(
+            locale,
+            ` in Zeile/Eintrag ${error.event.index}`,
+            ` at line/entry ${error.event.index}`,
+          )
+        : "";
+      throw new ImportError(
+        t(
+          locale,
+          `Das Importfeld „${error.event.field}“${position} enthält ein nicht unterstütztes NUL-Zeichen (U+0000).`,
+          `Import field "${error.event.field}"${position} contains an unsupported NUL character (U+0000).`,
+        ),
+      );
+    }
     throw new ImportError(
       error instanceof Error ? error.message : "Invalid file"
     );
@@ -174,7 +197,14 @@ async function importTranslationsPo(
     );
   }
 
-  const rows = parseImport(() => parsePoTranslations(content));
+  const langToError = inspectPostgresText(langTo, {
+    boundary: "translation_import_input",
+    field: "langTo",
+  });
+  const rows = parseImport(() => {
+    if (langToError) throw langToError;
+    return parsePoTranslations(content);
+  }, locale);
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(access, [langTo], locale);
 
@@ -201,6 +231,15 @@ async function importTranslationsPo(
         translatedText: true,
       },
     });
+    assertPostgresTextFields(
+      {
+        originalText: row.originalText,
+        translatedText: row.translatedText,
+        langFrom: project.originalLang,
+        langTo,
+      },
+      { boundary: "translation_import_persistence" },
+    );
     const translation = await tx.translation.upsert({
       where: { projectId_originalHash: { projectId: project.id, originalHash } },
       create: {
@@ -281,7 +320,7 @@ async function importTranslationsCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
-  const rows = parseImport(() => parseTranslationsCsv(content));
+  const rows = parseImport(() => parseTranslationsCsv(content), locale);
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
     access,
@@ -316,6 +355,15 @@ async function importTranslationsCsv(
         translatedText: true,
       },
     });
+    assertPostgresTextFields(
+      {
+        originalText: row.originalText,
+        translatedText: row.translatedText,
+        langFrom: row.langFrom,
+        langTo: row.langTo,
+      },
+      { boundary: "translation_import_persistence", index: row.line },
+    );
     const translation = await tx.translation.upsert({
       where: { projectId_originalHash: { projectId: project.id, originalHash } },
       create: {
@@ -371,7 +419,7 @@ async function importTranslationsCsv(
     { langFrom: string; langTo: string; words: number }
   >();
   for (const row of rows) {
-    const key = `${row.langFrom} ${row.langTo}`;
+    const key = JSON.stringify([row.langFrom, row.langTo]);
     const entry =
       wordsByPair.get(key) ??
       { langFrom: row.langFrom, langTo: row.langTo, words: 0 };
@@ -412,7 +460,7 @@ async function importGlossaryCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
-  const rows = parseImport(() => parseGlossaryCsv(content));
+  const rows = parseImport(() => parseGlossaryCsv(content), locale);
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
     access,
@@ -494,7 +542,7 @@ async function importSlugsCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
-  const rows = parseImport(() => parseSlugsCsv(content));
+  const rows = parseImport(() => parseSlugsCsv(content), locale);
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
     access,

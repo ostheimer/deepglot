@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -110,6 +112,35 @@ test("rejects unexpected CSV headers", () => {
   );
 });
 
+test("rejects NUL in translation CSV fields before persistence", () => {
+  const header =
+    "originalText,translatedText,langFrom,langTo,isManual,source";
+  const cases = [
+    `Hallo\u0000Welt,Hello,de,en,true,IMPORT`,
+    `Hallo,Hel\u0000lo,de,en,true,IMPORT`,
+    `Hallo,Hello,d\u0000e,en,true,IMPORT`,
+    `Hallo,Hello,de,e\u0000n,true,IMPORT`,
+  ];
+
+  for (const row of cases) {
+    assert.throws(
+      () => parseTranslationsCsv(`${header}\n${row}`),
+      /U\+0000/,
+    );
+  }
+});
+
+test("rejects NUL in PO source or translated text before persistence", () => {
+  assert.throws(
+    () => parsePoTranslations('msgid "Hallo\u0000Welt"\nmsgstr "Hello"\n'),
+    /U\+0000/,
+  );
+  assert.throws(
+    () => parsePoTranslations('msgid "Hallo"\nmsgstr "Hel\u0000lo"\n'),
+    /U\+0000/,
+  );
+});
+
 test("guards spreadsheet formula leads on export and round-trips on import", () => {
   const csv = serializeTranslationsCsv([
     {
@@ -191,4 +222,15 @@ test("sanitizeFilenamePart removes header-injection characters", () => {
 
 test("MAX_IMPORT_ROWS is a sane positive bound", () => {
   assert.ok(Number.isInteger(MAX_IMPORT_ROWS) && MAX_IMPORT_ROWS > 0);
+});
+
+test("import route source contains no literal NUL byte", () => {
+  const source = readFileSync(
+    path.join(
+      process.cwd(),
+      "src/app/api/projects/[projektId]/import/route.ts",
+    ),
+    "utf8",
+  );
+  assert.equal(source.includes("\u0000"), false);
 });

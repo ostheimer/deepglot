@@ -252,6 +252,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Öffentliche und Plugin-Routen verwenden einen Problem-Details-artigen JSON-Vertrag. error bleibt als Legacy-Alias für bestehende Plugin-Versionen erhalten. Clients sollen code und status auswerten; detail ist für Menschen."
               : "Public and plugin routes use a Problem Details-style JSON contract. error remains as a legacy alias for existing plugin versions. Clients should branch on code and status; detail is human-readable."}
           </p>
+          <p className="mt-3 leading-7 text-gray-700">
+            {de
+              ? "Ein validation_failed für U+0000 bedeutet, dass ein Text-, Sprach-, Titel- oder Anfrage-URL-Feld ein von PostgreSQL nicht unterstütztes NUL-Zeichen enthält. Deepglot sendet solche Eingaben nicht an einen Anbieter und speichert sie nicht. Entferne ausschließlich U+0000 vor einem erneuten Versuch; andere Steuerzeichen und gültige Unicode-Zeichen sind erlaubt."
+              : "A validation_failed response for U+0000 means a text, language, title, or request-URL field contains a NUL character that PostgreSQL cannot represent. Deepglot does not send that input to a provider or store it. Remove only U+0000 before retrying; other control characters and valid Unicode are supported."}
+          </p>
           <div className="mt-5"><CodeBlock>{PROBLEM_DETAILS_EXAMPLE}</CodeBlock></div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {["400 validation_failed", "401 missing_api_key / invalid_api_key", "402 quota_exhausted", "409 idempotency_conflict", "429 rate_limit_exceeded / velocity_limited", "500 internal_error", "503 service_unavailable"].map((item) => (

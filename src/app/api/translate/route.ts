@@ -41,6 +41,11 @@ import {
 } from "@/lib/api-idempotency";
 import { findOrganizationTranslationMemory } from "@/lib/translation-memory";
 import { resetTranslationWorkflowAfterContentEdit } from "@/lib/translation-workflow";
+import {
+  assertPostgresTextFields,
+  inspectPostgresText,
+  reportPostgresTextRejection,
+} from "@/lib/postgres-text";
 
 export const runtime = "nodejs";
 
@@ -199,9 +204,36 @@ async function executeAuthenticatedTranslateRequest(
       validationErrors.l_to = ["Erforderlich"];
     }
 
+    const rejectNul = (value: unknown, field: string, index?: number) => {
+      if (typeof value !== "string") return;
+      const error = inspectPostgresText(value, {
+        boundary: "translate_api_input",
+        field,
+        ...(index === undefined ? {} : { index }),
+      });
+      if (!error) return;
+
+      reportPostgresTextRejection(error);
+      validationErrors[field] = [
+        "NUL-Zeichen (U+0000) sind in Übersetzungstexten nicht erlaubt.",
+      ];
+    };
+
+    if (Array.isArray(words)) {
+      words.forEach((word, index) => {
+        if (word && typeof word === "object") {
+          rejectNul((word as { w?: unknown }).w, `words.${index}.w`, index);
+        }
+      });
+    }
+    rejectNul(l_from, "l_from");
+    rejectNul(l_to, "l_to");
+    rejectNul(request_url, "request_url");
+    rejectNul(title, "title");
+
     if (Object.keys(validationErrors).length > 0) {
       return validationProblem({
-        detail: "Pflichtfelder fehlen oder sind ungültig: words, l_from, l_to",
+        detail: "Der Request enthält fehlende oder ungültige Felder.",
         instance: "/api/translate",
         errors: validationErrors,
       });
@@ -491,6 +523,19 @@ async function executeAuthenticatedTranslateRequest(
               const translated = restoreGlossaryTerms(
                 results[resultIndex].text,
                 item.protection,
+              );
+
+              assertPostgresTextFields(
+                {
+                  originalText: texts[item.index],
+                  translatedText: translated,
+                  langFrom: l_from,
+                  langTo: l_to,
+                },
+                {
+                  boundary: "translation_persistence",
+                  index: item.index,
+                },
               );
 
               translatedTexts[item.index] = translated;
