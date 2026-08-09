@@ -420,8 +420,16 @@ $warmer->queue = [];
 $GLOBALS['_dg_sync_scheduled'] = [];
 $sync->resume();
 $sync->run();
-syncAssert(count($GLOBALS['_dg_sync_requests']) === 2, 'One cron run must open at most two URLs.');
-foreach ($GLOBALS['_dg_sync_requests'] as $request) {
+$signedRequests = array_values(array_filter(
+    $GLOBALS['_dg_sync_requests'],
+    static fn(array $request): bool => str_contains(
+        $request['url'],
+        UrlTranslationSync::QUERY_ARG . '='
+    )
+));
+syncAssert(count($signedRequests) === 2, 'One cron run must open at most two signed target URLs.');
+syncAssert(count($GLOBALS['_dg_sync_requests']) === 4, 'Each completed target may add one bounded public status probe.');
+foreach ($signedRequests as $request) {
     syncAssert(($request['args']['redirection'] ?? null) === 0, 'Sync requests must not follow redirects.');
     syncAssert(($request['args']['sslverify'] ?? null) === true, 'TLS verification must stay enabled.');
     syncAssert(str_contains($request['url'], UrlTranslationSync::QUERY_ARG . '='), 'Every request needs a cache-busting control query.');
@@ -450,6 +458,61 @@ $sync->run();
 syncAssert(
     $sync->status()['retry_count'] === 1 && $sync->status()['last_error'] === 'language_mismatch',
     'A sync response must echo the exact item language before it can complete.'
+);
+
+// A signed cache-busting request can return a healthy translated 200 while the
+// public query-free cache still redirects visitors back to the source URL.
+// pending=0 is therefore only complete after a separate cache-only status hit.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/?preview=1']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'en',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+    'location' => 'https://example.com/a-de/',
+]];
+$sync->run();
+$publicFallback = $sync->status();
+syncAssert(
+    $publicFallback['status'] !== 'completed'
+        && $publicFallback['retry_count'] === 1
+        && $publicFallback['last_error'] === 'public_status_redirect_301',
+    'A query-free public redirect must keep the item in the bounded retry path.'
+);
+syncAssert(count($GLOBALS['_dg_sync_requests']) === 2, 'pending=0 must trigger one separate public status probe.');
+$statusProbe = $GLOBALS['_dg_sync_requests'][1];
+syncAssert(
+    $statusProbe['url'] === 'https://example.com/en/a/',
+    'The public status probe must remove every cache-busting or ordinary query parameter.'
+);
+syncAssert(
+    ($statusProbe['args']['redirection'] ?? null) === 0
+        && ($statusProbe['args']['sslverify'] ?? null) === true
+        && ($statusProbe['args']['limit_response_size'] ?? null) === 1
+        && preg_match('/bot/i', (string) ($statusProbe['args']['user-agent'] ?? '')) === 1,
+    'The status probe must be safe, no-redirect, body-bounded and cache-only for translation.'
+);
+for ($attempt = 1; $attempt < UrlTranslationSync::MAX_NO_PROGRESS_RETRIES; $attempt++) {
+    $job = get_option(UrlTranslationSync::JOB_OPTION, []);
+    $job['status'] = 'queued';
+    $job['next_run_at'] = 0;
+    $job['urls'][0]['next_attempt_at'] = 0;
+    update_option(UrlTranslationSync::JOB_OPTION, $job, false);
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+        'x-deepglot-sync-pending-segments' => '0',
+        'x-deepglot-sync-language' => 'en',
+    ]];
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+        'location' => 'https://example.com/a-de/',
+    ]];
+    $sync->run();
+}
+syncAssert(
+    $sync->status()['status'] === 'completed_with_errors'
+        && $sync->status()['failed'] === 1,
+    'Repeated public-cache redirects must stop at the existing no-progress retry cap.'
 );
 
 // 5. Transient failures back off; redirects are failures, never followed.

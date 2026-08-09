@@ -882,8 +882,35 @@ class UrlTranslationSync
         }
 
         $pending = (int) $pendingHeader;
-        $item['failure_count'] = 0;
         if ($pending === 0) {
+            $publicStatus = $this->probePublicStatus((string) ($item['url'] ?? ''));
+            if (is_wp_error($publicStatus)) {
+                $this->retryItem(
+                    $job,
+                    $index,
+                    $item,
+                    'public_status_request_failed',
+                    $now
+                );
+                return;
+            }
+
+            $publicCode = wp_remote_retrieve_response_code($publicStatus);
+            $publicLocation = trim((string) wp_remote_retrieve_header(
+                $publicStatus,
+                'location'
+            ));
+            if ($publicCode !== 200 || $publicLocation !== '') {
+                $publicError = $publicCode >= 300 && $publicCode < 400
+                    ? 'public_status_redirect_' . $publicCode
+                    : ($publicCode !== 200
+                        ? 'public_status_http_' . $publicCode
+                        : 'public_status_location');
+                $this->retryItem($job, $index, $item, $publicError, $now);
+                return;
+            }
+
+            $item['failure_count'] = 0;
             $item['state'] = 'completed';
             $item['next_attempt_at'] = 0;
             $item['last_error'] = null;
@@ -894,6 +921,7 @@ class UrlTranslationSync
             return;
         }
 
+        $item['failure_count'] = 0;
         $item['warm_rounds'] = (int) ($item['warm_rounds'] ?? 0) + 1;
         if ($item['warm_rounds'] > self::MAX_WARM_ROUNDS) {
             $item['state'] = 'failed';
@@ -911,6 +939,39 @@ class UrlTranslationSync
         $job['next_run_at'] = $item['next_attempt_at'];
         $this->storeJobIfUnchanged($expectedJob, $job);
         $this->ensureWarmerScheduled();
+    }
+
+    /**
+     * Verifies the public cache key without a query string. The bot signature
+     * keeps HtmlTranslator cache-only, so this probe can neither call a
+     * provider nor add missing text to TranslationWarmer.
+     *
+     * @return array<string,mixed>|\WP_Error
+     */
+    private function probePublicStatus(string $url)
+    {
+        $parts = wp_parse_url($url);
+        if (!$this->isSafeInternalParts($parts)) {
+            return new \WP_Error('deepglot_url_sync_unsafe_status_probe');
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? 'https'));
+        $probeUrl = $scheme . '://' . (string) $parts['host'];
+        if (isset($parts['port'])) {
+            $probeUrl .= ':' . (int) $parts['port'];
+        }
+        $probeUrl .= (string) ($parts['path'] ?? '/');
+
+        return wp_safe_remote_get($probeUrl, [
+            'timeout' => self::REQUEST_TIMEOUT,
+            'redirection' => 0,
+            'sslverify' => true,
+            'limit_response_size' => 1,
+            'user-agent' => 'DeepglotCacheProbeBot/0.12 (+https://deepglot.ai)',
+            'headers' => [
+                'Accept' => 'text/html,application/xhtml+xml',
+            ],
+        ]);
     }
 
     /** @param array<string,mixed> $job @param array<string,mixed> $item */
