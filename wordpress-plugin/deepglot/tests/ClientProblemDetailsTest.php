@@ -13,11 +13,34 @@ if (!function_exists('__')) {
     $GLOBALS['_deepglot_problem_status'] = 400;
     $GLOBALS['_deepglot_problem_headers'] = [];
     $GLOBALS['_deepglot_problem_transients'] = [];
+    $GLOBALS['_deepglot_problem_options'] = [];
 
     function get_option($key, $default = false) {
-        return $key === 'deepglot_settings'
-            ? ['api_base_url' => 'https://deepglot.test/api']
-            : $default;
+        if ($key === 'deepglot_settings') {
+            return [
+                'api_base_url' => 'https://deepglot.test/api',
+                'api_key' => 'dg_problem_test',
+            ];
+        }
+
+        return $GLOBALS['_deepglot_problem_options'][$key] ?? $default;
+    }
+
+    function add_option($key, $value, $deprecated = '', $autoload = true) {
+        if (array_key_exists($key, $GLOBALS['_deepglot_problem_options'])) {
+            return false;
+        }
+        $GLOBALS['_deepglot_problem_options'][$key] = $value;
+        return true;
+    }
+
+    function update_option($key, $value, $autoload = null) {
+        $GLOBALS['_deepglot_problem_options'][$key] = $value;
+        return true;
+    }
+
+    function wp_cache_delete($key, $group = '') {
+        return true;
     }
 
     function wp_parse_args($args, $defaults = []) {
@@ -157,14 +180,22 @@ $GLOBALS['_deepglot_problem_status'] = 429;
 $GLOBALS['_deepglot_problem_headers'] = ['retry-after' => '120'];
 $rateLimited = $client->listLanguages();
 clientProblemCheck(is_wp_error($rateLimited), 'A 429 response must remain an API error.');
+clientProblemCheck(
+    Client::rateLimitRetryAt() === 0,
+    'A public control-plane 429 must not arm the translation-specific marker.'
+);
+
+$translationRateLimited = $client->translate(['Rate-limited translation'], 'de', 'en');
+clientProblemCheck(is_wp_error($translationRateLimited), 'A translation 429 must remain an API error.');
 $retryAt = Client::rateLimitRetryAt();
 clientProblemCheck(
     $retryAt >= time() + 110 && $retryAt <= time() + 130,
-    'The client must persist a bounded Retry-After marker for background backpressure.'
+    'A translation 429 must persist a bounded Retry-After marker for background backpressure.'
 );
 
 $GLOBALS['_deepglot_parallel_retry_after'] = '1800';
 $GLOBALS['_deepglot_problem_transients'] = [];
+unset($GLOBALS['_deepglot_problem_options'][Client::RATE_LIMIT_OPTION]);
 $parallelRateLimited = $client->translateBatches([
     ['first'],
     ['second'],
@@ -172,6 +203,14 @@ $parallelRateLimited = $client->translateBatches([
 clientProblemCheck(
     count(array_filter($parallelRateLimited, 'is_wp_error')) === 2,
     'Parallel 429 responses must remain API errors.'
+);
+$firstParallelError = reset($parallelRateLimited);
+$firstParallelData = $firstParallelError instanceof WP_Error
+    ? $firstParallelError->get_error_data()
+    : [];
+clientProblemCheck(
+    ($firstParallelData['retry_after'] ?? null) === 1800,
+    'Parallel errors must preserve a fixed-window Retry-After beyond the former five-minute cap.'
 );
 $parallelRetryAt = Client::rateLimitRetryAt();
 clientProblemCheck(

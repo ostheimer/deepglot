@@ -103,6 +103,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#text-safety" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Textgrenzen" : "Text boundaries"}
             </a>
+            <a href="#rate-limit-backoff" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "429 und Wartezeit" : "429 and backoff"}
+            </a>
             <a href="#wordpress-releases" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               WordPress 0.11.4–0.11.7
             </a>
@@ -191,6 +194,58 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                   ? "Enthält stattdessen die Antwort eines Übersetzungsanbieters U+0000, wird dieses Ergebnis nicht gespeichert. Ein konfigurierter Ersatzanbieter kann übernehmen; schlägt auch die Anbieterkette fehl, endet die Anfrage ohne Versuch, Übersetzungsinhalte zu persistieren. Protokolliert werden nur Grenze, Feld, Anzahl und Anbieter — niemals Text oder URL."
                   : "If a translation provider response contains U+0000, that result is not stored. A configured fallback provider can take over; if the provider chain still fails, the request ends without attempting translation-content persistence. Logs contain only the boundary, field, count, and provider — never text or URLs."}
               </p>
+            </div>
+          </section>
+
+          <section id="rate-limit-backoff" data-testid="help-rate-limit-backoff" className="scroll-mt-8 pt-24">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
+                {de ? "Begrenzte Wiederholungen" : "Bounded retries"}
+              </p>
+              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em] hyphens-auto [overflow-wrap:anywhere]">
+                {de
+                  ? "429 ohne Wiederholungsschleife beachten"
+                  : "Respecting a 429 without a retry storm"}
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#58636d]">
+                {de
+                  ? "Ein HTTP 429 ist eine vorübergehende Begrenzung, kein verbrauchtes Monatskontingent. Deepglot übernimmt Retry-After als Sekundenwert oder HTTP-Datum und begrenzt die Wartezeit auf 1 bis 3.600 Sekunden. Fehlt ein gültiger Wert, gelten 60 Sekunden. Das Stundenlimit selbst wurde dabei nicht angehoben. Mit einem Idempotency-Key teilen gleichzeitige Aufrufe dieselbe 429-Antwort bis zum verbleibenden Retry-After; danach wird die Anfrage neu ausgeführt. Ein aktiver 429-Marker stoppt synchrone Visual-Editor- und E-Mail-Aufrufe sowie bereits fällige Warmup-Läufe lokal bis retry_at. Nur Translation-429-Antworten setzen den aktiven Marker; 429-Antworten von Konfigurations- und Synchronisationsaufrufen tun das nicht. Marker und Warmer-Wartezustand sind an API-Schlüssel und Backend gebunden. Konfigurationswechsel, verspätete Antworten der alten Konfiguration und alte ungebundene Marker blockieren keine neuen Übersetzungen. Der WordPress-Warmer teilt einen mehrteiligen 422-Stapel unter dem bestehenden Laufbudget von sechs Stapeln automatisch binär. Jede 422-Stapelform wird bis zu einer Stunde mit einem konfigurationsgebundenen HMAC-Fingerabdruck nachverfolgt und steuert so die begrenzte Aufteilung. Nur ein Text, der allein weiterhin 422 liefert – also ein einzeln zu großer Text –, wird bis zu einer Stunde von automatischen Wiederholungen ausgeschlossen; dabei werden keine Rohtexte, API-Schlüssel oder URLs gespeichert. Normale folgende Stapel laufen weiter, und ein Schlüssel- oder Backendwechsel heilt den Marker sofort. API-Anfragen und PDFs müssen Clients weiterhin kleiner teilen."
+                  : "HTTP 429 is a temporary limit, not exhausted monthly quota. Deepglot accepts Retry-After as delta seconds or an HTTP date and bounds the delay to 1 to 3,600 seconds. An invalid or missing value uses 60 seconds. This does not raise the hourly threshold. With an Idempotency-Key, concurrent calls share the same 429 response until the remaining Retry-After expires; after that, the request executes again. An active 429 marker stops synchronous visual-editor and email calls and already-due warm-up runs locally until retry_at. Only translation 429 responses set the active marker; configuration and synchronization 429 responses do not. The marker and warmer backoff are bound to the API key and backend. Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations. The WordPress warmer splits a multi-text 422 batch automatically into halves under the existing six-batch run budget. Every 422 batch shape is tracked for up to one hour by a configuration-bound HMAC fingerprint to drive bounded splitting. Only a text that still returns 422 alone—text that is still too large alone—is blocked from automatic resend for up to one hour; no raw text, API keys, or URLs are stored. Normal following batches continue, and a key or backend change heals the marker immediately. API requests and PDFs must still be split into smaller inputs by clients."}
+              </p>
+            </div>
+
+            <div data-testid="rate-limit-backoff-flow" className="mt-10 grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  step: "1",
+                  title: de ? "429 einordnen" : "Classify the 429",
+                  body: de
+                    ? "Die Antwort unterscheidet Anfrage- und Wortgeschwindigkeitslimits und liefert eine begrenzte Wartezeit."
+                    : "The response distinguishes request and fresh-word velocity limits and provides a bounded delay.",
+                },
+                {
+                  step: "2",
+                  title: de ? "Weitere Aufrufe stoppen" : "Stop later calls",
+                  body: de
+                    ? "Nach dem ersten seriellen 429 sendet der WordPress-Client keine weiteren Stapel dieser Folge. Bereits gestartete parallele Stapel behalten ihre eigenen Antworten; für neue dynamische Arbeit gilt die längste Wartezeit."
+                    : "After the first sequential 429, the WordPress client sends no later batches in that sequence. Parallel batches already in flight keep their own responses; new dynamic work keeps the longest delay.",
+                },
+                {
+                  step: "3",
+                  title: de ? "Cache und Queue schützen" : "Protect cache and queues",
+                  body: de
+                    ? "Die Warmup-Queue wartet bis Retry-After. Ein 422 velocity_request_too_large ist nicht wiederholbar: Jede Stapelform steuert über ihren höchstens einstündigen HMAC-Fingerabdruck die begrenzte Aufteilung; nur ein Text, der allein weiterhin 422 liefert, wird von automatischen Wiederholungen ausgeschlossen. API-Anfragen und PDFs musst du kleiner teilen. Cache-Treffer bleiben verfügbar, sonst bleibt der Quelltext sichtbar."
+                    : "The warmup queue waits until Retry-After. A 422 velocity_request_too_large is not retryable: every batch shape drives bounded splitting through its at-most-one-hour HMAC fingerprint; only a text that still returns 422 alone is blocked from automatic resend. API requests and PDFs must be split into smaller inputs. Cache hits remain available and other content stays in the source language.",
+                },
+              ].map((item) => (
+                <article key={item.step} className="rounded-md border border-[#d8d6ce] bg-white p-6">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#071521] text-sm font-bold text-white">
+                    {item.step}
+                  </span>
+                  <h3 className="mt-5 text-lg font-bold [overflow-wrap:anywhere]">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#58636d]">{item.body}</p>
+                </article>
+              ))}
             </div>
           </section>
 

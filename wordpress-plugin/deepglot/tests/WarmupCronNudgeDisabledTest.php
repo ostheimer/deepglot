@@ -52,6 +52,18 @@ if (!defined('DAY_IN_SECONDS')) {
     define('DAY_IN_SECONDS', 86400);
 }
 
+if (!function_exists('wp_parse_args')) {
+    function wp_parse_args($args, $defaults = []) {
+        return array_merge($defaults, is_array($args) ? $args : []);
+    }
+}
+
+if (!function_exists('untrailingslashit')) {
+    function untrailingslashit($value) {
+        return rtrim((string) $value, '/');
+    }
+}
+
 require_once __DIR__ . '/../includes/Config/Options.php';
 require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';

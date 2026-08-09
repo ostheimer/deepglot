@@ -8,6 +8,7 @@ import {
   executeIdempotently,
   hashApiIdempotencyKey,
   hashApiIdempotencyRequestBody,
+  reportApiIdempotencyReplay,
   validateApiIdempotencyKey,
 } from "@/lib/api-idempotency";
 
@@ -36,6 +37,44 @@ test("hashes raw keys and canonical request bodies and enforces the public key b
     validateApiIdempotencyKey("x".repeat(API_IDEMPOTENCY_KEY_MAX_LENGTH + 1)),
     false,
   );
+});
+
+test("reports replay outcomes with pseudonyms and bounded response metadata only", () => {
+  const messages: string[] = [];
+  const event = reportApiIdempotencyReplay(
+    {
+      scope: "raw-api-key-id:POST:/api/translate",
+      key: "customer-chosen-secret-key",
+      response: {
+        status: 429,
+        headers: { "retry-after": "3600" },
+        body: {
+          code: "velocity_limited",
+          detail: "private translated payload must never appear",
+        },
+      },
+      retentionMs: 3_600_000,
+      pseudonymSecret: "test-observability-secret",
+    },
+    (message) => messages.push(message),
+  );
+
+  assert.equal(event.event, "api_idempotency_replay");
+  assert.equal(event.outcome, "replayed");
+  assert.equal(event.responseStatus, 429);
+  assert.equal(event.responseCode, "velocity_limited");
+  assert.equal(event.retentionSeconds, 3_600);
+  assert.match(event.scopePseudonym, /^[a-f0-9]{16}$/);
+  assert.match(event.keyPseudonym, /^[a-f0-9]{16}$/);
+  const serialized = messages.join("\n");
+  for (const secret of [
+    "raw-api-key-id",
+    "customer-chosen-secret-key",
+    "private translated payload",
+    "test-observability-secret",
+  ]) {
+    assert.ok(!serialized.includes(secret));
+  }
 });
 
 test("replays the first completed response without executing provider or usage side effects twice", async () => {
@@ -190,6 +229,159 @@ test("replays completed error responses but releases a failed execution for retr
   });
   assert.equal(recovered.kind, "executed");
   assert.equal(thrownExecutions, 2);
+});
+
+test("retains retryable 429 only until Retry-After but replays deterministic oversize for the normal retention", async () => {
+  const store = new MemoryApiIdempotencyStore();
+  let retryableExecutions = 0;
+  const retryableResponse = {
+    status: 429,
+    headers: {
+      "content-type": "application/problem+json",
+      "retry-after": "3600",
+    },
+    body: { code: "velocity_limited", retry_after: 3_600 },
+  };
+  const retryableRequest = {
+    scope: "api-key-1:/api/translate",
+    key: "retryable-velocity",
+    requestBody: { words: [{ w: "Hallo", t: 1 }] },
+    store,
+    responseRetentionMs: (response: { status: number }) =>
+      response.status === 429 ? 3_600_000 : API_IDEMPOTENCY_RETENTION_MS,
+    execute: async () => {
+      retryableExecutions += 1;
+      return retryableResponse;
+    },
+  };
+
+  const first = await executeIdempotently({
+    ...retryableRequest,
+    now: new Date("2026-08-09T00:00:00Z"),
+  });
+  const beforeReset = await executeIdempotently({
+    ...retryableRequest,
+    now: new Date("2026-08-09T00:59:59Z"),
+  });
+  const afterReset = await executeIdempotently({
+    ...retryableRequest,
+    now: new Date("2026-08-09T01:00:01Z"),
+  });
+
+  assert.equal(first.kind, "executed");
+  assert.equal(beforeReset.kind, "replayed");
+  assert.equal(beforeReset.response.headers["retry-after"], "1");
+  assert.deepEqual(beforeReset.response.body, {
+    code: "velocity_limited",
+    retry_after: 1,
+  });
+  assert.equal(
+    retryableResponse.headers["retry-after"],
+    "3600",
+    "replay normalization must not mutate the stored/original response",
+  );
+  assert.equal(retryableResponse.body.retry_after, 3_600);
+  assert.equal(afterReset.kind, "executed");
+  assert.equal(retryableExecutions, 2);
+
+  let oversizeExecutions = 0;
+  const oversizeRequest = {
+    scope: "api-key-1:/api/translate",
+    key: "deterministic-oversize",
+    requestBody: { words: [{ w: "too large", t: 1 }] },
+    store,
+    responseRetentionMs: (response: { status: number }) =>
+      response.status === 429 ? 3_600_000 : API_IDEMPOTENCY_RETENTION_MS,
+    execute: async () => {
+      oversizeExecutions += 1;
+      return {
+        status: 422,
+        headers: { "content-type": "application/problem+json" },
+        body: { code: "velocity_request_too_large" },
+      };
+    },
+  };
+
+  const oversizeFirst = await executeIdempotently(oversizeRequest);
+  const oversizeReplay = await executeIdempotently(oversizeRequest);
+
+  assert.equal(oversizeFirst.kind, "executed");
+  assert.equal(oversizeReplay.kind, "replayed");
+  assert.equal(oversizeExecutions, 1);
+});
+
+test("concurrent retryable same-key callers share one execution and the same 429", async () => {
+  const store = new MemoryApiIdempotencyStore();
+  let executions = 0;
+  let activeExecutions = 0;
+  let maxActiveExecutions = 0;
+  let releaseFirst!: () => void;
+  const firstGate = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const execute = async () => {
+    executions += 1;
+    activeExecutions += 1;
+    maxActiveExecutions = Math.max(maxActiveExecutions, activeExecutions);
+    if (executions === 1) await firstGate;
+    activeExecutions -= 1;
+    return {
+      status: 429,
+      headers: { "retry-after": "3600" },
+      body: { code: "velocity_limited", retry_after: 3_600 },
+    };
+  };
+  const request = {
+    scope: "api-key-1:/api/translate",
+    key: "concurrent-retryable-429",
+    requestBody: { words: [{ w: "Neu", t: 1 }] },
+    store,
+    responseRetentionMs: (response: { status: number }) =>
+      response.status === 429 ? 3_600_000 : API_IDEMPOTENCY_RETENTION_MS,
+    execute,
+  };
+
+  const firstPromise = executeIdempotently(request);
+  const secondPromise = executeIdempotently(request);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(executions, 1);
+  releaseFirst();
+  const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+  assert.equal(first.kind, "executed");
+  assert.equal(second.kind, "replayed");
+  assert.deepEqual(second.response, first.response);
+  assert.equal(executions, 1);
+  assert.equal(maxActiveExecutions, 1);
+});
+
+test("a response-specific retention can shorten but never extend the configured retention", async () => {
+  const store = new MemoryApiIdempotencyStore();
+  let executions = 0;
+  const base = {
+    scope: "api-key-1:/api/translate",
+    key: "bounded-response-retention",
+    requestBody: { words: [{ w: "Bounded", t: 1 }] },
+    store,
+    retentionMs: 60_000,
+    responseRetentionMs: 120_000,
+    execute: async () => {
+      executions += 1;
+      return okResponse;
+    },
+  };
+
+  await executeIdempotently({
+    ...base,
+    now: new Date("2026-08-09T12:00:00Z"),
+  });
+  const afterConfiguredRetention = await executeIdempotently({
+    ...base,
+    now: new Date("2026-08-09T12:01:01Z"),
+  });
+
+  assert.equal(afterConfiguredRetention.kind, "executed");
+  assert.equal(executions, 2);
 });
 
 test("allows a key to execute again after its bounded retention expires", async () => {

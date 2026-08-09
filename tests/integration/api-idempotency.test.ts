@@ -132,6 +132,97 @@ test(
   },
 );
 
+test(
+  "Prisma idempotency deduplicates retryable 429 until reset and retains deterministic oversize",
+  { skip: skipWithoutDatabase },
+  async () => {
+    const store = new PrismaApiIdempotencyStore();
+    const scope = uniqueScope("retryable-429");
+    const key = `retryable-${crypto.randomUUID()}`;
+    const requestBody = { words: [{ w: "Retry later", t: 1 }] };
+    let retryableExecutions = 0;
+    const windowStart = new Date();
+
+    const request = {
+      scope,
+      key,
+      requestBody,
+      store,
+      responseRetentionMs: (response: { status: number }) =>
+        response.status === 429 ? 3_600_000 : 24 * 60 * 60 * 1_000,
+      execute: async () => {
+        retryableExecutions += 1;
+        return {
+          status: 429,
+          headers: { "retry-after": "3600" },
+          body: { code: "velocity_limited", retry_after: 3_600 },
+        };
+      },
+    };
+
+    const first = await executeIdempotently({ ...request, now: windowStart });
+    const beforeReset = await executeIdempotently({
+      ...request,
+      now: new Date(windowStart.getTime() + 3_599_000),
+    });
+    const { db } = await import("@/lib/db");
+    const storedBeforeReset = await db.apiIdempotencyRecord.findUnique({
+      where: {
+        scope_keyHash: { scope, keyHash: hashApiIdempotencyKey(key) },
+      },
+      select: { responseHeaders: true, responseBody: true },
+    });
+    const afterReset = await executeIdempotently({
+      ...request,
+      now: new Date(windowStart.getTime() + 3_601_000),
+    });
+    assert.equal(first.kind, "executed");
+    assert.equal(beforeReset.kind, "replayed");
+    assert.equal(beforeReset.response.headers["retry-after"], "1");
+    assert.deepEqual(beforeReset.response.body, {
+      code: "velocity_limited",
+      retry_after: 1,
+    });
+    assert.equal(
+      (storedBeforeReset?.responseHeaders as Record<string, string>)["retry-after"],
+      "3600",
+      "the Prisma replay must not mutate its stored response headers",
+    );
+    assert.equal(
+      JSON.parse(storedBeforeReset?.responseBody ?? "null").retry_after,
+      3_600,
+      "the Prisma replay must not mutate its stored response body",
+    );
+    assert.equal(afterReset.kind, "executed");
+    assert.equal(retryableExecutions, 2);
+
+    assert.equal(
+      await db.apiIdempotencyRecord.count({ where: { scope } }),
+      1,
+      "the refreshed retryable response remains deduplicated until its next reset",
+    );
+
+    const oversizeScope = uniqueScope("oversize-422");
+    let oversizeExecutions = 0;
+    const oversizeRequest = {
+      ...request,
+      scope: oversizeScope,
+      key: `oversize-${crypto.randomUUID()}`,
+      execute: async () => {
+        oversizeExecutions += 1;
+        return {
+          status: 422,
+          headers: { "content-type": "application/problem+json" },
+          body: { code: "velocity_request_too_large" },
+        };
+      },
+    };
+    assert.equal((await executeIdempotently(oversizeRequest)).kind, "executed");
+    assert.equal((await executeIdempotently(oversizeRequest)).kind, "replayed");
+    assert.equal(oversizeExecutions, 1);
+  },
+);
+
 after(async () => {
   if (scopesToDelete.size > 0 && databaseUrl) {
     const { db } = await import("@/lib/db");

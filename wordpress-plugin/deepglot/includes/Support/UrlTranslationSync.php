@@ -499,7 +499,7 @@ class UrlTranslationSync
                 return;
             }
 
-            $rateLimitRetryAt = Client::rateLimitRetryAt();
+            $rateLimitRetryAt = Client::rateLimitRetryAtForOptions($this->options);
             if ($rateLimitRetryAt > $now) {
                 $nextJob = $job;
                 $nextJob['status'] = 'backoff_rate_limit';
@@ -1128,9 +1128,42 @@ class UrlTranslationSync
 
     private function ensureWarmerScheduled(): void
     {
-        if (!wp_next_scheduled(TranslationWarmer::HOOK)) {
-            wp_schedule_single_event(time(), TranslationWarmer::HOOK);
+        $identity = Client::configurationIdentityForOptions($this->options);
+        if ($identity === '') {
+            return;
         }
+
+        $eventArgs = [$identity];
+        if (wp_next_scheduled(TranslationWarmer::HOOK, $eventArgs)) {
+            return;
+        }
+
+        // Honor a due argument-less event during an upgrade. A future legacy
+        // event may belong to an old configuration, so it is safe to wait for
+        // it only when the current identity's bounded retry/backoff lasts at
+        // least that long. New events are always identity-scoped.
+        $legacyScheduledAt = wp_next_scheduled(TranslationWarmer::HOOK);
+        if ($legacyScheduledAt) {
+            $now = time();
+            if ((int) $legacyScheduledAt <= $now) {
+                return;
+            }
+
+            $backoff = get_option(TranslationWarmer::BACKOFF_OPTION, false);
+            $warmerRetryAt = is_array($backoff)
+                && ($backoff['identity'] ?? null) === $identity
+                ? (int) ($backoff['retry_at'] ?? 0)
+                : 0;
+            $currentRetryAt = max(
+                Client::rateLimitRetryAtForIdentity($identity),
+                $warmerRetryAt
+            );
+            if ($currentRetryAt >= (int) $legacyScheduledAt) {
+                return;
+            }
+        }
+
+        wp_schedule_single_event(time(), TranslationWarmer::HOOK, $eventArgs);
     }
 
     private function schedule(int $delay): void

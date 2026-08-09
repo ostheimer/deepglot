@@ -4,6 +4,7 @@ namespace Deepglot\Sync;
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
+use Deepglot\Support\TranslationWarmer;
 
 class SettingsSync
 {
@@ -42,6 +43,7 @@ class SettingsSync
             // this reset a corrected key would only take effect once the
             // circuit breaker's TTL expired (#245).
             delete_transient(Client::INVALID_API_KEY_TRANSIENT);
+            $this->schedulePendingWarmQueueForIdentityChange($oldValue, $newValue);
         }
 
         $result = $this->sync($newValue);
@@ -49,6 +51,43 @@ class SettingsSync
         if (is_wp_error($result)) {
             // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Operational sync failures must reach the site error log without exposing credentials.
             error_log('[Deepglot] Settings sync failed: ' . $result->get_error_message());
+        }
+    }
+
+    private function schedulePendingWarmQueueForIdentityChange($oldValue, array $newValue): void
+    {
+        if (
+            !is_array($oldValue)
+            || empty($newValue['enabled'])
+            || trim((string) ($newValue['api_key'] ?? '')) === ''
+            || trim((string) ($newValue['api_base_url'] ?? '')) === ''
+            || empty($newValue['target_languages'])
+            || !function_exists('wp_next_scheduled')
+            || !function_exists('wp_schedule_single_event')
+        ) {
+            return;
+        }
+
+        $oldIdentity = Client::configurationIdentityFor(
+            (string) ($oldValue['api_key'] ?? ''),
+            (string) ($oldValue['api_base_url'] ?? '')
+        );
+        $newIdentity = Client::configurationIdentityFor(
+            (string) ($newValue['api_key'] ?? ''),
+            (string) ($newValue['api_base_url'] ?? '')
+        );
+        if (
+            $oldIdentity === ''
+            || $newIdentity === ''
+            || hash_equals($oldIdentity, $newIdentity)
+            || empty(get_option(TranslationWarmer::QUEUE_OPTION, []))
+        ) {
+            return;
+        }
+
+        $eventArgs = [$newIdentity];
+        if (!wp_next_scheduled(TranslationWarmer::HOOK, $eventArgs)) {
+            wp_schedule_single_event(time(), TranslationWarmer::HOOK, $eventArgs);
         }
     }
 

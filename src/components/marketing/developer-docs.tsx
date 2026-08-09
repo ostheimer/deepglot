@@ -162,6 +162,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
+              ? "Nur Translation-429-Antworten setzen den aktiven Marker. Marker und Warmer-Wartezustand sind an API-Schlüssel und Backend gebunden; Konfigurationswechsel, verspätete Antworten der alten Konfiguration und alte ungebundene Marker blockieren keine neuen Übersetzungen."
+              : "Only translation 429 responses set the active marker. The marker and warmer backoff are bound to the API key and backend; configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
               ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
               : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
           </p>
@@ -267,9 +272,14 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Ein validation_failed für U+0000 bedeutet, dass ein Text-, Sprach-, Titel- oder Anfrage-URL-Feld ein von PostgreSQL nicht unterstütztes NUL-Zeichen enthält. Deepglot sendet solche Eingaben nicht an einen Anbieter und speichert sie nicht. Entferne ausschließlich U+0000 vor einem erneuten Versuch; andere Steuerzeichen und gültige Unicode-Zeichen sind erlaubt."
               : "A validation_failed response for U+0000 means a text, language, title, or request-URL field contains a NUL character that PostgreSQL cannot represent. Deepglot does not send that input to a provider or store it. Remove only U+0000 before retrying; other control characters and valid Unicode are supported."}
           </p>
+          <p className="mt-3 leading-7 text-gray-700">
+            {de
+              ? "Wiederholbare 429-Antworten werden unter einem Idempotency-Key nur bis zum begrenzten Retry-After-Zeitpunkt gehalten: Parallele Anfragen mit demselben Key erhalten dieselbe Antwort, nach Ablauf darf der Key erneut ausführen. Ein 422 velocity_request_too_large ist dagegen dauerhaft für diese Anfrageform und wird regulär wiedergegeben. Teile eine zu große Anfrage oder PDF in kleinere Einheiten."
+              : "Retryable 429 responses are not retained by Idempotency-Key beyond the bounded Retry-After window: concurrent same-key callers receive the same response, and the key may execute again after expiry. A 422 velocity_request_too_large is deterministic and retains the normal replay contract. Split an oversized request or PDF into smaller units."}
+          </p>
           <div className="mt-5"><CodeBlock>{PROBLEM_DETAILS_EXAMPLE}</CodeBlock></div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {["400 validation_failed", "401 missing_api_key / invalid_api_key", "402 quota_exhausted", "409 idempotency_conflict", "429 rate_limit_exceeded / velocity_limited", "500 internal_error", "503 service_unavailable"].map((item) => (
+            {["400 validation_failed", "401 missing_api_key / invalid_api_key", "402 quota_exhausted", "409 idempotency_conflict", "422 velocity_request_too_large", "429 rate_limit_exceeded / velocity_limited", "500 internal_error", "503 service_unavailable"].map((item) => (
               <div key={item} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3 font-mono text-xs">{item}</div>
             ))}
           </div>

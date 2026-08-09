@@ -65,3 +65,21 @@ test("documents Problem Details, quota, rate limits, auth, and idempotency behav
     assert.ok(docsSource.includes(required), `Public docs omit: ${required}`);
   }
 });
+
+test("documents bounded idempotency retention for both translate endpoint locales", () => {
+  const translate = PUBLIC_ENDPOINT_DOCS.find((endpoint) => endpoint.id === "translate");
+  assert.ok(translate);
+
+  const notes = {
+    en: translate.notes.map((note) => note.en).join(" "),
+    de: translate.notes.map((note) => note.de).join(" "),
+  };
+
+  assert.match(notes.en, /success and deterministic responses[^.]*24 hours/i);
+  assert.match(notes.en, /retryable 429[^.]*bounded Retry-After[^.]*new execution/i);
+  assert.match(notes.en, /different body[^.]*409[^.]*while the record is retained/i);
+
+  assert.match(notes.de, /erfolgreiche und deterministische Antworten[^.]*24 Stunden/i);
+  assert.match(notes.de, /wiederholbare 429[^.]*begrenzten Retry-After[^.]*neu ausgeführt/i);
+  assert.match(notes.de, /anderer Body[^.]*409[^.]*solange der Datensatz gespeichert ist/i);
+});

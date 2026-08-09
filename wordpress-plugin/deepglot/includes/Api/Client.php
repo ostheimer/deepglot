@@ -13,6 +13,7 @@ class Client
      */
     public const INVALID_API_KEY_TRANSIENT = 'deepglot_invalid_api_key';
     public const RATE_LIMIT_TRANSIENT = 'deepglot_rate_limited';
+    public const RATE_LIMIT_OPTION = 'deepglot_rate_limited_by_identity';
 
     /**
      * Short enough that a key re-enabled on the SaaS side heals without an
@@ -21,10 +22,23 @@ class Client
      */
     private const INVALID_API_KEY_TTL = 900;
 
+    /** Conservative fallback when a 429 omits or malforms Retry-After. */
+    public const DEFAULT_RATE_LIMIT_BACKOFF = 60;
+
+    /** Preserve the fixed hourly velocity window, but never exceed one hour. */
+    public const MAX_RATE_LIMIT_BACKOFF = 3600;
+
     /** Translation providers may need longer than ordinary API operations. */
     private const TRANSLATE_TIMEOUT_SECONDS = 60;
 
     private Options $options;
+
+    /**
+     * Request-local scopes for nested identity-aware batch calls.
+     *
+     * @var string[]
+     */
+    private array $batchExpectedIdentityStack = [];
 
     public function __construct(Options $options)
     {
@@ -53,12 +67,69 @@ class Client
      *                              serves it cache-only. See BotDetector.
      * @return array|\WP_Error      On success: ['from_words' => [...], 'to_words' => [...]].
      */
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
+    public function translate(
+        array $texts,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    )
+    {
+        return $this->translateWithExpectedIdentity(
+            null,
+            $texts,
+            $langFrom,
+            $langTo,
+            $requestUrl,
+            $bot,
+            $timeout
+        );
+    }
+
+    public function translateForExpectedIdentity(
+        string $expectedIdentity,
+        array $texts,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    ) {
+        return $this->translateWithExpectedIdentity(
+            $expectedIdentity,
+            $texts,
+            $langFrom,
+            $langTo,
+            $requestUrl,
+            $bot,
+            $timeout
+        );
+    }
+
+    private function translateWithExpectedIdentity(
+        ?string $expectedIdentity,
+        array $texts,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl,
+        int $bot,
+        ?int $timeout
+    )
     {
         $requestConfiguration = $this->translationRequestConfiguration();
 
+        if (!$this->expectedIdentityMatches($expectedIdentity, $requestConfiguration['identity'])) {
+            return $this->configurationChangedError();
+        }
+
         if ($this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])) {
             return $this->invalidApiKeyError();
+        }
+
+        $rateLimitError = $this->activeRateLimitError($requestConfiguration['identity']);
+        if ($rateLimitError !== null) {
+            return $rateLimitError;
         }
 
         return $this->buildTranslateResponse($this->dispatchTranslate(
@@ -81,7 +152,68 @@ class Client
      * @param  array<int|string, string[]> $batches
      * @return array<int|string, array|\WP_Error>
      */
-    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null): array
+    public function translateBatches(
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    ): array
+    {
+        $expectedIdentity = empty($this->batchExpectedIdentityStack)
+            ? null
+            : $this->batchExpectedIdentityStack[count($this->batchExpectedIdentityStack) - 1];
+
+        return $this->translateBatchesWithExpectedIdentity(
+            $expectedIdentity,
+            $batches,
+            $langFrom,
+            $langTo,
+            $requestUrl,
+            $bot,
+            $timeout
+        );
+    }
+
+    public function translateBatchesForExpectedIdentity(
+        string $expectedIdentity,
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    ): array {
+        $this->batchExpectedIdentityStack[] = $expectedIdentity;
+
+        try {
+            // Keep the original virtual entrypoint in the call chain so
+            // integrations that override only translateBatches() still run.
+            // A delegating override's parent::translateBatches() call then
+            // consumes the request-local expected identity from the stack.
+            return $this->translateBatches(
+                $batches,
+                $langFrom,
+                $langTo,
+                $requestUrl,
+                $bot,
+                $timeout
+            );
+        } finally {
+            array_pop($this->batchExpectedIdentityStack);
+        }
+    }
+
+    private function translateBatchesWithExpectedIdentity(
+        ?string $expectedIdentity,
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl,
+        int $bot,
+        ?int $timeout
+    ): array
     {
         if (empty($batches)) {
             return [];
@@ -103,6 +235,15 @@ class Client
 
         $requestConfiguration = $this->translationRequestConfiguration();
 
+        if (!$this->expectedIdentityMatches($expectedIdentity, $requestConfiguration['identity'])) {
+            $configurationChanged = [];
+            foreach (array_keys($payloads) as $key) {
+                $configurationChanged[$key] = $this->configurationChangedError();
+            }
+
+            return $configurationChanged;
+        }
+
         // A page render fans out into several batches. With a known-invalid
         // key every one of them would block on its own 401, which is what made
         // uncached pages take 16.7 s on the live site — fail them all locally.
@@ -111,6 +252,19 @@ class Client
 
             foreach (array_keys($payloads) as $key) {
                 $shortCircuited[$key] = $this->invalidApiKeyError();
+            }
+
+            return $shortCircuited;
+        }
+
+        $rateLimitError = $this->activeRateLimitError($requestConfiguration['identity']);
+        if ($rateLimitError !== null) {
+            $shortCircuited = [];
+
+            foreach (array_keys($payloads) as $key) {
+                $shortCircuited[$key] = $this->activeRateLimitError(
+                    $requestConfiguration['identity']
+                ) ?? $rateLimitError;
             }
 
             return $shortCircuited;
@@ -148,6 +302,7 @@ class Client
         // Sequential fallback when the Requests v2 helper is not available.
         $results = [];
         $invalidApiKeyDetected = false;
+        $rateLimitBackoff = null;
         $deadline = microtime(true) + $this->resolveTranslateTimeout($timeout);
 
         foreach ($payloads as $key => $payload) {
@@ -156,6 +311,11 @@ class Client
                 || $this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])
             ) {
                 $results[$key] = $this->invalidApiKeyError();
+                continue;
+            }
+
+            if (is_array($rateLimitBackoff)) {
+                $results[$key] = $this->rateLimitedError($rateLimitBackoff);
                 continue;
             }
 
@@ -178,7 +338,15 @@ class Client
                 $requestConfiguration['identity']
             );
             $results[$key] = $result;
-            $invalidApiKeyDetected = $this->apiErrorStatus($result) === 401;
+            $status = $this->apiErrorStatus($result);
+            $invalidApiKeyDetected = $status === 401;
+
+            if ($status === 429 && $result instanceof \WP_Error) {
+                $data = $result->get_error_data();
+                $rateLimitBackoff = is_array($data)
+                    ? $this->rateLimitDataFromErrorData($data)
+                    : $this->classifyRetryAfter('');
+            }
         }
 
         return $results;
@@ -231,7 +399,8 @@ class Client
             '/translate?api_key=' . rawurlencode($apiKey),
             $payload,
             $baseUrl,
-            $this->resolveTranslateTimeout($timeout)
+            $this->resolveTranslateTimeout($timeout),
+            self::configurationIdentity($apiKey, $baseUrl)
         );
     }
 
@@ -317,26 +486,20 @@ class Client
             $decoded = json_decode($body, true);
 
             if ($statusCode >= 400) {
-                $responseHeaders = $response->headers ?? [];
-                $retryAfter = '';
-
-                if (is_array($responseHeaders)) {
-                    $responseHeaders = array_change_key_case($responseHeaders, CASE_LOWER);
-                    $retryAfter = $responseHeaders['retry-after'] ?? '';
-                } elseif ($responseHeaders instanceof \ArrayAccess) {
-                    $retryAfter = $responseHeaders['retry-after'] ?? '';
-                }
+                $retryAfter = $this->responseHeader($response, 'Retry-After');
 
                 $this->maybeFlagQuotaExhausted($statusCode);
                 $this->maybeFlagRateLimited(
                     $statusCode,
-                    is_scalar($retryAfter) ? (string) $retryAfter : ''
+                    is_scalar($retryAfter) ? (string) $retryAfter : '',
+                    $requestIdentity
                 );
                 $this->maybeFlagInvalidApiKey($statusCode, $requestIdentity);
-                $results[$key] = new \WP_Error(
-                    'deepglot_api_error',
-                    $this->getApiErrorMessage($decoded),
-                    ['status' => $statusCode, 'body' => $decoded]
+                $results[$key] = $this->apiError(
+                    $statusCode,
+                    $decoded,
+                    $retryAfter,
+                    $requestIdentity
                 );
                 continue;
             }
@@ -417,7 +580,8 @@ class Client
         string $path,
         ?array $payload = null,
         ?string $baseUrl = null,
-        int $timeoutSeconds = 15
+        int $timeoutSeconds = 15,
+        ?string $translationIdentity = null
     )
     {
         $url = untrailingslashit((string) ($baseUrl ?? $this->options->getApiBaseUrl())) . $path;
@@ -447,21 +611,196 @@ class Client
 
         if ($statusCode >= 400) {
             $this->maybeFlagQuotaExhausted((int) $statusCode);
-            $this->maybeFlagRateLimited(
-                (int) $statusCode,
-                function_exists('wp_remote_retrieve_header')
-                    ? (string) wp_remote_retrieve_header($response, 'retry-after')
-                    : ''
-            );
+            if ($translationIdentity !== null) {
+                $this->maybeFlagRateLimited(
+                    (int) $statusCode,
+                    function_exists('wp_remote_retrieve_header')
+                        ? (string) wp_remote_retrieve_header($response, 'retry-after')
+                        : '',
+                    $translationIdentity
+                );
+            }
 
-            return new \WP_Error(
-                'deepglot_api_error',
-                $this->getApiErrorMessage($decoded),
-                ['status' => $statusCode, 'body' => $decoded]
+            return $this->apiError(
+                (int) $statusCode,
+                $decoded,
+                function_exists('wp_remote_retrieve_header')
+                    ? wp_remote_retrieve_header($response, 'Retry-After')
+                    : '',
+                $translationIdentity
             );
         }
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Builds the existing API error contract and adds only bounded,
+     * machine-readable 429 metadata. The raw header is never persisted or
+     * logged, so an upstream value cannot leak request-specific content.
+     */
+    private function apiError(
+        int $statusCode,
+        $decoded,
+        $retryAfterHeader = '',
+        ?string $rateLimitIdentity = null
+    ): \WP_Error
+    {
+        $data = ['status' => $statusCode, 'body' => $decoded];
+
+        if (is_array($decoded) && isset($decoded['code']) && is_string($decoded['code'])) {
+            $data['api_code'] = $decoded['code'];
+        }
+
+        if ($statusCode === 429) {
+            $data = array_merge($data, $this->classifyRetryAfter($retryAfterHeader));
+            if (is_string($rateLimitIdentity) && $rateLimitIdentity !== '') {
+                $data['rate_limit_identity'] = $rateLimitIdentity;
+            }
+        }
+
+        return new \WP_Error(
+            'deepglot_api_error',
+            $this->getApiErrorMessage($decoded),
+            $data
+        );
+    }
+
+    /**
+     * @param mixed $value Retry-After delta-seconds or HTTP-date.
+     * @return array{retry_after: int, retry_after_source: string, retry_after_capped: bool}
+     */
+    private function classifyRetryAfter($value): array
+    {
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+
+        $raw = is_scalar($value) ? trim((string) $value) : '';
+        $source = 'default';
+        $seconds = self::DEFAULT_RATE_LIMIT_BACKOFF;
+
+        if ($raw !== '' && ctype_digit($raw)) {
+            $source = 'delta-seconds';
+            $seconds = max(1, (int) $raw);
+        } elseif ($raw !== '') {
+            $timestamp = $this->parseHttpDate($raw);
+            if ($timestamp !== null) {
+                $source = 'http-date';
+                $seconds = max(1, $timestamp - time());
+            }
+        }
+
+        $capped = $seconds > self::MAX_RATE_LIMIT_BACKOFF;
+
+        return [
+            'retry_after' => min($seconds, self::MAX_RATE_LIMIT_BACKOFF),
+            'retry_after_source' => $source,
+            'retry_after_capped' => $capped,
+        ];
+    }
+
+    /** Accepts only the RFC HTTP-date IMF-fixdate form, never relative text. */
+    private function parseHttpDate(string $raw): ?int
+    {
+        if (!preg_match('/^[A-Z][a-z]{2}, [0-9]{2} [A-Z][a-z]{2} [0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} GMT$/D', $raw)) {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat(
+            '!D, d M Y H:i:s \G\M\T',
+            $raw,
+            new \DateTimeZone('GMT')
+        );
+        $errors = \DateTimeImmutable::getLastErrors();
+        if (
+            !$date
+            || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+            || $date->format('D, d M Y H:i:s \G\M\T') !== $raw
+        ) {
+            return null;
+        }
+
+        return $date->getTimestamp();
+    }
+
+    /** @param array<string, mixed> $data */
+    private function rateLimitDataFromErrorData(array $data): array
+    {
+        $retryAfter = isset($data['retry_after']) && is_numeric($data['retry_after'])
+            ? max(1, min(self::MAX_RATE_LIMIT_BACKOFF, (int) $data['retry_after']))
+            : self::DEFAULT_RATE_LIMIT_BACKOFF;
+
+        return [
+            'retry_after' => $retryAfter,
+            'retry_after_source' => is_string($data['retry_after_source'] ?? null)
+                ? $data['retry_after_source']
+                : 'default',
+            'retry_after_capped' => (bool) ($data['retry_after_capped'] ?? false),
+        ];
+    }
+
+    /** @param array<string, mixed> $backoff */
+    private function rateLimitedError(array $backoff): \WP_Error
+    {
+        return new \WP_Error(
+            'deepglot_rate_limited',
+            __('Deepglot API Fehler.', 'deepglot'),
+            array_merge(['status' => 429], $backoff)
+        );
+    }
+
+    /** Returns a local 429 while the bounded shared retry window is active. */
+    private function activeRateLimitError(string $requestIdentity): ?\WP_Error
+    {
+        $retryAt = self::rateLimitRetryAtForIdentity($requestIdentity);
+        if ($retryAt <= 0) {
+            return null;
+        }
+
+        return $this->rateLimitedError([
+            'retry_after' => max(
+                1,
+                min(self::MAX_RATE_LIMIT_BACKOFF, $retryAt - time())
+            ),
+            'retry_after_source' => 'stored-marker',
+            'retry_after_capped' => false,
+        ]);
+    }
+
+    /** Reads a case-insensitive Requests v2 response header. */
+    private function responseHeader($response, string $name)
+    {
+        $headers = is_object($response) ? ($response->headers ?? null) : null;
+
+        if (is_array($headers)) {
+            foreach ($headers as $header => $value) {
+                if (strtolower((string) $header) === strtolower($name)) {
+                    return $value;
+                }
+            }
+        }
+
+        if ($headers instanceof \Traversable) {
+            foreach ($headers as $header => $value) {
+                if (strtolower((string) $header) === strtolower($name)) {
+                    return $value;
+                }
+            }
+        }
+
+        if (is_object($headers) && method_exists($headers, 'getValues')) {
+            $values = $headers->getValues($name);
+            if (is_array($values) && !empty($values)) {
+                return reset($values);
+            }
+        }
+
+        if ($headers instanceof \ArrayAccess && isset($headers[$name])) {
+            return $headers[$name];
+        }
+
+        return '';
     }
 
     private function getApiErrorMessage($decoded): string
@@ -491,30 +830,231 @@ class Client
         }
     }
 
-    private function maybeFlagRateLimited(int $statusCode, string $retryAfter = ''): void
+    private function maybeFlagRateLimited(
+        int $statusCode,
+        string $retryAfter,
+        string $requestIdentity
+    ): void
     {
-        if ($statusCode !== 429 || !function_exists('set_transient')) {
+        if (
+            $statusCode !== 429
+            || $requestIdentity === ''
+            || !function_exists('get_option')
+            || !function_exists('update_option')
+        ) {
             return;
         }
 
-        $delay = ctype_digit(trim($retryAfter)) ? (int) trim($retryAfter) : 900;
-        $delay = max(60, min(3600, $delay));
-        set_transient(
-            self::RATE_LIMIT_TRANSIENT,
-            ['retry_at' => time() + $delay],
-            $delay
+        $currentIdentity = $this->translationRequestConfiguration()['identity'];
+        if ($currentIdentity === '' || !hash_equals($requestIdentity, $currentIdentity)) {
+            return;
+        }
+
+        $classified = $this->classifyRetryAfter($retryAfter);
+        $delay = (int) $classified['retry_after'];
+        $this->storeRateLimitRetryAtForIdentity(
+            $requestIdentity,
+            time() + $delay
         );
     }
 
     public static function rateLimitRetryAt(): int
     {
-        if (!function_exists('get_transient')) {
+        return self::rateLimitRetryAtForOptions(new Options());
+    }
+
+    public static function rateLimitRetryAtForOptions(Options $options): int
+    {
+        return self::rateLimitRetryAtForIdentity(
+            self::configurationIdentityForOptions($options)
+        );
+    }
+
+    /** Reads only the bounded 429 marker for an explicit one-way identity. */
+    public static function rateLimitRetryAtForIdentity(string $identity): int
+    {
+        if ($identity === '') {
             return 0;
         }
 
-        $marker = get_transient(self::RATE_LIMIT_TRANSIENT);
-        $retryAt = is_array($marker) ? (int) ($marker['retry_at'] ?? 0) : 0;
-        return $retryAt > time() ? $retryAt : 0;
+        $mapRetryAt = 0;
+        if (function_exists('get_option')) {
+            $stored = get_option(self::RATE_LIMIT_OPTION, false);
+            $mapRetryAt = is_array($stored) ? (int) ($stored[$identity] ?? 0) : 0;
+        }
+
+        // Upgrade compatibility for the former single shared transient. New
+        // writes use the CAS-protected identity map above.
+        $legacyRetryAt = 0;
+        if (function_exists('get_transient')) {
+            $marker = get_transient(self::RATE_LIMIT_TRANSIENT);
+            $retryAt = is_array($marker) ? (int) ($marker['retry_at'] ?? 0) : 0;
+            $markerIdentity = is_array($marker) ? ($marker['identity'] ?? null) : null;
+            if (
+                $retryAt > time()
+                && is_string($markerIdentity)
+                && hash_equals($markerIdentity, $identity)
+            ) {
+                $legacyRetryAt = $retryAt;
+            }
+        }
+
+        $retryAt = max($mapRetryAt, $legacyRetryAt);
+        if ($retryAt <= time()) {
+            // A caller holds only its own configuration snapshot. Deleting a
+            // different marker here could race with a current-identity writer;
+            // malformed, legacy, stale, and mismatched state therefore fails
+            // open and is left to the bounded transient TTL.
+            return 0;
+        }
+
+        return min($retryAt, time() + self::MAX_RATE_LIMIT_BACKOFF);
+    }
+
+    private function expectedIdentityMatches(?string $expectedIdentity, string $actualIdentity): bool
+    {
+        return $expectedIdentity === null
+            || ($expectedIdentity !== ''
+                && $actualIdentity !== ''
+                && hash_equals($expectedIdentity, $actualIdentity));
+    }
+
+    private function configurationChangedError(): \WP_Error
+    {
+        return new \WP_Error(
+            'deepglot_configuration_changed',
+            __('Deepglot API Fehler.', 'deepglot'),
+            ['status' => 409, 'api_code' => 'configuration_changed']
+        );
+    }
+
+    /** Stores the longest bounded delay without cross-identity lost updates. */
+    private function storeRateLimitRetryAtForIdentity(string $identity, int $retryAt): bool
+    {
+        $boundedRetryAt = min(time() + self::MAX_RATE_LIMIT_BACKOFF, $retryAt);
+
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            if (!$this->translationIdentityIsCurrent($identity)) {
+                return false;
+            }
+
+            $raw = get_option(self::RATE_LIMIT_OPTION, false);
+            $current = self::normalizeRateLimitIdentityMap($raw);
+            $next = $current;
+            $next[$identity] = max((int) ($current[$identity] ?? 0), $boundedRetryAt);
+
+            if (!$this->translationIdentityIsCurrent($identity)) {
+                return false;
+            }
+
+            if ($next === $raw || self::compareAndStoreRateLimitOption($raw, $next)) {
+                return true;
+            }
+
+            self::clearRateLimitOptionCache();
+        }
+
+        return false;
+    }
+
+    private function translationIdentityIsCurrent(string $identity): bool
+    {
+        $currentIdentity = $this->translationRequestConfiguration()['identity'];
+
+        return $identity !== ''
+            && $currentIdentity !== ''
+            && hash_equals($identity, $currentIdentity);
+    }
+
+    /** @return array<string, int> */
+    private static function normalizeRateLimitIdentityMap($stored): array
+    {
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        $now = time();
+        $active = [];
+        foreach ($stored as $identity => $retryAt) {
+            if (
+                is_string($identity)
+                && preg_match('/^[a-f0-9]{64}$/D', $identity) === 1
+                && (int) $retryAt > $now
+            ) {
+                $active[$identity] = min(
+                    (int) $retryAt,
+                    $now + self::MAX_RATE_LIMIT_BACKOFF
+                );
+            }
+        }
+
+        return $active;
+    }
+
+    /** @param mixed $expectedRaw @param array<string, int> $next */
+    private static function compareAndStoreRateLimitOption($expectedRaw, array $next): bool
+    {
+        global $wpdb;
+
+        if (
+            !isset($wpdb)
+            || !is_object($wpdb)
+            || !isset($wpdb->options)
+            || !method_exists($wpdb, 'update')
+        ) {
+            if (get_option(self::RATE_LIMIT_OPTION, false) !== $expectedRaw) {
+                return false;
+            }
+
+            if ($expectedRaw === false && function_exists('add_option')) {
+                return (bool) add_option(self::RATE_LIMIT_OPTION, $next, '', false);
+            }
+
+            update_option(self::RATE_LIMIT_OPTION, $next, false);
+            return true;
+        }
+
+        if ($expectedRaw === false) {
+            return (bool) add_option(self::RATE_LIMIT_OPTION, $next, '', false);
+        }
+
+        $expectedStored = function_exists('maybe_serialize')
+            ? maybe_serialize($expectedRaw)
+            : (is_array($expectedRaw) || is_object($expectedRaw)
+                ? serialize($expectedRaw)
+                : (string) $expectedRaw);
+        $nextStored = function_exists('maybe_serialize')
+            ? maybe_serialize($next)
+            : serialize($next);
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- CAS prevents concurrent 429 marker lost updates.
+        $changed = $wpdb->update(
+            $wpdb->options,
+            ['option_value' => $nextStored],
+            [
+                'option_name' => self::RATE_LIMIT_OPTION,
+                'option_value' => $expectedStored,
+            ],
+            ['%s'],
+            ['%s', '%s']
+        );
+
+        if ((int) $changed !== 1) {
+            return false;
+        }
+
+        self::clearRateLimitOptionCache();
+        return true;
+    }
+
+    private static function clearRateLimitOptionCache(): void
+    {
+        if (!function_exists('wp_cache_delete')) {
+            return;
+        }
+
+        wp_cache_delete(self::RATE_LIMIT_OPTION, 'options');
+        wp_cache_delete('alloptions', 'options');
     }
 
     /**
@@ -679,6 +1219,23 @@ class Client
         }
 
         return hash('sha256', $normalizedBaseUrl . "\0" . $normalizedApiKey);
+    }
+
+    /** Builds the shared one-way API-key/backend identity without persisting raw config. */
+    public static function configurationIdentityFor(string $apiKey, string $baseUrl): string
+    {
+        return self::configurationIdentity($apiKey, $baseUrl);
+    }
+
+    /** Builds the shared identity from one atomic Options snapshot. */
+    public static function configurationIdentityForOptions(Options $options): string
+    {
+        $settings = $options->all();
+
+        return self::configurationIdentity(
+            (string) ($settings['api_key'] ?? ''),
+            (string) ($settings['api_base_url'] ?? '')
+        );
     }
 
     /**

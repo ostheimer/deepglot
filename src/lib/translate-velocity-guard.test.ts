@@ -21,9 +21,19 @@ const ROUTE_PATH = path.join(
   "translate",
   "route.ts"
 );
+const PDF_TRANSLATION_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "pdf-translation.ts"
+);
 
 function routeSource() {
   return readFileSync(ROUTE_PATH, "utf8");
+}
+
+function pdfTranslationSource() {
+  return readFileSync(PDF_TRANSLATION_PATH, "utf8");
 }
 
 test("translate route enforces the per-org word velocity limit (#203)", () => {
@@ -46,13 +56,48 @@ test("translate route derives the velocity cap from the effective monthly quota 
 
   assert.match(
     source,
-    /limit:\s*getTranslateWordVelocityLimit\(wordsLimit\)/,
-    "velocity must derive from the effective monthly wordsLimit"
+    /getTranslateWordVelocityPolicy\(wordsLimit\)/,
+    "velocity must derive the threshold and its provenance from the effective monthly wordsLimit"
   );
   assert.doesNotMatch(
     source,
     /limit:\s*getRateLimitConfig\(\)\.translateWordVelocityPerHour/,
     "the translate route must not fall back to the former flat velocity default"
+  );
+});
+
+test("translate route emits privacy-safe velocity outcome classification before responding", () => {
+  const source = routeSource();
+
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome\(\s*\{[\s\S]{0,1200}?result:\s*velocity[\s\S]{0,1200}?actorClass:\s*"human"[\s\S]{0,1200}?surface:\s*"translate_api"[\s\S]{0,1200}?organizationId:\s*project\.organizationId[\s\S]{0,1200}?projectId:\s*project\.id[\s\S]{0,1200}?requestFingerprintInput:/,
+    "every fresh-word reservation must emit the bounded structured classification"
+  );
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome[\s\S]{0,1800}?if\s*\(\s*!velocity\.allowed\s*\)/,
+    "blocked and oversize reservations must be classified before returning 429"
+  );
+});
+
+test("PDF translations emit the same privacy-safe outcome classification", () => {
+  const source = pdfTranslationSource();
+
+  assert.match(
+    source,
+    /getTranslateWordVelocityPolicy\(wordsLimit\)/,
+    "PDF reservations must expose the same threshold provenance"
+  );
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome\(\s*\{[\s\S]{0,1200}?result:\s*velocity[\s\S]{0,1200}?actorClass:\s*"human"[\s\S]{0,1200}?surface:\s*"pdf"[\s\S]{0,1200}?organizationId:\s*project\.organizationId[\s\S]{0,1200}?projectId:\s*project\.id[\s\S]{0,1200}?requestFingerprintInput:/,
+    "PDF reservations must contribute to rollout classification"
+  );
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome[\s\S]{0,1800}?if\s*\(\s*!velocity\.allowed\s*\)/,
+    "blocked and oversize PDF reservations must be classified before the 429"
   );
 });
 
@@ -79,7 +124,7 @@ test("the velocity gate charges every fresh spend but exempts bots — NOT healt
   );
 });
 
-test("an over-budget velocity result is rejected with 429 velocity_limited", () => {
+test("a retryable exhausted window is rejected with 429 velocity_limited", () => {
   const source = routeSource();
 
   assert.match(
@@ -89,8 +134,46 @@ test("an over-budget velocity result is rejected with 429 velocity_limited", () 
   );
   assert.match(
     source,
-    /!velocity\.allowed[\s\S]{0,400}status:\s*429/,
-    "an over-budget velocity result must return HTTP 429"
+    /velocity\.outcome\s*===\s*"blocked"[\s\S]{0,500}status:\s*429[\s\S]{0,500}code:\s*"velocity_limited"/,
+    "only an exhausted fixed window must return the retryable 429 contract"
+  );
+});
+
+test("an inherently oversized API or PDF request is non-retryable", () => {
+  const api = routeSource();
+  const pdf = pdfTranslationSource();
+
+  for (const source of [api, pdf]) {
+    assert.match(source, /velocity\.outcome\s*===\s*"oversize"/);
+    assert.match(source, /velocity_request_too_large/);
+    assert.match(source, /status:\s*422|,\s*422,/);
+  }
+  assert.match(
+    api,
+    /velocity\.outcome\s*===\s*"oversize"[\s\S]{0,700}velocity_request_too_large/,
+  );
+  assert.match(
+    pdf,
+    /velocity\.outcome\s*===\s*"oversize"[\s\S]{0,700}velocity_request_too_large/,
+  );
+});
+
+test("translate idempotency deduplicates retryable 429 only until its Retry-After window", () => {
+  const source = routeSource();
+
+  assert.match(
+    source,
+    /responseRetentionMs:\s*translateIdempotencyResponseRetentionMs/,
+    "the route must keep a retryable 429 only through its Retry-After interval",
+  );
+  assert.match(
+    source,
+    /function translateIdempotencyResponseRetentionMs[\s\S]{0,700}?response\.status\s*!==\s*429[\s\S]{0,700}?retry-after/,
+  );
+  assert.match(
+    source,
+    /result\.kind\s*===\s*"replayed"[\s\S]{0,700}?reportApiIdempotencyReplay/,
+    "replayed retryable outcomes must remain visible through privacy-safe metadata",
   );
 });
 

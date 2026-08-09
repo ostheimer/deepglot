@@ -99,9 +99,24 @@ export function createPdfTranslationPostHandler(
       });
     } catch (error) {
       if (error instanceof PdfTranslationError) {
+        const retryAfter =
+          error.status === 429 &&
+          error.retryAfterSeconds !== null &&
+          Number.isFinite(error.retryAfterSeconds)
+            ? Math.max(1, Math.floor(error.retryAfterSeconds))
+            : null;
         return NextResponse.json(
-          { error: error.message, code: error.code },
-          { status: error.status }
+          {
+            error: error.message,
+            code: error.code,
+            ...(retryAfter === null ? {} : { retry_after: retryAfter }),
+          },
+          {
+            status: error.status,
+            ...(retryAfter === null
+              ? {}
+              : { headers: { "Retry-After": String(retryAfter) } }),
+          },
         );
       }
 

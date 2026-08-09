@@ -67,8 +67,8 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
         de: "Nur neue, beim Anbieter abgerechnete Wörter verbrauchen das Monatskontingent. 402 bedeutet Kontingentüberschreitung; 429 enthält Retry-After für Anfrage- oder Wortgeschwindigkeitslimits.",
       },
       {
-        en: "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.",
-        de: "Idempotency-Key ist optional. Derselbe Body und Key liefern innerhalb von 24 Stunden die erste Antwort erneut, ohne Seiteneffekte zu wiederholen; ein anderer Body führt zu 409.",
+        en: "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
+        de: "Idempotency-Key ist optional. Erfolgreiche und deterministische Antworten können bis zu 24 Stunden ohne erneute Seiteneffekte wiedergegeben werden. Eine wiederholbare 429 wird nur während des begrenzten Retry-After-Fensters dedupliziert und wiedergegeben; danach wird derselbe Key neu ausgeführt. Ein anderer Body führt zu 409, solange der Datensatz gespeichert ist.",
       },
     ],
   },
