@@ -103,6 +103,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#text-safety" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Textgrenzen" : "Text boundaries"}
             </a>
+            <a href="#rate-limit-backoff" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "429 und Wartezeit" : "429 and backoff"}
+            </a>
             <a href="#wordpress-releases" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               WordPress 0.11.4–0.11.7
             </a>
@@ -191,6 +194,58 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                   ? "Enthält stattdessen die Antwort eines Übersetzungsanbieters U+0000, wird dieses Ergebnis nicht gespeichert. Ein konfigurierter Ersatzanbieter kann übernehmen; schlägt auch die Anbieterkette fehl, endet die Anfrage ohne Versuch, Übersetzungsinhalte zu persistieren. Protokolliert werden nur Grenze, Feld, Anzahl und Anbieter — niemals Text oder URL."
                   : "If a translation provider response contains U+0000, that result is not stored. A configured fallback provider can take over; if the provider chain still fails, the request ends without attempting translation-content persistence. Logs contain only the boundary, field, count, and provider — never text or URLs."}
               </p>
+            </div>
+          </section>
+
+          <section id="rate-limit-backoff" data-testid="help-rate-limit-backoff" className="scroll-mt-8 pt-24">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
+                {de ? "Begrenzte Wiederholungen" : "Bounded retries"}
+              </p>
+              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em]">
+                {de
+                  ? "429 ohne Wiederholungsschleife beachten"
+                  : "Respecting a 429 without a retry storm"}
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#58636d]">
+                {de
+                  ? "Ein HTTP 429 ist eine vorübergehende Begrenzung, kein verbrauchtes Monatskontingent. Deepglot übernimmt Retry-After als Sekundenwert oder HTTP-Datum und begrenzt die Wartezeit auf 1 bis 300 Sekunden. Fehlt ein gültiger Wert, gelten 60 Sekunden. Das Stundenlimit selbst wurde dabei nicht angehoben."
+                  : "HTTP 429 is a temporary limit, not exhausted monthly quota. Deepglot accepts Retry-After as delta seconds or an HTTP date and bounds the delay to 1 to 300 seconds. An invalid or missing value uses 60 seconds. This does not raise the hourly threshold."}
+              </p>
+            </div>
+
+            <div data-testid="rate-limit-backoff-flow" className="mt-10 grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  step: "1",
+                  title: de ? "429 einordnen" : "Classify the 429",
+                  body: de
+                    ? "Die Antwort unterscheidet Anfrage- und Wortgeschwindigkeitslimits und liefert eine begrenzte Wartezeit."
+                    : "The response distinguishes request and fresh-word velocity limits and provides a bounded delay.",
+                },
+                {
+                  step: "2",
+                  title: de ? "Weitere Aufrufe stoppen" : "Stop later calls",
+                  body: de
+                    ? "Nach dem ersten seriellen 429 sendet der WordPress-Client keine weiteren Stapel dieser Folge. Bereits gestartete parallele Stapel behalten ihre eigenen Antworten; für neue dynamische Arbeit gilt die längste Wartezeit."
+                    : "After the first sequential 429, the WordPress client sends no later batches in that sequence. Parallel batches already in flight keep their own responses; new dynamic work keeps the longest delay.",
+                },
+                {
+                  step: "3",
+                  title: de ? "Cache und Queue schützen" : "Protect cache and queues",
+                  body: de
+                    ? "Die Warmup-Queue wartet bis Retry-After. Dynamische Besucheranfragen werden nicht sofort wiederholt; Cache-Treffer bleiben verfügbar, sonst bleibt vorübergehend der Quelltext sichtbar."
+                    : "The warmup queue waits until Retry-After. Dynamic visitor requests are not immediately retried; cache hits remain available and other content temporarily stays in the source language.",
+                },
+              ].map((item) => (
+                <article key={item.step} className="rounded-md border border-[#d8d6ce] bg-white p-6">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#071521] text-sm font-bold text-white">
+                    {item.step}
+                  </span>
+                  <h3 className="mt-5 text-lg font-bold [overflow-wrap:anywhere]">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#58636d]">{item.body}</p>
+                </article>
+              ))}
             </div>
           </section>
 

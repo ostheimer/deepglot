@@ -232,6 +232,28 @@ class ServerErrorFakeClient extends Client
     }
 }
 
+/** Models a velocity-limited SaaS response with a bounded client backoff. */
+class RateLimitedFakeClient extends Client
+{
+    public int $callCount = 0;
+
+    public function __construct()
+    {
+    }
+
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
+    {
+        $this->callCount++;
+
+        return new WP_Error('deepglot_api_error', 'Translation velocity limited', [
+            'status' => 429,
+            'retry_after' => 37,
+            'retry_after_source' => 'delta-seconds',
+            'retry_after_capped' => false,
+        ]);
+    }
+}
+
 class DynamicFakeCache extends TranslationCache
 {
     /** @var array<string, string> */
@@ -563,6 +585,32 @@ $ticketBucket = get_transient($ticketKey);
 dynCheck($client->callCount === 1, 'A cache miss must still call the SaaS API once.');
 dynCheck(is_array($ipBucket) && (int) $ipBucket['spent'] === 0, 'SaaS failure must roll back the per-IP fresh-word budget.');
 dynCheck(is_array($ticketBucket) && (int) $ticketBucket['spent'] === 0, 'SaaS failure must roll back the per-ticket fresh-word budget.');
+
+// 21. A SaaS 429 keeps the same budget rollback and forwards only its bounded
+//     delay to the browser queue, which can then suppress immediate retries.
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.36';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$ticket = DynamicTranslationController::issueQuotaTicket();
+$ticketKey = 'deepglot_dynqt_' . hash('sha256', $ticket);
+$ipKey = 'deepglot_dynfw_' . sha1('198.51.100.36');
+$client = new RateLimitedFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['Rate limited dynamic text'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+    DynamicTranslationController::QUOTA_TICKET_HEADER => $ticket,
+]));
+$responseData = $response->get_data();
+$ipBucket = get_transient($ipKey);
+$ticketBucket = get_transient($ticketKey);
+dynCheck($client->callCount === 1, 'A dynamic cache miss reaches the SaaS once before the 429 is known.');
+dynCheck(($responseData['retry_after'] ?? null) === 37, 'The dynamic response must forward the bounded 429 backoff.');
+dynCheck(is_array($ipBucket) && (int) $ipBucket['spent'] === 0, 'A dynamic 429 must roll back the per-IP budget.');
+dynCheck(is_array($ticketBucket) && (int) $ticketBucket['spent'] === 0, 'A dynamic 429 must roll back the ticket budget.');
 
 
 // isBot() ist als Spiegel von BrowserRedirector::isBotRequest() dokumentiert:

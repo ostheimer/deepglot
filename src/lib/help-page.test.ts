@@ -75,12 +75,14 @@ test("help visual layout keeps digest and release content responsive", () => {
     'href="#weekly-digest"',
     'href="#wordpress-warmup"',
     'href="#text-safety"',
+    'href="#rate-limit-backoff"',
     'href="#wordpress-releases"',
   ].map((marker) => source.indexOf(marker));
   const sectionOrder = [
     'id="weekly-digest"',
     'id="wordpress-warmup"',
     'id="text-safety"',
+    'id="rate-limit-backoff"',
     'id="wordpress-releases"',
   ].map((marker) => source.indexOf(marker));
 

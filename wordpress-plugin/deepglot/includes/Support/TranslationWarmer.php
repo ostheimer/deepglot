@@ -38,6 +38,9 @@ class TranslationWarmer
     /** Atomic owner/expiry lock guarding against concurrent cron drains. */
     public const LOCK_OPTION = 'deepglot_warm_running';
 
+    /** Persisted next-attempt timestamp after a classified SaaS 429. */
+    public const BACKOFF_OPTION = 'deepglot_warm_backoff_until';
+
     /** Long enough to cover MAX_BATCHES_PER_RUN slow requests. */
     public const LOCK_TTL = 300;
 
@@ -177,6 +180,17 @@ class TranslationWarmer
             return;
         }
 
+        $backoffUntil = (int) get_option(self::BACKOFF_OPTION, 0);
+        if ($backoffUntil > time()) {
+            // Defensive path for manual/duplicate cron invocations: do not
+            // contact SaaS before its bounded Retry-After window has elapsed.
+            $this->schedule(true, $backoffUntil - time());
+            return;
+        }
+        if ($backoffUntil > 0 && function_exists('delete_option')) {
+            delete_option(self::BACKOFF_OPTION);
+        }
+
         // `add_option()` is a database-level unique-key claim. A transient's
         // get-then-set sequence is not atomic and lets two simultaneous cron
         // requests spend quota on the same work.
@@ -211,6 +225,7 @@ class TranslationWarmer
         $untouched = false;
         $completedByKey = [];
         $remainingByKey = [];
+        $rateLimitBackoff = 0;
 
         foreach ($queue as $key => $texts) {
             if ($budget <= 0) {
@@ -260,6 +275,18 @@ class TranslationWarmer
                 $result = $results[$index] ?? null;
 
                 if ($result === null || is_wp_error($result) || !is_array($result)) {
+                    if (is_wp_error($result) && method_exists($result, 'get_error_data')) {
+                        $errorData = $result->get_error_data();
+                        if (is_array($errorData) && (int) ($errorData['status'] ?? 0) === 429) {
+                            $rateLimitBackoff = max(
+                                $rateLimitBackoff,
+                                max(1, min(
+                                    Client::MAX_RATE_LIMIT_BACKOFF,
+                                    (int) ($errorData['retry_after'] ?? Client::DEFAULT_RATE_LIMIT_BACKOFF)
+                                ))
+                            );
+                        }
+                    }
                     // Keep failed texts queued so a later run retries them.
                     $failed = array_merge($failed, $batch);
                     continue;
@@ -321,7 +348,11 @@ class TranslationWarmer
         // outage) would re-fire the event forever. Failed texts stay queued and
         // are retried the next time a visitor enqueues something — which is
         // exactly when translating them is worth attempting again.
-        if ($untouched) {
+        if ($rateLimitBackoff > 0) {
+            $backoffUntil = time() + $rateLimitBackoff;
+            update_option(self::BACKOFF_OPTION, $backoffUntil, false);
+            $this->schedule(true, $rateLimitBackoff);
+        } elseif ($untouched) {
             $this->schedule(true);
         }
     }
@@ -356,20 +387,30 @@ class TranslationWarmer
         return $pairs;
     }
 
-    private function schedule(bool $force = false): void
+    private function schedule(bool $force = false, int $delaySeconds = 0): void
     {
         if (!function_exists('wp_schedule_single_event')) {
             return;
         }
 
-        $scheduledAt = wp_next_scheduled(self::HOOK);
+        $delaySeconds = max(0, min(Client::MAX_RATE_LIMIT_BACKOFF, $delaySeconds));
 
+        if ($force && $delaySeconds > 0 && function_exists('wp_clear_scheduled_hook')) {
+            wp_clear_scheduled_hook(self::HOOK);
+        }
+
+        $scheduledAt = wp_next_scheduled(self::HOOK);
         if ($force || !$scheduledAt) {
-            // The event must be due before the nudge below calls spawn_cron(),
-            // otherwise WordPress would spend a loopback without draining this
-            // queue. This happens only after the queue mutation is durable.
-            wp_schedule_single_event(time(), self::HOOK);
+            // Persist the queue before creating either an immediately due
+            // event or the bounded Retry-After event that replaces it.
+            wp_schedule_single_event(time() + $delaySeconds, self::HOOK);
             $scheduledAt = wp_next_scheduled(self::HOOK);
+        }
+
+        // A delayed Retry-After event must never be nudged immediately.
+        // WP-Cron/system cron will run it only after the bounded delay.
+        if ($delaySeconds > 0) {
+            return;
         }
 
         // WordPress otherwise starts cron on a later request, which can leave

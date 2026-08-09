@@ -28,7 +28,8 @@ import {
   consumeRateLimit,
   consumeTranslateWordVelocity,
   getRateLimitConfig,
-  getTranslateWordVelocityLimit,
+  getTranslateWordVelocityPolicy,
+  reportTranslateVelocityOutcome,
   releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
@@ -444,10 +445,30 @@ async function executeAuthenticatedTranslateRequest(
     let velocityReservation: { organizationId: string; words: number } | null =
       null;
     if (!isBot && translatedWords > 0) {
+      const velocityPolicy = getTranslateWordVelocityPolicy(wordsLimit);
       const velocity = await consumeTranslateWordVelocity({
         organizationId: project.organizationId,
         words: translatedWords,
-        limit: getTranslateWordVelocityLimit(wordsLimit),
+        limit: velocityPolicy.limit,
+      });
+      reportTranslateVelocityOutcome({
+        result: velocity,
+        freshWords: translatedWords,
+        limitSource: velocityPolicy.source,
+        actorClass: "human",
+        surface: "translate_api",
+        itemCount: pendingTranslations.length,
+        retryProtection: req.headers.has("Idempotency-Key")
+          ? "idempotency_key"
+          : "none",
+        organizationId: project.organizationId,
+        projectId: project.id,
+        requestFingerprintInput: JSON.stringify([
+          l_from,
+          l_to,
+          request_url,
+          pendingTranslations.map((item) => texts[item.index]),
+        ]),
       });
 
       if (!velocity.allowed) {

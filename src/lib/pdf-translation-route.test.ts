@@ -93,3 +93,30 @@ test("PDF route preserves safe service error codes and statuses", async () => {
   assert.equal(body.code, "quota_exhausted");
   assert.equal(body.error, "Monthly word quota exceeded.");
 });
+
+test("PDF velocity limits preserve Retry-After in the response contract", async () => {
+  const handler = createPdfTranslationPostHandler({
+    getUserId: async () => "user_1",
+    translateProjectPdf: async () => {
+      throw new PdfTranslationError(
+        "The translation velocity limit is currently reached. Try again later.",
+        "velocity_limited",
+        429,
+        73,
+      );
+    },
+  });
+
+  const response = await handler(uploadRequest(), {
+    params: Promise.resolve({ projektId: "project-1" }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "73");
+  assert.deepEqual(body, {
+    error: "The translation velocity limit is currently reached. Try again later.",
+    code: "velocity_limited",
+    retry_after: 73,
+  });
+});

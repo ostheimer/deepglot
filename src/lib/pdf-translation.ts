@@ -10,7 +10,8 @@ import {
 } from "@/lib/project-access";
 import {
   consumeTranslateWordVelocity,
-  getTranslateWordVelocityLimit,
+  getTranslateWordVelocityPolicy,
+  reportTranslateVelocityOutcome,
   releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
@@ -34,7 +35,8 @@ export class PdfTranslationError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly status: number
+    public readonly status: number,
+    public readonly retryAfterSeconds: number | null = null,
   ) {
     super(message);
     this.name = "PdfTranslationError";
@@ -430,16 +432,30 @@ export async function translateProjectPdf(
     );
   }
 
+  const velocityPolicy = getTranslateWordVelocityPolicy(wordsLimit);
   const velocity = await consumeTranslateWordVelocity({
     organizationId: project.organizationId,
     words: parsed.wordCount,
-    limit: getTranslateWordVelocityLimit(wordsLimit),
+    limit: velocityPolicy.limit,
+  });
+  reportTranslateVelocityOutcome({
+    result: velocity,
+    freshWords: parsed.wordCount,
+    limitSource: velocityPolicy.source,
+    actorClass: "human",
+    surface: "pdf",
+    itemCount: parsed.totalPages,
+    retryProtection: "none",
+    organizationId: project.organizationId,
+    projectId: project.id,
+    requestFingerprintInput: JSON.stringify([langTo, parsed.pages]),
   });
   if (!velocity.allowed) {
     throw new PdfTranslationError(
       "The translation velocity limit is currently reached. Try again later.",
       "velocity_limited",
-      429
+      429,
+      velocity.retryAfterSeconds,
     );
   }
 

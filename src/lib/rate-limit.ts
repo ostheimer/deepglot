@@ -29,6 +29,8 @@ type RateLimitEnv = {
   PLUGIN_RATE_LIMIT_PER_MINUTE?: string;
   AUTH_RATE_LIMIT_PER_MINUTE?: string;
   TRANSLATE_WORD_VELOCITY_PER_HOUR?: string;
+  AUTH_SECRET?: string;
+  NEXTAUTH_SECRET?: string;
 };
 
 type RateLimitBucketRecord = {
@@ -76,6 +78,7 @@ export type RateLimitStore = {
 
 export type RateLimitResult = {
   allowed: boolean;
+  outcome: "allowed" | "blocked" | "oversize";
   limit: number;
   remaining: number;
   resetAt: Date;
@@ -107,17 +110,20 @@ export class MemoryRateLimitStore implements RateLimitStore {
     const isExpired = !existing || existing.resetAt <= data.now;
     const currentCount = isExpired ? 0 : existing.count;
     const countIfReserved = currentCount + data.cost;
-    const reserved = isExpired || countIfReserved <= data.limit;
+    const reserved = countIfReserved <= data.limit;
     const resetAt = isExpired ? data.resetAt : existing.resetAt;
 
     if (!reserved) {
       return {
-        bucket: existing ?? {
-          scope: data.scope,
-          subjectHash: data.subjectHash,
-          count: 0,
-          resetAt,
-        },
+        bucket:
+          !isExpired && existing
+            ? existing
+            : {
+                scope: data.scope,
+                subjectHash: data.subjectHash,
+                count: 0,
+                resetAt,
+              },
         reserved: false,
       };
     }
@@ -192,6 +198,34 @@ export class PrismaRateLimitStore implements RateLimitStore {
 
   async reserveBucket(data: RateLimitBucketReservationData) {
     const { db } = await import("@/lib/db");
+
+    // A single request larger than the configured window can never be
+    // reserved. Reject it before the upsert so neither a new nor an expired
+    // bucket is mutated; ordinary reservations keep using the atomic upsert.
+    if (data.cost > data.limit) {
+      const existingRows = await db.$queryRaw<RateLimitBucketRecord[]>`
+        SELECT "scope", "subjectHash", "count", "resetAt"
+        FROM "RateLimitBucket"
+        WHERE "scope" = ${data.scope}
+          AND "subjectHash" = ${data.subjectHash}
+        LIMIT 1
+      `;
+      const existing = existingRows[0];
+      const isExpired = !existing || existing.resetAt <= data.now;
+
+      return {
+        bucket:
+          !isExpired && existing
+            ? existing
+            : {
+                scope: data.scope,
+                subjectHash: data.subjectHash,
+                count: 0,
+                resetAt: data.resetAt,
+              },
+        reserved: false,
+      };
+    }
 
     const rows = await db.$queryRaw<
       Array<RateLimitBucketRecord & { reserved: boolean }>
@@ -293,6 +327,15 @@ function parsePositiveInteger(value: string | undefined, fallback: number) {
   return parsed;
 }
 
+function parseOptionalPositiveInteger(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function normalizeLimit(limit: number) {
   const normalizedLimit = Number.isFinite(limit) ? Math.floor(limit) : 1;
   return Math.max(1, normalizedLimit);
@@ -336,6 +379,21 @@ export function getTranslateWordVelocityLimit(
   env: Pick<RateLimitEnv, "TRANSLATE_WORD_VELOCITY_PER_HOUR"> =
     process.env as RateLimitEnv
 ) {
+  return getTranslateWordVelocityPolicy(wordsLimit, env).limit;
+}
+
+export type TranslateWordVelocityLimitSource = "plan" | "environment";
+
+/**
+ * Resolves the same threshold as getTranslateWordVelocityLimit while exposing
+ * only its non-sensitive provenance for rollout classification. Invalid
+ * overrides remain on the plan-derived policy and never weaken the guard.
+ */
+export function getTranslateWordVelocityPolicy(
+  wordsLimit: number,
+  env: Pick<RateLimitEnv, "TRANSLATE_WORD_VELOCITY_PER_HOUR"> =
+    process.env as RateLimitEnv
+) {
   const normalizedWordsLimit = Number.isFinite(wordsLimit)
     ? Math.max(0, Math.floor(wordsLimit))
     : 0;
@@ -343,11 +401,104 @@ export function getTranslateWordVelocityLimit(
     1_000,
     Math.floor(normalizedWordsLimit * 0.1)
   );
-
-  return parsePositiveInteger(
-    env.TRANSLATE_WORD_VELOCITY_PER_HOUR,
-    planDerivedLimit
+  const environmentLimit = parseOptionalPositiveInteger(
+    env.TRANSLATE_WORD_VELOCITY_PER_HOUR
   );
+
+  return environmentLimit === null
+    ? { limit: planDerivedLimit, source: "plan" as const }
+    : { limit: environmentLimit, source: "environment" as const };
+}
+
+export type TranslateVelocityOutcomeEvent = {
+  level: "info";
+  message: "Translation velocity reservation classified.";
+  event: "translate_velocity_reservation";
+  outcome: RateLimitResult["outcome"];
+  actorClass: "human" | "bot";
+  surface: "translate_api" | "pdf";
+  itemCount: number;
+  retryProtection: "idempotency_key" | "none";
+  organizationPseudonym: string;
+  projectPseudonym: string;
+  requestPseudonym: string;
+  limitSource: TranslateWordVelocityLimitSource;
+  freshWords: number;
+  limit: number;
+  remaining: number;
+  retryAfterSeconds: number;
+  windowSeconds: number;
+};
+
+/**
+ * Emits rollout-ready velocity metadata without raw tenant identifiers,
+ * request text, keys, or URLs. Organization, project, and request correlation
+ * use keyed, truncated HMAC pseudonyms so operators can aggregate repeated
+ * outcomes without exposing the inputs that produced them.
+ */
+export function reportTranslateVelocityOutcome(
+  {
+    result,
+    freshWords,
+    limitSource,
+    actorClass,
+    surface,
+    itemCount,
+    retryProtection,
+    organizationId,
+    projectId,
+    requestFingerprintInput,
+    pseudonymSecret,
+  }: {
+    result: RateLimitResult;
+    freshWords: number;
+    limitSource: TranslateWordVelocityLimitSource;
+    actorClass: TranslateVelocityOutcomeEvent["actorClass"];
+    surface: TranslateVelocityOutcomeEvent["surface"];
+    itemCount: number;
+    retryProtection: TranslateVelocityOutcomeEvent["retryProtection"];
+    organizationId: string;
+    projectId: string;
+    requestFingerprintInput: string;
+    pseudonymSecret?: string;
+  },
+  logger: (message: string) => void = console.info
+) {
+  const secret =
+    pseudonymSecret?.trim() ||
+    process.env.AUTH_SECRET?.trim() ||
+    process.env.NEXTAUTH_SECRET?.trim() ||
+    null;
+  const pseudonym = (kind: string, value: string) =>
+    secret
+      ? crypto
+          .createHmac("sha256", secret)
+          .update(`translate-velocity\0${kind}\0${value}`)
+          .digest("hex")
+          .slice(0, 16)
+      : "unavailable";
+  const event: TranslateVelocityOutcomeEvent = {
+    level: "info",
+    message: "Translation velocity reservation classified.",
+    event: "translate_velocity_reservation",
+    outcome: result.outcome,
+    actorClass,
+    surface,
+    itemCount: normalizeCost(itemCount),
+    retryProtection,
+    organizationPseudonym: pseudonym("organization", organizationId),
+    projectPseudonym: pseudonym("project", projectId),
+    requestPseudonym: pseudonym("request", requestFingerprintInput),
+    limitSource,
+    freshWords: normalizeCost(freshWords),
+    limit: result.limit,
+    remaining: result.remaining,
+    retryAfterSeconds: result.retryAfterSeconds,
+    windowSeconds: TRANSLATE_WORD_VELOCITY_WINDOW_MS / 1_000,
+  };
+
+  logger(JSON.stringify(event));
+  return event;
 }
 
 /**
@@ -393,6 +544,7 @@ export async function consumeTranslateWordVelocity({
   if (!reserved) {
     return {
       allowed: false,
+      outcome: safeCost > safeLimit ? "oversize" : "blocked",
       limit: safeLimit,
       remaining: Math.max(0, safeLimit - bucket.count),
       resetAt: bucket.resetAt,
@@ -402,6 +554,7 @@ export async function consumeTranslateWordVelocity({
 
   return {
     allowed: true,
+    outcome: "allowed",
     limit: safeLimit,
     remaining: Math.max(0, safeLimit - bucket.count),
     resetAt: bucket.resetAt,
@@ -481,6 +634,7 @@ export async function consumeRateLimit({
   if (!allowed) {
     return {
       allowed: false,
+      outcome: "blocked",
       limit: safeLimit,
       remaining: 0,
       resetAt: bucket.resetAt,
@@ -490,6 +644,7 @@ export async function consumeRateLimit({
 
   return {
     allowed: true,
+    outcome: "allowed",
     limit: safeLimit,
     remaining: Math.max(0, safeLimit - bucket.count),
     resetAt: bucket.resetAt,

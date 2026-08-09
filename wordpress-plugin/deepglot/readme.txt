@@ -45,6 +45,10 @@ No. Translation happens on rendered output. Source content remains in the origin
 
 Cached translations remain available. Uncached content falls back to the source language, and administrators see a quota notice.
 
+= What happens when Deepglot returns HTTP 429? =
+
+The plugin respects Retry-After as delta seconds or a strict RFC HTTP date, using a bounded delay of one second to five minutes and a 60-second fallback for missing, relative, or invalid values. The first 429 stops the remaining sequential batches; parallel batches already in flight keep their own responses and the browser keeps the longest delay. Background warming waits for the bounded delay, and dynamic visitor requests are not immediately retried. Cached translations remain available while uncached content stays in the source language.
+
 = Why can the first translated page view still show the source language? =
 
 Since version 0.12.0, ordinary page requests do not wait for a slow translation provider. The first view queues uncached text for an immediately due WP-Cron job and, once both are stored, makes one non-blocking WP-Cron nudge in the same request. The nudge is skipped for DISABLE_WP_CRON and while cron is already running. After the job succeeds, Deepglot stores the translations locally and purges completed URLs in WP Rocket, W3 Total Cache, and LiteSpeed Cache. Because WP Super Cache exposes only a global purge, Deepglot waits until the tracked queue is empty so pending pages stay cached. If later views remain in the source language, verify that WP-Cron or the host's system cron is running and purge any other page-cache plugin manually.
@@ -76,6 +80,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Ordinary page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first cold view is fast and later views converge after WP-Cron succeeds.
 * Added bounded, atomically locked background cache warming. Failed and partial results remain queued, and supported full-page caches are purged after warming completes.
 * Added administrator-triggered URL synchronization from a bounded internal sitemap snapshot, with progress, pause, resume, cancel, backpressure, retry, quota, and invalid-key controls.
+* Preserved bounded Retry-After signals on HTTP 429, stopped later sequential batches, and delayed warm and dynamic follow-up requests instead of immediately retrying.
 * Kept visual-editor previews and WooCommerce HTML emails synchronous because those one-off outputs cannot converge on a later page request.
 * Added the `deepglot_max_sync_batches` filter to translate inline again on fast providers, and `deepglot_api_timeout` to tune the request budget.
 

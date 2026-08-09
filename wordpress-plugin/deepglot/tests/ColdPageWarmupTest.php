@@ -204,9 +204,20 @@ class DeepglotWarmFakeWpError
 {
     public string $message;
 
-    public function __construct(string $message)
+    /** @var array<string, mixed> */
+    private array $data;
+
+    /** @param array<string, mixed> $data */
+    public function __construct(string $message, array $data = [])
     {
         $this->message = $message;
+        $this->data = $data;
+    }
+
+    /** @return array<string, mixed> */
+    public function get_error_data(): array
+    {
+        return $this->data;
     }
 }
 
@@ -227,6 +238,9 @@ class DeepglotWarmFakeClient extends Client
 
     /** @var int[] Indexes (per translateBatches call) that must fail. */
     public array $failingBatchIndexes = [];
+
+    /** @var int[] Indexes that return a classified SaaS 429. */
+    public array $rateLimitedBatchIndexes = [];
 
     /** @var int[] Indexes that return only the first requested translation. */
     public array $partialBatchIndexes = [];
@@ -271,6 +285,16 @@ class DeepglotWarmFakeClient extends Client
                 continue;
             }
 
+            if (in_array($index, $this->rateLimitedBatchIndexes, true)) {
+                $results[$index] = new DeepglotWarmFakeWpError('rate-limited-' . $index, [
+                    'status' => 429,
+                    'retry_after' => 120,
+                    'retry_after_source' => 'delta-seconds',
+                    'retry_after_capped' => false,
+                ]);
+                continue;
+            }
+
             $returnedBatch = in_array($index, $this->partialBatchIndexes, true)
                 ? array_slice($batch, 0, 1)
                 : $batch;
@@ -296,6 +320,7 @@ class DeepglotWarmFakeClient extends Client
         $this->timeouts = [];
         $this->singleCalls = 0;
         $this->translateBatchesCalls = 0;
+        $this->rateLimitedBatchIndexes = [];
     }
 }
 
@@ -901,6 +926,47 @@ $warmer->run();
 warmAssert(
     $client->translateBatchesCalls === 0,
     'A live atomic lock owner must prevent duplicate warm provider calls.'
+);
+
+// -----------------------------------------------------------------------------
+// 10. A classified SaaS 429 keeps failed work queued and moves the next warm
+//     attempt to the bounded Retry-After time. A visitor enqueue during that
+//     window must not replace it with an immediately due cron event.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$client->rateLimitedBatchIndexes = [0];
+$warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
+$warmer->enqueue(['Alpha'], 'de', 'en');
+$beforeRateLimit = time();
+$warmer->run();
+$scheduledAfterRateLimit = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+
+warmAssert(
+    ($warmer->pending()['de|en'] ?? []) === ['Alpha'],
+    'A 429 batch must remain queued for a later warm attempt.'
+);
+warmAssert(
+    $scheduledAfterRateLimit >= $beforeRateLimit + 119
+        && $scheduledAfterRateLimit <= $beforeRateLimit + 121,
+    'The warm queue must honor the bounded 120-second Retry-After instead of retrying immediately.'
+);
+warmAssert(
+    (int) get_option(TranslationWarmer::BACKOFF_OPTION, 0) === $scheduledAfterRateLimit,
+    'The warm backoff must survive across cron and visitor requests.'
+);
+
+$callsBeforeEarlyRun = $client->translateBatchesCalls;
+$warmer->run();
+warmAssert(
+    $client->translateBatchesCalls === $callsBeforeEarlyRun,
+    'A prematurely invoked cron callback must not call the SaaS during its 429 backoff.'
+);
+
+$warmer->enqueue(['Beta'], 'de', 'en');
+warmAssert(
+    (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0) === $scheduledAfterRateLimit,
+    'A visitor enqueue must preserve the delayed warm event instead of creating an immediate retry loop.'
 );
 
 fwrite(STDOUT, "ColdPageWarmupTest: OK\n");

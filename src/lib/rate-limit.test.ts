@@ -8,7 +8,9 @@ import {
   consumeTranslateWordVelocity,
   getRateLimitConfig,
   getTranslateWordVelocityLimit,
+  getTranslateWordVelocityPolicy,
   hashRateLimitSubject,
+  reportTranslateVelocityOutcome,
   releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 
@@ -40,6 +42,25 @@ test("lets an explicit velocity-limit environment override win over the plan-der
       TRANSLATE_WORD_VELOCITY_PER_HOUR: "invalid",
     }),
     20_000
+  );
+});
+
+test("reports whether the unchanged velocity threshold came from the plan or a valid environment override", () => {
+  assert.deepEqual(getTranslateWordVelocityPolicy(200_000, {}), {
+    limit: 20_000,
+    source: "plan",
+  });
+  assert.deepEqual(
+    getTranslateWordVelocityPolicy(200_000, {
+      TRANSLATE_WORD_VELOCITY_PER_HOUR: "75000",
+    }),
+    { limit: 75_000, source: "environment" }
+  );
+  assert.deepEqual(
+    getTranslateWordVelocityPolicy(200_000, {
+      TRANSLATE_WORD_VELOCITY_PER_HOUR: "invalid",
+    }),
+    { limit: 20_000, source: "plan" }
   );
 });
 
@@ -250,7 +271,7 @@ test("consumeTranslateWordVelocity rejects without spending the rejected words",
   assert.equal(stillFits.remaining, 0);
 });
 
-test("consumeTranslateWordVelocity allows one oversized request in a fresh window", async () => {
+test("consumeTranslateWordVelocity rejects oversized requests without mutating fresh or expired windows", async () => {
   const store = new MemoryRateLimitStore();
   const base = {
     organizationId: "org_oversized_first",
@@ -263,23 +284,124 @@ test("consumeTranslateWordVelocity allows one oversized request in a fresh windo
     words: 1_200,
     now: new Date("2026-04-30T10:00:00.000Z"),
   });
-  assert.equal(oversized.allowed, true);
-  assert.equal(oversized.remaining, 0);
+  assert.equal(oversized.allowed, false);
+  assert.equal(oversized.outcome, "oversize");
+  assert.equal(oversized.remaining, 1_000);
 
-  const blockedUntilReset = await consumeTranslateWordVelocity({
+  const fullFreshWindow = await consumeTranslateWordVelocity({
     ...base,
-    words: 1,
+    words: 1_000,
     now: new Date("2026-04-30T10:01:00.000Z"),
   });
-  assert.equal(blockedUntilReset.allowed, false);
+  assert.equal(fullFreshWindow.allowed, true);
+  assert.equal(fullFreshWindow.outcome, "allowed");
+  assert.equal(fullFreshWindow.remaining, 0);
 
-  const nextWindow = await consumeTranslateWordVelocity({
+  const oversizedAfterReset = await consumeTranslateWordVelocity({
     ...base,
     words: 1_200,
     now: new Date("2026-04-30T11:01:00.000Z"),
   });
-  assert.equal(nextWindow.allowed, true);
-  assert.equal(nextWindow.remaining, 0);
+  assert.equal(oversizedAfterReset.allowed, false);
+  assert.equal(oversizedAfterReset.outcome, "oversize");
+  assert.equal(oversizedAfterReset.remaining, 1_000);
+
+  const fullExpiredWindow = await consumeTranslateWordVelocity({
+    ...base,
+    words: 1_000,
+    now: new Date("2026-04-30T11:02:00.000Z"),
+  });
+  assert.equal(fullExpiredWindow.allowed, true);
+  assert.equal(fullExpiredWindow.remaining, 0);
+});
+
+test("reports allowed, blocked, and oversize velocity outcomes without tenant or request content", async () => {
+  const store = new MemoryRateLimitStore();
+  const shared = {
+    organizationId: "org_private_tenant",
+    limit: 1_000,
+    store,
+  };
+  const allowed = await consumeTranslateWordVelocity({
+    ...shared,
+    words: 600,
+    now: new Date("2026-04-30T10:00:00.000Z"),
+  });
+  const blocked = await consumeTranslateWordVelocity({
+    ...shared,
+    words: 500,
+    now: new Date("2026-04-30T10:01:00.000Z"),
+  });
+  const oversize = await consumeTranslateWordVelocity({
+    organizationId: "org_other_private_tenant",
+    words: 1_200,
+    limit: 1_000,
+    now: new Date("2026-04-30T10:02:00.000Z"),
+    store,
+  });
+
+  const entries: string[] = [];
+  for (const [result, freshWords] of [
+    [allowed, 600],
+    [blocked, 500],
+    [oversize, 1_200],
+  ] as const) {
+    reportTranslateVelocityOutcome(
+      {
+        result,
+        freshWords,
+        limitSource: "plan",
+        actorClass: "human",
+        surface: "translate_api",
+        itemCount: 2,
+        retryProtection: "none",
+        organizationId: "org_private_tenant",
+        projectId: "project_private_tenant",
+        requestFingerprintInput: "secret request text and URL",
+        pseudonymSecret: "test-only-observability-secret",
+      },
+      (message) => entries.push(message)
+    );
+  }
+
+  assert.deepEqual(
+    entries.map((entry) => JSON.parse(entry).outcome),
+    ["allowed", "blocked", "oversize"]
+  );
+  const {
+    organizationPseudonym,
+    projectPseudonym,
+    requestPseudonym,
+    ...oversizeEvent
+  } = JSON.parse(entries[2]);
+  assert.deepEqual(oversizeEvent, {
+    level: "info",
+    message: "Translation velocity reservation classified.",
+    event: "translate_velocity_reservation",
+    outcome: "oversize",
+    limitSource: "plan",
+    actorClass: "human",
+    surface: "translate_api",
+    itemCount: 2,
+    retryProtection: "none",
+    freshWords: 1_200,
+    limit: 1_000,
+    remaining: 1_000,
+    retryAfterSeconds: 3_600,
+    windowSeconds: 3_600,
+  });
+  const serialized = JSON.stringify(entries);
+  assert.doesNotMatch(
+    serialized,
+    /org_private|project_private|tenant|api.?key|request.?url|secret request text/i
+  );
+  for (const pseudonym of [
+    organizationPseudonym,
+    projectPseudonym,
+    requestPseudonym,
+  ]) {
+    assert.match(pseudonym, /^[a-f0-9]{16}$/);
+  }
 });
 
 test("releaseTranslateWordVelocity refunds a successful reservation", async () => {

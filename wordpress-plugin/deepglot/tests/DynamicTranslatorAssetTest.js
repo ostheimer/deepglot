@@ -7,10 +7,11 @@ const vm = require('node:vm');
 const scriptPath = path.resolve(__dirname, '../assets/js/dynamic-translator.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-function createHarness(fetchHandler) {
+function createHarness(fetchHandler, options = {}) {
   const timers = [];
   const fetchCalls = [];
   let observerId = 0;
+  let now = 0;
 
   class FakeText {
     constructor(data) {
@@ -186,11 +187,11 @@ function createHarness(fetchHandler) {
       },
       inputValueTypes: ['submit', 'button', 'reset'],
       minLength: 2,
-      batchSize: 200,
+      batchSize: options.batchSize || 200,
       maxTextLength: 5000,
     },
-    setTimeout(callback) {
-      timers.push(callback);
+    setTimeout(callback, delay = 0) {
+      timers.push({ callback, dueAt: now + Math.max(0, Number(delay) || 0) });
       return timers.length;
     },
   };
@@ -200,6 +201,7 @@ function createHarness(fetchHandler) {
     document,
     NodeFilter: { SHOW_TEXT: 4 },
     MutationObserver: FakeMutationObserver,
+    Date: { now: () => now },
     fetch: async (url, options) => {
       const payload = JSON.parse(options.body);
       fetchCalls.push(payload.texts);
@@ -209,17 +211,26 @@ function createHarness(fetchHandler) {
 
   vm.runInNewContext(scriptSource, context, { filename: scriptPath });
 
-  async function runTimers() {
+  async function runTimers(maxAdvance = 1000) {
+    const deadline = now + maxAdvance;
     while (timers.length > 0) {
-      const callback = timers.shift();
-      callback();
+      timers.sort((a, b) => a.dueAt - b.dueAt);
+      if (timers[0].dueAt > deadline) break;
+      const timer = timers.shift();
+      now = Math.max(now, timer.dueAt);
+      timer.callback();
       for (let i = 0; i < 50; i++) {
         await Promise.resolve();
       }
     }
   }
 
-  return { document, fetchCalls, runTimers };
+  async function advanceTime(milliseconds) {
+    now += milliseconds;
+    await runTimers(1000);
+  }
+
+  return { document, fetchCalls, runTimers, advanceTime };
 }
 
 function jsonResponse(body) {
@@ -442,6 +453,76 @@ async function testQuotaExhaustedStopsFurtherRequests() {
   assert.equal(second.data, 'Second string');
 }
 
+async function testRateLimitBackoffStopsImmediateDynamicRequests() {
+  const harness = createHarness(async () => jsonResponse({
+    from_words: [],
+    to_words: [],
+    retry_after: 60,
+  }));
+
+  const first = harness.document.createTextNode('First rate-limited string');
+  harness.document.body.appendChild(first);
+  await harness.runTimers();
+  assert.deepEqual(harness.fetchCalls, [['First rate-limited string']]);
+
+  const second = harness.document.createTextNode('Second rate-limited string');
+  harness.document.body.appendChild(second);
+  await harness.runTimers();
+
+  assert.deepEqual(
+    harness.fetchCalls,
+    [['First rate-limited string']],
+    'Retry-After must suppress another immediate visitor-facing request.'
+  );
+  assert.equal(second.data, 'Second rate-limited string');
+
+  await harness.advanceTime(60_000);
+  assert.deepEqual(
+    harness.fetchCalls,
+    [['First rate-limited string'], ['Second rate-limited string']],
+    'The queued new mutation may resume once after the bounded backoff.'
+  );
+}
+
+async function testParallelRateLimitsKeepTheLongestBackoff() {
+  const pendingResponses = [];
+  const harness = createHarness((texts) => new Promise((resolve) => {
+    pendingResponses.push({ texts, resolve });
+  }), { batchSize: 1 });
+
+  harness.document.body.appendChild(
+    harness.document.createTextNode('First parallel rate limit')
+  );
+  harness.document.body.appendChild(
+    harness.document.createTextNode('Second parallel rate limit')
+  );
+  await harness.runTimers();
+  assert.equal(pendingResponses.length, 2);
+
+  pendingResponses[0].resolve(jsonResponse({ from_words: [], to_words: [], retry_after: 120 }));
+  for (let i = 0; i < 50; i++) await Promise.resolve();
+  pendingResponses[1].resolve(jsonResponse({ from_words: [], to_words: [], retry_after: 30 }));
+  for (let i = 0; i < 50; i++) await Promise.resolve();
+
+  await harness.advanceTime(31_000);
+  harness.document.body.appendChild(
+    harness.document.createTextNode('Mutation after shorter backoff')
+  );
+  await harness.runTimers();
+  assert.equal(
+    harness.fetchCalls.length,
+    2,
+    'A later shorter 429 must not shorten the longest parallel Retry-After.'
+  );
+
+  await harness.advanceTime(89_000);
+  assert.deepEqual(
+    harness.fetchCalls[2],
+    ['Mutation after shorter backoff'],
+    'New work may resume after the longest parallel Retry-After expires.'
+  );
+}
+
 async function main() {
   const tests = [
     testProcessedTextNodeCanBeTranslatedAfterChanging,
@@ -455,6 +536,8 @@ async function main() {
     testStaleNonceRetriesWithoutNonce,
     testRawWhitespaceKeyIsSent,
     testQuotaExhaustedStopsFurtherRequests,
+    testRateLimitBackoffStopsImmediateDynamicRequests,
+    testParallelRateLimitsKeepTheLongestBackoff,
   ];
 
   for (const test of tests) {

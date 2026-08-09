@@ -72,6 +72,7 @@ if (!function_exists('get_option')) {
     $GLOBALS['_dgkey_transient_ttls'] = [];
     $GLOBALS['_dgkey_remote_status'] = 200;
     $GLOBALS['_dgkey_remote_statuses'] = [];
+    $GLOBALS['_dgkey_remote_headers'] = [];
     $GLOBALS['_dgkey_remote_calls'] = 0;
     $GLOBALS['_dgkey_remote_urls'] = [];
     $GLOBALS['_dgkey_before_remote_response'] = null;
@@ -214,11 +215,21 @@ if (!function_exists('get_option')) {
                 'status' => 402,
                 'detail' => 'Monatliches Wortlimit erreicht',
             ]);
+        } elseif ($status === 429) {
+            $body = json_encode([
+                'code' => 'velocity_limited',
+                'status' => 429,
+                'detail' => 'Translation velocity limited',
+            ]);
         } else {
             $body = json_encode(['from_words' => ['Hallo'], 'to_words' => ['Hello']]);
         }
 
-        return ['response' => ['code' => $status], 'body' => $body];
+        return [
+            'response' => ['code' => $status],
+            'body' => $body,
+            'headers' => $GLOBALS['_dgkey_remote_headers'],
+        ];
     }
 
     function wp_remote_post($url, $args = []) {
@@ -231,6 +242,16 @@ if (!function_exists('get_option')) {
 
     function wp_remote_retrieve_body($response) {
         return (string) ($response['body'] ?? '');
+    }
+
+    function wp_remote_retrieve_header($response, $name) {
+        foreach ((array) ($response['headers'] ?? []) as $header => $value) {
+            if (strtolower((string) $header) === strtolower((string) $name)) {
+                return $value;
+            }
+        }
+
+        return '';
     }
 
     function get_current_user_id() {
@@ -329,6 +350,7 @@ function dgkeyReset(int $remoteStatus = 200): void
     $GLOBALS['_dgkey_transient_ttls'] = [];
     $GLOBALS['_dgkey_remote_status'] = $remoteStatus;
     $GLOBALS['_dgkey_remote_statuses'] = [];
+    $GLOBALS['_dgkey_remote_headers'] = [];
     $GLOBALS['_dgkey_remote_calls'] = 0;
     $GLOBALS['_dgkey_remote_urls'] = [];
     $GLOBALS['_dgkey_before_remote_response'] = null;
@@ -508,6 +530,72 @@ dgkeyAssert(
     get_transient(DGKEY_TRANSIENT) === false,
     'A successful translation must not arm the invalid-key breaker.'
 );
+
+// -----------------------------------------------------------------------------
+// 5b. A SaaS 429 preserves a bounded Retry-After classification. Sequential
+//     fallback stops after the first 429 instead of amplifying it across the
+//     remaining page batches.
+// -----------------------------------------------------------------------------
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '17'];
+$rateLimited = $client->translate(['Hallo Welt'], 'de', 'en');
+$rateLimitedData = $rateLimited instanceof WP_Error ? $rateLimited->get_error_data() : [];
+dgkeyAssert(is_wp_error($rateLimited), 'A 429 must surface as WP_Error.');
+dgkeyAssert(($rateLimitedData['retry_after'] ?? null) === 17, 'Delta-seconds Retry-After must be preserved.');
+dgkeyAssert(($rateLimitedData['retry_after_source'] ?? null) === 'delta-seconds', 'Delta-seconds must be classified.');
+dgkeyAssert(($rateLimitedData['retry_after_capped'] ?? null) === false, 'An in-range delta must not be marked capped.');
+
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => gmdate('D, d M Y H:i:s \G\M\T', time() + 45)];
+$httpDateLimited = $client->translate(['Hallo Welt'], 'de', 'en');
+$httpDateData = $httpDateLimited instanceof WP_Error ? $httpDateLimited->get_error_data() : [];
+dgkeyAssert(
+    (int) ($httpDateData['retry_after'] ?? 0) >= 43 && (int) ($httpDateData['retry_after'] ?? 0) <= 45,
+    'HTTP-date Retry-After must be converted to bounded seconds.'
+);
+dgkeyAssert(($httpDateData['retry_after_source'] ?? null) === 'http-date', 'HTTP-date Retry-After must be classified.');
+
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => 'not-a-date'];
+$invalidRetryAfter = $client->translate(['Hallo Welt'], 'de', 'en');
+$invalidRetryData = $invalidRetryAfter instanceof WP_Error ? $invalidRetryAfter->get_error_data() : [];
+dgkeyAssert(($invalidRetryData['retry_after'] ?? null) === 60, 'Invalid Retry-After must use the conservative default.');
+dgkeyAssert(($invalidRetryData['retry_after_source'] ?? null) === 'default', 'Invalid Retry-After must be classified as default.');
+
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => 'tomorrow'];
+$relativeRetryAfter = $client->translate(['Hallo Welt'], 'de', 'en');
+$relativeRetryData = $relativeRetryAfter instanceof WP_Error ? $relativeRetryAfter->get_error_data() : [];
+dgkeyAssert(($relativeRetryData['retry_after'] ?? null) === 60, 'Relative date expressions are not valid HTTP dates and must use the default.');
+dgkeyAssert(($relativeRetryData['retry_after_source'] ?? null) === 'default', 'Relative date expressions must not be classified as HTTP dates.');
+
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '9999'];
+$cappedRetryAfter = $client->translate(['Hallo Welt'], 'de', 'en');
+$cappedRetryData = $cappedRetryAfter instanceof WP_Error ? $cappedRetryAfter->get_error_data() : [];
+dgkeyAssert(($cappedRetryData['retry_after'] ?? null) === 300, 'Retry-After must be capped at five minutes.');
+dgkeyAssert(($cappedRetryData['retry_after_capped'] ?? null) === true, 'A capped header must be classified as capped.');
+
+dgkeyReset(429);
+$GLOBALS['_dgkey_remote_statuses'] = [429, 200, 200];
+$GLOBALS['_dgkey_remote_headers'] = ['Retry-After' => '17'];
+$rateLimitedBatches = $client->translateBatches(
+    [['Erster Batch'], ['Zweiter Batch'], ['Dritter Batch']],
+    'de',
+    'en'
+);
+dgkeyAssert($GLOBALS['_dgkey_remote_calls'] === 1, 'Sequential fallback must stop dispatching after its first 429.');
+dgkeyAssert(count($rateLimitedBatches) === 3, 'A stopped 429 batch sequence must preserve every input key.');
+foreach ([1, 2] as $deferredKey) {
+    $deferred = $rateLimitedBatches[$deferredKey] ?? null;
+    $deferredData = $deferred instanceof WP_Error ? $deferred->get_error_data() : [];
+    dgkeyAssert(
+        $deferred instanceof WP_Error
+        && $deferred->get_error_code() === 'deepglot_rate_limited'
+        && ($deferredData['retry_after'] ?? null) === 17,
+        'Sequential batch ' . $deferredKey . ' must inherit the bounded 429 backoff without another request.'
+    );
+}
 
 // -----------------------------------------------------------------------------
 // 6. Saving a corrected key clears the breaker immediately — otherwise the

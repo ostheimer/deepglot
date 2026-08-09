@@ -21,6 +21,12 @@ class Client
      */
     private const INVALID_API_KEY_TTL = 900;
 
+    /** Conservative fallback when a 429 omits or malforms Retry-After. */
+    public const DEFAULT_RATE_LIMIT_BACKOFF = 60;
+
+    /** Never let an upstream header stall plugin queues for longer than this. */
+    public const MAX_RATE_LIMIT_BACKOFF = 300;
+
     /** Translation providers may need longer than ordinary API operations. */
     private const TRANSLATE_TIMEOUT_SECONDS = 60;
 
@@ -148,6 +154,7 @@ class Client
         // Sequential fallback when the Requests v2 helper is not available.
         $results = [];
         $invalidApiKeyDetected = false;
+        $rateLimitBackoff = null;
         $deadline = microtime(true) + $this->resolveTranslateTimeout($timeout);
 
         foreach ($payloads as $key => $payload) {
@@ -156,6 +163,11 @@ class Client
                 || $this->isApiKeyIdentityKnownInvalid($requestConfiguration['identity'])
             ) {
                 $results[$key] = $this->invalidApiKeyError();
+                continue;
+            }
+
+            if (is_array($rateLimitBackoff)) {
+                $results[$key] = $this->rateLimitedError($rateLimitBackoff);
                 continue;
             }
 
@@ -178,7 +190,15 @@ class Client
                 $requestConfiguration['identity']
             );
             $results[$key] = $result;
-            $invalidApiKeyDetected = $this->apiErrorStatus($result) === 401;
+            $status = $this->apiErrorStatus($result);
+            $invalidApiKeyDetected = $status === 401;
+
+            if ($status === 429 && $result instanceof \WP_Error) {
+                $data = $result->get_error_data();
+                $rateLimitBackoff = is_array($data)
+                    ? $this->rateLimitDataFromErrorData($data)
+                    : $this->classifyRetryAfter('');
+            }
         }
 
         return $results;
@@ -333,10 +353,10 @@ class Client
                     is_scalar($retryAfter) ? (string) $retryAfter : ''
                 );
                 $this->maybeFlagInvalidApiKey($statusCode, $requestIdentity);
-                $results[$key] = new \WP_Error(
-                    'deepglot_api_error',
-                    $this->getApiErrorMessage($decoded),
-                    ['status' => $statusCode, 'body' => $decoded]
+                $results[$key] = $this->apiError(
+                    $statusCode,
+                    $decoded,
+                    $this->responseHeader($response, 'Retry-After')
                 );
                 continue;
             }
@@ -454,14 +474,147 @@ class Client
                     : ''
             );
 
-            return new \WP_Error(
-                'deepglot_api_error',
-                $this->getApiErrorMessage($decoded),
-                ['status' => $statusCode, 'body' => $decoded]
+            return $this->apiError(
+                (int) $statusCode,
+                $decoded,
+                function_exists('wp_remote_retrieve_header')
+                    ? wp_remote_retrieve_header($response, 'Retry-After')
+                    : ''
             );
         }
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * Builds the existing API error contract and adds only bounded,
+     * machine-readable 429 metadata. The raw header is never persisted or
+     * logged, so an upstream value cannot leak request-specific content.
+     */
+    private function apiError(int $statusCode, $decoded, $retryAfterHeader = ''): \WP_Error
+    {
+        $data = ['status' => $statusCode, 'body' => $decoded];
+
+        if ($statusCode === 429) {
+            $data = array_merge($data, $this->classifyRetryAfter($retryAfterHeader));
+        }
+
+        return new \WP_Error(
+            'deepglot_api_error',
+            $this->getApiErrorMessage($decoded),
+            $data
+        );
+    }
+
+    /**
+     * @param mixed $value Retry-After delta-seconds or HTTP-date.
+     * @return array{retry_after: int, retry_after_source: string, retry_after_capped: bool}
+     */
+    private function classifyRetryAfter($value): array
+    {
+        if (is_array($value)) {
+            $value = reset($value);
+        }
+
+        $raw = is_scalar($value) ? trim((string) $value) : '';
+        $source = 'default';
+        $seconds = self::DEFAULT_RATE_LIMIT_BACKOFF;
+
+        if ($raw !== '' && ctype_digit($raw)) {
+            $source = 'delta-seconds';
+            $seconds = max(1, (int) $raw);
+        } elseif ($raw !== '') {
+            $timestamp = $this->parseHttpDate($raw);
+            if ($timestamp !== null) {
+                $source = 'http-date';
+                $seconds = max(1, $timestamp - time());
+            }
+        }
+
+        $capped = $seconds > self::MAX_RATE_LIMIT_BACKOFF;
+
+        return [
+            'retry_after' => min($seconds, self::MAX_RATE_LIMIT_BACKOFF),
+            'retry_after_source' => $source,
+            'retry_after_capped' => $capped,
+        ];
+    }
+
+    /** Accepts only the RFC HTTP-date IMF-fixdate form, never relative text. */
+    private function parseHttpDate(string $raw): ?int
+    {
+        if (!preg_match('/^[A-Z][a-z]{2}, [0-9]{2} [A-Z][a-z]{2} [0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2} GMT$/D', $raw)) {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat(
+            '!D, d M Y H:i:s \G\M\T',
+            $raw,
+            new \DateTimeZone('GMT')
+        );
+        $errors = \DateTimeImmutable::getLastErrors();
+        if (
+            !$date
+            || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+            || $date->format('D, d M Y H:i:s \G\M\T') !== $raw
+        ) {
+            return null;
+        }
+
+        return $date->getTimestamp();
+    }
+
+    /** @param array<string, mixed> $data */
+    private function rateLimitDataFromErrorData(array $data): array
+    {
+        $retryAfter = isset($data['retry_after']) && is_numeric($data['retry_after'])
+            ? max(1, min(self::MAX_RATE_LIMIT_BACKOFF, (int) $data['retry_after']))
+            : self::DEFAULT_RATE_LIMIT_BACKOFF;
+
+        return [
+            'retry_after' => $retryAfter,
+            'retry_after_source' => is_string($data['retry_after_source'] ?? null)
+                ? $data['retry_after_source']
+                : 'default',
+            'retry_after_capped' => (bool) ($data['retry_after_capped'] ?? false),
+        ];
+    }
+
+    /** @param array<string, mixed> $backoff */
+    private function rateLimitedError(array $backoff): \WP_Error
+    {
+        return new \WP_Error(
+            'deepglot_rate_limited',
+            __('Deepglot API Fehler.', 'deepglot'),
+            array_merge(['status' => 429], $backoff)
+        );
+    }
+
+    /** Reads a case-insensitive Requests v2 response header. */
+    private function responseHeader($response, string $name)
+    {
+        $headers = is_object($response) ? ($response->headers ?? null) : null;
+
+        if (is_array($headers)) {
+            foreach ($headers as $header => $value) {
+                if (strtolower((string) $header) === strtolower($name)) {
+                    return $value;
+                }
+            }
+        }
+
+        if (is_object($headers) && method_exists($headers, 'getValues')) {
+            $values = $headers->getValues($name);
+            if (is_array($values) && !empty($values)) {
+                return reset($values);
+            }
+        }
+
+        if ($headers instanceof \ArrayAccess && isset($headers[$name])) {
+            return $headers[$name];
+        }
+
+        return '';
     }
 
     private function getApiErrorMessage($decoded): string

@@ -47,12 +47,13 @@ Defaults:
 - `TRANSLATE_RATE_LIMIT_PER_MINUTE=60` for `/api/translate` per API key.
 - `PLUGIN_RATE_LIMIT_PER_MINUTE=120` shared across plugin API-key endpoints per API key.
 - `AUTH_RATE_LIMIT_PER_MINUTE=5` for password-reset requests per normalized email.
+- The translation fresh-word velocity limit is plan-derived: 10% of the effective monthly word quota per hour, with a minimum of 1,000. A valid positive `TRANSLATE_WORD_VELOCITY_PER_HOUR` value replaces that derived limit.
 
 Expected behavior:
 
 - Over-limit responses return `429` with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`.
 - Bucket subjects are SHA-256 hashes; raw API keys and email addresses are not stored in `RateLimitBucket`.
-- Raising or lowering limits should be done through Vercel environment variables, followed by a production redeploy.
+- Request-count limits are changed through their Vercel environment variables. Do not change the fresh-word velocity threshold until the classification-readiness steps below have produced representative evidence.
 
 ## Duplicate Subscription Alert (Stripe)
 
@@ -340,17 +341,27 @@ AND "threshold" = <90 or 100>;
 
 ### Translation velocity limit (per-org drain rate)
 
-Separate from the monthly quota (a total) and the per-minute request rate limit (a count), `POST /api/translate` enforces a **per-organization fresh-word velocity limit** (ROADMAP 8.37, #203): at most `TRANSLATE_WORD_VELOCITY_PER_HOUR` fresh, provider-billed words per organization per fixed 1-hour window (anchored at the first request of the window, ~2x possible across a window boundary), reserved atomically via the `RateLimitBucket` table. It caps how *fast* an org can drain its monthly quota — the authoritative bound behind the WordPress plugin's soft per-IP caps (v0.8.4), so a distributed attacker rotating IPs through the dynamic-translate proxy cannot burn the monthly quota in minutes. Keyed per org (not per project) so an org with many project keys cannot multiply the rate against its one shared quota pool.
+Separate from the monthly quota (a total) and the per-minute request rate limit (a count), `POST /api/translate` enforces a **per-organization fresh-word velocity limit** (ROADMAP 8.37, #203). The unchanged default is 10% of the effective monthly word quota per fixed 1-hour window, with a minimum of 1,000 fresh, provider-billed words. A valid positive `TRANSLATE_WORD_VELOCITY_PER_HOUR` value is an explicit operator override. Reservations are atomic in `RateLimitBucket`. The limit caps how fast an organization can drain its shared monthly quota and remains authoritative behind the WordPress plugin's soft per-IP caps.
 
-- **Default:** 50,000 words/hour/org. Override with the `TRANSLATE_WORD_VELOCITY_PER_HOUR` env var (Vercel Production) — raise it for legitimately very high-volume orgs.
+- **Hard cap:** a request whose own fresh-word cost exceeds the complete hourly limit is classified as `oversize`, returns 429, and never mutates a new or expired bucket. Normal requests retain the same atomic reservation behavior. This closes the prior first-request exception without raising or lowering the threshold.
 - **Exempt:** cache hits and bot traffic never consume velocity. Health probes (`quota_probe`) are **not** exempt — the flag is attacker-settable and the spend path does not honor it, so exempting velocity would let it bypass the limit; a real probe's few words are negligible against the hourly budget.
 - **Signal:** over-budget requests get `429` with `code: velocity_limited` and a `Retry-After` header. The server-side pass then serves source text for that batch until the window rolls over; it is not a hard monthly exhaustion (that is still `402`).
+- **Privacy-safe classification:** every attempted fresh-word reservation emits one JSON log event named `translate_velocity_reservation`. `outcome` is `allowed`, `blocked`, or `oversize`; the event also records actor class, surface, item count, retry protection, limit source, fresh-word count, limit, remaining words, retry seconds, and window seconds. Organization, project, and request grouping use 16-character keyed HMAC pseudonyms derived with the server-side auth secret. Raw organization/project IDs, translation text, API keys, idempotency keys, and URLs are never logged.
+
+**Classification readiness before policy tuning:** No historical outcome classification exists before this rollout, so the previously observed aggregate 429 count cannot establish whether traffic was legitimate, abusive, retry amplification, request-count limiting, or velocity limiting. Do not change the threshold from that evidence alone.
+
+1. Deploy the classifier and collect a representative window that includes normal weekdays and at least one expected traffic peak.
+2. Verify `organizationPseudonym`, `projectPseudonym`, and `requestPseudonym` are present rather than `unavailable`, then aggregate `translate_velocity_reservation` by those HMAC pseudonyms, `outcome`, `actorClass`, `surface`, `itemCount`, `retryProtection`, `limitSource`, `freshWords`, and retry range. Repeated request pseudonyms without idempotency protection are the privacy-safe retry-amplification signal. Separately count `rate_limit_exceeded` and `velocity_limited` API responses; do not infer one from the total HTTP 429 count.
+3. Verify that `oversize` attempts do not create or reset buckets and that ordinary concurrent reservations still stop at the configured limit.
+4. Correlate aggregate changes with privacy-safe operational facts (release times, configured cron cadence, known import windows, and confirmed support reports). Do not add raw tenant IDs, request text, keys, or URLs to the event; use only the keyed HMAC pseudonyms already defined by the fixed schema.
+5. Change a limit only with a reviewed sample showing repeatable legitimate blocking. Preserve the per-organization atomic guard and document the evidence, expected capacity, rollback value, and observation window.
 
 **Runbook — a site reports "translations stopped" but the monthly quota is not exhausted:**
-1. Check for `429 velocity_limited` responses in the Vercel logs for that org.
-2. If the traffic is legitimate (a real high-volume org), raise `TRANSLATE_WORD_VELOCITY_PER_HOUR` and redeploy.
-3. If the traffic looks like abuse (server-side clients, no browser), the limit is doing its job; investigate the source before raising it.
-4. Known edge case (#208): a single request with more fresh words than the hourly limit is rejected until the limit is raised — see the follow-up issue.
+1. Confirm the response code: `velocity_limited` is the fresh-word guard; `rate_limit_exceeded` is the per-minute request guard. Preserve `Retry-After` when capturing the response metadata.
+2. Review the privacy-safe classifier aggregate and the site's WP-Cron/import timing. A single support report or total 429 count is not enough to tune the shared policy.
+3. Verify the WordPress client stopped later sequential batches after its first 429. Parallel batches may already be in flight, but each response must preserve its own bounded Retry-After classification.
+4. Verify the warmer scheduled its next attempt for Retry-After and that the dynamic browser queue did not immediately resend visitor-facing work. Cached translations remain available; uncached content stays in the source language meanwhile.
+5. If reviewed evidence proves legitimate repeatable blocking, use a positive `TRANSLATE_WORD_VELOCITY_PER_HOUR` override and redeploy with an explicit rollback value. If evidence indicates abuse or retry amplification, keep the threshold and address that source instead.
 
 ### WordPress plugin quota signals
 

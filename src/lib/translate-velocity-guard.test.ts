@@ -21,9 +21,19 @@ const ROUTE_PATH = path.join(
   "translate",
   "route.ts"
 );
+const PDF_TRANSLATION_PATH = path.join(
+  process.cwd(),
+  "src",
+  "lib",
+  "pdf-translation.ts"
+);
 
 function routeSource() {
   return readFileSync(ROUTE_PATH, "utf8");
+}
+
+function pdfTranslationSource() {
+  return readFileSync(PDF_TRANSLATION_PATH, "utf8");
 }
 
 test("translate route enforces the per-org word velocity limit (#203)", () => {
@@ -46,13 +56,48 @@ test("translate route derives the velocity cap from the effective monthly quota 
 
   assert.match(
     source,
-    /limit:\s*getTranslateWordVelocityLimit\(wordsLimit\)/,
-    "velocity must derive from the effective monthly wordsLimit"
+    /getTranslateWordVelocityPolicy\(wordsLimit\)/,
+    "velocity must derive the threshold and its provenance from the effective monthly wordsLimit"
   );
   assert.doesNotMatch(
     source,
     /limit:\s*getRateLimitConfig\(\)\.translateWordVelocityPerHour/,
     "the translate route must not fall back to the former flat velocity default"
+  );
+});
+
+test("translate route emits privacy-safe velocity outcome classification before responding", () => {
+  const source = routeSource();
+
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome\(\s*\{[\s\S]{0,1200}?result:\s*velocity[\s\S]{0,1200}?actorClass:\s*"human"[\s\S]{0,1200}?surface:\s*"translate_api"[\s\S]{0,1200}?organizationId:\s*project\.organizationId[\s\S]{0,1200}?projectId:\s*project\.id[\s\S]{0,1200}?requestFingerprintInput:/,
+    "every fresh-word reservation must emit the bounded structured classification"
+  );
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome[\s\S]{0,1800}?if\s*\(\s*!velocity\.allowed\s*\)/,
+    "blocked and oversize reservations must be classified before returning 429"
+  );
+});
+
+test("PDF translations emit the same privacy-safe outcome classification", () => {
+  const source = pdfTranslationSource();
+
+  assert.match(
+    source,
+    /getTranslateWordVelocityPolicy\(wordsLimit\)/,
+    "PDF reservations must expose the same threshold provenance"
+  );
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome\(\s*\{[\s\S]{0,1200}?result:\s*velocity[\s\S]{0,1200}?actorClass:\s*"human"[\s\S]{0,1200}?surface:\s*"pdf"[\s\S]{0,1200}?organizationId:\s*project\.organizationId[\s\S]{0,1200}?projectId:\s*project\.id[\s\S]{0,1200}?requestFingerprintInput:/,
+    "PDF reservations must contribute to rollout classification"
+  );
+  assert.match(
+    source,
+    /reportTranslateVelocityOutcome[\s\S]{0,1800}?if\s*\(\s*!velocity\.allowed\s*\)/,
+    "blocked and oversize PDF reservations must be classified before the 429"
   );
 });
 

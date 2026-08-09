@@ -33,7 +33,8 @@ async function exerciseReservationSequence(store: RateLimitStore, scope: string)
       resetAt,
     });
 
-  const first = await reserve(600, "2026-07-13T10:00:00.000Z");
+  const oversizedFresh = await reserve(1_200, "2026-07-13T10:00:00.000Z");
+  const first = await reserve(600, "2026-07-13T10:01:00.000Z");
   const rejected = await reserve(500, "2026-07-13T10:05:00.000Z");
   const filled = await reserve(400, "2026-07-13T10:10:00.000Z");
   const released = await store.releaseBucket({
@@ -42,7 +43,7 @@ async function exerciseReservationSequence(store: RateLimitStore, scope: string)
     cost: 300,
     now: new Date("2026-07-13T10:15:00.000Z"),
   });
-  const nextWindow = await store.reserveBucket({
+  const oversizedExpired = await store.reserveBucket({
     scope,
     subjectHash,
     cost: 1_200,
@@ -50,8 +51,24 @@ async function exerciseReservationSequence(store: RateLimitStore, scope: string)
     now: new Date("2026-07-13T11:01:00.000Z"),
     resetAt: new Date("2026-07-13T12:01:00.000Z"),
   });
+  const nextWindow = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 1_000,
+    limit: 1_000,
+    now: new Date("2026-07-13T11:02:00.000Z"),
+    resetAt: new Date("2026-07-13T12:02:00.000Z"),
+  });
 
-  return [first, rejected, filled, released, nextWindow];
+  return {
+    oversizedFresh,
+    first,
+    rejected,
+    filled,
+    released,
+    oversizedExpired,
+    nextWindow,
+  };
 }
 
 function normalize(value: unknown) {
@@ -71,11 +88,97 @@ test("MemoryRateLimitStore and PrismaRateLimitStore preserve identical reservati
     prismaScope
   );
 
+  assert.equal(memoryResults.oversizedFresh.reserved, false);
+  assert.equal(memoryResults.oversizedFresh.bucket.count, 0);
+  assert.equal(memoryResults.oversizedExpired.reserved, false);
+  assert.equal(memoryResults.oversizedExpired.bucket.count, 0);
+  assert.equal(memoryResults.nextWindow.reserved, true);
+  assert.equal(memoryResults.nextWindow.bucket.count, 1_000);
+
+  assert.equal(prismaResults.oversizedFresh.reserved, false);
+  assert.equal(prismaResults.oversizedFresh.bucket.count, 0);
+  assert.equal(prismaResults.oversizedExpired.reserved, false);
+  assert.equal(prismaResults.oversizedExpired.bucket.count, 0);
+  assert.equal(prismaResults.nextWindow.reserved, true);
+  assert.equal(prismaResults.nextWindow.bucket.count, 1_000);
+
   assert.deepEqual(
-    normalize(prismaResults).map((result: unknown) =>
-      JSON.parse(JSON.stringify(result).replaceAll(prismaScope, memoryScope))
+    JSON.parse(
+      JSON.stringify(normalize(prismaResults)).replaceAll(
+        prismaScope,
+        memoryScope
+      )
     ),
     normalize(memoryResults)
+  );
+});
+
+test("PrismaRateLimitStore rejects oversized new and expired buckets without mutation", { skip: skipWithoutDatabase }, async () => {
+  const scope = uniqueScope("oversized-no-mutation");
+  const subjectHash = "oversized-subject";
+  const store = new PrismaRateLimitStore();
+  const { db } = await import("@/lib/db");
+
+  const oversizedFresh = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 1_200,
+    limit: 1_000,
+    now: new Date("2026-07-13T10:00:00.000Z"),
+    resetAt: new Date("2026-07-13T11:00:00.000Z"),
+  });
+  assert.equal(oversizedFresh.reserved, false);
+  assert.equal(oversizedFresh.bucket.count, 0);
+  assert.equal(
+    await db.rateLimitBucket.findUnique({
+      where: { scope_subjectHash: { scope, subjectHash } },
+    }),
+    null
+  );
+
+  const initial = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 600,
+    limit: 1_000,
+    now: new Date("2026-07-13T10:01:00.000Z"),
+    resetAt: new Date("2026-07-13T11:00:00.000Z"),
+  });
+  assert.equal(initial.reserved, true);
+
+  const oversizedExpired = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 1_200,
+    limit: 1_000,
+    now: new Date("2026-07-13T11:01:00.000Z"),
+    resetAt: new Date("2026-07-13T12:01:00.000Z"),
+  });
+  assert.equal(oversizedExpired.reserved, false);
+  assert.equal(oversizedExpired.bucket.count, 0);
+  assert.deepEqual(
+    await db.rateLimitBucket.findUnique({
+      where: { scope_subjectHash: { scope, subjectHash } },
+      select: { count: true, resetAt: true },
+    }),
+    { count: 600, resetAt: new Date("2026-07-13T11:00:00.000Z") }
+  );
+
+  const validExpired = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 1_000,
+    limit: 1_000,
+    now: new Date("2026-07-13T11:02:00.000Z"),
+    resetAt: new Date("2026-07-13T12:02:00.000Z"),
+  });
+  assert.equal(validExpired.reserved, true);
+  assert.deepEqual(
+    await db.rateLimitBucket.findUnique({
+      where: { scope_subjectHash: { scope, subjectHash } },
+      select: { count: true, resetAt: true },
+    }),
+    { count: 1_000, resetAt: new Date("2026-07-13T12:02:00.000Z") }
   );
 });
 
