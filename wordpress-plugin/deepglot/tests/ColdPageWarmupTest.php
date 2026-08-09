@@ -38,6 +38,25 @@ if (!function_exists('__')) {
     }
 }
 
+if (!class_exists('WP_Error')) {
+    class WP_Error
+    {
+        public function __construct(
+            private string $code = '',
+            private string $message = '',
+            private $data = null
+        ) {}
+
+        public function get_error_data() {
+            return $this->data;
+        }
+
+        public function get_error_message(): string {
+            return $this->message;
+        }
+    }
+}
+
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_options'] = [];
     $GLOBALS['_deepglot_transients'] = [];
@@ -95,7 +114,7 @@ if (!function_exists('get_option')) {
     }
 
     function is_wp_error($value) {
-        return $value instanceof DeepglotWarmFakeWpError;
+        return $value instanceof DeepglotWarmFakeWpError || $value instanceof WP_Error;
     }
 
     function wp_parse_args($args, $defaults = []) {
@@ -124,6 +143,44 @@ if (!function_exists('get_option')) {
 
     if (!defined('MINUTE_IN_SECONDS')) {
         define('MINUTE_IN_SECONDS', 60);
+    }
+}
+
+if (!function_exists('wp_remote_request')) {
+    $GLOBALS['_deepglot_remote_requests'] = [];
+
+    if (!function_exists('wp_json_encode')) {
+        function wp_json_encode($value) {
+            return json_encode($value);
+        }
+    }
+
+    function wp_remote_request($url, $args = []) {
+        $GLOBALS['_deepglot_remote_requests'][] = [
+            'url' => (string) $url,
+            'args' => is_array($args) ? $args : [],
+        ];
+
+        return [
+            'response' => ['code' => 200],
+            'body' => wp_json_encode([
+                'from_words' => ['Legacy race queue'],
+                'to_words' => ['Legacy race translated'],
+            ]),
+            'headers' => [],
+        ];
+    }
+
+    function wp_remote_retrieve_response_code($response) {
+        return (int) ($response['response']['code'] ?? 0);
+    }
+
+    function wp_remote_retrieve_body($response) {
+        return (string) ($response['body'] ?? '');
+    }
+
+    function wp_remote_retrieve_header($response, $name) {
+        return (string) ($response['headers'][(string) $name] ?? '');
     }
 }
 
@@ -556,6 +613,40 @@ class DeepglotWarmLegacyBatchOverrideClient extends Client
                 ),
             ],
             $batches
+        );
+    }
+}
+
+/** Legacy wrapper that delegates its actual HTTP work to the original API. */
+class DeepglotWarmLegacyDelegatingBatchClient extends Client
+{
+    public int $legacyCalls = 0;
+
+    /** @var callable|null */
+    public $beforeParentDispatch = null;
+
+    public function translateBatches(
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    ): array {
+        $this->legacyCalls++;
+        if (is_callable($this->beforeParentDispatch)) {
+            $callback = $this->beforeParentDispatch;
+            $this->beforeParentDispatch = null;
+            $callback();
+        }
+
+        return parent::translateBatches(
+            $batches,
+            $langFrom,
+            $langTo,
+            $requestUrl,
+            $bot,
+            $timeout
         );
     }
 }
@@ -2836,6 +2927,72 @@ warmCollectAssert(
     $legacyDispatchClient->calls === 1
         && get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyDispatchQueueBefore,
     'A stale identity event must not invoke a legacy batch override or reconcile its queue.'
+);
+
+warmResetEnvironment();
+$GLOBALS['_deepglot_remote_requests'] = [];
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => $legacyDispatchKeyA,
+    'api_base_url' => $legacyDispatchBaseA,
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$legacyRaceIdentityA = warmRateIdentity($options);
+$legacyRaceIdentityB = hash('sha256', $legacyDispatchBaseB . "\0" . $legacyDispatchKeyB);
+$legacyRaceClient = new DeepglotWarmLegacyDelegatingBatchClient($options);
+$legacyRaceClient->beforeParentDispatch = static function () use (
+    $legacyDispatchKeyB,
+    $legacyDispatchBaseB
+): void {
+    update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+        'enabled' => true,
+        'api_key' => $legacyDispatchKeyB,
+        'api_base_url' => $legacyDispatchBaseB,
+        'source_language' => 'de',
+        'target_languages' => ['en'],
+    ]));
+};
+$legacyRaceWarmer = new TranslationWarmer(
+    $legacyRaceClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$legacyRaceWarmer->enqueue(
+    ['Legacy race queue'],
+    'de',
+    'en',
+    'https://legacy-race.deepglot.test/pending'
+);
+$legacyRaceQueueBefore = get_option(TranslationWarmer::QUEUE_OPTION, false);
+$legacyRaceUrlsBefore = get_option(TranslationWarmer::URL_QUEUE_OPTION, false);
+unset(
+    $GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK],
+    $GLOBALS['_deepglot_scheduled_args'][TranslationWarmer::HOOK]
+);
+$GLOBALS['_deepglot_scheduled_event_log'] = [];
+$legacyRaceWarmer->runForIdentity($legacyRaceIdentityA);
+$legacyRaceEventsForB = array_filter(
+    $GLOBALS['_deepglot_scheduled_event_log'],
+    static fn(array $event): bool => ($event['args'] ?? []) === [$legacyRaceIdentityB]
+        && (int) ($event['timestamp'] ?? PHP_INT_MAX) <= time() + 1
+);
+warmCollectAssert(
+    $legacyRaceClient->legacyCalls === 1,
+    'An identity-bound warm run must continue to enter a legacy delegating override.'
+);
+warmCollectAssert(
+    $GLOBALS['_deepglot_remote_requests'] === [],
+    'A switch at legacy override entry must be rejected before parent Client sends B HTTP.'
+);
+warmCollectAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyRaceQueueBefore
+        && get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === $legacyRaceUrlsBefore,
+    'A legacy override entry switch must preserve text and URL queues.'
+);
+warmCollectAssert(
+    count($legacyRaceEventsForB) === 1,
+    'A legacy override entry switch must plan exactly one immediate additive B event.'
 );
 
 if ($GLOBALS['_deepglot_collected_failures'] !== []) {

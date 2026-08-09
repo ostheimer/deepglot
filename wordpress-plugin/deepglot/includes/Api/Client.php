@@ -33,6 +33,13 @@ class Client
 
     private Options $options;
 
+    /**
+     * Request-local scopes for nested identity-aware batch calls.
+     *
+     * @var string[]
+     */
+    private array $batchExpectedIdentityStack = [];
+
     public function __construct(Options $options)
     {
         $this->options = $options;
@@ -154,8 +161,12 @@ class Client
         ?int $timeout = null
     ): array
     {
+        $expectedIdentity = empty($this->batchExpectedIdentityStack)
+            ? null
+            : $this->batchExpectedIdentityStack[count($this->batchExpectedIdentityStack) - 1];
+
         return $this->translateBatchesWithExpectedIdentity(
-            null,
+            $expectedIdentity,
             $batches,
             $langFrom,
             $langTo,
@@ -174,15 +185,24 @@ class Client
         int $bot = 0,
         ?int $timeout = null
     ): array {
-        return $this->translateBatchesWithExpectedIdentity(
-            $expectedIdentity,
-            $batches,
-            $langFrom,
-            $langTo,
-            $requestUrl,
-            $bot,
-            $timeout
-        );
+        $this->batchExpectedIdentityStack[] = $expectedIdentity;
+
+        try {
+            // Keep the original virtual entrypoint in the call chain so
+            // integrations that override only translateBatches() still run.
+            // A delegating override's parent::translateBatches() call then
+            // consumes the request-local expected identity from the stack.
+            return $this->translateBatches(
+                $batches,
+                $langFrom,
+                $langTo,
+                $requestUrl,
+                $bot,
+                $timeout
+            );
+        } finally {
+            array_pop($this->batchExpectedIdentityStack);
+        }
     }
 
     private function translateBatchesWithExpectedIdentity(
