@@ -202,7 +202,7 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
                 {de ? "Begrenzte Wiederholungen" : "Bounded retries"}
               </p>
-              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em] [overflow-wrap:anywhere]">
+              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em] hyphens-auto [overflow-wrap:anywhere]">
                 {de
                   ? "429 ohne Wiederholungsschleife beachten"
                   : "Respecting a 429 without a retry storm"}

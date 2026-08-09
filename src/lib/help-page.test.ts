@@ -71,7 +71,7 @@ test("help visual layout keeps digest and release content responsive", () => {
   assert.match(source, /\[overflow-wrap:anywhere\]/);
   assert.match(
     source,
-    /data-testid="help-rate-limit-backoff"[\s\S]*?<h2 className="[^"]*\[overflow-wrap:anywhere\][^"]*"/,
+    /data-testid="help-rate-limit-backoff"[\s\S]*?<h2 className="[^"]*hyphens-auto[^"]*\[overflow-wrap:anywhere\][^"]*"/,
   );
   assert.match(source, /aria-label=\{de \? "Hilfebereiche" : "Help sections"\}/);
 
