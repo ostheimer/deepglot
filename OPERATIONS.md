@@ -171,7 +171,7 @@ Set `DEEPGLOT_LATENCY_ACCEPTANCE_APP_URL` to exactly `https://deepglot.ai` and p
 
 After the run, inspect privacy-safe provider fallback and timeout logs for the same window. A complete 200 response can still have used a fallback provider, so clean API shape and latency evidence do not by themselves prove a healthy primary provider. Record the deployed application version and the WordPress plugin version before attributing any result to v0.12.0 background warming.
 
-For WordPress warm-up verification, confirm that the stored purge target is the localized public request URL after routing rewrites, not the canonical source path. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache exposes a global public purge only, so Deepglot delays that purge until the tracked URL queue has fully drained; pages that remain pending must stay cached.
+For WordPress warm-up verification, confirm that the stored purge target is the localized public request URL after routing rewrites, not the canonical source path. After Deepglot has durably written warm-up work and an immediately due event, it makes one non-blocking `spawn_cron()` nudge in the same request so a low-traffic page does not wait for another visit. The nudge is skipped with `DISABLE_WP_CRON`, while `DOING_CRON`/`wp_doing_cron()` is true, and after the first attempt in that request; system-cron sites remain responsible for invoking cron. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache exposes a global public purge only, so Deepglot delays that purge until the tracked URL queue has fully drained; pages that remain pending must stay cached.
 
 ## Stripe Acceptance
 

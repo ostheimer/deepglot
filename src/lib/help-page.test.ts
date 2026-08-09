@@ -47,6 +47,9 @@ test("help route, navigation, and product copy stay discoverable", () => {
   assert.match(helpPage, /Wichtig/);
   assert.match(helpPage, /vertrauenswürdiges finales HTML/);
   assert.match(helpPage, /60-Sekunden-Fenster/);
+  assert.match(helpPage, /Sobald Warteschlange und fälliges Ereignis gespeichert sind/);
+  assert.match(helpPage, /dieser Anstoß aus/);
+  assert.match(helpPage, /one non-blocking WP-Cron nudge per request/);
   assert.match(nav, /getMarketingPath\(locale, "help"\)/);
   assert.match(nav, /active === "help"/);
   assert.match(footer, /getMarketingPath\(locale, "help"\)/);
@@ -54,6 +57,9 @@ test("help route, navigation, and product copy stay discoverable", () => {
   assert.match(home, /getMarketingPath\(locale, "help"\)/);
   assert.match(developerDocs, /id="activity-digest"/);
   assert.match(developerDocs, /id="wordpress-releases"/);
+  assert.match(developerDocs, /Sobald Warteschlange und Ereignis gespeichert sind/);
+  assert.match(developerDocs, /dieser Anstoß aus/);
+  assert.match(developerDocs, /one non-blocking WP-Cron nudge per request/);
 });
 
 test("help visual layout keeps digest and release content responsive", () => {

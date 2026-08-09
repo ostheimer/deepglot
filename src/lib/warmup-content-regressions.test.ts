@@ -50,10 +50,11 @@ test("operations document real fresh/cache latency evidence and its write bounda
   );
 });
 
-test("plugin and developer docs pin localized purges and WP Super queue draining", () => {
+test("plugin and developer docs pin localized purges, immediate nudges, and WP Super queue draining", () => {
   const pluginReadme = source("wordpress-plugin/deepglot/README.md");
   const wpOrgReadme = source("wordpress-plugin/deepglot/readme.txt");
   const developerDocs = source("src/components/marketing/developer-docs.tsx");
+  const operations = source("OPERATIONS.md");
 
   for (const documentation of [pluginReadme, wpOrgReadme, developerDocs]) {
     assert.match(documentation, /WP Super Cache/);
@@ -62,6 +63,11 @@ test("plugin and developer docs pin localized purges and WP Super queue draining
 
   assert.match(pluginReadme, /localized public request URL/i);
   assert.match(developerDocs, /lokalisierte öffentliche Anfrage-URL/);
+  assert.match(pluginReadme, /at most one non-blocking WP-Cron nudge/i);
+  assert.match(wpOrgReadme, /one non-blocking WP-Cron nudge/i);
+  assert.match(developerDocs, /one non-blocking WP-Cron nudge per request/i);
+  assert.match(operations, /one non-blocking `spawn_cron\(\)` nudge/i);
+  assert.match(operations, /DOING_CRON`\/`wp_doing_cron\(\)/);
 });
 
 test("bilingual public copy explains the completed-versus-pending cache boundary", () => {
@@ -71,4 +77,6 @@ test("bilingual public copy explains the completed-versus-pending cache boundary
   assert.match(help, /pending pages stay cached/i);
   assert.match(help, /ausstehende Seiten im Cache bleiben/);
   assert.match(help, /localized URL|lokalisierte URL/);
+  assert.match(help, /one non-blocking WP-Cron nudge per request/i);
+  assert.match(help, /Sobald Warteschlange und fälliges Ereignis gespeichert sind/);
 });

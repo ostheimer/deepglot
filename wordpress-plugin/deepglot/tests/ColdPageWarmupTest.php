@@ -109,6 +109,8 @@ $GLOBALS['_deepglot_filters'] = [];
 $GLOBALS['_deepglot_actions'] = [];
 $GLOBALS['_deepglot_scheduled'] = [];
 $GLOBALS['_deepglot_spawned_cron'] = 0;
+$GLOBALS['_deepglot_spawned_cron_events'] = [];
+$GLOBALS['_deepglot_is_doing_cron'] = false;
 $GLOBALS['_deepglot_purged_urls'] = [];
 $GLOBALS['_deepglot_w3tc_purged_urls'] = [];
 $GLOBALS['_deepglot_litespeed_purged_urls'] = [];
@@ -154,11 +156,12 @@ if (!function_exists('add_filter')) {
 
     function spawn_cron($gmt_time = 0) {
         $GLOBALS['_deepglot_spawned_cron']++;
+        $GLOBALS['_deepglot_spawned_cron_events'][] = $GLOBALS['_deepglot_scheduled'][\Deepglot\Support\TranslationWarmer::HOOK] ?? null;
         return true;
     }
 
     function wp_doing_cron() {
-        return false;
+        return (bool) ($GLOBALS['_deepglot_is_doing_cron'] ?? false);
     }
 
     function rocket_clean_files($urls) {
@@ -350,6 +353,8 @@ function warmResetEnvironment(): void
     $GLOBALS['_deepglot_actions'] = [];
     $GLOBALS['_deepglot_scheduled'] = [];
     $GLOBALS['_deepglot_spawned_cron'] = 0;
+    $GLOBALS['_deepglot_spawned_cron_events'] = [];
+    $GLOBALS['_deepglot_is_doing_cron'] = false;
     $GLOBALS['_deepglot_purged_urls'] = [];
     $GLOBALS['_deepglot_w3tc_purged_urls'] = [];
     $GLOBALS['_deepglot_litespeed_purged_urls'] = [];
@@ -441,7 +446,11 @@ warmAssert(
 );
 warmAssert(
     (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? PHP_INT_MAX) <= time(),
-    'The event must already be due when the immediate shutdown cron spawn runs.'
+    'The event must already be due when the immediate cron nudge runs.'
+);
+warmAssert(
+    (int) ($GLOBALS['_deepglot_spawned_cron_events'][0] ?? PHP_INT_MAX) <= time(),
+    'The cron event must be due before spawn_cron() is called.'
 );
 
 // -----------------------------------------------------------------------------
@@ -537,6 +546,32 @@ warmAssert(
 //    anything, so no inline batch size is fast enough for a page load.
 // -----------------------------------------------------------------------------
 warmResetEnvironment();
+
+// A real page can reach the Deepglot output-buffer callback only after
+// WordPress has already dispatched its `shutdown` action (observed on
+// meinhaushalt.at with WP Rocket). Scheduling another shutdown callback from
+// that late render can never run in the same request, so the nudge must still
+// happen immediately after the queue/event are durable.
+[$lateHtml] = warmBuildPage(4);
+$lateClient = new DeepglotWarmFakeClient();
+$lateCache = new DeepglotWarmArrayCache();
+$lateWarmer = new TranslationWarmer($lateClient, $options, $lateCache);
+$lateWarmer->register();
+$lateTranslator = new HtmlTranslator($lateClient, $options, $lateCache, null, $lateWarmer);
+do_action('shutdown');
+$lateTranslator->translate(
+    $lateHtml,
+    'en',
+    'https://jobspot.at/en/late-buffer/',
+    BotDetector::HUMAN
+);
+
+warmAssert(
+    $GLOBALS['_deepglot_spawned_cron'] === 1,
+    'A render that enqueues after the shutdown action must still nudge WP-Cron in the same request.'
+);
+
+warmResetEnvironment();
 warmAssert(
     HtmlTranslator::MAX_SYNC_BATCHES === 0,
     'The default render path must not block on the translation API.'
@@ -570,13 +605,22 @@ warmAssert(
     'The registered WordPress cron hook must point to the warmer callback.'
 );
 warmAssert(
-    count($GLOBALS['_deepglot_actions']['shutdown'] ?? []) === 1,
-    'A cold page must register exactly one immediate shutdown cron nudge.'
+    count($GLOBALS['_deepglot_actions']['shutdown'] ?? []) === 0,
+    'A cold page must not rely on a shutdown callback to nudge WP-Cron.'
+);
+warmAssert(
+    $GLOBALS['_deepglot_spawned_cron'] === 1,
+    'A cold page must nudge WP-Cron immediately after the durable queue and due event.'
+);
+$warmer->enqueue(['A second cold render in the same request'], 'de', 'en', 'https://jobspot.at/en/async-second/');
+warmAssert(
+    $GLOBALS['_deepglot_spawned_cron'] === 1,
+    'Repeated enqueues in one request must not spawn WP-Cron more than once.'
 );
 do_action('shutdown');
 warmAssert(
     $GLOBALS['_deepglot_spawned_cron'] === 1,
-    'The shutdown callback must execute spawn_cron() exactly once.'
+    'Dispatching shutdown after the immediate nudge must not spawn WP-Cron again.'
 );
 warmRunScheduledEvent();
 warmAssert(
@@ -627,6 +671,22 @@ $warmer->enqueue($flood, 'de', 'en');
 warmAssert(
     count($warmer->pending()['de|en'] ?? []) <= TranslationWarmer::MAX_QUEUE,
     sprintf('The warm queue must stay bounded at %d entries.', TranslationWarmer::MAX_QUEUE)
+);
+
+// Calling spawn_cron() while WP-Cron itself is draining work can recurse into
+// another loopback. The warmer keeps the due event but never nudges from that
+// context; a later visitor or the host's cron runner can continue it.
+warmResetEnvironment();
+$GLOBALS['_deepglot_is_doing_cron'] = true;
+$cronContextWarmer = new TranslationWarmer(new DeepglotWarmFakeClient(), $options, new DeepglotWarmArrayCache());
+$cronContextWarmer->enqueue(['Cron context'], 'de', 'en');
+warmAssert(
+    $GLOBALS['_deepglot_spawned_cron'] === 0,
+    'A WP-Cron context must never recursively call spawn_cron().'
+);
+warmAssert(
+    (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? PHP_INT_MAX) <= time(),
+    'A WP-Cron context must still leave its follow-up event due and durable.'
 );
 
 // Duplicates must never accumulate — the same cold page hit by ten visitors

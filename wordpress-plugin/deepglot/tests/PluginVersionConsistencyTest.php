@@ -71,7 +71,7 @@ versionAssert(
 versionAssert(
     str_contains(
         $rootReadme,
-        'The currently documented live deployment on `meinhaushalt.at` is **v0.11.1**, origin/browser-verified on 2026-08-03.'
+        'The currently documented live deployment on `meinhaushalt.at` is **v0.12.0**, deployed on 2026-08-09; the follow-up warm-up acceptance remains a separate release step.'
     ),
     'Repository README must reflect the live-verified meinhaushalt.at deployment from HANDOFF.md'
 );
