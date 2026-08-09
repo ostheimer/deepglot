@@ -14,6 +14,7 @@ import {
   parsePublicWebhookUrl,
   resolveWebhookTarget,
 } from "@/lib/webhook-url-safety";
+import { assertPostgresJsonText } from "@/lib/postgres-text";
 
 // Cap the stored response body. The SSRF guard already blocks internal targets;
 // this further limits how much of any response can be read back via the
@@ -114,6 +115,13 @@ export async function queueProjectWebhookEvent(
     },
     select: { id: true },
   });
+
+  if (endpoints.length > 0) {
+    assertPostgresJsonText(payload, {
+      boundary: "webhook_event_persistence",
+      field: "payload",
+    });
+  }
 
   const deliveries = await Promise.all(
     endpoints.map((endpoint) =>

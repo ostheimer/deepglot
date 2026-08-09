@@ -16,6 +16,10 @@ import {
   type TranslationProviderName,
   type TranslationResult,
 } from "@/lib/translation-types";
+import {
+  inspectPostgresText,
+  reportPostgresTextRejection,
+} from "@/lib/postgres-text";
 export { countWords } from "@/lib/translation-types";
 export {
   DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -301,7 +305,22 @@ async function translateChunk(
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
     try {
-      return await translateWithProvider(input, env, candidate);
+      const results = await translateWithProvider(input, env, candidate);
+      for (const [resultIndex, result] of results.entries()) {
+        const nulError = inspectPostgresText(result.text, {
+          boundary: "translation_provider_output",
+          field: "text",
+          index: resultIndex,
+          provider: candidate.provider,
+        });
+        if (nulError) {
+          reportPostgresTextRejection(nulError);
+          throw new TranslationProviderResponseError(
+            `${candidate.provider} returned U+0000 in translation ${resultIndex + 1}.`,
+          );
+        }
+      }
+      return results;
     } catch (error) {
       lastError = error;
       const hasNext = index < chain.length - 1;

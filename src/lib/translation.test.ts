@@ -670,6 +670,51 @@ test("falls back from whitespace-only Gemini translations", async () => {
   }
 });
 
+test("rejects NUL provider output and falls back without logging translation text", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args) => warnings.push(args);
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: "private-before\u0000private-after" }]);
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([{ text: "safe-fallback" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      },
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [{ text: "safe-fallback" }]);
+    const serializedWarnings = JSON.stringify(warnings);
+    assert.match(serializedWarnings, /postgres_text_nul_rejected/);
+    assert.match(serializedWarnings, /translation_provider_output/);
+    assert.doesNotMatch(serializedWarnings, /private-before|private-after/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+  }
+});
+
 test("does not retry on auth errors that should surface to the operator", async () => {
   const originalFetch = globalThis.fetch;
   let openaiCalls = 0;

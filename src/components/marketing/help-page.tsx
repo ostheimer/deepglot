@@ -100,6 +100,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#wordpress-releases" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               WordPress 0.11.4–0.11.7
             </a>
+            <a href="#text-safety" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Textgrenzen" : "Text boundaries"}
+            </a>
             <Link href={docsHref} className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Entwicklerdokumentation" : "Developer documentation"}
             </Link>
@@ -142,6 +145,27 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                 {de
                   ? "Der Versand ist auf Benutzer mit aktivierter Einstellung begrenzt. Ein Benutzer sieht nur die Projekte, die über seine Workspace- oder Projektmitgliedschaft in seinem Zugriff liegen."
                   : "Delivery is limited to users who enabled the setting. Each recipient sees only projects available through their workspace or project membership."}
+              </p>
+            </div>
+          </section>
+
+          <section id="text-safety" data-testid="help-text-safety" className="scroll-mt-8 pt-24">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
+                {de ? "Sichere Textverarbeitung" : "Safe text handling"}
+              </p>
+              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em]">
+                {de ? "Warum Deepglot U+0000 ablehnt" : "Why Deepglot rejects U+0000"}
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#58636d]">
+                {de
+                  ? "PostgreSQL kann das NUL-Zeichen U+0000 weder in Text noch in JSON speichern. Deepglot lehnt es deshalb in API-, Editor- und Import-Eingaben vor Anbieter- und Datenbankarbeit mit einem Validierungsfehler ab. Andere gültige Unicode-Zeichen bleiben unverändert."
+                  : "PostgreSQL cannot store the U+0000 null byte in text or JSON. Deepglot therefore rejects it in API, editor, and import input with a validation error before provider or database work. Other valid Unicode characters remain unchanged."}
+              </p>
+              <p className="mt-4 text-sm leading-7 text-[#58636d]">
+                {de
+                  ? "Enthält stattdessen die Antwort eines Übersetzungsanbieters U+0000, wird dieses Ergebnis nicht gespeichert. Ein konfigurierter Ersatzanbieter kann übernehmen; schlägt auch die Anbieterkette fehl, endet die Anfrage ohne Datenbankschreibversuch. Protokolliert werden nur Grenze, Feld, Anzahl und Anbieter — niemals Text oder URL."
+                  : "If a translation provider response contains U+0000, that result is not stored. A configured fallback provider can take over; if the provider chain still fails, the request ends without a database write attempt. Logs contain only the boundary, field, count, and provider — never text or URLs."}
               </p>
             </div>
           </section>

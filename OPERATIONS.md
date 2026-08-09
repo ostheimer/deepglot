@@ -194,6 +194,19 @@ Default behavior is non-destructive:
 
 Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip SaaS and Phase 6 production HTTP checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
 
+## PostgreSQL Text Rejection Monitoring
+
+PostgreSQL text and `jsonb` fields cannot store U+0000. Deepglot rejects NUL-containing translation inputs before provider or persistence work instead of truncating or rewriting content. Provider output with NUL is an invalid provider response, so the configured fallback provider is attempted before the request fails.
+
+The structured warning event is `postgres_text_nul_rejected`. It contains only the boundary, field name, NUL count, and optional item index or provider; it never contains customer text, provider output, URLs, hashes, tenant identifiers, or credentials.
+
+Runbook:
+
+1. Group warnings by `boundary`. API, manual-translation, and import boundaries indicate invalid client content and should correspond to an HTTP 400 response.
+2. For `translation_provider_output`, check the adjacent provider-failover warning. A successful fallback needs no data repair because the rejected output was never written.
+3. A persistence-boundary warning is defense-in-depth evidence. Trace which earlier validation boundary was bypassed before retrying; do not normalize, truncate, or copy the rejected value into PostgreSQL.
+4. Alert on sustained event-count growth, not on field values. No raw content is available or required for triage.
+
 ## i18n Development Scripts
 
 The `scripts/` directory contains i18n utility scripts not exposed as `npm run` commands. These are developer tools for maintaining internationalization content and are invoked directly with `npx tsx`.
