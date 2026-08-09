@@ -10,6 +10,9 @@ if (!function_exists('__')) {
     }
 
     $GLOBALS['_deepglot_problem_body'] = '{}';
+    $GLOBALS['_deepglot_problem_status'] = 400;
+    $GLOBALS['_deepglot_problem_headers'] = [];
+    $GLOBALS['_deepglot_problem_transients'] = [];
 
     function get_option($key, $default = false) {
         return $key === 'deepglot_settings'
@@ -27,8 +30,9 @@ if (!function_exists('__')) {
 
     function wp_remote_request($url, $args) {
         return [
-            'response' => ['code' => 400],
+            'response' => ['code' => $GLOBALS['_deepglot_problem_status']],
             'body' => $GLOBALS['_deepglot_problem_body'],
+            'headers' => $GLOBALS['_deepglot_problem_headers'],
         ];
     }
 
@@ -38,6 +42,20 @@ if (!function_exists('__')) {
 
     function wp_remote_retrieve_body($response) {
         return (string) ($response['body'] ?? '');
+    }
+
+    function wp_remote_retrieve_header($response, $name) {
+        $headers = array_change_key_case((array) ($response['headers'] ?? []), CASE_LOWER);
+        return (string) ($headers[strtolower((string) $name)] ?? '');
+    }
+
+    function set_transient($key, $value, $ttl = 0) {
+        $GLOBALS['_deepglot_problem_transients'][$key] = $value;
+        return true;
+    }
+
+    function get_transient($key) {
+        return $GLOBALS['_deepglot_problem_transients'][$key] ?? false;
     }
 
     function is_wp_error($value) {
@@ -103,6 +121,16 @@ $legacy = $client->listLanguages();
 clientProblemCheck(
     $legacy->get_error_message() === 'Legacy-only message.',
     'Client must retain compatibility with legacy error-only responses.'
+);
+
+$GLOBALS['_deepglot_problem_status'] = 429;
+$GLOBALS['_deepglot_problem_headers'] = ['retry-after' => '120'];
+$rateLimited = $client->listLanguages();
+clientProblemCheck(is_wp_error($rateLimited), 'A 429 response must remain an API error.');
+$retryAt = Client::rateLimitRetryAt();
+clientProblemCheck(
+    $retryAt >= time() + 110 && $retryAt <= time() + 130,
+    'The client must persist a bounded Retry-After marker for background backpressure.'
 );
 
 fwrite(STDOUT, "ClientProblemDetailsTest: OK\n");

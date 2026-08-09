@@ -125,6 +125,7 @@ class HtmlTranslator
     private TranslationCache $cache;
     private JsonLdTranslator $jsonLd;
     private ?TranslationWarmer $warmer;
+    private int $lastPendingSegmentCount = 0;
 
     public function __construct(
         Client $client,
@@ -196,6 +197,16 @@ class HtmlTranslator
     }
 
     /**
+     * Number of unique source segments that were still unresolved after the
+     * most recent render. URL synchronization uses this signal instead of
+     * treating an HTTP 200 response as proof that the page is translated.
+     */
+    public function getLastPendingSegmentCount(): int
+    {
+        return $this->lastPendingSegmentCount;
+    }
+
+    /**
      * @return array{html: string, segments: array<int, array<string, string>>}
      */
     private function translateDocument(
@@ -207,6 +218,8 @@ class HtmlTranslator
         bool $forceSynchronous = false
     ): array
     {
+        $this->lastPendingSegmentCount = 0;
+
         if ($html === '') {
             return ['html' => $html, 'segments' => []];
         }
@@ -289,6 +302,12 @@ class HtmlTranslator
                 }
             }
         }
+
+        $deferred = array_values(array_unique(array_filter(
+            $deferred,
+            static fn(string $text): bool => $text !== ''
+        )));
+        $this->lastPendingSegmentCount = count($deferred);
 
         // Bot traffic is served cache-only (issue #147) and must never trigger
         // quota spend, so crawlers observe but never fill the warm queue.

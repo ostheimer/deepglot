@@ -28,6 +28,10 @@
  * Run via: npm run test:wp
  */
 
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__ . '/');
+}
+
 if (!function_exists('__')) {
     function __($text, $domain = null) {
         return $text;
@@ -431,6 +435,10 @@ warmAssert(
     !empty($queuedTexts),
     'Segments beyond the inline budget must be queued for background warming.'
 );
+warmAssert(
+    $translator->getLastPendingSegmentCount() === count($queuedTexts),
+    'The translator must expose the exact number of unresolved segments so URL sync cannot report a cold page as complete.'
+);
 
 $covered = array_merge($dispatched, $queuedTexts);
 foreach ($texts as $text) {
@@ -521,6 +529,10 @@ foreach ($texts as $text) {
         sprintf('After warming, every segment must be translated, "%s" was not.', $text)
     );
 }
+warmAssert(
+    $translator->getLastPendingSegmentCount() === 0,
+    'A fully cache-backed render must report zero pending segments.'
+);
 
 // -----------------------------------------------------------------------------
 // 3. Bot traffic never enqueues warm work (issue #147 boundary).

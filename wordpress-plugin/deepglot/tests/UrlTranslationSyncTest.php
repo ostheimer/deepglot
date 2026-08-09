@@ -1,0 +1,510 @@
+<?php
+
+/**
+ * Regression contract for the bounded, operator-triggered URL synchronization
+ * queue. The URL queue only discovers localized pages; the existing
+ * TranslationWarmer remains the single owner of provider work and cache
+ * invalidation.
+ */
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__ . '/');
+}
+if (!defined('DAY_IN_SECONDS')) {
+    define('DAY_IN_SECONDS', 86400);
+}
+if (!defined('MINUTE_IN_SECONDS')) {
+    define('MINUTE_IN_SECONDS', 60);
+}
+
+class WP_Error
+{
+    private string $code;
+    private string $message;
+    private $data;
+
+    public function __construct(string $code, string $message = '', $data = null)
+    {
+        $this->code = $code;
+        $this->message = $message;
+        $this->data = $data;
+    }
+
+    public function get_error_code(): string { return $this->code; }
+    public function get_error_message(): string { return $this->message; }
+    public function get_error_data() { return $this->data; }
+}
+
+$GLOBALS['_dg_sync_options'] = [];
+$GLOBALS['_dg_sync_transients'] = [];
+$GLOBALS['_dg_sync_scheduled'] = [];
+$GLOBALS['_dg_sync_actions'] = [];
+$GLOBALS['_dg_sync_requests'] = [];
+$GLOBALS['_dg_sync_safe_requests'] = 0;
+$GLOBALS['_dg_sync_responses'] = [];
+$GLOBALS['_dg_sync_during_request'] = null;
+$GLOBALS['_dg_sync_lock_seen'] = null;
+
+function __(string $text, ?string $domain = null): string { return $text; }
+function get_option(string $key, $default = false) { return $GLOBALS['_dg_sync_options'][$key] ?? $default; }
+function update_option(string $key, $value, $autoload = null): bool { $GLOBALS['_dg_sync_options'][$key] = $value; return true; }
+function add_option(string $key, $value, string $deprecated = '', $autoload = true): bool
+{
+    if (array_key_exists($key, $GLOBALS['_dg_sync_options'])) return false;
+    $GLOBALS['_dg_sync_options'][$key] = $value;
+    return true;
+}
+function delete_option(string $key): bool { unset($GLOBALS['_dg_sync_options'][$key]); return true; }
+function get_transient(string $key) { return $GLOBALS['_dg_sync_transients'][$key] ?? false; }
+function set_transient(string $key, $value, int $ttl = 0): bool { $GLOBALS['_dg_sync_transients'][$key] = $value; return true; }
+function delete_transient(string $key): bool { unset($GLOBALS['_dg_sync_transients'][$key]); return true; }
+function wp_cache_delete(string $key, string $group = ''): bool { return true; }
+function wp_generate_uuid4(): string { static $i = 0; $i++; return sprintf('00000000-0000-4000-8000-%012d', $i); }
+function wp_next_scheduled(string $hook, array $args = []) { return $GLOBALS['_dg_sync_scheduled'][$hook] ?? false; }
+function wp_schedule_single_event(int $timestamp, string $hook, array $args = []): bool
+{
+    $GLOBALS['_dg_sync_scheduled'][$hook] = $timestamp;
+    return true;
+}
+function wp_unschedule_event(int $timestamp, string $hook, array $args = []): bool
+{
+    unset($GLOBALS['_dg_sync_scheduled'][$hook]);
+    return true;
+}
+function add_action(string $hook, $callback, int $priority = 10, int $args = 1): bool
+{
+    $GLOBALS['_dg_sync_actions'][$hook][] = $callback;
+    return true;
+}
+function is_wp_error($value): bool { return $value instanceof WP_Error; }
+if (!function_exists('wp_parse_url')) {
+    function wp_parse_url(string $url, int $component = -1) { return parse_url($url, $component); }
+}
+function esc_url_raw(string $url): string { return $url; }
+if (!function_exists('wp_unslash')) {
+    function wp_unslash(string $value): string { return $value; }
+}
+function sanitize_text_field(string $value): string { return trim($value); }
+function untrailingslashit(string $value): string { return rtrim($value, '/'); }
+function wp_parse_args($args, array $defaults = []): array { return array_merge($defaults, is_array($args) ? $args : []); }
+function home_url(string $path = '/'): string { return 'https://example.com' . (str_starts_with($path, '/') ? $path : '/' . $path); }
+function get_site_url(): string { return 'https://example.com'; }
+function wp_json_encode($value): string { return json_encode($value); }
+function add_query_arg(array $args, string $url): string
+{
+    $parts = parse_url($url);
+    parse_str((string) ($parts['query'] ?? ''), $query);
+    foreach ($args as $key => $value) $query[$key] = $value;
+    $result = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? 'example.com')
+        . ($parts['path'] ?? '/');
+    if ($query !== []) $result .= '?' . http_build_query($query);
+    if (isset($parts['fragment'])) $result .= '#' . $parts['fragment'];
+    return $result;
+}
+function wp_remote_get(string $url, array $args = [])
+{
+    $GLOBALS['_dg_sync_requests'][] = ['url' => $url, 'args' => $args];
+    if (is_callable($GLOBALS['_dg_sync_during_request'])) {
+        $callback = $GLOBALS['_dg_sync_during_request'];
+        $GLOBALS['_dg_sync_during_request'] = null;
+        $callback();
+    }
+    if ($GLOBALS['_dg_sync_responses'] === []) {
+        return ['response' => ['code' => 200], 'headers' => [
+            'x-deepglot-sync-pending-segments' => '0',
+            'x-deepglot-sync-language' => 'en',
+        ]];
+    }
+    return array_shift($GLOBALS['_dg_sync_responses']);
+}
+function wp_safe_remote_get(string $url, array $args = [])
+{
+    $GLOBALS['_dg_sync_safe_requests']++;
+    $GLOBALS['_dg_sync_lock_seen'] = get_option(\Deepglot\Support\UrlTranslationSync::LOCK_OPTION, null);
+    return wp_remote_get($url, $args);
+}
+function wp_remote_retrieve_response_code($response): int { return (int) ($response['response']['code'] ?? 0); }
+function wp_remote_retrieve_header($response, string $name): string
+{
+    $headers = array_change_key_case((array) ($response['headers'] ?? []), CASE_LOWER);
+    return (string) ($headers[strtolower($name)] ?? '');
+}
+
+require_once __DIR__ . '/../includes/Support/WordPressInfrastructure.php';
+require_once __DIR__ . '/../includes/Support/RequestInput.php';
+require_once __DIR__ . '/../includes/Config/Options.php';
+require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
+require_once __DIR__ . '/../includes/Support/SiteRouting.php';
+require_once __DIR__ . '/../includes/Api/Client.php';
+require_once __DIR__ . '/../includes/Support/TranslationCache.php';
+require_once __DIR__ . '/../includes/Support/TranslationWarmer.php';
+require_once __DIR__ . '/../includes/Frontend/MultilingualSitemap.php';
+require_once __DIR__ . '/../includes/Support/UrlTranslationSync.php';
+
+use Deepglot\Api\Client;
+use Deepglot\Config\Options;
+use Deepglot\Frontend\MultilingualSitemap;
+use Deepglot\Support\SiteRouting;
+use Deepglot\Support\TranslationWarmer;
+use Deepglot\Support\UrlLanguageResolver;
+use Deepglot\Support\UrlTranslationSync;
+
+class UrlSyncFakeSitemap extends MultilingualSitemap
+{
+    public array $entries = [];
+    public ?int $lastLimit = null;
+    public function __construct() {}
+    public function collectSourceEntries(?int $limit = null): array
+    {
+        $this->lastLimit = $limit;
+        return array_slice($this->entries, 0, $limit ?? count($this->entries));
+    }
+}
+
+class UrlSyncFakeWarmer extends TranslationWarmer
+{
+    public array $queue = [];
+    public function __construct() {}
+    public function pending(): array { return $this->queue; }
+}
+
+function syncAssert(bool $condition, string $message): void
+{
+    if (!$condition) {
+        fwrite(STDERR, "FAIL: {$message}\n");
+        exit(1);
+    }
+}
+
+function syncReset(): void
+{
+    $GLOBALS['_dg_sync_options'] = [];
+    $GLOBALS['_dg_sync_transients'] = [];
+    $GLOBALS['_dg_sync_scheduled'] = [];
+    $GLOBALS['_dg_sync_actions'] = [];
+    $GLOBALS['_dg_sync_requests'] = [];
+    $GLOBALS['_dg_sync_safe_requests'] = 0;
+    $GLOBALS['_dg_sync_responses'] = [];
+    $GLOBALS['_dg_sync_during_request'] = null;
+    $GLOBALS['_dg_sync_lock_seen'] = null;
+    $_GET = [];
+}
+
+/** @return array{0: UrlTranslationSync, 1: UrlSyncFakeSitemap, 2: UrlSyncFakeWarmer} */
+function syncFixture(array $entries): array
+{
+    $options = new Options();
+    update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+        'enabled' => true,
+        'api_key' => 'dg_test_key',
+        'source_language' => 'de',
+        'target_languages' => ['en'],
+    ]), false);
+
+    $routing = new SiteRouting(
+        new UrlLanguageResolver('de', ['en']),
+        'https://example.com',
+        'PATH_PREFIX',
+        [],
+        ['en' => ['angebot' => 'offer']]
+    );
+    $sitemap = new UrlSyncFakeSitemap();
+    $sitemap->entries = $entries;
+    $warmer = new UrlSyncFakeWarmer();
+
+    return [new UrlTranslationSync($options, $routing, $sitemap, $warmer), $sitemap, $warmer];
+}
+
+/** @return array<string,mixed> */
+function syncPreviewAndStart(UrlTranslationSync $sync, array $languages, int $limit): array
+{
+    $preview = $sync->preview($languages, $limit);
+    syncAssert(!is_wp_error($preview), 'A valid snapshot preview must succeed.');
+    $started = $sync->start($languages, $limit, (string) $preview['preview_token']);
+    syncAssert(!is_wp_error($started), 'A confirmed snapshot preview must start.');
+    return $started;
+}
+
+// 1. Preview is side-effect free, bounded, internal-only and uses the actual localized route.
+syncReset();
+[$sync, $sitemap] = syncFixture([
+    ['loc' => 'https://example.com/'],
+    ['loc' => 'https://example.com/angebot/?topic=a'],
+    ['loc' => 'https://evil.example/steal/'],
+]);
+$preview = $sync->preview(['en'], 2);
+syncAssert(!is_wp_error($preview), 'A valid internal snapshot must be previewable.');
+syncAssert(get_option(UrlTranslationSync::JOB_OPTION, false) === false, 'Preview must not create or mutate a durable job.');
+syncAssert($GLOBALS['_dg_sync_requests'] === [], 'Preview must not issue page or provider HTTP requests.');
+syncAssert($GLOBALS['_dg_sync_scheduled'] === [], 'Preview must not schedule background work.');
+syncAssert($preview['total'] === 2, 'Preview must report the actual safe snapshot size.');
+syncAssert(
+    $preview['sample_urls'] === ['https://example.com/en/', 'https://example.com/en/offer/?topic=a'],
+    'Preview must expose a bounded sample of the actual localized snapshot.'
+);
+syncAssert(!empty($preview['preview_token']) && !empty($preview['snapshot_hash']), 'Preview must return a server-verifiable token and snapshot hash.');
+syncAssert(UrlTranslationSync::MAX_URLS === 250, 'Each durable sync job must stay conservatively bounded to 250 target URLs.');
+
+$withoutPreview = $sync->start(['en'], 2);
+syncAssert(
+    is_wp_error($withoutPreview) && $withoutPreview->get_error_code() === 'deepglot_url_sync_preview_required',
+    'Starting without a confirmed preview must fail closed.'
+);
+
+$wrongSelection = $sync->start(['en'], 1, (string) $preview['preview_token']);
+syncAssert(
+    is_wp_error($wrongSelection) && $wrongSelection->get_error_code() === 'deepglot_url_sync_preview_mismatch',
+    'A preview token must be bound to its exact language and limit selection.'
+);
+
+// Starting consumes the server-side preview and must use its immutable snapshot,
+// even if WordPress content changes between the two operator steps.
+$sitemap->entries = [['loc' => 'https://example.com/changed-after-preview/']];
+$started = $sync->start(['en'], 2, (string) $preview['preview_token']);
+syncAssert(!is_wp_error($started), 'A matching confirmed preview must start.');
+$status = $sync->status();
+syncAssert($sitemap->lastLimit === 3, 'Discovery may read only one extra target candidate to detect a following batch.');
+syncAssert($status['total'] === 2, 'The snapshot must contain exactly the bounded internal URLs.');
+syncAssert($status['urls'][0]['url'] === 'https://example.com/en/', 'Home must use the localized route.');
+syncAssert($status['urls'][1]['url'] === 'https://example.com/en/offer/?topic=a', 'Translated slugs and query strings must survive snapshot creation.');
+syncAssert(
+    $sync->start(['en'], 2, (string) $preview['preview_token']) instanceof WP_Error,
+    'A consumed preview token must never be replayable.'
+);
+
+syncReset();
+[$sync] = syncFixture(array_map(
+    static fn(int $index): array => ['loc' => 'https://example.com/page-' . $index . '/'],
+    range(1, 5)
+));
+$firstBatch = $sync->preview(['en'], 2, 0);
+$nextBatch = $sync->preview(['en'], 2, (int) $firstBatch['next_source_offset']);
+syncAssert($firstBatch['next_source_offset'] === 2, 'A full preview must advertise the next bounded source offset.');
+syncAssert(
+    $nextBatch['sample_urls'] === ['https://example.com/en/page-3/', 'https://example.com/en/page-4/'],
+    'The next batch must continue the deterministic target-URL snapshot without overlap.'
+);
+
+syncReset();
+[$sync] = syncFixture([
+    ['loc' => 'https://example.com/'],
+    ['loc' => 'https://evil.example/steal/'],
+    ['loc' => 'https://example.com/angebot/'],
+]);
+syncPreviewAndStart($sync, ['en'], 3);
+syncAssert($sync->status()['total'] === 2, 'A filter-injected external URL must never enter the durable snapshot.');
+
+$tooLarge = $sync->start(['en'], UrlTranslationSync::MAX_URLS + 1);
+syncAssert(is_wp_error($tooLarge) && $tooLarge->get_error_code() === 'deepglot_url_sync_limit', 'Requests above the hard URL limit must be rejected.');
+
+syncReset();
+[$sync] = syncFixture(array_map(
+    static fn(int $index): array => ['loc' => 'https://example.com/page-' . $index . '/'],
+    range(1, UrlTranslationSync::PREVIEW_SAMPLE_LIMIT + 2)
+));
+$boundedPreview = $sync->preview(['en'], UrlTranslationSync::PREVIEW_SAMPLE_LIMIT + 2);
+syncAssert($boundedPreview['total'] === UrlTranslationSync::PREVIEW_SAMPLE_LIMIT + 2, 'Preview count must cover the whole bounded snapshot.');
+syncAssert(count($boundedPreview['sample_urls']) === UrlTranslationSync::PREVIEW_SAMPLE_LIMIT, 'Preview must never expose more than the safe sample limit.');
+$expiredToken = (string) $boundedPreview['preview_token'];
+$GLOBALS['_dg_sync_transients'] = [];
+$expiredStart = $sync->start(['en'], UrlTranslationSync::PREVIEW_SAMPLE_LIMIT + 2, $expiredToken);
+syncAssert(
+    is_wp_error($expiredStart) && $expiredStart->get_error_code() === 'deepglot_url_sync_preview_expired',
+    'Expired or unknown preview tokens must fail closed.'
+);
+
+// 2. Public query contract accepts only a live HMAC-signed active-job token.
+$activePreview = $sync->preview(['en'], 1);
+$status = $sync->start(['en'], 1, (string) $activePreview['preview_token']);
+syncAssert(!is_wp_error($status), 'A fresh confirmed preview must create the active query-contract job.');
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '1',
+    'x-deepglot-sync-language' => 'en',
+]];
+$sync->run();
+parse_str((string) parse_url($GLOBALS['_dg_sync_requests'][0]['url'], PHP_URL_QUERY), $controlQuery);
+$token = (string) ($controlQuery[UrlTranslationSync::QUERY_ARG] ?? '');
+$_GET[UrlTranslationSync::QUERY_ARG] = $token;
+syncAssert($sync->isCurrentRequest(), 'The active job token must authorize the control query.');
+syncAssert(!array_key_exists('request_secret', $sync->status()), 'The HMAC secret must never leak through public job status.');
+$_GET[UrlTranslationSync::QUERY_ARG] = substr($token, 0, -1) . ($token[-1] === 'a' ? 'b' : 'a');
+syncAssert(!$sync->isCurrentRequest(), 'A forged signature must not be trusted even when the job ID prefix matches.');
+$rawJob = get_option(UrlTranslationSync::JOB_OPTION, []);
+$expiredPayload = implode('.', [$rawJob['id'], time() - 1, 'en', 'expirednonce']);
+$_GET[UrlTranslationSync::QUERY_ARG] = $expiredPayload . '.' . hash_hmac('sha256', $expiredPayload, $rawJob['request_secret']);
+syncAssert(!$sync->isCurrentRequest(), 'A correctly signed but expired control token must not be trusted.');
+$_GET[UrlTranslationSync::QUERY_ARG] = $token;
+syncAssert(
+    $sync->stripQueryArg('/en/offer/?topic=a&' . UrlTranslationSync::QUERY_ARG . '=' . rawurlencode($token) . '#details') === '/en/offer/?topic=a#details',
+    'The control query must be removed without losing ordinary query parameters or the fragment.'
+);
+syncAssert(
+    $sync->stripQueryArg('/en/?tag=a&tag=b&encoded=%2Fkeep%2F&' . UrlTranslationSync::QUERY_ARG . '=' . rawurlencode($token))
+        === '/en/?tag=a&tag=b&encoded=%2Fkeep%2F',
+    'Removing the control query must preserve duplicate parameters and their original encoding.'
+);
+
+// 3. Backpressure blocks discovery hits while the existing warmer is full.
+syncReset();
+[$sync, , $warmer] = syncFixture([
+    ['loc' => 'https://example.com/a/'],
+    ['loc' => 'https://example.com/b/'],
+    ['loc' => 'https://example.com/c/'],
+]);
+syncPreviewAndStart($sync, ['en'], 3);
+$warmer->queue = ['de|en' => array_fill(0, UrlTranslationSync::MAX_PENDING_TEXTS, 'pending')];
+$sync->run();
+syncAssert($GLOBALS['_dg_sync_requests'] === [], 'A full warmer queue must prevent new URL hits.');
+syncAssert(($sync->status()['status'] ?? '') === 'warming', 'Backpressure must be visible as warming.');
+
+// 4. A run opens at most two pages, never follows redirects and uses a unique control query.
+$warmer->queue = [];
+$GLOBALS['_dg_sync_scheduled'] = [];
+$sync->resume();
+$sync->run();
+syncAssert(count($GLOBALS['_dg_sync_requests']) === 2, 'One cron run must open at most two URLs.');
+foreach ($GLOBALS['_dg_sync_requests'] as $request) {
+    syncAssert(($request['args']['redirection'] ?? null) === 0, 'Sync requests must not follow redirects.');
+    syncAssert(($request['args']['sslverify'] ?? null) === true, 'TLS verification must stay enabled.');
+    syncAssert(str_contains($request['url'], UrlTranslationSync::QUERY_ARG . '='), 'Every request needs a cache-busting control query.');
+    syncAssert(str_contains((string) ($request['args']['headers']['Cache-Control'] ?? ''), 'no-cache'), 'Every request must bypass reusable page-cache objects.');
+    syncAssert(!preg_match('/bot|crawler|spider|headless|curl/i', (string) ($request['args']['user-agent'] ?? '')), 'The controlled sync request must enter the human warm-up path.');
+}
+syncAssert(
+    $GLOBALS['_dg_sync_safe_requests'] === count($GLOBALS['_dg_sync_requests']),
+    'Every loopback must use WordPress safe HTTP validation.'
+);
+syncAssert(
+    is_array($GLOBALS['_dg_sync_lock_seen'])
+        && (int) $GLOBALS['_dg_sync_lock_seen']['expires'] >= time() + 100,
+    'The runner lock must outlive two sequential 20-second requests with a wide safety margin.'
+);
+
+// A nominal 200 response for the wrong target language is not progress.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'fr',
+]];
+$sync->run();
+syncAssert(
+    $sync->status()['retry_count'] === 1 && $sync->status()['last_error'] === 'language_mismatch',
+    'A sync response must echo the exact item language before it can complete.'
+);
+
+// 5. Transient failures back off; redirects are failures, never followed.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 500], 'headers' => []];
+$sync->run();
+$failedOnce = $sync->status();
+syncAssert($failedOnce['retry_count'] === 1, 'A transient failure must be counted.');
+syncAssert($failedOnce['next_run_at'] > time(), 'A transient failure must apply backoff.');
+$requestCount = count($GLOBALS['_dg_sync_requests']);
+$sync->run();
+syncAssert(count($GLOBALS['_dg_sync_requests']) === $requestCount, 'Backoff must prevent an immediate retry.');
+
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => ['location' => 'https://example.com/a/']];
+$sync->run();
+syncAssert($sync->status()['retry_count'] === 1, 'A redirect must be surfaced as a failed attempt.');
+
+// Repeated no-progress failures stop after the hard retry cap.
+for ($attempt = 1; $attempt < UrlTranslationSync::MAX_NO_PROGRESS_RETRIES; $attempt++) {
+    $job = get_option(UrlTranslationSync::JOB_OPTION, []);
+    $job['status'] = 'queued';
+    $job['next_run_at'] = 0;
+    $job['urls'][0]['next_attempt_at'] = 0;
+    update_option(UrlTranslationSync::JOB_OPTION, $job, false);
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 500], 'headers' => []];
+    $sync->run();
+}
+syncAssert(
+    $sync->status()['status'] === 'completed_with_errors' && $sync->status()['failed'] === 1,
+    'A URL that makes no progress through the bounded retries must terminate as failed.'
+);
+$failedSnapshot = array_column($sync->status()['urls'], 'url');
+$failedJobId = $sync->status()['id'];
+syncAssert($sync->retryFailed(), 'A terminal job with failed URLs must support an explicit retry.');
+syncAssert($sync->status()['status'] === 'queued', 'Retrying failed URLs must queue the same snapshot again.');
+syncAssert(array_column($sync->status()['urls'], 'url') === $failedSnapshot, 'Retry must preserve the confirmed URL snapshot exactly.');
+syncAssert($sync->status()['id'] !== $failedJobId, 'Retry must rotate the job ID so old control-query URLs cannot authorize the new run.');
+syncAssert($sync->status()['urls'][0]['state'] === 'pending', 'Only failed items must be reset for retry.');
+syncAssert(!$sync->retryFailed(), 'A job without terminal failed items must not be retryable again.');
+
+// 6. Quota and invalid-key markers pause before any page hit.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+set_transient('deepglot_quota_exhausted', time(), 60);
+$sync->run();
+syncAssert($sync->status()['status'] === 'paused_quota', 'An exhausted quota must pause the job.');
+syncAssert($GLOBALS['_dg_sync_requests'] === [], 'A quota-paused job must spend no requests.');
+
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+set_transient(Client::INVALID_API_KEY_TRANSIENT, time(), 60);
+$sync->run();
+syncAssert($sync->status()['status'] === 'paused_invalid_key', 'An invalid API key must pause the job.');
+
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+set_transient(Client::RATE_LIMIT_TRANSIENT, ['retry_at' => time() + 300], 300);
+$sync->run();
+syncAssert($sync->status()['status'] === 'backoff_rate_limit', 'A provider rate limit must enter automatic backoff.');
+syncAssert($sync->status()['next_run_at'] >= time() + 290, 'Rate-limit backoff must honor the persisted retry time.');
+syncAssert($GLOBALS['_dg_sync_requests'] === [], 'Rate-limit backoff must not open more target pages.');
+
+// 7. Pause/resume/cancel and the atomic runner lock are durable controls.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+syncAssert($sync->pause(), 'An active job must pause.');
+$sync->run();
+syncAssert($GLOBALS['_dg_sync_requests'] === [], 'A paused job must not open pages.');
+syncAssert($sync->resume(), 'A paused job must resume.');
+update_option(UrlTranslationSync::LOCK_OPTION, ['owner' => 'other', 'expires' => time() + 30], false);
+$GLOBALS['_dg_sync_scheduled'] = [];
+$sync->run();
+syncAssert($GLOBALS['_dg_sync_requests'] === [], 'A live atomic lock must prevent duplicate URL hits.');
+syncAssert(
+    isset($GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK]),
+    'A lock collision must schedule another bounded runner attempt instead of stranding the job.'
+);
+delete_option(UrlTranslationSync::LOCK_OPTION);
+syncAssert($sync->cancel(), 'An active job must cancel.');
+syncAssert($sync->status()['status'] === 'cancelled', 'Cancellation must be visible.');
+$_GET[UrlTranslationSync::QUERY_ARG] = $sync->status()['id'];
+syncAssert(!$sync->isCurrentRequest(), 'A cancelled job token must no longer authorize sync output.');
+
+// A control action landing while the loopback is in flight must win the CAS.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_during_request'] = static function () use ($sync): void {
+    $sync->pause();
+};
+$sync->run();
+syncAssert(
+    $sync->status()['status'] === 'paused',
+    'A pause issued during the loopback request must not be overwritten by the runner outcome.'
+);
+
+// An init watchdog must repair a due active job whose cron event disappeared.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/a/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_scheduled'] = [];
+$sync->register();
+syncAssert(isset($GLOBALS['_dg_sync_actions']['init']), 'URL sync must register an init watchdog.');
+$sync->watchdog();
+syncAssert(isset($GLOBALS['_dg_sync_scheduled'][UrlTranslationSync::HOOK]), 'Watchdog must restore missing cron for an overdue active job.');
+
+fwrite(STDOUT, "UrlTranslationSyncTest: OK\n");

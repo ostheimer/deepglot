@@ -2,7 +2,7 @@
 
 This directory contains the Deepglot WordPress plugin (**v0.12.0**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
 
-v0.12.0 stops ordinary page renders from waiting on fresh translations: uncached or failed segments enter a bounded background WP-Cron queue, and supported full-page caches are purged after the local translation cache is warm. The first cold view can show source content; a later view converges after cron succeeds. Once a queue mutation and immediately due event are durable, Deepglot makes at most one non-blocking WP-Cron nudge in that request. It respects `DISABLE_WP_CRON` and active cron contexts, so system-cron sites and cron runs never receive a recursive loopback. The warmer retains the localized public request URL even after request routing rewrites the path internally. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually; WP Super Cache is global and waits until the tracked queue has fully drained so pending pages stay cached. Visual-editor previews and WooCommerce HTML emails remain synchronous because they cannot converge on a later page request. Sites on a fast provider can translate ordinary pages inline again via `deepglot_max_sync_batches`.
+v0.12.0 stops ordinary page renders from waiting on fresh translations: uncached or failed segments enter a bounded background WP-Cron queue, and supported full-page caches are purged after the local translation cache is warm. Administrators can preview and confirm an immutable batch of up to 250 safe internal sitemap URLs from `Settings → Deepglot`; the job can be monitored, paused, resumed, cancelled, or retried for failed URLs and is not a permanent crawler. The first cold view can show source content; a later view converges after cron succeeds. Once a queue mutation and immediately due event are durable, Deepglot makes at most one non-blocking WP-Cron nudge in that request. It respects `DISABLE_WP_CRON` and active cron contexts, so system-cron sites and cron runs never receive a recursive loopback. The warmer retains the localized public request URL even after request routing rewrites the path internally. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually; WP Super Cache is global and waits until the tracked queue has fully drained so pending pages stay cached. A completed URL-sync job still requires a query-free public target-language check, and unsupported full-page caches may need a manual purge. Visual-editor previews and WooCommerce HTML emails remain synchronous because they cannot converge on a later page request. Sites on a fast provider can translate ordinary pages inline again via `deepglot_max_sync_batches`.
 
 v0.11.7 exposes a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds; v0.11.6 splits content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings. Publishing this package does not automatically install or update the plugin on customer sites.
 
@@ -65,6 +65,18 @@ The plugin ships a complete translation pipeline:
   source, active target-language, and `x-default` alternates. Generated URLs
   follow path-prefix or configured subdomain routing; translation exclusions
   and external URLs are rejected before XML serialization.
+- An administrator-triggered URL synchronization previews and confirms an
+  immutable batch of up to 250 safe internal sitemap entries, opens at most
+  two target pages per cron run,
+  and feeds their missing segments into the existing translation warmer. It
+  respects queue backpressure, retries transient failures, pauses on exhausted
+  quota or an invalid API key, backs off on API rate limits, and exposes
+  status/pause/resume/cancel/failed-only-retry controls in wp-admin and the
+  authenticated `/wp-json/deepglot/v1/url-sync` routes. Large sites continue
+  through explicit source-offset batches instead of one oversized option row.
+  A completed job confirms that the origin queue has drained; operators must
+  still purge unsupported full-page caches and verify a query-free public
+  target-language response.
 - An opt-in client-side translator for content loaded after page render (see below).
 - WP Rocket compatibility: `switcher.css` and the switcher's inline `<style>`
   blocks are excluded from "Remove Unused CSS" and minification
