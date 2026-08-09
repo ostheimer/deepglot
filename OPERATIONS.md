@@ -169,9 +169,24 @@ The runner sends unique German corpora with 1, 12, 25, and 50 segments, then rep
 
 Set `DEEPGLOT_LATENCY_ACCEPTANCE_APP_URL` to exactly `https://deepglot.ai` and pair it with `DEEPGLOT_LATENCY_ACCEPTANCE_API_KEY` from the same environment source. Use a key for the dedicated acceptance project whose quota and stored synthetic translations may be consumed. The runner loads `.env.production.local` and `.env.local` separately; a complete process-environment pair overrides them, a complete local-file pair overrides the production file, and partial cross-source combinations fail closed. Generic project keys, customer keys, preview hosts, foreign hosts, URL credentials, and alternate paths are not accepted. Reports contain timing and contract classifications, never API-key values or response text. `--confirm-write` is mandatory.
 
+The dedicated production run on 2026-08-09 passed all four representative sizes against the SaaS translation code later included unchanged in `cccc9ba`:
+
+| Segments | Fresh | Cached | Fresh/cached |
+| ---: | ---: | ---: | ---: |
+| 1 | 11,516 ms | 1,140 ms | 10.10× |
+| 12 | 15,580 ms | 1,135 ms | 13.73× |
+| 25 | 16,330 ms | 1,212 ms | 13.47× |
+| 50 | 18,735 ms | 1,225 ms | 15.29× |
+
+Every response preserved exact source order and returned a complete, non-empty, non-identity translation set; the repeat returned identical translated values. All eight matching `/api/translate` requests were HTTP 200, with no provider-fallback, count-mismatch, timeout, rate-limit, or 429 event in that controlled window. The later WordPress warm-up window on deployment `dpl_DLwoXpjKFJJ6BpweArYLTMpB2atn` contained four `/api/translate` events and likewise no warning, error, count-mismatch, or timeout message.
+
 After the run, inspect privacy-safe provider fallback and timeout logs for the same window. A complete 200 response can still have used a fallback provider, so clean API shape and latency evidence do not by themselves prove a healthy primary provider. Record the deployed application version and the WordPress plugin version before attributing any result to v0.12.0 background warming.
 
 For WordPress warm-up verification, confirm that the stored purge target is the localized public request URL after routing rewrites, not the canonical source path. After Deepglot has durably written warm-up work and an immediately due event, it makes one non-blocking `spawn_cron()` nudge in the same request so a low-traffic page does not wait for another visit. The nudge is skipped with `DISABLE_WP_CRON`, while `DOING_CRON`/`wp_doing_cron()` is true, and after the first attempt in that request; system-cron sites remain responsible for invoking cron. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache exposes a global public purge only, so Deepglot delays that purge until the tracked URL queue has fully drained; pages that remain pending must stay cached.
+
+Production warm-up acceptance passed on `meinhaushalt.at` with v0.12.0 from commit `cccc9ba` on 2026-08-09. A unique cold `/en/` page returned all four German source sentences in 827 ms and created two WP Rocket files. A synthetic one-shot provider failure left five texts plus the localized request URL queued and retryable. The next visitor request returned in 1.197 s and emitted an HTTPS, non-blocking cron request (`blocking=false`, `timeout=0.01`); at the first 2.5-second drain poll, both warm-up options were empty and the two stale WP Rocket files were gone. The next render contained all four translated marker paragraphs and no original German sentence in 189 ms; the cached repeat preserved those four paragraphs in 56 ms. Cleanup deleted the page, synthetic hook, flags, queue entries, and cache files, and the temporary public URL returned 404.
+
+An already active WordPress core `doing_cron` lock can legitimately defer the immediate loopback; Deepglot leaves the event due so a later request or the configured system cron can claim it. Do not remove an active lock. If the queue and due event remain after the configured `WP_CRON_LOCK_TIMEOUT` (60 seconds by default), verify loopback reachability, `DISABLE_WP_CRON`, the host's system-cron schedule, and the `doing_cron` lock age before retrying or purging anything manually.
 
 ## Stripe Acceptance
 
