@@ -158,12 +158,22 @@ test("sitemap publishes only routes with content in the advertised locale", () =
     possibleDocumentationUrls.has(url)
   );
 
-  assert.equal(entries.length, 130);
+  assert.equal(entries.length, 132);
   assert.equal(new Set(urls).size, entries.length);
   assert.equal(editorialUrls.length, 8);
   assert.deepEqual(documentationUrls.sort(), [
     "https://deepglot.ai/de/dokumentation",
     "https://deepglot.ai/docs",
+  ]);
+  const helpUrls = urls.filter((url) =>
+    new Set([
+      "https://deepglot.ai/help",
+      "https://deepglot.ai/de/hilfe",
+    ]).has(url)
+  );
+  assert.deepEqual(helpUrls.sort(), [
+    "https://deepglot.ai/de/hilfe",
+    "https://deepglot.ai/help",
   ]);
   assert.ok(
     editorialUrls.every((url) => {

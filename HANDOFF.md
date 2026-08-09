@@ -1,8 +1,18 @@
-# Deepglot Handoff - 2026-08-03
+# Deepglot Handoff - 2026-08-09
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
-## Current State
+## Current repository evidence
+
+- Current `main` is `4d649aa` (`feat(wp-plugin): warm translations in the background instead of blocking renders (#276)`). This worktree starts from that commit; no production deployment is part of this handoff.
+- The repository's WordPress plugin source is **v0.12.0**. The authoritative bootstrap, README, WordPress.org readme, and version-consistency test agree on that version. GitHub releases currently go through **v0.11.7**; there is no `wp-plugin-v0.12.0` tag in this checkout, so v0.12.0 must not be described as released or live-verified.
+- v0.12.0's source behavior is background warming for ordinary cold pages, with bounded queue claims, partial-result retention, supported full-page-cache purges, and synchronous visual-editor/WooCommerce email paths. The first cold target-language view can therefore show source content until WP-Cron completes the work.
+- The v0.11.4–v0.11.7 release notes are authoritative in `wordpress-plugin/deepglot/readme.txt`, `wordpress-plugin/deepglot/README.md`, and the public bilingual help/docs surfaces. They cover numeric source slugs, the 60-second legacy window, 2,000 UTF-8-byte/200-string bounds, and the trusted final HTML filter.
+- The weekly activity digest is implemented as an opt-in per user/workspace. It summarizes the previous complete UTC week, skips quiet weeks, scopes projects by membership, and uses atomic per-period delivery claims with retry-safe failure handling. Its schedule is `0 8 * * 1`, protected by `CRON_SECRET`.
+- Stripe configuration and production billing state are not inferred from this file. Run the read-only `npm run acceptance:stripe -- --mode live --env-file .env.production.local` check in an authorized environment before making a current live claim. Never put keys, customer data, or unverified live assertions in this handoff.
+- Issue #281 covers the bilingual help and documentation parity work in this branch. Production deployment remains intentionally open for a separately authorized follow-up.
+
+## Historical snapshot (2026-08-03; not current live evidence)
 
 - Branch: `main`
 - WordPress plugin: **v0.11.1 deployed on `meinhaushalt.at` and live-verified (2026-08-03).** The deploy source was the SHA-256-verified GitHub release asset `deepglot-0.11.1.zip` (tag `wp-plugin-v0.11.1`, byte-identical to the tag), NOT a working-tree rsync — the working tree was being modified by a concurrent agent session at deploy time. rsync ran with `--delete` against the distribution allowlist, so the live install now matches a customer install exactly (`tests/` and `DYNAMIC_TRANSLATION_QA.md` removed from the server; 36 live PHP files linted cleanly). Pre-deploy gate: the full plugin suite (46 PHP files + 2 JS) ran green in an isolated checkout of the release tag using the new `WordPressTestBootstrap.php` prepend. Live verification: `Deepglot 0.11.1` marker, `<html lang="en">`, `switcher.css?ver=0.11.1`, computed 🇬🇧/🇩🇪 flag content, zero numeric entities in `style`/`script`, and the [#237](https://github.com/ostheimer/deepglot/pull/237) fix confirmed on real content — the `tel:` link on `/en/impressum/` is preserved instead of being rewritten to `/en/tel:...`. Server backup: `~/deepglot-backup-20260803-1136-v0.10.4.tar.gz`. WP Rocket page/min/used-css caches purged incl. a `wp_wpr_rucss_used_css` truncate. No URL slug mappings are configured for meinhaushalt, so the #233 runtime-sync boundary required no action there (it remains relevant for the HD-Dental install).

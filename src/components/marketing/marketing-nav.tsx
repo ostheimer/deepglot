@@ -8,7 +8,7 @@ import { localizeCopy } from "@/lib/static-copy";
 
 type MarketingNavProps = {
   locale: SiteLocale;
-  active?: "home" | "pricing" | "docs" | "blog";
+  active?: "home" | "pricing" | "docs" | "help" | "blog";
 };
 
 const NAV_COPY = {
@@ -43,6 +43,7 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
   const homeHref = getMarketingPath(locale, "home");
   const pricingHref = getMarketingPath(locale, "pricing");
   const docsHref = getMarketingPath(locale, "docs");
+  const helpHref = getMarketingPath(locale, "help");
   const blogHref = getMarketingPath(locale, "blog");
   const loginHref = getMarketingPath(locale, "login");
   const signupHref = getMarketingPath(locale, "signup");
@@ -60,6 +61,9 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
       </Link>
       <Link href={docsHref} className={navLinkClass(active === "docs")}>
         {copy.docs}
+      </Link>
+      <Link href={helpHref} className={navLinkClass(active === "help")}>
+        {locale === "de" ? "Hilfe" : "Help"}
       </Link>
       <Link href={blogHref} className={navLinkClass(active === "blog")}>
         {copy.blog}

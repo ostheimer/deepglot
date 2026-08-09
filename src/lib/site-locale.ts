@@ -250,6 +250,11 @@ const INTERNAL_SEGMENTS = {
   webhooks: "webhooks",
 } as const;
 
+const HELP_INTERNAL_SEGMENT = "hilfe";
+const HELP_EXTERNAL_SEGMENTS: Record<SiteLocale, string> = Object.fromEntries(
+  SITE_LOCALES.map((locale) => [locale, locale === "de" ? "hilfe" : "help"])
+) as Record<SiteLocale, string>;
+
 type SegmentKey = keyof typeof INTERNAL_SEGMENTS;
 
 const LOCALIZED_SEGMENTS: Record<SiteLocale, Record<SegmentKey, string>> = {
@@ -1133,6 +1138,7 @@ const GERMAN_LEGACY_ROOT_SEGMENTS = new Set(
       return segment !== LOCALIZED_SEGMENTS.en[key];
     })
 );
+GERMAN_LEGACY_ROOT_SEGMENTS.add(HELP_INTERNAL_SEGMENT);
 
 const LOCALIZED_SEGMENT_COLLISIONS = SITE_LOCALES.flatMap((locale) => {
   const seen = new Map<string, SegmentKey>();
@@ -1193,15 +1199,23 @@ function getExternalToInternalSegmentMap(locale: SiteLocale) {
   return {
     ...buildExternalToInternalSegmentMap(locale),
     ...LEGACY_EXTERNAL_TO_INTERNAL_SEGMENT,
+    help: HELP_INTERNAL_SEGMENT,
+    [HELP_INTERNAL_SEGMENT]: HELP_INTERNAL_SEGMENT,
   };
 }
 
 function getInternalToExternalSegmentMap(locale: SiteLocale) {
-  return buildInternalToExternalSegmentMap(locale);
+  return {
+    ...buildInternalToExternalSegmentMap(locale),
+    [HELP_INTERNAL_SEGMENT]: HELP_EXTERNAL_SEGMENTS[locale],
+  };
 }
 
 export function getDocumentLocale(pathname: string): SiteLocale {
   const firstSegment = getFirstSegment(pathname);
+  if (firstSegment === HELP_INTERNAL_SEGMENT) {
+    return "de";
+  }
   return isSiteLocale(firstSegment) ? firstSegment : DEFAULT_MARKETING_LOCALE;
 }
 
@@ -1331,6 +1345,7 @@ export function getMarketingPath(
     | "home"
     | "pricing"
     | "docs"
+    | "help"
     | "blog"
     | "login"
     | "signup"
@@ -1345,6 +1360,7 @@ export function getMarketingPath(
     home: "/",
     pricing: `/${LOCALIZED_SEGMENTS[locale].pricing}`,
     docs: `/${LOCALIZED_SEGMENTS[locale].docs}`,
+    help: `/${HELP_EXTERNAL_SEGMENTS[locale]}`,
     blog: "/blog",
     login: `/${LOCALIZED_SEGMENTS[locale].login}`,
     signup: `/${LOCALIZED_SEGMENTS[locale].signup}`,

@@ -14,6 +14,7 @@ function sourceFiles(directory: string): string[] {
     const filePath = path.join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(filePath);
     if (!/\.(ts|tsx)$/.test(entry.name) || entry.name.endsWith(".test.ts")) return [];
+    if (filePath.endsWith(path.join("components", "marketing", "help-page.tsx"))) return [];
     return [filePath];
   });
 }

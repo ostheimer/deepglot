@@ -41,6 +41,9 @@ export function MarketingFooter({ locale }: { locale: SiteLocale }) {
           <Link className="transition-colors hover:text-[#f77a65]" href={getMarketingPath(locale, "docs")}>
             {uiText(locale, "Documentation", "Dokumentation")}
           </Link>
+          <Link className="transition-colors hover:text-[#f77a65]" href={getMarketingPath(locale, "help")}>
+            {locale === "de" ? "Hilfe" : "Help"}
+          </Link>
           <a className="transition-colors hover:text-[#f77a65]" href="https://github.com/ostheimer/deepglot" target="_blank" rel="noreferrer">
             GitHub
           </a>

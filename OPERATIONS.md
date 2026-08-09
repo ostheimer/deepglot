@@ -157,7 +157,7 @@ Runtime configuration:
 
 ## Stripe Acceptance
 
-Stripe is fully provisioned in live mode (account `acct_1GRyA0FAiA6nPZyW`, EUR). Five products with 10 prices (STARTER / BUSINESS / PRO / ADVANCED / EXTENDED × monthly and yearly), a webhook endpoint, and a restricted `rk_live_*` key are active in Vercel Production. `POST /api/billing/checkout` and the subscription pages (`/abonnement/*`) are live as of 2026-05-17 (Phase 8.1, 8.5). Do not create ad-hoc Stripe objects outside the defined plan structure.
+The repository defines the supported Stripe plan structure in `src/lib/billing-plans.ts`. Account, price, webhook, and Vercel-Production state are time-sensitive and must be verified with the read-only acceptance command below before being described as live. Do not put account identifiers or secret material in this runbook, and do not create ad-hoc Stripe objects outside the defined plan structure.
 
 Run env-only validation for test mode and read-only API validation for live mode:
 
