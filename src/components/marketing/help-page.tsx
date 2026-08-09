@@ -164,8 +164,8 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               </p>
               <p className="mt-4 text-sm leading-7 text-[#58636d]">
                 {de
-                  ? "Enthält stattdessen die Antwort eines Übersetzungsanbieters U+0000, wird dieses Ergebnis nicht gespeichert. Ein konfigurierter Ersatzanbieter kann übernehmen; schlägt auch die Anbieterkette fehl, endet die Anfrage ohne Datenbankschreibversuch. Protokolliert werden nur Grenze, Feld, Anzahl und Anbieter — niemals Text oder URL."
-                  : "If a translation provider response contains U+0000, that result is not stored. A configured fallback provider can take over; if the provider chain still fails, the request ends without a database write attempt. Logs contain only the boundary, field, count, and provider — never text or URLs."}
+                  ? "Enthält stattdessen die Antwort eines Übersetzungsanbieters U+0000, wird dieses Ergebnis nicht gespeichert. Ein konfigurierter Ersatzanbieter kann übernehmen; schlägt auch die Anbieterkette fehl, endet die Anfrage ohne Versuch, Übersetzungsinhalte zu persistieren. Protokolliert werden nur Grenze, Feld, Anzahl und Anbieter — niemals Text oder URL."
+                  : "If a translation provider response contains U+0000, that result is not stored. A configured fallback provider can take over; if the provider chain still fails, the request ends without attempting translation-content persistence. Logs contain only the boundary, field, count, and provider — never text or URLs."}
               </p>
             </div>
           </section>

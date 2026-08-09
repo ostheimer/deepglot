@@ -26,7 +26,12 @@ test("bilingual help explains the NUL rejection and provider fallback boundary",
     help,
     /before provider calls and before translation content is persisted/,
   );
-  assert.doesNotMatch(help, /Datenbankarbeit|database work/);
+  assert.match(help, /ohne Versuch, Übersetzungsinhalte zu persistieren/);
+  assert.match(help, /without attempting translation-content persistence/);
+  assert.doesNotMatch(
+    help,
+    /Datenbankarbeit|database work|Datenbankschreibversuch|database write attempt/,
+  );
 });
 
 test("documentation and source limit the guarantee to translation persistence", () => {
