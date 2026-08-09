@@ -18,6 +18,25 @@ Expected behavior:
 - Failed cron responses create a failed processor run when the database is reachable.
 - Final webhook delivery failures stay visible as `FAILED`; retryable failures return to `PENDING` with the next attempt time.
 
+## Weekly Activity Digest
+
+Vercel Cron invokes `/api/cron/activity-digest` every Monday at 08:00 UTC. The job summarizes the previous complete UTC Monday-to-Monday period. Users opt in separately for each workspace under `Settings -> Notifications`; weeks without new translations, manual edits, or runtime translation requests are skipped.
+
+Rollout order:
+
+1. Apply `prisma/schema.prisma` to the target database with the repository's normal `npx prisma db push` workflow. The additive change introduces the two membership preference columns and the `ActivityDigestDelivery` table.
+2. Deploy the application so the authenticated preference endpoint, cron route, and updated `vercel.json` become active together.
+3. Enable the digest for a non-production test workspace from account settings.
+4. Invoke the endpoint once with the production `CRON_SECRET`, then inspect the JSON counters and the recipient inbox. Do not invoke it again expecting another email for the same period: the delivery claim intentionally deduplicates retries.
+
+Expected behavior:
+
+- Production requests without `Authorization: Bearer <CRON_SECRET>` return `401`.
+- Missing Cloudflare email configuration returns `503` with `configured: false`.
+- Successful responses report `eligible`, `sent`, `duplicates`, `withoutActivity`, and `failed` without exposing recipient addresses.
+- A provider failure removes the unsent claim so a later Vercel retry can send it; successful claims remain unique per workspace, recipient, and period.
+- Imports and manual-save batches are not counted as runtime translation requests. Manual saves are reported separately, while newly created translation-cache entries supply the new-translation and word totals.
+
 ## Rate-Limit Monitoring
 
 Deepglot stores rate-limit buckets in Postgres so limits are shared across Vercel instances.

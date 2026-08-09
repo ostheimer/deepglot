@@ -13,8 +13,9 @@
  *   - Returned text replacements line up with the originating batch even
  *     when the API client returns batches in a different shape than the
  *     input order.
- *   - Per-batch failures (modeled as WP_Error returns) leave the affected
- *     source nodes intact while every other node still gets translated.
+ *   - Per-batch failures (modeled as WP_Error returns) are retried once via
+ *     the single-batch client path so visitors never receive a mixed-language
+ *     page merely because one parallel request failed.
  *
  * Run standalone: php tests/ParallelBatchesTest.php
  */
@@ -107,11 +108,17 @@ class DeepglotParallelFakeClient extends Client
     /** @var int[] */
     public array $failingBatchIndexes = [];
 
+    public bool $failSingleCalls = false;
+
     public function __construct() {}
 
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
     {
         $this->singleCalls++;
+
+        if ($this->failSingleCalls) {
+            return new DeepglotFakeWpError('single-boom');
+        }
 
         return [
             'from_words' => $texts,
@@ -213,8 +220,8 @@ foreach ($expectedStrings as $original) {
     );
 }
 
-// 2. When one batch returns a WP_Error all other batches still apply, only
-// the strings inside the failing batch fall back to their original form.
+// 2. When one parallel batch returns a WP_Error, retry just that batch through
+// translate(). Successful sibling batches must not be sent again.
 $failingClient = new DeepglotParallelFakeClient();
 $failingClient->failingBatchIndexes = [1];
 $translator2 = new HtmlTranslator($failingClient, $options, new DeepglotParallelNullCache());
@@ -231,14 +238,19 @@ parallelAssert(
 
 foreach ($failedBatchTexts as $original) {
     parallelAssert(
-        str_contains($translated2, '<p>' . $original . '</p>'),
-        sprintf('Strings from a failing batch must remain untranslated (got missing original "%s")', $original)
+        str_contains($translated2, '[en] ' . $original),
+        sprintf('Strings from a failed parallel batch must be translated by the retry (got missing translation "%s")', $original)
     );
     parallelAssert(
-        !str_contains($translated2, '[en] ' . $original),
-        sprintf('Strings from a failing batch must NOT be translated (got translated "%s")', $original)
+        !str_contains($translated2, '<p>' . $original . '</p>'),
+        sprintf('A successful retry must not leave the original paragraph in the page (got "%s")', $original)
     );
 }
+
+parallelAssert(
+    $failingClient->singleCalls === 1,
+    sprintf('Exactly one failed parallel batch must be retried once, got %d single-batch call(s).', $failingClient->singleCalls)
+);
 
 $succeededFromFirstBatch = $failingClient->batchCalls[0][0] ?? null;
 
@@ -249,12 +261,37 @@ if ($succeededFromFirstBatch !== null) {
     );
 }
 
-// 3. The single-batch fast path may keep using translate() to avoid the
+// 3. If the bounded retry also fails, do not render a mixed-language page.
+// Cacheable successes may still be retained for the next request, but this
+// response must fall back atomically to the original document.
+$doubleFailingClient = new DeepglotParallelFakeClient();
+$doubleFailingClient->failingBatchIndexes = [1];
+$doubleFailingClient->failSingleCalls = true;
+$translator3 = new HtmlTranslator($doubleFailingClient, $options, new DeepglotParallelNullCache());
+$translated3 = $translator3->translate($html, 'en');
+
+foreach ($expectedStrings as $original) {
+    parallelAssert(
+        str_contains($translated3, '<p>' . $original . '</p>'),
+        sprintf('A failed retry must fall back atomically to the original document (missing "%s")', $original)
+    );
+    parallelAssert(
+        !str_contains($translated3, '[en] ' . $original),
+        sprintf('A failed retry must not leak a partial translation into the response (got "%s")', $original)
+    );
+}
+
+parallelAssert(
+    $doubleFailingClient->singleCalls === 1,
+    sprintf('The failed parallel batch must still receive exactly one bounded retry, got %d.', $doubleFailingClient->singleCalls)
+);
+
+// 4. The single-batch fast path may keep using translate() to avoid the
 // extra plumbing for tiny pages. Sites with very few unique strings should
 // not pay the parallel infrastructure cost.
 $smallClient = new DeepglotParallelFakeClient();
-$translator3 = new HtmlTranslator($smallClient, $options, new DeepglotParallelNullCache());
-$translator3->translate('<!DOCTYPE html><html><head><title>Hi</title></head><body><p>Hallo Welt</p></body></html>', 'en');
+$translator4 = new HtmlTranslator($smallClient, $options, new DeepglotParallelNullCache());
+$translator4->translate('<!DOCTYPE html><html><head><title>Hi</title></head><body><p>Hallo Welt</p></body></html>', 'en');
 
 parallelAssert(
     $smallClient->singleCalls + count($smallClient->batchCalls) >= 1,

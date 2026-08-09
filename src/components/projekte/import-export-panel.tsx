@@ -188,7 +188,7 @@ export function ImportExportPanel({
                 <Upload className="mr-2 h-4 w-4" />
                 {copy.import}
               </Button>
-              <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+              <Button asChild className="bg-brand-600 hover:bg-brand-700">
                 <a href={buildExportHref(card)}>
                   <Download className="mr-2 h-4 w-4" />
                   {copy.export}
@@ -253,7 +253,7 @@ export function ImportExportPanel({
             {copy.import}
           </Button>
           {hasPoLanguages ? (
-            <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+            <Button asChild className="bg-brand-600 hover:bg-brand-700">
               <a
                 href={buildExportHref({
                   asset: "translations",
@@ -266,7 +266,7 @@ export function ImportExportPanel({
               </a>
             </Button>
           ) : (
-            <Button type="button" disabled className="bg-indigo-600 hover:bg-indigo-700">
+            <Button type="button" disabled className="bg-brand-600 hover:bg-brand-700">
               <Download className="mr-2 h-4 w-4" />
               {copy.export}
             </Button>

@@ -27,7 +27,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
       <MarketingNav locale={locale} active="docs" />
       <main className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#f03b22]">
             {de ? "Entwicklerdokumentation" : "Developer documentation"}
           </p>
           <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
@@ -50,7 +50,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             ["project-surfaces", de ? "Projektoberflächen" : "Project surfaces"],
             ["versioning", de ? "Versionierung" : "Versioning"],
           ].map(([id, label]) => (
-            <a key={id} href={`#${id}`} className="rounded-full border border-gray-300 px-4 py-2 font-medium hover:border-indigo-500 hover:text-indigo-700">
+            <a key={id} href={`#${id}`} className="rounded-full border border-gray-300 px-4 py-2 font-medium hover:border-[#f03b22] hover:text-[#d92f19]">
               {label}
             </a>
           ))}
@@ -66,11 +66,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               de ? "Eine übersetzte URL öffnen und Navigation, hreflang, Cache, dynamische Inhalte und Kontingentstatus prüfen." : "Open a translated URL and verify navigation, hreflang, cache, dynamic content, and quota status.",
             ].map((step, index) => (
               <li key={step} className="rounded-2xl border border-gray-200 p-5 leading-7 text-gray-700">
-                <span className="mr-2 font-mono font-semibold text-indigo-600">{index + 1}.</span>{step}
+                <span className="mr-2 font-mono font-semibold text-[#f03b22]">{index + 1}.</span>{step}
               </li>
             ))}
           </ol>
-          <div className="mt-6 rounded-2xl bg-indigo-50 p-6 text-sm leading-7 text-indigo-950">
+          <div className="mt-6 rounded-2xl bg-[#fff0ec] p-6 text-sm leading-7 text-[#5e1f14]">
             <strong>{de ? "Authentifizierung:" : "Authentication:"}</strong>{" "}
             {de
               ? "Nutze bevorzugt Authorization: Bearer <key>. ?api_key=<key> bleibt für ältere Plugin-Clients kompatibel. Dashboard-Routen verwenden dagegen eine angemeldete Sitzung und sind keine öffentliche API."
@@ -93,7 +93,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
                 <p className="mt-2 text-xs text-gray-500">
                   {de ? "Quellcode:" : "Source:"}{" "}
                   <a
-                    className="font-mono text-indigo-600 hover:underline"
+                    className="font-mono text-[#f03b22] hover:underline"
                     href={`https://github.com/ostheimer/deepglot/blob/main/${endpoint.sourceFile}`}
                   >
                     {endpoint.sourceFile}
@@ -182,7 +182,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             <p>
               {de ? "MCP-Server, offizielles SDK/CLI und Agent-Skills sind derzeit nicht verfügbar. DPP-Lokalisierung ist eine spätere, noch zu validierende Richtung und keine Compliance-Zusage. " : "An MCP server, official SDK/CLI, and agent skills are not currently available. DPP localization is a later, unvalidated direction and not a compliance claim. "}
               <a
-                className="font-medium text-indigo-600 hover:underline"
+                className="font-medium text-[#f03b22] hover:underline"
                 href="https://github.com/ostheimer/deepglot/blob/main/docs/product-decisions/developer-surfaces.md"
               >
                 {de ? "Entscheidungsprotokoll" : "Decision record"}
@@ -192,8 +192,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
         </section>
 
         <div className="mt-20 rounded-2xl bg-gray-50 p-6 text-sm text-gray-600">
-          {de ? "Fragen oder Integrationsfeedback? " : "Questions or integration feedback? "}<a className="font-medium text-indigo-600 hover:underline" href="mailto:office@ostheimer.at">office@ostheimer.at</a>
-          <span className="mx-2">·</span><Link className="font-medium text-indigo-600 hover:underline" href={getMarketingPath(locale, "home")}>{de ? "Zur Startseite" : "Back to homepage"}</Link>
+          {de ? "Fragen oder Integrationsfeedback? " : "Questions or integration feedback? "}<a className="font-medium text-[#f03b22] hover:underline" href="mailto:office@ostheimer.at">office@ostheimer.at</a>
+          <span className="mx-2">·</span><Link className="font-medium text-[#f03b22] hover:underline" href={getMarketingPath(locale, "home")}>{de ? "Zur Startseite" : "Back to homepage"}</Link>
         </div>
       </main>
     </div>

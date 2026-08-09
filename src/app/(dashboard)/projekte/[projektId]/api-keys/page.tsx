@@ -131,15 +131,15 @@ export default async function ApiKeysPage({ params }: PageProps) {
           </h3>
           <ol className="space-y-2 text-sm text-gray-600">
             <li className="flex gap-2">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-medium">1</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-brand-600 text-white text-xs flex items-center justify-center font-medium">1</span>
               {uiText(locale, "Download and install the plugin from WordPress.org", "Plugin von WordPress.org herunterladen und installieren")}
             </li>
             <li className="flex gap-2">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-medium">2</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-brand-600 text-white text-xs flex items-center justify-center font-medium">2</span>
               {uiText(locale, "In WordPress: Settings → Deepglot", "In WordPress: Einstellungen → Deepglot")}
             </li>
             <li className="flex gap-2">
-              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-medium">3</span>
+              <span className="flex-shrink-0 h-5 w-5 rounded-full bg-brand-600 text-white text-xs flex items-center justify-center font-medium">3</span>
               {uiText(locale, "Add the API key and configure languages", "API-Key eintragen und Sprachen konfigurieren")}
             </li>
           </ol>

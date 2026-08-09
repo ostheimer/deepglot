@@ -106,8 +106,8 @@ export function ProjectsTable({ projects }: Props) {
     }
 
     return sortDir === "asc"
-      ? <ArrowUp className="h-3 w-3 text-indigo-600" />
-      : <ArrowDown className="h-3 w-3 text-indigo-600" />;
+      ? <ArrowUp className="h-3 w-3 text-brand-600" />
+      : <ArrowDown className="h-3 w-3 text-brand-600" />;
   }
 
   return (
@@ -124,7 +124,7 @@ export function ProjectsTable({ projects }: Props) {
               placeholder={uiText(locale, "Search project", "Projekt suchen")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 pr-4 h-9 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-52"
+              className="pl-9 pr-4 h-9 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 w-52"
             />
           </div>
 
@@ -160,7 +160,7 @@ export function ProjectsTable({ projects }: Props) {
           </DropdownMenu>
 
           {/* Create */}
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-2 h-9">
+          <Button asChild className="bg-brand-600 hover:bg-brand-700 gap-2 h-9">
             <Link href={withLocalePrefix("/projects/new", locale)}>
               <Plus className="h-4 w-4" />
               {uiText(locale, "Create project", "Projekt erstellen")}
@@ -179,7 +179,7 @@ export function ProjectsTable({ projects }: Props) {
           <p className="text-sm text-gray-500 mb-5 max-w-xs mx-auto">
             {uiText(locale, "Create your first project and connect your WordPress plugin.", "Erstelle dein erstes Projekt und verbinde dein WordPress-Plugin.")}
           </p>
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 gap-2">
+          <Button asChild className="bg-brand-600 hover:bg-brand-700 gap-2">
             <Link href={withLocalePrefix("/projects/new", locale)}>
               <Plus className="h-4 w-4" />
               {uiText(locale, "Create first project", "Erstes Projekt erstellen")}
@@ -256,7 +256,7 @@ export function ProjectsTable({ projects }: Props) {
                         className={`flex-shrink-0 h-2 w-2 rounded-full ${statusDot(project.updatedAt)}`}
                       />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors truncate">
+                        <p className="text-sm font-semibold text-gray-900 group-hover:text-brand-600 transition-colors truncate">
                           {project.domain}
                         </p>
                         <p className="text-xs text-gray-400 truncate">
@@ -280,7 +280,7 @@ export function ProjectsTable({ projects }: Props) {
                       {project.members.slice(0, 4).map((m, i) => (
                         <div
                           key={i}
-                          className="h-7 w-7 rounded-full border-2 border-white shadow-sm bg-indigo-100 flex items-center justify-center -ml-1 first:ml-0"
+                          className="h-7 w-7 rounded-full border-2 border-white shadow-sm bg-brand-100 flex items-center justify-center -ml-1 first:ml-0"
                           style={{ zIndex: 10 - i }}
                           title={m.name ?? m.email ?? ""}
                         >
@@ -292,7 +292,7 @@ export function ProjectsTable({ projects }: Props) {
                               className="h-7 w-7 rounded-full object-cover"
                             />
                           ) : (
-                            <span className="text-xs font-bold text-indigo-700">
+                            <span className="text-xs font-bold text-brand-700">
                               {(m.name ?? m.email ?? "?").charAt(0).toUpperCase()}
                             </span>
                           )}
@@ -311,7 +311,7 @@ export function ProjectsTable({ projects }: Props) {
                         {formatNumber(project.manualTranslations, locale)} /{" "}
                         {formatNumber(project.totalTranslations, locale)}
                       </span>
-                      <span className="text-sm font-medium text-indigo-600">{manualPct}%</span>
+                      <span className="text-sm font-medium text-brand-600">{manualPct}%</span>
                     </div>
 
                     {/* Actions */}

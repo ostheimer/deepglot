@@ -102,6 +102,13 @@ class OutputBuffer
             $html = $this->translator->translate($html, $targetLanguage, $requestUrl, $bot);
         }
 
+        // HtmlTranslator deliberately returns the untouched source document
+        // when even one segment remains unresolved. Never let that temporary
+        // fallback become a cached response for the translated URL.
+        if (!$this->translator->wasLastTranslationComplete() && function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+
         // Steps 2 + 3 need the DOM, so load once.
         $doc = $this->loadDocument($html);
 

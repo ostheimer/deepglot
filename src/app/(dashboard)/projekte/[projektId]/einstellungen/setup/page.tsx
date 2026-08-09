@@ -38,7 +38,7 @@ export default async function SetupPage({ params }: PageProps) {
       {/* API Key section */}
       <section className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <Key className="h-4 w-4 text-indigo-600" />
+          <Key className="h-4 w-4 text-brand-600" />
           API-Key
         </h3>
         <p className="text-sm text-gray-500 mb-4">
@@ -119,7 +119,7 @@ export default async function SetupPage({ params }: PageProps) {
             },
           ].map((item) => (
             <li key={item.step} className="flex gap-4">
-              <span className="flex-shrink-0 h-7 w-7 rounded-full bg-indigo-600 text-white text-sm font-bold flex items-center justify-center">
+              <span className="flex-shrink-0 h-7 w-7 rounded-full bg-brand-600 text-white text-sm font-bold flex items-center justify-center">
                 {item.step}
               </span>
               <div className="pt-0.5">

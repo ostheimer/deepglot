@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Eye, Pencil, Plus } from "lucide-react";
 import { PasswordChangeForm } from "@/components/einstellungen/password-change-form";
 import { ProfileSettingsForm } from "@/components/einstellungen/profile-settings-form";
+import { ActivityDigestPreferences } from "@/components/einstellungen/activity-digest-preferences";
 import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
@@ -70,7 +71,7 @@ export default async function EinstellungenPage({
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16 border border-gray-200">
               <AvatarImage src={user?.image ?? undefined} />
-              <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xl font-bold">
+              <AvatarFallback className="bg-brand-100 text-brand-700 text-xl font-bold">
                 {(user?.name ?? user?.email ?? "?").charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -79,7 +80,7 @@ export default async function EinstellungenPage({
                 href="https://gravatar.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline"
               >
                 {uiText(locale, "Open Gravatar", "Zu Gravatar")}
                 <ExternalLink className="h-3 w-3" />
@@ -135,60 +136,39 @@ export default async function EinstellungenPage({
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="p-5">
             <p className="text-sm font-medium text-gray-900">
-              {uiText(locale, "Preferences are not configurable yet", "Einstellungen sind noch nicht konfigurierbar")}
+              {uiText(locale, "Email preferences", "E-Mail-Einstellungen")}
             </p>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-gray-500">
-              {uiText(locale, "Deepglot will continue to send important account, security, and project emails. Optional notification controls will appear once they can be persisted.", "Deepglot sendet weiterhin wichtige Konto-, Sicherheits- und Projekt-E-Mails. Optionale Benachrichtigungen werden erst angezeigt, wenn sie dauerhaft gespeichert werden können.")}
+              {uiText(locale, "Important account and security emails stay enabled. Optional emails can be configured for each workspace.", "Wichtige Konto- und Sicherheits-E-Mails bleiben aktiviert. Optionale E-Mails können für jeden Workspace konfiguriert werden.")}
             </p>
           </div>
 
-          <div className="border-t border-gray-100 divide-y divide-gray-100">
-            {[
-              {
-                label: uiText(locale, "Account and security notices", "Konto- und Sicherheitshinweise"),
-                status: uiText(locale, "Always on", "Immer aktiv"),
-              },
-              {
-                label: uiText(locale, "Project and workspace activity", "Projekt- und Workspace-Aktivität"),
-                status: uiText(locale, "Planned", "Geplant"),
-              },
-              {
-                label: uiText(locale, "Product updates", "Produkt-Updates"),
-                status: uiText(locale, "Planned", "Geplant"),
-              },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-4">
-                <span className="text-sm font-medium text-gray-900">{item.label}</span>
-                <Badge variant="outline" className="shrink-0 text-xs">
-                  {item.status}
-                </Badge>
-              </div>
-            ))}
+          <div className="flex items-center justify-between gap-4 border-t border-gray-100 px-5 py-4">
+            <span className="text-sm font-medium text-gray-900">
+              {uiText(locale, "Account and security notices", "Konto- und Sicherheitshinweise")}
+            </span>
+            <Badge variant="outline" className="shrink-0 text-xs">
+              {uiText(locale, "Always on", "Immer aktiv")}
+            </Badge>
           </div>
 
-          {memberships.length > 0 && (
-            <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {uiText(locale, "Workspace note", "Workspace-Hinweis")}
-              </p>
-              <div className="mt-3 space-y-3">
-                {memberships.map((m) => (
-                  <div key={m.id} className="flex items-start gap-2">
-                    <div className="mt-0.5 h-5 w-5 rounded-full bg-indigo-600 flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">
-                        {m.organization.name.charAt(0)}
-                      </span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-gray-500">
-                      <span className="font-semibold text-gray-700">{m.organization.name}</span>
-                      {" - "}
-                      {uiText(locale, "workspace-specific notification controls will be enabled once a persisted preference model exists.", "eigene Workspace-Benachrichtigungen werden erst aktiviert, wenn es ein dauerhaftes Präferenzmodell gibt.")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <ActivityDigestPreferences
+            locale={locale}
+            memberships={memberships.map((membership) => ({
+              organizationId: membership.organizationId,
+              organizationName: membership.organization.name,
+              enabled: membership.activityDigestEnabled,
+            }))}
+          />
+
+          <div className="flex items-center justify-between gap-4 border-t border-gray-100 px-5 py-4">
+            <span className="text-sm font-medium text-gray-900">
+              {uiText(locale, "Product updates", "Produkt-Updates")}
+            </span>
+            <Badge variant="outline" className="shrink-0 text-xs">
+              {uiText(locale, "Planned", "Geplant")}
+            </Badge>
+          </div>
         </div>
       </section>
 
@@ -205,7 +185,7 @@ export default async function EinstellungenPage({
           </div>
           <Button
             disabled
-            className="bg-indigo-600 hover:bg-indigo-600 gap-1.5 h-8 px-4 text-sm opacity-50"
+            className="bg-brand-600 hover:bg-brand-600 gap-1.5 h-8 px-4 text-sm opacity-50"
             title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -245,7 +225,7 @@ export default async function EinstellungenPage({
               >
                 {/* Name */}
                 <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">
                       {m.organization.name.charAt(0)}
                     </span>
@@ -288,8 +268,8 @@ export default async function EinstellungenPage({
 
                 {/* Users */}
                 <div className="flex items-center">
-                  <div className="h-6 w-6 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center">
-                    <span className="text-xs font-bold text-indigo-700">
+                  <div className="h-6 w-6 rounded-full bg-brand-100 border-2 border-white flex items-center justify-center">
+                    <span className="text-xs font-bold text-brand-700">
                       {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
                     </span>
                   </div>

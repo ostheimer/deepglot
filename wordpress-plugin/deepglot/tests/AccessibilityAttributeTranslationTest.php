@@ -157,6 +157,7 @@ $html = '<!DOCTYPE html><html><head>'
     . '<a href="/blog/" title="Mehr über das Bloggen">Blog Link</a>'
     . '<a href="/x/" aria-label="Suche öffnen"><span aria-hidden="true">🔍</span></a>'
     . '<button title="Neuen Beitrag erstellen" aria-label="Beitrag hinzufügen">+</button>'
+    . '<div role="button" aria-label="Cookie Einstellungen" data-tooltip="Cookie Optionen">Cookie</div>'
     . '<input type="text" placeholder="Suche nach Rezepten">'
     . '<input type="email" placeholder="E-Mail eingeben">'
     . '<textarea placeholder="Hinterlasse einen Kommentar"></textarea>'
@@ -189,6 +190,13 @@ a11yAssert(str_contains($decoded, 'aria-label="[en] Suche öffnen"'), 'Translate
 a11yAssert(in_array('Neuen Beitrag erstellen', $client->sentTexts, true), '<button title> must be sent');
 a11yAssert(in_array('Beitrag hinzufügen', $client->sentTexts, true), '<button aria-label> must be sent');
 
+// 4a. Script-injected div buttons (cookie/chat widgets) carry their accessible
+// name and visible tooltip on div attributes rather than a native <button>.
+a11yAssert(in_array('Cookie Einstellungen', $client->sentTexts, true), '<div role=button aria-label> must be sent');
+a11yAssert(in_array('Cookie Optionen', $client->sentTexts, true), '<div data-tooltip> must be sent');
+a11yAssert(str_contains($decoded, 'aria-label="[en] Cookie Einstellungen"'), 'Translated div aria-label should be rewritten');
+a11yAssert(str_contains($decoded, 'data-tooltip="[en] Cookie Optionen"'), 'Translated div data-tooltip should be rewritten');
+
 // 5. <input placeholder> and <textarea placeholder> translate.
 a11yAssert(in_array('Suche nach Rezepten', $client->sentTexts, true), 'Input placeholder must be sent');
 a11yAssert(in_array('E-Mail eingeben', $client->sentTexts, true), 'Email input placeholder must be sent');
@@ -211,6 +219,10 @@ a11yAssert(!in_array('Sollte nicht uebersetzt werden', $client->sentTexts, true)
 // 10. Body H1 still translates as before.
 a11yAssert(in_array('Hauptüberschrift', $client->sentTexts, true), 'Body H1 still translates');
 a11yAssert(str_contains($decoded, '[en] Hauptüberschrift'), 'H1 translation applied');
+a11yAssert(
+    str_contains($decoded, 'data-deepglot-initial-dom'),
+    'Translated output must mark the original direct body children so the dynamic pass can skip server-rendered content'
+);
 
 // 11. translate="no" on the element itself (not just an ancestor) must opt
 // out — mirrors the ancestor-or-self semantics that text nodes already

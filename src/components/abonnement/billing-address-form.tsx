@@ -85,7 +85,7 @@ export function BillingAddressForm() {
           <select
             name="country"
             defaultValue="AT"
-            className="h-9 w-full border border-gray-200 rounded-md px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="h-9 w-full border border-gray-200 rounded-md px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
@@ -113,7 +113,7 @@ export function BillingAddressForm() {
         <Button
           type="submit"
           disabled={loading}
-          className="bg-indigo-600 hover:bg-indigo-700 h-9 px-5 text-sm"
+          className="bg-brand-600 hover:bg-brand-700 h-9 px-5 text-sm"
         >
           {loading ? (uiText(locale, "Saving...", "Speichern…")) : uiText(locale, "Save", "Speichern")}
         </Button>

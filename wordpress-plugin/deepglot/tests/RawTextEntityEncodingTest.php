@@ -432,4 +432,49 @@ rawAssert(
         . substr($bodyMetaOnlyOut, 0, 240)
 );
 
+// -----------------------------------------------------------------------
+// 10. DOMText commonly contains formatting whitespace around visible copy.
+//     That whitespace is presentation, not source text: sending it to the API
+//     creates a separate cache key and can preserve an old identity mapping.
+//     Translate the trimmed value while restoring the exact outer whitespace.
+// -----------------------------------------------------------------------
+$whitespaceClient = new RawTextFakeClient();
+$whitespaceHtml = "<div><p>  Hallo Welt \n</p></div>";
+$whitespaceOut = (new HtmlTranslator($whitespaceClient, $options, new RawTextNullCache()))
+    ->translate($whitespaceHtml, 'en', '', 0);
+
+rawAssert(
+    in_array('Hallo Welt', $whitespaceClient->sentTexts, true),
+    'Visible DOMText is sent to the translation API without outer whitespace'
+);
+rawAssert(
+    !in_array("  Hallo Welt \n", $whitespaceClient->sentTexts, true),
+    'Outer DOMText whitespace must not become part of the translation/cache key'
+);
+rawAssert(
+    strpos($whitespaceOut, "<p>  [en] Hallo Welt \n</p>") !== false,
+    'The exact original outer whitespace is restored around the translation, got: ' . $whitespaceOut
+);
+
+$whitespaceEditorClient = new RawTextFakeClient();
+$whitespaceEditorResult = (new HtmlTranslator($whitespaceEditorClient, $options, new RawTextNullCache()))
+    ->translateForEditor($whitespaceHtml, 'en');
+
+rawAssert(
+    $whitespaceEditorClient->sentTexts === ['Hallo Welt'],
+    'Editor mode uses the same trimmed DOMText translation/cache key'
+);
+rawAssert(
+    strpos($whitespaceEditorResult['html'], '<p>  <span data-deepglot-segment-id=') !== false
+        && strpos($whitespaceEditorResult['html'], "</span> \n</p>") !== false,
+    'Editor mode restores the exact outer whitespace around its segment span, got: '
+        . $whitespaceEditorResult['html']
+);
+rawAssert(
+    count($whitespaceEditorResult['segments']) === 1
+        && $whitespaceEditorResult['segments'][0]['originalText'] === 'Hallo Welt'
+        && $whitespaceEditorResult['segments'][0]['translatedText'] === '[en] Hallo Welt',
+    'Editor metadata contains normalized visible copy without presentation whitespace'
+);
+
 fwrite(STDOUT, "RawTextEntityEncodingTest: OK\n");

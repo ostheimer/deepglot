@@ -29,7 +29,7 @@ export function SimpleMarketingPage({
       <MarketingNav locale={locale} active={active} />
       <main className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8">
         {eyebrow && (
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-[#f03b22]">
             {eyebrow}
           </p>
         )}
@@ -57,7 +57,7 @@ export function SimpleMarketingPage({
             {uiText(locale, "Questions? Contact us at ", "Fragen? Schreib uns unter ")}
             <a
               href="mailto:office@ostheimer.at"
-              className="font-medium text-indigo-600 hover:underline"
+              className="font-medium text-[#f03b22] hover:underline"
             >
               office@ostheimer.at
             </a>
@@ -66,7 +66,7 @@ export function SimpleMarketingPage({
           <p className="mt-4">
             <Link
               href={getMarketingPath(locale, "home")}
-              className="font-medium text-indigo-600 hover:underline"
+              className="font-medium text-[#f03b22] hover:underline"
             >
               {uiText(locale, "Back to homepage", "Zurück zur Startseite")}
             </Link>

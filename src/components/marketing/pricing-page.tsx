@@ -52,7 +52,7 @@ export async function PricingPage({ locale }: PricingPageProps) {
       <footer className="mt-20 border-t border-gray-100 py-10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 md:flex-row">
           <Link href={homeHref} className="flex items-center gap-2" aria-label="Deepglot">
-            <Globe className="h-5 w-5 text-indigo-600" />
+            <Globe className="h-5 w-5 text-[#f03b22]" />
             <span className="font-semibold text-gray-900">Deepglot</span>
             <span className="ml-2 text-sm text-gray-400">
               © {new Date().getFullYear()} Andreas Ostheimer

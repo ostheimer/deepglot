@@ -124,8 +124,8 @@ export function CreateApiKeyDialog({
           size={size}
           className={
             variant === "outline"
-              ? "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-              : "bg-indigo-600 hover:bg-indigo-700"
+              ? "border-brand-200 text-brand-700 hover:bg-brand-50"
+              : "bg-brand-600 hover:bg-brand-700"
           }
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -164,7 +164,7 @@ export function CreateApiKeyDialog({
 
             <div className="flex justify-end">
               <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-brand-600 hover:bg-brand-700"
                 onClick={() => resetDialog(false)}
               >
                 {copy.done}
@@ -189,7 +189,7 @@ export function CreateApiKeyDialog({
                 {copy.cancel}
               </Button>
               <Button
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-brand-600 hover:bg-brand-700"
                 onClick={handleCreate}
                 disabled={isLoading || name.trim().length < 2}
               >

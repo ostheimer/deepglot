@@ -22,6 +22,8 @@
  *     preserves the per-instance overrides too.
  *   - rocket_rucss_inline_content_exclusions gains a content pattern as
  *     belt-and-braces for the flag override rules.
+ *   - rocket_delay_js_exclusions gains the dynamic translator path so visible
+ *     content injected after load is translated without user interaction.
  *   - Callbacks preserve pre-existing entries, never duplicate their own
  *     pattern, and normalize a non-array filter payload.
  *   - Plugin.php wires the compat layer up.
@@ -101,6 +103,7 @@ $hooks = [
     'rocket_exclude_css',
     'rocket_rucss_inline_atts_exclusions',
     'rocket_rucss_inline_content_exclusions',
+    'rocket_delay_js_exclusions',
 ];
 foreach ($hooks as $hook) {
     wprAssert(!empty($GLOBALS['_deepglot_filters'][$hook]), "register() hooks {$hook}");
@@ -199,14 +202,49 @@ wprAssert(
 );
 
 // -----------------------------------------------------------------------
-// 7. A hostile/broken third-party filter may hand over a non-array; the
+// 7. The dynamic translator must execute on page load. WP Rocket's Delay JS
+//    rewrites non-excluded scripts to type="text/rocketlazyloadscript", which
+//    leaves injected cookie/chat text in German until the visitor interacts.
+// -----------------------------------------------------------------------
+$delayExclusions = wprApply('rocket_delay_js_exclusions', ['third-party.js']);
+wprAssert(in_array('third-party.js', $delayExclusions, true), 'Pre-existing Delay JS exclusions survive');
+$dynamicTranslatorUrl = DEEPGLOT_PLUGIN_URL . 'assets/js/dynamic-translator.js';
+$dynamicDelayHit = false;
+foreach ($delayExclusions as $pattern) {
+    if (is_string($pattern) && $pattern !== '' && strpos($dynamicTranslatorUrl, $pattern) !== false) {
+        $dynamicDelayHit = true;
+    }
+}
+wprAssert(
+    $dynamicDelayHit,
+    'A Delay JS exclusion pattern substring-matches dynamic-translator.js: ' . json_encode($delayExclusions)
+);
+
+// WP Rocket may minify the file before Delay JS evaluates the final script
+// tag. Its cache URL inserts `/cache/min/1/` before the original plugin path,
+// so an exclusion that only matches the rooted source path is ineffective.
+$rocketMinifiedScript = '<script src="https://example.com/wp-content/cache/min/1/wp-content/plugins/deepglot/'
+    . 'assets/js/dynamic-translator.js?ver=123"></script>';
+$minifiedDelayHit = false;
+foreach ($delayExclusions as $pattern) {
+    if (is_string($pattern) && $pattern !== '' && preg_match('#' . $pattern . '#i', $rocketMinifiedScript)) {
+        $minifiedDelayHit = true;
+    }
+}
+wprAssert(
+    $minifiedDelayHit,
+    'The Delay JS exclusion also matches WP Rocket minified-cache URLs: ' . json_encode($delayExclusions)
+);
+
+// -----------------------------------------------------------------------
+// 8. A hostile/broken third-party filter may hand over a non-array; the
 //    callbacks normalize instead of fataling.
 // -----------------------------------------------------------------------
 $fromJunk = wprApply('rocket_rucss_external_exclusions', false);
 wprAssert(is_array($fromJunk) && $fromJunk !== [], 'Non-array filter payload is normalized to an array with our pattern');
 
 // -----------------------------------------------------------------------
-// 8. Plugin.php actually wires the compat layer (import + registration).
+// 9. Plugin.php actually wires the compat layer (import + registration).
 // -----------------------------------------------------------------------
 $pluginSource = file_get_contents(__DIR__ . '/../includes/Plugin.php');
 wprAssert(

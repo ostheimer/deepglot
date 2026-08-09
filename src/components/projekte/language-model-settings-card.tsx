@@ -280,7 +280,7 @@ export function LanguageModelSettingsCard({
           </p>
         </div>
 
-        <Button type="submit" disabled={isSaving} className="bg-indigo-600 hover:bg-indigo-700">
+        <Button type="submit" disabled={isSaving} className="bg-brand-600 hover:bg-brand-700">
           {isSaving ? copy.saving : copy.save}
         </Button>
       </form>

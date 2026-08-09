@@ -91,6 +91,7 @@ class DynamicAssets
                 TranslationRules::OWN_SKIP_SELECTORS
             )),
             'noTranslateAttr'  => TranslationRules::NO_TRANSLATE_ATTR,
+            'initialDomAttr'   => TranslationRules::INITIAL_DOM_ATTR,
             'attrMap'          => TranslationRules::TRANSLATABLE_BODY_ATTRIBUTES,
             'attrSkipTags'     => array_map('strtolower', TranslationRules::ATTR_SKIP_ANCESTORS),
             'inputValueTypes'  => TranslationRules::TRANSLATABLE_INPUT_VALUE_TYPES,

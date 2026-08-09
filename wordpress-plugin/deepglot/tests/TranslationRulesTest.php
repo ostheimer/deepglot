@@ -84,6 +84,11 @@ function rulesCheck($condition, string $message): void
 
 // SKIP_TAGS must match the server pass exactly (private const read via reflection).
 $serverConstants = (new ReflectionClass(HtmlTranslator::class))->getConstants();
+$ruleConstants = (new ReflectionClass(TranslationRules::class))->getConstants();
+rulesCheck(
+    isset($ruleConstants['INITIAL_DOM_ATTR']) && $ruleConstants['INITIAL_DOM_ATTR'] === 'data-deepglot-initial-dom',
+    'TranslationRules must expose the canonical initial-DOM marker attribute.'
+);
 rulesCheck(
     isset($serverConstants['SKIP_TAGS']),
     'HtmlTranslator::SKIP_TAGS must exist for the drift guard.'

@@ -17,6 +17,8 @@ namespace Deepglot\Frontend;
  * keep the original switcher.css <link> tag (RUCSS + minify exclusions)
  * and preserve the per-instance inline <style> blocks that
  * LanguageSwitcher emits (custom CSS / responsive hide / custom flags).
+ * The dynamic translator must also be excluded from Delay JavaScript so
+ * content injected after page load is translated before user interaction.
  *
  * The filters are registered unconditionally: they only ever fire when
  * WP Rocket itself applies them, and the used-CSS cache can be
@@ -46,6 +48,7 @@ class WpRocketCompat
         add_filter('rocket_exclude_css', [$this, 'excludeSwitcherFromMinify']);
         add_filter('rocket_rucss_inline_atts_exclusions', [$this, 'preserveInlineStyleAttributes']);
         add_filter('rocket_rucss_inline_content_exclusions', [$this, 'preserveInlineStyleContent']);
+        add_filter('rocket_delay_js_exclusions', [$this, 'excludeDynamicTranslatorFromDelay']);
     }
 
     /**
@@ -91,6 +94,19 @@ class WpRocketCompat
     }
 
     /**
+     * Let the dynamic translator execute on page load. Delaying it until
+     * interaction leaves dynamically injected cookie/chat content in the
+     * source language.
+     *
+     * @param mixed $exclusions
+     * @return array<int,string>
+     */
+    public function excludeDynamicTranslatorFromDelay($exclusions): array
+    {
+        return $this->append($exclusions, $this->dynamicTranslatorJsPath());
+    }
+
+    /**
      * Rooted URL path of the switcher stylesheet, derived from the plugin
      * URL so subdirectory installs and renamed content dirs keep working.
      */
@@ -101,6 +117,19 @@ class WpRocketCompat
         return is_string($path) && $path !== ''
             ? $path
             : '/wp-content/plugins/deepglot/assets/css/switcher.css';
+    }
+
+    /**
+     * Rooted URL path of the dynamic translator script. WP Rocket accepts
+     * URL substrings for Delay JavaScript exclusions.
+     */
+    private function dynamicTranslatorJsPath(): string
+    {
+        $path = parse_url(DEEPGLOT_PLUGIN_URL . 'assets/js/dynamic-translator.js', PHP_URL_PATH);
+
+        return is_string($path) && $path !== ''
+            ? $path
+            : '/wp-content/plugins/deepglot/assets/js/dynamic-translator.js';
     }
 
     /**

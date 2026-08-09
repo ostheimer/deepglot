@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Globe } from "lucide-react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
@@ -32,8 +32,8 @@ const NAV_COPY = {
 
 function navLinkClass(isActive: boolean) {
   return isActive
-    ? "text-sm font-medium text-indigo-600"
-    : "text-sm text-gray-600 transition-colors hover:text-gray-900";
+    ? "text-sm font-semibold text-[#f03b22]"
+    : "text-sm font-medium text-[#14212d] transition-colors hover:text-[#f03b22]";
 }
 
 export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
@@ -62,36 +62,54 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
   );
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <nav className="sticky top-0 z-50 border-b border-[#e8e8e3] bg-[#fbfaf7]/92 backdrop-blur-xl">
+      <div className="mx-auto flex h-20 max-w-[1488px] items-center justify-between px-5 sm:px-8 lg:h-24 lg:px-7">
         <Link
           href={homeHref}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2.5"
           aria-label="Deepglot"
         >
-          <Globe className="h-6 w-6 text-indigo-600" />
-          <span className="text-xl font-bold text-gray-900">Deepglot</span>
+          <Image
+            src="/marketing/deepglot-mark.png"
+            alt=""
+            width={52}
+            height={52}
+            className="h-10 w-10 lg:h-12 lg:w-12"
+            priority
+          />
+          <span className="text-xl font-extrabold tracking-[-0.035em] text-[#071521] lg:text-2xl">
+            Deepglot
+          </span>
         </Link>
-        <div className="hidden items-center gap-8 md:flex">
+        <div className="hidden items-center gap-7 lg:flex xl:gap-10">
           {navLinks}
         </div>
         <div className="flex items-center gap-3">
-          <LanguageSwitcher compact />
-          <Button asChild variant="ghost" size="sm">
+          <div className="hidden sm:block">
+            <LanguageSwitcher compact />
+          </div>
+          <Button asChild variant="ghost" size="sm" className="hidden text-[#071521] hover:bg-[#f1f0eb] sm:inline-flex">
             <Link href={loginHref}>
               {copy.login}
             </Link>
           </Button>
-          <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+          <Button
+            asChild
+            size="sm"
+            className="h-10 rounded-md bg-[#f03b22] px-4 font-semibold text-white shadow-none hover:bg-[#d92f19] lg:h-12 lg:px-12"
+          >
             <Link href={signupHref}>
               {copy.signup}
             </Link>
           </Button>
         </div>
       </div>
-      <div className="border-t border-gray-100 px-4 py-3 md:hidden">
-        <div className="mx-auto flex max-w-7xl gap-5 overflow-x-auto whitespace-nowrap">
+      <div className="border-t border-[#e8e8e3] px-5 py-3 lg:hidden">
+        <div className="mx-auto flex max-w-7xl items-center gap-5 overflow-x-auto whitespace-nowrap">
           {navLinks}
+          <div className="ml-auto sm:hidden">
+            <LanguageSwitcher compact />
+          </div>
         </div>
       </div>
     </nav>
