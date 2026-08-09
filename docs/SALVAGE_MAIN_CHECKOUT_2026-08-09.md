@@ -70,11 +70,17 @@ After independently retaining the browser artifacts if wanted, run these command
 cd /Users/andreasostheimer/GitHub/deepglot
 git status --short --branch
 git fetch --prune origin
-git diff --binary HEAD > /tmp/deepglot-main-checkout-before-cleanup.patch
-git ls-files --others --exclude-standard > /tmp/deepglot-main-checkout-untracked.txt
+backup_dir=$(mktemp -d /tmp/deepglot-main-checkout-backup.XXXXXX)
+git diff --binary HEAD > "$backup_dir/working-tree.patch"
+git ls-files --others --exclude-standard > "$backup_dir/untracked.txt"
+mkdir "$backup_dir/playwright-mcp"
+cp -p .playwright-mcp/* "$backup_dir/playwright-mcp/"
+shasum -a 256 "$backup_dir"/playwright-mcp/*
+git stash push --include-untracked -m "pre-cleanup deepglot main checkout 2026-08-09"
 git switch main
 git pull --ff-only origin main
-git clean -ndX
+git status --short --branch
+git stash list -1
 ```
 
-At this point, confirm the salvage branch/commit and the two local backup files. Only then remove untracked artifacts and discard the already-preserved working tree with the explicitly approved cleanup command.
+This does not reset, clean, or overwrite the original checkout: the patch, the six browser artifacts, and a local stash remain recoverable while the pushed salvage commit preserves every non-artifact source path. Confirm the branch, commit, backup directory, and stash before ever dropping the stash.
