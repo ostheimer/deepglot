@@ -97,11 +97,14 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
             </a>
-            <a href="#wordpress-releases" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
-              WordPress 0.11.4–0.11.7
+            <a href="#wordpress-warmup" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "WordPress-Aufwärmung" : "WordPress warm-up"}
             </a>
             <a href="#text-safety" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Textgrenzen" : "Text boundaries"}
+            </a>
+            <a href="#wordpress-releases" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              WordPress 0.11.4–0.11.7
             </a>
             <Link href={docsHref} className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Entwicklerdokumentation" : "Developer documentation"}
@@ -145,6 +148,27 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                 {de
                   ? "Der Versand ist auf Benutzer mit aktivierter Einstellung begrenzt. Ein Benutzer sieht nur die Projekte, die über seine Workspace- oder Projektmitgliedschaft in seinem Zugriff liegen."
                   : "Delivery is limited to users who enabled the setting. Each recipient sees only projects available through their workspace or project membership."}
+              </p>
+            </div>
+          </section>
+
+          <section id="wordpress-warmup" data-testid="help-wordpress-warmup" className="scroll-mt-8 pt-24">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
+                {de ? "Hintergrundübersetzung" : "Background translation"}
+              </p>
+              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em]">
+                {de ? "Wie kalte WordPress-Seiten warm werden" : "How cold WordPress pages warm up"}
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#58636d]">
+                {de
+                  ? "Der erste Aufruf einer kalten Zielsprachenseite darf Quelltext zeigen, während WP-Cron fehlende Segmente im Hintergrund übersetzt. Deepglot behält dabei die lokalisierte URL des Besuchers als späteres Cache-Ziel, auch wenn WordPress intern bereits auf den Quellpfad umgeschrieben hat."
+                  : "The first request to a cold target-language page may show source content while WP-Cron translates missing segments in the background. Deepglot retains the visitor's localized URL as the later cache target even after WordPress has internally rewritten the request to its source path."}
+              </p>
+              <p className="mt-4 text-sm leading-7 text-[#58636d]">
+                {de
+                  ? "WP Rocket, W3 Total Cache und LiteSpeed Cache leeren fertig übersetzte URLs einzeln. WP Super Cache bietet nur einen globalen Purge; Deepglot wartet deshalb, bis die verfolgte Warteschlange leer ist, damit ausstehende Seiten im Cache bleiben. Fehlgeschlagene oder unvollständige Übersetzungen bleiben vorgemerkt und können bei einem späteren Cron-Lauf erneut versucht werden."
+                  : "WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache exposes only a global purge, so Deepglot waits until the tracked queue is empty and pending pages stay cached. Failed or partial translations remain queued for a later cron retry."}
               </p>
             </div>
           </section>

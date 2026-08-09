@@ -155,6 +155,24 @@ Runtime configuration:
 - `DEEPGLOT_SAAS_API_KEY` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_API_KEY`.
 - `DEEPGLOT_SAAS_PROJECT_DOMAIN` overrides the disposable project domain.
 
+### Fresh and cached translation latency
+
+Run the write-producing latency acceptance only with the explicitly approved dedicated production acceptance project:
+
+```bash
+npm run acceptance:translation-latency -- --confirm-write
+npm run acceptance:translation-latency -- --confirm-write --json output/translation-latency.json
+npm run acceptance:translation-latency -- --confirm-write --prod-env-file .env.production.local --local-env-file .env.local
+```
+
+The runner sends unique German corpora with 1, 12, 25, and 50 segments, then repeats each request byte-for-byte to measure the cached path. It verifies status, exact source order, complete non-empty translations, stable repeated output, and a faster cached response. HTTP 200 alone is not a pass. The command writes real translation, cache, usage, and batch-log state and therefore is not a read-only smoke test.
+
+Set `DEEPGLOT_LATENCY_ACCEPTANCE_APP_URL` to exactly `https://deepglot.ai` and pair it with `DEEPGLOT_LATENCY_ACCEPTANCE_API_KEY` from the same environment source. Use a key for the dedicated acceptance project whose quota and stored synthetic translations may be consumed. The runner loads `.env.production.local` and `.env.local` separately; a complete process-environment pair overrides them, a complete local-file pair overrides the production file, and partial cross-source combinations fail closed. Generic project keys, customer keys, preview hosts, foreign hosts, URL credentials, and alternate paths are not accepted. Reports contain timing and contract classifications, never API-key values or response text. `--confirm-write` is mandatory.
+
+After the run, inspect privacy-safe provider fallback and timeout logs for the same window. A complete 200 response can still have used a fallback provider, so clean API shape and latency evidence do not by themselves prove a healthy primary provider. Record the deployed application version and the WordPress plugin version before attributing any result to v0.12.0 background warming.
+
+For WordPress warm-up verification, confirm that the stored purge target is the localized public request URL after routing rewrites, not the canonical source path. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache exposes a global public purge only, so Deepglot delays that purge until the tracked URL queue has fully drained; pages that remain pending must stay cached.
+
 ## Stripe Acceptance
 
 The repository defines the supported Stripe plan structure in `src/lib/billing-plans.ts`. Account, price, webhook, and Vercel-Production state are time-sensitive and must be verified with the read-only acceptance command below before being described as live. Do not put account identifiers or secret material in this runbook, and do not create ad-hoc Stripe objects outside the defined plan structure.
@@ -196,7 +214,7 @@ Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-liv
 
 ## PostgreSQL Text Rejection Monitoring
 
-PostgreSQL text and `jsonb` fields cannot store U+0000. Deepglot rejects NUL-containing translation inputs before provider or persistence work instead of truncating or rewriting content. Provider output with NUL is an invalid provider response, so the configured fallback provider is attempted before the request fails.
+PostgreSQL text and `jsonb` fields cannot store U+0000. Deepglot rejects NUL-containing translation inputs before provider translation or translation-content persistence instead of truncating or rewriting content. Provider output with NUL is an invalid provider response, so the configured fallback provider is attempted before the request fails.
 
 The structured warning event is `postgres_text_nul_rejected`. It contains only the boundary, field name, NUL count, and optional item index or provider; it never contains customer text, provider output, URLs, hashes, tenant identifiers, or credentials.
 

@@ -670,7 +670,7 @@ class TranslationWarmer
         $keyLookup = array_fill_keys($keys, true);
 
         $applied = false;
-        $this->updateUrlQueue(function (array $urlQueue) use ($keyLookup, &$urls): array {
+        $remainingUrlQueue = $this->updateUrlQueue(function (array $urlQueue) use ($keyLookup, &$urls): array {
             $urls = [];
             $pendingQueue = $this->readQueue();
 
@@ -729,8 +729,10 @@ class TranslationWarmer
             }
         }
 
-        // WP Super Cache exposes only a full-cache public purge API.
-        if (function_exists('wp_cache_clear_cache')) {
+        // WP Super Cache exposes only a full-cache public purge API. Delay it
+        // until every tracked URL has completed so one finished page cannot
+        // evict pages whose translations are still pending.
+        if (empty($remainingUrlQueue) && function_exists('wp_cache_clear_cache')) {
             wp_cache_clear_cache();
         }
     }

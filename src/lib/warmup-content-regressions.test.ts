@@ -1,0 +1,74 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+const ROOT = process.cwd();
+
+function source(relativePath: string) {
+  return readFileSync(path.join(ROOT, relativePath), "utf8");
+}
+
+test("README does not claim provider chunking eliminates count mismatches", () => {
+  const readme = source("README.md");
+
+  assert.match(readme, /reduces provider payload size and exposure/i);
+  assert.match(readme, /does not eliminate provider count mismatches/i);
+  assert.doesNotMatch(
+    readme,
+    /removes the batch-size-driven `returned N instead of M translations` failures/,
+  );
+});
+
+test("operations document real fresh/cache latency evidence and its write boundary", () => {
+  const operations = source("OPERATIONS.md");
+  const packageJson = source("package.json");
+  const envExample = source(".env.example");
+  const latencySection = operations.slice(
+    operations.indexOf("### Fresh and cached translation latency"),
+    operations.indexOf("## Stripe Acceptance"),
+  );
+
+  assert.match(packageJson, /acceptance:translation-latency/);
+  assert.match(
+    envExample,
+    /DEEPGLOT_LATENCY_ACCEPTANCE_APP_URL="https:\/\/deepglot\.ai"/,
+  );
+  assert.match(envExample, /DEEPGLOT_LATENCY_ACCEPTANCE_API_KEY=""/);
+  assert.match(operations, /npm run acceptance:translation-latency/);
+  assert.match(operations, /--confirm-write/);
+  assert.match(operations, /1, 12, 25, and 50/);
+  assert.match(operations, /real translation, cache, usage, and batch-log state/i);
+  assert.match(operations, /HTTP 200 alone is not a pass/i);
+  assert.match(operations, /provider fallback and timeout logs/i);
+  assert.match(operations, /DEEPGLOT_LATENCY_ACCEPTANCE_APP_URL/);
+  assert.match(operations, /DEEPGLOT_LATENCY_ACCEPTANCE_API_KEY/);
+  assert.match(operations, /exactly `https:\/\/deepglot\.ai`/);
+  assert.doesNotMatch(
+    latencySection,
+    /DEEPGLOT_SAAS_API_KEY|MEINHAUSHALT_PROD_DEEPGLOT_API_KEY/,
+  );
+});
+
+test("plugin and developer docs pin localized purges and WP Super queue draining", () => {
+  const pluginReadme = source("wordpress-plugin/deepglot/README.md");
+  const wpOrgReadme = source("wordpress-plugin/deepglot/readme.txt");
+  const developerDocs = source("src/components/marketing/developer-docs.tsx");
+
+  for (const documentation of [pluginReadme, wpOrgReadme, developerDocs]) {
+    assert.match(documentation, /WP Super Cache/);
+    assert.match(documentation, /queue (?:has fully drained|is empty)/i);
+  }
+
+  assert.match(pluginReadme, /localized public request URL/i);
+  assert.match(developerDocs, /lokalisierte öffentliche Anfrage-URL/);
+});
+
+test("bilingual public copy explains the completed-versus-pending cache boundary", () => {
+  const help = source("src/components/marketing/help-page.tsx");
+
+  assert.match(help, /id="wordpress-warmup"/);
+  assert.match(help, /pending pages stay cached/i);
+  assert.match(help, /ausstehende Seiten im Cache bleiben/);
+  assert.match(help, /localized URL|lokalisierte URL/);
+});
