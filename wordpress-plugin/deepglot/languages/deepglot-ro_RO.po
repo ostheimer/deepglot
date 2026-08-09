@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -197,7 +197,7 @@ msgid "Originalsprache"
 msgstr "Limba originală"
 
 #: includes/Admin/SettingsPage.php:506
-#: includes/Admin/SettingsPage.php:1176
+#: includes/Admin/SettingsPage.php:1177
 msgid "Zielsprachen"
 msgstr "Limbi țintă"
 
@@ -296,7 +296,7 @@ msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "O clasă, ID sau selector CSS pe linie."
 
 #: includes/Admin/SettingsPage.php:703
-#: includes/Admin/SettingsPage.php:1242
+#: includes/Admin/SettingsPage.php:1243
 #: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Comutator de limbă"
@@ -314,22 +314,22 @@ msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_la
 msgstr "Alternativ: Shortcode [deepglot_switcher] sau PHP do_action('deepglot_language_switcher') în tema dvs."
 
 #: includes/Admin/SettingsPage.php:726
-#: includes/Admin/SettingsPage.php:1261
+#: includes/Admin/SettingsPage.php:1262
 msgid "Darstellung"
 msgstr "Prezentare"
 
 #: includes/Admin/SettingsPage.php:729
-#: includes/Admin/SettingsPage.php:1263
+#: includes/Admin/SettingsPage.php:1264
 msgid "Inline-Liste"
 msgstr "Lista inline"
 
 #: includes/Admin/SettingsPage.php:732
-#: includes/Admin/SettingsPage.php:1264
+#: includes/Admin/SettingsPage.php:1265
 msgid "Dropdown"
 msgstr "Drop down"
 
 #: includes/Admin/SettingsPage.php:738
-#: includes/Admin/SettingsPage.php:1268
+#: includes/Admin/SettingsPage.php:1269
 msgid "Flaggenstil"
 msgstr "Stilul steag"
 
@@ -354,7 +354,7 @@ msgid "Ohne Flagge"
 msgstr "Fără steag"
 
 #: includes/Admin/SettingsPage.php:759
-#: includes/Admin/SettingsPage.php:1276
+#: includes/Admin/SettingsPage.php:1277
 msgid "Sprachbezeichnung"
 msgstr "Desemnarea limbii"
 
@@ -515,195 +515,197 @@ msgstr "Completat cu erori"
 msgid "Abgebrochen"
 msgstr "Avortat"
 
-#: includes/Admin/SettingsPage.php:1087
+#: includes/Admin/SettingsPage.php:1088
 msgid "URL-Synchronisierung"
 msgstr "URL sincronizare"
 
-#: includes/Admin/SettingsPage.php:1088
+#: includes/Admin/SettingsPage.php:1089
 msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
 msgstr "Deschide paginile selectate în limba țintă într-un mod controlat în fundal. Segmentele lipsă ajung în coada limitată de traducere; Boții și un acces cu crawlere cu durată nelimitată nu sunt utilizați."
 
-#: includes/Admin/SettingsPage.php:1098
+#: includes/Admin/SettingsPage.php:1099
 msgid "Status:"
 msgstr "Stare:"
 
-#: includes/Admin/SettingsPage.php:1107
+#: includes/Admin/SettingsPage.php:1108
 msgid "URLs gesamt"
 msgstr "URLs în total"
 
-#: includes/Admin/SettingsPage.php:1108
+#: includes/Admin/SettingsPage.php:1109
 msgid "Warteschlange abgearbeitet"
 msgstr "Coada procesată"
 
-#: includes/Admin/SettingsPage.php:1109
+#: includes/Admin/SettingsPage.php:1110
 msgid "Werden aufgewärmt"
 msgstr "Sunt încălzite"
 
-#: includes/Admin/SettingsPage.php:1110
+#: includes/Admin/SettingsPage.php:1111
 msgid "Fehlgeschlagen"
 msgstr "A eșuat"
 
-#: includes/Admin/SettingsPage.php:1112
+#: includes/Admin/SettingsPage.php:1113
 msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
 msgstr "„Processed” confirmă coada Deepglot la originea WordPress. După ce ați terminat, verificați pagina publică în limba țintă fără parametrii de sincronizare și ștergeți manual o memorie cache neacceptată de pagină completă."
 
-#: includes/Admin/SettingsPage.php:1117
+#: includes/Admin/SettingsPage.php:1118
 msgid "Fehlgeschlagene URLs"
 msgstr "URLs eșuat"
 
-#: includes/Admin/SettingsPage.php:1137
+#: includes/Admin/SettingsPage.php:1138
 msgid "Fehlgeschlagene URLs erneut versuchen"
 msgstr "Reîncercarea eșuată URLs"
 
-#: includes/Admin/SettingsPage.php:1143
+#: includes/Admin/SettingsPage.php:1144
 msgid "URL-Vorschau"
 msgstr "URL previzualizare"
 
 #. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1148
+#: includes/Admin/SettingsPage.php:1149
 msgid "%d Zielseiten werden synchronisiert."
 msgstr "%d Paginile țintă sunt sincronizate."
 
-#: includes/Admin/SettingsPage.php:1168
+#: includes/Admin/SettingsPage.php:1169
 msgid "Vorschau bestätigen und Synchronisierung starten"
 msgstr "Confirmați previzualizarea și începeți sincronizarea"
 
-#: includes/Admin/SettingsPage.php:1187
+#: includes/Admin/SettingsPage.php:1188
 msgid "Maximale Anzahl Zielseiten"
 msgstr "Numărul maxim de pagini de destinație"
 
-#: includes/Admin/SettingsPage.php:1189
+#: includes/Admin/SettingsPage.php:1190
 msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
 msgstr "Pentru site-uri mari, începeți cu un eșantion mic. Sunt atinse maximum două pagini pe rulare; Dacă coada de traducere este plină, sincronizarea așteaptă automat."
 
-#: includes/Admin/SettingsPage.php:1193
+#: includes/Admin/SettingsPage.php:1194
 msgid "Nächsten URL-Batch als Vorschau laden"
 msgstr "Încărcați următorul lot URL ca previzualizare"
 
-#: includes/Admin/SettingsPage.php:1194
+#: includes/Admin/SettingsPage.php:1195
 msgid "URL-Vorschau erstellen"
 msgstr "Creați previzualizarea URL"
 
-#: includes/Admin/SettingsPage.php:1200
+#: includes/Admin/SettingsPage.php:1201
 msgid "Status aktualisieren"
 msgstr "Actualizați starea"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Fortsetzen"
 msgstr "Continuă"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Pausieren"
 msgstr "Pauză"
 
-#: includes/Admin/SettingsPage.php:1214
+#: includes/Admin/SettingsPage.php:1215
 msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
 msgstr "Anulați cu adevărat sincronizarea? Traducerile care au fost deja salvate sunt păstrate."
 
-#: includes/Admin/SettingsPage.php:1215
+#: includes/Admin/SettingsPage.php:1216
 msgid "Abbrechen"
 msgstr "Anulează"
 
-#: includes/Admin/SettingsPage.php:1244
+#: includes/Admin/SettingsPage.php:1245
 msgid "Instanz entfernen"
 msgstr "Eliminați instanța"
 
-#: includes/Admin/SettingsPage.php:1253
+#: includes/Admin/SettingsPage.php:1254
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "ID de instanță"
 
-#: includes/Admin/SettingsPage.php:1257
+#: includes/Admin/SettingsPage.php:1258
 msgid "Name"
 msgstr "nume"
 
-#: includes/Admin/SettingsPage.php:1278
+#: includes/Admin/SettingsPage.php:1279
 msgid "Vollständiger Name"
 msgstr "Nume complet"
 
-#: includes/Admin/SettingsPage.php:1279
+#: includes/Admin/SettingsPage.php:1280
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1283
+#: includes/Admin/SettingsPage.php:1284
 msgid "Position"
 msgstr "poziție"
 
-#: includes/Admin/SettingsPage.php:1291
+#: includes/Admin/SettingsPage.php:1292
 msgid "Ausblenden auf"
 msgstr "Ascunde-te"
 
-#: includes/Admin/SettingsPage.php:1293
+#: includes/Admin/SettingsPage.php:1294
 msgid "Keinem Gerät"
 msgstr "Niciun dispozitiv"
 
-#: includes/Admin/SettingsPage.php:1294
+#: includes/Admin/SettingsPage.php:1295
 msgid "Mobilgeräten"
 msgstr "dispozitive mobile"
 
-#: includes/Admin/SettingsPage.php:1295
+#: includes/Admin/SettingsPage.php:1296
 msgid "Desktop-Geräten"
 msgstr "Dispozitive desktop"
 
-#: includes/Admin/SettingsPage.php:1299
+#: includes/Admin/SettingsPage.php:1300
 msgid "Breakpoint (px)"
 msgstr "Punct de întrerupere (px)"
 
-#: includes/Admin/SettingsPage.php:1306
+#: includes/Admin/SettingsPage.php:1307
 msgid "Instanz aktivieren"
 msgstr "Activați instanța"
 
-#: includes/Admin/SettingsPage.php:1308
+#: includes/Admin/SettingsPage.php:1309
 msgid "Automatisch platzieren"
 msgstr "Așezați automat"
 
-#: includes/Admin/SettingsPage.php:1310
+#: includes/Admin/SettingsPage.php:1311
 msgid "Beschriftung anzeigen"
 msgstr "Afișează legenda"
 
-#: includes/Admin/SettingsPage.php:1314
+#: includes/Admin/SettingsPage.php:1315
 msgid "Sprachreihenfolge"
 msgstr "Ordinea limbii"
 
-#: includes/Admin/SettingsPage.php:1319
+#: includes/Admin/SettingsPage.php:1320
 msgid "Eigene Flaggen"
 msgstr "Steaguri proprii"
 
-#: includes/Admin/SettingsPage.php:1328
+#: includes/Admin/SettingsPage.php:1329
 msgid "Eigenes CSS"
 msgstr "Deține CSS"
 
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:1334
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "Țintă DOM pentru plasare automată"
 
-#: includes/Admin/SettingsPage.php:1336
+#: includes/Admin/SettingsPage.php:1337
 msgid "Element in der Vorschau auswählen"
 msgstr "Selectați elementul în previzualizare"
 
-#: includes/Admin/SettingsPage.php:1338
+#: includes/Admin/SettingsPage.php:1339
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Dacă ținta lipsește sau este invalidă, Switcher va rămâne în siguranță în subsol."
 
-#: includes/Admin/SettingsPage.php:1342
+#: includes/Admin/SettingsPage.php:1343
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Previzualizarea site-ului pentru destinația de plasare Switcher"
 
-#: includes/Api/Client.php:166
-#: includes/Api/Client.php:464
+#: includes/Api/Client.php:326
+#: includes/Api/Client.php:748
+#: includes/Api/Client.php:816
+#: includes/Api/Client.php:926
 msgid "Deepglot API Fehler."
 msgstr "Deepglot eroare API."
 
-#: includes/Api/Client.php:346
-#: includes/Sync/SettingsSync.php:62
+#: includes/Api/Client.php:522
+#: includes/Sync/SettingsSync.php:101
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Nu există API-Key pentru sincronizare."
 
-#: includes/Api/Client.php:391
+#: includes/Api/Client.php:567
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Nu există API-Key pentru configurația de rulare."
 
-#: includes/Api/Client.php:691
+#: includes/Api/Client.php:1261
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key invalid sau revocat."
 
@@ -756,11 +758,11 @@ msgstr "Steaguri rotunjite ca comutator plutitor în dreapta jos."
 msgid "Zu viele Anfragen."
 msgstr "Prea multe cereri."
 
-#: includes/Frontend/DynamicTranslationController.php:308
+#: includes/Frontend/DynamicTranslationController.php:321
 msgid "Nicht verfügbar."
 msgstr "Nu este disponibil."
 
-#: includes/Frontend/DynamicTranslationController.php:317
+#: includes/Frontend/DynamicTranslationController.php:330
 msgid "Ungültige Herkunft."
 msgstr "Origine nevalidă."
 
@@ -823,24 +825,24 @@ msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
 msgstr "Previzualizarea URL confirmată nu se mai potrivește selecției."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
-#: includes/Support/UrlTranslationSync.php:575
+#: includes/Support/UrlTranslationSync.php:591
 msgid "Es können höchstens %d URLs synchronisiert werden."
 msgstr "Se pot sincroniza maximum %d URL."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
-#: includes/Support/UrlTranslationSync.php:584
+#: includes/Support/UrlTranslationSync.php:600
 msgid "Der URL-Startpunkt darf höchstens %d betragen."
 msgstr "Punctul de pornire URL trebuie să fie cel mult %d."
 
-#: includes/Support/UrlTranslationSync.php:592
+#: includes/Support/UrlTranslationSync.php:608
 msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
 msgstr "Deepglot trebuie activat și configurat complet."
 
-#: includes/Support/UrlTranslationSync.php:607
+#: includes/Support/UrlTranslationSync.php:623
 msgid "Mindestens eine aktive Zielsprache ist erforderlich."
 msgstr "Este necesară cel puțin o limbă țintă activă."
 
-#: includes/Sync/SettingsSync.php:66
+#: includes/Sync/SettingsSync.php:105
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Nu au fost configurate limbi țintă pentru sincronizare."
 

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -197,7 +197,7 @@ msgid "Originalsprache"
 msgstr "Izvorni jezik"
 
 #: includes/Admin/SettingsPage.php:506
-#: includes/Admin/SettingsPage.php:1176
+#: includes/Admin/SettingsPage.php:1177
 msgid "Zielsprachen"
 msgstr "Ciljni jezici"
 
@@ -296,7 +296,7 @@ msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Jedna CSS klasa, ID ili selektor po retku."
 
 #: includes/Admin/SettingsPage.php:703
-#: includes/Admin/SettingsPage.php:1242
+#: includes/Admin/SettingsPage.php:1243
 #: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Promjena jezika"
@@ -314,22 +314,22 @@ msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_la
 msgstr "Alternativno: Shortcode [deepglot_switcher] ili PHP do_action('deepglot_language_switcher') u vašoj temi."
 
 #: includes/Admin/SettingsPage.php:726
-#: includes/Admin/SettingsPage.php:1261
+#: includes/Admin/SettingsPage.php:1262
 msgid "Darstellung"
 msgstr "Prezentacija"
 
 #: includes/Admin/SettingsPage.php:729
-#: includes/Admin/SettingsPage.php:1263
+#: includes/Admin/SettingsPage.php:1264
 msgid "Inline-Liste"
 msgstr "Inline popis"
 
 #: includes/Admin/SettingsPage.php:732
-#: includes/Admin/SettingsPage.php:1264
+#: includes/Admin/SettingsPage.php:1265
 msgid "Dropdown"
 msgstr "Spustite se"
 
 #: includes/Admin/SettingsPage.php:738
-#: includes/Admin/SettingsPage.php:1268
+#: includes/Admin/SettingsPage.php:1269
 msgid "Flaggenstil"
 msgstr "Stil zastave"
 
@@ -354,7 +354,7 @@ msgid "Ohne Flagge"
 msgstr "Bez zastave"
 
 #: includes/Admin/SettingsPage.php:759
-#: includes/Admin/SettingsPage.php:1276
+#: includes/Admin/SettingsPage.php:1277
 msgid "Sprachbezeichnung"
 msgstr "Označavanje jezika"
 
@@ -515,195 +515,197 @@ msgstr "Dovršeno s pogreškama"
 msgid "Abgebrochen"
 msgstr "prekinuto"
 
-#: includes/Admin/SettingsPage.php:1087
+#: includes/Admin/SettingsPage.php:1088
 msgid "URL-Synchronisierung"
 msgstr "URL sinkronizacija"
 
-#: includes/Admin/SettingsPage.php:1088
+#: includes/Admin/SettingsPage.php:1089
 msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
 msgstr "Otvara odabrane stranice ciljanog jezika na kontrolirani način u pozadini. Segmenti koji nedostaju završavaju u ograničenom redu čekanja za prijevod; Botovi i indeksiranje neograničenog trajanja se ne koriste."
 
-#: includes/Admin/SettingsPage.php:1098
+#: includes/Admin/SettingsPage.php:1099
 msgid "Status:"
 msgstr "Status:"
 
-#: includes/Admin/SettingsPage.php:1107
+#: includes/Admin/SettingsPage.php:1108
 msgid "URLs gesamt"
 msgstr "Ukupno URLs"
 
-#: includes/Admin/SettingsPage.php:1108
+#: includes/Admin/SettingsPage.php:1109
 msgid "Warteschlange abgearbeitet"
 msgstr "Red čekanja obrađen"
 
-#: includes/Admin/SettingsPage.php:1109
+#: includes/Admin/SettingsPage.php:1110
 msgid "Werden aufgewärmt"
 msgstr "Zagrijani su"
 
-#: includes/Admin/SettingsPage.php:1110
+#: includes/Admin/SettingsPage.php:1111
 msgid "Fehlgeschlagen"
 msgstr "neuspješno"
 
-#: includes/Admin/SettingsPage.php:1112
+#: includes/Admin/SettingsPage.php:1113
 msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
 msgstr "\"Obrađeno\" potvrđuje red čekanja Deepglot na izvoru WordPress. Kada završite, provjerite javnu stranicu ciljanog jezika bez parametara sinkronizacije i ručno izbrišite nepodržanu predmemoriju cijele stranice."
 
-#: includes/Admin/SettingsPage.php:1117
+#: includes/Admin/SettingsPage.php:1118
 msgid "Fehlgeschlagene URLs"
 msgstr "Nije uspjelo URLs"
 
-#: includes/Admin/SettingsPage.php:1137
+#: includes/Admin/SettingsPage.php:1138
 msgid "Fehlgeschlagene URLs erneut versuchen"
 msgstr "Ponovni pokušaj nije uspio URLs"
 
-#: includes/Admin/SettingsPage.php:1143
+#: includes/Admin/SettingsPage.php:1144
 msgid "URL-Vorschau"
 msgstr "URL pregled"
 
 #. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1148
+#: includes/Admin/SettingsPage.php:1149
 msgid "%d Zielseiten werden synchronisiert."
 msgstr "%d Ciljne stranice su sinkronizirane."
 
-#: includes/Admin/SettingsPage.php:1168
+#: includes/Admin/SettingsPage.php:1169
 msgid "Vorschau bestätigen und Synchronisierung starten"
 msgstr "Potvrdite pregled i pokrenite sinkronizaciju"
 
-#: includes/Admin/SettingsPage.php:1187
+#: includes/Admin/SettingsPage.php:1188
 msgid "Maximale Anzahl Zielseiten"
 msgstr "Maksimalan broj odredišnih stranica"
 
-#: includes/Admin/SettingsPage.php:1189
+#: includes/Admin/SettingsPage.php:1190
 msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
 msgstr "Za velika mjesta počnite s malim uzorkom. Po vožnji se dotaknu najviše dvije stranice; Ako je red čekanja za prijevod pun, sinkronizacija automatski čeka."
 
-#: includes/Admin/SettingsPage.php:1193
+#: includes/Admin/SettingsPage.php:1194
 msgid "Nächsten URL-Batch als Vorschau laden"
 msgstr "Učitajte sljedeću seriju URL kao pregled"
 
-#: includes/Admin/SettingsPage.php:1194
+#: includes/Admin/SettingsPage.php:1195
 msgid "URL-Vorschau erstellen"
 msgstr "Stvorite URL pregled"
 
-#: includes/Admin/SettingsPage.php:1200
+#: includes/Admin/SettingsPage.php:1201
 msgid "Status aktualisieren"
 msgstr "Ažuriraj status"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Fortsetzen"
 msgstr "nastavi"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Pausieren"
 msgstr "Pauza"
 
-#: includes/Admin/SettingsPage.php:1214
+#: includes/Admin/SettingsPage.php:1215
 msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
 msgstr "Stvarno otkazati sinkronizaciju? Prijevodi koji su već spremljeni su zadržani."
 
-#: includes/Admin/SettingsPage.php:1215
+#: includes/Admin/SettingsPage.php:1216
 msgid "Abbrechen"
 msgstr "Odustani"
 
-#: includes/Admin/SettingsPage.php:1244
+#: includes/Admin/SettingsPage.php:1245
 msgid "Instanz entfernen"
 msgstr "Ukloni instancu"
 
-#: includes/Admin/SettingsPage.php:1253
+#: includes/Admin/SettingsPage.php:1254
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "ID instance"
 
-#: includes/Admin/SettingsPage.php:1257
+#: includes/Admin/SettingsPage.php:1258
 msgid "Name"
 msgstr "ime"
 
-#: includes/Admin/SettingsPage.php:1278
+#: includes/Admin/SettingsPage.php:1279
 msgid "Vollständiger Name"
 msgstr "Puno ime"
 
-#: includes/Admin/SettingsPage.php:1279
+#: includes/Admin/SettingsPage.php:1280
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1283
+#: includes/Admin/SettingsPage.php:1284
 msgid "Position"
 msgstr "položaj"
 
-#: includes/Admin/SettingsPage.php:1291
+#: includes/Admin/SettingsPage.php:1292
 msgid "Ausblenden auf"
 msgstr "Sakrij se"
 
-#: includes/Admin/SettingsPage.php:1293
+#: includes/Admin/SettingsPage.php:1294
 msgid "Keinem Gerät"
 msgstr "Nema uređaja"
 
-#: includes/Admin/SettingsPage.php:1294
+#: includes/Admin/SettingsPage.php:1295
 msgid "Mobilgeräten"
 msgstr "mobilni uređaji"
 
-#: includes/Admin/SettingsPage.php:1295
+#: includes/Admin/SettingsPage.php:1296
 msgid "Desktop-Geräten"
 msgstr "Desktop uređaji"
 
-#: includes/Admin/SettingsPage.php:1299
+#: includes/Admin/SettingsPage.php:1300
 msgid "Breakpoint (px)"
 msgstr "Prijelomna točka (px)"
 
-#: includes/Admin/SettingsPage.php:1306
+#: includes/Admin/SettingsPage.php:1307
 msgid "Instanz aktivieren"
 msgstr "Aktiviraj instancu"
 
-#: includes/Admin/SettingsPage.php:1308
+#: includes/Admin/SettingsPage.php:1309
 msgid "Automatisch platzieren"
 msgstr "Postavite automatski"
 
-#: includes/Admin/SettingsPage.php:1310
+#: includes/Admin/SettingsPage.php:1311
 msgid "Beschriftung anzeigen"
 msgstr "Prikaži naslov"
 
-#: includes/Admin/SettingsPage.php:1314
+#: includes/Admin/SettingsPage.php:1315
 msgid "Sprachreihenfolge"
 msgstr "Redoslijed jezika"
 
-#: includes/Admin/SettingsPage.php:1319
+#: includes/Admin/SettingsPage.php:1320
 msgid "Eigene Flaggen"
 msgstr "Vlastite zastave"
 
-#: includes/Admin/SettingsPage.php:1328
+#: includes/Admin/SettingsPage.php:1329
 msgid "Eigenes CSS"
 msgstr "Vlastiti CSS"
 
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:1334
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "DOM cilj za automatsko postavljanje"
 
-#: includes/Admin/SettingsPage.php:1336
+#: includes/Admin/SettingsPage.php:1337
 msgid "Element in der Vorschau auswählen"
 msgstr "Odaberite element u pregledu"
 
-#: includes/Admin/SettingsPage.php:1338
+#: includes/Admin/SettingsPage.php:1339
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Ako cilj nedostaje ili nije valjan, Switcher će sigurno ostati u podnožju."
 
-#: includes/Admin/SettingsPage.php:1342
+#: includes/Admin/SettingsPage.php:1343
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Pregled web stranice za položaj Switcher"
 
-#: includes/Api/Client.php:166
-#: includes/Api/Client.php:464
+#: includes/Api/Client.php:326
+#: includes/Api/Client.php:748
+#: includes/Api/Client.php:816
+#: includes/Api/Client.php:926
 msgid "Deepglot API Fehler."
 msgstr "Deepglot API pogreška."
 
-#: includes/Api/Client.php:346
-#: includes/Sync/SettingsSync.php:62
+#: includes/Api/Client.php:522
+#: includes/Sync/SettingsSync.php:101
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Ne postoji API-Key za sinkronizaciju."
 
-#: includes/Api/Client.php:391
+#: includes/Api/Client.php:567
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Ne postoji API-Key za konfiguraciju vremena izvođenja."
 
-#: includes/Api/Client.php:691
+#: includes/Api/Client.php:1261
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key nije valjan ili opozvan."
 
@@ -756,11 +758,11 @@ msgstr "Okrugle zastavice kao plutajući prekidač u donjem desnom kutu."
 msgid "Zu viele Anfragen."
 msgstr "Previše zahtjeva."
 
-#: includes/Frontend/DynamicTranslationController.php:308
+#: includes/Frontend/DynamicTranslationController.php:321
 msgid "Nicht verfügbar."
 msgstr "Nije dostupno."
 
-#: includes/Frontend/DynamicTranslationController.php:317
+#: includes/Frontend/DynamicTranslationController.php:330
 msgid "Ungültige Herkunft."
 msgstr "Nevažeće podrijetlo."
 
@@ -823,24 +825,24 @@ msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
 msgstr "Potvrđeni pregled URL više ne odgovara odabiru."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
-#: includes/Support/UrlTranslationSync.php:575
+#: includes/Support/UrlTranslationSync.php:591
 msgid "Es können höchstens %d URLs synchronisiert werden."
 msgstr "Moguće je sinkronizirati najviše %d URL."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
-#: includes/Support/UrlTranslationSync.php:584
+#: includes/Support/UrlTranslationSync.php:600
 msgid "Der URL-Startpunkt darf höchstens %d betragen."
 msgstr "Početna točka URL mora biti najviše %d."
 
-#: includes/Support/UrlTranslationSync.php:592
+#: includes/Support/UrlTranslationSync.php:608
 msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
 msgstr "Deepglot mora biti aktiviran i potpuno postavljen."
 
-#: includes/Support/UrlTranslationSync.php:607
+#: includes/Support/UrlTranslationSync.php:623
 msgid "Mindestens eine aktive Zielsprache ist erforderlich."
 msgstr "Potreban je najmanje jedan aktivan ciljni jezik."
 
-#: includes/Sync/SettingsSync.php:66
+#: includes/Sync/SettingsSync.php:105
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Nema ciljanih jezika konfiguriranih za sinkronizaciju."
 

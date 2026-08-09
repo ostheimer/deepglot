@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -197,7 +197,7 @@ msgid "Originalsprache"
 msgstr "Eredeti nyelv"
 
 #: includes/Admin/SettingsPage.php:506
-#: includes/Admin/SettingsPage.php:1176
+#: includes/Admin/SettingsPage.php:1177
 msgid "Zielsprachen"
 msgstr "Célnyelvek"
 
@@ -296,7 +296,7 @@ msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Soronként egy CSS osztály, azonosító vagy választó."
 
 #: includes/Admin/SettingsPage.php:703
-#: includes/Admin/SettingsPage.php:1242
+#: includes/Admin/SettingsPage.php:1243
 #: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Nyelvváltó"
@@ -314,22 +314,22 @@ msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_la
 msgstr "Alternatív megoldásként: Shortcode [deepglot_switcher] vagy PHP do_action('deepglot_language_switcher') a témában."
 
 #: includes/Admin/SettingsPage.php:726
-#: includes/Admin/SettingsPage.php:1261
+#: includes/Admin/SettingsPage.php:1262
 msgid "Darstellung"
 msgstr "Előadás"
 
 #: includes/Admin/SettingsPage.php:729
-#: includes/Admin/SettingsPage.php:1263
+#: includes/Admin/SettingsPage.php:1264
 msgid "Inline-Liste"
 msgstr "Inline lista"
 
 #: includes/Admin/SettingsPage.php:732
-#: includes/Admin/SettingsPage.php:1264
+#: includes/Admin/SettingsPage.php:1265
 msgid "Dropdown"
 msgstr "Legördül"
 
 #: includes/Admin/SettingsPage.php:738
-#: includes/Admin/SettingsPage.php:1268
+#: includes/Admin/SettingsPage.php:1269
 msgid "Flaggenstil"
 msgstr "Zászló stílus"
 
@@ -354,7 +354,7 @@ msgid "Ohne Flagge"
 msgstr "Zászló nélkül"
 
 #: includes/Admin/SettingsPage.php:759
-#: includes/Admin/SettingsPage.php:1276
+#: includes/Admin/SettingsPage.php:1277
 msgid "Sprachbezeichnung"
 msgstr "Nyelvi megjelölés"
 
@@ -515,195 +515,197 @@ msgstr "Hibákkal kiegészítve"
 msgid "Abgebrochen"
 msgstr "Megszakítva"
 
-#: includes/Admin/SettingsPage.php:1087
+#: includes/Admin/SettingsPage.php:1088
 msgid "URL-Synchronisierung"
 msgstr "URL szinkronizálás"
 
-#: includes/Admin/SettingsPage.php:1088
+#: includes/Admin/SettingsPage.php:1089
 msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
 msgstr "A kiválasztott célnyelvi oldalakat ellenőrzött módon nyitja meg a háttérben. A hiányzó szegmensek a korlátozott fordítási sorba kerülnek; A robotok és a korlátlan időtartamú feltérképezés nem használatos."
 
-#: includes/Admin/SettingsPage.php:1098
+#: includes/Admin/SettingsPage.php:1099
 msgid "Status:"
 msgstr "Állapot:"
 
-#: includes/Admin/SettingsPage.php:1107
+#: includes/Admin/SettingsPage.php:1108
 msgid "URLs gesamt"
 msgstr "URLs összesen"
 
-#: includes/Admin/SettingsPage.php:1108
+#: includes/Admin/SettingsPage.php:1109
 msgid "Warteschlange abgearbeitet"
 msgstr "A sor feldolgozva"
 
-#: includes/Admin/SettingsPage.php:1109
+#: includes/Admin/SettingsPage.php:1110
 msgid "Werden aufgewärmt"
 msgstr "Fel vannak melegítve"
 
-#: includes/Admin/SettingsPage.php:1110
+#: includes/Admin/SettingsPage.php:1111
 msgid "Fehlgeschlagen"
 msgstr "Sikertelen"
 
-#: includes/Admin/SettingsPage.php:1112
+#: includes/Admin/SettingsPage.php:1113
 msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
 msgstr "A „Feldolgozva” megerősíti a Deepglot sort a WordPress eredetben. Ha végzett, ellenőrizze a nyilvános célnyelvi oldalt szinkronizálási paraméterek nélkül, és kézzel törölje a nem támogatott teljes oldalas gyorsítótárat."
 
-#: includes/Admin/SettingsPage.php:1117
+#: includes/Admin/SettingsPage.php:1118
 msgid "Fehlgeschlagene URLs"
 msgstr "Sikertelen URLs"
 
-#: includes/Admin/SettingsPage.php:1137
+#: includes/Admin/SettingsPage.php:1138
 msgid "Fehlgeschlagene URLs erneut versuchen"
 msgstr "Az újrapróbálkozás URLs sikertelen volt"
 
-#: includes/Admin/SettingsPage.php:1143
+#: includes/Admin/SettingsPage.php:1144
 msgid "URL-Vorschau"
 msgstr "URL előnézet"
 
 #. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1148
+#: includes/Admin/SettingsPage.php:1149
 msgid "%d Zielseiten werden synchronisiert."
 msgstr "%d A céloldalak szinkronizálva vannak."
 
-#: includes/Admin/SettingsPage.php:1168
+#: includes/Admin/SettingsPage.php:1169
 msgid "Vorschau bestätigen und Synchronisierung starten"
 msgstr "Erősítse meg az előnézetet és indítsa el a szinkronizálást"
 
-#: includes/Admin/SettingsPage.php:1187
+#: includes/Admin/SettingsPage.php:1188
 msgid "Maximale Anzahl Zielseiten"
 msgstr "A céloldalak maximális száma"
 
-#: includes/Admin/SettingsPage.php:1189
+#: includes/Admin/SettingsPage.php:1190
 msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
 msgstr "Nagy webhelyek esetén kezdje egy kis mintával. Futásonként legfeljebb két oldal érintése; Ha a fordítási sor megtelt, a szinkronizálás automatikusan vár."
 
-#: includes/Admin/SettingsPage.php:1193
+#: includes/Admin/SettingsPage.php:1194
 msgid "Nächsten URL-Batch als Vorschau laden"
 msgstr "Töltse be a következő URL köteget előnézetként"
 
-#: includes/Admin/SettingsPage.php:1194
+#: includes/Admin/SettingsPage.php:1195
 msgid "URL-Vorschau erstellen"
 msgstr "URL előnézet létrehozása"
 
-#: includes/Admin/SettingsPage.php:1200
+#: includes/Admin/SettingsPage.php:1201
 msgid "Status aktualisieren"
 msgstr "Állapot frissítése"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Fortsetzen"
 msgstr "Folytatás"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Pausieren"
 msgstr "Szünet"
 
-#: includes/Admin/SettingsPage.php:1214
+#: includes/Admin/SettingsPage.php:1215
 msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
 msgstr "Tényleg megszakítja a szinkronizálást? A már mentett fordítások megmaradnak."
 
-#: includes/Admin/SettingsPage.php:1215
+#: includes/Admin/SettingsPage.php:1216
 msgid "Abbrechen"
 msgstr "Mégsem"
 
-#: includes/Admin/SettingsPage.php:1244
+#: includes/Admin/SettingsPage.php:1245
 msgid "Instanz entfernen"
 msgstr "Példány eltávolítása"
 
-#: includes/Admin/SettingsPage.php:1253
+#: includes/Admin/SettingsPage.php:1254
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "Példányazonosító"
 
-#: includes/Admin/SettingsPage.php:1257
+#: includes/Admin/SettingsPage.php:1258
 msgid "Name"
 msgstr "nevet"
 
-#: includes/Admin/SettingsPage.php:1278
+#: includes/Admin/SettingsPage.php:1279
 msgid "Vollständiger Name"
 msgstr "Teljes név"
 
-#: includes/Admin/SettingsPage.php:1279
+#: includes/Admin/SettingsPage.php:1280
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1283
+#: includes/Admin/SettingsPage.php:1284
 msgid "Position"
 msgstr "pozíciót"
 
-#: includes/Admin/SettingsPage.php:1291
+#: includes/Admin/SettingsPage.php:1292
 msgid "Ausblenden auf"
 msgstr "Bújj el"
 
-#: includes/Admin/SettingsPage.php:1293
+#: includes/Admin/SettingsPage.php:1294
 msgid "Keinem Gerät"
 msgstr "Nincs eszköz"
 
-#: includes/Admin/SettingsPage.php:1294
+#: includes/Admin/SettingsPage.php:1295
 msgid "Mobilgeräten"
 msgstr "mobil eszközök"
 
-#: includes/Admin/SettingsPage.php:1295
+#: includes/Admin/SettingsPage.php:1296
 msgid "Desktop-Geräten"
 msgstr "Asztali eszközök"
 
-#: includes/Admin/SettingsPage.php:1299
+#: includes/Admin/SettingsPage.php:1300
 msgid "Breakpoint (px)"
 msgstr "Töréspont (px)"
 
-#: includes/Admin/SettingsPage.php:1306
+#: includes/Admin/SettingsPage.php:1307
 msgid "Instanz aktivieren"
 msgstr "Példány aktiválása"
 
-#: includes/Admin/SettingsPage.php:1308
+#: includes/Admin/SettingsPage.php:1309
 msgid "Automatisch platzieren"
 msgstr "Helyezze el automatikusan"
 
-#: includes/Admin/SettingsPage.php:1310
+#: includes/Admin/SettingsPage.php:1311
 msgid "Beschriftung anzeigen"
 msgstr "Felirat megjelenítése"
 
-#: includes/Admin/SettingsPage.php:1314
+#: includes/Admin/SettingsPage.php:1315
 msgid "Sprachreihenfolge"
 msgstr "Nyelvrend"
 
-#: includes/Admin/SettingsPage.php:1319
+#: includes/Admin/SettingsPage.php:1320
 msgid "Eigene Flaggen"
 msgstr "Saját zászlók"
 
-#: includes/Admin/SettingsPage.php:1328
+#: includes/Admin/SettingsPage.php:1329
 msgid "Eigenes CSS"
 msgstr "Saját CSS"
 
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:1334
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "DOM-cél az automatikus elhelyezéshez"
 
-#: includes/Admin/SettingsPage.php:1336
+#: includes/Admin/SettingsPage.php:1337
 msgid "Element in der Vorschau auswählen"
 msgstr "Válassza ki az elemet az előnézetben"
 
-#: includes/Admin/SettingsPage.php:1338
+#: includes/Admin/SettingsPage.php:1339
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Ha a cél hiányzik vagy érvénytelen, a Switcher biztonságosan a láblécben marad."
 
-#: includes/Admin/SettingsPage.php:1342
+#: includes/Admin/SettingsPage.php:1343
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Webhely előnézete a Switcher elhelyezéshez"
 
-#: includes/Api/Client.php:166
-#: includes/Api/Client.php:464
+#: includes/Api/Client.php:326
+#: includes/Api/Client.php:748
+#: includes/Api/Client.php:816
+#: includes/Api/Client.php:926
 msgid "Deepglot API Fehler."
 msgstr "Deepglot API hiba."
 
-#: includes/Api/Client.php:346
-#: includes/Sync/SettingsSync.php:62
+#: includes/Api/Client.php:522
+#: includes/Sync/SettingsSync.php:101
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Nem létezik szinkronizáláshoz szükséges API-Key."
 
-#: includes/Api/Client.php:391
+#: includes/Api/Client.php:567
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Nem létezik API-Key a futásidejű konfigurációhoz."
 
-#: includes/Api/Client.php:691
+#: includes/Api/Client.php:1261
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key érvénytelen vagy visszavonva."
 
@@ -756,11 +758,11 @@ msgstr "Kerek zászlók lebegő kapcsolóként a jobb alsó sarokban."
 msgid "Zu viele Anfragen."
 msgstr "Túl sok kérés."
 
-#: includes/Frontend/DynamicTranslationController.php:308
+#: includes/Frontend/DynamicTranslationController.php:321
 msgid "Nicht verfügbar."
 msgstr "Nem elérhető."
 
-#: includes/Frontend/DynamicTranslationController.php:317
+#: includes/Frontend/DynamicTranslationController.php:330
 msgid "Ungültige Herkunft."
 msgstr "Érvénytelen eredet."
 
@@ -823,24 +825,24 @@ msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
 msgstr "A megerősített URL előnézet már nem felel meg a kijelölésnek."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
-#: includes/Support/UrlTranslationSync.php:575
+#: includes/Support/UrlTranslationSync.php:591
 msgid "Es können höchstens %d URLs synchronisiert werden."
 msgstr "Legfeljebb %d URL szinkronizálható."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
-#: includes/Support/UrlTranslationSync.php:584
+#: includes/Support/UrlTranslationSync.php:600
 msgid "Der URL-Startpunkt darf höchstens %d betragen."
 msgstr "A URL kezdőpont legfeljebb %d lehet."
 
-#: includes/Support/UrlTranslationSync.php:592
+#: includes/Support/UrlTranslationSync.php:608
 msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
 msgstr "A Deepglot-t aktiválni kell, és teljesen be kell állítani."
 
-#: includes/Support/UrlTranslationSync.php:607
+#: includes/Support/UrlTranslationSync.php:623
 msgid "Mindestens eine aktive Zielsprache ist erforderlich."
 msgstr "Legalább egy aktív célnyelv szükséges."
 
-#: includes/Sync/SettingsSync.php:66
+#: includes/Sync/SettingsSync.php:105
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Nincsenek szinkronizáláshoz beállítva célnyelvek."
 

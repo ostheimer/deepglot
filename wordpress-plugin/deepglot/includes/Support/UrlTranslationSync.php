@@ -677,7 +677,12 @@ class UrlTranslationSync
             foreach ($languages as $language) {
                 $targetUrl = $this->routing->buildUrlForLanguage($relative, $language);
                 $targetParts = wp_parse_url($targetUrl);
-                if (!$this->isSafeInternalParts($targetParts) || isset($seen[$targetUrl])) {
+                if (!$this->isSafeInternalParts($targetParts)) {
+                    continue;
+                }
+
+                $targetUrl = $this->upgradeTargetForCurrentHttpsRequest($targetUrl, $targetParts);
+                if (isset($seen[$targetUrl])) {
                     continue;
                 }
 
@@ -700,6 +705,72 @@ class UrlTranslationSync
         }
 
         return $items;
+    }
+
+    /**
+     * A WordPress installation may retain an HTTP home URL while serving the
+     * current request over HTTPS. Upgrade only the already-approved internal
+     * target host, and only when WordPress itself reports SSL for that exact
+     * host. The request Host is never copied into the target URL.
+     *
+     * Only the stale scheme is corrected. The approved target route, including
+     * its semantic query and fragment, remains unchanged.
+     *
+     * @param array<string,mixed> $targetParts
+     */
+    private function upgradeTargetForCurrentHttpsRequest(string $targetUrl, array $targetParts): string
+    {
+        if (
+            strtolower((string) ($targetParts['scheme'] ?? '')) !== 'http'
+            || !function_exists('is_ssl')
+            || !is_ssl()
+        ) {
+            return $targetUrl;
+        }
+
+        $requestHost = RequestInput::server('HTTP_HOST');
+        if (
+            $requestHost === ''
+            || preg_match('/[\s\/\\\\@?#]/', $requestHost) === 1
+        ) {
+            return $targetUrl;
+        }
+
+        $requestParts = wp_parse_url('https://' . $requestHost);
+        if (
+            !is_array($requestParts)
+            || empty($requestParts['host'])
+            || isset($requestParts['user'])
+            || isset($requestParts['pass'])
+            || isset($requestParts['path'])
+            || isset($requestParts['query'])
+            || isset($requestParts['fragment'])
+            || !$this->routing->hostsMatch(
+                (string) $targetParts['host'],
+                (string) $requestParts['host']
+            )
+        ) {
+            return $targetUrl;
+        }
+
+        $upgraded = 'https://' . (string) $targetParts['host'];
+        if (
+            isset($targetParts['port'])
+            && !in_array((int) $targetParts['port'], [80, 443], true)
+        ) {
+            $upgraded .= ':' . (int) $targetParts['port'];
+        }
+
+        $path = (string) ($targetParts['path'] ?? '/');
+        $upgraded .= $path !== '' ? $path : '/';
+        if (isset($targetParts['query']) && $targetParts['query'] !== '') {
+            $upgraded .= '?' . (string) $targetParts['query'];
+        }
+        if (isset($targetParts['fragment']) && $targetParts['fragment'] !== '') {
+            $upgraded .= '#' . (string) $targetParts['fragment'];
+        }
+
+        return $upgraded;
     }
 
     private function isSafeInternalParts($parts): bool

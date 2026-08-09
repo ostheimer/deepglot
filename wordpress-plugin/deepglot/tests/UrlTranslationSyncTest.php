@@ -46,6 +46,7 @@ $GLOBALS['_dg_sync_safe_requests'] = 0;
 $GLOBALS['_dg_sync_responses'] = [];
 $GLOBALS['_dg_sync_during_request'] = null;
 $GLOBALS['_dg_sync_lock_seen'] = null;
+$GLOBALS['_dg_sync_site_url'] = 'https://example.com';
 
 function __(string $text, ?string $domain = null): string { return $text; }
 function get_option(string $key, $default = false) { return $GLOBALS['_dg_sync_options'][$key] ?? $default; }
@@ -102,8 +103,9 @@ if (!function_exists('wp_unslash')) {
 function sanitize_text_field(string $value): string { return trim($value); }
 function untrailingslashit(string $value): string { return rtrim($value, '/'); }
 function wp_parse_args($args, array $defaults = []): array { return array_merge($defaults, is_array($args) ? $args : []); }
-function home_url(string $path = '/'): string { return 'https://example.com' . (str_starts_with($path, '/') ? $path : '/' . $path); }
-function get_site_url(): string { return 'https://example.com'; }
+function home_url(string $path = '/'): string { return rtrim($GLOBALS['_dg_sync_site_url'], '/') . (str_starts_with($path, '/') ? $path : '/' . $path); }
+function get_site_url(): string { return $GLOBALS['_dg_sync_site_url']; }
+function is_ssl(): bool { return strtolower((string) ($_SERVER['HTTPS'] ?? '')) === 'on'; }
 function wp_json_encode($value): string { return json_encode($value); }
 function add_query_arg(array $args, string $url): string
 {
@@ -215,8 +217,9 @@ function syncReset(): void
     $GLOBALS['_dg_sync_responses'] = [];
     $GLOBALS['_dg_sync_during_request'] = null;
     $GLOBALS['_dg_sync_lock_seen'] = null;
+    $GLOBALS['_dg_sync_site_url'] = 'https://example.com';
     $_GET = [];
-    unset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']);
+    unset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI'], $_SERVER['HTTPS']);
 }
 
 /** @return array{0: UrlTranslationSync, 1: UrlSyncFakeSitemap, 2: UrlSyncFakeWarmer, 3: Options, 4: SiteRouting} */
@@ -232,7 +235,7 @@ function syncFixture(array $entries): array
 
     $routing = new SiteRouting(
         new UrlLanguageResolver('de', ['en']),
-        'https://example.com',
+        get_site_url(),
         'PATH_PREFIX',
         [],
         ['en' => ['angebot' => 'offer']]
@@ -253,6 +256,45 @@ function syncPreviewAndStart(UrlTranslationSync $sync, array $languages, int $li
     syncAssert(!is_wp_error($started), 'A confirmed snapshot preview must start.');
     return $started;
 }
+
+// 0. A stale HTTP WordPress URL may be upgraded only from a trustworthy HTTPS
+// request on the same host. Only the scheme changes; the approved route and its
+// semantic query remain part of the immutable snapshot.
+syncReset();
+$GLOBALS['_dg_sync_site_url'] = 'http://example.com';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$_SERVER['HTTPS'] = 'on';
+[$sync] = syncFixture([['loc' => home_url('/angebot/')]]);
+$httpsOriginPreview = $sync->preview(['en'], 1);
+syncCollectAssert(
+    !is_wp_error($httpsOriginPreview)
+        && ($httpsOriginPreview['sample_urls'] ?? []) === ['https://example.com/en/offer/'],
+    'A same-host HTTPS request origin must upgrade the stale scheme of an internal HTTP target.'
+);
+
+syncReset();
+$GLOBALS['_dg_sync_site_url'] = 'http://example.com';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$_SERVER['HTTPS'] = 'on';
+[$sync] = syncFixture([['loc' => home_url('/angebot/?topic=a')]]);
+$httpsOriginQueryPreview = $sync->preview(['en'], 1);
+syncCollectAssert(
+    !is_wp_error($httpsOriginQueryPreview)
+        && ($httpsOriginQueryPreview['sample_urls'] ?? []) === ['https://example.com/en/offer/?topic=a'],
+    'Upgrading a stale same-host HTTP scheme must preserve the target semantic query.'
+);
+
+syncReset();
+$GLOBALS['_dg_sync_site_url'] = 'http://example.com';
+$_SERVER['HTTP_HOST'] = 'attacker.example';
+$_SERVER['HTTPS'] = 'on';
+[$sync] = syncFixture([['loc' => home_url('/angebot/')]]);
+$crossHostPreview = $sync->preview(['en'], 1);
+syncCollectAssert(
+    !is_wp_error($crossHostPreview)
+        && ($crossHostPreview['sample_urls'] ?? []) === ['http://example.com/en/offer/'],
+    'A cross-host HTTPS request must never replace the configured internal origin.'
+);
 
 // 1. Preview is side-effect free, bounded, internal-only and uses the actual localized route.
 syncReset();

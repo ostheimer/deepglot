@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -197,7 +197,7 @@ msgid "Originalsprache"
 msgstr "Pôvodný jazyk"
 
 #: includes/Admin/SettingsPage.php:506
-#: includes/Admin/SettingsPage.php:1176
+#: includes/Admin/SettingsPage.php:1177
 msgid "Zielsprachen"
 msgstr "Cieľové jazyky"
 
@@ -296,7 +296,7 @@ msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Jedna trieda CSS, ID alebo selektor na riadok."
 
 #: includes/Admin/SettingsPage.php:703
-#: includes/Admin/SettingsPage.php:1242
+#: includes/Admin/SettingsPage.php:1243
 #: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Prepínač jazykov"
@@ -314,22 +314,22 @@ msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_la
 msgstr "Prípadne: Shortcode [deepglot_switcher] alebo PHP do_action('deepglot_language_switcher') vo vašej téme."
 
 #: includes/Admin/SettingsPage.php:726
-#: includes/Admin/SettingsPage.php:1261
+#: includes/Admin/SettingsPage.php:1262
 msgid "Darstellung"
 msgstr "Prezentácia"
 
 #: includes/Admin/SettingsPage.php:729
-#: includes/Admin/SettingsPage.php:1263
+#: includes/Admin/SettingsPage.php:1264
 msgid "Inline-Liste"
 msgstr "Vložený zoznam"
 
 #: includes/Admin/SettingsPage.php:732
-#: includes/Admin/SettingsPage.php:1264
+#: includes/Admin/SettingsPage.php:1265
 msgid "Dropdown"
 msgstr "Rozbaľte sa"
 
 #: includes/Admin/SettingsPage.php:738
-#: includes/Admin/SettingsPage.php:1268
+#: includes/Admin/SettingsPage.php:1269
 msgid "Flaggenstil"
 msgstr "Štýl vlajky"
 
@@ -354,7 +354,7 @@ msgid "Ohne Flagge"
 msgstr "Bez vlajky"
 
 #: includes/Admin/SettingsPage.php:759
-#: includes/Admin/SettingsPage.php:1276
+#: includes/Admin/SettingsPage.php:1277
 msgid "Sprachbezeichnung"
 msgstr "Označenie jazyka"
 
@@ -515,195 +515,197 @@ msgstr "Dokončené s chybami"
 msgid "Abgebrochen"
 msgstr "Prerušené"
 
-#: includes/Admin/SettingsPage.php:1087
+#: includes/Admin/SettingsPage.php:1088
 msgid "URL-Synchronisierung"
 msgstr "URL synchronizácia"
 
-#: includes/Admin/SettingsPage.php:1088
+#: includes/Admin/SettingsPage.php:1089
 msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
 msgstr "Kontrolovaným spôsobom na pozadí otvorí stránky vo vybratom cieľovom jazyku. Chýbajúce segmenty skončia v obmedzenom prekladovom rade; Roboty a prehľadávanie s neobmedzeným trvaním sa nepoužívajú."
 
-#: includes/Admin/SettingsPage.php:1098
+#: includes/Admin/SettingsPage.php:1099
 msgid "Status:"
 msgstr "Stav:"
 
-#: includes/Admin/SettingsPage.php:1107
+#: includes/Admin/SettingsPage.php:1108
 msgid "URLs gesamt"
 msgstr "Celkom URLs"
 
-#: includes/Admin/SettingsPage.php:1108
+#: includes/Admin/SettingsPage.php:1109
 msgid "Warteschlange abgearbeitet"
 msgstr "Poradie spracované"
 
-#: includes/Admin/SettingsPage.php:1109
+#: includes/Admin/SettingsPage.php:1110
 msgid "Werden aufgewärmt"
 msgstr "Sú zahriate"
 
-#: includes/Admin/SettingsPage.php:1110
+#: includes/Admin/SettingsPage.php:1111
 msgid "Fehlgeschlagen"
 msgstr "Nepodarilo sa"
 
-#: includes/Admin/SettingsPage.php:1112
+#: includes/Admin/SettingsPage.php:1113
 msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
 msgstr "„Spracované“ potvrdzuje front Deepglot na začiatku WordPress. Po dokončení skontrolujte verejnú stránku cieľového jazyka bez parametrov synchronizácie a manuálne vymažte nepodporovanú vyrovnávaciu pamäť celej stránky."
 
-#: includes/Admin/SettingsPage.php:1117
+#: includes/Admin/SettingsPage.php:1118
 msgid "Fehlgeschlagene URLs"
 msgstr "Zlyhalo URLs"
 
-#: includes/Admin/SettingsPage.php:1137
+#: includes/Admin/SettingsPage.php:1138
 msgid "Fehlgeschlagene URLs erneut versuchen"
 msgstr "Opakovaný pokus zlyhal URLs"
 
-#: includes/Admin/SettingsPage.php:1143
+#: includes/Admin/SettingsPage.php:1144
 msgid "URL-Vorschau"
 msgstr "URL ukážka"
 
 #. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1148
+#: includes/Admin/SettingsPage.php:1149
 msgid "%d Zielseiten werden synchronisiert."
 msgstr "%d Cieľové stránky sú synchronizované."
 
-#: includes/Admin/SettingsPage.php:1168
+#: includes/Admin/SettingsPage.php:1169
 msgid "Vorschau bestätigen und Synchronisierung starten"
 msgstr "Potvrďte náhľad a spustite synchronizáciu"
 
-#: includes/Admin/SettingsPage.php:1187
+#: includes/Admin/SettingsPage.php:1188
 msgid "Maximale Anzahl Zielseiten"
 msgstr "Maximálny počet vstupných stránok"
 
-#: includes/Admin/SettingsPage.php:1189
+#: includes/Admin/SettingsPage.php:1190
 msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
 msgstr "V prípade veľkých stránok začnite s malou vzorkou. Na jeden cyklus sa dotknú maximálne dve strany; Ak je front prekladov plný, synchronizácia automaticky počká."
 
-#: includes/Admin/SettingsPage.php:1193
+#: includes/Admin/SettingsPage.php:1194
 msgid "Nächsten URL-Batch als Vorschau laden"
 msgstr "Načítajte ďalšiu URL dávku ako ukážku"
 
-#: includes/Admin/SettingsPage.php:1194
+#: includes/Admin/SettingsPage.php:1195
 msgid "URL-Vorschau erstellen"
 msgstr "Vytvorte ukážku URL"
 
-#: includes/Admin/SettingsPage.php:1200
+#: includes/Admin/SettingsPage.php:1201
 msgid "Status aktualisieren"
 msgstr "Aktualizovať stav"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Fortsetzen"
 msgstr "Pokračovať"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Pausieren"
 msgstr "Pauza"
 
-#: includes/Admin/SettingsPage.php:1214
+#: includes/Admin/SettingsPage.php:1215
 msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
 msgstr "Naozaj zrušiť synchronizáciu? Preklady, ktoré už boli uložené, sa zachovajú."
 
-#: includes/Admin/SettingsPage.php:1215
+#: includes/Admin/SettingsPage.php:1216
 msgid "Abbrechen"
 msgstr "Zrušiť"
 
-#: includes/Admin/SettingsPage.php:1244
+#: includes/Admin/SettingsPage.php:1245
 msgid "Instanz entfernen"
 msgstr "Odstrániť inštanciu"
 
-#: includes/Admin/SettingsPage.php:1253
+#: includes/Admin/SettingsPage.php:1254
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "ID inštancie"
 
-#: includes/Admin/SettingsPage.php:1257
+#: includes/Admin/SettingsPage.php:1258
 msgid "Name"
 msgstr "meno"
 
-#: includes/Admin/SettingsPage.php:1278
+#: includes/Admin/SettingsPage.php:1279
 msgid "Vollständiger Name"
 msgstr "Celé meno"
 
-#: includes/Admin/SettingsPage.php:1279
+#: includes/Admin/SettingsPage.php:1280
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1283
+#: includes/Admin/SettingsPage.php:1284
 msgid "Position"
 msgstr "pozíciu"
 
-#: includes/Admin/SettingsPage.php:1291
+#: includes/Admin/SettingsPage.php:1292
 msgid "Ausblenden auf"
 msgstr "Skryť sa"
 
-#: includes/Admin/SettingsPage.php:1293
+#: includes/Admin/SettingsPage.php:1294
 msgid "Keinem Gerät"
 msgstr "Žiadne zariadenie"
 
-#: includes/Admin/SettingsPage.php:1294
+#: includes/Admin/SettingsPage.php:1295
 msgid "Mobilgeräten"
 msgstr "mobilných zariadení"
 
-#: includes/Admin/SettingsPage.php:1295
+#: includes/Admin/SettingsPage.php:1296
 msgid "Desktop-Geräten"
 msgstr "Stolové zariadenia"
 
-#: includes/Admin/SettingsPage.php:1299
+#: includes/Admin/SettingsPage.php:1300
 msgid "Breakpoint (px)"
 msgstr "Bod zlomu (px)"
 
-#: includes/Admin/SettingsPage.php:1306
+#: includes/Admin/SettingsPage.php:1307
 msgid "Instanz aktivieren"
 msgstr "Aktivovať inštanciu"
 
-#: includes/Admin/SettingsPage.php:1308
+#: includes/Admin/SettingsPage.php:1309
 msgid "Automatisch platzieren"
 msgstr "Umiestnite automaticky"
 
-#: includes/Admin/SettingsPage.php:1310
+#: includes/Admin/SettingsPage.php:1311
 msgid "Beschriftung anzeigen"
 msgstr "Zobraziť titulok"
 
-#: includes/Admin/SettingsPage.php:1314
+#: includes/Admin/SettingsPage.php:1315
 msgid "Sprachreihenfolge"
 msgstr "Poradie jazykov"
 
-#: includes/Admin/SettingsPage.php:1319
+#: includes/Admin/SettingsPage.php:1320
 msgid "Eigene Flaggen"
 msgstr "Vlastné vlajky"
 
-#: includes/Admin/SettingsPage.php:1328
+#: includes/Admin/SettingsPage.php:1329
 msgid "Eigenes CSS"
 msgstr "Vlastniť CSS"
 
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:1334
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "Cieľ DOM pre automatické umiestnenie"
 
-#: includes/Admin/SettingsPage.php:1336
+#: includes/Admin/SettingsPage.php:1337
 msgid "Element in der Vorschau auswählen"
 msgstr "Vyberte prvok v náhľade"
 
-#: includes/Admin/SettingsPage.php:1338
+#: includes/Admin/SettingsPage.php:1339
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Ak cieľ chýba alebo je neplatný, Switcher bezpečne zostane v päte."
 
-#: includes/Admin/SettingsPage.php:1342
+#: includes/Admin/SettingsPage.php:1343
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Ukážka webovej stránky pre umiestnenie Switcher"
 
-#: includes/Api/Client.php:166
-#: includes/Api/Client.php:464
+#: includes/Api/Client.php:326
+#: includes/Api/Client.php:748
+#: includes/Api/Client.php:816
+#: includes/Api/Client.php:926
 msgid "Deepglot API Fehler."
 msgstr "Chyba rozhrania API Deepglot."
 
-#: includes/Api/Client.php:346
-#: includes/Sync/SettingsSync.php:62
+#: includes/Api/Client.php:522
+#: includes/Sync/SettingsSync.php:101
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Neexistuje žiadny API-Key na synchronizáciu."
 
-#: includes/Api/Client.php:391
+#: includes/Api/Client.php:567
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Pre konfiguráciu runtime neexistuje žiadny API-Key."
 
-#: includes/Api/Client.php:691
+#: includes/Api/Client.php:1261
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key neplatné alebo odvolané."
 
@@ -756,11 +758,11 @@ msgstr "Okrúhle vlajky ako plávajúci prepínač vpravo dole."
 msgid "Zu viele Anfragen."
 msgstr "Príliš veľa žiadostí."
 
-#: includes/Frontend/DynamicTranslationController.php:308
+#: includes/Frontend/DynamicTranslationController.php:321
 msgid "Nicht verfügbar."
 msgstr "Nie je k dispozícii."
 
-#: includes/Frontend/DynamicTranslationController.php:317
+#: includes/Frontend/DynamicTranslationController.php:330
 msgid "Ungültige Herkunft."
 msgstr "Neplatný pôvod."
 
@@ -823,24 +825,24 @@ msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
 msgstr "Potvrdený náhľad URL už nezodpovedá výberu."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
-#: includes/Support/UrlTranslationSync.php:575
+#: includes/Support/UrlTranslationSync.php:591
 msgid "Es können höchstens %d URLs synchronisiert werden."
 msgstr "Maximálne možno synchronizovať %d URLs."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
-#: includes/Support/UrlTranslationSync.php:584
+#: includes/Support/UrlTranslationSync.php:600
 msgid "Der URL-Startpunkt darf höchstens %d betragen."
 msgstr "Počiatočný bod URL musí byť najviac %d."
 
-#: includes/Support/UrlTranslationSync.php:592
+#: includes/Support/UrlTranslationSync.php:608
 msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
 msgstr "Deepglot musí byť aktivovaný a úplne nastavený."
 
-#: includes/Support/UrlTranslationSync.php:607
+#: includes/Support/UrlTranslationSync.php:623
 msgid "Mindestens eine aktive Zielsprache ist erforderlich."
 msgstr "Vyžaduje sa aspoň jeden aktívny cieľový jazyk."
 
-#: includes/Sync/SettingsSync.php:66
+#: includes/Sync/SettingsSync.php:105
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Na synchronizáciu nie sú nakonfigurované žiadne cieľové jazyky."
 

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.0\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -197,7 +197,7 @@ msgid "Originalsprache"
 msgstr "Język oryginalny"
 
 #: includes/Admin/SettingsPage.php:506
-#: includes/Admin/SettingsPage.php:1176
+#: includes/Admin/SettingsPage.php:1177
 msgid "Zielsprachen"
 msgstr "Języki docelowe"
 
@@ -296,7 +296,7 @@ msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Jedna klasa CSS, identyfikator lub selektor na linię."
 
 #: includes/Admin/SettingsPage.php:703
-#: includes/Admin/SettingsPage.php:1242
+#: includes/Admin/SettingsPage.php:1243
 #: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Przełącznik języka"
@@ -314,22 +314,22 @@ msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_la
 msgstr "Alternatywnie: Shortcode [deepglot_switcher] lub PHP do_action('deepglot_language_switcher') w swoim motywie."
 
 #: includes/Admin/SettingsPage.php:726
-#: includes/Admin/SettingsPage.php:1261
+#: includes/Admin/SettingsPage.php:1262
 msgid "Darstellung"
 msgstr "Prezentacja"
 
 #: includes/Admin/SettingsPage.php:729
-#: includes/Admin/SettingsPage.php:1263
+#: includes/Admin/SettingsPage.php:1264
 msgid "Inline-Liste"
 msgstr "Lista wbudowana"
 
 #: includes/Admin/SettingsPage.php:732
-#: includes/Admin/SettingsPage.php:1264
+#: includes/Admin/SettingsPage.php:1265
 msgid "Dropdown"
 msgstr "Zejdź na dół"
 
 #: includes/Admin/SettingsPage.php:738
-#: includes/Admin/SettingsPage.php:1268
+#: includes/Admin/SettingsPage.php:1269
 msgid "Flaggenstil"
 msgstr "Styl flagi"
 
@@ -354,7 +354,7 @@ msgid "Ohne Flagge"
 msgstr "Bez flagi"
 
 #: includes/Admin/SettingsPage.php:759
-#: includes/Admin/SettingsPage.php:1276
+#: includes/Admin/SettingsPage.php:1277
 msgid "Sprachbezeichnung"
 msgstr "Oznaczenie języka"
 
@@ -515,195 +515,197 @@ msgstr "Zakończone z błędami"
 msgid "Abgebrochen"
 msgstr "Przerwano"
 
-#: includes/Admin/SettingsPage.php:1087
+#: includes/Admin/SettingsPage.php:1088
 msgid "URL-Synchronisierung"
 msgstr "Synchronizacja URL"
 
-#: includes/Admin/SettingsPage.php:1088
+#: includes/Admin/SettingsPage.php:1089
 msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
 msgstr "Otwiera wybrane strony w języku docelowym w kontrolowany sposób w tle. Brakujące segmenty trafiają do ograniczonej kolejki tłumaczeń; Boty i indeksowanie o nieograniczonym czasie trwania nie są używane."
 
-#: includes/Admin/SettingsPage.php:1098
+#: includes/Admin/SettingsPage.php:1099
 msgid "Status:"
 msgstr "Stan:"
 
-#: includes/Admin/SettingsPage.php:1107
+#: includes/Admin/SettingsPage.php:1108
 msgid "URLs gesamt"
 msgstr "Łącznie URL"
 
-#: includes/Admin/SettingsPage.php:1108
+#: includes/Admin/SettingsPage.php:1109
 msgid "Warteschlange abgearbeitet"
 msgstr "Kolejka przetworzona"
 
-#: includes/Admin/SettingsPage.php:1109
+#: includes/Admin/SettingsPage.php:1110
 msgid "Werden aufgewärmt"
 msgstr "Są rozgrzane"
 
-#: includes/Admin/SettingsPage.php:1110
+#: includes/Admin/SettingsPage.php:1111
 msgid "Fehlgeschlagen"
 msgstr "Nie udało się"
 
-#: includes/Admin/SettingsPage.php:1112
+#: includes/Admin/SettingsPage.php:1113
 msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
 msgstr "„Przetworzone” potwierdza kolejkę Deepglot na początku WordPress. Po zakończeniu sprawdź stronę publicznego języka docelowego bez parametrów synchronizacji i ręcznie wyczyść nieobsługiwaną pamięć podręczną całej strony."
 
-#: includes/Admin/SettingsPage.php:1117
+#: includes/Admin/SettingsPage.php:1118
 msgid "Fehlgeschlagene URLs"
 msgstr "Nieudane URLs"
 
-#: includes/Admin/SettingsPage.php:1137
+#: includes/Admin/SettingsPage.php:1138
 msgid "Fehlgeschlagene URLs erneut versuchen"
 msgstr "Ponowna próba nie powiodła się URLs"
 
-#: includes/Admin/SettingsPage.php:1143
+#: includes/Admin/SettingsPage.php:1144
 msgid "URL-Vorschau"
 msgstr "Podgląd URL"
 
 #. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1148
+#: includes/Admin/SettingsPage.php:1149
 msgid "%d Zielseiten werden synchronisiert."
 msgstr "%d Strony docelowe są zsynchronizowane."
 
-#: includes/Admin/SettingsPage.php:1168
+#: includes/Admin/SettingsPage.php:1169
 msgid "Vorschau bestätigen und Synchronisierung starten"
 msgstr "Potwierdź podgląd i rozpocznij synchronizację"
 
-#: includes/Admin/SettingsPage.php:1187
+#: includes/Admin/SettingsPage.php:1188
 msgid "Maximale Anzahl Zielseiten"
 msgstr "Maksymalna liczba stron docelowych"
 
-#: includes/Admin/SettingsPage.php:1189
+#: includes/Admin/SettingsPage.php:1190
 msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
 msgstr "W przypadku dużych witryn zacznij od małej próbki. W jednym przebiegu dotykane są maksymalnie dwie strony; Jeśli kolejka tłumaczeń jest pełna, synchronizacja czeka automatycznie."
 
-#: includes/Admin/SettingsPage.php:1193
+#: includes/Admin/SettingsPage.php:1194
 msgid "Nächsten URL-Batch als Vorschau laden"
 msgstr "Załaduj następną partię URL jako podgląd"
 
-#: includes/Admin/SettingsPage.php:1194
+#: includes/Admin/SettingsPage.php:1195
 msgid "URL-Vorschau erstellen"
 msgstr "Utwórz podgląd URL"
 
-#: includes/Admin/SettingsPage.php:1200
+#: includes/Admin/SettingsPage.php:1201
 msgid "Status aktualisieren"
 msgstr "Aktualizuj stan"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Fortsetzen"
 msgstr "Kontynuuj"
 
-#: includes/Admin/SettingsPage.php:1205
+#: includes/Admin/SettingsPage.php:1206
 msgid "Pausieren"
 msgstr "Pauza"
 
-#: includes/Admin/SettingsPage.php:1214
+#: includes/Admin/SettingsPage.php:1215
 msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
 msgstr "Na pewno anulować synchronizację? Tłumaczenia, które zostały już zapisane, zostaną zachowane."
 
-#: includes/Admin/SettingsPage.php:1215
+#: includes/Admin/SettingsPage.php:1216
 msgid "Abbrechen"
 msgstr "Anuluj"
 
-#: includes/Admin/SettingsPage.php:1244
+#: includes/Admin/SettingsPage.php:1245
 msgid "Instanz entfernen"
 msgstr "Usuń instancję"
 
-#: includes/Admin/SettingsPage.php:1253
+#: includes/Admin/SettingsPage.php:1254
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "Identyfikator instancji"
 
-#: includes/Admin/SettingsPage.php:1257
+#: includes/Admin/SettingsPage.php:1258
 msgid "Name"
 msgstr "imię"
 
-#: includes/Admin/SettingsPage.php:1278
+#: includes/Admin/SettingsPage.php:1279
 msgid "Vollständiger Name"
 msgstr "Pełne imię i nazwisko"
 
-#: includes/Admin/SettingsPage.php:1279
+#: includes/Admin/SettingsPage.php:1280
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1283
+#: includes/Admin/SettingsPage.php:1284
 msgid "Position"
 msgstr "pozycja"
 
-#: includes/Admin/SettingsPage.php:1291
+#: includes/Admin/SettingsPage.php:1292
 msgid "Ausblenden auf"
 msgstr "Ukryj się"
 
-#: includes/Admin/SettingsPage.php:1293
+#: includes/Admin/SettingsPage.php:1294
 msgid "Keinem Gerät"
 msgstr "Brak urządzenia"
 
-#: includes/Admin/SettingsPage.php:1294
+#: includes/Admin/SettingsPage.php:1295
 msgid "Mobilgeräten"
 msgstr "urządzenia mobilne"
 
-#: includes/Admin/SettingsPage.php:1295
+#: includes/Admin/SettingsPage.php:1296
 msgid "Desktop-Geräten"
 msgstr "Urządzenia stacjonarne"
 
-#: includes/Admin/SettingsPage.php:1299
+#: includes/Admin/SettingsPage.php:1300
 msgid "Breakpoint (px)"
 msgstr "Punkt przerwania (px)"
 
-#: includes/Admin/SettingsPage.php:1306
+#: includes/Admin/SettingsPage.php:1307
 msgid "Instanz aktivieren"
 msgstr "Aktywuj instancję"
 
-#: includes/Admin/SettingsPage.php:1308
+#: includes/Admin/SettingsPage.php:1309
 msgid "Automatisch platzieren"
 msgstr "Umieść automatycznie"
 
-#: includes/Admin/SettingsPage.php:1310
+#: includes/Admin/SettingsPage.php:1311
 msgid "Beschriftung anzeigen"
 msgstr "Pokaż podpis"
 
-#: includes/Admin/SettingsPage.php:1314
+#: includes/Admin/SettingsPage.php:1315
 msgid "Sprachreihenfolge"
 msgstr "Porządek językowy"
 
-#: includes/Admin/SettingsPage.php:1319
+#: includes/Admin/SettingsPage.php:1320
 msgid "Eigene Flaggen"
 msgstr "Własne flagi"
 
-#: includes/Admin/SettingsPage.php:1328
+#: includes/Admin/SettingsPage.php:1329
 msgid "Eigenes CSS"
 msgstr "Własny CSS"
 
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:1334
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "Cel DOM do automatycznego umieszczania"
 
-#: includes/Admin/SettingsPage.php:1336
+#: includes/Admin/SettingsPage.php:1337
 msgid "Element in der Vorschau auswählen"
 msgstr "Wybierz element w podglądzie"
 
-#: includes/Admin/SettingsPage.php:1338
+#: includes/Admin/SettingsPage.php:1339
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Jeśli brakuje celu lub jest on nieprawidłowy, Switcher bezpiecznie pozostanie w stopce."
 
-#: includes/Admin/SettingsPage.php:1342
+#: includes/Admin/SettingsPage.php:1343
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Podgląd witryny internetowej dla miejsca docelowego Switcher"
 
-#: includes/Api/Client.php:166
-#: includes/Api/Client.php:464
+#: includes/Api/Client.php:326
+#: includes/Api/Client.php:748
+#: includes/Api/Client.php:816
+#: includes/Api/Client.php:926
 msgid "Deepglot API Fehler."
 msgstr "Deepglot Błąd API."
 
-#: includes/Api/Client.php:346
-#: includes/Sync/SettingsSync.php:62
+#: includes/Api/Client.php:522
+#: includes/Sync/SettingsSync.php:101
 msgid "Kein API-Key für die Synchronisierung vorhanden."
 msgstr "Nie istnieje żaden API-Key do synchronizacji."
 
-#: includes/Api/Client.php:391
+#: includes/Api/Client.php:567
 msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
 msgstr "Nie istnieje żaden API-Key dla konfiguracji środowiska wykonawczego."
 
-#: includes/Api/Client.php:691
+#: includes/Api/Client.php:1261
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key nieważny lub unieważniony."
 
@@ -756,11 +758,11 @@ msgstr "Okrągłe flagi jako pływający przełącznik w prawym dolnym rogu."
 msgid "Zu viele Anfragen."
 msgstr "Zbyt wiele żądań."
 
-#: includes/Frontend/DynamicTranslationController.php:308
+#: includes/Frontend/DynamicTranslationController.php:321
 msgid "Nicht verfügbar."
 msgstr "Niedostępne."
 
-#: includes/Frontend/DynamicTranslationController.php:317
+#: includes/Frontend/DynamicTranslationController.php:330
 msgid "Ungültige Herkunft."
 msgstr "Nieprawidłowe pochodzenie."
 
@@ -823,24 +825,24 @@ msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
 msgstr "Potwierdzony podgląd URL nie pasuje już do zaznaczenia."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
-#: includes/Support/UrlTranslationSync.php:575
+#: includes/Support/UrlTranslationSync.php:591
 msgid "Es können höchstens %d URLs synchronisiert werden."
 msgstr "Można zsynchronizować maksymalnie %d URL."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
-#: includes/Support/UrlTranslationSync.php:584
+#: includes/Support/UrlTranslationSync.php:600
 msgid "Der URL-Startpunkt darf höchstens %d betragen."
 msgstr "Punktem początkowym URL musi być co najwyżej %d."
 
-#: includes/Support/UrlTranslationSync.php:592
+#: includes/Support/UrlTranslationSync.php:608
 msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
 msgstr "Deepglot musi być aktywowany i w pełni skonfigurowany."
 
-#: includes/Support/UrlTranslationSync.php:607
+#: includes/Support/UrlTranslationSync.php:623
 msgid "Mindestens eine aktive Zielsprache ist erforderlich."
 msgstr "Wymagany jest co najmniej jeden aktywny język docelowy."
 
-#: includes/Sync/SettingsSync.php:66
+#: includes/Sync/SettingsSync.php:105
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Brak języków docelowych skonfigurowanych do synchronizacji."
 
