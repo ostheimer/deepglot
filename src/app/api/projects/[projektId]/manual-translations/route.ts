@@ -85,16 +85,6 @@ export async function POST(
     );
   }
 
-  // The editor token is bound to a single target language (see
-  // createEditorSessionToken), so it can only write that language. This stops a
-  // language-scoped translator's token from editing other languages.
-  if (parsed.data.langTo !== claims.langTo) {
-    return NextResponse.json(
-      { error: "Editor token is not valid for this language." },
-      { status: 403, headers: corsHeaders(request) }
-    );
-  }
-
   const nulErrors: Record<string, string[]> = {};
   for (const field of [
     "originalText",
@@ -125,6 +115,16 @@ export async function POST(
         errors: nulErrors,
       },
       { status: 400, headers: corsHeaders(request) },
+    );
+  }
+
+  // The editor token is bound to a single target language (see
+  // createEditorSessionToken), so it can only write that language. This stops a
+  // language-scoped translator's token from editing other languages.
+  if (parsed.data.langTo !== claims.langTo) {
+    return NextResponse.json(
+      { error: "Editor token is not valid for this language." },
+      { status: 403, headers: corsHeaders(request) }
     );
   }
 
