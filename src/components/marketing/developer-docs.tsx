@@ -14,7 +14,7 @@ import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-md border border-white/10 bg-[#071521] p-4 text-sm leading-6 text-white/90">
+    <pre className="max-w-full overflow-x-auto rounded-md border border-white/10 bg-[#071521] p-4 text-sm leading-6 text-white/90">
       <code>{children}</code>
     </pre>
   );
@@ -92,10 +92,10 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           <h2 className="text-3xl font-bold">{de ? "API-Referenz" : "API reference"}</h2>
           <div className="mt-8 space-y-8">
             {PUBLIC_ENDPOINT_DOCS.map((endpoint) => (
-              <article key={endpoint.id} className="rounded-md border border-[#d8d6ce] bg-white p-6">
+              <article key={endpoint.id} className="min-w-0 rounded-md border border-[#d8d6ce] bg-white p-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="rounded-md bg-gray-950 px-2.5 py-1 font-mono text-xs font-bold text-white">{endpoint.method}</span>
-                  <h3 className="font-mono text-lg font-semibold">{endpoint.path}</h3>
+                  <h3 className="min-w-0 font-mono text-lg font-semibold max-[350px]:[overflow-wrap:anywhere]">{endpoint.path}</h3>
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">{endpoint.audience}</span>
                 </div>
                 <p className="mt-4 leading-7 text-gray-700">{docsText(locale, endpoint.summary)}</p>
@@ -235,7 +235,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </div>
           <p className="mt-5 text-sm leading-6 text-gray-600">
             {de ? "Autoritative Implementierung:" : "Authoritative implementation:"}{" "}
-            <code>src/lib/activity-digest.ts</code>, <code>src/lib/activity-digest-delivery.ts</code>, <code>src/lib/activity-digest-cron.ts</code>, <code>src/components/einstellungen/activity-digest-preferences.tsx</code>.
+            <code className="max-[350px]:[overflow-wrap:anywhere]">src/lib/activity-digest.ts</code>, <code className="max-[350px]:[overflow-wrap:anywhere]">src/lib/activity-digest-delivery.ts</code>, <code className="max-[350px]:[overflow-wrap:anywhere]">src/lib/activity-digest-cron.ts</code>, <code className="max-[350px]:[overflow-wrap:anywhere]">src/components/einstellungen/activity-digest-preferences.tsx</code>.
           </p>
         </section>
 
