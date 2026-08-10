@@ -81,17 +81,17 @@ test("bilingual public copy explains the completed-versus-pending cache boundary
   assert.match(help, /Sobald Warteschlange und fälliges Ereignis gespeichert sind/);
 });
 
-test("runbook and handoff retain the completed v0.12.0 production warm-up evidence", () => {
+test("runbook and handoff retain historical warm-up and current v0.12.1 production evidence", () => {
   const readme = source("README.md");
   const operations = source("OPERATIONS.md");
   const handoff = source("HANDOFF.md");
 
   for (const documentation of [operations, handoff]) {
-    assert.match(documentation, /commit `cccc9ba`/);
+    assert.match(documentation, /`cccc9ba`/);
     assert.match(documentation, /warm-up-verified|warm-up acceptance/i);
   }
 
-  assert.match(readme, /commit `e53ae62`/);
+  assert.match(readme, /commit `3b914007`/);
   assert.match(readme, /deployed on 2026-08-10/);
 
   assert.match(operations, /synthetic one-shot provider failure/i);
@@ -100,9 +100,12 @@ test("runbook and handoff retain the completed v0.12.0 production warm-up eviden
   assert.match(operations, /\| 50 \| 18,735 ms \| 1,225 ms \| 15\.29× \|/);
   assert.match(operations, /All eight matching `\/api\/translate` requests were HTTP 200/);
   assert.match(operations, /contained four `\/api\/translate` events/);
-  assert.match(handoff, /installed normalized tree is `cf64f415/);
   assert.match(handoff, /warm-up queues empty, no scheduled warm-up event/);
-  assert.match(handoff, /Vercel Production deployment `dpl_3etfxXvu771q97kHrtUKX6GbWwzv` is `Ready`/);
+  assert.match(handoff, /installed 121-file normalized tree is `ba697054/);
+  assert.match(handoff, /dynamic-translator\.js\?ver=0\.12\.1/);
+  assert.match(handoff, /Vercel Production deployment `dpl_6G1e6hY9H45KKLSnZfLVVUSLHTEK` is `Ready`/);
+  assert.match(operations, /accepted ZIP SHA-256 is `56f2bd30/);
+  assert.match(operations, /completed in one cron attempt/);
   assert.doesNotMatch(readme, /follow-up warm-up acceptance remains/);
   assert.doesNotMatch(handoff, /warm-up cron\/cache acceptance remains open/);
 });
