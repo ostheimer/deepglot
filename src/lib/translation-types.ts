@@ -18,6 +18,23 @@ export class TranslationProviderResponseError extends Error {
   }
 }
 
+/**
+ * The provider returned a translations array whose cardinality does not match
+ * the request. Unlike other malformed responses, a multi-text count mismatch
+ * can be safely isolated into smaller requests without retrying the same
+ * failing batch shape indefinitely.
+ */
+export class TranslationProviderCountMismatchError extends TranslationProviderResponseError {
+  constructor(
+    message: string,
+    readonly expectedCount: number,
+    readonly actualCount: number
+  ) {
+    super(message);
+    this.name = "TranslationProviderCountMismatchError";
+  }
+}
+
 export type TranslateTextsInput = {
   texts: string[];
   sourceLang: string;

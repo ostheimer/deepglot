@@ -167,6 +167,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
+              ? "Melden alle versuchten Anbieter für denselben mehrteiligen Stapel ausschließlich eine Abweichung bei der Ergebnisanzahl, teilt Deepglot ihn bis zu drei Ebenen binär auf. Der standardmäßige Acht-Text-Stapel lässt sich damit bis auf Einzeltexte isolieren. Einzelne oder nach drei Ebenen verbleibende Abweichungen bleiben Fehler; Zeitüberschreitungen, Authentifizierungsfehler, Ratenlimits, U+0000 und andere ungültige Antworten lösen diese Zusatzanfragen nicht aus."
+              : "When every attempted provider reports only a count mismatch for the same multi-text chunk, Deepglot bisects it for up to three binary levels. This can isolate the default eight-text chunk down to single texts. Singleton or depth-limit mismatches remain errors; timeouts, authentication failures, rate limits, U+0000, and other malformed responses never trigger these extra requests."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
               ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
               : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
           </p>

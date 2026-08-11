@@ -9,6 +9,7 @@ import {
   type TranslationSettingsLike,
 } from "@/lib/translation-config";
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
   providerAbortSignal,
   type TranslateTextsInput,
@@ -204,6 +205,14 @@ export const DEFAULT_TRANSLATION_CHUNK_SIZE = 8;
  */
 export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
 
+/**
+ * A count mismatch may be shape-dependent, so retry a failed multi-text chunk
+ * as smaller halves. Three levels fully isolate the default eight-text chunk,
+ * while capping one configured chunk at 15 provider-chain runs even when an
+ * operator raises TRANSLATION_CHUNK_SIZE far above the default.
+ */
+const MAX_COUNT_MISMATCH_ISOLATION_DEPTH = 3;
+
 function positiveIntSetting(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt((raw ?? "").trim(), 10);
 
@@ -297,11 +306,13 @@ export async function translateTexts(
 async function translateChunk(
   input: TranslateTextsInput,
   env: TranslationEnv,
-  chain: TranslationProviderConfig[]
+  chain: TranslationProviderConfig[],
+  isolationDepth = 0
 ): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
 
   let lastError: unknown = null;
+  let everyAttemptWasCountMismatch = true;
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
     try {
@@ -323,6 +334,9 @@ async function translateChunk(
       return results;
     } catch (error) {
       lastError = error;
+      const isCountMismatch =
+        error instanceof TranslationProviderCountMismatchError;
+      everyAttemptWasCountMismatch &&= isCountMismatch;
       const hasNext = index < chain.length - 1;
 
       // Recoverable provider response / quota / rate-limit / 5xx / network
@@ -330,10 +344,44 @@ async function translateChunk(
       // request can still succeed via the fallback — but log the full upstream
       // detail and the chain so a recurring failover is visible.
       if (hasNext && isProviderFailoverError(error)) {
-        console.warn(
-          `[translation] provider ${candidate.provider} failed; falling back to ${chain[index + 1].provider} (chain: ${providerChain}). ${describeProviderError(error)}`
-        );
+        // Count mismatches are expected while an already-isolated child is
+        // narrowed further. Logging every internal node would amplify a
+        // single upstream contract failure; the root attempt still records
+        // the provider failover and a privacy-safe isolation summary.
+        if (!isCountMismatch || isolationDepth === 0) {
+          console.warn(
+            `[translation] provider ${candidate.provider} failed; falling back to ${chain[index + 1].provider} (chain: ${providerChain}). ${describeProviderError(error)}`
+          );
+        }
         continue;
+      }
+
+      if (
+        !hasNext &&
+        everyAttemptWasCountMismatch &&
+        input.texts.length > 1 &&
+        isolationDepth < MAX_COUNT_MISMATCH_ISOLATION_DEPTH
+      ) {
+        if (isolationDepth === 0) {
+          console.warn(
+            `[translation] isolating provider count mismatch after exhausting chain ${providerChain} (batch size: ${input.texts.length}).`
+          );
+        }
+
+        const midpoint = Math.ceil(input.texts.length / 2);
+        const left = await translateChunk(
+          { ...input, texts: input.texts.slice(0, midpoint) },
+          env,
+          chain,
+          isolationDepth + 1
+        );
+        const right = await translateChunk(
+          { ...input, texts: input.texts.slice(midpoint) },
+          env,
+          chain,
+          isolationDepth + 1
+        );
+        return [...left, ...right];
       }
 
       // Terminal failure: either the last provider in the chain failed, or the

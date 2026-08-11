@@ -2,7 +2,10 @@ import { after, describe, it } from "node:test";
 import assert from "node:assert";
 
 import { translateWithDeepL } from "./deepl";
-import { TranslationProviderResponseError } from "./translation-types";
+import {
+  TranslationProviderCountMismatchError,
+  TranslationProviderResponseError,
+} from "./translation-types";
 
 const originalFetch = globalThis.fetch;
 
@@ -90,9 +93,12 @@ describe("translateWithDeepL response contract", () => {
   it("rejects a translations array with the wrong cardinality", async () => {
     installJsonResponse({ translations: [{ text: "Only one" }] });
 
-    await assertResponseContractError(
+    await assert.rejects(
       () => translate(["Erster", "Zweiter"]),
-      /1.*2/
+      (error: unknown) =>
+        error instanceof TranslationProviderCountMismatchError &&
+        error.actualCount === 1 &&
+        error.expectedCount === 2
     );
   });
 

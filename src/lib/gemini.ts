@@ -1,4 +1,5 @@
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
   providerAbortSignal,
   type TranslateTextsInput,
@@ -127,8 +128,10 @@ export async function translateWithGemini(
   const translations = parsed.translations;
 
   if (translations.length !== texts.length) {
-    throw new TranslationProviderResponseError(
-      `Gemini returned ${translations.length} instead of ${texts.length} translations.`
+    throw new TranslationProviderCountMismatchError(
+      `Gemini returned ${translations.length} instead of ${texts.length} translations.`,
+      texts.length,
+      translations.length
     );
   }
 

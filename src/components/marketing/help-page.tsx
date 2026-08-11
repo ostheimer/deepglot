@@ -175,6 +175,11 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               </p>
               <p className="mt-4 text-sm leading-7 text-[#58636d]">
                 {de
+                  ? "Melden alle versuchten Anbieter bei einem mehrteiligen Stapel nur eine Abweichung bei der Ergebnisanzahl, teilt Deepglot den Stapel bis zu drei Ebenen binär auf. So können gültige Einzeltexte aus dem standardmäßigen Acht-Text-Stapel weiter übersetzt werden. Ein weiterhin fehlerhafter Einzeltext bleibt vorgemerkt; Zeitüberschreitungen, Authentifizierungsfehler, Ratenlimits, U+0000 und andere ungültige Antworten werden dadurch nicht zusätzlich wiederholt."
+                  : "If every attempted provider reports only a count mismatch for a multi-text chunk, Deepglot bisects the chunk for up to three binary levels. Valid single texts from the default eight-text chunk can therefore keep translating. A still-invalid singleton remains queued; timeouts, authentication failures, rate limits, U+0000, and other malformed responses are not retried by this extra isolation path."}
+              </p>
+              <p className="mt-4 text-sm leading-7 text-[#58636d]">
+                {de
                   ? "Prüfe vor dem Bestätigen einer URL-Synchronisierung die Beispiel-URLs: Läuft die aktuelle sichere WordPress-Anfrage über HTTPS auf demselben Host, korrigiert Deepglot bei einer noch mit HTTP gespeicherten internen Ziel-URL nur das Schema auf HTTPS. Semantische Query-Parameter und Fragmente bleiben erhalten. Ein fremder Request-Host wird nicht übernommen. Echte Weiterleitungen oder unsichere Ziele bleiben begrenzte Fehler und werden nicht automatisch verfolgt."
                   : "Before confirming URL synchronization, inspect the sample URLs. If the current safe WordPress request uses HTTPS on the same host, Deepglot changes only the scheme of an internal target still stored with HTTP to HTTPS. Semantic query parameters and fragments are preserved. A foreign request host is not copied. Genuine redirects and unsafe targets remain bounded failures and are never followed automatically."}
               </p>

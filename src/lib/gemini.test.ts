@@ -2,7 +2,10 @@ import { describe, it, after } from "node:test";
 import assert from "node:assert";
 
 import { translateWithGemini } from "./gemini";
-import { TranslationProviderResponseError } from "./translation-types";
+import {
+  TranslationProviderCountMismatchError,
+  TranslationProviderResponseError,
+} from "./translation-types";
 
 type RecordedRequest = { url: string; method: string; headers: Headers; body: string };
 
@@ -143,7 +146,9 @@ describe("translateWithGemini", () => {
           { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "k" }
         ),
       (error: unknown) =>
-        error instanceof TranslationProviderResponseError && /1.*2/.test(error.message)
+        error instanceof TranslationProviderCountMismatchError &&
+        error.actualCount === 1 &&
+        error.expectedCount === 2
     );
   });
 
