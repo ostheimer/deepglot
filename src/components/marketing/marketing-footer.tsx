@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DeepglotLogo } from "@/components/brand/deepglot-logo";
+import { isBilingualPublicLocale } from "@/lib/bilingual-public-content";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -41,9 +42,11 @@ export function MarketingFooter({ locale }: { locale: SiteLocale }) {
           <Link className="transition-colors hover:text-[#f77a65]" href={getMarketingPath(locale, "docs")}>
             {uiText(locale, "Documentation", "Dokumentation")}
           </Link>
-          <Link className="transition-colors hover:text-[#f77a65]" href={getMarketingPath(locale, "help")}>
-            {locale === "de" ? "Hilfe" : "Help"}
-          </Link>
+          {isBilingualPublicLocale(locale) ? (
+            <Link className="transition-colors hover:text-[#f77a65]" href={getMarketingPath(locale, "help")}>
+              {locale === "de" ? "Hilfe" : "Help"}
+            </Link>
+          ) : null}
           <a className="transition-colors hover:text-[#f77a65]" href="https://github.com/ostheimer/deepglot" target="_blank" rel="noreferrer">
             GitHub
           </a>

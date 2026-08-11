@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DeepglotLogo } from "@/components/brand/deepglot-logo";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
+import { isBilingualPublicLocale } from "@/lib/bilingual-public-content";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { localizeCopy } from "@/lib/static-copy";
 
@@ -62,9 +63,11 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
       <Link href={docsHref} className={navLinkClass(active === "docs")}>
         {copy.docs}
       </Link>
-      <Link href={helpHref} className={navLinkClass(active === "help")}>
-        {locale === "de" ? "Hilfe" : "Help"}
-      </Link>
+      {isBilingualPublicLocale(locale) ? (
+        <Link href={helpHref} className={navLinkClass(active === "help")}>
+          {locale === "de" ? "Hilfe" : "Help"}
+        </Link>
+      ) : null}
       <Link href={blogHref} className={navLinkClass(active === "blog")}>
         {copy.blog}
       </Link>
