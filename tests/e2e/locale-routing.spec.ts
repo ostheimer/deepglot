@@ -281,6 +281,20 @@ test.describe("locale routing", () => {
     ).toBeVisible();
   });
 
+  test("keeps bilingual help discovery off other localized homepages", async ({
+    page,
+  }) => {
+    for (const route of ["/fr", "/es"]) {
+      await page.goto(route);
+
+      await expect(page.getByTestId("marketing-weekly-digest")).toHaveCount(0);
+      await expect(page.getByTestId("marketing-wordpress-releases")).toHaveCount(0);
+      await expect(page.locator(`a[href="${route}/help"]`)).toHaveCount(0);
+      await expect(page.getByText("Open help", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("Release help", { exact: true })).toHaveCount(0);
+    }
+  });
+
   test("redirects unsupported editorial locales to the real English surfaces", async ({
     page,
   }) => {
