@@ -5,10 +5,12 @@ import {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   DEFAULT_TRANSLATION_CHUNK_CONCURRENCY,
   DEFAULT_TRANSLATION_CHUNK_SIZE,
+  DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS,
   countWords,
   resolveProviderTimeoutMs,
   resolveTranslationChunking,
   resolveTranslationProvider,
+  resolveTranslationRequestTimeoutMs,
   translateTexts,
 } from "@/lib/translation";
 
@@ -471,6 +473,148 @@ test("caps count mismatch isolation for a large permanently failing chunk", asyn
       providerCalls,
       4,
       "the root plus three bounded binary-isolation levels may reach the provider"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("bounds provider calls while isolating the default eight-text chunk", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+    return openAIResponse(
+      texts.length === 1 ? [{ text: `translated:${texts[0]}` }] : []
+    );
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+          }
+        ),
+      /provider-call budget/i
+    );
+    assert.equal(
+      providerCalls,
+      6,
+      "isolation must stop before a default chunk expands into fifteen provider calls"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("caps total provider time below the translate route duration", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  const startedAt = performance.now();
+
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const rejectWithReason = () => reject(signal.reason);
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "300",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "30",
+          }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+    assert.ok(
+      performance.now() - startedAt < 200,
+      "the shared request deadline must win before the longer per-provider timeout"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+test("does not recursively isolate an in-flight sibling after another root chunk fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const calls: Array<{ group: string; size: number }> = [];
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+    const group = texts[0].startsWith("A") ? "A" : "B";
+    calls.push({ group, size: texts.length });
+
+    if (group === "B" && texts.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    return openAIResponse([]);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(() =>
+      translateTexts(
+        {
+          texts: ["A1", "A2", "B1", "B2"],
+          sourceLang: "de",
+          targetLang: "en",
+        },
+        {
+          TRANSLATION_PROVIDER: "openai",
+          OPENAI_API_KEY: "openai-key",
+          TRANSLATION_CHUNK_SIZE: "2",
+          TRANSLATION_CHUNK_CONCURRENCY: "2",
+        }
+      )
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(
+      calls.filter((call) => call.group === "B" && call.size === 1).length,
+      0,
+      "a sibling still in flight must observe the shared failure before recursing"
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -1516,4 +1660,23 @@ test("resolves the provider timeout from the environment with a sane default", (
   // The deadline must leave room for the measured provider latency (~9s fixed
   // plus ~0.9s per segment) or it would abort healthy translations.
   assert.ok(DEFAULT_PROVIDER_TIMEOUT_MS >= 45_000);
+});
+
+test("keeps the shared provider deadline below the route duration", () => {
+  assert.equal(
+    resolveTranslationRequestTimeoutMs({}),
+    DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS
+  );
+  assert.equal(
+    resolveTranslationRequestTimeoutMs({ TRANSLATION_REQUEST_TIMEOUT_MS: "5000" }),
+    5_000
+  );
+  assert.equal(
+    resolveTranslationRequestTimeoutMs({
+      TRANSLATION_REQUEST_TIMEOUT_MS: "120000",
+    }),
+    DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS,
+    "an operator override must not consume the route's 20-second safety margin"
+  );
+  assert.equal(DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS, 100_000);
 });

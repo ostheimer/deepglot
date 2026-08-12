@@ -57,11 +57,12 @@ export function resolveTranslationProvider(
 async function translateWithProvider(
   input: TranslateTextsInput,
   env: TranslationEnv,
-  config: TranslationProviderConfig
+  config: TranslationProviderConfig,
+  requestSignal: AbortSignal
 ): Promise<TranslationResult[]> {
   // Per attempt, not per chain: a slow primary must not eat the fallback's
   // budget before it has even been tried.
-  const signal = providerAbortSignal(env);
+  const signal = AbortSignal.any([providerAbortSignal(env), requestSignal]);
 
   switch (config.provider) {
     case "openai":
@@ -207,11 +208,55 @@ export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
 
 /**
  * A count mismatch may be shape-dependent, so retry a failed multi-text chunk
- * as smaller halves. Three levels fully isolate the default eight-text chunk,
- * while capping one configured chunk at 15 provider-chain runs even when an
- * operator raises TRANSLATION_CHUNK_SIZE far above the default.
+ * as smaller halves. Three levels are the structural recursion ceiling; the
+ * stricter provider-call and request-time budgets below normally stop a wider
+ * tree sooner.
  */
 const MAX_COUNT_MISMATCH_ISOLATION_DEPTH = 3;
+
+/**
+ * Count every provider HTTP call made for one root chunk, including its
+ * original fallback chain. Six attempts retain the observed two-text recovery
+ * (primary + fallback for the pair, then one successful primary per singleton)
+ * while preventing a default eight-text chunk from expanding into the full
+ * fifteen-node isolation tree.
+ */
+const MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK = 6;
+
+/**
+ * `/api/translate` has a 120-second route duration. Provider work gets at most
+ * 100 seconds of that budget so timeout handling, velocity refunds and the
+ * persistence/response path retain a 20-second margin. Operators may lower the
+ * deadline for stricter environments, but cannot raise it past the route-safe
+ * ceiling.
+ */
+export const DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS = 100_000;
+
+export function resolveTranslationRequestTimeoutMs(
+  env: TranslationEnv = process.env
+): number {
+  const parsed = Number.parseInt(
+    (env.TRANSLATION_REQUEST_TIMEOUT_MS ?? "").trim(),
+    10
+  );
+
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS)
+    : DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS;
+}
+
+class TranslationProviderCallBudgetError extends Error {
+  constructor() {
+    super(
+      `Provider-call budget of ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} exhausted during count-mismatch isolation.`
+    );
+    this.name = "TranslationProviderCallBudgetError";
+  }
+}
+
+type TranslationChunkBudget = {
+  providerCalls: number;
+};
 
 function positiveIntSetting(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt((raw ?? "").trim(), 10);
@@ -293,11 +338,31 @@ export async function translateTexts(
   const chain = buildFallbackProviderChain(primary, env);
   const { size, concurrency } = resolveTranslationChunking(env);
   const chunks = chunk(input.texts, size);
+  const failedChunkController = new AbortController();
+  const requestSignal = AbortSignal.any([
+    failedChunkController.signal,
+    AbortSignal.timeout(resolveTranslationRequestTimeoutMs(env)),
+  ]);
 
   const translatedChunks = await mapWithConcurrency(
     chunks,
     concurrency,
-    (texts) => translateChunk({ ...input, texts }, env, chain)
+    async (texts) => {
+      try {
+        return await translateChunk(
+          { ...input, texts },
+          env,
+          chain,
+          requestSignal,
+          { providerCalls: 0 }
+        );
+      } catch (error) {
+        if (!failedChunkController.signal.aborted) {
+          failedChunkController.abort(error);
+        }
+        throw error;
+      }
+    }
   );
 
   return translatedChunks.flat();
@@ -307,6 +372,8 @@ async function translateChunk(
   input: TranslateTextsInput,
   env: TranslationEnv,
   chain: TranslationProviderConfig[],
+  requestSignal: AbortSignal,
+  budget: TranslationChunkBudget,
   isolationDepth = 0
 ): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
@@ -315,8 +382,26 @@ async function translateChunk(
   let everyAttemptWasCountMismatch = true;
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
+    requestSignal.throwIfAborted();
+    if (
+      (isolationDepth > 0 || everyAttemptWasCountMismatch) &&
+      budget.providerCalls >= MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK
+    ) {
+      console.error(
+        `[translation] count-mismatch isolation stopped at provider-call budget ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} (chain: ${providerChain}, batch size: ${input.texts.length}).`
+      );
+      throw new TranslationProviderCallBudgetError();
+    }
+    budget.providerCalls += 1;
+
     try {
-      const results = await translateWithProvider(input, env, candidate);
+      const results = await translateWithProvider(
+        input,
+        env,
+        candidate,
+        requestSignal
+      );
+      requestSignal.throwIfAborted();
       for (const [resultIndex, result] of results.entries()) {
         const nulError = inspectPostgresText(result.text, {
           boundary: "translation_provider_output",
@@ -333,6 +418,10 @@ async function translateChunk(
       }
       return results;
     } catch (error) {
+      if (requestSignal.aborted) {
+        throw requestSignal.reason ?? error;
+      }
+
       lastError = error;
       const isCountMismatch =
         error instanceof TranslationProviderCountMismatchError;
@@ -373,12 +462,16 @@ async function translateChunk(
           { ...input, texts: input.texts.slice(0, midpoint) },
           env,
           chain,
+          requestSignal,
+          budget,
           isolationDepth + 1
         );
         const right = await translateChunk(
           { ...input, texts: input.texts.slice(midpoint) },
           env,
           chain,
+          requestSignal,
+          budget,
           isolationDepth + 1
         );
         return [...left, ...right];

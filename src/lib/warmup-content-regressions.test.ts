@@ -37,7 +37,11 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     wpOrgReadme,
   ]) {
     assert.match(documentation, /count mismatch/i);
-    assert.match(documentation, /up to three (?:binary )?levels/i);
+    assert.match(documentation, /six provider (?:HTTP )?calls/i);
+    assert.match(
+      documentation,
+      /(?:100-second (?:provider-work )?deadline|provider-work deadline of at most 100 seconds)/i
+    );
   }
 
   assert.match(help, /Abweichung bei der Ergebnisanzahl/);
