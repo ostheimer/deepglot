@@ -527,10 +527,9 @@ test("bounds provider calls while isolating the default eight-text chunk", async
   }
 });
 
-test("caps total provider time below the translate route duration", async () => {
+test("caps total provider time below the translate route duration", { timeout: 5_000 }, async () => {
   const originalFetch = globalThis.fetch;
   const originalError = console.error;
-  const startedAt = performance.now();
 
   console.error = () => {};
   globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -538,7 +537,16 @@ test("caps total provider time below the translate route duration", async () => 
     assert.ok(signal, "provider calls require an abort signal");
 
     return new Promise<Response>((_resolve, reject) => {
-      const rejectWithReason = () => reject(signal.reason);
+      // AbortSignal.timeout() uses an unref'ed timer on newer Node releases.
+      // Keep the test process alive long enough to observe the request deadline.
+      const watchdog = setTimeout(
+        () => reject(new Error("request deadline was not observed")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
       if (signal.aborted) {
         rejectWithReason();
         return;
@@ -555,16 +563,12 @@ test("caps total provider time below the translate route duration", async () => 
           {
             TRANSLATION_PROVIDER: "openai",
             OPENAI_API_KEY: "openai-key",
-            TRANSLATION_PROVIDER_TIMEOUT_MS: "300",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
             TRANSLATION_REQUEST_TIMEOUT_MS: "30",
           }
         ),
       (error: unknown) =>
         error instanceof Error && error.name === "TimeoutError"
-    );
-    assert.ok(
-      performance.now() - startedAt < 200,
-      "the shared request deadline must win before the longer per-provider timeout"
     );
   } finally {
     globalThis.fetch = originalFetch;
