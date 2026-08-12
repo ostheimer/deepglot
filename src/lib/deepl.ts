@@ -1,6 +1,7 @@
 // DeepL translation provider
 
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
   providerAbortSignal,
   type TranslateTextsInput,
@@ -74,8 +75,10 @@ export async function translateWithDeepL(
   }
 
   if (translations.length !== texts.length) {
-    throw new TranslationProviderResponseError(
-      `DeepL returned ${translations.length} instead of ${texts.length} translations.`
+    throw new TranslationProviderCountMismatchError(
+      `DeepL returned ${translations.length} instead of ${texts.length} translations.`,
+      texts.length,
+      translations.length
     );
   }
 

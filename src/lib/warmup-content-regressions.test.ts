@@ -20,6 +20,38 @@ test("README does not claim provider chunking eliminates count mismatches", () =
   );
 });
 
+test("provider count-mismatch isolation is documented across support surfaces", () => {
+  const readme = source("README.md");
+  const operations = source("OPERATIONS.md");
+  const help = source("src/components/marketing/help-page.tsx");
+  const developerDocs = source("src/components/marketing/developer-docs.tsx");
+  const pluginReadme = source("wordpress-plugin/deepglot/README.md");
+  const wpOrgReadme = source("wordpress-plugin/deepglot/readme.txt");
+
+  for (const documentation of [
+    readme,
+    operations,
+    help,
+    developerDocs,
+    pluginReadme,
+    wpOrgReadme,
+  ]) {
+    assert.match(documentation, /count mismatch/i);
+    assert.match(documentation, /six provider (?:HTTP )?calls/i);
+    assert.match(
+      documentation,
+      /(?:100-second (?:provider-work )?deadline|provider-work deadline of at most 100 seconds)/i
+    );
+  }
+
+  assert.match(help, /Abweichung bei der Ergebnisanzahl/);
+  assert.match(help, /alle versuchten Anbieter/);
+  assert.match(developerDocs, /Ergebnisanzahl/);
+  assert.match(developerDocs, /alle versuchten Anbieter/);
+  assert.match(operations, /never source or translated text, URLs, or credentials/i);
+  assert.match(readme, /timeouts, authentication, rate limits, NUL output/i);
+});
+
 test("operations document real fresh/cache latency evidence and its write boundary", () => {
   const operations = source("OPERATIONS.md");
   const packageJson = source("package.json");

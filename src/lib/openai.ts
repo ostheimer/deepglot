@@ -1,4 +1,5 @@
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
   providerAbortSignal,
   type TranslateTextsInput,
@@ -115,8 +116,10 @@ function parseOpenAITranslations(
   }
 
   if (payload.translations.length !== expectedCount) {
-    throw new TranslationProviderResponseError(
-      `OpenAI hat ${payload.translations.length} statt ${expectedCount} Uebersetzungen geliefert.`
+    throw new TranslationProviderCountMismatchError(
+      `OpenAI hat ${payload.translations.length} statt ${expectedCount} Uebersetzungen geliefert.`,
+      expectedCount,
+      payload.translations.length
     );
   }
 

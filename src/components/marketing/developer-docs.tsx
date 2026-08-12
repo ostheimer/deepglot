@@ -167,6 +167,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
+              ? "Melden alle versuchten Anbieter für denselben mehrteiligen Stapel ausschließlich eine Abweichung bei der Ergebnisanzahl, startet Deepglot eine begrenzte binäre Aufteilung. Der beobachtete Zwei-Text-Fall kann beide Einzeltexte erreichen; pro ursprünglichem Stapel gelten jedoch höchstens sechs Anbieteraufrufe und für alle Anbieterarbeiten gemeinsam höchstens 100 Sekunden. Fehler eines parallelen Stapels stoppen weitere rekursive Aufrufe. Einzelne sowie am Aufruf- oder Zeitlimit verbleibende Abweichungen bleiben Fehler; Zeitüberschreitungen, Authentifizierungsfehler, Ratenlimits, U+0000 und andere ungültige Antworten lösen diese Zusatzanfragen nicht aus."
+              : "When every attempted provider reports only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can reach both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls. Singleton, call-budget, or deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000, and other malformed responses never trigger these extra requests."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
               ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
               : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
           </p>
