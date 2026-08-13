@@ -24,6 +24,7 @@ import {
 export const MAX_PDF_BYTES = 4 * 1024 * 1024;
 export const MAX_PDF_PAGES = 20;
 export const MAX_PDF_WORDS = 10_000;
+export const PDF_TRANSLATION_REQUEST_TIMEOUT_MS = 40_000;
 
 const PDF_PAGE_WIDTH = 595.28;
 const PDF_PAGE_HEIGHT = 841.89;
@@ -63,8 +64,10 @@ export type TranslateProjectPdfInput = {
   file: PdfUpload;
 };
 
-type PdfTranslationDependencies = {
+export type PdfTranslationDependencies = {
   translateTexts?: typeof translateTexts;
+  /** Route-owned absolute deadline; direct calls get a service-entry fallback. */
+  providerBudgetSignal?: AbortSignal;
 };
 
 export function validatePdfUpload(file: Pick<PdfUpload, "name" | "type" | "size">) {
@@ -348,6 +351,12 @@ export async function translateProjectPdf(
   input: TranslateProjectPdfInput,
   dependencies: PdfTranslationDependencies = {}
 ) {
+  const providerBudgetSignal = AbortSignal.any([
+    AbortSignal.timeout(PDF_TRANSLATION_REQUEST_TIMEOUT_MS),
+    ...(dependencies.providerBudgetSignal
+      ? [dependencies.providerBudgetSignal]
+      : []),
+  ]);
   const langTo = input.langTo.trim().toLowerCase();
   const access = await getProjectAccess(input.userId, input.projectId);
 
@@ -481,7 +490,11 @@ export async function translateProjectPdf(
         targetLang: langTo,
       },
       undefined,
-      project.settings
+      project.settings,
+      {
+        maxRequestTimeoutMs: PDF_TRANSLATION_REQUEST_TIMEOUT_MS,
+        signal: providerBudgetSignal,
+      }
     );
 
     if (

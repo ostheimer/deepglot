@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAuthenticatedUserId } from "@/lib/project-access";
 import {
+  PDF_TRANSLATION_REQUEST_TIMEOUT_MS,
   PdfTranslationError,
   translateProjectPdf,
+  type PdfTranslationDependencies,
   type PdfUpload,
   type TranslateProjectPdfInput,
 } from "@/lib/pdf-translation";
@@ -14,7 +16,8 @@ export const maxDuration = 60;
 type PdfTranslationRouteDependencies = {
   getUserId: () => Promise<string | null>;
   translateProjectPdf: (
-    input: TranslateProjectPdfInput
+    input: TranslateProjectPdfInput,
+    dependencies?: Pick<PdfTranslationDependencies, "providerBudgetSignal">
   ) => Promise<{
     bytes: Uint8Array;
     filename: string;
@@ -38,13 +41,17 @@ function isPdfUpload(value: FormDataEntryValue | null): value is File & PdfUploa
 export function createPdfTranslationPostHandler(
   dependencies: PdfTranslationRouteDependencies = {
     getUserId: getAuthenticatedUserId,
-    translateProjectPdf,
+    translateProjectPdf: (input, routeDependencies) =>
+      translateProjectPdf(input, routeDependencies),
   }
 ) {
   return async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ projektId: string }> }
   ) {
+    const providerBudgetSignal = AbortSignal.timeout(
+      PDF_TRANSLATION_REQUEST_TIMEOUT_MS
+    );
     const userId = await dependencies.getUserId();
     if (!userId) {
       return NextResponse.json(
@@ -80,12 +87,15 @@ export function createPdfTranslationPostHandler(
     const { projektId } = await params;
 
     try {
-      const result = await dependencies.translateProjectPdf({
-        userId,
-        projectId: projektId,
-        langTo,
-        file,
-      });
+      const result = await dependencies.translateProjectPdf(
+        {
+          userId,
+          projectId: projektId,
+          langTo,
+          file,
+        },
+        { providerBudgetSignal }
+      );
 
       return new Response(Buffer.from(result.bytes), {
         headers: {
