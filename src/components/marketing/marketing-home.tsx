@@ -22,6 +22,7 @@ import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { PricingGrid } from "@/components/marketing/pricing-grid";
 import { getViewerBillingContext } from "@/lib/billing-viewer";
 import { BILLING_PLANS } from "@/lib/billing-plans";
+import { isBilingualPublicLocale } from "@/lib/bilingual-public-content";
 import { formatNumber } from "@/lib/locale-formatting";
 import {
   getAustriaBrandLabel,
@@ -426,62 +427,66 @@ export async function MarketingHome({ locale }: MarketingHomeProps) {
               );
             })}
           </div>
-          <aside
-            data-testid="marketing-weekly-digest"
-            className="mt-10 grid gap-6 rounded-2xl bg-[#fff0ec] p-7 md:grid-cols-[auto_1fr_auto] md:items-center"
-          >
-            <Bell className="h-9 w-9 text-[#c62812]" weight="regular" />
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#c62812]">
-                {uiText(locale, "Weekly activity digest", "Wochenrückblick")}
-              </p>
-              <h3 className="mt-2 text-2xl font-bold tracking-[-0.03em] text-[#071521]">
-                {locale === "de"
-                  ? "Montags den Workspace im Blick behalten."
-                  : "Keep your workspace in view every Monday."}
-              </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5e1f14]">
-                {locale === "de"
-                  ? "Opt-in, vorherige vollständige Woche, ruhige Wochen ohne E-Mail und eine eindeutige Zustellung pro Empfänger."
-                  : "Opt-in, previous complete week, quiet weeks without email, and one deduplicated delivery per recipient."}
-              </p>
-            </div>
-            <Link
-              href={getMarketingPath(locale, "help")}
-              className="inline-flex items-center justify-center rounded-md border border-[#c62812] px-4 py-3 text-sm font-bold text-[#c62812] transition-colors hover:bg-[#c62812] hover:text-white"
-            >
-              {locale === "de" ? "Hilfe öffnen" : "Open help"}
-              <ArrowRight className="ml-2 h-4 w-4" weight="bold" />
-            </Link>
-          </aside>
-          <aside
-            data-testid="marketing-wordpress-releases"
-            className="mt-5 grid gap-5 rounded-2xl border border-[#d8d6ce] bg-white p-7 md:grid-cols-[auto_1fr_auto] md:items-center"
-          >
-            <Code className="h-9 w-9 text-[#c62812]" weight="regular" />
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#c62812]">
-                WordPress v0.11.4–v0.11.7
-              </p>
-              <h3 className="mt-2 text-2xl font-bold tracking-[-0.03em] text-[#071521]">
-                {locale === "de"
-                  ? "Stabilere URLs und kalte Seiten."
-                  : "More resilient URLs and cold pages."}
-              </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#58636d]">
-                {locale === "de"
-                  ? "Numerische Slugs, 60 Sekunden, begrenzte Parallelstapel und ein sicherer finaler HTML-Filter — die Details stehen in der Hilfe und Entwicklerdoku."
-                  : "Numeric slugs, 60 seconds, bounded parallel batches, and a safe final HTML filter — the details live in Help and the developer docs."}
-              </p>
-            </div>
-            <Link
-              href={getMarketingPath(locale, "help")}
-              className="inline-flex items-center justify-center rounded-md border border-[#c62812] px-4 py-3 text-sm font-bold text-[#c62812] transition-colors hover:bg-[#c62812] hover:text-white"
-            >
-              {locale === "de" ? "Release-Hilfe" : "Release help"}
-              <ArrowRight className="ml-2 h-4 w-4" weight="bold" />
-            </Link>
-          </aside>
+          {isBilingualPublicLocale(locale) ? (
+            <>
+              <aside
+                data-testid="marketing-weekly-digest"
+                className="mt-10 grid gap-6 rounded-2xl bg-[#fff0ec] p-7 md:grid-cols-[auto_1fr_auto] md:items-center"
+              >
+                <Bell className="h-9 w-9 text-[#c62812]" weight="regular" />
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#c62812]">
+                    {uiText(locale, "Weekly activity digest", "Wochenrückblick")}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold tracking-[-0.03em] text-[#071521]">
+                    {locale === "de"
+                      ? "Montags den Workspace im Blick behalten."
+                      : "Keep your workspace in view every Monday."}
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5e1f14]">
+                    {locale === "de"
+                      ? "Opt-in, vorherige vollständige Woche, ruhige Wochen ohne E-Mail und eine eindeutige Zustellung pro Empfänger."
+                      : "Opt-in, previous complete week, quiet weeks without email, and one deduplicated delivery per recipient."}
+                  </p>
+                </div>
+                <Link
+                  href={getMarketingPath(locale, "help")}
+                  className="inline-flex items-center justify-center rounded-md border border-[#c62812] px-4 py-3 text-sm font-bold text-[#c62812] transition-colors hover:bg-[#c62812] hover:text-white"
+                >
+                  {locale === "de" ? "Hilfe öffnen" : "Open help"}
+                  <ArrowRight className="ml-2 h-4 w-4" weight="bold" />
+                </Link>
+              </aside>
+              <aside
+                data-testid="marketing-wordpress-releases"
+                className="mt-5 grid gap-5 rounded-2xl border border-[#d8d6ce] bg-white p-7 md:grid-cols-[auto_1fr_auto] md:items-center"
+              >
+                <Code className="h-9 w-9 text-[#c62812]" weight="regular" />
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.14em] text-[#c62812]">
+                    WordPress v0.11.4–v0.11.7
+                  </p>
+                  <h3 className="mt-2 text-2xl font-bold tracking-[-0.03em] text-[#071521]">
+                    {locale === "de"
+                      ? "Stabilere URLs und kalte Seiten."
+                      : "More resilient URLs and cold pages."}
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#58636d]">
+                    {locale === "de"
+                      ? "Numerische Slugs, 60 Sekunden, begrenzte Parallelstapel und ein sicherer finaler HTML-Filter — die Details stehen in der Hilfe und Entwicklerdoku."
+                      : "Numeric slugs, 60 seconds, bounded parallel batches, and a safe final HTML filter — the details live in Help and the developer docs."}
+                  </p>
+                </div>
+                <Link
+                  href={getMarketingPath(locale, "help")}
+                  className="inline-flex items-center justify-center rounded-md border border-[#c62812] px-4 py-3 text-sm font-bold text-[#c62812] transition-colors hover:bg-[#c62812] hover:text-white"
+                >
+                  {locale === "de" ? "Release-Hilfe" : "Release help"}
+                  <ArrowRight className="ml-2 h-4 w-4" weight="bold" />
+                </Link>
+              </aside>
+            </>
+          ) : null}
         </div>
       </section>
 

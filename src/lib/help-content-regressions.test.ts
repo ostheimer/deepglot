@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
+import { isBilingualPublicLocale } from "@/lib/bilingual-public-content";
+import { SITE_LOCALES } from "@/lib/site-locale";
+
 const root = process.cwd();
 
 function source(relativePath: string) {
@@ -51,4 +54,20 @@ test("public copy keeps visible German umlauts and the updated translation visua
   assert.match(footer, /Hilfe/);
   assert.match(hero, /lokalen Übersetzungs-Cache/);
   assert.doesNotMatch(nav, /Hilfeseite/);
+});
+
+test("bilingual help discovery stays off unsupported marketing locales", () => {
+  assert.deepEqual(SITE_LOCALES.filter(isBilingualPublicLocale), ["en", "de"]);
+
+  for (const relativePath of [
+    "src/components/marketing/marketing-home.tsx",
+    "src/components/marketing/marketing-nav.tsx",
+    "src/components/marketing/marketing-footer.tsx",
+  ]) {
+    assert.match(
+      source(relativePath),
+      /isBilingualPublicLocale\(locale\)/,
+      `${relativePath} must not expose English-only help discovery on other localized pages`
+    );
+  }
 });
