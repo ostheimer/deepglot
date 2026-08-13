@@ -232,6 +232,13 @@ const MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK = 6;
  */
 export const DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS = 100_000;
 
+export type TranslationExecutionOptions = {
+  /** Caller-owned ceiling for all provider work in this translation. */
+  maxRequestTimeoutMs?: number;
+  /** Absolute caller deadline, which may start before translateTexts. */
+  signal?: AbortSignal;
+};
+
 export function resolveTranslationRequestTimeoutMs(
   env: TranslationEnv = process.env
 ): number {
@@ -243,6 +250,21 @@ export function resolveTranslationRequestTimeoutMs(
   return Number.isFinite(parsed) && parsed > 0
     ? Math.min(parsed, DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS)
     : DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS;
+}
+
+function resolveTranslationExecutionTimeoutMs(
+  env: TranslationEnv,
+  options: TranslationExecutionOptions | undefined
+): number {
+  const configuredTimeoutMs = resolveTranslationRequestTimeoutMs(env);
+  const callerTimeoutMs = options?.maxRequestTimeoutMs;
+  const boundedTimeoutMs =
+    typeof callerTimeoutMs === "number" &&
+    Number.isFinite(callerTimeoutMs) &&
+    callerTimeoutMs > 0
+      ? Math.min(configuredTimeoutMs, Math.floor(callerTimeoutMs))
+      : configuredTimeoutMs;
+  return boundedTimeoutMs;
 }
 
 class TranslationProviderCallBudgetError extends Error {
@@ -328,11 +350,17 @@ async function mapWithConcurrency<T, R>(
 export async function translateTexts(
   input: TranslateTextsInput,
   env: TranslationEnv = process.env,
-  settings?: TranslationSettingsLike | null
+  settings?: TranslationSettingsLike | null,
+  executionOptions?: TranslationExecutionOptions
 ): Promise<TranslationResult[]> {
   if (input.texts.length === 0) {
     return [];
   }
+  executionOptions?.signal?.throwIfAborted();
+  const executionTimeoutMs = resolveTranslationExecutionTimeoutMs(
+    env,
+    executionOptions
+  );
 
   const primary = resolveTranslationProviderConfig({ settings, env });
   const chain = buildFallbackProviderChain(primary, env);
@@ -341,7 +369,8 @@ export async function translateTexts(
   const failedChunkController = new AbortController();
   const requestSignal = AbortSignal.any([
     failedChunkController.signal,
-    AbortSignal.timeout(resolveTranslationRequestTimeoutMs(env)),
+    AbortSignal.timeout(executionTimeoutMs),
+    ...(executionOptions?.signal ? [executionOptions.signal] : []),
   ]);
 
   const translatedChunks = await mapWithConcurrency(

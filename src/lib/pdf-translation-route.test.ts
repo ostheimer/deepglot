@@ -72,6 +72,47 @@ test("PDF route returns the generated PDF as an attachment", async () => {
   assert.equal(response.headers.get("x-deepglot-pdf-words"), "7");
 });
 
+test("PDF route starts the provider budget before authentication and multipart parsing", async () => {
+  const originalTimeout = AbortSignal.timeout;
+  const events: string[] = [];
+  AbortSignal.timeout = ((milliseconds: number) => {
+    events.push(`deadline:${milliseconds}`);
+    return originalTimeout(milliseconds);
+  }) as typeof AbortSignal.timeout;
+
+  try {
+    const handler = createPdfTranslationPostHandler({
+      getUserId: async () => {
+        events.push("auth");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return "user-1";
+      },
+      translateProjectPdf: async (_input, dependencies) => {
+        events.push("service");
+        assert.ok(
+          dependencies?.providerBudgetSignal instanceof AbortSignal,
+          "the service must receive the route-owned absolute deadline"
+        );
+        return {
+          bytes: new Uint8Array([37, 80, 68, 70]),
+          filename: "source-deepglot-en.pdf",
+          pageCount: 1,
+          wordCount: 1,
+        };
+      },
+    });
+
+    const response = await handler(uploadRequest(), {
+      params: Promise.resolve({ projektId: "project-1" }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(events, ["deadline:40000", "auth", "service"]);
+  } finally {
+    AbortSignal.timeout = originalTimeout;
+  }
+});
+
 test("PDF route preserves safe service error codes and statuses", async () => {
   const handler = createPdfTranslationPostHandler({
     getUserId: async () => "user-1",

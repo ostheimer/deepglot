@@ -52,6 +52,40 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   assert.match(readme, /timeouts, authentication, rate limits, NUL output/i);
 });
 
+test("PDF count-mismatch recovery keeps a route-specific provider-work margin", () => {
+  const pdfTranslation = source("src/lib/pdf-translation.ts");
+  const pdfRoute = source(
+    "src/app/api/projects/[projektId]/pdf-translations/route.ts"
+  );
+  const readme = source("README.md");
+  const operations = source("OPERATIONS.md");
+  const help = source("src/components/marketing/help-page.tsx");
+  const developerDocs = source("src/components/marketing/developer-docs.tsx");
+  const envExample = source(".env.example");
+
+  assert.match(pdfRoute, /maxDuration\s*=\s*60/);
+  assert.match(
+    pdfTranslation,
+    /PDF_TRANSLATION_REQUEST_TIMEOUT_MS\s*=\s*40_000/
+  );
+  assert.match(
+    pdfTranslation,
+    /maxRequestTimeoutMs:\s*PDF_TRANSLATION_REQUEST_TIMEOUT_MS/
+  );
+
+  for (const documentation of [
+    readme,
+    operations,
+    help,
+    developerDocs,
+    envExample,
+  ]) {
+    assert.match(documentation, /PDF[^\n]{0,240}40[- ]second/i);
+  }
+  assert.match(help, /PDF[^\n]{0,240}40 Sekunden/i);
+  assert.match(developerDocs, /PDF[^\n]{0,240}40 Sekunden/i);
+});
+
 test("operations document real fresh/cache latency evidence and its write boundary", () => {
   const operations = source("OPERATIONS.md");
   const packageJson = source("package.json");

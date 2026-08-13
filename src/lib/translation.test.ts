@@ -576,6 +576,142 @@ test("caps total provider time below the translate route duration", { timeout: 5
   }
 });
 
+test("honors a caller-specific provider-work ceiling below the translate route budget", { timeout: 5_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const watchdog = setTimeout(
+        () => reject(new Error("caller-specific provider deadline was not observed")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein PDF-Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "10000",
+          },
+          null,
+          { maxRequestTimeoutMs: 30 }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+test("keeps the lower configured provider-work ceiling when the caller allows longer", { timeout: 5_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const watchdog = setTimeout(
+        () => reject(new Error("configured provider deadline was not observed")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "30",
+          },
+          null,
+          { maxRequestTimeoutMs: 10_000 }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+test("does not start provider work after the caller-specific budget has already expired", async () => {
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+
+  globalThis.fetch = (async () => {
+    providerCalls += 1;
+    return openAIResponse([{ text: "must-not-run" }]);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein PDF-Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 40_000,
+            signal: AbortSignal.abort(
+              new DOMException(
+                "The operation was aborted due to timeout",
+                "TimeoutError"
+              )
+            ),
+          }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+    assert.equal(providerCalls, 0, "an expired PDF budget must fail before HTTP");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("does not recursively isolate an in-flight sibling after another root chunk fails", async () => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
