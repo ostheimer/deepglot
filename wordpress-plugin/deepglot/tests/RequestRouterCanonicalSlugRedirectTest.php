@@ -367,6 +367,31 @@ canonicalSlugRedirectAssert(
 );
 
 $GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$redirectionTransformerRouter = new RequestRouter(
+    $options,
+    new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [])
+);
+add_filter(
+    'redirection_url_target',
+    static fn(string $target): string => 'https://example.com/final-target/',
+    20
+);
+$redirectionTransformerRouter->register();
+
+$_SERVER['REQUEST_URI'] = '/en/legacy-alias/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$redirectionTransformerRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com/en/final-target/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com/legacy-target/',
+        '/legacy-alias/'
+    ),
+    'Deepglot must localize the final target after Redirection target transformers have run.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
 $redirectionPluginRouter = new RequestRouter(
     $options,
     new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [])
@@ -405,6 +430,22 @@ canonicalSlugRedirectAssert(
     ),
     'Non-HTTP Redirection-plugin targets must never be converted into internal URLs.'
 );
+
+foreach ([
+    '/wp-content/uploads/juvenis-information.pdf',
+    'https://example.com/wp-login.php?action=login',
+    '/wp-admin/',
+] as $infrastructureTarget) {
+    canonicalSlugRedirectAssert(
+        $infrastructureTarget,
+        canonicalSlugRedirectApplyFilter(
+            'redirection_url_target',
+            $infrastructureTarget,
+            '/kinesiotaping-gegen-schmerzen/'
+        ),
+        'WordPress infrastructure and static Redirection targets must never receive a language prefix.'
+    );
+}
 
 $_SERVER['REQUEST_URI'] = '/kinesiotaping-gegen-schmerzen/';
 $redirectionPluginRouter->rewriteRequestUri();

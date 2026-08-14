@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Config\Options;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
+use Deepglot\Support\WordPressInfrastructure;
 
 /**
  * Strips language prefixes from REQUEST_URI before WordPress routing
@@ -45,7 +46,7 @@ class RequestRouter
         add_filter('wp_redirect',      [$this, 'preventLanguageStrippingRedirect']);
         add_filter('wp_safe_redirect', [$this, 'preventLanguageStrippingRedirect']);
         add_filter('allowed_redirect_hosts', [$this, 'allowInternalRedirectHost'], 10, 2);
-        add_filter('redirection_url_target', [$this, 'localizeRedirectionTarget']);
+        add_filter('redirection_url_target', [$this, 'localizeRedirectionTarget'], PHP_INT_MAX);
 
         // Redirect stale WPML-era source slugs before the translated response
         // is rendered, but after WordPress has resolved the canonical source.
@@ -182,6 +183,20 @@ class RequestRouter
             ) {
                 return $target;
             }
+        }
+
+        $path = (string) wp_parse_url($target, PHP_URL_PATH);
+        $sitePath = rtrim((string) wp_parse_url(get_site_url(), PHP_URL_PATH), '/');
+        if ($sitePath !== '' && ($path === $sitePath || str_starts_with($path, $sitePath . '/'))) {
+            $path = (string) substr($path, strlen($sitePath));
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim($path, '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+        if (WordPressInfrastructure::isInfrastructurePath($segments)) {
+            return $target;
         }
 
         return $this->routing->rewriteUrl($target, $this->currentLanguage);
