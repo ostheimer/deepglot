@@ -172,21 +172,46 @@ class RequestRouter
             return $target;
         }
 
+        $siteUrl = get_site_url();
         $isRootRelative = str_starts_with($target, '/') && !str_starts_with($target, '//');
         if (!$isRootRelative) {
             $scheme = strtolower((string) wp_parse_url($target, PHP_URL_SCHEME));
             $host = (string) wp_parse_url($target, PHP_URL_HOST);
+            $siteScheme = strtolower((string) wp_parse_url($siteUrl, PHP_URL_SCHEME));
+            $targetPort = wp_parse_url($target, PHP_URL_PORT);
+            $sitePort = wp_parse_url($siteUrl, PHP_URL_PORT);
+            $targetPort = is_int($targetPort) ? $targetPort : ($scheme === 'https' ? 443 : 80);
+            $sitePort = is_int($sitePort) ? $sitePort : ($siteScheme === 'https' ? 443 : 80);
             if (
                 !in_array($scheme, ['http', 'https'], true)
                 || $host === ''
                 || !$this->routing->isInternalHost($host)
+                || $scheme !== $siteScheme
+                || $targetPort !== $sitePort
             ) {
                 return $target;
             }
         }
 
         $path = (string) wp_parse_url($target, PHP_URL_PATH);
-        $sitePath = rtrim((string) wp_parse_url(get_site_url(), PHP_URL_PATH), '/');
+        $host = (string) wp_parse_url($target, PHP_URL_HOST);
+        $targetLanguage = $this->routing->detectLanguage($path !== '' ? $path : '/', $host);
+        if ($targetLanguage !== null && $targetLanguage !== strtolower($this->currentLanguage)) {
+            return $target;
+        }
+
+        $sitePath = rtrim((string) wp_parse_url($siteUrl, PHP_URL_PATH), '/');
+        $isWithinSitePath = $sitePath === ''
+            || $path === $sitePath
+            || str_starts_with($path, $sitePath . '/');
+        if (!$isWithinSitePath) {
+            return $target;
+        }
+
+        $path = $this->routing->getCanonicalPath(
+            $path !== '' ? $path : '/',
+            $targetLanguage ?? $this->currentLanguage
+        );
         if ($sitePath !== '' && ($path === $sitePath || str_starts_with($path, $sitePath . '/'))) {
             $path = (string) substr($path, strlen($sitePath));
         }
