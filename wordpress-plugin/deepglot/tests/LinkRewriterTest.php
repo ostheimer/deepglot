@@ -108,6 +108,43 @@ function test_rewrites_internal_absolute_link(): void
     assert(strpos($out, '/en/services/') !== false, "Absolute internal link must be rewritten: {$out}");
 }
 
+function test_preserves_wordpress_media_links_byte_for_byte(): void
+{
+    $absoluteMediaUrl = 'https://example.com/wp-content/uploads/2021/09/IMG-20210910-WA0021.jpg';
+    $relativeMediaUrl = '/wp-content/uploads/2019/02/GDPR_Datenverwaltungsinformation.PDF?download=1#document';
+    $doc = rewriteDocumentUsingRouting(
+        '<a id="absolute-media" href="' . $absoluteMediaUrl . '">Photo</a>'
+        . '<a id="relative-media" href="' . $relativeMediaUrl . '">PDF</a>'
+        . '<a id="similar-content" href="/wp-content-tools/">Content tools</a>'
+        . '<a id="contact" href="/kontakt/">Contact</a>',
+        'en',
+        new SiteRouting(new UrlLanguageResolver('de', ['en']), 'https://example.com', 'PATH_PREFIX', [])
+    );
+
+    $absoluteMedia = $doc->getElementById('absolute-media');
+    $relativeMedia = $doc->getElementById('relative-media');
+    $similarContent = $doc->getElementById('similar-content');
+    $contact = $doc->getElementById('contact');
+
+    assert($absoluteMedia instanceof DOMElement, 'Expected absolute media link in rewritten DOM');
+    assert($relativeMedia instanceof DOMElement, 'Expected relative media link in rewritten DOM');
+    assert($similarContent instanceof DOMElement, 'Expected similarly named content link in rewritten DOM');
+    assert($contact instanceof DOMElement, 'Expected control page link in rewritten DOM');
+    assert(
+        $absoluteMedia->getAttribute('href') === $absoluteMediaUrl,
+        'Absolute WordPress media href must remain byte-for-byte unchanged'
+    );
+    assert(
+        $relativeMedia->getAttribute('href') === $relativeMediaUrl,
+        'Relative WordPress media href must remain byte-for-byte unchanged'
+    );
+    assert(
+        $similarContent->getAttribute('href') === '/en/wp-content-tools/',
+        'A non-reserved slug that merely starts with wp-content must still be localized'
+    );
+    assert($contact->getAttribute('href') === '/en/kontakt/', 'Ordinary page href must still be localized');
+}
+
 function test_rewrites_configured_url_slugs_and_preserves_suffixes(): void
 {
     $html = '<a href="/ueber-uns/?ref=nav#team">About</a>';
@@ -203,6 +240,7 @@ $tests = [
     'test_does_not_rewrite_mailto_or_tel_links',
     'test_does_not_rewrite_special_links_with_leading_whitespace',
     'test_rewrites_internal_absolute_link',
+    'test_preserves_wordpress_media_links_byte_for_byte',
     'test_rewrites_configured_url_slugs_and_preserves_suffixes',
     'test_canonicalizes_stale_same_language_prefixed_slugs',
     'test_respects_absolute_subdomain_languages_while_canonicalizing_current_links',
