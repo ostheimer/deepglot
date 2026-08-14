@@ -58,6 +58,75 @@ type RecipientOutcome = "sent" | "duplicate" | "withoutActivity" | "failed";
 
 export const ACTIVITY_DIGEST_CLAIM_TTL_MS = 15 * 60 * 1000;
 export const ACTIVITY_DIGEST_SEND_CONCURRENCY = 4;
+/**
+ * Marks an in-flight digest send so stale reclaim cannot resend before delivery
+ * is recorded. Must stay below any real provider acceptance timestamp.
+ */
+export const ACTIVITY_DIGEST_SEND_PENDING_SENTINEL = new Date(
+  "1970-01-01T00:00:00.000Z",
+);
+
+const ACTIVITY_DIGEST_SENT_AT_WRITE_ATTEMPTS = 5;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function markDigestSendPending(claim: ActivityDigestClaim) {
+  const { count } = await db.activityDigestDelivery.updateMany({
+    where: { id: claim.id, claimedAt: claim.claimedAt, sentAt: null },
+    data: { sentAt: ACTIVITY_DIGEST_SEND_PENDING_SENTINEL },
+  });
+  return count > 0;
+}
+
+async function recordDigestSendCompleted(
+  claim: ActivityDigestClaim,
+  sentAt = new Date(),
+) {
+  for (let attempt = 0; attempt < ACTIVITY_DIGEST_SENT_AT_WRITE_ATTEMPTS; attempt++) {
+    const { count } = await db.activityDigestDelivery.updateMany({
+      where: {
+        id: claim.id,
+        sentAt: ACTIVITY_DIGEST_SEND_PENDING_SENTINEL,
+      },
+      data: { sentAt },
+    });
+    if (count > 0) {
+      return true;
+    }
+
+    const existing = await db.activityDigestDelivery.findUnique({
+      where: { id: claim.id },
+      select: { sentAt: true },
+    });
+    if (
+      existing?.sentAt &&
+      existing.sentAt.getTime() > ACTIVITY_DIGEST_SEND_PENDING_SENTINEL.getTime()
+    ) {
+      return true;
+    }
+
+    await sleep(50 * (attempt + 1));
+  }
+
+  return false;
+}
+
+async function releaseDigestSendClaim(claim: ActivityDigestClaim) {
+  await db.activityDigestDelivery
+    .deleteMany({
+      where: {
+        id: claim.id,
+        claimedAt: claim.claimedAt,
+        OR: [
+          { sentAt: null },
+          { sentAt: ACTIVITY_DIGEST_SEND_PENDING_SENTINEL },
+        ],
+      },
+    })
+    .catch(() => {});
+}
 
 export type ActivityDigestRunResult = {
   configured: boolean;
@@ -343,6 +412,11 @@ export async function processWeeklyActivityDigests({
         return "duplicate";
       }
 
+      const sendLocked = await markDigestSendPending(claim);
+      if (!sendLocked) {
+        return "duplicate";
+      }
+
       try {
         const delivery = await sendActivityDigestEmail({
           to: recipient.email,
@@ -357,29 +431,21 @@ export async function processWeeklyActivityDigests({
           throw new Error("Activity digest email is not configured.");
         }
       } catch (error) {
-        await db.activityDigestDelivery
-          .deleteMany({
-            where: { id: claim.id, claimedAt: claim.claimedAt, sentAt: null },
-          })
-          .catch(() => {});
+        await releaseDigestSendClaim(claim);
         console.error("[activity-digest] failed to send weekly digest", error);
         return "failed";
       }
 
-      // Once the provider accepted the email, the unique claim must remain even
-      // if this observability update fails. Deleting it here would let a retry
-      // send a duplicate message to the recipient.
-      await db.activityDigestDelivery
-        .updateMany({
-          where: { id: claim.id, claimedAt: claim.claimedAt, sentAt: null },
-          data: { sentAt: new Date() },
-        })
-        .catch((error) => {
-          console.error(
-            "[activity-digest] email sent but sentAt could not be recorded",
-            error,
-          );
-        });
+      // Once the provider accepted the email, the pending sentinel must remain
+      // until sentAt is recorded. Stale reclaim only matches sentAt IS NULL, so
+      // a failed observability write cannot invite a duplicate resend.
+      const recorded = await recordDigestSendCompleted(claim);
+      if (!recorded) {
+        console.error(
+          "[activity-digest] email sent but sentAt could not be recorded after retries",
+          { claimId: claim.id },
+        );
+      }
       return "sent";
     },
   );

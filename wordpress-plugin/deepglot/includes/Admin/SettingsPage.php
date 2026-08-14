@@ -5,6 +5,8 @@ namespace Deepglot\Admin;
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Config\SwitcherTemplates;
+use Deepglot\Support\RequestInput;
+use Deepglot\Support\UrlTranslationSync;
 
 /**
  * Admin settings page with guided onboarding wizard.
@@ -15,12 +17,14 @@ use Deepglot\Config\SwitcherTemplates;
 class SettingsPage
 {
     private Options $options;
+    private ?UrlTranslationSync $urlSync;
 
     private const DASHBOARD_URL = 'https://deepglot.ai';
 
-    public function __construct(Options $options)
+    public function __construct(Options $options, ?UrlTranslationSync $urlSync = null)
     {
         $this->options = $options;
+        $this->urlSync = $urlSync;
     }
 
     public function register(): void
@@ -30,6 +34,116 @@ class SettingsPage
         add_action('admin_enqueue_scripts', [$this, 'enqueueStyles']);
         add_action('admin_notices', [$this, 'maybeRenderQuotaNotice']);
         add_action('admin_notices', [$this, 'maybeRenderInvalidApiKeyNotice']);
+
+        if ($this->urlSync !== null) {
+            add_action('admin_post_deepglot_url_sync_preview', [$this, 'handleUrlSyncPreview']);
+            add_action('admin_post_deepglot_url_sync_start', [$this, 'handleUrlSyncStart']);
+            add_action('admin_post_deepglot_url_sync_control', [$this, 'handleUrlSyncControl']);
+        }
+    }
+
+    public function handleUrlSyncPreview(): void
+    {
+        $this->requireUrlSyncAdminRequest('deepglot_url_sync_preview');
+
+        $languages = $this->requestedUrlSyncLanguages();
+        $limit = absint(RequestInput::post('max_urls', '100'));
+        $sourceOffset = absint(RequestInput::post('source_offset', '0'));
+        $result = $this->urlSync->preview($languages, $limit, $sourceOffset);
+
+        if (is_wp_error($result)) {
+            $this->redirectAfterUrlSync('error', $result->get_error_message());
+        }
+
+        set_transient(
+            $this->urlSyncAdminPreviewKey(),
+            $result,
+            UrlTranslationSync::PREVIEW_TTL
+        );
+        $this->redirectAfterUrlSync(
+            'success',
+            __('Die URL-Vorschau ist bereit. Prüfe die Auswahl und bestätige anschließend den Start.', 'deepglot')
+        );
+    }
+
+    public function handleUrlSyncStart(): void
+    {
+        $this->requireUrlSyncAdminRequest('deepglot_url_sync_start');
+
+        $languages = $this->requestedUrlSyncLanguages();
+        $limit = absint(RequestInput::post('max_urls', '100'));
+        $previewToken = RequestInput::post('preview_token');
+        $sourceOffset = absint(RequestInput::post('source_offset', '0'));
+        $result = $this->urlSync->start($languages, $limit, $previewToken, $sourceOffset);
+
+        if (is_wp_error($result)) {
+            delete_transient($this->urlSyncAdminPreviewKey());
+            $this->redirectAfterUrlSync('error', $result->get_error_message());
+        }
+
+        delete_transient($this->urlSyncAdminPreviewKey());
+        $this->redirectAfterUrlSync(
+            'success',
+            __('Die URL-Synchronisierung wurde gestartet.', 'deepglot')
+        );
+    }
+
+    public function handleUrlSyncControl(): void
+    {
+        $this->requireUrlSyncAdminRequest('deepglot_url_sync_control');
+        $action = sanitize_key(RequestInput::post('sync_action'));
+        $methods = [
+            'pause' => 'pause',
+            'resume' => 'resume',
+            'cancel' => 'cancel',
+            'retry_failed' => 'retryFailed',
+        ];
+
+        if (!isset($methods[$action])) {
+            $this->redirectAfterUrlSync('error', __('Ungültige Aktion.', 'deepglot'));
+        }
+
+        $changed = $this->urlSync->{$methods[$action]}();
+        $this->redirectAfterUrlSync(
+            $changed ? 'success' : 'error',
+            $changed
+                ? __('Der Status der URL-Synchronisierung wurde aktualisiert.', 'deepglot')
+                : __('Die URL-Synchronisierung konnte in ihrem aktuellen Status nicht geändert werden.', 'deepglot')
+        );
+    }
+
+    private function requireUrlSyncAdminRequest(string $nonceAction): void
+    {
+        if (!current_user_can('manage_options') || $this->urlSync === null) {
+            wp_die(esc_html__('Du benötigst Administrator-Rechte für diese Aktion.', 'deepglot'));
+        }
+
+        check_admin_referer($nonceAction);
+    }
+
+    /** @return string[] */
+    private function requestedUrlSyncLanguages(): array
+    {
+        return array_values(array_filter(array_map(
+            static fn($language): string => sanitize_key($language),
+            RequestInput::postArray('target_languages')
+        )));
+    }
+
+    private function urlSyncAdminPreviewKey(): string
+    {
+        return 'deepglot_url_sync_admin_preview_' . get_current_user_id();
+    }
+
+    private function redirectAfterUrlSync(string $type, string $message): void
+    {
+        set_transient(
+            'deepglot_url_sync_notice_' . get_current_user_id(),
+            ['type' => $type, 'message' => $message],
+            MINUTE_IN_SECONDS
+        );
+        wp_safe_redirect(admin_url('options-general.php?page=deepglot#deepglot-url-sync'));
+        exit;
     }
 
     /**
@@ -201,6 +315,11 @@ class SettingsPage
         .dg-actions { display: flex; gap: 10px; align-items: center; padding-top: 4px; }
         .dg-help { font-size: 12px; color: #9ca3af; margin-top: 8px; }
         .dg-help a { color: #c62812; text-decoration: none; }
+        .dg-sync-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+        .dg-sync-metric { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #f9fafb; }
+        .dg-sync-metric strong { display: block; font-size: 18px; color: #111827; }
+        .dg-sync-metric span { font-size: 11px; color: #6b7280; }
+        @media (max-width: 640px) { .dg-sync-grid { grid-template-columns: 1fr 1fr; } }
 
         /* Switcher section */
         .dg-section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; max-width: 460px; }
@@ -863,6 +982,8 @@ class SettingsPage
                 </div><!-- /.dg-wizard -->
             </form>
 
+            <?php $this->renderUrlSyncCard(); ?>
+
             <script>
             (function () {
                 var list = document.getElementById('dg-switcher-order');
@@ -913,6 +1034,190 @@ class SettingsPage
             })();
             </script>
         </div>
+        <?php
+    }
+
+    private function renderUrlSyncCard(): void
+    {
+        if ($this->urlSync === null || !$this->options->isConfigured()) {
+            return;
+        }
+
+        $status = $this->urlSync->status();
+        $state = (string) ($status['status'] ?? 'idle');
+        $total = (int) ($status['total'] ?? 0);
+        $completed = (int) ($status['completed'] ?? 0);
+        $failed = (int) ($status['failed'] ?? 0);
+        $warming = (int) ($status['warming'] ?? 0);
+        $active = in_array($state, [
+            'queued', 'running', 'warming', 'backoff_rate_limit', 'paused', 'paused_quota', 'paused_invalid_key',
+        ], true);
+        $paused = in_array($state, ['paused', 'paused_quota', 'paused_invalid_key'], true);
+        $labels = [
+            'idle' => __('Noch nicht gestartet', 'deepglot'),
+            'queued' => __('In Warteschlange', 'deepglot'),
+            'running' => __('Läuft', 'deepglot'),
+            'warming' => __('Übersetzungen werden aufgewärmt', 'deepglot'),
+            'backoff_rate_limit' => __('Wartet wegen API-Ratenlimit', 'deepglot'),
+            'paused' => __('Pausiert', 'deepglot'),
+            'paused_quota' => __('Pausiert: Wortkontingent erreicht', 'deepglot'),
+            'paused_invalid_key' => __('Pausiert: API-Key ungültig', 'deepglot'),
+            'completed' => __('Abgeschlossen', 'deepglot'),
+            'completed_with_errors' => __('Mit Fehlern abgeschlossen', 'deepglot'),
+            'cancelled' => __('Abgebrochen', 'deepglot'),
+        ];
+        $noticeKey = 'deepglot_url_sync_notice_' . get_current_user_id();
+        $notice = get_transient($noticeKey);
+        delete_transient($noticeKey);
+        $preview = get_transient($this->urlSyncAdminPreviewKey());
+        if (!is_array($preview) || (int) ($preview['expires_at'] ?? 0) < time()) {
+            delete_transient($this->urlSyncAdminPreviewKey());
+            $preview = null;
+        }
+        $failedUrls = array_slice(array_values(array_filter(
+            (array) ($status['urls'] ?? []),
+            static fn($item): bool => is_array($item) && (string) ($item['state'] ?? '') === 'failed'
+        )), 0, 50);
+        $nextSourceOffset = in_array($state, ['completed', 'completed_with_errors'], true)
+            && isset($status['next_source_offset'])
+            ? max(0, (int) $status['next_source_offset'])
+            : 0;
+        ?>
+        <section class="dg-wizard" id="deepglot-url-sync" aria-labelledby="deepglot-url-sync-title">
+            <div class="dg-wizard-header">
+                <h2 id="deepglot-url-sync-title"><?php esc_html_e('URL-Synchronisierung', 'deepglot'); ?></h2>
+                <p><?php esc_html_e('Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet.', 'deepglot'); ?></p>
+            </div>
+
+            <?php if (is_array($notice) && !empty($notice['message'])) : ?>
+                <div class="dg-alert <?php echo ($notice['type'] ?? '') === 'success' ? 'success' : 'warning'; ?>">
+                    <?php echo esc_html((string) $notice['message']); ?>
+                </div>
+            <?php endif; ?>
+
+            <p>
+                <strong><?php esc_html_e('Status:', 'deepglot'); ?></strong>
+                <?php echo esc_html($labels[$state] ?? $state); ?>
+                <?php if (!empty($status['last_error'])) : ?>
+                    · <?php echo esc_html((string) $status['last_error']); ?>
+                <?php endif; ?>
+            </p>
+
+            <?php if ($total > 0) : ?>
+                <div class="dg-sync-grid">
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($total)); ?></strong><span><?php esc_html_e('URLs gesamt', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($completed)); ?></strong><span><?php esc_html_e('Warteschlange abgearbeitet', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($warming)); ?></strong><span><?php esc_html_e('Werden aufgewärmt', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($failed)); ?></strong><span><?php esc_html_e('Fehlgeschlagen', 'deepglot'); ?></span></div>
+                </div>
+                <p class="description"><?php esc_html_e('„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell.', 'deepglot'); ?></p>
+            <?php endif; ?>
+
+            <?php if ($failedUrls !== []) : ?>
+                <div class="dg-alert warning">
+                    <strong><?php esc_html_e('Fehlgeschlagene URLs', 'deepglot'); ?></strong>
+                    <ul>
+                        <?php foreach ($failedUrls as $failedUrl) : ?>
+                            <li>
+                                <code><?php echo esc_html((string) ($failedUrl['url'] ?? '')); ?></code>
+                                <?php if (!empty($failedUrl['last_error'])) : ?>
+                                    · <?php echo esc_html((string) $failedUrl['last_error']); ?>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!$active) : ?>
+                <?php if ($failed > 0 && $state === 'completed_with_errors') : ?>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-bottom:18px;">
+                        <input type="hidden" name="action" value="deepglot_url_sync_control" />
+                        <input type="hidden" name="sync_action" value="retry_failed" />
+                        <?php wp_nonce_field('deepglot_url_sync_control'); ?>
+                        <button type="submit" class="dg-btn-outline"><?php esc_html_e('Fehlgeschlagene URLs erneut versuchen', 'deepglot'); ?></button>
+                    </form>
+                <?php endif; ?>
+
+                <?php if (is_array($preview)) : ?>
+                    <div class="dg-alert info">
+                        <strong><?php esc_html_e('URL-Vorschau', 'deepglot'); ?></strong>
+                        <p>
+                            <?php
+                            printf(
+                                /* translators: %d: number of target-language URLs in the preview. */
+                                esc_html__('%d Zielseiten werden synchronisiert.', 'deepglot'),
+                                (int) ($preview['total'] ?? 0)
+                            );
+                            ?>
+                        </p>
+                        <ol>
+                            <?php foreach ((array) ($preview['sample_urls'] ?? []) as $sampleUrl) : ?>
+                                <li><code><?php echo esc_html((string) $sampleUrl); ?></code></li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </div>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="deepglot_url_sync_start" />
+                        <input type="hidden" name="preview_token" value="<?php echo esc_attr((string) ($preview['preview_token'] ?? '')); ?>" />
+                        <input type="hidden" name="max_urls" value="<?php echo esc_attr((string) ($preview['max_urls'] ?? '')); ?>" />
+                        <input type="hidden" name="source_offset" value="<?php echo esc_attr((string) ($preview['source_offset'] ?? '0')); ?>" />
+                        <?php foreach ((array) ($preview['languages'] ?? []) as $language) : ?>
+                            <input type="hidden" name="target_languages[]" value="<?php echo esc_attr((string) $language); ?>" />
+                        <?php endforeach; ?>
+                        <?php wp_nonce_field('deepglot_url_sync_start'); ?>
+                        <button type="submit" class="dg-btn-primary"><?php esc_html_e('Vorschau bestätigen und Synchronisierung starten', 'deepglot'); ?></button>
+                    </form>
+                <?php else : ?>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="deepglot_url_sync_preview" />
+                        <input type="hidden" name="source_offset" value="<?php echo esc_attr((string) $nextSourceOffset); ?>" />
+                        <?php wp_nonce_field('deepglot_url_sync_preview'); ?>
+                        <div class="dg-field">
+                            <label><?php esc_html_e('Zielsprachen', 'deepglot'); ?></label>
+                            <div class="dg-lang-row">
+                                <?php foreach ($this->options->getTargetLanguages() as $language) : ?>
+                                    <label>
+                                        <input type="checkbox" name="target_languages[]" value="<?php echo esc_attr($language); ?>" checked />
+                                        <?php echo esc_html(strtoupper($language)); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="dg-field">
+                            <label for="dg_sync_max_urls"><?php esc_html_e('Maximale Anzahl Zielseiten', 'deepglot'); ?></label>
+                            <input id="dg_sync_max_urls" type="number" name="max_urls" min="1" max="<?php echo esc_attr((string) UrlTranslationSync::MAX_URLS); ?>" value="100" />
+                            <p class="description"><?php esc_html_e('Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch.', 'deepglot'); ?></p>
+                        </div>
+                        <button type="submit" class="dg-btn-primary">
+                            <?php echo esc_html($nextSourceOffset > 0
+                                ? __('Nächsten URL-Batch als Vorschau laden', 'deepglot')
+                                : __('URL-Vorschau erstellen', 'deepglot')); ?>
+                        </button>
+                    </form>
+                <?php endif; ?>
+            <?php else : ?>
+                <div class="dg-actions">
+                    <a class="dg-btn-outline" href="<?php echo esc_url(admin_url('options-general.php?page=deepglot#deepglot-url-sync')); ?>"><?php esc_html_e('Status aktualisieren', 'deepglot'); ?></a>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="deepglot_url_sync_control" />
+                        <input type="hidden" name="sync_action" value="<?php echo esc_attr($paused ? 'resume' : 'pause'); ?>" />
+                        <?php wp_nonce_field('deepglot_url_sync_control'); ?>
+                        <button type="submit" class="dg-btn-outline"><?php echo esc_html($paused ? __('Fortsetzen', 'deepglot') : __('Pausieren', 'deepglot')); ?></button>
+                    </form>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="deepglot_url_sync_control" />
+                        <input type="hidden" name="sync_action" value="cancel" />
+                        <?php wp_nonce_field('deepglot_url_sync_control'); ?>
+                        <button
+                            type="submit"
+                            class="dg-btn-outline"
+                            onclick="return window.confirm('<?php echo esc_js(__('Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten.', 'deepglot')); ?>');"
+                        ><?php esc_html_e('Abbrechen', 'deepglot'); ?></button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </section>
         <?php
     }
 

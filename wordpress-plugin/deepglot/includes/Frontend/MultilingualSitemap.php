@@ -116,10 +116,14 @@ class MultilingualSitemap
     /**
      * Collect public source URLs from WordPress itself.
      *
+     * @param int|null $limit Optional bounded snapshot size for background URL synchronization.
      * @return array<int,array{loc:string,lastmod?:string}>
      */
-    public function collectSourceEntries(): array
+    public function collectSourceEntries(?int $limit = null): array
     {
+        $limit = $limit === null
+            ? self::MAX_ENTRIES
+            : max(1, min(self::MAX_ENTRIES, $limit));
         $entries = [];
 
         $this->appendEntry($entries, home_url('/'));
@@ -129,14 +133,14 @@ class MultilingualSitemap
             : [];
 
         foreach ($postTypes as $postType) {
-            if ((string) $postType === 'attachment' || count($entries) >= self::MAX_ENTRIES) {
+            if ((string) $postType === 'attachment' || count($entries) >= $limit) {
                 continue;
             }
 
             $postIds = get_posts([
                 'post_type' => (string) $postType,
                 'post_status' => 'publish',
-                'numberposts' => self::MAX_ENTRIES,
+                'numberposts' => $limit,
                 'fields' => 'ids',
                 'orderby' => 'ID',
                 'order' => 'ASC',
@@ -150,13 +154,13 @@ class MultilingualSitemap
                     : '';
                 $this->appendEntry($entries, (string) get_permalink($postId), $lastmod);
 
-                if (count($entries) >= self::MAX_ENTRIES) {
+                if (count($entries) >= $limit) {
                     break 2;
                 }
             }
         }
 
-        if (count($entries) < self::MAX_ENTRIES) {
+        if (count($entries) < $limit) {
             $taxonomies = function_exists('get_taxonomies')
                 ? (array) get_taxonomies(['public' => true], 'names')
                 : [];
@@ -178,7 +182,7 @@ class MultilingualSitemap
                         $this->appendEntry($entries, (string) $termLink);
                     }
 
-                    if (count($entries) >= self::MAX_ENTRIES) {
+                    if (count($entries) >= $limit) {
                         break 2;
                     }
                 }
@@ -199,7 +203,7 @@ class MultilingualSitemap
                 $validated[$normalized['loc']] = $normalized;
             }
 
-            if (count($validated) >= self::MAX_ENTRIES) {
+            if (count($validated) >= $limit) {
                 break;
             }
         }

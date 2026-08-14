@@ -7,6 +7,7 @@ use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
+use Deepglot\Support\UrlTranslationSync;
 use Deepglot\Support\UrlLanguageResolver;
 
 /**
@@ -39,6 +40,7 @@ class OutputBuffer
     private HreflangInjector $hreflangInjector;
     private RequestRouter $router;
     private SiteRouting $routing;
+    private ?UrlTranslationSync $urlSync;
 
     public function __construct(
         Options $options,
@@ -47,7 +49,8 @@ class OutputBuffer
         LinkRewriter $linkRewriter,
         HreflangInjector $hreflangInjector,
         RequestRouter $router,
-        SiteRouting $routing
+        SiteRouting $routing,
+        ?UrlTranslationSync $urlSync = null
     ) {
         $this->options          = $options;
         $this->resolver         = $resolver;
@@ -56,6 +59,7 @@ class OutputBuffer
         $this->hreflangInjector = $hreflangInjector;
         $this->router           = $router;
         $this->routing          = $routing;
+        $this->urlSync          = $urlSync;
     }
 
     public function register(): void
@@ -78,7 +82,10 @@ class OutputBuffer
             return;
         }
 
-        if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
+        // RequestRouter has already rewritten a localized slug to its source
+        // path. Exclusions are configured against that canonical source URL;
+        // the localized public URL is reserved for analytics and cache purges.
+        if ($this->options->isUrlExcluded($this->sourceRequestUrl())) {
             return;
         }
 
@@ -118,6 +125,8 @@ class OutputBuffer
         } else {
             $html = $this->translator->translate($html, $targetLanguage, $requestUrl, $bot);
         }
+
+        $this->emitUrlSyncDiagnostics($targetLanguage);
 
         // Steps 2 + 3 need the DOM, so load once.
         $doc = $this->loadDocument($html);
@@ -192,7 +201,9 @@ class OutputBuffer
             return $translatedHtml;
         }
 
-        return is_string($filteredHtml) ? $filteredHtml : $translatedHtml;
+        return is_string($filteredHtml) && trim($filteredHtml) !== ''
+            ? $filteredHtml
+            : $translatedHtml;
     }
 
     /**
@@ -468,13 +479,68 @@ class OutputBuffer
 
     private function currentRequestUrl(): string
     {
+        $originalUri = $this->router->getOriginalRequestUri();
         $uri = RequestInput::server('REQUEST_URI', '/');
+        $targetLanguage = $this->detectTargetLanguage();
+
+        // RequestRouter has already reduced a localized request to its
+        // canonical source path by the time the output buffer runs. Rebuild
+        // the public localized URL so analytics and background cache purges
+        // follow the page the visitor actually requested.
+        if ($targetLanguage !== null) {
+            return $this->routing->buildUrlForLanguage($uri, $targetLanguage);
+        }
+
+        return $this->sourceRequestUrl();
+    }
+
+    private function sourceRequestUrl(): string
+    {
+        $uri = RequestInput::server('REQUEST_URI', '/');
+
+        if (
+            $this->urlSync !== null
+            && $this->urlSync->isCurrentRequest($originalUri)
+        ) {
+            $uri = $this->urlSync->stripQueryArg($originalUri ?? $uri);
+        }
 
         if (function_exists('home_url')) {
             return home_url($uri);
         }
 
         return $uri;
+    }
+
+    /**
+     * A controlled sync must distinguish a fully warm page from an HTTP 200
+     * that still contains source-language fallbacks. These headers are only
+     * emitted for the current signed job token and the response is never
+     * reusable as a public full-page-cache object.
+     */
+    private function emitUrlSyncDiagnostics(string $targetLanguage): void
+    {
+        if (
+            $this->urlSync === null
+            || !$this->urlSync->isCurrentRequest($this->router->getOriginalRequestUri())
+        ) {
+            return;
+        }
+
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+
+        if (headers_sent()) {
+            return;
+        }
+
+        header('X-Deepglot-Sync: 1');
+        header('X-Deepglot-Sync-Language: ' . $targetLanguage);
+        header(
+            'X-Deepglot-Sync-Pending-Segments: '
+            . $this->translator->getLastPendingSegmentCount()
+        );
     }
 
     /**

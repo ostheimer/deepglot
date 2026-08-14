@@ -1,6 +1,18 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.11.7**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list. v0.11.7 exposes a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds; v0.11.6 splits content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings. Publishing this package does not automatically install or update the plugin on customer sites.
+This directory contains the Deepglot WordPress plugin (**v0.12.1**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+
+v0.12.1 assigns a new public asset version to the Retry-After behavior introduced after v0.12.0, so WordPress and intermediary caches cannot keep serving the older dynamic translator. It also corrects stale same-host HTTP targets to HTTPS during URL-sync preview when WordPress recognizes the current request as HTTPS, without copying an untrusted request host or dropping semantic query parameters and fragments. This repository state prepares the package only; it is not evidence of a tag, WordPress.org publication, customer installation, or live acceptance.
+
+v0.12.0 stops ordinary page renders from waiting on fresh translations: uncached or failed segments enter a bounded background WP-Cron queue, and supported full-page caches are purged after the local translation cache is warm. Administrators can preview and confirm an immutable batch of up to 250 safe internal sitemap URLs from `Settings → Deepglot`; the job can be monitored, paused, resumed, cancelled, or retried for failed URLs and is not a permanent crawler. The first cold view can show source content; a later view converges after cron succeeds. Once a queue mutation and immediately due event are durable, Deepglot makes at most one non-blocking WP-Cron nudge in that request. It respects `DISABLE_WP_CRON` and active cron contexts, so system-cron sites and cron runs never receive a recursive loopback. The warmer retains the localized public request URL even after request routing rewrites the path internally. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually; WP Super Cache is global and waits until the tracked queue has fully drained so pending pages stay cached. A completed URL-sync job still requires a query-free public target-language check, and unsupported full-page caches may need a manual purge. Visual-editor previews and WooCommerce HTML emails remain synchronous because they cannot converge on a later page request. Sites on a fast provider can translate ordinary pages inline again via `deepglot_max_sync_batches`.
+
+When every attempted SaaS provider returns only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can recover both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra split path.
+
+When the SaaS returns HTTP 429, the client normalizes `Retry-After` delta seconds or strict RFC HTTP dates to a backoff between one second and one hour (60 seconds for a missing, relative, or invalid value). A first 429 stops later sequential batches; parallel responses already in flight retain their own classification and the browser keeps the longest delay. An active 429 marker locally stops synchronous visual-editor and WooCommerce email calls and already-due warmer runs until `retry_at`. Only translation 429 responses set the active marker; configuration and synchronization 429 responses do not. The marker and warmer backoff are bound to the API key and backend. Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations. The warmer schedules queued work after that delay, while the dynamic browser layer does not immediately retry failed visitor-facing work. Cached translations remain available and other content stays in the source language until a later attempt succeeds.
+
+A permanent `422 velocity_request_too_large` means one request cannot fit the hourly policy even in an empty window. The WordPress warmer automatically splits a multi-text 422 batch under its existing six-batch run budget. Every 422 batch shape is tracked for up to one hour by a configuration-bound HMAC fingerprint to drive bounded splitting; only a text that still returns 422 alone is blocked from automatic resend. The marker stores no raw translation text, API key, or URL. Normal following batches continue, and an API key or backend change heals the marker immediately. The plugin keeps source language content available and does not schedule an automatic timer retry for that singleton response. API requests and PDFs must still be split into smaller inputs by clients.
+
+v0.11.7 exposes a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds; v0.11.6 splits content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings. Publishing this package does not automatically install or update the plugin on customer sites.
 
 ## Author
 
@@ -49,7 +61,7 @@ The plugin ships a complete translation pipeline:
 - Admin configuration under `Settings → Deepglot` (API, languages, switcher, exclusions, members).
 - `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
 - `LinkRewriter` rewrites internal links; SaaS-managed translated URL-slug mappings are applied and reversed for path-prefix and subdomain routing; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
-- A WordPress-transient translation cache, batched + parallel API requests, and path-prefix / subdomain routing.
+- A WordPress-transient translation cache, bounded background cache warming, batched + parallel API requests, and path-prefix / subdomain routing. Queue claims are atomic, partial responses stay queued, and supported full-page caches are purged after a page finishes warming.
 - Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
 - WooCommerce email translation and browser-language redirect.
 - AMP translation is controlled by the `translate_amp` option: when disabled,
@@ -61,6 +73,23 @@ The plugin ships a complete translation pipeline:
   source, active target-language, and `x-default` alternates. Generated URLs
   follow path-prefix or configured subdomain routing; translation exclusions
   and external URLs are rejected before XML serialization.
+- An administrator-triggered URL synchronization previews and confirms an
+  immutable batch of up to 250 safe internal sitemap entries, opens at most
+  two target pages per cron run,
+  and feeds their missing segments into the existing translation warmer. It
+  respects queue backpressure, retries transient failures, pauses on exhausted
+  quota or an invalid API key, backs off on API rate limits, and exposes
+  status/pause/resume/cancel/failed-only-retry controls in wp-admin and the
+  authenticated `/wp-json/deepglot/v1/url-sync` routes. Large sites continue
+  through explicit source-offset batches instead of one oversized option row.
+  If WordPress recognizes a safe HTTPS request on the same host as an internal
+  target still stored with HTTP, the preview changes only that target's scheme
+  to HTTPS. Semantic query parameters and fragments are preserved. The request
+  host is used only for the same-host check and is never copied; genuine
+  redirects remain failures.
+  A completed job confirms that the origin queue has drained; operators must
+  still purge unsupported full-page caches and verify a query-free public
+  target-language response.
 - An opt-in client-side translator for content loaded after page render (see below).
 - WP Rocket compatibility: `switcher.css` and the switcher's inline `<style>`
   blocks are excluded from "Remove Unused CSS" and minification
@@ -86,8 +115,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.11.7 this creates `deepglot-0.11.7.zip` and
-`deepglot-0.11.7.zip.sha256`. Build the same commit into two empty output
+For v0.12.1 this creates `deepglot-0.12.1.zip` and
+`deepglot-0.12.1.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test

@@ -1,7 +1,9 @@
 // DeepL translation provider
 
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
+  providerAbortSignal,
   type TranslateTextsInput,
   type TranslationEnv,
   type TranslationResult,
@@ -20,7 +22,8 @@ export type DeepLLanguage = {
  */
 export async function translateWithDeepL(
   { texts, sourceLang, targetLang }: TranslateTextsInput,
-  env: TranslationEnv = process.env
+  env: TranslationEnv = process.env,
+  signal: AbortSignal = providerAbortSignal(env)
 ): Promise<TranslationResult[]> {
   const apiKey = env.DEEPL_API_KEY;
   if (!apiKey) throw new Error("DEEPL_API_KEY nicht konfiguriert");
@@ -41,6 +44,7 @@ export async function translateWithDeepL(
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: params.toString(),
+    signal,
   });
 
   if (!response.ok) {
@@ -71,8 +75,10 @@ export async function translateWithDeepL(
   }
 
   if (translations.length !== texts.length) {
-    throw new TranslationProviderResponseError(
-      `DeepL returned ${translations.length} instead of ${texts.length} translations.`
+    throw new TranslationProviderCountMismatchError(
+      `DeepL returned ${translations.length} instead of ${texts.length} translations.`,
+      texts.length,
+      translations.length
     );
   }
 

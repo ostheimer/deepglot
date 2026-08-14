@@ -28,21 +28,42 @@ import {
   consumeRateLimit,
   consumeTranslateWordVelocity,
   getRateLimitConfig,
-  getTranslateWordVelocityLimit,
+  getTranslateWordVelocityPolicy,
+  reportTranslateVelocityOutcome,
   releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
+  API_IDEMPOTENCY_RETENTION_MS,
   PrismaApiIdempotencyStore,
   executeIdempotently,
+  reportApiIdempotencyReplay,
   validateApiIdempotencyKey,
   type StoredApiResponse,
 } from "@/lib/api-idempotency";
 import { findOrganizationTranslationMemory } from "@/lib/translation-memory";
 import { resetTranslationWorkflowAfterContentEdit } from "@/lib/translation-workflow";
+import {
+  assertPostgresTextFields,
+  inspectPostgresText,
+  reportPostgresTextRejection,
+} from "@/lib/postgres-text";
 
 export const runtime = "nodejs";
+
+/**
+ * Fresh translations are provider-bound work: even chunked and parallelized
+ * (see `resolveTranslationChunking`) a large page takes several seconds, and a
+ * failover to the next provider doubles that.
+ *
+ * Pinned rather than left to the platform default, which was high enough that
+ * three requests in 24h burned a full 300s on a hung upstream. 120s is sized
+ * from the parts: a chunk needs ~16s, `DEFAULT_PROVIDER_TIMEOUT_MS` caps one
+ * provider call at 45s, and a chain is primary + fallback — so a worst-case
+ * hang-then-recover still finishes here, while a runaway dies 2.5x sooner.
+ */
+export const maxDuration = 120;
 
 // WordType - same values as the legacy translation contract for drop-in compatibility
 export const WordType = {
@@ -186,9 +207,36 @@ async function executeAuthenticatedTranslateRequest(
       validationErrors.l_to = ["Erforderlich"];
     }
 
+    const rejectNul = (value: unknown, field: string, index?: number) => {
+      if (typeof value !== "string") return;
+      const error = inspectPostgresText(value, {
+        boundary: "translate_api_input",
+        field,
+        ...(index === undefined ? {} : { index }),
+      });
+      if (!error) return;
+
+      reportPostgresTextRejection(error);
+      validationErrors[field] = [
+        "NUL-Zeichen (U+0000) sind in Übersetzungstexten nicht erlaubt.",
+      ];
+    };
+
+    if (Array.isArray(words)) {
+      words.forEach((word, index) => {
+        if (word && typeof word === "object") {
+          rejectNul((word as { w?: unknown }).w, `words.${index}.w`, index);
+        }
+      });
+    }
+    rejectNul(l_from, "l_from");
+    rejectNul(l_to, "l_to");
+    rejectNul(request_url, "request_url");
+    rejectNul(title, "title");
+
     if (Object.keys(validationErrors).length > 0) {
       return validationProblem({
-        detail: "Pflichtfelder fehlen oder sind ungültig: words, l_from, l_to",
+        detail: "Der Request enthält fehlende oder ungültige Felder.",
         instance: "/api/translate",
         errors: validationErrors,
       });
@@ -399,23 +447,56 @@ async function executeAuthenticatedTranslateRequest(
     let velocityReservation: { organizationId: string; words: number } | null =
       null;
     if (!isBot && translatedWords > 0) {
+      const velocityPolicy = getTranslateWordVelocityPolicy(wordsLimit);
       const velocity = await consumeTranslateWordVelocity({
         organizationId: project.organizationId,
         words: translatedWords,
-        limit: getTranslateWordVelocityLimit(wordsLimit),
+        limit: velocityPolicy.limit,
+      });
+      reportTranslateVelocityOutcome({
+        result: velocity,
+        freshWords: translatedWords,
+        limitSource: velocityPolicy.source,
+        actorClass: "human",
+        surface: "translate_api",
+        itemCount: pendingTranslations.length,
+        retryProtection: req.headers.has("Idempotency-Key")
+          ? "idempotency_key"
+          : "none",
+        organizationId: project.organizationId,
+        projectId: project.id,
+        requestFingerprintInput: JSON.stringify([
+          l_from,
+          l_to,
+          request_url,
+          pendingTranslations.map((item) => texts[item.index]),
+        ]),
       });
 
       if (!velocity.allowed) {
-        return apiProblem({
-          status: 429,
-          title: "Translation velocity limited",
-          detail:
-            "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
-          code: "velocity_limited",
-          instance: "/api/translate",
-          extensions: { retry_after: velocity.retryAfterSeconds },
-          headers: buildRateLimitHeaders(velocity),
-        });
+        if (velocity.outcome === "oversize") {
+          return apiProblem({
+            status: 422,
+            title: "Translation request too large",
+            detail:
+              "Diese einzelne Anfrage überschreitet das vollständige Wortgeschwindigkeitslimit und muss in kleinere Anfragen geteilt werden.",
+            code: "velocity_request_too_large",
+            instance: "/api/translate",
+          });
+        }
+
+        if (velocity.outcome === "blocked") {
+          return apiProblem({
+            status: 429,
+            title: "Translation velocity limited",
+            detail:
+              "Übersetzungs-Geschwindigkeitslimit erreicht. Bitte in Kürze erneut versuchen.",
+            code: "velocity_limited",
+            instance: "/api/translate",
+            extensions: { retry_after: velocity.retryAfterSeconds },
+            headers: buildRateLimitHeaders(velocity),
+          });
+        }
       }
 
       velocityReservation = {
@@ -478,6 +559,19 @@ async function executeAuthenticatedTranslateRequest(
               const translated = restoreGlossaryTerms(
                 results[resultIndex].text,
                 item.protection,
+              );
+
+              assertPostgresTextFields(
+                {
+                  originalText: texts[item.index],
+                  translatedText: translated,
+                  langFrom: l_from,
+                  langTo: l_to,
+                },
+                {
+                  boundary: "translation_persistence",
+                  index: item.index,
+                },
               );
 
               translatedTexts[item.index] = translated;
@@ -679,6 +773,19 @@ async function executeAuthenticatedTranslateRequest(
 
 const translateIdempotencyStore = new PrismaApiIdempotencyStore();
 
+function translateIdempotencyResponseRetentionMs(response: StoredApiResponse) {
+  if (response.status !== 429) {
+    return API_IDEMPOTENCY_RETENTION_MS;
+  }
+
+  const parsedRetryAfter = Number(response.headers["retry-after"]);
+  const retryAfterSeconds =
+    Number.isInteger(parsedRetryAfter) && parsedRetryAfter > 0
+      ? Math.min(parsedRetryAfter, 3_600)
+      : 60;
+  return retryAfterSeconds * 1_000;
+}
+
 async function captureApiResponse(response: NextResponse): Promise<StoredApiResponse> {
   const text = await response.text();
   const contentType = response.headers.get("content-type") ?? "";
@@ -773,11 +880,14 @@ export async function POST(req: NextRequest) {
     // The atomic claim happens before request rate limits, cache analytics,
     // quota/velocity reservations, provider calls, usage, or webhooks. Only the
     // winning request executes that complete side-effect pipeline.
+    const idempotencyScope = `${apiKeyRecord.id}:POST:/api/translate`;
     const result = await executeIdempotently({
-      scope: `${apiKeyRecord.id}:POST:/api/translate`,
+      scope: idempotencyScope,
       key: idempotencyKey,
       requestBody: parsedBody,
       store: translateIdempotencyStore,
+      responseRetentionMs: translateIdempotencyResponseRetentionMs,
+      // Retry-After bounds replay retention for transient 429 responses.
       execute: async () =>
         captureApiResponse(
           await executeAuthenticatedTranslateRequest(
@@ -796,6 +906,15 @@ export async function POST(req: NextRequest) {
           "Dieser Idempotency-Key wurde bereits mit einem anderen Request-Body verwendet.",
         code: "idempotency_conflict",
         instance: "/api/translate",
+      });
+    }
+
+    if (result.kind === "replayed") {
+      reportApiIdempotencyReplay({
+        scope: idempotencyScope,
+        key: idempotencyKey,
+        response: result.response,
+        retentionMs: translateIdempotencyResponseRetentionMs(result.response),
       });
     }
 

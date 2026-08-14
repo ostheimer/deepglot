@@ -176,7 +176,7 @@ class DynamicTranslationController
      * @param  bool              $allowApi  When false (no valid nonce/ticket) only
      *                                      cached translations are returned.
      * @param  string            $quotaTicket  Per-page ticket for fresh-word budget.
-     * @return array{from_words: string[], to_words: string[], quota_exhausted?: bool}
+     * @return array{from_words: string[], to_words: string[], quota_exhausted?: bool, retry_after?: int}
      */
     public function translateTexts(array $texts, string $langTo, bool $allowApi, string $quotaTicket = ''): array
     {
@@ -211,6 +211,7 @@ class DynamicTranslationController
 
         $fresh = [];
         $quotaExhausted = false;
+        $retryAfter = 0;
 
         if ($allowApi && !empty($missing)) {
             // Budgets are denominated in words (what the SaaS bills), not
@@ -243,6 +244,14 @@ class DynamicTranslationController
                         // browser client stops retrying for this session. Cached
                         // translations below still serve.
                         $quotaExhausted = true;
+                    } elseif (is_array($errorData) && (int) ($errorData['status'] ?? 0) === 429) {
+                        // Forward only the client's normalized, bounded delay.
+                        // The browser queue suppresses new dynamic requests
+                        // during this window; it never receives raw headers.
+                        $retryAfter = max(1, min(
+                            Client::MAX_RATE_LIMIT_BACKOFF,
+                            (int) ($errorData['retry_after'] ?? Client::DEFAULT_RATE_LIMIT_BACKOFF)
+                        ));
                     }
                 } elseif (
                     is_array($response)
@@ -288,6 +297,10 @@ class DynamicTranslationController
 
         if ($quotaExhausted) {
             $result['quota_exhausted'] = true;
+        }
+
+        if ($retryAfter > 0) {
+            $result['retry_after'] = $retryAfter;
         }
 
         return $result;

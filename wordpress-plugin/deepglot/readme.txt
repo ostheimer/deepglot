@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.11.7
+Stable tag: 0.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -19,6 +19,7 @@ Deepglot translates rendered WordPress pages through the Deepglot translation AP
 * Adds canonical and `hreflang` tags plus a multilingual sitemap.
 * Provides shortcode, block, widget, nav-menu, and automatic language switchers.
 * Caches translations locally and serves cached translations to crawlers without spending quota.
+* Lets administrators synchronize a bounded sitemap URL snapshot through the existing background translation queue.
 * Optionally translates dynamically loaded content through a same-origin WordPress REST endpoint.
 
 Development source and release build instructions are available at https://github.com/ostheimer/deepglot.
@@ -44,11 +45,27 @@ No. Translation happens on rendered output. Source content remains in the origin
 
 Cached translations remain available. Uncached content falls back to the source language, and administrators see a quota notice.
 
+= What happens when Deepglot returns HTTP 429? =
+
+The plugin respects Retry-After as delta seconds or a strict RFC HTTP date, using a bounded delay of one second to one hour and a 60-second fallback for missing, relative, or invalid values. The first 429 stops the remaining sequential batches; parallel batches already in flight keep their own responses and the browser keeps the longest delay. An active 429 marker locally stops synchronous visual-editor and WooCommerce email calls and already-due warmer runs until `retry_at`. Only translation 429 responses set the active marker; configuration and synchronization 429 responses do not. The marker and warmer backoff are bound to the API key and backend. Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations. Background warming waits for the bounded delay, and dynamic visitor requests are not immediately retried. Cached translations remain available while uncached content stays in the source language.
+
+A permanent `422 velocity_request_too_large` means one request cannot fit the hourly policy even in an empty window. The WordPress warmer automatically splits a multi-text 422 batch under its existing six-batch run budget. Every 422 batch shape is tracked for up to one hour by a configuration-bound HMAC fingerprint to drive bounded splitting; only a text that still returns 422 alone is blocked from automatic resend. The marker stores no raw translation text, API key, or URL. Normal following batches continue, and an API key or backend change heals the marker immediately. The plugin keeps source language content available and does not schedule an automatic timer retry for that singleton response. API requests and PDFs must still be split into smaller inputs by clients.
+
+= Why can the first translated page view still show the source language? =
+
+Since version 0.12.0, ordinary page requests do not wait for a slow translation provider. The first view queues uncached text for an immediately due WP-Cron job and, once both are stored, makes one non-blocking WP-Cron nudge in the same request. The nudge is skipped for DISABLE_WP_CRON and while cron is already running. After the job succeeds, Deepglot stores the translations locally and purges completed URLs in WP Rocket, W3 Total Cache, and LiteSpeed Cache. Because WP Super Cache exposes only a global purge, Deepglot waits until the tracked queue is empty so pending pages stay cached. If later views remain in the source language, verify that WP-Cron or the host's system cron is running and purge any other page-cache plugin manually.
+
+When every attempted SaaS provider returns only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can recover both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra split path.
+
+= How do I translate existing pages without opening every URL? =
+
+Under `Settings -> Deepglot`, create a URL preview with a small limit and the required target languages, review the sample URLs, and explicitly confirm the immutable snapshot. When WordPress recognizes a safe HTTPS request on the same host as an internal target still stored with HTTP, the preview changes only that target's scheme to HTTPS; semantic query parameters and fragments are preserved. It never copies a foreign request host, and genuine redirects remain failures. One batch contains at most 250 safe internal entries from the multilingual sitemap and opens at most two target pages per cron run. The job reports aggregate progress and can be paused, resumed, cancelled, or retried for failed URLs. It pauses when the quota is exhausted or the API key is invalid and automatically backs off on API rate limits. Continue large sites with the next bounded batch. This is an explicit administrator action, not a permanent crawler.
+
 == External services ==
 
 By default, this plugin connects to the Deepglot service at `https://deepglot.ai/api/`. A compatible self-hosted API base URL can be selected in the settings.
 
-For translation requests, the plugin sends the configured API key, text fragments from rendered pages, source and target language codes, the requested page URL, and a bot-classification code. It sends these requests when uncached content needs translation or when an administrator tests the connection. Dynamic translation requests first pass through the site's same-origin WordPress REST endpoint, so the API key is not exposed to browsers.
+For translation requests, the plugin sends the configured API key, text fragments from rendered pages, source and target language codes, the requested page URL, and a bot-classification code. It sends these requests when uncached content needs translation, when an administrator starts URL synchronization, or when an administrator tests the connection. URL synchronization first requests safe internal target pages on the same WordPress site; those pages feed missing segments into the normal translation queue. Dynamic translation requests first pass through the site's same-origin WordPress REST endpoint, so the API key is not exposed to browsers.
 
 Settings synchronization sends the configured API key, site URL, routing mode, source and target languages, domain mappings, and the feature flags for automatic redirect, email translation, search translation, AMP translation, and dynamic translation.
 
@@ -62,6 +79,18 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.1 =
+* Assigned a new public asset version to the Retry-After-aware dynamic translator so WordPress and intermediary caches do not keep serving the older browser behavior.
+* Preserved bounded Retry-After signals on HTTP 429, stopped later sequential batches, and delayed warm and dynamic follow-up requests instead of immediately retrying.
+* Corrected stale same-host HTTP targets to HTTPS during URL-sync preview when WordPress recognizes the current request as HTTPS, while preserving semantic query parameters and fragments and never copying a foreign request host.
+
+= 0.12.0 =
+* Ordinary page rendering no longer waits for fresh translations. Uncached segments are translated by a background job, so the first cold view is fast and later views converge after WP-Cron succeeds.
+* Added bounded, atomically locked background cache warming. Failed and partial results remain queued, and supported full-page caches are purged after warming completes.
+* Added administrator-triggered URL synchronization from a bounded internal sitemap snapshot, with progress, pause, resume, cancel, backpressure, retry, quota, and invalid-key controls.
+* Kept visual-editor previews and WooCommerce HTML emails synchronous because those one-off outputs cannot converge on a later page request.
+* Added the `deepglot_max_sync_batches` filter to translate inline again on fast providers, and `deepglot_api_timeout` to tune the request budget.
 
 = 0.11.7 =
 * Added a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds.
@@ -113,6 +142,12 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.1 =
+Refreshes the dynamic translator asset for bounded Retry-After handling and corrects safe same-host HTTPS URL-sync previews. Preparing or publishing the package does not update customer sites automatically.
+
+= 0.12.0 =
+Moves fresh translations off the page render into a background job, so cold pages load fast instead of waiting for the translation API. Requires PHP 8.0 or newer.
 
 = 0.11.7 =
 Allows trusted site-specific callbacks to localize media embeds after the full translation pipeline. Requires PHP 8.0 or newer.

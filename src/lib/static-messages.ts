@@ -688,6 +688,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Served from the local translation cache": "Сервира се от локалния кеш за превод",
+    "Fast pages, local translation cache": "Бързи страници, локален кеш за превод",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Студените страници се изобразяват, без да се чака доставчик на AI. Deepglot превежда липсващото съдържание във фонов режим, съхранява го локално и изчиства поддържаните кешове на страници, когато е готово.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Доказан подход за изходен буфер за Elementor, WooCommerce, Yoast SEO и други — със синхронен редактор и имейл изход, където повторният опит на заден план не може да помогне.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Месечно)",
     "{count} manual edit": "{count} ръчно редактиране",
@@ -1067,7 +1071,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Човешки преглед",
     "Human Review": "Човешки преглед",
     "Ideas for an open, multilingual web.": "Идеи за отворена, многоезична мрежа.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key не е задължителен. Повтарянето на същото тяло и ключ в рамките на 24 часа възпроизвежда първия отговор без повтаряне на странични ефекти; различно тяло връща 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Ако съществува акаунт за този имейл адрес, ще изпратим линк за нулиране.",
     "Import": "Импортиране",
     "Import & export": "Импортиране и експортиране",
@@ -1635,6 +1639,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Served from the local translation cache": "Poslužuje se iz lokalne predmemorije prijevoda",
+    "Fast pages, local translation cache": "Brze stranice, predmemorija lokalnog prijevoda",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Hladne stranice renderiraju se bez čekanja na pružatelja umjetne inteligencije. Deepglot prevodi sadržaj koji nedostaje u pozadini, pohranjuje ga lokalno i čisti podržane predmemorije stranica kada je spreman.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Dokazani pristup izlaznog međuspremnika za Elementor, WooCommerce, Yoast SEO i više — sa sinkronim uređivačem i izlazom e-pošte gdje ponovni pokušaj u pozadini ne može pomoći.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mjesečno)",
     "{count} manual edit": "{count} ručno uređivanje",
@@ -2014,7 +2022,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Ljudski pregled",
     "Human Review": "Ljudski pregled",
     "Ideas for an open, multilingual web.": "Ideje za otvoreni, višejezični web.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key nije obavezan. Ponavljanje istog tijela i ključa unutar 24 sata reproducira prvi odgovor bez ponavljanja nuspojava; drugo tijelo vraća 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Ako postoji račun za ovu adresu e-pošte, poslat ćemo vam vezu za ponovno postavljanje.",
     "Import": "uvoz",
     "Import & export": "Uvoz i izvoz",
@@ -2582,6 +2590,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Served from the local translation cache": "Obsluhováno z místní překladové mezipaměti",
+    "Fast pages, local translation cache": "Rychlé stránky, místní překladová mezipaměť",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Studené stránky se vykreslují bez čekání na poskytovatele AI. Deepglot přeloží chybějící obsah na pozadí, uloží jej lokálně a vyčistí podporované mezipaměti stránek, když je připraven.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Osvědčený přístup k vyrovnávací paměti pro Elementor, WooCommerce, Yoast SEO a další – se synchronním editorem a e-mailovým výstupem, kde opakování na pozadí nepomůže.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(měsíčně)",
     "{count} manual edit": "{count} ruční úprava",
@@ -2961,7 +2973,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Lidská recenze",
     "Human Review": "Human Review",
     "Ideas for an open, multilingual web.": "Nápady pro otevřený, vícejazyčný web.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key je volitelný. Opakování stejného těla a klíče do 24 hodin přehraje první odpověď bez opakování vedlejších účinků; jiné tělo vrátí 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Pokud pro tuto e-mailovou adresu existuje účet, zašleme odkaz pro obnovení.",
     "Import": "Importovat",
     "Import & export": "Import a export",
@@ -3529,6 +3541,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Served from the local translation cache": "Serveres fra den lokale oversættelsescache",
+    "Fast pages, local translation cache": "Hurtige sider, lokal oversættelsescache",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Kolde sider gengives uden at vente på en AI-udbyder. Deepglot oversætter manglende indhold i baggrunden, gemmer det lokalt og sletter understøttede sidecaches, når det er klar.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "En gennemprøvet output-buffer-tilgang til Elementor, WooCommerce, Yoast SEO og mere – med synkron editor og e-mail-output, hvor et genforsøg i baggrunden ikke kan hjælpe.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Månedligt)",
     "{count} manual edit": "{count} manuel redigering",
@@ -3908,7 +3924,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Menneskelig gennemgang",
     "Human Review": "Menneskelig gennemgang",
     "Ideas for an open, multilingual web.": "Idéer til et åbent, flersproget web.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key er valgfri. Gentagelse af den samme krop og tast inden for 24 timer afspiller det første svar uden at gentage bivirkninger; en anden krop returnerer 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Hvis der findes en konto til denne e-mailadresse, sender vi et nulstillingslink.",
     "Import": "Importer",
     "Import & export": "Import & eksport",
@@ -4476,6 +4492,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Served from the local translation cache": "Geserveerd vanuit de lokale vertaalcache",
+    "Fast pages, local translation cache": "Snelle pagina's, lokale vertaalcache",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Koude pagina's worden weergegeven zonder te wachten op een AI-provider. Deepglot vertaalt ontbrekende inhoud op de achtergrond, slaat deze lokaal op en leegt ondersteunde paginacaches wanneer deze gereed zijn.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Een bewezen uitvoerbufferaanpak voor Elementor, WooCommerce, Yoast SEO en meer – met synchrone editor en e-mailuitvoer waarbij een nieuwe poging op de achtergrond niet kan helpen.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Maandelijks)",
     "{count} manual edit": "{count} handmatige bewerking",
@@ -4855,7 +4875,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Menselijke beoordeling",
     "Human Review": "Menselijke beoordeling",
     "Ideas for an open, multilingual web.": "Ideeën voor een open, meertalig web.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotentiesleutel is optioneel. Door hetzelfde lichaam en dezelfde sleutel binnen 24 uur te herhalen, wordt de eerste reactie herhaald zonder herhaalde bijwerkingen; een ander lichaam retourneert 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Als er een account bestaat voor dit e-mailadres, sturen we een resetlink.",
     "Import": "Importeren",
     "Import & export": "Importeren en exporteren",
@@ -5423,6 +5443,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Served from the local translation cache": "Esitatakse kohalikust tõlkevahemälust",
+    "Fast pages, local translation cache": "Kiired lehed, kohalik tõlkevahemälu",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Külmad lehed renderdatakse ilma tehisintellekti pakkujat ootamata. Deepglot tõlgib puuduva sisu taustal, salvestab selle kohapeal ja tühjendab toetatud lehe vahemälu, kui see on valmis.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Tõestatud väljundpuhvri lähenemine Elementorile, WooCommerce'ile, Yoast SEO-le ja teistele – sünkroonse redaktori ja meiliväljundiga, mille puhul taustal uuesti proovimine ei aita.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(igakuine)",
     "{count} manual edit": "{count} käsitsi redigeerimine",
@@ -5802,7 +5826,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Inimlik ülevaade",
     "Human Review": "Human Review",
     "Ideas for an open, multilingual web.": "Ideid avatud mitmekeelse veebi loomiseks.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key on valikuline. Sama keha ja klahvi kordamine 24 tunni jooksul taasesitab esimese vastuse ilma kõrvaltoimeid kordumata; erinev keha tagastab 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Kui selle e-posti aadressi jaoks on konto olemas, saadame lähtestamise lingi.",
     "Import": "Import",
     "Import & export": "Import ja eksport",
@@ -6370,6 +6394,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Served from the local translation cache": "Toimitetaan paikallisesta käännösvälimuistista",
+    "Fast pages, local translation cache": "Nopeat sivut, paikallinen käännösvälimuisti",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Kylmät sivut renderöidään odottamatta tekoälyn tarjoajaa. Deepglot kääntää puuttuvan sisällön taustalla, tallentaa sen paikallisesti ja tyhjentää tuetut sivuvälimuistit, kun se on valmis.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Todistettu tulospuskurilähestymistapa Elementorille, WooCommercelle, Yoast SEO:lle ja muille – synkronisella editorilla ja sähköpostitulosteella, joissa taustalla oleva uudelleenyritys ei auta.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Kuukausittain)",
     "{count} manual edit": "{count} manuaalinen muokkaus",
@@ -6749,7 +6777,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Ihmisten arvostelu",
     "Human Review": "Human Review",
     "Ideas for an open, multilingual web.": "Ideoita avoimeen, monikieliseen verkkoon.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-avain on valinnainen. Saman rungon ja näppäimen toistaminen 24 tunnin sisällä toistaa ensimmäisen vastauksen toistamatta sivuvaikutuksia; eri ruumis palauttaa 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Jos tälle sähköpostiosoitteelle on olemassa tili, lähetämme palautuslinkin.",
     "Import": "Tuo",
     "Import & export": "Tuonti ja vienti",
@@ -7317,6 +7345,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Served from the local translation cache": "Servi à partir du cache de traduction local",
+    "Fast pages, local translation cache": "Pages rapides, cache de traduction local",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Les pages froides s'affichent sans attendre un fournisseur d'IA. Deepglot traduit le contenu manquant en arrière-plan, le stocke localement et purge les caches de pages prises en charge lorsqu'il est prêt.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Une approche éprouvée de tampon de sortie pour Elementor, WooCommerce, Yoast SEO et plus encore – avec un éditeur synchrone et une sortie d'e-mail lorsqu'une nouvelle tentative en arrière-plan ne peut pas aider.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Mensuel)",
     "{count} manual edit": "{count} modification manuelle",
@@ -7696,7 +7728,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Examen humain",
     "Human Review": "Examen humain",
     "Ideas for an open, multilingual web.": "Des idées pour un Web ouvert et multilingue.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key est facultatif. Répéter le même corps et la même touche dans les 24 heures rejoue la première réponse sans répéter les effets secondaires ; un corps différent renvoie 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Si un compte existe pour cette adresse e-mail, nous vous enverrons un lien de réinitialisation.",
     "Import": "Importer",
     "Import & export": "Importer et exporter",
@@ -8264,6 +8296,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Served from the local translation cache": "Σερβίρεται από την τοπική προσωρινή μνήμη μετάφρασης",
+    "Fast pages, local translation cache": "Γρήγορες σελίδες, τοπική προσωρινή μνήμη μετάφρασης",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Οι κρύες σελίδες αποδίδονται χωρίς να περιμένουμε έναν πάροχο τεχνητής νοημοσύνης. Το Deepglot μεταφράζει περιεχόμενο που λείπει στο παρασκήνιο, το αποθηκεύει τοπικά και εκκαθαρίζει τις υποστηριζόμενες κρυφές μνήμες σελίδων όταν είναι έτοιμο.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Μια αποδεδειγμένη προσέγγιση buffer εξόδου για το Elementor, το WooCommerce, το Yoast SEO και άλλα — με σύγχρονο πρόγραμμα επεξεργασίας και έξοδο email όπου η επανάληψη στο παρασκήνιο δεν μπορεί να βοηθήσει.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Μηνιαία)",
     "{count} manual edit": "{count} μη αυτόματη επεξεργασία",
@@ -8643,7 +8679,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Ανθρώπινη αναθεώρηση",
     "Human Review": "Ανθρώπινη Επιθεώρηση",
     "Ideas for an open, multilingual web.": "Ιδέες για έναν ανοιχτό, πολύγλωσσο ιστό.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Το Idempotency-Key είναι προαιρετικό. Η επανάληψη του ίδιου σώματος και κλειδιού εντός 24 ωρών επαναλαμβάνει την πρώτη απάντηση χωρίς επαναλαμβανόμενες παρενέργειες. ένα διαφορετικό σώμα επιστρέφει 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Εάν υπάρχει λογαριασμός για αυτήν τη διεύθυνση email, θα στείλουμε έναν σύνδεσμο επαναφοράς.",
     "Import": "Εισαγωγή",
     "Import & export": "Εισαγωγές & εξαγωγές",
@@ -9211,6 +9247,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Served from the local translation cache": "A helyi fordítási gyorsítótárból szolgálják ki",
+    "Fast pages, local translation cache": "Gyors oldalak, helyi fordítási gyorsítótár",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "A hideg oldalak anélkül jelennek meg, hogy AI-szolgáltatóra várnának. A Deepglot lefordítja a hiányzó tartalmat a háttérben, helyben tárolja, és kiüríti a támogatott oldalgyorsítótárakat, amikor készen áll.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Bevált kimeneti puffer megközelítés az Elementor, a WooCommerce, a Yoast SEO és más rendszerek számára – szinkron szerkesztővel és e-mail kimenettel, ahol a háttérben végzett újrapróbálkozás nem segíthet.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(havonta)",
     "{count} manual edit": "{count} kézi szerkesztés",
@@ -9590,7 +9630,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Emberi áttekintés",
     "Human Review": "Human Review",
     "Ideas for an open, multilingual web.": "Ötletek egy nyitott, többnyelvű webhez.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Az Idempotency-Key opcionális. Ha 24 órán belül megismétli ugyanazt a törzset és kulcsot, akkor az első válasz ismétlődik a mellékhatások megismétlődése nélkül; egy másik test 409-et ad vissza.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Ha ehhez az e-mail címhez létezik fiók, visszaállítási linket küldünk.",
     "Import": "Importálás",
     "Import & export": "Import és export",
@@ -10158,6 +10198,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Served from the local translation cache": "Seirbheáilte ón taisce aistriúcháin áitiúil",
+    "Fast pages, local translation cache": "Leathanaigh tapa, taisce aistriúcháin áitiúil",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Rindreáil leathanaigh fuar gan fanacht le soláthraí AI. Aistríonn Deepglot ábhar atá in easnamh sa chúlra, stórálann sé go háitiúil é, agus glanann sé taisce leathanaigh a dtacaítear leo nuair a bhíonn sé réidh.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Cur chuige maolánach aschuir cruthaithe le haghaidh Elementor, WooCommerce, Yoast SEO agus eile – le heagarthóir sioncronach agus aschur ríomhphoist nuair nach féidir le hathiarracht chúlra cabhrú.",
     "'Wk' w": "‘Wk’ w",
     "(Monthly)": "(míosúil)",
     "{count} manual edit": "{count} eagarthóireacht láimhe",
@@ -10537,7 +10581,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Léirmheas daonna",
     "Human Review": "Léirmheas Daonna",
     "Ideas for an open, multilingual web.": "Smaointe le haghaidh gréasáin oscailte, ilteangach.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Tá Idempotency-Key roghnach. Nuair a dhéantar an comhlacht céanna agus an eochair laistigh de 24 uair an chloig a athdhéanamh, déantar an chéad fhreagra a athdhéanamh gan fo-iarsmaí a athdhéanamh; comhlacht difriúil ar ais 409 .",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Má tá cuntas ann don seoladh ríomhphoist seo, seolfaimid nasc athshocraithe.",
     "Import": "Iompórtáil",
     "Import & export": "Iompórtáil agus easpórtáil",
@@ -11105,6 +11149,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Served from the local translation cache": "Servito dalla cache di traduzione locale",
+    "Fast pages, local translation cache": "Pagine veloci, cache di traduzione locale",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Il rendering delle pagine fredde avviene senza attendere un fornitore di intelligenza artificiale. Deepglot traduce il contenuto mancante in background, lo archivia localmente ed elimina le cache delle pagine supportate quando è pronto.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Un approccio comprovato con buffer di output per Elementor, WooCommerce, Yoast SEO e altro ancora, con editor sincrono e output e-mail dove un nuovo tentativo in background non può essere d'aiuto.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mensile)",
     "{count} manual edit": "{count} modifica manuale",
@@ -11484,7 +11532,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Revisione umana",
     "Human Review": "Revisione umana",
     "Ideas for an open, multilingual web.": "Idee per un web aperto e multilingue.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "La chiave di idepotenza è facoltativa. Ripetendo lo stesso corpo e chiave entro 24 ore si riproduce la prima risposta senza ripetere effetti collaterali; un corpo diverso restituisce 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Se esiste un account per questo indirizzo email, invieremo un collegamento di reimpostazione.",
     "Import": "Importa",
     "Import & export": "Importazione ed esportazione",
@@ -12052,6 +12100,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Served from the local translation cache": "Pasniedz no vietējās tulkošanas kešatmiņas",
+    "Fast pages, local translation cache": "Ātras lapas, vietējā tulkošanas kešatmiņa",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Aukstās lapas tiek renderētas, negaidot AI nodrošinātāju. Deepglot tulko trūkstošo saturu fonā, saglabā to lokāli un iztīra atbalstītās lapu kešatmiņas, kad tas ir gatavs.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Pārbaudīta izvades bufera pieeja Elementor, WooCommerce, Yoast SEO un citām sistēmām — ar sinhronu redaktoru un e-pasta izvadi, kur atkārtots mēģinājums fonā nevar palīdzēt.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Katru mēnesi)",
     "{count} manual edit": "{count} manuāla rediģēšana",
@@ -12431,7 +12483,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Cilvēka apskats",
     "Human Review": "Cilvēka apskats",
     "Ideas for an open, multilingual web.": "Idejas atvērtam, daudzvalodu tīmeklim.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key nav obligāta. Atkārtojot vienu un to pašu pamattekstu un taustiņu 24 stundu laikā, tiek atskaņota pirmā atbilde, neatkārtojot blakusparādības; cits ķermenis atgriež 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Ja šai e-pasta adresei ir konts, mēs nosūtīsim atiestatīšanas saiti.",
     "Import": "Importēt",
     "Import & export": "Importēt un eksportēt",
@@ -12999,6 +13051,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Served from the local translation cache": "Pateikiama iš vietinės vertimo talpyklos",
+    "Fast pages, local translation cache": "Greiti puslapiai, vietinė vertimo talpykla",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Šalti puslapiai pateikiami nelaukiant AI teikėjo. Deepglot išverčia trūkstamą turinį fone, išsaugo jį vietoje ir išvalo palaikomas puslapių talpyklas, kai jis paruoštas.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Patikimas išvesties buferio metodas, skirtas „Elementor“, „WooCommerce“, „Yoast SEO“ ir kitoms sistemoms – su sinchroniniu redaktoriumi ir el. pašto išvestimi, kai pakartotinis bandymas fone nepadės.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(kas mėnesį)",
     "{count} manual edit": "{count} redaguoti rankiniu būdu",
@@ -13378,7 +13434,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Žmogaus apžvalga",
     "Human Review": "Žmogaus apžvalga",
     "Ideas for an open, multilingual web.": "Atviro, daugiakalbio žiniatinklio idėjos.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key yra neprivalomas. Pakartojus tą patį tekstą ir klavišą per 24 valandas, pirmasis atsakas pakartojamas nekartojant šalutinio poveikio; kitoks kūnas grąžina 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Jei yra šio el. pašto adreso paskyra, išsiųsime nuorodą iš naujo.",
     "Import": "Importuoti",
     "Import & export": "Importas ir eksportas",
@@ -13946,6 +14002,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Served from the local translation cache": "Innotifikat mill-cache tat-traduzzjoni lokali",
+    "Fast pages, local translation cache": "Paġni veloċi, cache tat-traduzzjoni lokali",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Paġni kesħin jirrendu mingħajr stennija għal fornitur tal-AI. Deepglot jittraduċi l-kontenut nieqes fl-isfond, jaħżnu lokalment u jnaddaf il-caches tal-paġni appoġġjati meta jkun lest.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Approċċ ippruvat ta' buffer tal-output għal Elementor, WooCommerce, Yoast SEO u oħrajn – b'editur sinkroniku u output tal-email fejn prova mill-ġdid fl-isfond ma tistax tgħin.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Kull xahar)",
     "{count} manual edit": "{count} editjar manwali",
@@ -14325,7 +14385,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Reviżjoni umana",
     "Human Review": "Reviżjoni tal-Bniedem",
     "Ideas for an open, multilingual web.": "Ideat għal web miftuħa u multilingwi.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotenza-Key hija fakultattiva. Ir-repetizzjoni tal-istess korp u ċavetta fi żmien 24 siegħa terġa 'tagħmel l-ewwel rispons mingħajr ma tirrepeti l-effetti sekondarji; korp differenti jirritorna 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Jekk jeżisti kont għal dan l-indirizz tal-email, aħna nibagħtu link mill-ġdid.",
     "Import": "Importazzjoni",
     "Import & export": "Importazzjoni u esportazzjoni",
@@ -14893,6 +14953,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Served from the local translation cache": "Podawane z lokalnej pamięci podręcznej tłumaczeń",
+    "Fast pages, local translation cache": "Szybkie strony, lokalna pamięć podręczna tłumaczeń",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Zimne strony renderują się bez czekania na dostawcę AI. Deepglot tłumaczy brakującą treść w tle, przechowuje ją lokalnie i czyści pamięć podręczną obsługiwanych stron, gdy jest gotowa.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Sprawdzone podejście z buforem wyjściowym dla Elementor, WooCommerce, Yoast SEO i innych – z synchronicznym edytorem i wyjściem e-mail, gdzie ponowna próba w tle nie może pomóc.",
     "'Wk' w": "„Wk” w",
     "(Monthly)": "(Miesięcznie)",
     "{count} manual edit": "{count} edycja ręczna",
@@ -15272,7 +15336,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Przegląd ludzki",
     "Human Review": "Przegląd ludzki",
     "Ideas for an open, multilingual web.": "Pomysły na otwartą, wielojęzyczną sieć.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Klucz idempotencji jest opcjonalny. Powtarzanie tej samej treści i klucza w ciągu 24 godzin powoduje powtórzenie pierwszej reakcji bez powtarzania się skutków ubocznych; inne ciało zwraca 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Jeśli dla tego adresu e-mail istnieje konto, wyślemy link resetujący.",
     "Import": "Importuj",
     "Import & export": "Importuj i eksportuj",
@@ -15840,6 +15904,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Served from the local translation cache": "Servido a partir do cache de tradução local",
+    "Fast pages, local translation cache": "Páginas rápidas, cache de tradução local",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "As páginas frias são renderizadas sem esperar por um provedor de IA. Deepglot traduz o conteúdo ausente em segundo plano, armazena-o localmente e limpa os caches de páginas compatíveis quando estiver pronto.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Uma abordagem comprovada de buffer de saída para Elementor, WooCommerce, Yoast SEO e outros – com editor síncrono e saída de e-mail onde uma nova tentativa em segundo plano não pode ajudar.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Mensal)",
     "{count} manual edit": "{count} edição manual",
@@ -16219,7 +16287,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Revisão humana",
     "Human Review": "Revisão Humana",
     "Ideas for an open, multilingual web.": "Ideias para uma web aberta e multilíngue.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "A chave de idempotência é opcional. Repetir o mesmo corpo e chave dentro de 24 horas reproduz a primeira resposta sem repetir os efeitos colaterais; um corpo diferente retorna 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Se existir uma conta para este endereço de e-mail, enviaremos um link de redefinição.",
     "Import": "Importar",
     "Import & export": "Importar e exportar",
@@ -16787,6 +16855,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Served from the local translation cache": "Servit din memoria cache de traducere locală",
+    "Fast pages, local translation cache": "Pagini rapide, cache de traducere locală",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Paginile reci sunt afișate fără a aștepta un furnizor AI. Deepglot traduce conținutul lipsă în fundal, îl stochează local și șterge memoria cache a paginilor acceptate când este gata.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "O abordare dovedită a tamponului de ieșire pentru Elementor, WooCommerce, Yoast SEO și altele – cu editor sincron și ieșire de e-mail în care o reîncercare în fundal nu poate ajuta.",
     "'Wk' w": "„Wk” w",
     "(Monthly)": "(lunar)",
     "{count} manual edit": "{count} editare manuală",
@@ -17166,7 +17238,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Revizuire umană",
     "Human Review": "Revista umană",
     "Ideas for an open, multilingual web.": "Idei pentru un web deschis, multilingv.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotity-Key este opțională. Repetarea aceluiași corp și cheie în decurs de 24 de ore redă primul răspuns fără a repeta efectele secundare; un corp diferit revine 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Dacă există un cont pentru această adresă de e-mail, vom trimite un link de resetare.",
     "Import": "Import",
     "Import & export": "Import și export",
@@ -17734,6 +17806,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Served from the local translation cache": "Podávané z miestnej prekladovej vyrovnávacej pamäte",
+    "Fast pages, local translation cache": "Rýchle stránky, lokálna prekladová vyrovnávacia pamäť",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Studené stránky sa vykresľujú bez čakania na poskytovateľa AI. Deepglot preloží chýbajúci obsah na pozadí, uloží ho lokálne a keď bude pripravený, vyčistí podporované vyrovnávacie pamäte stránok.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Osvedčený prístup k výstupnej vyrovnávacej pamäti pre Elementor, WooCommerce, Yoast SEO a ďalšie – so synchrónnym editorom a e-mailovým výstupom, kde opakovanie na pozadí nepomôže.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mesačne)",
     "{count} manual edit": "{count} manuálna úprava",
@@ -18113,7 +18189,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Ľudská recenzia",
     "Human Review": "Human Review",
     "Ideas for an open, multilingual web.": "Nápady pre otvorený, viacjazyčný web.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key je voliteľný. Opakovaním toho istého tela a kľúča do 24 hodín sa prehrá prvá odpoveď bez opakovania vedľajších účinkov; iné telo vráti 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Ak pre túto e-mailovú adresu existuje účet, pošleme vám odkaz na obnovenie.",
     "Import": "Importovať",
     "Import & export": "Import a export",
@@ -18681,6 +18757,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Served from the local translation cache": "Postreženo iz lokalnega predpomnilnika prevodov",
+    "Fast pages, local translation cache": "Hitre strani, lokalni predpomnilnik prevodov",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Hladne strani se upodabljajo brez čakanja na ponudnika AI. Deepglot prevede manjkajočo vsebino v ozadju, jo shrani lokalno in počisti podprte predpomnilnike strani, ko je pripravljena.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Preizkušen pristop izhodnega medpomnilnika za Elementor, WooCommerce, Yoast SEO in druge – s sinhronim urejevalnikom in izpisom e-pošte, kjer ponovni poskus v ozadju ne more pomagati.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(mesečno)",
     "{count} manual edit": "{count} ročno urejanje",
@@ -19060,7 +19140,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Človeški pregled",
     "Human Review": "Človeški pregled",
     "Ideas for an open, multilingual web.": "Ideje za odprt, večjezični splet.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key ni obvezen. Ponavljanje istega telesa in ključa v 24 urah ponovi prvi odziv brez ponavljanja stranskih učinkov; drugo telo vrne 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Če za ta e-poštni naslov obstaja račun, vam bomo poslali povezavo za ponastavitev.",
     "Import": "Uvozi",
     "Import & export": "Uvoz in izvoz",
@@ -19628,6 +19708,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Served from the local translation cache": "Servido desde el caché de traducción local",
+    "Fast pages, local translation cache": "Páginas rápidas, caché de traducción local",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Las páginas frías se procesan sin esperar a un proveedor de IA. Deepglot traduce el contenido faltante en segundo plano, lo almacena localmente y limpia los cachés de páginas compatibles cuando está listo.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "Un enfoque probado de búfer de salida para Elementor, WooCommerce, Yoast SEO y más, con editor sincrónico y salida de correo electrónico donde un reintento en segundo plano no puede ayudar.",
     "'Wk' w": "'Semana' w",
     "(Monthly)": "(Mensual)",
     "{count} manual edit": "{count} edición manual",
@@ -20007,7 +20091,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Revisión humana",
     "Human Review": "Revisión humana",
     "Ideas for an open, multilingual web.": "Ideas para una web abierta y multilingüe.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "La clave de idempotencia es opcional. Repetir el mismo cuerpo y clave dentro de las 24 horas reproduce la primera respuesta sin repetir efectos secundarios; un cuerpo diferente devuelve 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Si existe una cuenta para esta dirección de correo electrónico, le enviaremos un enlace de restablecimiento.",
     "Import": "Importar",
     "Import & export": "Importar y exportar",
@@ -20575,6 +20659,10 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Served from the local translation cache": "Serveras från den lokala översättningscachen",
+    "Fast pages, local translation cache": "Snabba sidor, lokal översättningscache",
+    "Cold pages render without waiting for an AI provider. Deepglot translates missing content in the background, stores it locally, and purges supported page caches when it is ready.": "Kalla sidor återges utan att vänta på en AI-leverantör. Deepglot översätter saknat innehåll i bakgrunden, lagrar det lokalt och rensar cacheminne som stöds när det är klart.",
+    "A proven output-buffer approach for Elementor, WooCommerce, Yoast SEO, and more — with synchronous editor and email output where a background retry cannot help.": "En beprövad utgångsbuffertmetod för Elementor, WooCommerce, Yoast SEO och fler – med synkron redigerare och e-postutdata där ett omförsök i bakgrunden inte kan hjälpa.",
     "'Wk' w": "'Wk' w",
     "(Monthly)": "(Månatlig)",
     "{count} manual edit": "{count} manuell redigering",
@@ -20954,7 +21042,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Human review": "Mänsklig recension",
     "Human Review": "Mänsklig recension",
     "Ideas for an open, multilingual web.": "Idéer för en öppen, flerspråkig webb.",
-    "Idempotency-Key is optional. Repeating the same body and key within 24 hours replays the first response without repeating side effects; a different body returns 409.": "Idempotency-Key är valfri. Upprepa samma kropp och nyckel inom 24 timmar spelar upp det första svaret utan att upprepade biverkningar; en annan kropp returnerar 409.",
+    "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.": "Idempotency-Key is optional. Success and deterministic responses can be replayed for up to 24 hours without repeating side effects. A retryable 429 is deduplicated and replayed only for its bounded Retry-After window; after that, the same key starts a new execution. A different body returns 409 only while the record is retained.",
     "If an account exists for this email address, we will send a reset link.": "Om det finns ett konto för den här e-postadressen skickar vi en återställningslänk.",
     "Import": "Importera",
     "Import & export": "Import & export",

@@ -14,7 +14,7 @@ import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-md border border-white/10 bg-[#071521] p-4 text-sm leading-6 text-white/90">
+    <pre className="max-w-full overflow-x-auto rounded-md border border-white/10 bg-[#071521] p-4 text-sm leading-6 text-white/90">
       <code>{children}</code>
     </pre>
   );
@@ -52,6 +52,9 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
             ["quickstart", de ? "Schnellstart" : "Quickstart"],
             ["api-reference", de ? "API-Referenz" : "API reference"],
             ["wordpress", "WordPress"],
+            ["wordpress-operations", de ? "Betriebshilfe" : "Operations help"],
+            ["activity-digest", de ? "Wochenrückblick" : "Weekly digest"],
+            ["wordpress-releases", de ? "Plugin-Releases" : "Plugin releases"],
             ["errors", de ? "Fehler und Wiederholungen" : "Errors and retries"],
             ["webhooks", "Webhooks"],
             ["project-surfaces", de ? "Projektoberflächen" : "Project surfaces"],
@@ -89,10 +92,10 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           <h2 className="text-3xl font-bold">{de ? "API-Referenz" : "API reference"}</h2>
           <div className="mt-8 space-y-8">
             {PUBLIC_ENDPOINT_DOCS.map((endpoint) => (
-              <article key={endpoint.id} className="rounded-md border border-[#d8d6ce] bg-white p-6">
+              <article key={endpoint.id} className="min-w-0 rounded-md border border-[#d8d6ce] bg-white p-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="rounded-md bg-gray-950 px-2.5 py-1 font-mono text-xs font-bold text-white">{endpoint.method}</span>
-                  <h3 className="font-mono text-lg font-semibold">{endpoint.path}</h3>
+                  <h3 className="min-w-0 font-mono text-lg font-semibold max-[350px]:[overflow-wrap:anywhere]">{endpoint.path}</h3>
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">{endpoint.audience}</span>
                 </div>
                 <p className="mt-4 leading-7 text-gray-700">{docsText(locale, endpoint.summary)}</p>
@@ -135,9 +138,131 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "AMP-Seiten durchlaufen die Übersetzung nur bei aktivierter Plugin-Option. Die mehrsprachige Sitemap unter /deepglot-sitemap.xml wird in robots.txt angekündigt und enthält ausschließlich validierte interne Sprachalternativen."
               : "AMP pages enter the translation pipeline only when the plugin option is enabled. The multilingual sitemap at /deepglot-sitemap.xml is advertised in robots.txt and contains only validated internal language alternatives."}
           </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Ab Version 0.12.0 wartet ein normaler Seitenaufruf standardmäßig nicht auf neue Übersetzungen. Fehlende Segmente werden in einer begrenzten, deduplizierten Warteschlange gesammelt und durch WP-Cron übersetzt. Visueller Editor und WooCommerce-E-Mails bleiben synchron, weil diese Ausgaben nicht bei einem späteren Aufruf automatisch konvergieren."
+              : "From version 0.12.0, an ordinary page request does not wait for fresh translations by default. Missing segments enter a bounded, deduplicated queue and are translated by WP-Cron. The visual editor and WooCommerce emails remain synchronous because those outputs cannot converge automatically on a later request."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Administratoren können unter Einstellungen → Deepglot eine begrenzte URL-Synchronisierung aus der Deepglot-Sitemap starten. Vor dem Start ist eine nebenwirkungsfreie Vorschau mit festem Snapshot und Beispiel-URLs zu bestätigen. Erkennt WordPress eine sichere HTTPS-Anfrage auf demselben Host wie eine noch mit HTTP gespeicherte interne Ziel-URL, verwendet der Snapshot dieselbe interne Ziel-URL mit HTTPS. Semantische Query-Parameter und Fragmente bleiben erhalten. Ein fremder Request-Host wird niemals übernommen, und tatsächliche Weiterleitungen bleiben Fehler. Jeder Batch umfasst höchstens 250 Zielseiten, füllt kontrolliert dieselbe Übersetzungswarteschlange und lässt sich pausieren, fortsetzen oder abbrechen. Es gibt keinen permanenten Hintergrundcrawler."
+              : "Administrators can start a bounded URL synchronization from the Deepglot sitemap under Settings → Deepglot. A side-effect-free preview with an immutable snapshot and sample URLs must be confirmed before it starts. When WordPress recognizes a safe HTTPS request on the same host as an internal target still stored with HTTP, the snapshot uses the same internal target with HTTPS. Semantic query parameters and fragments are preserved. A foreign request host is never copied, and genuine redirects remain failures. Each batch contains at most 250 target pages, feeds the same translation queue at a controlled rate, and can be paused, resumed, or cancelled. It is not a permanent background crawler."}
+          </p>
           <ul className="mt-6 grid gap-3 font-mono text-sm md:grid-cols-2">
             {WORDPRESS_REST_ENDPOINTS.map((endpoint) => <li key={endpoint} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3">{endpoint}</li>)}
           </ul>
+        </section>
+
+        <section id="wordpress-operations" className="scroll-mt-8 pt-20">
+          <h2 className="text-3xl font-bold">{de ? "WordPress-Betriebshilfe" : "WordPress operations help"}</h2>
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Der erste Aufruf einer noch nicht übersetzten Seite kann bewusst den Quelltext zeigen. Er legt die fehlenden Segmente in die Warm-up-Warteschlange; ein sofort fälliges WP-Cron-Ereignis verarbeitet sie im Hintergrund. Sobald Warteschlange und Ereignis gespeichert sind, stößt Deepglot pro Anfrage einmal nicht blockierend WP-Cron an. Bei DISABLE_WP_CRON oder während eines Cron-Laufs bleibt dieser Anstoß aus. Nach erfolgreichem Abschluss löscht Deepglot betroffene Seiten aus unterstützten Full-Page-Caches, damit der nächste Aufruf die lokal gespeicherte Übersetzung erhält."
+              : "The first request for a page without cached translations can intentionally show source content. It places missing segments in the warm-up queue, and an immediately due WP-Cron event processes them in the background. Once the queue and event are stored, Deepglot makes one non-blocking WP-Cron nudge per request. That nudge is skipped for DISABLE_WP_CRON and while cron is already running. After success, Deepglot purges affected pages from supported full-page caches so the next request receives the locally cached translation."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Nur Translation-429-Antworten setzen den aktiven Marker. Marker und Warmer-Wartezustand sind an API-Schlüssel und Backend gebunden; Konfigurationswechsel, verspätete Antworten der alten Konfiguration und alte ungebundene Marker blockieren keine neuen Übersetzungen."
+              : "Only translation 429 responses set the active marker. The marker and warmer backoff are bound to the API key and backend; configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Melden alle versuchten Anbieter für denselben mehrteiligen Stapel ausschließlich eine Abweichung bei der Ergebnisanzahl, startet Deepglot eine begrenzte binäre Aufteilung. Der beobachtete Zwei-Text-Fall kann beide Einzeltexte erreichen; pro ursprünglichem Stapel gelten jedoch höchstens sechs Anbieteraufrufe und für alle Anbieterarbeiten gemeinsam höchstens 100 Sekunden. Bei PDF-Übersetzungen beginnt am Routeneintritt ein eigenes Budget von 40 Sekunden; Authentifizierung, Multipart-Verarbeitung und PDF-Vorbereitung werden davon abgezogen, damit für Abschlussarbeiten der 60-Sekunden-Route nominell 20 Sekunden bleiben. Fehler eines parallelen Stapels stoppen weitere rekursive Aufrufe. Einzelne sowie am Aufruf- oder Zeitlimit verbleibende Abweichungen bleiben Fehler; Zeitüberschreitungen, Authentifizierungsfehler, Ratenlimits, U+0000 und andere ungültige Antworten lösen diese Zusatzanfragen nicht aus."
+              : "When every attempted provider reports only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can reach both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. PDF translation uses a separate 40-second budget from route entry; authentication, multipart handling, and PDF preparation reduce the remaining provider time so the 60-second route nominally retains 20 seconds for completion work. A failing parallel chunk stops further recursive calls. Singleton, call-budget, or deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000, and other malformed responses never trigger these extra requests."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
+              : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {[
+              {
+                title: de ? "1. URLs synchronisieren" : "1. Synchronize URLs",
+                body: de
+                  ? "Erstelle in den Deepglot-Einstellungen zunächst eine kleine URL-Vorschau und bestätige den unveränderlichen Snapshot. Prüfe, dass ein veraltetes HTTP-Ziel auf demselben sicheren Host mit HTTPS erscheint und dass semantische Query-Parameter erhalten bleiben. Der Lauf verwendet nur interne Sitemap-Ziele, zeigt den aggregierten Fortschritt, pausiert bei vollem Kontingent oder ungültigem API-Key und wartet bei API-Ratenlimits automatisch. Einzelne Seiten können weiterhin durch einen normalen menschlichen Aufruf angestoßen werden."
+                  : "Create a small URL preview in the Deepglot settings first, then confirm the immutable snapshot. Verify that a stale HTTP target on the same safe host appears with HTTPS and that semantic query parameters are preserved. The job uses only internal sitemap targets, reports aggregate progress, pauses on exhausted quota or an invalid API key, and automatically backs off on API rate limits. Individual pages can still be triggered by an ordinary human visit.",
+              },
+              {
+                title: de ? "2. WP-Cron prüfen" : "2. Check WP-Cron",
+                body: de
+                  ? "Wenn die Seite im Quelltext bleibt, prüfe, ob WP-Cron oder der konfigurierte System-Cron läuft. Hosts mit DISABLE_WP_CRON benötigen einen eigenen Cron-Aufruf."
+                  : "If the page stays in the source language, verify WP-Cron or the configured system cron is running. Hosts with DISABLE_WP_CRON need their own cron invocation.",
+              },
+              {
+                title: de ? "3. Seiten-Cache prüfen" : "3. Check page caches",
+                body: de
+                  ? "Der Status ‚Abgeschlossen‘ bestätigt die abgearbeitete Warteschlange am WordPress-Ursprung, nicht die öffentliche Cache-Ausgabe. WP Rocket, W3 Total Cache und LiteSpeed Cache leeren fertige URLs einzeln. WP Super Cache wird global erst geleert, wenn die verfolgte URL-Warteschlange leer ist; ausstehende Seiten bleiben bis dahin gecacht. Bei anderen Full-Page-Caches leere den Seiten-Cache manuell, behalte den Deepglot-Übersetzungs-Cache und prüfe die Zielsprachseite anschließend ohne Sync-Parameter."
+                  : "The completed status confirms the processed queue at the WordPress origin, not the public page-cache response. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache is purged globally only when the tracked URL queue is empty, so pending pages remain cached. For other full-page caches, purge the page cache manually, keep Deepglot's translation cache, and then verify the target-language page without sync parameters.",
+              },
+            ].map((item) => (
+              <article key={item.title} className="rounded-md border border-[#d8d6ce] bg-white p-5">
+                <h3 className="font-semibold text-[#071521]">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-gray-600">{item.body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-6 rounded-2xl bg-[#fff0ec] p-6 text-sm leading-7 text-[#5e1f14]">
+            <strong>{de ? "Für schnelle lokale Provider:" : "For fast local providers:"}</strong>{" "}
+            {de
+              ? "Der Filter deepglot_max_sync_batches kann eine begrenzte Zahl von Batches wieder im Seitenaufruf übersetzen. Für externe KI-Provider ist der asynchrone Standard empfohlen."
+              : "The deepglot_max_sync_batches filter can translate a bounded number of batches during the page request. The asynchronous default is recommended for external AI providers."}
+          </div>
+        </section>
+
+        <section id="activity-digest" className="scroll-mt-8 pt-20">
+          <h2 className="text-3xl font-bold">{de ? "Wöchentlicher Workspace-Rückblick" : "Weekly workspace activity digest"}</h2>
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Der Wochenrückblick ist ein Opt-in pro Benutzer und Workspace. Die Einstellung wird in den Kontoeinstellungen gespeichert; die PATCH-Route aktualisiert sowohl den Aktivierungsstatus als auch die gewünschte E-Mail-Sprache."
+              : "The weekly digest is opt-in per user and workspace. The preference is stored in account settings; the PATCH route updates both the enabled state and the requested email locale."}
+          </p>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            {[
+              {
+                title: de ? "Zeitraum und Inhalt" : "Period and content",
+                body: de
+                  ? "Der Cron-Prozessor aggregiert die letzte vollständige UTC-Woche von Montag bis Montag. Er zählt neue Übersetzungen und Wörter, manuelle Übersetzungen und Wörter sowie Laufzeit-Übersetzungsanfragen — Import- und manuelle Batches werden nicht als Laufzeitanfragen gezählt."
+                  : "The cron processor aggregates the previous complete UTC Monday-to-Monday week. It counts new translations and words, manual translations and words, and runtime translation requests; import and manual batches are not counted as runtime requests.",
+              },
+              {
+                title: de ? "Zustellung und Wiederholung" : "Delivery and retry behavior",
+                body: de
+                  ? "Der geschützte Vercel-Cron läuft montags um 08:00 UTC. Wochen ohne Aktivität werden übersprungen. Ein eindeutiger Claim pro Benutzer, Workspace und Zeitraum verhindert Doppelzustellungen bei parallelen Aufrufen; fehlgeschlagene Sendungen geben ihren Claim frei."
+                  : "The protected Vercel Cron runs at 08:00 UTC on Monday. Quiet weeks are skipped. A unique claim per user, workspace, and period prevents duplicate deliveries across concurrent invocations; failed sends release their claim for retry.",
+              },
+            ].map((item) => (
+              <article key={item.title} className="rounded-md border border-[#d8d6ce] bg-white p-5">
+                <h3 className="font-semibold text-[#071521]">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-gray-600">{item.body}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-5 text-sm leading-6 text-gray-600">
+            {de ? "Autoritative Implementierung:" : "Authoritative implementation:"}{" "}
+            <code className="max-[350px]:[overflow-wrap:anywhere]">src/lib/activity-digest.ts</code>, <code className="max-[350px]:[overflow-wrap:anywhere]">src/lib/activity-digest-delivery.ts</code>, <code className="max-[350px]:[overflow-wrap:anywhere]">src/lib/activity-digest-cron.ts</code>, <code className="max-[350px]:[overflow-wrap:anywhere]">src/components/einstellungen/activity-digest-preferences.tsx</code>.
+          </p>
+        </section>
+
+        <section id="wordpress-releases" className="scroll-mt-8 pt-20">
+          <h2 className="text-3xl font-bold">{de ? "WordPress v0.11.4 bis v0.11.7" : "WordPress v0.11.4 through v0.11.7"}</h2>
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Die Releases sind als Git-Tags dokumentiert und bilden die Grundlage für die aktuelle v0.12.1-Implementierung. v0.12.1 vergibt für den Retry-After-fähigen dynamischen Übersetzer eine neue öffentliche Asset-Version. Ein GitHub-Release oder ZIP-Bau installiert kein Kunden-Plugin automatisch; produktive Installation und Live-QA bleiben getrennte Freigaben."
+              : "These releases are documented as Git tags and form the basis for the current v0.12.1 implementation. v0.12.1 assigns a new public asset version to the Retry-After-aware dynamic translator. A GitHub release or ZIP build does not automatically install a customer plugin; production installation and live QA remain separate approvals."}
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {[
+              ["v0.11.4", de ? "Numerische Quell-Slugs bleiben nach dem Cache-Readback zugeordnet." : "Numeric-only source slugs remain mapped after dedicated cache readback."],
+              ["v0.11.5", de ? "Übersetzungsstapel erhalten ein begrenztes 60-Sekunden-Anfragefenster." : "Translation batches receive a bounded 60-second request window."],
+              ["v0.11.6", de ? "Große kalte Seiten werden nach String-Anzahl und 2.000 UTF-8-Bytes in geordnete parallele Anfragen geteilt." : "Large cold pages split into ordered parallel requests bounded by string count and 2,000 UTF-8 bytes."],
+              ["v0.11.7", de ? "Ein vertrauenswürdiger finaler HTML-Filter kann sprachabhängige Medien sicher lokalisieren und fällt bei leerem Ergebnis zurück." : "A trusted final HTML filter can localize language-specific media safely and falls back when the callback returns empty."],
+            ].map(([version, description]) => (
+              <div key={version} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3 text-sm leading-6">
+                <strong className="mr-2 font-mono">{version}</strong>{description}
+              </div>
+            ))}
+          </div>
         </section>
 
         <section id="errors" className="scroll-mt-8 pt-20">
@@ -147,9 +272,19 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Öffentliche und Plugin-Routen verwenden einen Problem-Details-artigen JSON-Vertrag. error bleibt als Legacy-Alias für bestehende Plugin-Versionen erhalten. Clients sollen code und status auswerten; detail ist für Menschen."
               : "Public and plugin routes use a Problem Details-style JSON contract. error remains as a legacy alias for existing plugin versions. Clients should branch on code and status; detail is human-readable."}
           </p>
+          <p className="mt-3 leading-7 text-gray-700">
+            {de
+              ? "Ein validation_failed für U+0000 bedeutet, dass ein Text-, Sprach-, Titel- oder Anfrage-URL-Feld ein von PostgreSQL nicht unterstütztes NUL-Zeichen enthält. Deepglot sendet solche Eingaben nicht an einen Anbieter und speichert sie nicht. Entferne ausschließlich U+0000 vor einem erneuten Versuch; andere Steuerzeichen und gültige Unicode-Zeichen sind erlaubt."
+              : "A validation_failed response for U+0000 means a text, language, title, or request-URL field contains a NUL character that PostgreSQL cannot represent. Deepglot does not send that input to a provider or store it. Remove only U+0000 before retrying; other control characters and valid Unicode are supported."}
+          </p>
+          <p className="mt-3 leading-7 text-gray-700">
+            {de
+              ? "Wiederholbare 429-Antworten werden unter einem Idempotency-Key nur bis zum begrenzten Retry-After-Zeitpunkt gehalten: Parallele Anfragen mit demselben Key erhalten dieselbe Antwort, nach Ablauf darf der Key erneut ausführen. Ein 422 velocity_request_too_large ist dagegen dauerhaft für diese Anfrageform und wird regulär wiedergegeben. Teile eine zu große Anfrage oder PDF in kleinere Einheiten."
+              : "Retryable 429 responses are not retained by Idempotency-Key beyond the bounded Retry-After window: concurrent same-key callers receive the same response, and the key may execute again after expiry. A 422 velocity_request_too_large is deterministic and retains the normal replay contract. Split an oversized request or PDF into smaller units."}
+          </p>
           <div className="mt-5"><CodeBlock>{PROBLEM_DETAILS_EXAMPLE}</CodeBlock></div>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {["400 validation_failed", "401 missing_api_key / invalid_api_key", "402 quota_exhausted", "409 idempotency_conflict", "429 rate_limit_exceeded / velocity_limited", "500 internal_error", "503 service_unavailable"].map((item) => (
+            {["400 validation_failed", "401 missing_api_key / invalid_api_key", "402 quota_exhausted", "409 idempotency_conflict", "422 velocity_request_too_large", "429 rate_limit_exceeded / velocity_limited", "500 internal_error", "503 service_unavailable"].map((item) => (
               <div key={item} className="rounded-md border border-[#d8d6ce] bg-white px-4 py-3 font-mono text-xs">{item}</div>
             ))}
           </div>

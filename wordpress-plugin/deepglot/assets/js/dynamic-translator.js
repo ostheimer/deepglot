@@ -74,6 +74,11 @@
   // strings for the rest of the session, so a capped site does not hammer the
   // endpoint on every mutation (issue #148).
   var quotaExhausted = false;
+  // A SaaS 429 is transient rather than session-fatal. Keep later mutations
+  // queued until the bounded server-provided window elapses; do not schedule
+  // an automatic visitor-facing retry loop for the failed batch.
+  var rateLimitedUntil = 0;
+  var rateLimitWakeTimer = null;
 
   var observedAttrs = Object.create(null);
   Object.keys(attrMap).forEach(function (tag) {
@@ -219,6 +224,20 @@
     }
   }
 
+  function scheduleRateLimitWake() {
+    if (rateLimitWakeTimer !== null || Date.now() >= rateLimitedUntil) return;
+    rateLimitWakeTimer = window.setTimeout(function () {
+      rateLimitWakeTimer = null;
+      if (Date.now() < rateLimitedUntil) {
+        scheduleRateLimitWake();
+      } else {
+        // Resume queued *new* mutations once. The batch that received 429 was
+        // already finalized as source text and is not looped automatically.
+        scheduleFlush();
+      }
+    }, Math.max(1, rateLimitedUntil - Date.now()));
+  }
+
   /** Write every pending node/attribute whose translation is already known. */
   function applyPending() {
     if (!pendingNodes.length && !pendingAttrs.length) return;
@@ -258,6 +277,11 @@
     flushTimer = null;
     applyPending();
 
+    if (Date.now() < rateLimitedUntil) {
+      scheduleRateLimitWake();
+      return;
+    }
+
     var need = [];
     var seen = Object.create(null);
     function addNeed(text) {
@@ -279,6 +303,16 @@
   /** Record real translations; map anything not returned to itself (no-op). */
   function ingest(texts, data) {
     if (data && data.quota_exhausted) quotaExhausted = true;
+    if (data && data.retry_after != null) {
+      var retryAfter = parseInt(data.retry_after, 10);
+      if (isFinite(retryAfter) && retryAfter > 0) {
+        rateLimitedUntil = Math.max(
+          rateLimitedUntil,
+          Date.now() + Math.min(retryAfter, 3600) * 1000
+        );
+        scheduleRateLimitWake();
+      }
+    }
     var handled = Object.create(null);
     if (data && Array.isArray(data.from_words) && Array.isArray(data.to_words)) {
       for (var i = 0; i < data.from_words.length; i++) {

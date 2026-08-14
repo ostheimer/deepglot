@@ -14,6 +14,7 @@ function sourceFiles(directory: string): string[] {
     const filePath = path.join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(filePath);
     if (!/\.(ts|tsx)$/.test(entry.name) || entry.name.endsWith(".test.ts")) return [];
+    if (filePath.endsWith(path.join("components", "marketing", "help-page.tsx"))) return [];
     return [filePath];
   });
 }
@@ -166,6 +167,19 @@ test("showcase image alternative text follows the selected locale", () => {
     source,
     /alt="Modernes österreichisches Architekturprojekt mit warmem Holz und großen Fenstern"/
   );
+});
+
+test("translation-cache status stays clear of the bottom language tabs", () => {
+  const source = readFileSync(
+    path.join(SRC_DIR, "components", "marketing", "hero-language-preview.tsx"),
+    "utf8"
+  );
+  const statusClass = source.match(
+    /data-testid="translation-cache-status"\s+className="([^"]+)"/
+  )?.[1] ?? "";
+
+  assert.match(statusClass, /top-/);
+  assert.doesNotMatch(statusClass, /bottom-/);
 });
 
 test("marketing hero headline can wrap long localized words inside the clipped hero shell", () => {

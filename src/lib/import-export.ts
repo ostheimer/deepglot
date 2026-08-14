@@ -1,3 +1,5 @@
+import { inspectPostgresText } from "@/lib/postgres-text";
+
 type CsvParseResult = {
   headers: string[];
   rows: Array<{ line: number; values: Record<string, string> }>;
@@ -36,6 +38,20 @@ export type SlugCsvRow = {
  * exhaust memory; larger data sets should be split into multiple files.
  */
 export const MAX_IMPORT_ROWS = 5000;
+
+function assertImportTextFields(
+  fields: Record<string, string>,
+  index: number,
+): void {
+  for (const [field, value] of Object.entries(fields)) {
+    const error = inspectPostgresText(value, {
+      boundary: "translation_import_input",
+      field,
+      index,
+    });
+    if (error) throw error;
+  }
+}
 
 /** Split a list into fixed-size chunks (the last chunk may be smaller). */
 export function chunk<T>(items: readonly T[], size: number): T[][] {
@@ -216,15 +232,27 @@ export function parseTranslationsCsv(content: string): TranslationCsvRow[] {
 
   assertHeaders(parsed.headers, headers);
 
-  return parsed.rows.map(({ line, values }) => ({
-    line,
-    originalText: values.originalText.trim(),
-    translatedText: values.translatedText.trim(),
-    langFrom: values.langFrom.trim().toLowerCase(),
-    langTo: values.langTo.trim().toLowerCase(),
-    isManual: normalizeBoolean(values.isManual),
-    source: values.source.trim() || "IMPORT",
-  }));
+  return parsed.rows.map(({ line, values }) => {
+    const row = {
+      line,
+      originalText: values.originalText.trim(),
+      translatedText: values.translatedText.trim(),
+      langFrom: values.langFrom.trim().toLowerCase(),
+      langTo: values.langTo.trim().toLowerCase(),
+      isManual: normalizeBoolean(values.isManual),
+      source: values.source.trim() || "IMPORT",
+    };
+    assertImportTextFields(
+      {
+        originalText: row.originalText,
+        translatedText: row.translatedText,
+        langFrom: row.langFrom,
+        langTo: row.langTo,
+      },
+      line,
+    );
+    return row;
+  });
 }
 
 export function serializeTranslationsCsv(
@@ -255,14 +283,26 @@ export function parseGlossaryCsv(content: string): GlossaryCsvRow[] {
 
   assertHeaders(parsed.headers, headers);
 
-  return parsed.rows.map(({ line, values }) => ({
-    line,
-    originalTerm: values.originalTerm.trim(),
-    translatedTerm: values.translatedTerm.trim(),
-    langFrom: values.langFrom.trim().toLowerCase(),
-    langTo: values.langTo.trim().toLowerCase(),
-    caseSensitive: normalizeBoolean(values.caseSensitive),
-  }));
+  return parsed.rows.map(({ line, values }) => {
+    const row = {
+      line,
+      originalTerm: values.originalTerm.trim(),
+      translatedTerm: values.translatedTerm.trim(),
+      langFrom: values.langFrom.trim().toLowerCase(),
+      langTo: values.langTo.trim().toLowerCase(),
+      caseSensitive: normalizeBoolean(values.caseSensitive),
+    };
+    assertImportTextFields(
+      {
+        originalTerm: row.originalTerm,
+        translatedTerm: row.translatedTerm,
+        langFrom: row.langFrom,
+        langTo: row.langTo,
+      },
+      line,
+    );
+    return row;
+  });
 }
 
 export function serializeGlossaryCsv(rows: Array<Omit<GlossaryCsvRow, "line">>) {
@@ -284,13 +324,24 @@ export function parseSlugsCsv(content: string): SlugCsvRow[] {
 
   assertHeaders(parsed.headers, headers);
 
-  return parsed.rows.map(({ line, values }) => ({
-    line,
-    originalSlug: values.originalSlug.trim(),
-    translatedSlug: values.translatedSlug.trim(),
-    langTo: values.langTo.trim().toLowerCase(),
-    urlCount: Number.parseInt(values.urlCount.trim() || "0", 10) || 0,
-  }));
+  return parsed.rows.map(({ line, values }) => {
+    const row = {
+      line,
+      originalSlug: values.originalSlug.trim(),
+      translatedSlug: values.translatedSlug.trim(),
+      langTo: values.langTo.trim().toLowerCase(),
+      urlCount: Number.parseInt(values.urlCount.trim() || "0", 10) || 0,
+    };
+    assertImportTextFields(
+      {
+        originalSlug: row.originalSlug,
+        translatedSlug: row.translatedSlug,
+        langTo: row.langTo,
+      },
+      line,
+    );
+    return row;
+  });
 }
 
 export function serializeSlugsCsv(rows: Array<Omit<SlugCsvRow, "line">>) {
@@ -349,7 +400,17 @@ export function parsePoTranslations(content: string) {
 
   flushEntry();
 
-  return entries.filter((entry) => entry.originalText !== "");
+  const translations = entries.filter((entry) => entry.originalText !== "");
+  translations.forEach((entry, index) => {
+    assertImportTextFields(
+      {
+        originalText: entry.originalText,
+        translatedText: entry.translatedText,
+      },
+      index + 1,
+    );
+  });
+  return translations;
 }
 
 export function serializePoTranslations(

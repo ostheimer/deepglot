@@ -22,7 +22,7 @@ type ClaimInput = {
 
 type ClaimResult =
   | { kind: "acquired" }
-  | { kind: "completed"; response: StoredApiResponse }
+  | { kind: "completed"; response: StoredApiResponse; expiresAt: Date }
   | { kind: "processing"; leaseExpiresAt: Date }
   | { kind: "conflict" };
 
@@ -31,9 +31,13 @@ type CompletionInput = {
   keyHash: string;
   ownerToken: string;
   response: StoredApiResponse;
+  expiresAt: Date;
 };
 
-type ReleaseInput = Omit<CompletionInput, "response">;
+type ReleaseInput = Pick<
+  CompletionInput,
+  "scope" | "keyHash" | "ownerToken"
+>;
 
 type WaitInput = {
   scope: string;
@@ -43,7 +47,7 @@ type WaitInput = {
 };
 
 type WaitResult =
-  | { kind: "completed"; response: StoredApiResponse }
+  | { kind: "completed"; response: StoredApiResponse; expiresAt: Date }
   | { kind: "conflict" }
   | { kind: "retry" };
 
@@ -106,7 +110,11 @@ export class MemoryApiIdempotencyStore implements ApiIdempotencyStore {
     }
 
     if (existing.status === "COMPLETED" && existing.response) {
-      return { kind: "completed", response: existing.response };
+      return {
+        kind: "completed",
+        response: existing.response,
+        expiresAt: existing.expiresAt,
+      };
     }
 
     return { kind: "processing", leaseExpiresAt: existing.leaseExpiresAt };
@@ -125,7 +133,12 @@ export class MemoryApiIdempotencyStore implements ApiIdempotencyStore {
     record.status = "COMPLETED";
     record.ownerToken = null;
     record.response = input.response;
-    record.resolveCompletion({ kind: "completed", response: input.response });
+    record.expiresAt = input.expiresAt;
+    record.resolveCompletion({
+      kind: "completed",
+      response: input.response,
+      expiresAt: input.expiresAt,
+    });
   }
 
   async release(input: ReleaseInput) {
@@ -145,7 +158,11 @@ export class MemoryApiIdempotencyStore implements ApiIdempotencyStore {
     if (!record) return { kind: "retry" };
     if (record.requestHash !== input.requestHash) return { kind: "conflict" };
     if (record.status === "COMPLETED" && record.response) {
-      return { kind: "completed", response: record.response };
+      return {
+        kind: "completed",
+        response: record.response,
+        expiresAt: record.expiresAt,
+      };
     }
 
     const waitMs = Math.max(0, input.leaseExpiresAt.getTime() - Date.now());
@@ -263,7 +280,11 @@ export class PrismaApiIdempotencyStore implements ApiIdempotencyStore {
       return { kind: "conflict" };
     }
     if (existing.status === "COMPLETED") {
-      return { kind: "completed", response: responseFromRecord(existing) };
+      return {
+        kind: "completed",
+        response: responseFromRecord(existing),
+        expiresAt: existing.expiresAt,
+      };
     }
     return { kind: "processing", leaseExpiresAt: existing.leaseExpiresAt };
   }
@@ -279,6 +300,7 @@ export class PrismaApiIdempotencyStore implements ApiIdempotencyStore {
         "responseStatus" = ${input.response.status},
         "responseHeaders" = ${JSON.stringify(input.response.headers)}::jsonb,
         "responseBody" = ${responseBody},
+        "expiresAt" = ${input.expiresAt},
         "updatedAt" = NOW()
       WHERE
         "scope" = ${input.scope}
@@ -310,7 +332,11 @@ export class PrismaApiIdempotencyStore implements ApiIdempotencyStore {
       if (!record) return { kind: "retry" };
       if (record.requestHash !== input.requestHash) return { kind: "conflict" };
       if (record.status === "COMPLETED") {
-        return { kind: "completed", response: responseFromRecord(record) };
+        return {
+          kind: "completed",
+          response: responseFromRecord(record),
+          expiresAt: record.expiresAt,
+        };
       }
       if (record.leaseExpiresAt.getTime() <= Date.now()) {
         return { kind: "retry" };
@@ -375,12 +401,119 @@ export function validateApiIdempotencyKey(key: string) {
   return key.length > 0 && key.length <= API_IDEMPOTENCY_KEY_MAX_LENGTH;
 }
 
+export type ApiIdempotencyReplayEvent = {
+  level: "info";
+  message: "API idempotency response replayed.";
+  event: "api_idempotency_replay";
+  outcome: "replayed";
+  responseStatus: number;
+  responseCode: string;
+  retentionSeconds: number;
+  scopePseudonym: string;
+  keyPseudonym: string;
+};
+
+export function reportApiIdempotencyReplay(
+  {
+    scope,
+    key,
+    response,
+    retentionMs,
+    pseudonymSecret,
+  }: {
+    scope: string;
+    key: string;
+    response: StoredApiResponse;
+    retentionMs: number;
+    pseudonymSecret?: string;
+  },
+  logger: (message: string) => void = console.info,
+) {
+  const secret =
+    pseudonymSecret?.trim() ||
+    process.env.AUTH_SECRET?.trim() ||
+    process.env.NEXTAUTH_SECRET?.trim() ||
+    null;
+  const pseudonym = (kind: string, value: string) =>
+    secret
+      ? crypto
+          .createHmac("sha256", secret)
+          .update(`api-idempotency\0${kind}\0${value}`)
+          .digest("hex")
+          .slice(0, 16)
+      : "unavailable";
+  const responseBody =
+    response.body && typeof response.body === "object"
+      ? (response.body as Record<string, unknown>)
+      : null;
+  const rawCode = responseBody?.code;
+  const responseCode =
+    typeof rawCode === "string" && /^[a-z0-9_]{1,64}$/.test(rawCode)
+      ? rawCode
+      : "unavailable";
+  const safeRetentionMs = Number.isFinite(retentionMs)
+    ? Math.max(1, Math.min(API_IDEMPOTENCY_RETENTION_MS, Math.floor(retentionMs)))
+    : API_IDEMPOTENCY_RETENTION_MS;
+  const event: ApiIdempotencyReplayEvent = {
+    level: "info",
+    message: "API idempotency response replayed.",
+    event: "api_idempotency_replay",
+    outcome: "replayed",
+    responseStatus: Math.max(0, Math.min(999, Math.floor(response.status))),
+    responseCode,
+    retentionSeconds: Math.max(1, Math.ceil(safeRetentionMs / 1_000)),
+    scopePseudonym: pseudonym("scope", scope),
+    keyPseudonym: pseudonym("key", key),
+  };
+
+  logger(JSON.stringify(event));
+  return event;
+}
+
+function responseForReplay(
+  response: StoredApiResponse,
+  expiresAt: Date,
+  now: Date,
+): StoredApiResponse {
+  const headers = { ...response.headers };
+
+  if (response.status !== 429) {
+    return { ...response, headers };
+  }
+
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.min(
+      3_600,
+      Math.ceil((expiresAt.getTime() - now.getTime()) / 1_000),
+    ),
+  );
+  const retryAfterHeader = Object.keys(headers).find(
+    (header) => header.toLowerCase() === "retry-after",
+  );
+  headers[retryAfterHeader ?? "retry-after"] = String(retryAfterSeconds);
+
+  const body =
+    response.body &&
+    typeof response.body === "object" &&
+    !Array.isArray(response.body) &&
+    typeof (response.body as Record<string, unknown>).retry_after === "number"
+      ? {
+          ...(response.body as Record<string, unknown>),
+          retry_after: retryAfterSeconds,
+        }
+      : response.body;
+
+  return { ...response, headers, body };
+}
+
 export async function executeIdempotently({
   scope,
   key,
   requestBody,
   store,
   execute,
+  responseRetentionMs,
   now = new Date(),
   retentionMs = API_IDEMPOTENCY_RETENTION_MS,
   processingLeaseMs = API_IDEMPOTENCY_PROCESSING_LEASE_MS,
@@ -390,6 +523,9 @@ export async function executeIdempotently({
   requestBody: unknown;
   store: ApiIdempotencyStore;
   execute: () => Promise<StoredApiResponse>;
+  responseRetentionMs?:
+    | number
+    | ((response: StoredApiResponse) => number);
   now?: Date;
   retentionMs?: number;
   processingLeaseMs?: number;
@@ -399,6 +535,12 @@ export async function executeIdempotently({
 > {
   const keyHash = hashApiIdempotencyKey(key);
   const requestHash = hashApiIdempotencyRequestBody(requestBody);
+  const safeRetentionMs = Number.isFinite(retentionMs)
+    ? Math.max(
+        1,
+        Math.min(API_IDEMPOTENCY_RETENTION_MS, Math.floor(retentionMs)),
+      )
+    : API_IDEMPOTENCY_RETENTION_MS;
 
   for (;;) {
     const ownerToken = crypto.randomUUID();
@@ -408,13 +550,16 @@ export async function executeIdempotently({
       requestHash,
       ownerToken,
       now,
-      expiresAt: new Date(now.getTime() + Math.max(1, retentionMs)),
+      expiresAt: new Date(now.getTime() + safeRetentionMs),
       leaseExpiresAt: new Date(now.getTime() + Math.max(1, processingLeaseMs)),
     });
 
     if (claim.kind === "conflict") return { kind: "conflict" };
     if (claim.kind === "completed") {
-      return { kind: "replayed", response: claim.response };
+      return {
+        kind: "replayed",
+        response: responseForReplay(claim.response, claim.expiresAt, now),
+      };
     }
     if (claim.kind === "processing") {
       const waited = await store.waitForCompletion({
@@ -425,7 +570,14 @@ export async function executeIdempotently({
       });
       if (waited.kind === "conflict") return { kind: "conflict" };
       if (waited.kind === "completed") {
-        return { kind: "replayed", response: waited.response };
+        return {
+          kind: "replayed",
+          response: responseForReplay(
+            waited.response,
+            waited.expiresAt,
+            new Date(),
+          ),
+        };
       }
       now = new Date();
       continue;
@@ -433,7 +585,25 @@ export async function executeIdempotently({
 
     try {
       const response = await execute();
-      await store.complete({ scope, keyHash, ownerToken, response });
+      const requestedResponseRetentionMs =
+        typeof responseRetentionMs === "function"
+          ? responseRetentionMs(response)
+          : (responseRetentionMs ?? safeRetentionMs);
+      const safeResponseRetentionMs = Number.isFinite(
+        requestedResponseRetentionMs,
+      )
+        ? Math.min(
+            safeRetentionMs,
+            Math.max(1, Math.floor(requestedResponseRetentionMs)),
+          )
+        : safeRetentionMs;
+      await store.complete({
+        scope,
+        keyHash,
+        ownerToken,
+        response,
+        expiresAt: new Date(now.getTime() + safeResponseRetentionMs),
+      });
       return { kind: "executed", response };
     } catch (error) {
       await store.release({ scope, keyHash, ownerToken }).catch(() => {});

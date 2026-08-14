@@ -6,7 +6,7 @@ import { CANONICAL_APP_HOST } from "@/lib/canonical-host";
 import { getMarketingPath, SITE_LOCALES } from "@/lib/site-locale";
 
 const ORIGIN = `https://${CANONICAL_APP_HOST}`;
-const LAST_MODIFIED = new Date("2026-08-01T00:00:00.000Z");
+const LAST_MODIFIED = new Date("2026-08-09T00:00:00.000Z");
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return SITE_LOCALES.flatMap((locale) => {
@@ -28,6 +28,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
         ? [
             {
               url: `${ORIGIN}${getMarketingPath(locale, "docs")}`,
+              lastModified: LAST_MODIFIED,
+              changeFrequency: "weekly" as const,
+              priority: 0.8,
+            },
+            {
+              url: `${ORIGIN}${getMarketingPath(locale, "help")}`,
               lastModified: LAST_MODIFIED,
               changeFrequency: "weekly" as const,
               priority: 0.8,

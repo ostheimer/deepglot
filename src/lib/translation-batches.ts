@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { assertPostgresTextFields } from "@/lib/postgres-text";
 
 export type TranslationBatchRecordInput = {
   organizationId: string;
@@ -74,6 +75,11 @@ export async function upsertTranslatedUrlHit({
   wordCount: number;
   tx?: Prisma.TransactionClient;
 }) {
+  assertPostgresTextFields(
+    { langTo, requestUrl },
+    { boundary: "translated_url_persistence" },
+  );
+
   if (!requestUrl) {
     return null;
   }
@@ -117,6 +123,16 @@ export async function recordTranslationBatch(
   input: TranslationBatchRecordInput,
   tx?: Prisma.TransactionClient
 ) {
+  assertPostgresTextFields(
+    {
+      langFrom: input.langFrom,
+      langTo: input.langTo,
+      requestUrl: input.requestUrl,
+      provider: input.provider,
+    },
+    { boundary: "translation_batch_persistence" },
+  );
+
   const client = tx ?? db;
 
   return client.translationBatchLog.create({

@@ -74,6 +74,13 @@ export function HeroLanguagePreview({ locale }: { locale: SiteLocale }) {
               {activeLanguage.cta}
             </span>
           </div>
+          <div
+            data-testid="translation-cache-status"
+            className="absolute top-4 right-4 flex items-center gap-2 rounded-full border border-white/30 bg-[#071521]/85 px-3 py-2 text-[10px] font-semibold text-white shadow-lg backdrop-blur-sm sm:top-5 sm:right-5 sm:text-xs"
+          >
+            <span className="h-2 w-2 rounded-full bg-[#42c5a4] shadow-[0_0_0_3px_rgba(66,197,164,0.2)]" />
+            {uiText(locale, "Served from the local translation cache", "Aus dem lokalen Übersetzungs-Cache")}
+          </div>
         </div>
       </div>
 

@@ -100,7 +100,9 @@ class WooCommerceEmailTranslator
             return $content;
         }
 
-        return $this->htmlTranslator->translate($content, $language);
+        // Email output is sent once and cannot benefit from a background
+        // translation warm-up after the response has completed.
+        return $this->htmlTranslator->translateInline($content, $language);
     }
 
     public function translateEmailSubject(string $subject, $order): string

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.11.7\n"
+"Project-Id-Version: Deepglot 0.12.1\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -15,8 +15,8 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: deepglot.php
-#: includes/Admin/SettingsPage.php:103
-#: includes/Admin/SettingsPage.php:104
+#: includes/Admin/SettingsPage.php:217
+#: includes/Admin/SettingsPage.php:218
 msgid "Deepglot"
 msgstr "Deepglot"
 
@@ -75,496 +75,658 @@ msgstr "Pridėti į meniu"
 msgid "Sprachschalter"
 msgstr "Balso jungiklis"
 
-#: includes/Admin/SettingsPage.php:60
+#: includes/Admin/SettingsPage.php:65
+msgid "Die URL-Vorschau ist bereit. Prüfe die Auswahl und bestätige anschließend den Start."
+msgstr "URL peržiūra paruošta. Patikrinkite pasirinkimą ir patvirtinkite pradžią."
+
+#: includes/Admin/SettingsPage.php:87
+msgid "Die URL-Synchronisierung wurde gestartet."
+msgstr "Pradėtas URL sinchronizavimas."
+
+#: includes/Admin/SettingsPage.php:103
+msgid "Ungültige Aktion."
+msgstr "Netinkamas veiksmas."
+
+#: includes/Admin/SettingsPage.php:110
+msgid "Der Status der URL-Synchronisierung wurde aktualisiert."
+msgstr "URL sinchronizavimo būsena buvo atnaujinta."
+
+#: includes/Admin/SettingsPage.php:111
+msgid "Die URL-Synchronisierung konnte in ihrem aktuellen Status nicht geändert werden."
+msgstr "URL sinchronizavimo dabartinės būsenos pakeisti nepavyko."
+
+#: includes/Admin/SettingsPage.php:118
+#: includes/Api/RestApi.php:457
+msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgstr "Norėdami atlikti šį veiksmą, jums reikia administratoriaus teisių."
+
+#: includes/Admin/SettingsPage.php:174
 msgid "Deepglot: API-Key ungültig oder widerrufen."
 msgstr "Deepglot: API-Key neteisingas arba atšauktas."
 
-#: includes/Admin/SettingsPage.php:61
+#: includes/Admin/SettingsPage.php:175
 msgid "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort."
 msgstr "Deepglot serveris atmeta bet kokią vertimo užklausą (HTTP 401). Turinys, kuris jau buvo talpykloje, bus toliau pateikiamas, bet nieko naujo nebus išverstas. Išsaugokite galiojantį API-Key Deepglot nustatymuose, tada jis įsigalios nedelsiant."
 
-#: includes/Admin/SettingsPage.php:63
+#: includes/Admin/SettingsPage.php:177
 msgid "API-Key im Deepglot-Dashboard prüfen"
 msgstr "Patikrinkite API-Key Deepglot prietaisų skydelyje"
 
-#: includes/Admin/SettingsPage.php:90
+#: includes/Admin/SettingsPage.php:204
 msgid "Deepglot: Monatliches Wortlimit erreicht."
 msgstr "Deepglot: pasiektas mėnesio žodžių limitas."
 
-#: includes/Admin/SettingsPage.php:91
+#: includes/Admin/SettingsPage.php:205
 msgid "Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird."
 msgstr "Turinys, kuris jau buvo išverstas, bus toliau teikiamas, bet naujas arba pakeistas tekstas liks šaltinio kalba, kol kvota bus nustatyta iš naujo arba padidinta."
 
-#: includes/Admin/SettingsPage.php:93
+#: includes/Admin/SettingsPage.php:207
 msgid "Kontingent im Deepglot-Dashboard prüfen"
 msgstr "Patikrinkite kvotą Deepglot prietaisų skydelyje"
 
-#: includes/Admin/SettingsPage.php:263
+#: includes/Admin/SettingsPage.php:382
 msgid "API-Key ungültig"
 msgstr "API-Key neteisingas"
 
-#: includes/Admin/SettingsPage.php:266
+#: includes/Admin/SettingsPage.php:385
 msgid "Aktiv"
 msgstr "Aktyvus"
 
-#: includes/Admin/SettingsPage.php:269
+#: includes/Admin/SettingsPage.php:388
 msgid "Deaktiviert"
 msgstr "Išjungta"
 
-#: includes/Admin/SettingsPage.php:272
+#: includes/Admin/SettingsPage.php:391
 msgid "Einrichtung erforderlich"
 msgstr "Reikalinga sąranka"
 
-#: includes/Admin/SettingsPage.php:295
+#: includes/Admin/SettingsPage.php:414
 msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
 msgstr "Sveiki atvykę į Deepglot! Atlikite tris toliau nurodytus veiksmus, kad įgalintumėte vertimą savo svetainėje."
 
-#: includes/Admin/SettingsPage.php:306
+#: includes/Admin/SettingsPage.php:425
 msgid "Deepglot einrichten"
 msgstr "Nustatyti Deepglot"
 
-#: includes/Admin/SettingsPage.php:307
+#: includes/Admin/SettingsPage.php:426
 msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
 msgstr "Viskas, ko jums reikia, yra API-Key iš Deepglot prietaisų skydelio – tai užtruks mažiau nei dvi minutes."
 
-#: includes/Admin/SettingsPage.php:319
+#: includes/Admin/SettingsPage.php:438
 msgid "API-Key eintragen"
 msgstr "Įveskite API-Key"
 
-#: includes/Admin/SettingsPage.php:322
+#: includes/Admin/SettingsPage.php:441
 msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
 msgstr "Išsaugotą API-Key atmeta Deepglot serveris (HTTP 401). Šiuo metu naujas turinys neverčiamas – įveskite galiojantį raktą ir išsaugokite."
 
-#: includes/Admin/SettingsPage.php:327
+#: includes/Admin/SettingsPage.php:446
 msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
 msgstr "Sukurkite nemokamą paskyrą deepglot.ai, sukurkite savo svetainės projektą ir nukopijuokite API-Key."
 
-#: includes/Admin/SettingsPage.php:330
+#: includes/Admin/SettingsPage.php:449
 msgid "Zum Dashboard – API-Key erstellen"
 msgstr "Eikite į prietaisų skydelį – sukurkite API-Key"
 
-#: includes/Admin/SettingsPage.php:335
+#: includes/Admin/SettingsPage.php:454
 msgid "API-Key"
 msgstr "API-Key"
 
-#: includes/Admin/SettingsPage.php:346
+#: includes/Admin/SettingsPage.php:465
 msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
 msgstr "Visą raktą galite rasti skiltyje Nustatymai → API-Keys savo Deepglot projekte."
 
-#: includes/Admin/SettingsPage.php:350
+#: includes/Admin/SettingsPage.php:469
 msgid "Backend-URL"
 msgstr "Backend URL"
 
-#: includes/Admin/SettingsPage.php:358
+#: includes/Admin/SettingsPage.php:477
 msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
 msgstr "Numatytasis: https://deepglot.ai/api – keitimas tik Self-Hosting."
 
-#: includes/Admin/SettingsPage.php:370
+#: includes/Admin/SettingsPage.php:489
 msgid "Sprachen konfigurieren"
 msgstr "Konfigūruoti kalbas"
 
-#: includes/Admin/SettingsPage.php:372
+#: includes/Admin/SettingsPage.php:491
 msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
 msgstr "Nurodykite originalo kalbą ir norimas vertimo kalbas."
 
-#: includes/Admin/SettingsPage.php:376
+#: includes/Admin/SettingsPage.php:495
 msgid "Originalsprache"
 msgstr "Originalo kalba"
 
-#: includes/Admin/SettingsPage.php:387
+#: includes/Admin/SettingsPage.php:506
+#: includes/Admin/SettingsPage.php:1177
 msgid "Zielsprachen"
 msgstr "Tikslinės kalbos"
 
-#: includes/Admin/SettingsPage.php:395
+#: includes/Admin/SettingsPage.php:514
 msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
 msgstr "Kableliais atskirti ISO-639-1 kodai, pvz. B. en, fr, it"
 
-#: includes/Admin/SettingsPage.php:407
+#: includes/Admin/SettingsPage.php:526
 msgid "Übersetzung aktivieren"
 msgstr "Įgalinti vertimą"
 
-#: includes/Admin/SettingsPage.php:409
+#: includes/Admin/SettingsPage.php:528
 msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
 msgstr "Išsaugoję API-Key ir kalbas, įgalinkite automatinį vertimą čia."
 
-#: includes/Admin/SettingsPage.php:421
+#: includes/Admin/SettingsPage.php:540
 msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
 msgstr "Suaktyvinkite Deepglot visoms sąsajos užklausoms"
 
-#: includes/Admin/SettingsPage.php:426
+#: includes/Admin/SettingsPage.php:545
 msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
 msgstr "Vertimas įjungtas, bet nejuda: API-Key atmetamas."
 
 #. translators: %1$s: source language, %2$s: target languages
-#: includes/Admin/SettingsPage.php:434
+#: includes/Admin/SettingsPage.php:553
 msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
 msgstr "Aktyvus – puslapiai išversti iš %1$s į %2$s pagal /%3$s/ihre-seite/"
 
-#: includes/Admin/SettingsPage.php:454
+#: includes/Admin/SettingsPage.php:573
 msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
 msgstr "Automatiškai peradresuoti lankytojus pagal naršyklės kalbą (pasirenkama)"
 
-#: includes/Admin/SettingsPage.php:463
+#: includes/Admin/SettingsPage.php:582
 msgid "Erweiterte Einstellungen ausblenden"
 msgstr "Slėpti išplėstinius nustatymus"
 
-#: includes/Admin/SettingsPage.php:463
-#: includes/Admin/SettingsPage.php:464
+#: includes/Admin/SettingsPage.php:582
+#: includes/Admin/SettingsPage.php:583
 msgid "Erweiterte Einstellungen anzeigen"
 msgstr "Rodyti išplėstinius nustatymus"
 
-#: includes/Admin/SettingsPage.php:468
+#: includes/Admin/SettingsPage.php:587
 msgid "Ausgeschlossene URLs"
 msgstr "Neįtraukta URLs"
 
-#: includes/Admin/SettingsPage.php:470
+#: includes/Admin/SettingsPage.php:589
 msgid "Eine URL oder ein Muster pro Zeile."
 msgstr "Vienas URL arba raštas eilutėje."
 
-#: includes/Admin/SettingsPage.php:473
+#: includes/Admin/SettingsPage.php:592
 msgid "Routing-Modus"
 msgstr "Maršruto režimas"
 
-#: includes/Admin/SettingsPage.php:476
+#: includes/Admin/SettingsPage.php:595
 msgid "Pfad-Präfix (/en/meine-seite)"
 msgstr "Kelio priešdėlis (/en/meine-seite)"
 
-#: includes/Admin/SettingsPage.php:479
+#: includes/Admin/SettingsPage.php:598
 msgid "Subdomains (en.example.com)"
 msgstr "Subdomenai (en.example.com)"
 
-#: includes/Admin/SettingsPage.php:482
+#: includes/Admin/SettingsPage.php:601
 msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
 msgstr "Kelio priešdėlis išlieka numatytasis. Subdomenams kiekvienai aktyviai tikslinei kalbai reikia prieglobos."
 
-#: includes/Admin/SettingsPage.php:485
+#: includes/Admin/SettingsPage.php:604
 msgid "Domain-Zuordnungen"
 msgstr "Domeno susiejimas"
 
-#: includes/Admin/SettingsPage.php:493
+#: includes/Admin/SettingsPage.php:612
 msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
 msgstr "Formatas: sprachcode=host, viena užduotis eilutėje."
 
-#: includes/Admin/SettingsPage.php:505
+#: includes/Admin/SettingsPage.php:624
 msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
 msgstr "Išverskite WooCommerce ir wp_mail el. laiškus"
 
-#: includes/Admin/SettingsPage.php:518
+#: includes/Admin/SettingsPage.php:637
 msgid "Suche in der Besuchersprache ausführen"
 msgstr "Atlikite paiešką lankytojo kalba"
 
-#: includes/Admin/SettingsPage.php:531
+#: includes/Admin/SettingsPage.php:650
 msgid "AMP-Seiten übersetzen"
 msgstr "Versti AMP puslapius"
 
-#: includes/Admin/SettingsPage.php:544
+#: includes/Admin/SettingsPage.php:663
 msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
 msgstr "Išverskite dinamiškai iš naujo įkeltą turinį (AJAX, begalinis slinkimas, SPA)"
 
-#: includes/Admin/SettingsPage.php:548
+#: includes/Admin/SettingsPage.php:667
 msgid "Ausgeschlossene CSS-Selektoren"
 msgstr "Išskirti CSS parinkikliai"
 
-#: includes/Admin/SettingsPage.php:550
+#: includes/Admin/SettingsPage.php:669
 msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
 msgstr "Viena CSS klasė, ID arba parinkiklis vienoje eilutėje."
 
-#: includes/Admin/SettingsPage.php:584
-#: includes/Admin/SettingsPage.php:938
+#: includes/Admin/SettingsPage.php:703
+#: includes/Admin/SettingsPage.php:1243
 #: includes/Config/SwitcherTemplates.php:115
 msgid "Sprachumschalter"
 msgstr "Kalbos perjungiklis"
 
-#: includes/Admin/SettingsPage.php:585
+#: includes/Admin/SettingsPage.php:704
 msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
 msgstr "Kaip ir kur jūsų svetainėje turėtų būti rodomas Language-Switcher?"
 
-#: includes/Admin/SettingsPage.php:598
+#: includes/Admin/SettingsPage.php:717
 msgid "Switcher automatisch im Seitenfooter einfügen"
 msgstr "Automatiškai įterpti Switcher į puslapio poraštę"
 
-#: includes/Admin/SettingsPage.php:602
+#: includes/Admin/SettingsPage.php:721
 msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
 msgstr "Arba: Shortcode [deepglot_switcher] arba PHP do_action('deepglot_language_switcher') temoje."
 
-#: includes/Admin/SettingsPage.php:607
-#: includes/Admin/SettingsPage.php:957
+#: includes/Admin/SettingsPage.php:726
+#: includes/Admin/SettingsPage.php:1262
 msgid "Darstellung"
 msgstr "Pristatymas"
 
-#: includes/Admin/SettingsPage.php:610
-#: includes/Admin/SettingsPage.php:959
+#: includes/Admin/SettingsPage.php:729
+#: includes/Admin/SettingsPage.php:1264
 msgid "Inline-Liste"
 msgstr "Įdėtasis sąrašas"
 
-#: includes/Admin/SettingsPage.php:613
-#: includes/Admin/SettingsPage.php:960
+#: includes/Admin/SettingsPage.php:732
+#: includes/Admin/SettingsPage.php:1265
 msgid "Dropdown"
 msgstr "Nuleiskite žemyn"
 
-#: includes/Admin/SettingsPage.php:619
-#: includes/Admin/SettingsPage.php:964
+#: includes/Admin/SettingsPage.php:738
+#: includes/Admin/SettingsPage.php:1269
 msgid "Flaggenstil"
 msgstr "Vėliavos stilius"
 
-#: includes/Admin/SettingsPage.php:622
+#: includes/Admin/SettingsPage.php:741
 msgid "Rechteckig, matt"
 msgstr "Stačiakampis, matinis"
 
-#: includes/Admin/SettingsPage.php:625
+#: includes/Admin/SettingsPage.php:744
 msgid "Rechteckig, glänzend"
 msgstr "Stačiakampis, blizgus"
 
-#: includes/Admin/SettingsPage.php:628
+#: includes/Admin/SettingsPage.php:747
 msgid "Kreis, matt"
 msgstr "Apskritimas, matinis"
 
-#: includes/Admin/SettingsPage.php:631
+#: includes/Admin/SettingsPage.php:750
 msgid "Kreis, glänzend"
 msgstr "Apskritimas, blizgus"
 
-#: includes/Admin/SettingsPage.php:634
+#: includes/Admin/SettingsPage.php:753
 msgid "Ohne Flagge"
 msgstr "Be vėliavos"
 
-#: includes/Admin/SettingsPage.php:640
-#: includes/Admin/SettingsPage.php:972
+#: includes/Admin/SettingsPage.php:759
+#: includes/Admin/SettingsPage.php:1277
 msgid "Sprachbezeichnung"
 msgstr "Kalbos žymėjimas"
 
-#: includes/Admin/SettingsPage.php:643
+#: includes/Admin/SettingsPage.php:762
 msgid "Volle Bezeichnung („Deutsch\")"
 msgstr "Visas vardas („vokiečių kalba“)"
 
-#: includes/Admin/SettingsPage.php:646
+#: includes/Admin/SettingsPage.php:765
 msgid "ISO-Code („DE\")"
 msgstr "ISO-Code („DE“)"
 
-#: includes/Admin/SettingsPage.php:652
+#: includes/Admin/SettingsPage.php:771
 msgid "Anzeigegerät"
 msgstr "Vaizdo įrenginys"
 
-#: includes/Admin/SettingsPage.php:655
+#: includes/Admin/SettingsPage.php:774
 msgid "Auf allen Geräten zeigen"
 msgstr "Rodyti visuose įrenginiuose"
 
-#: includes/Admin/SettingsPage.php:658
+#: includes/Admin/SettingsPage.php:777
 msgid "Nur Desktop (auf Mobile ausblenden)"
 msgstr "Tik staliniams kompiuteriams (paslėpti mobiliajame telefone)"
 
-#: includes/Admin/SettingsPage.php:661
+#: includes/Admin/SettingsPage.php:780
 msgid "Nur Mobile (auf Desktop ausblenden)"
 msgstr "Tik mobiliesiems (paslėpti darbalaukyje)"
 
-#: includes/Admin/SettingsPage.php:667
+#: includes/Admin/SettingsPage.php:786
 msgid "Mobile-Breakpoint (px)"
 msgstr "Pertraukos taškas mobiliesiems (piks.)"
 
-#: includes/Admin/SettingsPage.php:679
+#: includes/Admin/SettingsPage.php:798
 msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
 msgstr "Numatytasis 768 px. Žemiau šio pločio puslapis laikomas „mobiliuoju“."
 
-#: includes/Admin/SettingsPage.php:684
+#: includes/Admin/SettingsPage.php:803
 msgid "Position auf der Seite"
 msgstr "Padėtis puslapyje"
 
-#: includes/Admin/SettingsPage.php:687
+#: includes/Admin/SettingsPage.php:806
 msgid "Inline (an der eingebetteten Stelle)"
 msgstr "Įdėta (įterptoje vietoje)"
 
-#: includes/Admin/SettingsPage.php:690
+#: includes/Admin/SettingsPage.php:809
 msgid "Floating: rechts unten"
 msgstr "Plaukiojantis: apačioje dešinėje"
 
-#: includes/Admin/SettingsPage.php:693
+#: includes/Admin/SettingsPage.php:812
 msgid "Floating: links unten"
 msgstr "Plaukiojantis: apačioje kairėje"
 
-#: includes/Admin/SettingsPage.php:696
+#: includes/Admin/SettingsPage.php:815
 msgid "Floating: rechts oben"
 msgstr "Plaukiojantis: viršuje dešinėje"
 
-#: includes/Admin/SettingsPage.php:699
+#: includes/Admin/SettingsPage.php:818
 msgid "Floating: links oben"
 msgstr "Plaukiojantis: viršuje kairėje"
 
-#: includes/Admin/SettingsPage.php:703
+#: includes/Admin/SettingsPage.php:822
 msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
 msgstr "„Plaukiojantis“ prisega Switcher prie kampo su pozicija:fiksuota ir slenka su juo. Kartu su automatiniu įpurškimu = Weglot numatytasis elgesys."
 
-#: includes/Admin/SettingsPage.php:718
+#: includes/Admin/SettingsPage.php:837
 msgid "Bezeichnung sichtbar"
 msgstr "Paskyrimas matomas"
 
-#: includes/Admin/SettingsPage.php:725
+#: includes/Admin/SettingsPage.php:844
 msgid "Reihenfolge der Sprachen"
 msgstr "Kalbų tvarka"
 
-#: includes/Admin/SettingsPage.php:744
+#: includes/Admin/SettingsPage.php:863
 msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
 msgstr "Pertvarkykite naudodami vilkite ir numeskite. Veikia ir Shortcode, ir automatiniame įpurškime."
 
-#: includes/Admin/SettingsPage.php:748
+#: includes/Admin/SettingsPage.php:867
 msgid "Eigene Flaggen pro Sprache (optional)"
 msgstr "Atskiros vėliavėlės kiekvienai kalbai (neprivaloma)"
 
-#: includes/Admin/SettingsPage.php:778
+#: includes/Admin/SettingsPage.php:897
 msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
 msgstr "Palikite tuščią = numatytoji vėliavėlė. Jaustukai (pvz., 🇺🇸 EN→US rinkai) arba specialieji simboliai nuo URL iki SVG/PNG. CSS pašalinami automatiškai."
 
-#: includes/Admin/SettingsPage.php:783
+#: includes/Admin/SettingsPage.php:902
 msgid "Eigenes CSS für den Switcher"
 msgstr "Nuosavas CSS už Switcher"
 
-#: includes/Admin/SettingsPage.php:791
+#: includes/Admin/SettingsPage.php:910
 msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
 msgstr "Įterpta prieš pat Switcher kaip <style> žyma. „<“ automatiškai pašalinamas, kad nebūtų galima įterpti jokios scenarijaus žymos."
 
-#: includes/Admin/SettingsPage.php:803
+#: includes/Admin/SettingsPage.php:922
 msgid "Weitere Switcher-Instanzen"
 msgstr "Daugiau Switcher atvejų"
 
-#: includes/Admin/SettingsPage.php:805
+#: includes/Admin/SettingsPage.php:924
 msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
 msgstr "Sukurkite nepriklausomą Switcher, skirtą Shortcode, blokuoti, valdikliui arba automatinei paskirties vietai. Esamas visuotinis Switcher išlieka kaip „numatytasis“ egzempliorius."
 
-#: includes/Admin/SettingsPage.php:807
+#: includes/Admin/SettingsPage.php:926
 msgid "Switcher-Vorlagen"
 msgstr "Switcher šablonai"
 
-#: includes/Admin/SettingsPage.php:835
+#: includes/Admin/SettingsPage.php:954
 msgid "Neuer Switcher"
 msgstr "Naujas Switcher"
 
-#: includes/Admin/SettingsPage.php:846
+#: includes/Admin/SettingsPage.php:965
 msgid "Einstellungen speichern"
 msgstr "Išsaugokite nustatymus"
 
 #. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:857
+#: includes/Admin/SettingsPage.php:976
 msgid "Hilfe & Dokumentation: %s"
 msgstr "Pagalba ir dokumentacija: %s"
 
-#: includes/Admin/SettingsPage.php:940
+#: includes/Admin/SettingsPage.php:1057
+msgid "Noch nicht gestartet"
+msgstr "Dar neprasidėjo"
+
+#: includes/Admin/SettingsPage.php:1058
+msgid "In Warteschlange"
+msgstr "Eilėje"
+
+#: includes/Admin/SettingsPage.php:1059
+msgid "Läuft"
+msgstr "Bėga"
+
+#: includes/Admin/SettingsPage.php:1060
+msgid "Übersetzungen werden aufgewärmt"
+msgstr "Vertimai apšildomi"
+
+#: includes/Admin/SettingsPage.php:1061
+msgid "Wartet wegen API-Ratenlimit"
+msgstr "Laukiama dėl API greičio apribojimo"
+
+#: includes/Admin/SettingsPage.php:1062
+msgid "Pausiert"
+msgstr "Pristabdyta"
+
+#: includes/Admin/SettingsPage.php:1063
+msgid "Pausiert: Wortkontingent erreicht"
+msgstr "Pristabdyta: pasiekta žodžių kvota"
+
+#: includes/Admin/SettingsPage.php:1064
+msgid "Pausiert: API-Key ungültig"
+msgstr "Pristabdytas: API-Key netinkamas"
+
+#: includes/Admin/SettingsPage.php:1065
+msgid "Abgeschlossen"
+msgstr "Baigta"
+
+#: includes/Admin/SettingsPage.php:1066
+msgid "Mit Fehlern abgeschlossen"
+msgstr "Užbaigta su klaidomis"
+
+#: includes/Admin/SettingsPage.php:1067
+msgid "Abgebrochen"
+msgstr "Nutraukta"
+
+#: includes/Admin/SettingsPage.php:1088
+msgid "URL-Synchronisierung"
+msgstr "URL sinchronizavimas"
+
+#: includes/Admin/SettingsPage.php:1089
+msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
+msgstr "Fone kontroliuojamai atidaromi pasirinktos tikslinės kalbos puslapiai. Trūkstantys segmentai patenka į ribotą vertimo eilę; Botai ir neribotos trukmės tikrinimas nenaudojami."
+
+#: includes/Admin/SettingsPage.php:1099
+msgid "Status:"
+msgstr "Būsena:"
+
+#: includes/Admin/SettingsPage.php:1108
+msgid "URLs gesamt"
+msgstr "Iš viso URLs"
+
+#: includes/Admin/SettingsPage.php:1109
+msgid "Warteschlange abgearbeitet"
+msgstr "Eilė apdorota"
+
+#: includes/Admin/SettingsPage.php:1110
+msgid "Werden aufgewärmt"
+msgstr "Yra sušilę"
+
+#: includes/Admin/SettingsPage.php:1111
+msgid "Fehlgeschlagen"
+msgstr "Nepavyko"
+
+#: includes/Admin/SettingsPage.php:1113
+msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
+msgstr "„Apdorota“ patvirtina Deepglot eilę WordPress pradžioje. Baigę patikrinkite viešąjį tikslinės kalbos puslapį be sinchronizavimo parametrų ir rankiniu būdu išvalykite nepalaikomą viso puslapio talpyklą."
+
+#: includes/Admin/SettingsPage.php:1118
+msgid "Fehlgeschlagene URLs"
+msgstr "Nepavyko URLs"
+
+#: includes/Admin/SettingsPage.php:1138
+msgid "Fehlgeschlagene URLs erneut versuchen"
+msgstr "Bandymas iš naujo nepavyko URLs"
+
+#: includes/Admin/SettingsPage.php:1144
+msgid "URL-Vorschau"
+msgstr "URL peržiūra"
+
+#. translators: %d: number of target-language URLs in the preview.
+#: includes/Admin/SettingsPage.php:1149
+msgid "%d Zielseiten werden synchronisiert."
+msgstr "%d Tiksliniai puslapiai sinchronizuojami."
+
+#: includes/Admin/SettingsPage.php:1169
+msgid "Vorschau bestätigen und Synchronisierung starten"
+msgstr "Patvirtinkite peržiūrą ir pradėkite sinchronizavimą"
+
+#: includes/Admin/SettingsPage.php:1188
+msgid "Maximale Anzahl Zielseiten"
+msgstr "Didžiausias nukreipimo puslapių skaičius"
+
+#: includes/Admin/SettingsPage.php:1190
+msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
+msgstr "Didelėse svetainėse pradėkite nuo mažo pavyzdžio. Per vieną paleidimą paliečiami ne daugiau kaip du puslapiai; Jei vertimo eilė pilna, sinchronizavimas laukia automatiškai."
+
+#: includes/Admin/SettingsPage.php:1194
+msgid "Nächsten URL-Batch als Vorschau laden"
+msgstr "Įkelkite kitą URL partiją kaip peržiūrą"
+
+#: includes/Admin/SettingsPage.php:1195
+msgid "URL-Vorschau erstellen"
+msgstr "Sukurti URL peržiūrą"
+
+#: includes/Admin/SettingsPage.php:1201
+msgid "Status aktualisieren"
+msgstr "Atnaujinti būseną"
+
+#: includes/Admin/SettingsPage.php:1206
+msgid "Fortsetzen"
+msgstr "Tęsti"
+
+#: includes/Admin/SettingsPage.php:1206
+msgid "Pausieren"
+msgstr "Pauzė"
+
+#: includes/Admin/SettingsPage.php:1215
+msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
+msgstr "Tikrai atšaukti sinchronizavimą? Jau išsaugoti vertimai išsaugomi."
+
+#: includes/Admin/SettingsPage.php:1216
+msgid "Abbrechen"
+msgstr "Atšaukti"
+
+#: includes/Admin/SettingsPage.php:1245
 msgid "Instanz entfernen"
 msgstr "Pašalinti egzempliorių"
 
-#: includes/Admin/SettingsPage.php:949
+#: includes/Admin/SettingsPage.php:1254
 #: assets/js/block-switcher.js:51
 msgid "Instanz-ID"
 msgstr "Atvejo ID"
 
-#: includes/Admin/SettingsPage.php:953
+#: includes/Admin/SettingsPage.php:1258
 msgid "Name"
 msgstr "pavadinimas"
 
-#: includes/Admin/SettingsPage.php:974
+#: includes/Admin/SettingsPage.php:1279
 msgid "Vollständiger Name"
 msgstr "Pilnas vardas"
 
-#: includes/Admin/SettingsPage.php:975
+#: includes/Admin/SettingsPage.php:1280
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:979
+#: includes/Admin/SettingsPage.php:1284
 msgid "Position"
 msgstr "padėtis"
 
-#: includes/Admin/SettingsPage.php:987
+#: includes/Admin/SettingsPage.php:1292
 msgid "Ausblenden auf"
 msgstr "Paslėpk"
 
-#: includes/Admin/SettingsPage.php:989
+#: includes/Admin/SettingsPage.php:1294
 msgid "Keinem Gerät"
 msgstr "Nėra įrenginio"
 
-#: includes/Admin/SettingsPage.php:990
+#: includes/Admin/SettingsPage.php:1295
 msgid "Mobilgeräten"
 msgstr "mobiliuosius įrenginius"
 
-#: includes/Admin/SettingsPage.php:991
+#: includes/Admin/SettingsPage.php:1296
 msgid "Desktop-Geräten"
 msgstr "Staliniai įrenginiai"
 
-#: includes/Admin/SettingsPage.php:995
+#: includes/Admin/SettingsPage.php:1300
 msgid "Breakpoint (px)"
 msgstr "Lūžio taškas (tšk.)"
 
-#: includes/Admin/SettingsPage.php:1002
+#: includes/Admin/SettingsPage.php:1307
 msgid "Instanz aktivieren"
 msgstr "Suaktyvinti egzempliorių"
 
-#: includes/Admin/SettingsPage.php:1004
+#: includes/Admin/SettingsPage.php:1309
 msgid "Automatisch platzieren"
 msgstr "Padėkite automatiškai"
 
-#: includes/Admin/SettingsPage.php:1006
+#: includes/Admin/SettingsPage.php:1311
 msgid "Beschriftung anzeigen"
 msgstr "Rodyti antraštę"
 
-#: includes/Admin/SettingsPage.php:1010
+#: includes/Admin/SettingsPage.php:1315
 msgid "Sprachreihenfolge"
 msgstr "Kalbos tvarka"
 
-#: includes/Admin/SettingsPage.php:1015
+#: includes/Admin/SettingsPage.php:1320
 msgid "Eigene Flaggen"
 msgstr "Nuosavos vėliavos"
 
-#: includes/Admin/SettingsPage.php:1024
+#: includes/Admin/SettingsPage.php:1329
 msgid "Eigenes CSS"
 msgstr "Nuosavas CSS"
 
-#: includes/Admin/SettingsPage.php:1029
+#: includes/Admin/SettingsPage.php:1334
 msgid "DOM-Ziel für automatische Platzierung"
 msgstr "Automatinės paskirties vietos DOM tikslas"
 
-#: includes/Admin/SettingsPage.php:1032
+#: includes/Admin/SettingsPage.php:1337
 msgid "Element in der Vorschau auswählen"
 msgstr "Pasirinkite elementą peržiūroje"
 
-#: includes/Admin/SettingsPage.php:1034
+#: includes/Admin/SettingsPage.php:1339
 msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
 msgstr "Jei tikslo nėra arba jis neteisingas, Switcher saugiai liks poraštėje."
 
-#: includes/Admin/SettingsPage.php:1038
+#: includes/Admin/SettingsPage.php:1343
 msgid "Website-Vorschau für die Switcher-Platzierung"
 msgstr "Switcher paskirties vietos svetainės peržiūra"
 
-#: includes/Api/Client.php:308
-#: includes/Sync/SettingsSync.php:62
-msgid "Kein API-Key für die Synchronisierung vorhanden."
-msgstr "Nėra API-Key, kurį būtų galima sinchronizuoti."
-
-#: includes/Api/Client.php:353
-msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
-msgstr "Vykdymo laiko konfigūracijai API-Key nėra."
-
-#: includes/Api/Client.php:420
+#: includes/Api/Client.php:326
+#: includes/Api/Client.php:748
+#: includes/Api/Client.php:816
+#: includes/Api/Client.php:926
 msgid "Deepglot API Fehler."
 msgstr "Deepglot API klaida."
 
-#: includes/Api/Client.php:621
+#: includes/Api/Client.php:522
+#: includes/Sync/SettingsSync.php:101
+msgid "Kein API-Key für die Synchronisierung vorhanden."
+msgstr "Nėra API-Key, kurį būtų galima sinchronizuoti."
+
+#: includes/Api/Client.php:567
+msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+msgstr "Vykdymo laiko konfigūracijai API-Key nėra."
+
+#: includes/Api/Client.php:1261
 msgid "Deepglot API-Key ungültig oder widerrufen."
 msgstr "Deepglot API-Key negalioja arba atšauktas."
 
-#: includes/Api/RestApi.php:218
+#: includes/Api/RestApi.php:310
 msgid "Kein API-Key angegeben."
 msgstr "Nenurodytas API-Key."
 
-#: includes/Api/RestApi.php:263
-msgid "Du benötigst Administrator-Rechte für diese Aktion."
-msgstr "Norėdami atlikti šį veiksmą, jums reikia administratoriaus teisių."
+#: includes/Api/RestApi.php:437
+msgid "URL-Synchronisierung ist nicht verfügbar."
+msgstr "URL sinchronizavimas nepasiekiamas."
 
 #. translators: %d: seconds until reset
-#: includes/Api/RestApi.php:302
+#: includes/Api/RestApi.php:496
 msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
 msgstr "Per daug prašymų. Palaukite %d sekundžių."
 
-#: includes/Api/RestApi.php:423
+#: includes/Api/RestApi.php:617
 msgid "Monatliches Wortlimit ausgeschöpft."
 msgstr "Išnaudotas mėnesio žodžių limitas."
 
-#: includes/Api/RestApi.php:431
+#: includes/Api/RestApi.php:625
 msgid "API-Key ungültig oder widerrufen."
 msgstr "API-Key neteisingas arba atšauktas."
 
@@ -596,11 +758,11 @@ msgstr "Apvalios vėliavėlės kaip plaukiojantis jungiklis apačioje dešinėje
 msgid "Zu viele Anfragen."
 msgstr "Per daug prašymų."
 
-#: includes/Frontend/DynamicTranslationController.php:308
+#: includes/Frontend/DynamicTranslationController.php:321
 msgid "Nicht verfügbar."
 msgstr "Nėra."
 
-#: includes/Frontend/DynamicTranslationController.php:317
+#: includes/Frontend/DynamicTranslationController.php:330
 msgid "Ungültige Herkunft."
 msgstr "Neteisinga kilmė."
 
@@ -634,7 +796,53 @@ msgstr "Pavadinimas:"
 msgid "Switcher-Instanz:"
 msgstr "Switcher atvejis:"
 
-#: includes/Sync/SettingsSync.php:66
+#: includes/Support/UrlTranslationSync.php:91
+msgid "Es wurden keine sicheren internen URLs gefunden."
+msgstr "Nerasta jokių saugių vidinių URL."
+
+#: includes/Support/UrlTranslationSync.php:116
+msgid "Die URL-Vorschau konnte nicht gespeichert werden. Bitte versuche es erneut."
+msgstr "Nepavyko išsaugoti URL peržiūros. Bandykite dar kartą."
+
+#: includes/Support/UrlTranslationSync.php:153
+msgid "Bestätige zuerst die URL-Vorschau."
+msgstr "Pirmiausia patvirtinkite URL peržiūrą."
+
+#: includes/Support/UrlTranslationSync.php:162
+msgid "Eine URL-Synchronisierung wird gerade verarbeitet."
+msgstr "Šiuo metu apdorojamas URL sinchronizavimas."
+
+#: includes/Support/UrlTranslationSync.php:171
+msgid "Es läuft bereits eine URL-Synchronisierung."
+msgstr "URL sinchronizavimas jau vykdomas."
+
+#: includes/Support/UrlTranslationSync.php:180
+msgid "Die URL-Vorschau ist abgelaufen. Erstelle bitte eine neue Vorschau."
+msgstr "URL peržiūra baigėsi. Sukurkite naują peržiūrą."
+
+#: includes/Support/UrlTranslationSync.php:199
+msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
+msgstr "Patvirtinta URL peržiūra nebeatitinka pasirinkimo."
+
+#. translators: %d: maximum number of URLs accepted by one synchronization job.
+#: includes/Support/UrlTranslationSync.php:591
+msgid "Es können höchstens %d URLs synchronisiert werden."
+msgstr "Galima sinchronizuoti daugiausiai %d URLs."
+
+#. translators: %d: maximum target-URL offset accepted for batched synchronization.
+#: includes/Support/UrlTranslationSync.php:600
+msgid "Der URL-Startpunkt darf höchstens %d betragen."
+msgstr "URL pradžios taškas turi būti ne didesnis kaip %d."
+
+#: includes/Support/UrlTranslationSync.php:608
+msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
+msgstr "Deepglot turi būti suaktyvintas ir visiškai nustatytas."
+
+#: includes/Support/UrlTranslationSync.php:623
+msgid "Mindestens eine aktive Zielsprache ist erforderlich."
+msgstr "Būtina bent viena aktyvi tikslinė kalba."
+
+#: includes/Sync/SettingsSync.php:105
 msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
 msgstr "Nėra sukonfigūruotų tikslinių kalbų sinchronizuoti."
 

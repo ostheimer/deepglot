@@ -1,5 +1,7 @@
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
+  providerAbortSignal,
   type TranslateTextsInput,
   type TranslationProviderName,
   type TranslationResult,
@@ -114,8 +116,10 @@ function parseOpenAITranslations(
   }
 
   if (payload.translations.length !== expectedCount) {
-    throw new TranslationProviderResponseError(
-      `OpenAI hat ${payload.translations.length} statt ${expectedCount} Uebersetzungen geliefert.`
+    throw new TranslationProviderCountMismatchError(
+      `OpenAI hat ${payload.translations.length} statt ${expectedCount} Uebersetzungen geliefert.`,
+      expectedCount,
+      payload.translations.length
     );
   }
 
@@ -151,7 +155,8 @@ function parseOpenAITranslations(
 
 export async function translateWithOpenAICompatible(
   { texts, sourceLang, targetLang }: TranslateTextsInput,
-  config: TranslationProviderConfig
+  config: TranslationProviderConfig,
+  signal: AbortSignal = providerAbortSignal()
 ): Promise<TranslationResult[]> {
   validateTranslationProviderConfig(config);
   const model = config.model || DEFAULT_OPENAI_TRANSLATION_MODEL;
@@ -185,6 +190,7 @@ export async function translateWithOpenAICompatible(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!response.ok) {

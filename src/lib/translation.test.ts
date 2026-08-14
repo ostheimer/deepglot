@@ -2,8 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  DEFAULT_PROVIDER_TIMEOUT_MS,
+  DEFAULT_TRANSLATION_CHUNK_CONCURRENCY,
+  DEFAULT_TRANSLATION_CHUNK_SIZE,
+  DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS,
   countWords,
+  resolveProviderTimeoutMs,
+  resolveTranslationChunking,
   resolveTranslationProvider,
+  resolveTranslationRequestTimeoutMs,
   translateTexts,
 } from "@/lib/translation";
 
@@ -303,6 +310,646 @@ test("falls back when a provider returns fewer translations than requested", asy
     ]);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+/**
+ * Production evidence from 2026-08-12 showed a two-text chunk where OpenAI
+ * returned one item and the Gemini fallback returned three. Both providers
+ * had answered successfully at the transport layer, but the request still
+ * ended as HTTP 500 even though each source string could be translated on its
+ * own. A contract mismatch on a multi-text chunk should therefore be isolated
+ * into bounded smaller requests after the configured provider chain is
+ * exhausted, while preserving input order.
+ */
+test("isolates a terminal provider count mismatch so valid texts can still translate", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+      if (texts.length > 1) {
+        return openAIResponse([{ text: "only-one-result" }]);
+      }
+
+      return openAIResponse([{ text: `openai:${texts[0]}` }]);
+    }
+
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      const { texts } = JSON.parse(body.contents[0].parts[0].text) as {
+        texts: string[];
+      };
+
+      return geminiResponse([
+        { text: `gemini-extra:${texts[0]}` },
+        { text: `gemini-extra:${texts[1]}` },
+        { text: "unexpected-third-result" },
+      ]);
+    }
+
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      {
+        texts: ["Erster Text", "Zweiter Text"],
+        sourceLang: "de",
+        targetLang: "en",
+      },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      ["openai:Erster Text", "openai:Zweiter Text"]
+    );
+    assert.equal(openaiCalls, 3, "the failed pair plus two bounded singleton retries");
+    assert.equal(geminiCalls, 1, "the fallback is tried once before isolating the pair");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("keeps a singleton terminal when every provider returns a count mismatch", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([
+        { text: "unexpected-first-result" },
+        { text: "unexpected-second-result" },
+      ]);
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          }
+        ),
+      /Gemini returned 0 instead of 1 translations/
+    );
+    assert.equal(openaiCalls, 1, "a singleton must not be split or retried");
+    assert.equal(geminiCalls, 1, "the configured chain runs only once");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("caps count mismatch isolation for a large permanently failing chunk", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async () => {
+    providerCalls += 1;
+    return openAIResponse([]);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 64 }, (_, index) => `Private ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_CHUNK_SIZE: "64",
+          }
+        ),
+      /OpenAI hat 0 statt 8 Uebersetzungen geliefert/
+    );
+    assert.equal(
+      providerCalls,
+      4,
+      "the root plus three bounded binary-isolation levels may reach the provider"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("bounds provider calls while isolating the default eight-text chunk", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+    return openAIResponse(
+      texts.length === 1 ? [{ text: `translated:${texts[0]}` }] : []
+    );
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+          }
+        ),
+      /provider-call budget/i
+    );
+    assert.equal(
+      providerCalls,
+      6,
+      "isolation must stop before a default chunk expands into fifteen provider calls"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("caps total provider time below the translate route duration", { timeout: 5_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      // AbortSignal.timeout() uses an unref'ed timer on newer Node releases.
+      // Keep the test process alive long enough to observe the request deadline.
+      const watchdog = setTimeout(
+        () => reject(new Error("request deadline was not observed")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "30",
+          }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+test("honors a caller-specific provider-work ceiling below the translate route budget", { timeout: 5_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const watchdog = setTimeout(
+        () => reject(new Error("caller-specific provider deadline was not observed")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein PDF-Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "10000",
+          },
+          null,
+          { maxRequestTimeoutMs: 30 }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+test("keeps the lower configured provider-work ceiling when the caller allows longer", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalTimeout = AbortSignal.timeout;
+  const requestedTimeouts: number[] = [];
+
+  AbortSignal.timeout = ((milliseconds: number) => {
+    requestedTimeouts.push(milliseconds);
+    return originalTimeout(10_000);
+  }) as typeof AbortSignal.timeout;
+  globalThis.fetch = (async () =>
+    openAIResponse([{ text: "configured-limit-wins" }])) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+        TRANSLATION_REQUEST_TIMEOUT_MS: "30",
+      },
+      null,
+      { maxRequestTimeoutMs: 10_000 }
+    );
+
+    assert.equal(result[0]?.text, "configured-limit-wins");
+    assert.equal(
+      requestedTimeouts[0],
+      30,
+      "the shared request deadline must use the lower configured ceiling"
+    );
+  } finally {
+    AbortSignal.timeout = originalTimeout;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("does not start provider work after the caller-specific budget has already expired", async () => {
+  const originalFetch = globalThis.fetch;
+  let providerCalls = 0;
+
+  globalThis.fetch = (async () => {
+    providerCalls += 1;
+    return openAIResponse([{ text: "must-not-run" }]);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein PDF-Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 40_000,
+            signal: AbortSignal.abort(
+              new DOMException(
+                "The operation was aborted due to timeout",
+                "TimeoutError"
+              )
+            ),
+          }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
+    );
+    assert.equal(providerCalls, 0, "an expired PDF budget must fail before HTTP");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("does not recursively isolate an in-flight sibling after another root chunk fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const calls: Array<{ group: string; size: number }> = [];
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+    const group = texts[0].startsWith("A") ? "A" : "B";
+    calls.push({ group, size: texts.length });
+
+    if (group === "B" && texts.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    return openAIResponse([]);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(() =>
+      translateTexts(
+        {
+          texts: ["A1", "A2", "B1", "B2"],
+          sourceLang: "de",
+          targetLang: "en",
+        },
+        {
+          TRANSLATION_PROVIDER: "openai",
+          OPENAI_API_KEY: "openai-key",
+          TRANSLATION_CHUNK_SIZE: "2",
+          TRANSLATION_CHUNK_CONCURRENCY: "2",
+        }
+      )
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(
+      calls.filter((call) => call.group === "B" && call.size === 1).length,
+      0,
+      "a sibling still in flight must observe the shared failure before recursing"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("logs one privacy-safe terminal count mismatch after isolation", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  console.warn = (...args) => {
+    warnings.push(args.map((value) => String(value)).join(" "));
+  };
+  console.error = (...args) => {
+    errors.push(args.map((value) => String(value)).join(" "));
+  };
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+    return openAIResponse(texts.length > 1 ? [{ text: "too-few" }] : []);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(() =>
+      translateTexts(
+        {
+          texts: [
+            "private-alpha",
+            "private-beta",
+            "private-gamma",
+            "private-delta",
+          ],
+          sourceLang: "de",
+          targetLang: "en",
+        },
+        {
+          TRANSLATION_PROVIDER: "openai",
+          OPENAI_API_KEY: "openai-key",
+        }
+      )
+    );
+
+    assert.equal(
+      warnings.filter((entry) => entry.includes("isolating provider count mismatch"))
+        .length,
+      1,
+      "only the root isolation decision should be logged"
+    );
+    assert.equal(errors.length, 1, "the terminal isolated failure needs one error log");
+    assert.match(errors[0], /OpenAI hat 0 statt 1 Uebersetzungen geliefert/);
+    assert.doesNotMatch(
+      JSON.stringify({ warnings, errors }),
+      /private-alpha|private-beta|private-gamma|private-delta/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("does not isolate a multi-text chunk when the exhausted chain includes a malformed response", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: "only-one-result" }]);
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return new Response(
+        JSON.stringify({ promptFeedback: { blockReason: "SAFETY" } })
+      );
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: ["Erster Text", "Zweiter Text"],
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          }
+        ),
+      /Gemini blocked the translation prompt/
+    );
+    assert.equal(openaiCalls, 1, "count mismatch must not hide another response error");
+    assert.equal(geminiCalls, 1, "a malformed response must not trigger isolation");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("does not isolate when an earlier provider failure was not a count mismatch", async (t) => {
+  const scenarios: Array<{ name: string; primaryResponse: () => Response }> = [
+    {
+      name: "timeout",
+      primaryResponse: () => {
+        throw Object.assign(new Error("provider timed out"), {
+          name: "TimeoutError",
+        });
+      },
+    },
+    {
+      name: "quota response",
+      primaryResponse: () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "rate limit exceeded",
+              type: "insufficient_quota",
+            },
+          }),
+          { status: 429 }
+        ),
+    },
+    {
+      name: "NUL output",
+      primaryResponse: () =>
+        openAIResponse([
+          { text: "private-before\u0000private-after" },
+          { text: "otherwise-valid" },
+        ]),
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    await t.test(scenario.name, async () => {
+      const originalFetch = globalThis.fetch;
+      const originalWarn = console.warn;
+      const originalError = console.error;
+      let openaiCalls = 0;
+      let geminiCalls = 0;
+
+      console.warn = () => {};
+      console.error = () => {};
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("openai.com")) {
+          openaiCalls += 1;
+          return scenario.primaryResponse();
+        }
+        if (url.includes("generativelanguage.googleapis.com")) {
+          geminiCalls += 1;
+          return geminiResponse([{ text: "only-one-result" }]);
+        }
+        throw new Error(`Unexpected fetch url ${url}`);
+      }) as typeof fetch;
+
+      try {
+        await assert.rejects(
+          () =>
+            translateTexts(
+              {
+                texts: ["Erster Text", "Zweiter Text"],
+                sourceLang: "de",
+                targetLang: "en",
+              },
+              {
+                TRANSLATION_PROVIDER: "openai",
+                OPENAI_API_KEY: "openai-key",
+                GEMINI_API_KEY: "gemini-key",
+                TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+              }
+            ),
+          /Gemini returned 1 instead of 2 translations/
+        );
+        assert.equal(
+          openaiCalls,
+          1,
+          `${scenario.name} must not be retried through isolation`
+        );
+        assert.equal(
+          geminiCalls,
+          1,
+          "the terminal count mismatch remains terminal"
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+        console.warn = originalWarn;
+        console.error = originalError;
+      }
+    });
   }
 });
 
@@ -665,6 +1312,51 @@ test("falls back from whitespace-only Gemini translations", async () => {
   }
 });
 
+test("rejects NUL provider output and falls back without logging translation text", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args) => warnings.push(args);
+  let openaiCalls = 0;
+  let geminiCalls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) {
+      openaiCalls += 1;
+      return openAIResponse([{ text: "private-before\u0000private-after" }]);
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      return geminiResponse([{ text: "safe-fallback" }]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      },
+    );
+
+    assert.equal(openaiCalls, 1);
+    assert.equal(geminiCalls, 1);
+    assert.deepEqual(result, [{ text: "safe-fallback" }]);
+    const serializedWarnings = JSON.stringify(warnings);
+    assert.match(serializedWarnings, /postgres_text_nul_rejected/);
+    assert.match(serializedWarnings, /translation_provider_output/);
+    assert.doesNotMatch(serializedWarnings, /private-before|private-after/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+  }
+});
+
 test("does not retry on auth errors that should surface to the operator", async () => {
   const originalFetch = globalThis.fetch;
   let openaiCalls = 0;
@@ -687,7 +1379,7 @@ test("does not retry on auth errors that should surface to the operator", async 
     await assert.rejects(
       () =>
         translateTexts(
-          { texts: ["Hi"], sourceLang: "en", targetLang: "de" },
+          { texts: ["Hi", "There"], sourceLang: "en", targetLang: "de" },
           {
             TRANSLATION_PROVIDER: "openai",
             OPENAI_API_KEY: "openai-key",
@@ -767,4 +1459,352 @@ test("logs the terminal failure at error level with the full chain when every pr
     console.warn = originalWarn;
     console.error = originalError;
   }
+});
+
+test("resolves chunking defaults and honours environment overrides", () => {
+  assert.deepEqual(resolveTranslationChunking({}), {
+    size: DEFAULT_TRANSLATION_CHUNK_SIZE,
+    concurrency: DEFAULT_TRANSLATION_CHUNK_CONCURRENCY,
+  });
+
+  assert.deepEqual(
+    resolveTranslationChunking({
+      TRANSLATION_CHUNK_SIZE: "5",
+      TRANSLATION_CHUNK_CONCURRENCY: "3",
+    }),
+    { size: 5, concurrency: 3 }
+  );
+
+  // Nonsense values must not disable chunking or unleash unbounded concurrency.
+  assert.deepEqual(
+    resolveTranslationChunking({
+      TRANSLATION_CHUNK_SIZE: "0",
+      TRANSLATION_CHUNK_CONCURRENCY: "-4",
+    }),
+    {
+      size: DEFAULT_TRANSLATION_CHUNK_SIZE,
+      concurrency: DEFAULT_TRANSLATION_CHUNK_CONCURRENCY,
+    }
+  );
+});
+
+/**
+ * Live measurement from jobspot.at (2026-08-03): one /api/translate call with
+ * 120 fresh segments needed 28.2s because every text went into a single chat
+ * completion, so latency scaled with the output-token count. Splitting the
+ * work into bounded, concurrent provider calls is what keeps a cold page
+ * inside the plugin's request timeout.
+ */
+test("splits a large batch into bounded parallel provider calls", async () => {
+  const originalFetch = globalThis.fetch;
+  const chunkSizes: number[] = [];
+  let inFlight = 0;
+  let peakInFlight = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (!url.includes("openai.com")) {
+      throw new Error(`Unexpected fetch url ${url}`);
+    }
+
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+    chunkSizes.push(texts.length);
+
+    inFlight += 1;
+    peakInFlight = Math.max(peakInFlight, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    inFlight -= 1;
+
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                translations: texts.map((text) => ({ text: `en:${text}` })),
+              }),
+            },
+          },
+        ],
+      })
+    );
+  }) as typeof fetch;
+
+  try {
+    const texts = Array.from({ length: 47 }, (_, index) => `Segment ${index}`);
+    const result = await translateTexts(
+      { texts, sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_CHUNK_SIZE: "10",
+        TRANSLATION_CHUNK_CONCURRENCY: "3",
+      }
+    );
+
+    assert.deepEqual(chunkSizes, [10, 10, 10, 10, 7]);
+    assert.ok(
+      peakInFlight > 1,
+      "chunks must overlap; a sequential loop would not shorten the cold-page latency"
+    );
+    assert.ok(
+      peakInFlight <= 3,
+      `concurrency must stay bounded, saw ${peakInFlight} parallel provider calls`
+    );
+
+    // Order is the contract the /api/translate route relies on to map results
+    // back onto the request's word list.
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      texts.map((text) => `en:${text}`)
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("keeps a single provider call for batches that fit into one chunk", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                translations: texts.map((text) => ({ text: `en:${text}` })),
+              }),
+            },
+          },
+        ],
+      })
+    );
+  }) as typeof fetch;
+
+  try {
+    await translateTexts(
+      { texts: ["Hallo", "Welt"], sourceLang: "de", targetLang: "en" },
+      { TRANSLATION_PROVIDER: "openai", OPENAI_API_KEY: "openai-key" }
+    );
+
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("surfaces a failing chunk instead of returning a partially translated batch", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  console.error = () => {};
+  let calls = 0;
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
+    if (calls === 2) {
+      return new Response('{"error":{"message":"Invalid API key"}}', { status: 401 });
+    }
+
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                translations: texts.map((text) => ({ text: `en:${text}` })),
+              }),
+            },
+          },
+        ],
+      })
+    );
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 6 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_CHUNK_SIZE: "2",
+            TRANSLATION_CHUNK_CONCURRENCY: "2",
+          }
+        ),
+      /401/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+test("does not start more provider chunks after one concurrent chunk fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  console.error = () => {};
+  let calls = 0;
+
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
+
+    if (calls === 1) {
+      return new Response('{"error":{"message":"Invalid API key"}}', { status: 401 });
+    }
+
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    return openAIResponse(texts.map((text) => ({ text: `en:${text}` })));
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 6 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_CHUNK_SIZE: "1",
+            TRANSLATION_CHUNK_CONCURRENCY: "2",
+          }
+        ),
+      /401/
+    );
+
+    // Let the already-running second request finish. It must observe the
+    // failure before pulling another chunk from the shared cursor.
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    assert.equal(calls, 2, "only the two in-flight chunks may reach the provider");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+});
+
+/**
+ * Three requests in 24h hit "Vercel Runtime Timeout Error: Task timed out
+ * after 300 seconds" on /api/translate because the provider adapters called
+ * `fetch` with no timeout — a hung upstream pinned the function until the
+ * platform killed it, and the configured fallback provider never got a turn.
+ * `isProviderFailoverError` already treats a TimeoutError as recoverable; the
+ * deadline just has to exist.
+ */
+test("gives every provider call a deadline so a hung upstream cannot pin the request", { timeout: 10_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const signals: Array<AbortSignal | null | undefined> = [];
+
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    signals.push(init?.signal);
+
+    if (url.includes("openai.com")) {
+      // Never answers. Mirrors undici: reject with the signal's reason on abort.
+      return new Promise((_resolve, reject) => {
+        // AbortSignal.timeout() uses an unref'ed timer on newer Node releases.
+        // Keep the test process alive long enough to observe that deadline.
+        const watchdog = setTimeout(() => reject(new Error("abort deadline was not observed")), 1_000);
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(watchdog);
+          reject((init.signal as AbortSignal & { reason?: unknown }).reason);
+        });
+      });
+    }
+
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: '{"translations":[{"text":"rescued by the fallback"}]}' }],
+              },
+            },
+          ],
+        })
+      )
+    );
+  }) as typeof fetch;
+
+  try {
+    const result = await translateTexts(
+      { texts: ["Hallo"], sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+        TRANSLATION_PROVIDER_TIMEOUT_MS: "60",
+      }
+    );
+
+    assert.ok(
+      signals[0] instanceof AbortSignal,
+      "the provider fetch must carry an AbortSignal"
+    );
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      ["rescued by the fallback"],
+      "a hung provider must time out and hand over to the fallback"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resolves the provider timeout from the environment with a sane default", () => {
+  assert.equal(resolveProviderTimeoutMs({}), DEFAULT_PROVIDER_TIMEOUT_MS);
+  assert.equal(resolveProviderTimeoutMs({ TRANSLATION_PROVIDER_TIMEOUT_MS: "5000" }), 5000);
+  assert.equal(
+    resolveProviderTimeoutMs({ TRANSLATION_PROVIDER_TIMEOUT_MS: "nonsense" }),
+    DEFAULT_PROVIDER_TIMEOUT_MS
+  );
+  assert.equal(
+    resolveProviderTimeoutMs({ TRANSLATION_PROVIDER_TIMEOUT_MS: "0" }),
+    DEFAULT_PROVIDER_TIMEOUT_MS
+  );
+
+  // The deadline must leave room for the measured provider latency (~9s fixed
+  // plus ~0.9s per segment) or it would abort healthy translations.
+  assert.ok(DEFAULT_PROVIDER_TIMEOUT_MS >= 45_000);
+});
+
+test("keeps the shared provider deadline below the route duration", () => {
+  assert.equal(
+    resolveTranslationRequestTimeoutMs({}),
+    DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS
+  );
+  assert.equal(
+    resolveTranslationRequestTimeoutMs({ TRANSLATION_REQUEST_TIMEOUT_MS: "5000" }),
+    5_000
+  );
+  assert.equal(
+    resolveTranslationRequestTimeoutMs({
+      TRANSLATION_REQUEST_TIMEOUT_MS: "120000",
+    }),
+    DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS,
+    "an operator override must not consume the route's 20-second safety margin"
+  );
+  assert.equal(DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS, 100_000);
 });

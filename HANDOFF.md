@@ -1,8 +1,29 @@
-# Deepglot Handoff - 2026-08-03
+# Deepglot Handoff - 2026-08-10
 
 This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
 
-## Current State
+## Current repository evidence
+
+- The original handoff began from `4d649aa` (`feat(wp-plugin): warm translations in the background instead of blocking renders (#276)`); use the current Git history rather than that historical SHA when preparing another deploy.
+- The repository's WordPress plugin source and the primary production install target **v0.12.1**. The bootstrap, README, WordPress.org readme, package expectations, and translation-catalog metadata agree on that version. The customer deployment and live acceptance below do not create a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel; GitHub releases currently go through **v0.11.7**.
+- `meinhaushalt.at` runs the **v0.12.1** package built from merge commit `3b91400798e363973d9ecc5810d541fbd33bbe39`, deployed and live-verified on 2026-08-10. Two independent release builds produced the same ZIP SHA-256, `56f2bd30c563682062f75d4e3e310bfd8318df7b7f0b526b373fd2f1c777aabc`; the installed 121-file normalized tree is `ba69705480a33033d44d7998789f7b005a6c733ebc05159145656867f4154795`. Rollback archive: `/usr/www/users/meinhaus/dev/deepglot-backups/deepglot-0.12.0-before-3b914007-20260810-015909.tar.gz` (SHA-256 `9357faa926ea84a7cabe1ad58bac493087b97177602505c05e343ca0ca1f69ec`). The semantic API-key/backend identity stayed `074b8609968284432e5d88a02e7949e09a7ff97d5a9ba06cfa3483cb91559f13`; the plugin remained active with de→en path-prefix routing.
+- v0.12.1's canonical `dynamic-translator.js?ver=0.12.1` is referenced by fresh public HTML and serves the exact package bytes (`ed7ccdd22b90191f1a56b947817f8aa1b18f9f31926e96b9deb79b2b9f0804cb`) without a cache-buster. The one-URL production sync preview emitted `https://www.meinhaushalt.at/en/`, with no query, and completed in one cron attempt without an error. The test job, locks, queues, and cron events were removed afterward.
+- v0.12.0's source behavior is background warming for ordinary cold pages, with bounded queue claims, partial-result retention, supported full-page-cache purges, and synchronous visual-editor/WooCommerce email paths. The first cold target-language view can therefore show source content until WP-Cron completes the work.
+- The earlier `e53ae62` production drill passed translation-only 429 gating, identity-bound backoff, control-plane 429 isolation, permanent singleton-422 suppression, bounded multi-text splitting, privacy-safe 64-hex HMAC markers, queue cleanup, and public `/` + `/en/` smoke checks. Its two remaining findings—the stale HTTP-origin URL-sync target and the cached `?ver=0.12.0` asset—are closed by the v0.12.1 live acceptance above.
+- The v0.11.4–v0.11.7 release notes are authoritative in `wordpress-plugin/deepglot/readme.txt`, `wordpress-plugin/deepglot/README.md`, and the public bilingual help/docs surfaces. They cover numeric source slugs, the 60-second legacy window, 2,000 UTF-8-byte/200-string bounds, and the trusted final HTML filter.
+- The weekly activity digest is implemented as an opt-in per user/workspace. It summarizes the previous complete UTC week, skips quiet weeks, scopes projects by membership, and uses atomic per-period delivery claims with retry-safe failure handling. Its schedule is `0 8 * * 1`, protected by `CRON_SECRET`.
+- Stripe configuration and production billing state are not inferred from this file. Run the read-only `npm run acceptance:stripe -- --mode live --env-file .env.production.local` check in an authorized environment before making a current live claim. Never put keys, customer data, or unverified live assertions in this handoff.
+- The bilingual Help and developer-documentation parity work from #281 is present on the current production deployment. The v0.12.0 warm-up copy was independently checked in English and German at desktop and mobile sizes with no overflow or console errors; no screenshot asset represents the internal cron timing.
+
+### v0.12.0 production warm-up acceptance (2026-08-09)
+
+- Dedicated SaaS latency acceptance passed 4/4 exact response-contract cases before the WordPress drill: 1 segment 11,516/1,140 ms fresh/cached, 12 segments 15,580/1,135 ms, 25 segments 16,330/1,212 ms, and 50 segments 18,735/1,225 ms. All eight requests were HTTP 200 with no fallback, count-mismatch, timeout, rate-limit, or 429 event in their controlled log window. `cccc9ba` did not change the SaaS translation path.
+- A unique cold `meinhaushalt.at/en/` page returned its four German source sentences in 827 ms while five uncached texts and the exact localized URL entered the background queue; WP Rocket wrote two cache files.
+- A synthetic one-shot provider failure left all work retryable. The next page request emitted a same-request HTTPS cron loopback with `blocking=false` and `timeout=0.01`; at the first 2.5-second poll the text and URL queues were empty and both stale WP Rocket files had been purged.
+- The following render contained four translated marker paragraphs, no original German sentence, and completed in 189 ms. Its cached repeat preserved the same four paragraphs in 56 ms and recreated the two translated WP Rocket cache files.
+- Cleanup passed: temporary page deleted, synthetic MU hook and flags absent, warm-up queues empty, no scheduled warm-up event, public temporary URL 404. Plugin remained active/configured with unchanged semantic settings hash `4b9e74ed48a30989601091ea3773a78c0055c70fc1c743c5b52d98d4967b8c79`. The exact WordPress acceptance window contained four `/api/translate` events on `dpl_DLwoXpjKFJJ6BpweArYLTMpB2atn` with no warning, error, count-mismatch, or timeout message.
+
+## Historical snapshot (2026-08-03; not current live evidence)
 
 - Branch: `main`
 - WordPress plugin: **v0.11.1 deployed on `meinhaushalt.at` and live-verified (2026-08-03).** The deploy source was the SHA-256-verified GitHub release asset `deepglot-0.11.1.zip` (tag `wp-plugin-v0.11.1`, byte-identical to the tag), NOT a working-tree rsync — the working tree was being modified by a concurrent agent session at deploy time. rsync ran with `--delete` against the distribution allowlist, so the live install now matches a customer install exactly (`tests/` and `DYNAMIC_TRANSLATION_QA.md` removed from the server; 36 live PHP files linted cleanly). Pre-deploy gate: the full plugin suite (46 PHP files + 2 JS) ran green in an isolated checkout of the release tag using the new `WordPressTestBootstrap.php` prepend. Live verification: `Deepglot 0.11.1` marker, `<html lang="en">`, `switcher.css?ver=0.11.1`, computed 🇬🇧/🇩🇪 flag content, zero numeric entities in `style`/`script`, and the [#237](https://github.com/ostheimer/deepglot/pull/237) fix confirmed on real content — the `tel:` link on `/en/impressum/` is preserved instead of being rewritten to `/en/tel:...`. Server backup: `~/deepglot-backup-20260803-1136-v0.10.4.tar.gz`. WP Rocket page/min/used-css caches purged incl. a `wp_wpr_rucss_used_css` truncate. No URL slug mappings are configured for meinhaushalt, so the #233 runtime-sync boundary required no action there (it remains relevant for the HD-Dental install).
@@ -103,9 +124,10 @@ This file captures the current project state so work can continue in a new chat 
 
 Latest already-completed checks:
 
-- GitHub Actions `main` CI passed for commit `fb06aca`.
-- Vercel Production deployment is ready.
-- `npm run acceptance:stripe --mode live` PASS.
+- GitHub Actions `main` CI passed for commit `3b91400798e363973d9ecc5810d541fbd33bbe39` (run `31342998675`).
+- Vercel Production deployment `dpl_6G1e6hY9H45KKLSnZfLVVUSLHTEK` is `Ready` and serves the `deepglot.ai` and `www.deepglot.ai` aliases. Live `/docs`, `/de/dokumentation`, `/help`, and `/de/hilfe` checks at 320, 390, and 1,440 px all passed with HTTP 200, correct locale/copy, true German umlauts, no global overflow, and no console errors.
+- The meinhaushalt.at v0.12.1 `3b914007` package, semantic configuration preservation, 39-file PHP lint, exact installed-tree comparison, canonical public asset, same-host HTTPS URL sync, `/` + `/en/` smoke checks, WP Rocket purge, and cleanup checks passed.
+- A prior Stripe live acceptance passed, but current Omnimed CLI-key cleanup and a fresh Stripe readback are tracked separately; do not treat the historical pass as their completion.
 
 Run these before starting a new larger implementation branch:
 

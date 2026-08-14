@@ -9,13 +9,23 @@ import {
   type TranslationSettingsLike,
 } from "@/lib/translation-config";
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
+  providerAbortSignal,
   type TranslateTextsInput,
   type TranslationEnv,
   type TranslationProviderName,
   type TranslationResult,
 } from "@/lib/translation-types";
+import {
+  inspectPostgresText,
+  reportPostgresTextRejection,
+} from "@/lib/postgres-text";
 export { countWords } from "@/lib/translation-types";
+export {
+  DEFAULT_PROVIDER_TIMEOUT_MS,
+  resolveProviderTimeoutMs,
+} from "@/lib/translation-types";
 
 function translateWithMock({
   texts,
@@ -47,19 +57,24 @@ export function resolveTranslationProvider(
 async function translateWithProvider(
   input: TranslateTextsInput,
   env: TranslationEnv,
-  config: TranslationProviderConfig
+  config: TranslationProviderConfig,
+  requestSignal: AbortSignal
 ): Promise<TranslationResult[]> {
+  // Per attempt, not per chain: a slow primary must not eat the fallback's
+  // budget before it has even been tried.
+  const signal = AbortSignal.any([providerAbortSignal(env), requestSignal]);
+
   switch (config.provider) {
     case "openai":
     case "openrouter":
     case "ollama":
     case "openai-compatible":
-      return translateWithOpenAICompatible(input, config);
+      return translateWithOpenAICompatible(input, config, signal);
     case "gemini":
-      return translateWithGemini(input, config);
+      return translateWithGemini(input, config, signal);
     case "deepl":
       validateTranslationProviderConfig(config);
-      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey });
+      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey }, signal);
     case "mock":
       return translateWithMock(input);
     default:
@@ -155,22 +170,291 @@ function describeProviderError(error: unknown): string {
     : message;
 }
 
+/**
+ * Every text of a request used to go into a single chat completion, so the
+ * response time scaled with the total output-token count and pushed cold
+ * WordPress pages (100–160 segments) past the plugin's request timeout — the
+ * client gave up, the page fell back to source language and the work was
+ * wasted.
+ *
+ * Splitting the batch into chunks that run concurrently makes the latency
+ * track the *slowest chunk* instead of the whole page. It also keeps each
+ * completion short enough that the strict `translations` array contract in the
+ * provider adapters stays reliable on large pages.
+ *
+ * Sizing comes from a measurement against production on 2026-08-03, taken from
+ * the jobspot.at webserver, with each size sent twice so a full SaaS cache hit
+ * isolates the fixed cost:
+ *
+ *     segments   fresh   cached   provider
+ *            1   10.4s     1.4s       9.0s
+ *           12   20.1s     1.4s      18.7s
+ *           25   31.7s     1.3s      30.4s
+ *           50   40.5s     1.4s      39.1s
+ *
+ * So the request's own work is only ~1.4s; the provider costs ~9s before it
+ * translates anything, plus ~0.9s per segment. Chunks below roughly 8 segments
+ * therefore buy almost nothing (the fixed 9s dominates) while multiplying the
+ * number of provider calls, so 8 is the point where the curve flattens.
+ */
+export const DEFAULT_TRANSLATION_CHUNK_SIZE = 8;
+
+/**
+ * Upper bound on concurrent provider calls per request. High enough that a
+ * typical page finishes in a single wave, low enough to stay clear of provider
+ * rate limits — a 429 would push the whole chunk onto the fallback provider.
+ */
+export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
+
+/**
+ * A count mismatch may be shape-dependent, so retry a failed multi-text chunk
+ * as smaller halves. Three levels are the structural recursion ceiling; the
+ * stricter provider-call and request-time budgets below normally stop a wider
+ * tree sooner.
+ */
+const MAX_COUNT_MISMATCH_ISOLATION_DEPTH = 3;
+
+/**
+ * Count every provider HTTP call made for one root chunk, including its
+ * original fallback chain. Six attempts retain the observed two-text recovery
+ * (primary + fallback for the pair, then one successful primary per singleton)
+ * while preventing a default eight-text chunk from expanding into the full
+ * fifteen-node isolation tree.
+ */
+const MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK = 6;
+
+/**
+ * `/api/translate` has a 120-second route duration. Provider work gets at most
+ * 100 seconds of that budget so timeout handling, velocity refunds and the
+ * persistence/response path retain a 20-second margin. Operators may lower the
+ * deadline for stricter environments, but cannot raise it past the route-safe
+ * ceiling.
+ */
+export const DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS = 100_000;
+
+export type TranslationExecutionOptions = {
+  /** Caller-owned ceiling for all provider work in this translation. */
+  maxRequestTimeoutMs?: number;
+  /** Absolute caller deadline, which may start before translateTexts. */
+  signal?: AbortSignal;
+};
+
+export function resolveTranslationRequestTimeoutMs(
+  env: TranslationEnv = process.env
+): number {
+  const parsed = Number.parseInt(
+    (env.TRANSLATION_REQUEST_TIMEOUT_MS ?? "").trim(),
+    10
+  );
+
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS)
+    : DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS;
+}
+
+function resolveTranslationExecutionTimeoutMs(
+  env: TranslationEnv,
+  options: TranslationExecutionOptions | undefined
+): number {
+  const configuredTimeoutMs = resolveTranslationRequestTimeoutMs(env);
+  const callerTimeoutMs = options?.maxRequestTimeoutMs;
+  const boundedTimeoutMs =
+    typeof callerTimeoutMs === "number" &&
+    Number.isFinite(callerTimeoutMs) &&
+    callerTimeoutMs > 0
+      ? Math.min(configuredTimeoutMs, Math.floor(callerTimeoutMs))
+      : configuredTimeoutMs;
+  return boundedTimeoutMs;
+}
+
+class TranslationProviderCallBudgetError extends Error {
+  constructor() {
+    super(
+      `Provider-call budget of ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} exhausted during count-mismatch isolation.`
+    );
+    this.name = "TranslationProviderCallBudgetError";
+  }
+}
+
+type TranslationChunkBudget = {
+  providerCalls: number;
+};
+
+function positiveIntSetting(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt((raw ?? "").trim(), 10);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function resolveTranslationChunking(
+  env: TranslationEnv = process.env
+): { size: number; concurrency: number } {
+  return {
+    size: positiveIntSetting(
+      env.TRANSLATION_CHUNK_SIZE,
+      DEFAULT_TRANSLATION_CHUNK_SIZE
+    ),
+    concurrency: positiveIntSetting(
+      env.TRANSLATION_CHUNK_CONCURRENCY,
+      DEFAULT_TRANSLATION_CHUNK_CONCURRENCY
+    ),
+  };
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+/**
+ * Runs `worker` over `items` with at most `limit` in flight, preserving input
+ * order in the result. The first rejection propagates — a partially translated
+ * batch would be silently wrong, so the caller must see the failure.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  let failed = false;
+
+  const runners = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (!failed) {
+        const index = cursor++;
+        if (index >= items.length) return;
+
+        try {
+          results[index] = await worker(items[index], index);
+        } catch (error) {
+          failed = true;
+          throw error;
+        }
+      }
+    }
+  );
+
+  await Promise.all(runners);
+
+  return results;
+}
+
 export async function translateTexts(
   input: TranslateTextsInput,
   env: TranslationEnv = process.env,
-  settings?: TranslationSettingsLike | null
+  settings?: TranslationSettingsLike | null,
+  executionOptions?: TranslationExecutionOptions
 ): Promise<TranslationResult[]> {
+  if (input.texts.length === 0) {
+    return [];
+  }
+  executionOptions?.signal?.throwIfAborted();
+  const executionTimeoutMs = resolveTranslationExecutionTimeoutMs(
+    env,
+    executionOptions
+  );
+
   const primary = resolveTranslationProviderConfig({ settings, env });
   const chain = buildFallbackProviderChain(primary, env);
+  const { size, concurrency } = resolveTranslationChunking(env);
+  const chunks = chunk(input.texts, size);
+  const failedChunkController = new AbortController();
+  const requestSignal = AbortSignal.any([
+    failedChunkController.signal,
+    AbortSignal.timeout(executionTimeoutMs),
+    ...(executionOptions?.signal ? [executionOptions.signal] : []),
+  ]);
+
+  const translatedChunks = await mapWithConcurrency(
+    chunks,
+    concurrency,
+    async (texts) => {
+      try {
+        return await translateChunk(
+          { ...input, texts },
+          env,
+          chain,
+          requestSignal,
+          { providerCalls: 0 }
+        );
+      } catch (error) {
+        if (!failedChunkController.signal.aborted) {
+          failedChunkController.abort(error);
+        }
+        throw error;
+      }
+    }
+  );
+
+  return translatedChunks.flat();
+}
+
+async function translateChunk(
+  input: TranslateTextsInput,
+  env: TranslationEnv,
+  chain: TranslationProviderConfig[],
+  requestSignal: AbortSignal,
+  budget: TranslationChunkBudget,
+  isolationDepth = 0
+): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
 
   let lastError: unknown = null;
+  let everyAttemptWasCountMismatch = true;
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
+    requestSignal.throwIfAborted();
+    if (
+      (isolationDepth > 0 || everyAttemptWasCountMismatch) &&
+      budget.providerCalls >= MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK
+    ) {
+      console.error(
+        `[translation] count-mismatch isolation stopped at provider-call budget ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} (chain: ${providerChain}, batch size: ${input.texts.length}).`
+      );
+      throw new TranslationProviderCallBudgetError();
+    }
+    budget.providerCalls += 1;
+
     try {
-      return await translateWithProvider(input, env, candidate);
+      const results = await translateWithProvider(
+        input,
+        env,
+        candidate,
+        requestSignal
+      );
+      requestSignal.throwIfAborted();
+      for (const [resultIndex, result] of results.entries()) {
+        const nulError = inspectPostgresText(result.text, {
+          boundary: "translation_provider_output",
+          field: "text",
+          index: resultIndex,
+          provider: candidate.provider,
+        });
+        if (nulError) {
+          reportPostgresTextRejection(nulError);
+          throw new TranslationProviderResponseError(
+            `${candidate.provider} returned U+0000 in translation ${resultIndex + 1}.`,
+          );
+        }
+      }
+      return results;
     } catch (error) {
+      if (requestSignal.aborted) {
+        throw requestSignal.reason ?? error;
+      }
+
       lastError = error;
+      const isCountMismatch =
+        error instanceof TranslationProviderCountMismatchError;
+      everyAttemptWasCountMismatch &&= isCountMismatch;
       const hasNext = index < chain.length - 1;
 
       // Recoverable provider response / quota / rate-limit / 5xx / network
@@ -178,10 +462,48 @@ export async function translateTexts(
       // request can still succeed via the fallback — but log the full upstream
       // detail and the chain so a recurring failover is visible.
       if (hasNext && isProviderFailoverError(error)) {
-        console.warn(
-          `[translation] provider ${candidate.provider} failed; falling back to ${chain[index + 1].provider} (chain: ${providerChain}). ${describeProviderError(error)}`
-        );
+        // Count mismatches are expected while an already-isolated child is
+        // narrowed further. Logging every internal node would amplify a
+        // single upstream contract failure; the root attempt still records
+        // the provider failover and a privacy-safe isolation summary.
+        if (!isCountMismatch || isolationDepth === 0) {
+          console.warn(
+            `[translation] provider ${candidate.provider} failed; falling back to ${chain[index + 1].provider} (chain: ${providerChain}). ${describeProviderError(error)}`
+          );
+        }
         continue;
+      }
+
+      if (
+        !hasNext &&
+        everyAttemptWasCountMismatch &&
+        input.texts.length > 1 &&
+        isolationDepth < MAX_COUNT_MISMATCH_ISOLATION_DEPTH
+      ) {
+        if (isolationDepth === 0) {
+          console.warn(
+            `[translation] isolating provider count mismatch after exhausting chain ${providerChain} (batch size: ${input.texts.length}).`
+          );
+        }
+
+        const midpoint = Math.ceil(input.texts.length / 2);
+        const left = await translateChunk(
+          { ...input, texts: input.texts.slice(0, midpoint) },
+          env,
+          chain,
+          requestSignal,
+          budget,
+          isolationDepth + 1
+        );
+        const right = await translateChunk(
+          { ...input, texts: input.texts.slice(midpoint) },
+          env,
+          chain,
+          requestSignal,
+          budget,
+          isolationDepth + 1
+        );
+        return [...left, ...right];
       }
 
       // Terminal failure: either the last provider in the chain failed, or the

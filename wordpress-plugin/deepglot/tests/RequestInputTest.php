@@ -12,6 +12,16 @@ function requestInputAssertSame(string $expected, string $actual, string $messag
     }
 }
 
+function requestInputAssertArraySame(array $expected, array $actual, string $message): void
+{
+    if ($expected !== $actual) {
+        fwrite(STDERR, 'FAIL: ' . $message . PHP_EOL);
+        fwrite(STDERR, 'Expected: ' . var_export($expected, true) . PHP_EOL);
+        fwrite(STDERR, 'Actual:   ' . var_export($actual, true) . PHP_EOL);
+        exit(1);
+    }
+}
+
 if (!function_exists('sanitize_text_field')) {
     function sanitize_text_field($value): string
     {
@@ -40,6 +50,20 @@ requestInputAssertSame(
     'BrowserInjected',
     RequestInput::server('HTTP_USER_AGENT'),
     'Non-URL server values must continue through text-field sanitization'
+);
+
+$_POST['sync_action'] = "resume\r\nIgnored";
+requestInputAssertSame(
+    'resumeIgnored',
+    RequestInput::post('sync_action'),
+    'POST scalar values must be unslashed and sanitized centrally'
+);
+
+$_POST['target_languages'] = ['en', "fr\r\n", ['invalid']];
+requestInputAssertArraySame(
+    ['en', 'fr'],
+    RequestInput::postArray('target_languages'),
+    'POST arrays must sanitize scalar values and discard nested input'
 );
 
 fwrite(STDOUT, "RequestInputTest: OK\n");

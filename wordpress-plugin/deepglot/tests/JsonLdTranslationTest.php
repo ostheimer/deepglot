@@ -103,7 +103,7 @@ class DeepglotJsonLdFakeClient extends Client
 
     public function __construct() {}
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
     {
         foreach ($texts as $text) {
             $this->sentTexts[] = $text;
@@ -115,7 +115,7 @@ class DeepglotJsonLdFakeClient extends Client
         ];
     }
 
-    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0): array
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null): array
     {
         $results = [];
 
@@ -241,7 +241,7 @@ class DeepglotJsonLdInjectingClient extends Client
 {
     public function __construct() {}
 
-    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0)
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
     {
         return [
             'from_words' => $texts,
@@ -252,7 +252,7 @@ class DeepglotJsonLdInjectingClient extends Client
         ];
     }
 
-    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0): array
+    public function translateBatches(array $batches, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null): array
     {
         $results = [];
 

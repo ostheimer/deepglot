@@ -34,7 +34,7 @@ Expected behavior:
 - Production requests without `Authorization: Bearer <CRON_SECRET>` return `401`.
 - Missing Cloudflare email configuration returns `503` with `configured: false`.
 - Successful responses report `eligible`, `sent`, `duplicates`, `withoutActivity`, and `failed` without exposing recipient addresses.
-- A provider failure removes the owned unsent claim so a later Vercel retry can send it. Unsent claims abandoned by a crashed invocation are reclaimed after 15 minutes; successful claims remain unique per workspace, recipient, and period.
+- A provider failure removes the owned claim so a later Vercel retry can send it. Claims abandoned before the send lock is acquired are reclaimed after 15 minutes; successful claims remain unique per workspace, recipient, and period. Immediately before the provider call the claim is marked with a pending `sentAt` sentinel so stale reclaim cannot resend after a successful delivery when the final `sentAt` write is slow or transiently fails. If the process terminates after that sentinel write, the claim intentionally remains non-reclaimable: the delivery path favors at-most-once email over risking a duplicate when provider acceptance cannot be proven.
 - Organization owners/admins receive totals for every workspace project. Members receive activity only for projects they can access, and sends run with at most four recipients in parallel.
 - Imports and manual-save batches are not counted as runtime translation requests. Manual saves are reported separately, while newly created translation-cache entries supply the new-translation and word totals.
 
@@ -47,12 +47,13 @@ Defaults:
 - `TRANSLATE_RATE_LIMIT_PER_MINUTE=60` for `/api/translate` per API key.
 - `PLUGIN_RATE_LIMIT_PER_MINUTE=120` shared across plugin API-key endpoints per API key.
 - `AUTH_RATE_LIMIT_PER_MINUTE=5` for password-reset requests per normalized email.
+- The translation fresh-word velocity limit is plan-derived: 10% of the effective monthly word quota per hour, with a minimum of 1,000. A valid positive `TRANSLATE_WORD_VELOCITY_PER_HOUR` value replaces that derived limit.
 
 Expected behavior:
 
-- Over-limit responses return `429` with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`.
+- Exhausted request-count or fresh-word windows return `429` with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset`. Individually oversized fresh-word requests are the 422 exception: they return `velocity_request_too_large` without `Retry-After` and must be split into smaller inputs.
 - Bucket subjects are SHA-256 hashes; raw API keys and email addresses are not stored in `RateLimitBucket`.
-- Raising or lowering limits should be done through Vercel environment variables, followed by a production redeploy.
+- Request-count limits are changed through their Vercel environment variables. Do not change the fresh-word velocity threshold until the classification-readiness steps below have produced representative evidence.
 
 ## Duplicate Subscription Alert (Stripe)
 
@@ -155,9 +156,48 @@ Runtime configuration:
 - `DEEPGLOT_SAAS_API_KEY` falls back to `MEINHAUSHALT_PROD_DEEPGLOT_API_KEY`.
 - `DEEPGLOT_SAAS_PROJECT_DOMAIN` overrides the disposable project domain.
 
+### Fresh and cached translation latency
+
+Run the write-producing latency acceptance only with the explicitly approved dedicated production acceptance project:
+
+```bash
+npm run acceptance:translation-latency -- --confirm-write
+npm run acceptance:translation-latency -- --confirm-write --json output/translation-latency.json
+npm run acceptance:translation-latency -- --confirm-write --prod-env-file .env.production.local --local-env-file .env.local
+```
+
+The runner sends unique German corpora with 1, 12, 25, and 50 segments, then repeats each request byte-for-byte to measure the cached path. It verifies status, exact source order, complete non-empty translations, stable repeated output, and a faster cached response. HTTP 200 alone is not a pass. The command writes real translation, cache, usage, and batch-log state and therefore is not a read-only smoke test.
+
+Set `DEEPGLOT_LATENCY_ACCEPTANCE_APP_URL` to exactly `https://deepglot.ai` and pair it with `DEEPGLOT_LATENCY_ACCEPTANCE_API_KEY` from the same environment source. Use a key for the dedicated acceptance project whose quota and stored synthetic translations may be consumed. The runner loads `.env.production.local` and `.env.local` separately; a complete process-environment pair overrides them, a complete local-file pair overrides the production file, and partial cross-source combinations fail closed. Generic project keys, customer keys, preview hosts, foreign hosts, URL credentials, and alternate paths are not accepted. Reports contain timing and contract classifications, never API-key values or response text. `--confirm-write` is mandatory.
+
+The dedicated production run on 2026-08-09 passed all four representative sizes against the SaaS translation code later included unchanged in `cccc9ba`:
+
+| Segments | Fresh | Cached | Fresh/cached |
+| ---: | ---: | ---: | ---: |
+| 1 | 11,516 ms | 1,140 ms | 10.10× |
+| 12 | 15,580 ms | 1,135 ms | 13.73× |
+| 25 | 16,330 ms | 1,212 ms | 13.47× |
+| 50 | 18,735 ms | 1,225 ms | 15.29× |
+
+Every response preserved exact source order and returned a complete, non-empty, non-identity translation set; the repeat returned identical translated values. All eight matching `/api/translate` requests were HTTP 200, with no provider-fallback, count-mismatch, timeout, rate-limit, or 429 event in that controlled window. The later WordPress warm-up window on deployment `dpl_DLwoXpjKFJJ6BpweArYLTMpB2atn` contained four `/api/translate` events and likewise no warning, error, count-mismatch, or timeout message.
+
+After the run, inspect privacy-safe provider fallback and timeout logs for the same window. A complete 200 response can still have used a fallback provider, so clean API shape and latency evidence do not by themselves prove a healthy primary provider. Record the deployed application version and the WordPress plugin version before attributing any result to v0.12.0 background warming.
+
+Provider count-mismatch recovery is deliberately narrower than ordinary fallback. Only when every attempted provider returns a count mismatch for the same multi-text chunk does the SaaS start binary isolation. The observed two-text mismatch can reach both singletons, but each original chunk is capped at six provider HTTP calls. All root chunks share a provider-work deadline of at most 100 seconds (`TRANSLATION_REQUEST_TIMEOUT_MS` may lower but not raise it), preserving 20 seconds of the route's 120-second duration for refunds, persistence, and the response. PDF translation has a separate 40-second provider-work ceiling measured from the 60-second route handler's entry; authentication, multipart parsing, and PDF preparation consume that same clock before providers start, retaining a nominal 20-second margin for velocity refunds, rendering, persistence, and the response. A failed root chunk aborts siblings before they can start new recursive calls. A singleton, depth-limit, provider-call-budget, or request-deadline mismatch remains terminal. Timeouts, authentication failures, quota/rate limits, U+0000 output, and other malformed responses never enter this isolation path. The root warning and terminal budget error record only provider chain, batch size, and count/budget metadata — never source or translated text, URLs, or credentials.
+
+For WordPress warm-up verification, confirm that the stored purge target is the localized public request URL after routing rewrites, not the canonical source path. After Deepglot has durably written warm-up work and an immediately due event, it makes one non-blocking `spawn_cron()` nudge in the same request so a low-traffic page does not wait for another visit. The nudge is skipped with `DISABLE_WP_CRON`, while `DOING_CRON`/`wp_doing_cron()` is true, and after the first attempt in that request; system-cron sites remain responsible for invoking cron. WP Rocket, W3 Total Cache, and LiteSpeed Cache purge completed URLs individually. WP Super Cache exposes a global public purge only, so Deepglot delays that purge until the tracked URL queue has fully drained; pages that remain pending must stay cached.
+
+Before confirming a WordPress URL-sync preview, inspect its sample URLs. If WordPress still stores an HTTP home/site URL while the current trusted wp-admin request is HTTPS on the identical host, each affected preview target must use HTTPS while preserving its approved route, including semantic query parameters and fragments. Deepglot uses the request host only to prove the same-host upgrade and never copies it into the target. A foreign host, an untrusted forwarded-protocol hint, or a request WordPress does not recognize as SSL must not rewrite the configured origin. Do not confirm a snapshot that still relies on an HTTP-to-HTTPS redirect: redirects remain bounded failures and are never followed by the sync runner. Completion verification separately probes the query-free public target.
+
+Production warm-up acceptance passed on `meinhaushalt.at` with v0.12.0 from commit `cccc9ba` on 2026-08-09. A unique cold `/en/` page returned all four German source sentences in 827 ms and created two WP Rocket files. A synthetic one-shot provider failure left five texts plus the localized request URL queued and retryable. The next visitor request returned in 1.197 s and emitted an HTTPS, non-blocking cron request (`blocking=false`, `timeout=0.01`); at the first 2.5-second drain poll, both warm-up options were empty and the two stale WP Rocket files were gone. The next render contained all four translated marker paragraphs and no original German sentence in 189 ms; the cached repeat preserved those four paragraphs in 56 ms. Cleanup deleted the page, synthetic hook, flags, queue entries, and cache files, and the temporary public URL returned 404.
+
+The follow-up v0.12.1 production acceptance passed on `meinhaushalt.at` from merge commit `3b91400798e363973d9ecc5810d541fbd33bbe39` on 2026-08-10. Build the exact commit twice and require identical release bytes before deployment; the accepted ZIP SHA-256 is `56f2bd30c563682062f75d4e3e310bfd8318df7b7f0b526b373fd2f1c777aabc`, and the installed normalized tree is `ba69705480a33033d44d7998789f7b005a6c733ebc05159145656867f4154795`. Purge the WP Rocket domain cache after replacing plugin files: otherwise cached HTML can continue referencing the previous `?ver=` value even when the new asset exists. Fresh `/en/` HTML referenced `dynamic-translator.js?ver=0.12.1`, whose canonical URL without a cache-buster matched the package SHA-256 `ed7ccdd22b90191f1a56b947817f8aa1b18f9f31926e96b9deb79b2b9f0804cb`. A one-URL preview emitted `https://www.meinhaushalt.at/en/` without a query, completed in one cron attempt, and left no error; the job, locks, queues, and cron events were removed afterward.
+
+An already active WordPress core `doing_cron` lock can legitimately defer the immediate loopback; Deepglot leaves the event due so a later request or the configured system cron can claim it. Do not remove an active lock. If the queue and due event remain after the configured `WP_CRON_LOCK_TIMEOUT` (60 seconds by default), verify loopback reachability, `DISABLE_WP_CRON`, the host's system-cron schedule, and the `doing_cron` lock age before retrying or purging anything manually.
+
 ## Stripe Acceptance
 
-Stripe is fully provisioned in live mode (account `acct_1GRyA0FAiA6nPZyW`, EUR). Five products with 10 prices (STARTER / BUSINESS / PRO / ADVANCED / EXTENDED × monthly and yearly), a webhook endpoint, and a restricted `rk_live_*` key are active in Vercel Production. `POST /api/billing/checkout` and the subscription pages (`/abonnement/*`) are live as of 2026-05-17 (Phase 8.1, 8.5). Do not create ad-hoc Stripe objects outside the defined plan structure.
+The repository defines the supported Stripe plan structure in `src/lib/billing-plans.ts`. Account, price, webhook, and Vercel-Production state are time-sensitive and must be verified with the read-only acceptance command below before being described as live. Do not put account identifiers or secret material in this runbook, and do not create ad-hoc Stripe objects outside the defined plan structure.
 
 Run env-only validation for test mode and read-only API validation for live mode:
 
@@ -193,6 +233,19 @@ Default behavior is non-destructive:
 - Runs Phase 6 acceptance and reports the aggregate as `PASS`, `FAIL`, `BLOCKED`, or `SKIPPED`.
 
 Use `--strict` when CI should fail on blocked or skipped checks. Use `--skip-live` to skip SaaS and Phase 6 production HTTP checks. Use `--run-webhook-processor` only when it is acceptable to invoke the scheduled webhook processor immediately. Use `--create-neon-branch` only when a temporary Neon restore-drill branch should be created.
+
+## PostgreSQL Text Rejection Monitoring
+
+PostgreSQL text and `jsonb` fields cannot store U+0000. Deepglot rejects NUL-containing translation inputs before provider translation or translation-content persistence instead of truncating or rewriting content. Provider output with NUL is an invalid provider response, so the configured fallback provider is attempted before the request fails.
+
+The structured warning event is `postgres_text_nul_rejected`. It contains only the boundary, field name, NUL count, and optional item index or provider; it never contains customer text, provider output, URLs, hashes, tenant identifiers, or credentials.
+
+Runbook:
+
+1. Group warnings by `boundary`. API, manual-translation, and import boundaries indicate invalid client content and should correspond to an HTTP 400 response.
+2. For `translation_provider_output`, check the adjacent provider-failover warning. A successful fallback needs no data repair because the rejected output was never written.
+3. A persistence-boundary warning is defense-in-depth evidence. Trace which earlier validation boundary was bypassed before retrying; do not normalize, truncate, or copy the rejected value into PostgreSQL.
+4. Alert on sustained event-count growth, not on field values. No raw content is available or required for triage.
 
 ## i18n Development Scripts
 
@@ -294,17 +347,30 @@ AND "threshold" = <90 or 100>;
 
 ### Translation velocity limit (per-org drain rate)
 
-Separate from the monthly quota (a total) and the per-minute request rate limit (a count), `POST /api/translate` enforces a **per-organization fresh-word velocity limit** (ROADMAP 8.37, #203): at most `TRANSLATE_WORD_VELOCITY_PER_HOUR` fresh, provider-billed words per organization per fixed 1-hour window (anchored at the first request of the window, ~2x possible across a window boundary), reserved atomically via the `RateLimitBucket` table. It caps how *fast* an org can drain its monthly quota — the authoritative bound behind the WordPress plugin's soft per-IP caps (v0.8.4), so a distributed attacker rotating IPs through the dynamic-translate proxy cannot burn the monthly quota in minutes. Keyed per org (not per project) so an org with many project keys cannot multiply the rate against its one shared quota pool.
+Separate from the monthly quota (a total) and the per-minute request rate limit (a count), `POST /api/translate` enforces a **per-organization fresh-word velocity limit** (ROADMAP 8.37, #203). The unchanged default is 10% of the effective monthly word quota per fixed 1-hour window, with a minimum of 1,000 fresh, provider-billed words. A valid positive `TRANSLATE_WORD_VELOCITY_PER_HOUR` value is an explicit operator override. Reservations are atomic in `RateLimitBucket`. The limit caps how fast an organization can drain its shared monthly quota and remains authoritative behind the WordPress plugin's soft per-IP caps.
 
-- **Default:** 50,000 words/hour/org. Override with the `TRANSLATE_WORD_VELOCITY_PER_HOUR` env var (Vercel Production) — raise it for legitimately very high-volume orgs.
+- **Hard cap:** a request whose own fresh-word cost exceeds the complete hourly limit is classified as `oversize`, returns 422 `velocity_request_too_large` with no `Retry-After`, and never mutates a new or expired bucket. It is permanent for that request shape: split the request or PDF instead of scheduling it again. Normal requests retain the same atomic reservation behavior. This closes the prior first-request exception without raising or lowering the threshold.
 - **Exempt:** cache hits and bot traffic never consume velocity. Health probes (`quota_probe`) are **not** exempt — the flag is attacker-settable and the spend path does not honor it, so exempting velocity would let it bypass the limit; a real probe's few words are negligible against the hourly budget.
-- **Signal:** over-budget requests get `429` with `code: velocity_limited` and a `Retry-After` header. The server-side pass then serves source text for that batch until the window rolls over; it is not a hard monthly exhaustion (that is still `402`).
+- **Signal:** an exhausted existing window gets retryable 429 with `code: velocity_limited` and a `Retry-After` header. The plugin preserves a known delay from 1 through 3,600 seconds (60 seconds when missing or invalid), keeps the longest concurrent delay, and does not retry before it. This is not hard monthly exhaustion (that is still `402`).
+- **WordPress send gate:** an active 429 marker locally stops synchronous visual-editor and WooCommerce email calls as well as an already-due warmer run until `retry_at`; the warmer persists the longest bounded timestamp before acquiring its dispatch lock. Only translation 429 responses set the active marker; configuration and synchronization 429 responses do not. Both the marker and warmer backoff are bound to the API key and backend. Configuration changes, late responses from the previous configuration, and legacy or unbound markers do not block new translations.
+- **WordPress oversized batch isolation:** the warmer automatically splits a multi-text 422 batch under the existing six-batch run budget. Every 422 batch shape is tracked for up to one hour by a configuration-bound HMAC fingerprint to drive bounded splitting; only a text that still returns 422 alone is blocked from automatic resend. Normal following batches continue. No raw translation text, API key, or URL is stored in the marker. API key or backend changes alter its scope and heal it immediately; the bounded per-fingerprint expiry lets a later plan change heal. API requests and PDFs remain client-split.
+- **Idempotency:** concurrent requests with the same `Idempotency-Key` share one execution and one response. A retryable 429 is retained only through its bounded `Retry-After` interval and can execute again after expiry; successful responses and deterministic 422 responses keep the normal retention. Replays emit only bounded status/code/retention metadata and keyed HMAC pseudonyms for scope and key.
+- **Privacy-safe classification:** every attempted fresh-word reservation emits one JSON log event named `translate_velocity_reservation`. `outcome` is `allowed`, `blocked`, or `oversize`; the event also records actor class, surface, item count, retry protection, limit source, fresh-word count, limit, remaining words, retry seconds, and window seconds. Organization, project, and request grouping use 16-character keyed HMAC pseudonyms derived with the server-side auth secret. Raw organization/project IDs, translation text, API keys, idempotency keys, and URLs are never logged.
+
+**Classification readiness before policy tuning:** No historical outcome classification exists before this rollout, so the previously observed aggregate 429 count cannot establish whether traffic was legitimate, abusive, retry amplification, request-count limiting, or velocity limiting. Do not change the threshold from that evidence alone.
+
+1. Deploy the classifier and collect a representative window that includes normal weekdays and at least one expected traffic peak.
+2. Verify `organizationPseudonym`, `projectPseudonym`, and `requestPseudonym` are present rather than `unavailable`, then aggregate `translate_velocity_reservation` by those HMAC pseudonyms, `outcome`, `actorClass`, `surface`, `itemCount`, `retryProtection`, `limitSource`, `freshWords`, and retry range. Repeated request pseudonyms without idempotency protection are the privacy-safe retry-amplification signal. Separately count `rate_limit_exceeded` and `velocity_limited` API responses; do not infer one from the total HTTP 429 count.
+3. Verify that `oversize` attempts do not create or reset buckets and that ordinary concurrent reservations still stop at the configured limit.
+4. Correlate aggregate changes with privacy-safe operational facts (release times, configured cron cadence, known import windows, and confirmed support reports). Do not add raw tenant IDs, request text, keys, or URLs to the event; use only the keyed HMAC pseudonyms already defined by the fixed schema.
+5. Change a limit only with a reviewed sample showing repeatable legitimate blocking. Preserve the per-organization atomic guard and document the evidence, expected capacity, rollback value, and observation window.
 
 **Runbook — a site reports "translations stopped" but the monthly quota is not exhausted:**
-1. Check for `429 velocity_limited` responses in the Vercel logs for that org.
-2. If the traffic is legitimate (a real high-volume org), raise `TRANSLATE_WORD_VELOCITY_PER_HOUR` and redeploy.
-3. If the traffic looks like abuse (server-side clients, no browser), the limit is doing its job; investigate the source before raising it.
-4. Known edge case (#208): a single request with more fresh words than the hourly limit is rejected until the limit is raised — see the follow-up issue.
+1. Confirm the response code: `velocity_limited` is the fresh-word guard; `rate_limit_exceeded` is the per-minute request guard. Preserve `Retry-After` when capturing the response metadata.
+2. Review the privacy-safe classifier aggregate and the site's WP-Cron/import timing. A single support report or total 429 count is not enough to tune the shared policy.
+3. Verify the WordPress client stopped later sequential batches after its first 429. Parallel batches may already be in flight, but each response must preserve its own bounded Retry-After classification.
+4. Verify the warmer scheduled its next attempt for Retry-After and that the dynamic browser queue did not immediately resend visitor-facing work. Cached translations remain available; uncached content stays in the source language meanwhile.
+5. If reviewed evidence proves legitimate repeatable blocking, use a positive `TRANSLATE_WORD_VELOCITY_PER_HOUR` override and redeploy with an explicit rollback value. If evidence indicates abuse or retry amplification, keep the threshold and address that source instead.
 
 ### WordPress plugin quota signals
 

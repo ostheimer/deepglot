@@ -33,6 +33,8 @@ test("maps marketing routes per locale", () => {
   assert.equal(getMarketingPath("en", "blog"), "/blog");
   assert.equal(getMarketingPath("de", "blog"), "/de/blog");
   assert.equal(getMarketingPath("fr", "blog"), "/fr/blog");
+  assert.equal(getMarketingPath("en", "help"), "/help");
+  assert.equal(getMarketingPath("de", "help"), "/de/hilfe");
   assert.equal(getMarketingPath("en", "forgotPassword"), "/forgot-password");
   assert.equal(getMarketingPath("de", "forgotPassword"), "/de/passwort-vergessen");
   assert.equal(getMarketingPath("de", "resetPassword"), "/de/passwort-zuruecksetzen");
@@ -45,6 +47,9 @@ test("converts external english routes to internal app paths", () => {
   assert.equal(toInternalPath("/fr/projets/123/traductions/langues"), "/projekte/123/uebersetzungen/sprachen");
   assert.equal(toInternalPath("/projects/123/settings/members"), "/projekte/123/einstellungen/mitglieder");
   assert.equal(toInternalPath("/pricing"), "/pricing");
+  assert.equal(toInternalPath("/help"), "/hilfe");
+  assert.equal(toInternalPath("/de/help"), "/hilfe");
+  assert.equal(toInternalPath("/de/hilfe"), "/hilfe");
   assert.equal(toInternalPath("/de/blog"), "/blog");
   assert.equal(toInternalPath("/fr/blog/wordpress-ohne-lock-in"), "/blog/wordpress-ohne-lock-in");
 });
@@ -60,6 +65,8 @@ test("converts internal legacy routes to canonical external paths", () => {
   assert.equal(toCanonicalExternalPath("/projekte/123/einstellungen/mitglieder"), "/projects/123/settings/members");
   assert.equal(toCanonicalExternalPath("/abonnement/karte-rechnungen"), "/subscription/billing");
   assert.equal(toCanonicalExternalPath("/preise"), "/pricing");
+  assert.equal(toCanonicalExternalPath("/hilfe", "en"), "/help");
+  assert.equal(toCanonicalExternalPath("/hilfe", "de"), "/hilfe");
 });
 
 test("builds localized canonical pathnames", () => {
@@ -136,6 +143,9 @@ test("returns legacy redirects for moved german routes", () => {
   assert.equal(getLegacyPublicRedirect("/de/projects/new"), "/de/projekte/neu");
   assert.equal(getLegacyPublicRedirect("/fr/projects/new"), "/fr/projets/nouveau");
   assert.equal(getLegacyPublicRedirect("/pricing"), null);
+  assert.equal(getLegacyPublicRedirect("/help"), null);
+  assert.equal(getLegacyPublicRedirect("/de/hilfe"), null);
+  assert.equal(getLegacyPublicRedirect("/hilfe"), "/de/hilfe");
   assert.equal(getLegacyPublicRedirect("/de"), null);
   assert.equal(getLegacyPublicRedirect("/fr"), null);
 });

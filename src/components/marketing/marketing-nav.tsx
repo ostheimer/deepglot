@@ -3,12 +3,13 @@ import Link from "next/link";
 import { DeepglotLogo } from "@/components/brand/deepglot-logo";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
+import { isBilingualPublicLocale } from "@/lib/bilingual-public-content";
 import { getMarketingPath, type SiteLocale } from "@/lib/site-locale";
 import { localizeCopy } from "@/lib/static-copy";
 
 type MarketingNavProps = {
   locale: SiteLocale;
-  active?: "home" | "pricing" | "docs" | "blog";
+  active?: "home" | "pricing" | "docs" | "help" | "blog";
 };
 
 const NAV_COPY = {
@@ -43,6 +44,7 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
   const homeHref = getMarketingPath(locale, "home");
   const pricingHref = getMarketingPath(locale, "pricing");
   const docsHref = getMarketingPath(locale, "docs");
+  const helpHref = getMarketingPath(locale, "help");
   const blogHref = getMarketingPath(locale, "blog");
   const loginHref = getMarketingPath(locale, "login");
   const signupHref = getMarketingPath(locale, "signup");
@@ -61,6 +63,11 @@ export function MarketingNav({ locale, active = "home" }: MarketingNavProps) {
       <Link href={docsHref} className={navLinkClass(active === "docs")}>
         {copy.docs}
       </Link>
+      {isBilingualPublicLocale(locale) ? (
+        <Link href={helpHref} className={navLinkClass(active === "help")}>
+          {locale === "de" ? "Hilfe" : "Help"}
+        </Link>
+      ) : null}
       <Link href={blogHref} className={navLinkClass(active === "blog")}>
         {copy.blog}
       </Link>

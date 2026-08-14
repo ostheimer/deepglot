@@ -1,5 +1,7 @@
 import {
+  TranslationProviderCountMismatchError,
   TranslationProviderResponseError,
+  providerAbortSignal,
   type TranslateTextsInput,
   type TranslationResult,
 } from "@/lib/translation-types";
@@ -38,7 +40,8 @@ type ParsedGeminiPayload = {
  */
 export async function translateWithGemini(
   { texts, sourceLang, targetLang }: TranslateTextsInput,
-  config: TranslationProviderConfig
+  config: TranslationProviderConfig,
+  signal: AbortSignal = providerAbortSignal()
 ): Promise<TranslationResult[]> {
   if (!config.apiKey) {
     throw new Error("Gemini API key is not configured.");
@@ -77,6 +80,7 @@ export async function translateWithGemini(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!response.ok) {
@@ -124,8 +128,10 @@ export async function translateWithGemini(
   const translations = parsed.translations;
 
   if (translations.length !== texts.length) {
-    throw new TranslationProviderResponseError(
-      `Gemini returned ${translations.length} instead of ${texts.length} translations.`
+    throw new TranslationProviderCountMismatchError(
+      `Gemini returned ${translations.length} instead of ${texts.length} translations.`,
+      texts.length,
+      translations.length
     );
   }
 

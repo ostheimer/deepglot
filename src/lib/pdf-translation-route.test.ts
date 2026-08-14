@@ -72,6 +72,47 @@ test("PDF route returns the generated PDF as an attachment", async () => {
   assert.equal(response.headers.get("x-deepglot-pdf-words"), "7");
 });
 
+test("PDF route starts the provider budget before authentication and multipart parsing", async () => {
+  const originalTimeout = AbortSignal.timeout;
+  const events: string[] = [];
+  AbortSignal.timeout = ((milliseconds: number) => {
+    events.push(`deadline:${milliseconds}`);
+    return originalTimeout(milliseconds);
+  }) as typeof AbortSignal.timeout;
+
+  try {
+    const handler = createPdfTranslationPostHandler({
+      getUserId: async () => {
+        events.push("auth");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return "user-1";
+      },
+      translateProjectPdf: async (_input, dependencies) => {
+        events.push("service");
+        assert.ok(
+          dependencies?.providerBudgetSignal instanceof AbortSignal,
+          "the service must receive the route-owned absolute deadline"
+        );
+        return {
+          bytes: new Uint8Array([37, 80, 68, 70]),
+          filename: "source-deepglot-en.pdf",
+          pageCount: 1,
+          wordCount: 1,
+        };
+      },
+    });
+
+    const response = await handler(uploadRequest(), {
+      params: Promise.resolve({ projektId: "project-1" }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(events, ["deadline:40000", "auth", "service"]);
+  } finally {
+    AbortSignal.timeout = originalTimeout;
+  }
+});
+
 test("PDF route preserves safe service error codes and statuses", async () => {
   const handler = createPdfTranslationPostHandler({
     getUserId: async () => "user-1",
@@ -92,4 +133,56 @@ test("PDF route preserves safe service error codes and statuses", async () => {
   assert.equal(response.status, 402);
   assert.equal(body.code, "quota_exhausted");
   assert.equal(body.error, "Monthly word quota exceeded.");
+});
+
+test("PDF velocity limits preserve Retry-After in the response contract", async () => {
+  const handler = createPdfTranslationPostHandler({
+    getUserId: async () => "user_1",
+    translateProjectPdf: async () => {
+      throw new PdfTranslationError(
+        "The translation velocity limit is currently reached. Try again later.",
+        "velocity_limited",
+        429,
+        73,
+      );
+    },
+  });
+
+  const response = await handler(uploadRequest(), {
+    params: Promise.resolve({ projektId: "project-1" }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "73");
+  assert.deepEqual(body, {
+    error: "The translation velocity limit is currently reached. Try again later.",
+    code: "velocity_limited",
+    retry_after: 73,
+  });
+});
+
+test("an oversized PDF request is non-retryable and has no Retry-After", async () => {
+  const handler = createPdfTranslationPostHandler({
+    getUserId: async () => "user-1",
+    translateProjectPdf: async () => {
+      throw new PdfTranslationError(
+        "Split the PDF so each request fits the plan velocity cap.",
+        "velocity_request_too_large",
+        422,
+      );
+    },
+  });
+
+  const response = await handler(uploadRequest(), {
+    params: Promise.resolve({ projektId: "project-1" }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 422);
+  assert.equal(response.headers.get("Retry-After"), null);
+  assert.deepEqual(body, {
+    error: "Split the PDF so each request fits the plan velocity cap.",
+    code: "velocity_request_too_large",
+  });
 });

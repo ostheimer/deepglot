@@ -2,7 +2,10 @@ import { after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import { translateWithOpenAICompatible } from "./openai";
-import { TranslationProviderResponseError } from "./translation-types";
+import {
+  TranslationProviderCountMismatchError,
+  TranslationProviderResponseError,
+} from "./translation-types";
 
 const originalFetch = globalThis.fetch;
 
@@ -54,6 +57,22 @@ describe("translateWithOpenAICompatible response validation", () => {
           config
         ),
       assertProviderResponseError
+    );
+  });
+
+  it("classifies only wrong result cardinality as a count mismatch", async () => {
+    installModelContent(JSON.stringify({ translations: [{ text: "Only one" }] }));
+
+    await assert.rejects(
+      () =>
+        translateWithOpenAICompatible(
+          { texts: ["Hallo", "Welt"], sourceLang: "de", targetLang: "en" },
+          config
+        ),
+      (error: unknown) =>
+        error instanceof TranslationProviderCountMismatchError &&
+        error.actualCount === 1 &&
+        error.expectedCount === 2
     );
   });
 

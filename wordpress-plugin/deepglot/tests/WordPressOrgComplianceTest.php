@@ -42,7 +42,7 @@ foreach ($iterator as $file) {
             token_get_all($source),
             static fn ($token): bool => is_array($token)
                 && $token[0] === T_VARIABLE
-                && in_array($token[1], ['$_SERVER', '$_GET'], true)
+                && in_array($token[1], ['$_SERVER', '$_GET', '$_POST'], true)
         ));
         $allowedRequestVariables = str_ends_with($path, '/Frontend/RequestRouter.php') ? 1 : 0;
         wporgComplianceAssert(
@@ -55,8 +55,8 @@ foreach ($iterator as $file) {
 $requestInput = file_get_contents($pluginRoot . '/includes/Support/RequestInput.php');
 wporgComplianceAssert(is_string($requestInput), 'RequestInput.php must be readable');
 wporgComplianceAssert(
-    substr_count($requestInput, 'sanitize_text_field(wp_unslash(') === 2,
-    'Server and query values must be unslashed and sanitized centrally'
+    substr_count($requestInput, 'sanitize_text_field(wp_unslash(') === 4,
+    'Server, query, and POST values must be unslashed and sanitized centrally'
 );
 wporgComplianceAssert(
     str_contains($requestInput, "\$key === 'REQUEST_URI'")

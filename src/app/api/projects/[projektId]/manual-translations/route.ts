@@ -8,6 +8,11 @@ import { recordTranslationBatch, upsertTranslatedUrlHit } from "@/lib/translatio
 import { computeTranslationHash } from "@/lib/translation-hash";
 import { workflowResetFieldsIfTranslatedTextChanged } from "@/lib/translation-workflow";
 import {
+  assertPostgresTextFields,
+  inspectPostgresText,
+  reportPostgresTextRejection,
+} from "@/lib/postgres-text";
+import {
   PLUGIN_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
   consumeRateLimit,
@@ -52,7 +57,8 @@ export async function POST(
   { params }: { params: Promise<{ projektId: string }> }
 ) {
   const { projektId } = await params;
-  const parsed = manualTranslationSchema.safeParse(await request.json());
+  const rawBody = (await request.json()) as unknown;
+  const parsed = manualTranslationSchema.safeParse(rawBody);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -76,6 +82,39 @@ export async function POST(
         status: 401,
         headers: corsHeaders(request),
       }
+    );
+  }
+
+  const nulErrors: Record<string, string[]> = {};
+  for (const field of [
+    "originalText",
+    "translatedText",
+    "langFrom",
+    "langTo",
+    "requestUrl",
+  ] as const) {
+    const value = parsed.data[field];
+    if (typeof value !== "string") continue;
+    const error = inspectPostgresText(value, {
+      boundary: "manual_translation_input",
+      field,
+    });
+    if (!error) continue;
+
+    reportPostgresTextRejection(error);
+    nulErrors[field] = [
+      "NUL-Zeichen (U+0000) sind in Übersetzungstexten nicht erlaubt.",
+    ];
+  }
+
+  if (Object.keys(nulErrors).length > 0) {
+    return NextResponse.json(
+      {
+        error: "Die Übersetzung enthält ein nicht unterstütztes NUL-Zeichen.",
+        code: "validation_failed",
+        errors: nulErrors,
+      },
+      { status: 400, headers: corsHeaders(request) },
     );
   }
 
@@ -154,6 +193,16 @@ export async function POST(
         translatedText: true,
       },
     });
+
+    assertPostgresTextFields(
+      {
+        originalText: parsed.data.originalText,
+        translatedText: parsed.data.translatedText,
+        langFrom: parsed.data.langFrom,
+        langTo: parsed.data.langTo,
+      },
+      { boundary: "manual_translation_persistence" },
+    );
 
     const saved = await tx.translation.upsert({
       where: {
