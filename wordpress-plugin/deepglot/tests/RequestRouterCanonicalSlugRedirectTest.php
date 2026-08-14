@@ -9,6 +9,7 @@ $GLOBALS['_deepglot_canonical_redirect_actions'] = [];
 $GLOBALS['_deepglot_canonical_redirect'] = null;
 $GLOBALS['_deepglot_canonical_redirect_is_404'] = false;
 $GLOBALS['_deepglot_canonical_redirect_failures'] = 0;
+$GLOBALS['_deepglot_removed_actions'] = [];
 
 if (!function_exists('add_action')) {
     function add_action($hook, $callback, $priority = 10, $acceptedArgs = 1): void
@@ -26,6 +27,7 @@ if (!function_exists('add_filter')) {
 if (!function_exists('remove_action')) {
     function remove_action($hook, $callback, $priority = 10): void
     {
+        $GLOBALS['_deepglot_removed_actions'][] = [$hook, $callback, $priority];
     }
 }
 
@@ -345,6 +347,29 @@ canonicalSlugRedirectAssert(
     $subdomainRouter->allowInternalRedirectHost(['example.com'], 'evil.example'),
     'An unconfigured host must never be admitted as a safe redirect target.'
 );
+
+// The legacy Yoast object is third-party state. Reading it via $GLOBALS avoids
+// declaring an unprefixed Deepglot global while preserving compatibility.
+$yoastFrontend = new class {
+    public function clean_permalink(): void
+    {
+    }
+};
+$GLOBALS['wpseo_front'] = $yoastFrontend;
+$currentLanguage = new ReflectionProperty(RequestRouter::class, 'currentLanguage');
+$currentLanguage->setValue($pathRouter, 'en');
+$GLOBALS['_deepglot_removed_actions'] = [];
+$pathRouter->removeCanonicalRedirects();
+canonicalSlugRedirectAssert(
+    true,
+    in_array(
+        ['template_redirect', [$yoastFrontend, 'clean_permalink'], 1],
+        $GLOBALS['_deepglot_removed_actions'],
+        true
+    ),
+    'The legacy Yoast clean-permalink callback must still be removed through its third-party global.'
+);
+unset($GLOBALS['wpseo_front']);
 
 if ($GLOBALS['_deepglot_canonical_redirect_failures'] > 0) {
     exit(1);

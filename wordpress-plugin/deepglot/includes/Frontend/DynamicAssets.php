@@ -53,7 +53,7 @@ class DynamicAssets
             return;
         }
 
-        // Mirror OutputBuffer::startBuffer(): on an excluded URL the initial
+        // Mirror OutputBuffer's request gate: on an excluded URL the initial
         // HTML is left untranslated, so dynamic content on that page must not
         // be translated (or billed) either.
         if ($this->options->isUrlExcluded($this->currentRequestUrl())) {

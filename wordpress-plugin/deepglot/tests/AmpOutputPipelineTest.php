@@ -9,11 +9,14 @@
 if (!function_exists('__')) {
     function __($text, $domain = null) { return $text; }
 }
-if (!function_exists('add_action')) {
-    $GLOBALS['_deepglot_amp_actions'] = [];
-    function add_action($hook, $callback, $priority = 10, $accepted_args = 1) {
-        $GLOBALS['_deepglot_amp_actions'][$hook][] = [$callback, $priority, $accepted_args];
+if (!function_exists('add_filter')) {
+    $GLOBALS['_deepglot_amp_filters'] = [];
+    function add_filter($hook, $callback, $priority = 10, $accepted_args = 1) {
+        $GLOBALS['_deepglot_amp_filters'][$hook][] = [$callback, $priority, $accepted_args];
     }
+}
+if (!function_exists('wp_start_template_enhancement_output_buffer')) {
+    function wp_start_template_enhancement_output_buffer(): bool { return true; }
 }
 if (!function_exists('is_admin')) {
     function is_admin() { return false; }
@@ -137,6 +140,22 @@ function makeAmpBuffer(bool $translateAmp, AmpPipelineTranslator $translator): O
     );
 }
 
+function filterAmpOutput(OutputBuffer $buffer, string $html): string
+{
+    $buffer->register();
+    $callbacks = $GLOBALS['_deepglot_amp_filters']['wp_template_enhancement_output_buffer'] ?? [];
+    $registered = end($callbacks);
+    ampAssert(is_array($registered), 'WordPress 6.9+ must register the template enhancement filter');
+    ampAssert(($registered[2] ?? null) === 2, 'The core output filter must accept both documented arguments');
+    ampAssert(!isset($GLOBALS['_deepglot_amp_filters']['template_include']), 'WordPress 6.9+ must not register the legacy template wrapper');
+
+    $bufferLevel = ob_get_level();
+    $output = ($registered[0])($html, $html);
+    ampAssert(ob_get_level() === $bufferLevel, 'The Deepglot Core filter must not open its own output buffer');
+
+    return $output;
+}
+
 $html = '<!doctype html><html lang="de"><head><title>Hallo AMP</title></head><body><p>Hallo AMP</p></body></html>';
 $_SERVER['HTTP_HOST'] = 'example.com';
 $_SERVER['HTTP_USER_AGENT'] = 'Googlebot/2.1';
@@ -148,22 +167,15 @@ $GLOBALS['_deepglot_amp_query_vars'] = [];
 $_SERVER['REQUEST_URI'] = '/en/story/amp/';
 $offTranslator = new AmpPipelineTranslator();
 $offBuffer = makeAmpBuffer(false, $offTranslator);
-$level = ob_get_level();
-$offBuffer->startBuffer();
-ampAssert(ob_get_level() === $level, 'AMP toggle off must not start the output pipeline');
+$untranslatedAmp = filterAmpOutput($offBuffer, $html);
+ampAssert($untranslatedAmp === $html, 'AMP toggle off must leave the core output buffer unchanged');
 ampAssert($offTranslator->calls === [], 'AMP toggle off must not call translation/cache code');
 
 // 2. Toggle ON: same AMP request is translated and Googlebot stays marked as
 // bot=2 so HtmlTranslator keeps its existing cache-only/identity guard.
 $onTranslator = new AmpPipelineTranslator();
 $onBuffer = makeAmpBuffer(true, $onTranslator);
-$level = ob_get_level();
-ob_start();
-$onBuffer->startBuffer();
-ampAssert(ob_get_level() === $level + 2, 'AMP toggle on must start output buffering');
-echo $html;
-ob_end_flush();
-$translatedAmp = ob_get_clean();
+$translatedAmp = filterAmpOutput($onBuffer, $html);
 ampAssert(str_contains($translatedAmp, 'Hello AMP'), 'Enabled AMP output passes through translation');
 ampAssert(($onTranslator->calls[0]['bot'] ?? null) === BotDetector::GOOGLE, 'AMP bots retain the standard cache-safe bot code');
 ampAssert(str_contains((string) ($onTranslator->calls[0]['url'] ?? ''), '/en/story/amp/'), 'AMP request URL reaches translation analytics/cache contract');
@@ -174,18 +186,16 @@ $GLOBALS['_deepglot_is_amp_endpoint'] = false;
 $_SERVER['REQUEST_URI'] = '/en/story/amp/?ref=feed';
 $pathTranslator = new AmpPipelineTranslator();
 $pathBuffer = makeAmpBuffer(false, $pathTranslator);
-$level = ob_get_level();
-$pathBuffer->startBuffer();
-ampAssert(ob_get_level() === $level, 'Canonical /amp/ endpoint is gated even without the AMP plugin helper');
+$pathOutput = filterAmpOutput($pathBuffer, $html);
+ampAssert($pathOutput === $html, 'Canonical /amp/ endpoint is gated even without the AMP plugin helper');
 
 // 4. Query-var AMP detection is also gated.
 $_SERVER['REQUEST_URI'] = '/en/story/?amp=1';
 $GLOBALS['_deepglot_amp_query_vars'] = ['amp' => '1'];
 $queryTranslator = new AmpPipelineTranslator();
 $queryBuffer = makeAmpBuffer(false, $queryTranslator);
-$level = ob_get_level();
-$queryBuffer->startBuffer();
-ampAssert(ob_get_level() === $level, 'AMP query-var endpoint is gated when the option is off');
+$queryOutput = filterAmpOutput($queryBuffer, $html);
+ampAssert($queryOutput === $html, 'AMP query-var endpoint is gated when the option is off');
 
 // 5. Ordinary translated pages continue to use the output pipeline even when
 // AMP translation is disabled.
@@ -194,13 +204,8 @@ $_SERVER['REQUEST_URI'] = '/en/story/';
 $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0';
 $ordinaryTranslator = new AmpPipelineTranslator();
 $ordinaryBuffer = makeAmpBuffer(false, $ordinaryTranslator);
-$level = ob_get_level();
-ob_start();
-$ordinaryBuffer->startBuffer();
-ampAssert(ob_get_level() === $level + 2, 'AMP toggle must not disable ordinary translated pages');
-echo $html;
-ob_end_flush();
-ob_get_clean();
+$ordinaryOutput = filterAmpOutput($ordinaryBuffer, $html);
+ampAssert(str_contains($ordinaryOutput, 'Hello AMP'), 'AMP toggle must not disable ordinary translated pages');
 ampAssert(($ordinaryTranslator->calls[0]['bot'] ?? null) === BotDetector::HUMAN, 'Ordinary human request remains bot=0');
 
 fwrite(STDOUT, "AmpOutputPipelineTest: OK\n");

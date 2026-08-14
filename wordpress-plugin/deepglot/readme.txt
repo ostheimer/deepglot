@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.1
+Stable tag: 0.12.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,10 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.12.2 =
+* Uses the WordPress 6.9 template enhancement buffer and explicitly closes the legacy fallback buffer on older supported WordPress versions.
+* Uses uniquely prefixed translation transients and keeps legacy Yoast compatibility without declaring a Deepglot-owned global.
+
 = 0.12.1 =
 * Removed arbitrary custom CSS input from language-switcher settings and runtime configuration.
 * Loaded admin and nav-menu assets through WordPress enqueue APIs and attached generated responsive and flag rules through the registered switcher stylesheet.
@@ -127,6 +131,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.2 =
+Closes the complete response-buffer lifecycle and strengthens unique naming for WordPress.org compatibility. Requires PHP 8.0 or newer.
 
 = 0.12.1 =
 Addresses WordPress.org review feedback by removing arbitrary CSS input and loading plugin assets through WordPress APIs. Requires PHP 8.0 or newer.

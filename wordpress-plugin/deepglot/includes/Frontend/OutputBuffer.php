@@ -60,13 +60,51 @@ class OutputBuffer
 
     public function register(): void
     {
-        add_action('template_redirect', [$this, 'startBuffer'], 0);
+        if (function_exists('wp_start_template_enhancement_output_buffer')) {
+            add_filter('wp_template_enhancement_output_buffer', [$this, 'filterTemplateOutput'], 10, 2);
+            return;
+        }
+
+        add_filter('template_include', [$this, 'filterLegacyTemplate'], PHP_INT_MAX);
     }
 
-    public function startBuffer(): void
+    /**
+     * Processes WordPress' standardized template output buffer on WordPress
+     * 6.9 and newer.
+     */
+    public function filterTemplateOutput(string $output, string $originalOutput = ''): string
+    {
+        $processor = $this->currentRequestProcessor();
+
+        if ($processor === null) {
+            return $output;
+        }
+
+        return $processor($output);
+    }
+
+    /**
+     * Wraps the main template on WordPress 6.0-6.8 so the fallback renderer
+     * owns both the start and the cleanup of its output buffer.
+     */
+    public function filterLegacyTemplate(string $template): string
+    {
+        $processor = $this->currentRequestProcessor();
+
+        if ($processor === null || !is_readable($template)) {
+            return $template;
+        }
+
+        return LegacyTemplateRenderer::prepare($template, $processor);
+    }
+
+    /**
+     * @return (\Closure(string): string)|null
+     */
+    private function currentRequestProcessor(): ?\Closure
     {
         if (!$this->canProcessCurrentRequest()) {
-            return;
+            return null;
         }
 
         $targetLanguage = $this->detectTargetLanguage();
@@ -75,18 +113,18 @@ class OutputBuffer
         // settings-sync payload. Bail before runtime config, exclusions, cache
         // reads or translation calls so an opted-out AMP response is untouched.
         if ($this->isAmpRequest() && !$this->options->shouldTranslateAmp()) {
-            return;
+            return null;
         }
 
         if ($this->options->isUrlExcluded($this->currentRequestUrl())) {
-            return;
+            return null;
         }
 
-        ob_start(function (string $html) use ($targetLanguage): string {
+        return function (string $html) use ($targetLanguage): string {
             return $targetLanguage === null
                 ? $this->processSource($html)
                 : $this->process($html, $targetLanguage);
-        });
+        };
     }
 
     // -------------------------------------------------------------------------

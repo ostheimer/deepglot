@@ -70,10 +70,11 @@ class RequestRouter
 
         remove_action('template_redirect', 'redirect_canonical');
 
-        // Yoast SEO hooks its clean-permalink redirect through WPSEO_Frontend.
-        global $wpseo_front;
-        if (isset($wpseo_front) && is_object($wpseo_front)) {
-            remove_action('template_redirect', [$wpseo_front, 'clean_permalink'], 1);
+        // Yoast SEO owns this legacy global; read it without declaring an
+        // unprefixed Deepglot global that directory scanners can misidentify.
+        $yoastFrontend = $GLOBALS['wpseo_front'] ?? null;
+        if (is_object($yoastFrontend)) {
+            remove_action('template_redirect', [$yoastFrontend, 'clean_permalink'], 1);
         }
 
         // Newer Yoast SEO versions use a different class structure.

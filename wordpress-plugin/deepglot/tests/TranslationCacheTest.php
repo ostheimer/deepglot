@@ -48,9 +48,17 @@ function test_cache_miss_returns_null(): void
 
 function test_set_then_get_returns_value(): void
 {
+    $GLOBALS['_transient_store'] = [];
     $cache = new TranslationCache();
     $cache->set('Hallo', 'de', 'en', 'Hello');
     assert($cache->get('Hallo', 'de', 'en') === 'Hello', 'Stored value must be retrievable');
+
+    $keys = array_keys($GLOBALS['_transient_store']);
+    assert(count($keys) === 1, 'A translation must create exactly one transient');
+    assert(
+        str_starts_with((string) $keys[0], 'deepglot_cache_'),
+        'Translation transient names must use the unique deepglot_cache_ prefix'
+    );
 }
 
 function test_different_languages_do_not_collide(): void

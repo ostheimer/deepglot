@@ -4,12 +4,13 @@ namespace Deepglot\Support;
 
 /**
  * Thin wrapper around WordPress transients for caching translated texts.
- * Cache key: sha1(sourceLang + targetLang + original text), prefixed with "dg_".
+ * Cache key: sha1(sourceLang + targetLang + original text), prefixed with
+ * "deepglot_cache_".
  * TTL: 30 days by default (translations change infrequently).
  */
 class TranslationCache
 {
-    private const PREFIX = 'dg_';
+    private const PREFIX = 'deepglot_cache_';
     private const TTL    = 30 * DAY_IN_SECONDS;
 
     /**

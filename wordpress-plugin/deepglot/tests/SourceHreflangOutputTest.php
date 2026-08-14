@@ -16,6 +16,12 @@ function sourceHreflangAssert(bool $condition, string $message): void
 if (!function_exists('__')) {
     function __($text, $domain = null) { return $text; }
 }
+if (!function_exists('add_filter')) {
+    $GLOBALS['_deepglot_source_hreflang_filters'] = [];
+    function add_filter($hook, $callback, $priority = 10, $accepted_args = 1) {
+        $GLOBALS['_deepglot_source_hreflang_filters'][$hook][] = [$callback, $priority, $accepted_args];
+    }
+}
 if (!function_exists('home_url')) {
     function home_url($path = '/') { return 'https://example.com' . $path; }
 }
@@ -67,6 +73,7 @@ require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
 require_once __DIR__ . '/../includes/Frontend/LinkRewriter.php';
 require_once __DIR__ . '/../includes/Frontend/HreflangInjector.php';
 require_once __DIR__ . '/../includes/Frontend/RequestRouter.php';
+require_once __DIR__ . '/../includes/Frontend/LegacyTemplateRenderer.php';
 require_once __DIR__ . '/../includes/Frontend/OutputBuffer.php';
 
 use Deepglot\Config\Options;
@@ -135,16 +142,25 @@ $_SERVER['HTTP_HOST'] = 'example.com';
 $html = '<!doctype html><html lang="de"><head><title>Behandlung</title></head>'
     . '<body><a href="/kontakt/">Kontakt</a></body></html>';
 
+$buffer->register();
+$legacyFilters = $GLOBALS['_deepglot_source_hreflang_filters']['template_include'] ?? [];
+$legacyFilter = end($legacyFilters);
+sourceHreflangAssert(is_array($legacyFilter), 'WordPress 6.0-6.8 must register the legacy template wrapper.');
+sourceHreflangAssert(
+    !isset($GLOBALS['_deepglot_source_hreflang_filters']['wp_template_enhancement_output_buffer']),
+    'The WordPress 6.9 output filter must not be registered when the Core API is unavailable.'
+);
+
+$fixture = __DIR__ . '/fixtures/LegacyTemplateFixture.php';
+$GLOBALS['_deepglot_legacy_template_output'] = $html;
+$wrappedTemplate = ($legacyFilter[0])($fixture);
+sourceHreflangAssert($wrappedTemplate !== $fixture, 'An eligible request must use the isolated legacy renderer.');
+
 $initialLevel = ob_get_level();
 ob_start();
-$buffer->startBuffer();
-sourceHreflangAssert(
-    ob_get_level() === $initialLevel + 2,
-    'A configured source-language request must start the metadata output buffer.'
-);
-echo $html;
-ob_end_flush();
+include $wrappedTemplate;
 $processed = ob_get_clean();
+sourceHreflangAssert(ob_get_level() === $initialLevel, 'The legacy renderer must restore its buffer level.');
 
 sourceHreflangAssert($translator->calls === 0, 'Source-language output must never call the translator.');
 sourceHreflangAssert(str_contains($processed, '>Behandlung<'), 'Source-language copy must remain untouched.');
@@ -171,9 +187,53 @@ sourceHreflangAssert($buffer->processSource($json) === $json, 'Non-HTML response
 // WordPress identifies feed requests before the body is available. Avoid
 // starting the source metadata buffer at all when that signal is present.
 $GLOBALS['_deepglot_is_feed'] = true;
-$feedLevel = ob_get_level();
-$buffer->startBuffer();
-sourceHreflangAssert(ob_get_level() === $feedLevel, 'Known feed requests must not start the source metadata buffer.');
+$feedTemplate = ($legacyFilter[0])($fixture);
+sourceHreflangAssert($feedTemplate === $fixture, 'Known feed requests must bypass the legacy output wrapper.');
 $GLOBALS['_deepglot_is_feed'] = false;
+
+// A template exception must still restore the exact pre-render buffer level.
+$GLOBALS['_deepglot_legacy_template_should_throw'] = true;
+$exceptionWrapper = \Deepglot\Frontend\LegacyTemplateRenderer::prepare(
+    $fixture,
+    static fn (string $output): string => $output
+);
+$exceptionLevel = ob_get_level();
+try {
+    include $exceptionWrapper;
+    sourceHreflangAssert(false, 'The template fixture exception must propagate.');
+} catch (RuntimeException $exception) {
+    sourceHreflangAssert(
+        $exception->getMessage() === 'Legacy template fixture failure',
+        'The legacy renderer must preserve the original template exception.'
+    );
+}
+sourceHreflangAssert(
+    ob_get_level() === $exceptionLevel,
+    'The legacy renderer must clean its buffer after a template exception.'
+);
+unset($GLOBALS['_deepglot_legacy_template_should_throw']);
+
+// A third-party template callback may leave a nested buffer open. Flush that
+// nested output into Deepglot's owned buffer before closing the owned buffer,
+// so the buffer stack cannot become misaligned and earlier markup is retained.
+$GLOBALS['_deepglot_legacy_template_leaves_nested_buffer'] = true;
+$GLOBALS['_deepglot_legacy_template_output'] = '<main>Nested output</main>';
+$nestedWrapper = \Deepglot\Frontend\LegacyTemplateRenderer::prepare(
+    $fixture,
+    static fn (string $output): string => $output
+);
+$nestedLevel = ob_get_level();
+ob_start();
+include $nestedWrapper;
+$nestedOutput = ob_get_clean();
+sourceHreflangAssert(
+    $nestedOutput === 'before-nested:<main>Nested output</main>',
+    'The legacy renderer must preserve output across a nested third-party buffer.'
+);
+sourceHreflangAssert(
+    ob_get_level() === $nestedLevel,
+    'The legacy renderer must restore its buffer level after nested buffering.'
+);
+unset($GLOBALS['_deepglot_legacy_template_leaves_nested_buffer']);
 
 fwrite(STDOUT, "SourceHreflangOutputTest: OK\n");
