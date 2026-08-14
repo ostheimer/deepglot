@@ -6,6 +6,7 @@
  */
 
 $GLOBALS['_deepglot_canonical_redirect_actions'] = [];
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
 $GLOBALS['_deepglot_canonical_redirect'] = null;
 $GLOBALS['_deepglot_canonical_redirect_is_404'] = false;
 $GLOBALS['_deepglot_canonical_redirect_failures'] = 0;
@@ -20,6 +21,10 @@ if (!function_exists('add_action')) {
 if (!function_exists('add_filter')) {
     function add_filter($hook, $callback, $priority = 10, $acceptedArgs = 1): void
     {
+        $GLOBALS['_deepglot_canonical_redirect_filters'][$hook][$priority][] = [
+            'callback' => $callback,
+            'accepted_args' => $acceptedArgs,
+        ];
     }
 }
 
@@ -112,6 +117,21 @@ function canonicalSlugRedirectAssert($expected, $actual, string $message): void
         fwrite(STDERR, 'Expected: ' . var_export($expected, true) . PHP_EOL);
         fwrite(STDERR, 'Actual:   ' . var_export($actual, true) . PHP_EOL);
     }
+}
+
+function canonicalSlugRedirectApplyFilter(string $hook, $value, ...$args)
+{
+    $callbacksByPriority = $GLOBALS['_deepglot_canonical_redirect_filters'][$hook] ?? [];
+    ksort($callbacksByPriority);
+
+    foreach ($callbacksByPriority as $callbacks) {
+        foreach ($callbacks as $registered) {
+            $filterArgs = array_slice([$value, ...$args], 0, $registered['accepted_args']);
+            $value = $registered['callback'](...$filterArgs);
+        }
+    }
+
+    return $value;
 }
 
 /**
@@ -344,6 +364,58 @@ canonicalSlugRedirectAssert(
     ['example.com'],
     $subdomainRouter->allowInternalRedirectHost(['example.com'], 'evil.example'),
     'An unconfigured host must never be admitted as a safe redirect target.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$redirectionPluginRouter = new RequestRouter(
+    $options,
+    new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [])
+);
+$redirectionPluginRouter->register();
+
+$_SERVER['REQUEST_URI'] = '/en/kinesiotaping-gegen-schmerzen/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$redirectionPluginRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com/en/kinesiotaping-wien/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com/kinesiotaping-wien/',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'Redirection-plugin aliases matched after PATH_PREFIX routing must keep the active target-language prefix.'
+);
+
+canonicalSlugRedirectAssert(
+    'https://external.example/kinesiotaping-wien/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://external.example/kinesiotaping-wien/',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'External Redirection-plugin targets must never be rewritten.'
+);
+
+canonicalSlugRedirectAssert(
+    'mailto:ordination@example.com',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'mailto:ordination@example.com',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'Non-HTTP Redirection-plugin targets must never be converted into internal URLs.'
+);
+
+$_SERVER['REQUEST_URI'] = '/kinesiotaping-gegen-schmerzen/';
+$redirectionPluginRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com/kinesiotaping-wien/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com/kinesiotaping-wien/',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'Source-language Redirection-plugin aliases must remain unchanged.'
 );
 
 if ($GLOBALS['_deepglot_canonical_redirect_failures'] > 0) {

@@ -45,6 +45,7 @@ class RequestRouter
         add_filter('wp_redirect',      [$this, 'preventLanguageStrippingRedirect']);
         add_filter('wp_safe_redirect', [$this, 'preventLanguageStrippingRedirect']);
         add_filter('allowed_redirect_hosts', [$this, 'allowInternalRedirectHost'], 10, 2);
+        add_filter('redirection_url_target', [$this, 'localizeRedirectionTarget']);
 
         // Redirect stale WPML-era source slugs before the translated response
         // is rendered, but after WordPress has resolved the canonical source.
@@ -161,6 +162,29 @@ class RequestRouter
         }
 
         return array_values(array_unique($hosts));
+    }
+
+    /** Keeps Redirection-plugin targets on the active translated site route. */
+    public function localizeRedirectionTarget(string $target): string
+    {
+        if ($this->currentLanguage === null) {
+            return $target;
+        }
+
+        $isRootRelative = str_starts_with($target, '/') && !str_starts_with($target, '//');
+        if (!$isRootRelative) {
+            $scheme = strtolower((string) wp_parse_url($target, PHP_URL_SCHEME));
+            $host = (string) wp_parse_url($target, PHP_URL_HOST);
+            if (
+                !in_array($scheme, ['http', 'https'], true)
+                || $host === ''
+                || !$this->routing->isInternalHost($host)
+            ) {
+                return $target;
+            }
+        }
+
+        return $this->routing->rewriteUrl($target, $this->currentLanguage);
     }
 
     /** Permanently redirects a stale localized slug to its configured target. */
