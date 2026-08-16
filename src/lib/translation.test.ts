@@ -639,40 +639,55 @@ test("honors a caller-specific provider-work ceiling below the translate route b
   }
 });
 
-test("keeps the lower configured provider-work ceiling when the caller allows longer", async () => {
+test("keeps the lower configured provider-work ceiling when the caller allows longer", { timeout: 5_000 }, async () => {
   const originalFetch = globalThis.fetch;
-  const originalTimeout = AbortSignal.timeout;
-  const requestedTimeouts: number[] = [];
+  const originalError = console.error;
 
-  AbortSignal.timeout = ((milliseconds: number) => {
-    requestedTimeouts.push(milliseconds);
-    return originalTimeout(10_000);
-  }) as typeof AbortSignal.timeout;
-  globalThis.fetch = (async () =>
-    openAIResponse([{ text: "configured-limit-wins" }])) as typeof fetch;
+  console.error = () => {};
+  // A hanging provider: if the caller's higher ceiling (10s) had replaced the
+  // configured 30ms deadline, the watchdog below would fire first and the
+  // assertion on the error type would fail.
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const watchdog = setTimeout(
+        () => reject(new Error("the configured request deadline was not applied")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
 
   try {
-    const result = await translateTexts(
-      { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
-      {
-        TRANSLATION_PROVIDER: "openai",
-        OPENAI_API_KEY: "openai-key",
-        TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
-        TRANSLATION_REQUEST_TIMEOUT_MS: "30",
-      },
-      null,
-      { maxRequestTimeoutMs: 10_000 }
-    );
-
-    assert.equal(result[0]?.text, "configured-limit-wins");
-    assert.equal(
-      requestedTimeouts[0],
-      30,
-      "the shared request deadline must use the lower configured ceiling"
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "30",
+          },
+          null,
+          { maxRequestTimeoutMs: 10_000 }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
     );
   } finally {
-    AbortSignal.timeout = originalTimeout;
     globalThis.fetch = originalFetch;
+    console.error = originalError;
   }
 });
 

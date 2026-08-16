@@ -436,39 +436,58 @@ export async function translateTexts(
   const chunks = chunk(input.texts, size);
   const providerCallSlots = createProviderCallSlots(concurrency);
   const failedChunkController = new AbortController();
+  // The request deadline is an owned timer rather than AbortSignal.timeout():
+  // timeout signals use unref'ed timers, and inside a nested AbortSignal.any()
+  // current Node 20.x fails to deliver the abort at all — the deadline test
+  // fails deterministically on Node 20.20 with either construction of the
+  // surrounding code, on main as well as here. An explicit ref'ed timer fires
+  // on every supported runtime and is cleared as soon as the work settles.
+  const requestTimeoutController = new AbortController();
+  const requestTimeoutTimer = setTimeout(() => {
+    requestTimeoutController.abort(
+      new DOMException(
+        `Translation provider work exceeded ${executionTimeoutMs}ms.`,
+        "TimeoutError"
+      )
+    );
+  }, executionTimeoutMs);
   const requestSignal = AbortSignal.any([
     failedChunkController.signal,
-    AbortSignal.timeout(executionTimeoutMs),
+    requestTimeoutController.signal,
     ...(executionOptions?.signal ? [executionOptions.signal] : []),
   ]);
 
-  const translatedChunks = await mapWithConcurrency(
-    chunks,
-    concurrency,
-    async (texts) => {
-      try {
-        return await translateChunk(
-          { ...input, texts },
-          env,
-          chain,
-          requestSignal,
-          {
-            providerCalls: 0,
-            terminalErrorLogged: false,
-            ...countMismatchIsolationLimits(texts.length, chain.length),
-          },
-          providerCallSlots
-        );
-      } catch (error) {
-        if (!failedChunkController.signal.aborted) {
-          failedChunkController.abort(error);
+  try {
+    const translatedChunks = await mapWithConcurrency(
+      chunks,
+      concurrency,
+      async (texts) => {
+        try {
+          return await translateChunk(
+            { ...input, texts },
+            env,
+            chain,
+            requestSignal,
+            {
+              providerCalls: 0,
+              terminalErrorLogged: false,
+              ...countMismatchIsolationLimits(texts.length, chain.length),
+            },
+            providerCallSlots
+          );
+        } catch (error) {
+          if (!failedChunkController.signal.aborted) {
+            failedChunkController.abort(error);
+          }
+          throw error;
         }
-        throw error;
       }
-    }
-  );
+    );
 
-  return translatedChunks.flat();
+    return translatedChunks.flat();
+  } finally {
+    clearTimeout(requestTimeoutTimer);
+  }
 }
 
 async function translateChunk(
