@@ -208,20 +208,41 @@ export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
 
 /**
  * A count mismatch may be shape-dependent, so retry a failed multi-text chunk
- * as smaller halves. Three levels are the structural recursion ceiling; the
- * stricter provider-call and request-time budgets below normally stop a wider
- * tree sooner.
+ * as smaller halves.
+ *
+ * The isolation limits are derived from the root chunk, not fixed: production
+ * showed 28 `TranslationProviderCallBudgetError` 500s in the 3.7 days after
+ * the fixed budget of 6 shipped, with the log reading "stopped at
+ * provider-call budget 6 … batch size: 1" — the walk down 8→4→2→1 with a
+ * two-provider chain costs 6 calls before the first singleton is even
+ * attempted, so the budget killed the repair at the exact moment it had
+ * isolated the problem. The tree over n texts has 2n−1 nodes and each node
+ * makes at most chain-length calls, so that product is the completion bound;
+ * anything smaller re-creates a cliff where a recoverable request 500s. The
+ * real cost ceilings are the request deadline below, the per-request
+ * provider-call slots, and the sibling cancellation in translateTexts — the
+ * call budget remains only as a backstop against recursion bugs.
+ *
+ * Known limit: the critical path is still sequential per branch
+ * (ceil(log2(n)) failing levels x chain length, ~10s per drifting call), so a
+ * full descent fits the 100s request deadline for the default chunk of 8 but
+ * not for operator-set chunk sizes beyond roughly 16 — there a fully drifting
+ * tree dies as a timeout. That is strictly better than the fixed budget,
+ * which killed the repair at every size, but large-chunk configurations trade
+ * repair coverage for fewer provider calls.
  */
-const MAX_COUNT_MISMATCH_ISOLATION_DEPTH = 3;
-
-/**
- * Count every provider HTTP call made for one root chunk, including its
- * original fallback chain. Six attempts retain the observed two-text recovery
- * (primary + fallback for the pair, then one successful primary per singleton)
- * while preventing a default eight-text chunk from expanding into the full
- * fifteen-node isolation tree.
- */
-const MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK = 6;
+function countMismatchIsolationLimits(
+  chunkSize: number,
+  chainLength: number
+): { maxProviderCalls: number; maxIsolationDepth: number } {
+  return {
+    maxProviderCalls: chainLength * (2 * chunkSize - 1),
+    // ceil(log2(n)) halvings always reach singletons, also for uneven sizes
+    // (the split rounds the left half up).
+    maxIsolationDepth:
+      chunkSize > 1 ? Math.ceil(Math.log2(chunkSize)) : 0,
+  };
+}
 
 /**
  * `/api/translate` has a 120-second route duration. Provider work gets at most
@@ -268,9 +289,9 @@ function resolveTranslationExecutionTimeoutMs(
 }
 
 class TranslationProviderCallBudgetError extends Error {
-  constructor() {
+  constructor(maxProviderCalls: number) {
     super(
-      `Provider-call budget of ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} exhausted during count-mismatch isolation.`
+      `Provider-call budget of ${maxProviderCalls} exhausted during count-mismatch isolation.`
     );
     this.name = "TranslationProviderCallBudgetError";
   }
@@ -278,6 +299,15 @@ class TranslationProviderCallBudgetError extends Error {
 
 type TranslationChunkBudget = {
   providerCalls: number;
+  maxProviderCalls: number;
+  maxIsolationDepth: number;
+  /**
+   * Isolation halves run in parallel, so two branches can fail terminally
+   * before the request-level abort reaches the survivor. Only the first
+   * failure propagates to the caller; logging the racing sibling would just
+   * duplicate the same privacy-safe line.
+   */
+  terminalErrorLogged: boolean;
 };
 
 function positiveIntSetting(raw: string | undefined, fallback: number): number {
@@ -300,6 +330,44 @@ export function resolveTranslationChunking(
     ),
   };
 }
+
+/**
+ * Counting semaphore over provider HTTP calls for one request.
+ *
+ * The chunk concurrency was sized to stay clear of provider rate limits, and
+ * the sequential isolation implicitly respected it: one call in flight per
+ * chunk. Parallel isolation doubles its in-flight branches per tree level, so
+ * without this cap twelve drifting chunks would descend in lockstep and put
+ * ~96 calls in flight — provoking exactly the 429 that, on the last provider
+ * in the chain, terminally kills the request. Slots are held only for the
+ * duration of a single provider call (parents split only after their own
+ * calls finished), so the recursion cannot deadlock on it.
+ */
+function createProviderCallSlots(limit: number): {
+  acquire(): Promise<() => void>;
+} {
+  let inFlight = 0;
+  const waiters: Array<() => void> = [];
+
+  return {
+    async acquire() {
+      while (inFlight >= limit) {
+        await new Promise<void>((resolve) => waiters.push(resolve));
+      }
+      inFlight += 1;
+
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        inFlight -= 1;
+        waiters.shift()?.();
+      };
+    },
+  };
+}
+
+type ProviderCallSlots = ReturnType<typeof createProviderCallSlots>;
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -366,6 +434,7 @@ export async function translateTexts(
   const chain = buildFallbackProviderChain(primary, env);
   const { size, concurrency } = resolveTranslationChunking(env);
   const chunks = chunk(input.texts, size);
+  const providerCallSlots = createProviderCallSlots(concurrency);
   const failedChunkController = new AbortController();
   const requestSignal = AbortSignal.any([
     failedChunkController.signal,
@@ -383,7 +452,12 @@ export async function translateTexts(
           env,
           chain,
           requestSignal,
-          { providerCalls: 0 }
+          {
+            providerCalls: 0,
+            terminalErrorLogged: false,
+            ...countMismatchIsolationLimits(texts.length, chain.length),
+          },
+          providerCallSlots
         );
       } catch (error) {
         if (!failedChunkController.signal.aborted) {
@@ -403,6 +477,7 @@ async function translateChunk(
   chain: TranslationProviderConfig[],
   requestSignal: AbortSignal,
   budget: TranslationChunkBudget,
+  providerCallSlots: ProviderCallSlots,
   isolationDepth = 0
 ): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
@@ -412,24 +487,32 @@ async function translateChunk(
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
     requestSignal.throwIfAborted();
-    if (
-      (isolationDepth > 0 || everyAttemptWasCountMismatch) &&
-      budget.providerCalls >= MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK
-    ) {
+    // Structurally unreachable while the limits match the tree bound; kept as
+    // a backstop so a future recursion bug fails loudly instead of running
+    // away against the provider.
+    if (budget.providerCalls >= budget.maxProviderCalls) {
       console.error(
-        `[translation] count-mismatch isolation stopped at provider-call budget ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} (chain: ${providerChain}, batch size: ${input.texts.length}).`
+        `[translation] count-mismatch isolation stopped at provider-call budget ${budget.maxProviderCalls} (chain: ${providerChain}, batch size: ${input.texts.length}).`
       );
-      throw new TranslationProviderCallBudgetError();
+      throw new TranslationProviderCallBudgetError(budget.maxProviderCalls);
     }
     budget.providerCalls += 1;
 
     try {
-      const results = await translateWithProvider(
-        input,
-        env,
-        candidate,
-        requestSignal
-      );
+      const releaseSlot = await providerCallSlots.acquire();
+      let results: TranslationResult[];
+      try {
+        // The request may have been aborted while this call waited for a slot.
+        requestSignal.throwIfAborted();
+        results = await translateWithProvider(
+          input,
+          env,
+          candidate,
+          requestSignal
+        );
+      } finally {
+        releaseSlot();
+      }
       requestSignal.throwIfAborted();
       for (const [resultIndex, result] of results.entries()) {
         const nulError = inspectPostgresText(result.text, {
@@ -478,7 +561,7 @@ async function translateChunk(
         !hasNext &&
         everyAttemptWasCountMismatch &&
         input.texts.length > 1 &&
-        isolationDepth < MAX_COUNT_MISMATCH_ISOLATION_DEPTH
+        isolationDepth < budget.maxIsolationDepth
       ) {
         if (isolationDepth === 0) {
           console.warn(
@@ -486,23 +569,34 @@ async function translateChunk(
           );
         }
 
+        // The halves run in parallel: a full descent 8→4→2→1 with a
+        // two-provider chain costs 7 failing internal nodes at ~10s per call
+        // before the singletons even start — sequentially that exceeds the
+        // request deadline, so the repair would time out exactly in the case
+        // it exists for. If one half fails terminally, the rejection
+        // propagates to translateTexts, which aborts requestSignal and stops
+        // the surviving half's remaining calls.
         const midpoint = Math.ceil(input.texts.length / 2);
-        const left = await translateChunk(
-          { ...input, texts: input.texts.slice(0, midpoint) },
-          env,
-          chain,
-          requestSignal,
-          budget,
-          isolationDepth + 1
-        );
-        const right = await translateChunk(
-          { ...input, texts: input.texts.slice(midpoint) },
-          env,
-          chain,
-          requestSignal,
-          budget,
-          isolationDepth + 1
-        );
+        const [left, right] = await Promise.all([
+          translateChunk(
+            { ...input, texts: input.texts.slice(0, midpoint) },
+            env,
+            chain,
+            requestSignal,
+            budget,
+            providerCallSlots,
+            isolationDepth + 1
+          ),
+          translateChunk(
+            { ...input, texts: input.texts.slice(midpoint) },
+            env,
+            chain,
+            requestSignal,
+            budget,
+            providerCallSlots,
+            isolationDepth + 1
+          ),
+        ]);
         return [...left, ...right];
       }
 
@@ -512,11 +606,14 @@ async function translateChunk(
       // level with the failing provider, the full message and the attempted
       // chain — the previous code logged nothing here and left only the route's
       // generic "[/api/translate] Fehler" line.
-      console.error(
-        `[translation] translation failed via ${candidate.provider}${
-          hasNext ? " (non-failover error, not retrying)" : " (last provider in chain)"
-        } (chain: ${providerChain}). ${describeProviderError(error)}`
-      );
+      if (!budget.terminalErrorLogged) {
+        budget.terminalErrorLogged = true;
+        console.error(
+          `[translation] translation failed via ${candidate.provider}${
+            hasNext ? " (non-failover error, not retrying)" : " (last provider in chain)"
+          } (chain: ${providerChain}). ${describeProviderError(error)}`
+        );
+      }
       throw error;
     }
   }

@@ -467,12 +467,21 @@ test("caps count mismatch isolation for a large permanently failing chunk", asyn
             TRANSLATION_CHUNK_SIZE: "64",
           }
         ),
-      /OpenAI hat 0 statt 8 Uebersetzungen geliefert/
+      // Isolation now descends all the way: the terminal failure is a
+      // singleton the provider still cannot translate — a genuine failure,
+      // not an artifact of the isolation limits.
+      /OpenAI hat 0 statt 1 Uebersetzungen geliefert/
     );
-    assert.equal(
-      providerCalls,
-      4,
-      "the root plus three bounded binary-isolation levels may reach the provider"
+    // Parallel branches race the request-level abort, so the exact count is
+    // nondeterministic — but it can never exceed the full-tree bound of
+    // chain-length x (2n - 1) calls.
+    assert.ok(
+      providerCalls >= 7,
+      `the leftmost descent alone needs 7 calls, saw ${providerCalls}`
+    );
+    assert.ok(
+      providerCalls <= 127,
+      `calls must stay within the 64-text tree bound of 127, saw ${providerCalls}`
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -500,25 +509,30 @@ test("bounds provider calls while isolating the default eight-text chunk", async
   }) as typeof fetch;
 
   try {
-    await assert.rejects(
-      () =>
-        translateTexts(
-          {
-            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
-            sourceLang: "de",
-            targetLang: "en",
-          },
-          {
-            TRANSLATION_PROVIDER: "openai",
-            OPENAI_API_KEY: "openai-key",
-          }
-        ),
-      /provider-call budget/i
+    const result = await translateTexts(
+      {
+        texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+        sourceLang: "de",
+        targetLang: "en",
+      },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+      }
     );
+
+    // The recoverable case must actually recover — this exact shape produced
+    // 28 budget-exhaustion 500s in production under the fixed budget of 6.
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      Array.from({ length: 8 }, (_, index) => `translated:Segment ${index}`)
+    );
+    // …and the completed tree is exactly its structural bound with a
+    // single-provider chain: 7 failing internal nodes plus 8 singletons.
     assert.equal(
       providerCalls,
-      6,
-      "isolation must stop before a default chunk expands into fifteen provider calls"
+      15,
+      "a completed isolation must not exceed the full-tree call bound"
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -1807,4 +1821,179 @@ test("keeps the shared provider deadline below the route duration", () => {
     "an operator override must not consume the route's 20-second safety margin"
   );
   assert.equal(DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS, 100_000);
+});
+
+/**
+ * Production repro (28 occurrences in the 3.7 days after #299 deployed):
+ * "count-mismatch isolation stopped at provider-call budget 6 … batch size: 1".
+ * Both providers drift on every multi-text shape, the tree descends 8→4→2→1,
+ * and the walk to the first singleton alone costs 6 calls — so the budget
+ * killed the repair at the exact moment it had isolated the problem. The
+ * budget must be sized so a tree whose singletons succeed can finish.
+ */
+test("completes isolation down to singletons instead of dying at the call budget", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      // The fallback drifts on the same multi-text shapes as the primary.
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const texts = Array.from({ length: 8 }, (_, index) => `Segment ${index}`);
+    const result = await translateTexts(
+      { texts, sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+      }
+    );
+
+    // Order is the contract the route maps results back with.
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      texts.map((text) => `en:${text}`)
+    );
+    // 7 internal nodes fail through both providers, 8 singletons succeed on
+    // the primary: the completed tree is bounded, not open-ended.
+    assert.equal(providerCalls, 7 * 2 + 8);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
+ * The isolation depth was a constant sized for the default chunk of 8. A site
+ * running TRANSLATION_CHUNK_SIZE=12 needs four halvings to reach singletons —
+ * with the constant, the tree stalled at two-text leaves and failed.
+ */
+test("derives the isolation depth from the chunk size instead of assuming 8", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const texts = Array.from({ length: 12 }, (_, index) => `Absatz ${index}`);
+    const result = await translateTexts(
+      { texts, sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_CHUNK_SIZE: "12",
+      }
+    );
+
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      texts.map((text) => `en:${text}`)
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
+ * The chunk concurrency exists to stay clear of provider rate limits, and the
+ * old sequential isolation implicitly respected it: one call in flight per
+ * chunk, at most 12 total. Parallel isolation must not bypass that ceiling —
+ * 12 drifting chunks descending in lockstep would otherwise put ~96 calls in
+ * flight and provoke the 429 that terminally kills the request.
+ */
+test("caps in-flight provider calls during parallel isolation at the request concurrency", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let inFlight = 0;
+  let peakInFlight = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (!url.includes("openai.com")) {
+      throw new Error(`Unexpected fetch url ${url}`);
+    }
+
+    inFlight += 1;
+    peakInFlight = Math.max(peakInFlight, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    inFlight -= 1;
+
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+
+    return openAIResponse(
+      texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+    );
+  }) as typeof fetch;
+
+  try {
+    // Two 8-text chunks that both drift on every multi-text shape: the
+    // isolation trees descend concurrently and end in 16 singleton calls.
+    const texts = Array.from({ length: 16 }, (_, index) => `Segment ${index}`);
+    const result = await translateTexts(
+      { texts, sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        TRANSLATION_CHUNK_SIZE: "8",
+        TRANSLATION_CHUNK_CONCURRENCY: "3",
+      }
+    );
+
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      texts.map((text) => `en:${text}`)
+    );
+    assert.ok(
+      peakInFlight <= 3,
+      `isolation must respect the request concurrency of 3, saw ${peakInFlight} in flight`
+    );
+    assert.ok(peakInFlight > 1, "the repair must still overlap calls");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
 });
