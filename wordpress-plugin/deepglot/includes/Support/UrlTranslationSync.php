@@ -971,42 +971,46 @@ class UrlTranslationSync
                 $publicStatus,
                 'location'
             ));
+            $completionUrl = (string) ($item['url'] ?? '');
             if ($publicCode !== 200 || $publicLocation !== '') {
-                $publicError = $publicCode >= 300 && $publicCode < 400
-                    ? 'public_status_redirect_' . $publicCode
-                    : ($publicCode !== 200
-                        ? 'public_status_http_' . $publicCode
-                        : 'public_status_location');
-                $this->retryItem($job, $index, $item, $publicError, $now);
-                return;
+                $redirectTarget = in_array($publicCode, [301, 302, 307, 308], true)
+                    ? $this->safeCanonicalRedirectTarget(
+                        $completionUrl,
+                        $publicLocation,
+                        (string) ($item['language'] ?? '')
+                    )
+                    : null;
+                if ($redirectTarget !== null) {
+                    $redirectPublicStatus = $this->probePublicStatus($redirectTarget);
+                    $redirectPublicError = $this->statusProbeError(
+                        $redirectPublicStatus,
+                        'redirect_target_public_status'
+                    );
+                    if ($redirectPublicError !== null) {
+                        $this->retryItem($job, $index, $item, $redirectPublicError, $now);
+                        return;
+                    }
+
+                    $completionUrl = $redirectTarget;
+                } else {
+                    $publicError = $publicCode >= 300 && $publicCode < 400
+                        ? 'public_status_redirect_' . $publicCode
+                        : ($publicCode !== 200
+                            ? 'public_status_http_' . $publicCode
+                            : 'public_status_location');
+                    $this->retryItem($job, $index, $item, $publicError, $now);
+                    return;
+                }
             }
 
-            $originStatus = $this->probePublicStatus(
-                (string) ($item['url'] ?? ''),
-                true
-            );
-            if (is_wp_error($originStatus)) {
-                $this->retryItem(
-                    $job,
-                    $index,
-                    $item,
-                    'origin_status_request_failed',
-                    $now
-                );
-                return;
-            }
-
-            $originCode = wp_remote_retrieve_response_code($originStatus);
-            $originLocation = trim((string) wp_remote_retrieve_header(
+            $originStatus = $this->probePublicStatus($completionUrl, true);
+            $originError = $this->statusProbeError(
                 $originStatus,
-                'location'
-            ));
-            if ($originCode !== 200 || $originLocation !== '') {
-                $originError = $originCode >= 300 && $originCode < 400
-                    ? 'origin_status_redirect_' . $originCode
-                    : ($originCode !== 200
-                        ? 'origin_status_http_' . $originCode
-                        : 'origin_status_location');
+                $completionUrl === (string) ($item['url'] ?? '')
+                    ? 'origin_status'
+                    : 'redirect_target_origin_status'
+            );
+            if ($originError !== null) {
                 $this->retryItem($job, $index, $item, $originError, $now);
                 return;
             }
@@ -1040,6 +1044,123 @@ class UrlTranslationSync
         $job['next_run_at'] = $item['next_attempt_at'];
         $this->storeJobIfUnchanged($expectedJob, $job);
         $this->ensureWarmerScheduled();
+    }
+
+    /**
+     * Accepts only an absolute, query-free canonical target on the exact same
+     * origin and in the same requested Deepglot target language. This is more
+     * restrictive than the general internal-host allow-list because the URL is
+     * sourced from an HTTP Location header.
+     */
+    private function safeCanonicalRedirectTarget(
+        string $sourceUrl,
+        string $location,
+        string $language
+    ): ?string {
+        $location = trim($location);
+        if (
+            $location === ''
+            || preg_match('#^https?://#i', $location) !== 1
+            || preg_match('/[\x00-\x20\x7f]/', $location) === 1
+        ) {
+            return null;
+        }
+
+        $sourceParts = wp_parse_url($sourceUrl);
+        $targetParts = wp_parse_url($location);
+        if (
+            !$this->isSafeInternalParts($sourceParts)
+            || !$this->isSafeInternalParts($targetParts)
+            || strtolower((string) $sourceParts['scheme']) !== strtolower((string) $targetParts['scheme'])
+            || $this->normalizeOriginHost((string) $sourceParts['host'])
+                !== $this->normalizeOriginHost((string) $targetParts['host'])
+            || $this->effectivePort($sourceParts) !== $this->effectivePort($targetParts)
+            || isset($targetParts['query'])
+            || isset($targetParts['fragment'])
+            || $this->hasAmbiguousRedirectPath((string) ($targetParts['path'] ?? '/'))
+        ) {
+            return null;
+        }
+
+        $path = (string) ($targetParts['path'] ?? '/');
+        $targetLanguage = $this->routing->detectLanguage(
+            $path !== '' ? $path : '/',
+            (string) $targetParts['host']
+        );
+        if (
+            $targetLanguage === null
+            || !hash_equals(strtolower(trim($language)), strtolower($targetLanguage))
+            || $this->routing->isWordPressInfrastructureUrl($location)
+        ) {
+            return null;
+        }
+
+        return $location;
+    }
+
+    private function hasAmbiguousRedirectPath(string $path): bool
+    {
+        if (preg_match('/%(?![0-9a-f]{2})/i', $path) === 1) {
+            return true;
+        }
+
+        foreach (explode('/', $path) as $segment) {
+            $decoded = $segment;
+            for ($round = 0; $round < 2; $round++) {
+                $next = rawurldecode($decoded);
+                if ($next === $decoded) {
+                    break;
+                }
+                $decoded = $next;
+            }
+
+            if (
+                $decoded === '.'
+                || $decoded === '..'
+                || preg_match('/[\x00-\x1f\x7f\\\\\/]/', $decoded) === 1
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeOriginHost(string $host): string
+    {
+        return strtolower(rtrim(trim($host), '.'));
+    }
+
+    /** @param array<string,mixed> $parts */
+    private function effectivePort(array $parts): int
+    {
+        if (isset($parts['port'])) {
+            return (int) $parts['port'];
+        }
+
+        return strtolower((string) ($parts['scheme'] ?? '')) === 'https' ? 443 : 80;
+    }
+
+    /**
+     * @param array<string,mixed>|\WP_Error $response
+     */
+    private function statusProbeError($response, string $prefix): ?string
+    {
+        if (is_wp_error($response)) {
+            return $prefix . '_request_failed';
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        if ($code >= 300 && $code < 400) {
+            return $prefix . '_redirect_' . $code;
+        }
+        if ($code !== 200) {
+            return $prefix . '_http_' . $code;
+        }
+
+        return trim((string) wp_remote_retrieve_header($response, 'location')) !== ''
+            ? $prefix . '_location'
+            : null;
     }
 
     /**
