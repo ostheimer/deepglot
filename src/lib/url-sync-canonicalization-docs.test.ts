@@ -26,7 +26,8 @@ test("developer docs and help explain same-host HTTPS URL-sync canonicalization 
     assert.match(publicSurface, /redirects? remain|Weiterleitungen.*bleiben/i);
   }
 
-  assert.match(developerDocs, /tatsächliche Weiterleitungen/);
+  assert.match(developerDocs, /automatisches Folgen bleibt deaktiviert/);
+  assert.match(developerDocs, /automatic redirect following remains disabled/);
   assert.match(help, /Prüfe vor dem Bestätigen/);
 });
 
@@ -47,6 +48,7 @@ test("repository, operations, and plugin documentation retain the security bound
     );
     assert.match(documentation, /never cop(?:y|ies)|never copied/i);
     assert.match(documentation, /redirects? remain/i);
+    assert.match(documentation, /automatic redirect following (?:stays|remains) disabled/i);
   }
 
   assert.match(documents[1], /untrusted forwarded-protocol hint/i);

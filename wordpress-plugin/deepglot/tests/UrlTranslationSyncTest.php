@@ -187,6 +187,19 @@ class UrlSyncFakeWarmer extends TranslationWarmer
     public function pending(): array { return $this->queue; }
 }
 
+class UrlSyncAliasRouting extends SiteRouting
+{
+    public function isInternalHost(string $host): bool
+    {
+        return in_array(strtolower(rtrim($host, '.')), ['example.com', 'www.example.com'], true);
+    }
+
+    public function hostsMatch(string $left, string $right): bool
+    {
+        return $this->isInternalHost($left) && $this->isInternalHost($right);
+    }
+}
+
 function syncAssert(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -223,18 +236,22 @@ function syncReset(): void
 }
 
 /** @return array{0: UrlTranslationSync, 1: UrlSyncFakeSitemap, 2: UrlSyncFakeWarmer, 3: Options, 4: SiteRouting} */
-function syncFixture(array $entries): array
+function syncFixture(
+    array $entries,
+    array $targetLanguages = ['en'],
+    ?SiteRouting $fixtureRouting = null
+): array
 {
     $options = new Options();
     update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
         'enabled' => true,
         'api_key' => 'dg_test_key',
         'source_language' => 'de',
-        'target_languages' => ['en'],
+        'target_languages' => $targetLanguages,
     ]), false);
 
-    $routing = new SiteRouting(
-        new UrlLanguageResolver('de', ['en']),
+    $routing = $fixtureRouting ?? new SiteRouting(
+        new UrlLanguageResolver('de', $targetLanguages),
         get_site_url(),
         'PATH_PREFIX',
         [],
@@ -516,6 +533,229 @@ syncAssert(
         && (int) $GLOBALS['_dg_sync_lock_seen']['expires'] >= time() + 100,
     'The runner lock must outlive two sequential 20-second requests with a wide safety margin.'
 );
+
+// A published sitemap URL may intentionally redirect to its canonical slug.
+// One same-origin redirect that remains in the requested target language is
+// safe to verify explicitly without enabling automatic redirect following.
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/legacy/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'en',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+    'location' => 'https://example.com/en/canonical/',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => []];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => []];
+$sync->run();
+$safeCanonicalRedirect = $sync->status();
+syncAssert(
+    $safeCanonicalRedirect['status'] === 'completed'
+        && $safeCanonicalRedirect['completed'] === 1
+        && $safeCanonicalRedirect['failed'] === 0,
+    'A same-origin redirect to a canonical URL in the requested language must complete after explicit verification.'
+);
+syncAssert(
+    count($GLOBALS['_dg_sync_requests']) === 4
+        && $GLOBALS['_dg_sync_requests'][1]['url'] === 'https://example.com/en/legacy/'
+        && $GLOBALS['_dg_sync_requests'][2]['url'] === 'https://example.com/en/canonical/'
+        && $GLOBALS['_dg_sync_requests'][3]['url'] === 'https://example.com/en/canonical/',
+    'The canonical redirect target must receive bounded public and origin probes after the original public probe.'
+);
+syncAssert(
+    count(array_filter(
+        $GLOBALS['_dg_sync_requests'],
+        static fn(array $request): bool => ($request['args']['redirection'] ?? null) === 0
+    )) === 4,
+    'Canonical redirect verification must never enable automatic HTTP redirect following.'
+);
+
+// Every redirect status WordPress may intentionally use for canonical routes
+// follows the same one-hop verification contract. An explicit default HTTPS
+// port is the same origin and remains part of the URL being verified.
+foreach ([302, 307, 308] as $canonicalRedirectCode) {
+    syncReset();
+    [$sync] = syncFixture([['loc' => 'https://example.com/legacy/']]);
+    syncPreviewAndStart($sync, ['en'], 1);
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+        'x-deepglot-sync-pending-segments' => '0',
+        'x-deepglot-sync-language' => 'en',
+    ]];
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => $canonicalRedirectCode], 'headers' => [
+        'location' => 'https://example.com:443/en/canonical/',
+    ]];
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => []];
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => []];
+    $sync->run();
+    syncAssert(
+        $sync->status()['status'] === 'completed'
+            && count($GLOBALS['_dg_sync_requests']) === 4
+            && $GLOBALS['_dg_sync_requests'][2]['url'] === 'https://example.com:443/en/canonical/'
+            && $GLOBALS['_dg_sync_requests'][3]['url'] === 'https://example.com:443/en/canonical/',
+        "A safe {$canonicalRedirectCode} must receive the same explicit public and origin verification."
+    );
+}
+
+// Redirect acceptance is deliberately narrower than the general internal URL
+// allow-list. The exact request origin and requested target language must stay
+// unchanged, and redirect targets may never enter WordPress infrastructure.
+$unsafeCanonicalRedirects = [
+    'https://evil.example/en/canonical/' => 'external origin',
+    'https://example.com/canonical/' => 'source language',
+    'https://example.com/fr/canonical/' => 'different language',
+    'http://example.com/en/canonical/' => 'different scheme',
+    'https://example.com:8443/en/canonical/' => 'different port',
+    'https://example.com/en/wp-admin/' => 'WordPress infrastructure',
+    'https://example.com/en/%2e%2e/wp-admin/' => 'encoded path traversal into WordPress infrastructure',
+    '/en/canonical/' => 'relative target',
+    'https://example.com/en/canonical/?preview=1' => 'query-bearing target',
+    'https://example.com/en/canonical/#section' => 'fragment-bearing target',
+];
+foreach ($unsafeCanonicalRedirects as $unsafeLocation => $unsafeReason) {
+    syncReset();
+    [$sync] = syncFixture([['loc' => 'https://example.com/legacy/']]);
+    syncPreviewAndStart($sync, ['en'], 1);
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+        'x-deepglot-sync-pending-segments' => '0',
+        'x-deepglot-sync-language' => 'en',
+    ]];
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+        'location' => $unsafeLocation,
+    ]];
+    $sync->run();
+    syncAssert(
+        $sync->status()['retry_count'] === 1
+            && $sync->status()['last_error'] === 'public_status_redirect_301'
+            && count($GLOBALS['_dg_sync_requests']) === 2,
+        "A canonical redirect with {$unsafeReason} must stay in the bounded retry path."
+    );
+}
+
+// A routing layer may consider multiple configured hosts internal or equivalent.
+// Location is untrusted input, so redirect acceptance must still compare the
+// literal normalized origins instead of inheriting that broader relationship.
+syncReset();
+$aliasRouting = new UrlSyncAliasRouting(
+    new UrlLanguageResolver('de', ['en']),
+    get_site_url(),
+    'PATH_PREFIX',
+    []
+);
+[$sync] = syncFixture(
+    [['loc' => 'https://example.com/legacy/']],
+    ['en'],
+    $aliasRouting
+);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'en',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+    'location' => 'https://www.example.com/en/canonical/',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => []];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => []];
+$sync->run();
+syncAssert(
+    $sync->status()['retry_count'] === 1
+        && $sync->status()['last_error'] === 'public_status_redirect_301'
+        && count($GLOBALS['_dg_sync_requests']) === 2,
+    'An internal host alias must not be treated as the same redirect origin.'
+);
+
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/legacy/']], ['en', 'fr']);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'en',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+    'location' => 'https://example.com/fr/canonical/',
+]];
+$sync->run();
+syncAssert(
+    $sync->status()['retry_count'] === 1
+        && $sync->status()['last_error'] === 'public_status_redirect_301'
+        && count($GLOBALS['_dg_sync_requests']) === 2,
+    'A redirect to another configured target language must stay in the bounded retry path.'
+);
+
+syncReset();
+[$sync] = syncFixture([['loc' => 'https://example.com/legacy/']]);
+syncPreviewAndStart($sync, ['en'], 1);
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+    'x-deepglot-sync-pending-segments' => '0',
+    'x-deepglot-sync-language' => 'en',
+]];
+$GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => []];
+$sync->run();
+syncAssert(
+    $sync->status()['retry_count'] === 1
+        && $sync->status()['last_error'] === 'public_status_redirect_301'
+        && count($GLOBALS['_dg_sync_requests']) === 2,
+    'A redirect without an absolute Location must stay in the bounded retry path.'
+);
+
+// The approved exception is exactly one hop. Public and origin verification of
+// the target must both be 200 responses without another Location header.
+$unsafeRedirectTargetResponses = [
+    [
+        [['response' => ['code' => 302], 'headers' => ['location' => 'https://example.com/en/second/']]],
+        'redirect_target_public_status_redirect_302',
+        3,
+        'a second public redirect',
+    ],
+    [
+        [['response' => ['code' => 200], 'headers' => ['location' => 'https://example.com/en/second/']]],
+        'redirect_target_public_status_location',
+        3,
+        'a Location header on the public 200',
+    ],
+    [
+        [
+            ['response' => ['code' => 200], 'headers' => []],
+            ['response' => ['code' => 308], 'headers' => ['location' => 'https://example.com/en/second/']],
+        ],
+        'redirect_target_origin_status_redirect_308',
+        4,
+        'an origin redirect',
+    ],
+    [
+        [
+            ['response' => ['code' => 200], 'headers' => []],
+            ['response' => ['code' => 200], 'headers' => ['location' => 'https://example.com/en/second/']],
+        ],
+        'redirect_target_origin_status_location',
+        4,
+        'a Location header on the origin 200',
+    ],
+];
+foreach ($unsafeRedirectTargetResponses as [$targetResponses, $expectedError, $expectedRequests, $reason]) {
+    syncReset();
+    [$sync] = syncFixture([['loc' => 'https://example.com/legacy/']]);
+    syncPreviewAndStart($sync, ['en'], 1);
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 200], 'headers' => [
+        'x-deepglot-sync-pending-segments' => '0',
+        'x-deepglot-sync-language' => 'en',
+    ]];
+    $GLOBALS['_dg_sync_responses'][] = ['response' => ['code' => 301], 'headers' => [
+        'location' => 'https://example.com/en/canonical/',
+    ]];
+    foreach ($targetResponses as $targetResponse) {
+        $GLOBALS['_dg_sync_responses'][] = $targetResponse;
+    }
+    $sync->run();
+    syncAssert(
+        $sync->status()['retry_count'] === 1
+            && $sync->status()['last_error'] === $expectedError
+            && count($GLOBALS['_dg_sync_requests']) === $expectedRequests,
+        "Canonical redirect verification must reject {$reason}."
+    );
+}
 
 // A nominal 200 response for the wrong target language is not progress.
 syncReset();
