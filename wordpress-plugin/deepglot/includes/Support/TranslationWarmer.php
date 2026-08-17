@@ -212,34 +212,37 @@ class TranslationWarmer
                 $queueApplied = false;
                 $this->updateQueue($mergeTexts, $queueApplied, $mutationLockOwner);
                 if (!$queueApplied) {
-                    // Restore only the URL entry written by this enqueue. If a
-                    // concurrent writer has changed it, leave the newer tracking
-                    // data intact instead of trying to infer ownership of texts.
-                    $this->updateUrlQueue(static function (array $queue) use (
-                        $key,
-                        $requestUrl,
-                        $hadPreviousUrlEntry,
-                        $previousUrlEntry,
-                        $writtenUrlEntry
-                    ): array {
-                        if (
-                            !array_key_exists($requestUrl, $queue[$key] ?? [])
-                            || $queue[$key][$requestUrl] !== $writtenUrlEntry
-                        ) {
-                            return $queue;
-                        }
-
-                        if ($hadPreviousUrlEntry) {
-                            $queue[$key][$requestUrl] = $previousUrlEntry;
-                        } else {
-                            unset($queue[$key][$requestUrl]);
-                            if (empty($queue[$key])) {
-                                unset($queue[$key]);
+                    // Only the still-current owner may roll back its URL write.
+                    // After lease loss, payload equality cannot distinguish our
+                    // entry from an identical one committed by the replacement;
+                    // stale-lock recovery owns that reconciliation instead.
+                    if ($this->renewMutationLock($mutationLockOwner)) {
+                        $this->updateUrlQueue(static function (array $queue) use (
+                            $key,
+                            $requestUrl,
+                            $hadPreviousUrlEntry,
+                            $previousUrlEntry,
+                            $writtenUrlEntry
+                        ): array {
+                            if (
+                                !array_key_exists($requestUrl, $queue[$key] ?? [])
+                                || $queue[$key][$requestUrl] !== $writtenUrlEntry
+                            ) {
+                                return $queue;
                             }
-                        }
 
-                        return $queue;
-                    });
+                            if ($hadPreviousUrlEntry) {
+                                $queue[$key][$requestUrl] = $previousUrlEntry;
+                            } else {
+                                unset($queue[$key][$requestUrl]);
+                                if (empty($queue[$key])) {
+                                    unset($queue[$key]);
+                                }
+                            }
+
+                            return $queue;
+                        });
+                    }
                     return false;
                 }
 

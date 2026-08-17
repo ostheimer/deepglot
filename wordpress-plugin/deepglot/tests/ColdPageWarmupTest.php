@@ -1586,6 +1586,69 @@ warmAssert(
     'A stale enqueue owner must revalidate its lease before committing the text queue.'
 );
 
+// The replacement owner may enqueue the exact same URL and text while the old
+// request resumes. Payload equality is not ownership: after losing its lease,
+// the old request must not compensate by deleting the new owner's URL entry.
+warmResetEnvironment();
+$identicalText = 'Identical takeover text';
+$identicalUrl = 'https://example.com/en/identical-takeover/';
+$oldTakeoverWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$newTakeoverWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$identicalQueueReads = 0;
+$newOwnerAccepted = null;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$identicalQueueReads,
+    &$newOwnerAccepted,
+    $newTakeoverWarmer,
+    $identicalText,
+    $identicalUrl
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+
+    $identicalQueueReads++;
+    if ($identicalQueueReads !== 3) {
+        return;
+    }
+
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    $oldLock = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+    if (is_array($oldLock)) {
+        $oldLock['expires'] = time() - 1;
+        update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $oldLock, false);
+    }
+    $newOwnerAccepted = $newTakeoverWarmer->enqueue(
+        [$identicalText],
+        'de',
+        'en',
+        $identicalUrl
+    );
+};
+$oldOwnerAccepted = $oldTakeoverWarmer->enqueue(
+    [$identicalText],
+    'de',
+    'en',
+    $identicalUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+$identicalUrlsAfterTakeover = $readUrlQueue->invoke($newTakeoverWarmer);
+warmAssert(
+    $oldOwnerAccepted === false
+        && $newOwnerAccepted === true
+        && ($newTakeoverWarmer->pending()['de|en'] ?? []) === [$identicalText]
+        && ($identicalUrlsAfterTakeover['de|en'][$identicalUrl] ?? []) === [$identicalText],
+    'A stale owner must not delete an identical URL entry committed by its replacement.'
+);
+
 // A process can die after its URL-first CAS and before its text CAS. The stale
 // lock is the durable evidence that this window may have occurred. Its next
 // owner must reconcile every URL-only entry so it cannot permanently suppress
