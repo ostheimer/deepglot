@@ -140,8 +140,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
-              ? "Ab Version 0.12.0 wartet ein normaler Seitenaufruf standardmäßig nicht auf neue Übersetzungen. Fehlende Segmente werden in einer begrenzten, deduplizierten Warteschlange gesammelt und durch WP-Cron übersetzt. Visueller Editor und WooCommerce-E-Mails bleiben synchron, weil diese Ausgaben nicht bei einem späteren Aufruf automatisch konvergieren."
-              : "From version 0.12.0, an ordinary page request does not wait for fresh translations by default. Missing segments enter a bounded, deduplicated queue and are translated by WP-Cron. The visual editor and WooCommerce emails remain synchronous because those outputs cannot converge automatically on a later request."}
+              ? "Ab Version 0.12.0 wartet ein normaler Seitenaufruf standardmäßig nicht auf neue Übersetzungen. Fehlende Segmente werden in einer begrenzten, deduplizierten Warteschlange gesammelt und durch WP-Cron übersetzt. Kann ein kalter Aufruf Text und Cache-Ziel wegen einer kurzen Sperre nicht gemeinsam speichern, wird seine Quelltext-Antwort nicht gecacht und ein späterer Aufruf kann es erneut versuchen. Visueller Editor und WooCommerce-E-Mails bleiben synchron, weil diese Ausgaben nicht bei einem späteren Aufruf automatisch konvergieren."
+              : "From version 0.12.0, an ordinary page request does not wait for fresh translations by default. Missing segments enter a bounded, deduplicated queue and are translated by WP-Cron. If a cold request cannot store both its text and cache target because the short queue lock is busy, its source-language response is not cached and a later request can retry. The visual editor and WooCommerce emails remain synchronous because those outputs cannot converge automatically on a later request."}
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de

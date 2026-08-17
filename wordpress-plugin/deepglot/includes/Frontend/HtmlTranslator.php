@@ -161,6 +161,18 @@ class HtmlTranslator
         return is_numeric($limit) && (int) $limit >= 0 ? (int) $limit : self::MAX_SYNC_BATCHES;
     }
 
+    /** Prevent a source-language cold response from becoming a durable page-cache hit. */
+    private function markResponseNonCacheable(): void
+    {
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+
+        if (!defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
+        }
+    }
+
     /**
      * Translates all text nodes in the given HTML string from the source
      * language to $targetLanguage and returns the modified HTML.
@@ -312,7 +324,9 @@ class HtmlTranslator
         // Bot traffic is served cache-only (issue #147) and must never trigger
         // quota spend, so crawlers observe but never fill the warm queue.
         if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
-            $this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl);
+            if (!$this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl)) {
+                $this->markResponseNonCacheable();
+            }
         }
 
         // Persist new translations in cache. On bot requests the SaaS is

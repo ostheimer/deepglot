@@ -116,13 +116,14 @@ class TranslationWarmer
      * Queues texts for background translation and makes sure a run is pending.
      *
      * @param string[] $texts
+     * @return bool Whether the requested queue mutation was durably accepted.
      */
     public function enqueue(
         array $texts,
         string $sourceLang,
         string $targetLang,
         string $requestUrl = ''
-    ): void
+    ): bool
     {
         $texts = array_values(array_filter(
             array_unique(array_map('strval', $texts)),
@@ -130,7 +131,7 @@ class TranslationWarmer
         ));
 
         if (empty($texts) || $sourceLang === '' || $targetLang === '') {
-            return;
+            return false;
         }
 
         $requestUrl = trim($requestUrl);
@@ -138,7 +139,7 @@ class TranslationWarmer
             !$this->queueOptionIsValid(self::QUEUE_OPTION)
             || ($requestUrl !== '' && !$this->queueOptionIsValid(self::URL_QUEUE_OPTION))
         ) {
-            return;
+            return false;
         }
 
         $key = $this->queueKey($sourceLang, $targetLang);
@@ -158,12 +159,12 @@ class TranslationWarmer
             $queueApplied = false;
             $this->updateQueue($mergeTexts, $queueApplied);
             if (!$queueApplied) {
-                return;
+                return false;
             }
         } else {
             $mutationLockOwner = $this->acquireMutationLock();
             if ($mutationLockOwner === null) {
-                return;
+                return false;
             }
 
             try {
@@ -174,7 +175,7 @@ class TranslationWarmer
                 $queueValid = false;
                 $currentQueue = $this->decodeQueueOption(self::QUEUE_OPTION, $rawQueue, $queueValid);
                 if (!$queueValid) {
-                    return;
+                    return false;
                 }
                 $queued = $mergeTexts($this->normalizeQueue($currentQueue));
 
@@ -205,11 +206,11 @@ class TranslationWarmer
                     return $queue;
                 }, $urlQueueApplied);
                 if (!$urlQueueApplied) {
-                    return;
+                    return false;
                 }
 
                 $queueApplied = false;
-                $this->updateQueue($mergeTexts, $queueApplied);
+                $this->updateQueue($mergeTexts, $queueApplied, $mutationLockOwner);
                 if (!$queueApplied) {
                     // Restore only the URL entry written by this enqueue. If a
                     // concurrent writer has changed it, leave the newer tracking
@@ -239,7 +240,7 @@ class TranslationWarmer
 
                         return $queue;
                     });
-                    return;
+                    return false;
                 }
 
                 // Different pages often contain the same text. Record every
@@ -273,13 +274,14 @@ class TranslationWarmer
                 // and plan current configuration B immediately/additively.
                 $this->schedule();
             }
-            return;
+            return true;
         }
 
         // Cron events are scoped to the current one-way configuration
         // identity. A stale event can remain until WordPress consumes it;
         // current work is planned additively without a global clear.
         $this->schedule();
+        return true;
     }
 
     /**
@@ -319,6 +321,13 @@ class TranslationWarmer
             }
 
             try {
+                if (
+                    !$this->queueOptionIsValid(self::QUEUE_OPTION)
+                    || !$this->queueOptionIsValid(self::URL_QUEUE_OPTION)
+                ) {
+                    return;
+                }
+
                 $this->writeQueue([]);
                 $this->writeUrlQueue([]);
             } finally {
@@ -1226,7 +1235,11 @@ class TranslationWarmer
      * @param callable(array<string, string[]>): array<string, string[]> $mutation
      * @return array<string, string[]>
      */
-    private function updateQueue(callable $mutation, ?bool &$applied = null): array
+    private function updateQueue(
+        callable $mutation,
+        ?bool &$applied = null,
+        ?string $mutationLockOwner = null
+    ): array
     {
         $applied = false;
 
@@ -1239,6 +1252,15 @@ class TranslationWarmer
             }
             $current = $this->normalizeQueue($decoded);
             $next = $this->normalizeQueue($mutation($current));
+
+            // A coupled enqueue may lose its short lease after the URL CAS.
+            // Fence immediately before accepting or storing the text side.
+            if (
+                $mutationLockOwner !== null
+                && !$this->renewMutationLock($mutationLockOwner)
+            ) {
+                return $current;
+            }
 
             if (
                 ($next === $current && !is_array($raw))
