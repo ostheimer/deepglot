@@ -1830,6 +1830,14 @@ class TranslationWarmer
                     if ($urlQueueValid && !empty($urlQueue)) {
                         $this->purgeCompletedUrlsWhileLocked(array_keys($urlQueue), false);
                     }
+
+                    // Cache integrations above may outlive the original
+                    // lease. Renew through an exact CAS so a foreign takeover
+                    // cannot be returned as if this owner were still current.
+                    if (!$this->renewMutationLock($owner)) {
+                        unset($this->mutationLockNeedsGlobalPurge[$owner]);
+                        return null;
+                    }
                 }
 
                 return $owner;
@@ -1839,6 +1847,25 @@ class TranslationWarmer
         }
 
         return null;
+    }
+
+    private function renewMutationLock(string $owner): bool
+    {
+        $current = get_option(self::MUTATION_LOCK_OPTION, false);
+        if (
+            !is_array($current)
+            || !hash_equals((string) ($current['owner'] ?? ''), $owner)
+        ) {
+            return false;
+        }
+
+        $renewed = $current;
+        $renewed['expires'] = time() + self::MUTATION_LOCK_TTL;
+        $renewed['fence'] = function_exists('wp_generate_uuid4')
+            ? wp_generate_uuid4()
+            : uniqid('deepglot-fence-', true);
+
+        return $this->compareAndStoreOption(self::MUTATION_LOCK_OPTION, $current, $renewed);
     }
 
     private function mutationLockIsOwnedBy(string $owner): bool

@@ -279,6 +279,10 @@ if (!function_exists('add_filter')) {
     }
 
     function rocket_clean_files($urls) {
+        $callback = $GLOBALS['_deepglot_during_rocket_clean_files'] ?? null;
+        if (is_callable($callback)) {
+            $callback($urls);
+        }
         $GLOBALS['_deepglot_purged_urls'] = array_merge(
             $GLOBALS['_deepglot_purged_urls'],
             is_array($urls) ? $urls : [$urls]
@@ -758,6 +762,7 @@ function warmResetEnvironment(): void
     $GLOBALS['_deepglot_w3tc_purged_urls'] = [];
     $GLOBALS['_deepglot_litespeed_purged_urls'] = [];
     $GLOBALS['_deepglot_wp_super_cache_purges'] = 0;
+    $GLOBALS['_deepglot_during_rocket_clean_files'] = null;
     $GLOBALS['_deepglot_transients'] = [];
     $GLOBALS['_deepglot_after_get_option'] = null;
     $GLOBALS['_deepglot_after_get_transient'] = null;
@@ -1529,6 +1534,49 @@ warmAssert(
         && in_array($afterCrashUrl, $GLOBALS['_deepglot_purged_urls'], true)
         && $GLOBALS['_deepglot_wp_super_cache_purges'] === 1,
     'Expired mutation-lock recovery must purge URL-only crash residue before later work completes.'
+);
+
+// Recovery may call third-party cache integrations. If that work outlives the
+// 15-second lease and another request replaces the owner, acquire must not hand
+// the stale owner back to code that will mutate both queues.
+warmResetEnvironment();
+$leaseLossUrl = 'https://example.com/fr/recovery-lease-loss/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|fr' => [$leaseLossUrl => ['Lease-loss crash text']],
+], false);
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, [
+    'owner' => 'expired-before-slow-recovery',
+    'expires' => time() - 1,
+], false);
+$leaseLossWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$foreignOwnerAfterRecovery = [
+    'owner' => 'new-foreign-owner',
+    'expires' => time() + TranslationWarmer::MUTATION_LOCK_TTL,
+];
+$replacedDuringRecovery = false;
+$GLOBALS['_deepglot_during_rocket_clean_files'] = static function () use (
+    &$replacedDuringRecovery,
+    $foreignOwnerAfterRecovery
+): void {
+    $replacedDuringRecovery = true;
+    update_option(
+        TranslationWarmer::MUTATION_LOCK_OPTION,
+        $foreignOwnerAfterRecovery,
+        false
+    );
+};
+$ownerReturnedAfterRecovery = $acquireMutationLock->invoke($leaseLossWarmer);
+$GLOBALS['_deepglot_during_rocket_clean_files'] = null;
+$actualOwnerAfterRecovery = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+warmAssert(
+    $replacedDuringRecovery
+        && $actualOwnerAfterRecovery === $foreignOwnerAfterRecovery
+        && $ownerReturnedAfterRecovery === null,
+    'A stale owner lost during crash recovery must never be returned as the current mutation owner.'
 );
 
 // Provider work precedes the short mutation claim. If reconciliation later
