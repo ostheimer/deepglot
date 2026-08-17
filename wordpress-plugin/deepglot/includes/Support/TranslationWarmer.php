@@ -130,8 +130,7 @@ class TranslationWarmer
         }
 
         $key = $this->queueKey($sourceLang, $targetLang);
-        $queueApplied = false;
-        $queued = $this->updateQueue(static function (array $queue) use ($key, $texts): array {
+        $mergeTexts = static function (array $queue) use ($key, $texts): array {
             $merged = array_values(array_unique(array_merge($queue[$key] ?? [], $texts)));
 
             if (count($merged) > self::MAX_QUEUE) {
@@ -141,28 +140,43 @@ class TranslationWarmer
             $queue[$key] = $merged;
 
             return $queue;
-        }, $queueApplied);
-        if (!$queueApplied) {
-            return;
-        }
+        };
 
-        // Different pages often contain the same text. Record every affected
-        // URL even when this enqueue did not add a new segment, otherwise only
-        // the first page would be purged after the shared cache is warmed.
         if ($requestUrl !== '') {
+            // Work out the URL tracking payload without changing the text
+            // queue. The purge target must win its CAS before the work it
+            // guards can become pending.
+            $rawQueue = get_option(self::QUEUE_OPTION, false);
+            $queueValid = false;
+            $currentQueue = $this->decodeQueueOption(self::QUEUE_OPTION, $rawQueue, $queueValid);
+            if (!$queueValid) {
+                return;
+            }
+            $queued = $mergeTexts($this->normalizeQueue($currentQueue));
+
+            $hadPreviousUrlEntry = false;
+            $previousUrlEntry = [];
+            $writtenUrlEntry = [];
             $urlQueueApplied = false;
             $this->updateUrlQueue(static function (array $queue) use (
                 $key,
                 $requestUrl,
                 $texts,
-                $queued
+                $queued,
+                &$hadPreviousUrlEntry,
+                &$previousUrlEntry,
+                &$writtenUrlEntry
             ): array {
-                $hasLegacyWildcard = array_key_exists($requestUrl, $queue[$key] ?? [])
-                    && empty($queue[$key][$requestUrl]);
+                $hadPreviousUrlEntry = array_key_exists($requestUrl, $queue[$key] ?? []);
+                $previousUrlEntry = $hadPreviousUrlEntry
+                    ? $queue[$key][$requestUrl]
+                    : [];
+                $hasLegacyWildcard = $hadPreviousUrlEntry && empty($previousUrlEntry);
                 $tracked = $hasLegacyWildcard
                     ? ($queued[$key] ?? $texts)
-                    : ($queue[$key][$requestUrl] ?? []);
-                $queue[$key][$requestUrl] = array_values(array_unique(array_merge($tracked, $texts)));
+                    : $previousUrlEntry;
+                $writtenUrlEntry = array_values(array_unique(array_merge($tracked, $texts)));
+                $queue[$key][$requestUrl] = $writtenUrlEntry;
 
                 return $queue;
             }, $urlQueueApplied);
@@ -170,6 +184,49 @@ class TranslationWarmer
                 return;
             }
         }
+
+        $queueApplied = false;
+        $this->updateQueue($mergeTexts, $queueApplied);
+        if (!$queueApplied) {
+            if ($requestUrl !== '') {
+                // Restore only the URL entry written by this enqueue. If a
+                // concurrent writer has changed it, leave the newer tracking
+                // data intact instead of trying to infer ownership of texts.
+                $this->updateUrlQueue(static function (array $queue) use (
+                    $key,
+                    $requestUrl,
+                    $hadPreviousUrlEntry,
+                    $previousUrlEntry,
+                    $writtenUrlEntry
+                ): array {
+                    if (
+                        !array_key_exists($requestUrl, $queue[$key] ?? [])
+                        || $queue[$key][$requestUrl] !== $writtenUrlEntry
+                    ) {
+                        return $queue;
+                    }
+
+                    if ($hadPreviousUrlEntry) {
+                        $queue[$key][$requestUrl] = $previousUrlEntry;
+                    } else {
+                        unset($queue[$key][$requestUrl]);
+                        if (empty($queue[$key])) {
+                            unset($queue[$key]);
+                        }
+                    }
+
+                    return $queue;
+                });
+            }
+
+            return;
+        }
+
+        // Different pages often contain the same text. Record every affected
+        // URL even when this enqueue did not add a new segment, otherwise only
+        // the first page would be purged after the shared cache is warmed.
+        // URL-backed work was recorded first above so a failed URL CAS can
+        // never leave an unpurgeable text-only queue entry behind.
 
         $retryIdentity = $this->configurationIdentity();
         $now = time();
@@ -1191,8 +1248,8 @@ class TranslationWarmer
             !isset($wpdb)
             || !is_object($wpdb)
             || !isset($wpdb->options)
-            || !method_exists($wpdb, 'update')
-            || !method_exists($wpdb, 'delete')
+            || !method_exists($wpdb, 'prepare')
+            || !method_exists($wpdb, 'query')
         ) {
             // Isolated tests do not load wpdb. Production WordPress always
             // takes the compare-and-set path above.
@@ -1219,32 +1276,30 @@ class TranslationWarmer
             : (is_array($expectedRaw) || is_object($expectedRaw) ? serialize($expectedRaw) : (string) $expectedRaw);
 
         if (empty($next)) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional deletion prevents lost concurrent enqueues.
-            $changed = $wpdb->delete(
-                $wpdb->options,
-                [
-                    'option_name' => $option,
-                    'option_value' => $expectedStored,
-                ],
-                ['%s', '%s']
+            // LONGTEXT commonly uses a case-insensitive collation. BINARY is
+            // required so a case-only concurrent change cannot satisfy CAS.
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- wpdb's options table name is trusted.
+            $query = $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name = %s AND BINARY option_value = BINARY %s",
+                $option,
+                $expectedStored
             );
         } else {
             $nextStored = function_exists('maybe_serialize')
                 ? maybe_serialize($nextRaw)
                 : (is_array($nextRaw) || is_object($nextRaw) ? serialize($nextRaw) : (string) $nextRaw);
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update prevents lost concurrent enqueues.
-            $changed = $wpdb->update(
-                $wpdb->options,
-                ['option_value' => $nextStored],
-                [
-                    'option_name' => $option,
-                    'option_value' => $expectedStored,
-                ],
-                ['%s'],
-                ['%s', '%s']
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- wpdb's options table name is trusted.
+            $query = $wpdb->prepare(
+                "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND BINARY option_value = BINARY %s",
+                $nextStored,
+                $option,
+                $expectedStored
             );
         }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQL.NotPrepared -- $query was prepared immediately above.
+        $changed = $wpdb->query($query);
 
         if ((int) $changed !== 1) {
             return false;

@@ -1292,6 +1292,56 @@ warmAssert(
     'A corrupted URL queue must block both sides of an enqueue mutation.'
 );
 
+// If URL tracking loses every optimistic CAS race, the text must not commit
+// first and then remain unscheduled without its purge target. Repeated writes
+// to the URL option simulate another request winning between each read/CAS.
+warmResetEnvironment();
+$splitWriteWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$urlReadCount = 0;
+$raceUrlA = ['de|en' => ['https://example.com/en/race-a/']];
+$raceUrlB = ['de|en' => ['https://example.com/en/race-b/']];
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$urlReadCount,
+    $raceUrlA,
+    $raceUrlB
+): void {
+    if ($key !== TranslationWarmer::URL_QUEUE_OPTION) {
+        return;
+    }
+    $urlReadCount++;
+    if ($urlReadCount < 2) {
+        return;
+    }
+    update_option(
+        TranslationWarmer::URL_QUEUE_OPTION,
+        $urlReadCount % 2 === 0 ? $raceUrlA : $raceUrlB,
+        false
+    );
+};
+$splitWriteWarmer->enqueue(
+    ['Must stay coupled to its purge target'],
+    'de',
+    'en',
+    'https://example.com/en/split-write/'
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+warmAssert(
+    !in_array(
+        'Must stay coupled to its purge target',
+        $splitWriteWarmer->pending()['de|en'] ?? [],
+        true
+    ),
+    'An exhausted URL-queue CAS must not leave a text-only queue write behind.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'A rejected coupled enqueue must not claim that warm work was scheduled.'
+);
+
 $GLOBALS['_deepglot_queue_wakeup_calls'] = 0;
 $encodeQueueOption = new ReflectionMethod(TranslationWarmer::class, 'encodeQueueOption');
 $objectEnvelope = $encodeQueueOption->invoke(
@@ -1324,6 +1374,119 @@ $legacyQueueWarmer->pending();
 warmAssert(
     get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyRaceB,
     'Legacy migration must not overwrite a concurrent queue writer.'
+);
+
+// wp_options normally compares LONGTEXT under a case-insensitive collation.
+// A case-only concurrent change therefore needs an explicit byte-exact SQL
+// predicate; ordinary $wpdb->update() can match and replace the newer value.
+warmResetEnvironment();
+$legacyCaseA = ['de|en' => ['Alpha']];
+$legacyCaseB = ['de|en' => ['alpha']];
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseA, false);
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use ($legacyCaseB): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseB, false);
+};
+$GLOBALS['wpdb'] = new class {
+    public string $options = 'wp_options';
+    public bool $usedBinaryComparison = false;
+    /** @var mixed[] */
+    private array $preparedArgs = [];
+
+    public function update($table, $data, $where, $format = null, $whereFormat = null): int
+    {
+        $actual = get_option($where['option_name'], false);
+        $actualStored = is_array($actual) || is_object($actual)
+            ? serialize($actual)
+            : (string) $actual;
+        if (strcasecmp($actualStored, (string) $where['option_value']) !== 0) {
+            return 0;
+        }
+        update_option($where['option_name'], $data['option_value'], false);
+        return 1;
+    }
+
+    public function delete($table, $where, $whereFormat = null): int
+    {
+        return 0;
+    }
+
+    public function prepare($query, ...$args): string
+    {
+        $this->usedBinaryComparison = stripos((string) $query, 'binary') !== false;
+        $this->preparedArgs = $args;
+        return (string) $query;
+    }
+
+    public function query($query): int
+    {
+        if (!$this->usedBinaryComparison || count($this->preparedArgs) < 2) {
+            return 0;
+        }
+        if (count($this->preparedArgs) === 2) {
+            [$option, $expected] = $this->preparedArgs;
+            $next = null;
+        } else {
+            [$next, $option, $expected] = $this->preparedArgs;
+        }
+        $actual = get_option((string) $option, false);
+        $actualStored = is_array($actual) || is_object($actual)
+            ? serialize($actual)
+            : (string) $actual;
+        if (!hash_equals((string) $expected, $actualStored)) {
+            return 0;
+        }
+        if (count($this->preparedArgs) === 2) {
+            delete_option((string) $option);
+        } else {
+            update_option((string) $option, $next, false);
+        }
+        return 1;
+    }
+};
+$caseRaceWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$caseRaceWarmer->pending();
+$caseRaceUsedBinary = $GLOBALS['wpdb']->usedBinaryComparison;
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyCaseB
+        && $caseRaceUsedBinary,
+    'Legacy queue migration must compare the expected option bytes exactly.'
+);
+
+$compareAndStoreQueue = new ReflectionMethod(TranslationWarmer::class, 'compareAndStoreOption');
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseB, false);
+$caseOnlyDeleteResult = $compareAndStoreQueue->invoke(
+    $caseRaceWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    $legacyCaseA,
+    []
+);
+warmAssert(
+    $caseOnlyDeleteResult === false
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyCaseB,
+    'Queue deletion CAS must not match a case-only concurrent option value.'
+);
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseA, false);
+$exactDeleteResult = $compareAndStoreQueue->invoke(
+    $caseRaceWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    $legacyCaseA,
+    []
+);
+$caseRaceUsedBinaryDelete = $GLOBALS['wpdb']->usedBinaryComparison;
+unset($GLOBALS['wpdb']);
+warmAssert(
+    $exactDeleteResult === true
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === false
+        && $caseRaceUsedBinaryDelete,
+    'Queue deletion CAS must delete one byte-exact expected option value.'
 );
 
 // Legacy URL queues used a language-pair => URL[] shape. The reader still
