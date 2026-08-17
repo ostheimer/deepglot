@@ -35,6 +35,9 @@ class TranslationWarmer
     /** Option holding affected request URLs, keyed by language pair. */
     public const URL_QUEUE_OPTION = 'deepglot_warm_queue_urls';
 
+    /** ASCII-only wrapper for queue values stored in legacy utf8 option rows. */
+    private const QUEUE_ENVELOPE_PREFIX = 'deepglot-queue-v1:';
+
     /** Atomic owner/expiry lock guarding against concurrent cron drains. */
     public const LOCK_OPTION = 'deepglot_warm_running';
 
@@ -118,7 +121,16 @@ class TranslationWarmer
             return;
         }
 
-        $key   = $this->queueKey($sourceLang, $targetLang);
+        $requestUrl = trim($requestUrl);
+        if (
+            !$this->queueOptionIsValid(self::QUEUE_OPTION)
+            || ($requestUrl !== '' && !$this->queueOptionIsValid(self::URL_QUEUE_OPTION))
+        ) {
+            return;
+        }
+
+        $key = $this->queueKey($sourceLang, $targetLang);
+        $queueApplied = false;
         $queued = $this->updateQueue(static function (array $queue) use ($key, $texts): array {
             $merged = array_values(array_unique(array_merge($queue[$key] ?? [], $texts)));
 
@@ -129,13 +141,16 @@ class TranslationWarmer
             $queue[$key] = $merged;
 
             return $queue;
-        });
+        }, $queueApplied);
+        if (!$queueApplied) {
+            return;
+        }
 
         // Different pages often contain the same text. Record every affected
         // URL even when this enqueue did not add a new segment, otherwise only
         // the first page would be purged after the shared cache is warmed.
-        $requestUrl = trim($requestUrl);
         if ($requestUrl !== '') {
+            $urlQueueApplied = false;
             $this->updateUrlQueue(static function (array $queue) use (
                 $key,
                 $requestUrl,
@@ -150,7 +165,10 @@ class TranslationWarmer
                 $queue[$key][$requestUrl] = array_values(array_unique(array_merge($tracked, $texts)));
 
                 return $queue;
-            });
+            }, $urlQueueApplied);
+            if (!$urlQueueApplied) {
+                return;
+            }
         }
 
         $retryIdentity = $this->configurationIdentity();
@@ -479,6 +497,11 @@ class TranslationWarmer
         // Re-read after the provider calls: a frontend request may have
         // enqueued more work while this run was in flight. Reconcile only the
         // texts this snapshot completed and preserve everything added later.
+        if (!$this->queueOptionIsValid(self::URL_QUEUE_OPTION)) {
+            return;
+        }
+
+        $queueApplied = false;
         $this->updateQueue(static function (array $currentQueue) use (
             $completedByKey,
             $remainingByKey
@@ -496,7 +519,10 @@ class TranslationWarmer
             }
 
             return $currentQueue;
-        });
+        }, $queueApplied);
+        if (!$queueApplied) {
+            return;
+        }
         $this->purgeCompletedUrls(array_keys($completedByKey));
 
         // Only chase work this run never attempted. Rescheduling because a
@@ -1068,9 +1094,16 @@ class TranslationWarmer
     /**
      * @return array<string, string[]>
      */
-    private function readQueue(): array
+    private function readQueue(?bool &$valid = null): array
     {
-        return $this->normalizeQueue(get_option(self::QUEUE_OPTION, []));
+        $raw = get_option(self::QUEUE_OPTION, false);
+        $decoded = $this->decodeQueueOption(self::QUEUE_OPTION, $raw, $valid);
+        $queue = $this->normalizeQueue($decoded);
+        if ($valid) {
+            $this->migrateLegacyQueueOption(self::QUEUE_OPTION, $raw, $queue);
+        }
+
+        return $queue;
     }
 
     /**
@@ -1081,14 +1114,25 @@ class TranslationWarmer
      * @param callable(array<string, string[]>): array<string, string[]> $mutation
      * @return array<string, string[]>
      */
-    private function updateQueue(callable $mutation): array
+    private function updateQueue(callable $mutation, ?bool &$applied = null): array
     {
+        $applied = false;
+
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $raw = get_option(self::QUEUE_OPTION, false);
-            $current = $this->normalizeQueue($raw);
+            $valid = false;
+            $decoded = $this->decodeQueueOption(self::QUEUE_OPTION, $raw, $valid);
+            if (!$valid) {
+                return [];
+            }
+            $current = $this->normalizeQueue($decoded);
             $next = $this->normalizeQueue($mutation($current));
 
-            if ($next === $current || $this->compareAndStoreOption(self::QUEUE_OPTION, $raw, $next)) {
+            if (
+                ($next === $current && !is_array($raw))
+                || $this->compareAndStoreOption(self::QUEUE_OPTION, $raw, $next)
+            ) {
+                $applied = true;
                 return $next;
             }
 
@@ -1139,6 +1183,10 @@ class TranslationWarmer
     {
         global $wpdb;
 
+        $nextRaw = $this->isQueueOption($option)
+            ? $this->encodeQueueOption($option, $next)
+            : $next;
+
         if (
             !isset($wpdb)
             || !is_object($wpdb)
@@ -1155,7 +1203,7 @@ class TranslationWarmer
             if (empty($next)) {
                 delete_option($option);
             } else {
-                update_option($option, $next, false);
+                update_option($option, $nextRaw, false);
             }
 
             return true;
@@ -1163,7 +1211,7 @@ class TranslationWarmer
 
         if ($expectedRaw === false) {
             return empty($next)
-                || (bool) add_option($option, $next, '', false);
+                || (bool) add_option($option, $nextRaw, '', false);
         }
 
         $expectedStored = function_exists('maybe_serialize')
@@ -1182,8 +1230,8 @@ class TranslationWarmer
             );
         } else {
             $nextStored = function_exists('maybe_serialize')
-                ? maybe_serialize($next)
-                : serialize($next);
+                ? maybe_serialize($nextRaw)
+                : (is_array($nextRaw) || is_object($nextRaw) ? serialize($nextRaw) : (string) $nextRaw);
 
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update prevents lost concurrent enqueues.
             $changed = $wpdb->update(
@@ -1205,6 +1253,179 @@ class TranslationWarmer
         $this->clearOptionCache($option);
 
         return true;
+    }
+
+    private function isQueueOption(string $option): bool
+    {
+        return $option === self::QUEUE_OPTION || $option === self::URL_QUEUE_OPTION;
+    }
+
+    /** @param array<mixed> $value */
+    private function encodeQueueOption(string $option, array $value): string
+    {
+        $serialized = serialize($value);
+
+        return self::QUEUE_ENVELOPE_PREFIX
+            . hash('sha256', $option . "\0" . $serialized)
+            . ':'
+            . base64_encode($serialized);
+    }
+
+    /**
+     * Legacy queue options are native arrays. New queue strings must match the
+     * complete versioned/checksummed envelope and the exact expected shape.
+     *
+     * @param mixed $raw
+     * @return array<mixed>
+     */
+    private function decodeQueueOption(string $option, $raw, ?bool &$valid = null): array
+    {
+        $valid = false;
+        if ($raw === false) {
+            $valid = true;
+            return [];
+        }
+        if (is_array($raw)) {
+            $valid = $this->isValidLegacyQueuePayload($option, $raw);
+            return $valid ? $raw : [];
+        }
+        if (!is_string($raw) || !str_starts_with($raw, self::QUEUE_ENVELOPE_PREFIX)) {
+            return [];
+        }
+
+        $envelope = substr($raw, strlen(self::QUEUE_ENVELOPE_PREFIX));
+        if (preg_match('/\A([a-f0-9]{64}):([a-z0-9+\/]+={0,2})\z/iD', $envelope, $matches) !== 1) {
+            return [];
+        }
+
+        $serialized = base64_decode($matches[2], true);
+        if (
+            !is_string($serialized)
+            || base64_encode($serialized) !== $matches[2]
+            || !hash_equals($matches[1], hash('sha256', $option . "\0" . $serialized))
+        ) {
+            return [];
+        }
+
+        // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- malformed persisted data must fail closed without emitting on page requests.
+        $decoded = @unserialize($serialized, ['allowed_classes' => false]);
+        if (
+            !is_array($decoded)
+            || serialize($decoded) !== $serialized
+            || !$this->isValidQueuePayload($option, $decoded)
+        ) {
+            return [];
+        }
+
+        $valid = true;
+        return $decoded;
+    }
+
+    /** @param array<mixed> $queue */
+    private function isValidLegacyQueuePayload(string $option, array $queue): bool
+    {
+        if ($option === self::QUEUE_OPTION) {
+            return $this->isValidQueuePayload($option, $queue);
+        }
+        if ($option !== self::URL_QUEUE_OPTION) {
+            return false;
+        }
+
+        foreach ($queue as $key => $entries) {
+            if (!is_string($key) || !is_array($entries) || $entries === []) {
+                return false;
+            }
+            foreach ($entries as $urlOrIndex => $textsOrUrl) {
+                if (is_int($urlOrIndex) && is_string($textsOrUrl)) {
+                    if (trim($textsOrUrl) === '' || trim($textsOrUrl) !== $textsOrUrl) {
+                        return false;
+                    }
+                    continue;
+                }
+                if (
+                    !is_string($urlOrIndex)
+                    || trim($urlOrIndex) === ''
+                    || trim($urlOrIndex) !== $urlOrIndex
+                    || !$this->isValidStringList($textsOrUrl, true)
+                ) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private function queueOptionIsValid(string $option): bool
+    {
+        $valid = false;
+        $this->decodeQueueOption($option, get_option($option, false), $valid);
+
+        return $valid;
+    }
+
+    /** @param array<mixed> $queue */
+    private function isValidQueuePayload(string $option, array $queue): bool
+    {
+        if ($option === self::QUEUE_OPTION) {
+            foreach ($queue as $key => $texts) {
+                if (!is_string($key) || !$this->isValidStringList($texts, false)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        if ($option !== self::URL_QUEUE_OPTION) {
+            return false;
+        }
+
+        foreach ($queue as $key => $entries) {
+            if (!is_string($key) || !is_array($entries) || $entries === []) {
+                return false;
+            }
+            foreach ($entries as $url => $texts) {
+                if (
+                    !is_string($url)
+                    || trim($url) === ''
+                    || trim($url) !== $url
+                    || !$this->isValidStringList($texts, true)
+                ) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /** @param mixed $values */
+    private function isValidStringList($values, bool $allowEmpty): bool
+    {
+        if (!is_array($values) || (!$allowEmpty && $values === [])) {
+            return false;
+        }
+
+        $expectedIndex = 0;
+        foreach ($values as $index => $value) {
+            if ($index !== $expectedIndex || !is_string($value) || $value === '') {
+                return false;
+            }
+            $expectedIndex++;
+        }
+
+        return true;
+    }
+
+    /** @param mixed $raw @param array<mixed> $queue */
+    private function migrateLegacyQueueOption(string $option, $raw, array $queue): void
+    {
+        if (!is_array($raw)) {
+            return;
+        }
+
+        $this->compareAndStoreOption($option, $raw, $queue);
     }
 
     private function clearOptionCache(string $option): void
@@ -1230,7 +1451,11 @@ class TranslationWarmer
 
         // Never autoloaded: the queue is only read by the cron run and by the
         // enqueue path, so it must not sit in every request's option cache.
-        update_option(self::QUEUE_OPTION, $queue, false);
+        update_option(
+            self::QUEUE_OPTION,
+            $this->encodeQueueOption(self::QUEUE_OPTION, $this->normalizeQueue($queue)),
+            false
+        );
     }
 
     /**
@@ -1241,9 +1466,16 @@ class TranslationWarmer
      *
      * @return array<string, array<string, string[]>>
      */
-    private function readUrlQueue(): array
+    private function readUrlQueue(?bool &$valid = null): array
     {
-        return $this->normalizeUrlQueue(get_option(self::URL_QUEUE_OPTION, []));
+        $raw = get_option(self::URL_QUEUE_OPTION, false);
+        $decoded = $this->decodeQueueOption(self::URL_QUEUE_OPTION, $raw, $valid);
+        $queue = $this->normalizeUrlQueue($decoded);
+        if ($valid) {
+            $this->migrateLegacyQueueOption(self::URL_QUEUE_OPTION, $raw, $queue);
+        }
+
+        return $queue;
     }
 
     /**
@@ -1256,10 +1488,18 @@ class TranslationWarmer
 
         for ($attempt = 0; $attempt < 10; $attempt++) {
             $raw = get_option(self::URL_QUEUE_OPTION, false);
-            $current = $this->normalizeUrlQueue($raw);
+            $valid = false;
+            $decoded = $this->decodeQueueOption(self::URL_QUEUE_OPTION, $raw, $valid);
+            if (!$valid) {
+                return [];
+            }
+            $current = $this->normalizeUrlQueue($decoded);
             $next = $this->normalizeUrlQueue($mutation($current));
 
-            if ($next === $current || $this->compareAndStoreOption(self::URL_QUEUE_OPTION, $raw, $next)) {
+            if (
+                ($next === $current && !is_array($raw))
+                || $this->compareAndStoreOption(self::URL_QUEUE_OPTION, $raw, $next)
+            ) {
                 $applied = true;
                 return $next;
             }
@@ -1322,7 +1562,11 @@ class TranslationWarmer
             return;
         }
 
-        update_option(self::URL_QUEUE_OPTION, $queue, false);
+        update_option(
+            self::URL_QUEUE_OPTION,
+            $this->encodeQueueOption(self::URL_QUEUE_OPTION, $this->normalizeUrlQueue($queue)),
+            false
+        );
     }
 
     /**
@@ -1340,7 +1584,11 @@ class TranslationWarmer
         $applied = false;
         $remainingUrlQueue = $this->updateUrlQueue(function (array $urlQueue) use ($keyLookup, &$urls): array {
             $urls = [];
-            $pendingQueue = $this->readQueue();
+            $textQueueValid = false;
+            $pendingQueue = $this->readQueue($textQueueValid);
+            if (!$textQueueValid) {
+                return $urlQueue;
+            }
 
             foreach ($urlQueue as $key => $trackedUrls) {
                 if (!isset($keyLookup[$key])) {

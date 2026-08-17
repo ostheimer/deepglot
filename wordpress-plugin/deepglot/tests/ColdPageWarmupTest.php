@@ -63,6 +63,7 @@ if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_after_get_option'] = null;
     $GLOBALS['_deepglot_after_get_transient'] = null;
     $GLOBALS['_deepglot_after_next_scheduled'] = null;
+    $GLOBALS['_deepglot_add_option_override'] = null;
 
     function get_option($key, $default = false) {
         $value = $GLOBALS['_deepglot_options'][$key] ?? $default;
@@ -80,6 +81,10 @@ if (!function_exists('get_option')) {
     }
 
     function add_option($key, $value, $deprecated = '', $autoload = true) {
+        $override = $GLOBALS['_deepglot_add_option_override'] ?? null;
+        if (is_callable($override)) {
+            return (bool) $override($key, $value, $autoload);
+        }
         if (array_key_exists($key, $GLOBALS['_deepglot_options'])) {
             return false;
         }
@@ -331,6 +336,15 @@ class DeepglotWarmFakeWpError
         }
 
         return $this->data;
+    }
+}
+
+class DeepglotWarmQueueWakeupProbe
+{
+    public function __wakeup(): void
+    {
+        $GLOBALS['_deepglot_queue_wakeup_calls'] =
+            (int) ($GLOBALS['_deepglot_queue_wakeup_calls'] ?? 0) + 1;
     }
 }
 
@@ -749,6 +763,7 @@ function warmResetEnvironment(): void
     $GLOBALS['_deepglot_after_get_transient'] = null;
     $GLOBALS['_deepglot_after_next_scheduled'] = null;
     $GLOBALS['_deepglot_before_error_data'] = null;
+    $GLOBALS['_deepglot_add_option_override'] = null;
 
     foreach (array_keys($GLOBALS['_deepglot_options']) as $key) {
         if (
@@ -1134,6 +1149,205 @@ $warmer->enqueue(['Beta', 'Gamma'], 'de', 'en');
 warmAssert(
     ($warmer->pending()['de|en'] ?? []) === ['Alpha', 'Beta', 'Gamma'],
     'Repeated enqueues must deduplicate instead of piling up.'
+);
+
+// A legacy utf8 (three-byte) wp_options table rejects a serialized option
+// value containing a non-BMP character. Persist queue payloads in an
+// ASCII-safe envelope while exposing the original text through pending().
+warmResetEnvironment();
+$GLOBALS['_deepglot_add_option_override'] = static function (
+    string $key,
+    $value,
+    $autoload
+): bool {
+    if (preg_match('/[\x{10000}-\x{10FFFF}]/u', serialize($value)) === 1) {
+        return false;
+    }
+    if (array_key_exists($key, $GLOBALS['_deepglot_options'])) {
+        return false;
+    }
+    $GLOBALS['_deepglot_options'][$key] = $value;
+    return true;
+};
+$nonBmpWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$nonBmpText = 'Sehr zufrieden 😀';
+$nonBmpUrl = 'https://example.com/en/experience/';
+$nonBmpWarmer->enqueue([$nonBmpText], 'de', 'en', $nonBmpUrl);
+
+warmAssert(
+    ($nonBmpWarmer->pending()['de|en'] ?? []) === [$nonBmpText],
+    'A non-BMP source segment must remain durably queued on a legacy utf8 options table.'
+);
+$rawNonBmpQueue = $GLOBALS['_deepglot_options'][TranslationWarmer::QUEUE_OPTION] ?? null;
+$rawNonBmpUrls = $GLOBALS['_deepglot_options'][TranslationWarmer::URL_QUEUE_OPTION] ?? null;
+warmAssert(
+    is_string($rawNonBmpQueue)
+        && preg_match('/[^\x00-\x7F]/', $rawNonBmpQueue) !== 1
+        && is_string($rawNonBmpUrls)
+        && preg_match('/[^\x00-\x7F]/', $rawNonBmpUrls) !== 1,
+    'Text and URL warm queues must be stored in an ASCII-safe option envelope.'
+);
+$readUrlQueue = new ReflectionMethod(TranslationWarmer::class, 'readUrlQueue');
+warmAssert(
+    $readUrlQueue->invoke($nonBmpWarmer) === [
+        'de|en' => [$nonBmpUrl => [$nonBmpText]],
+    ],
+    'The ASCII-safe URL queue must expose the original URL and non-BMP text.'
+);
+
+// Existing sites already have native array options. Reading them must preserve
+// the public queue shape and opportunistically migrate the exact raw value into
+// the ASCII-safe envelope instead of requiring a manual reset.
+warmResetEnvironment();
+$legacyTextQueue = [
+    'de|en' => ['Legacy text', 'Legacy emoji 😀'],
+];
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyTextQueue, false);
+$legacyQueueWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+warmAssert(
+    $legacyQueueWarmer->pending() === $legacyTextQueue,
+    'A legacy native-array text queue must remain readable without data loss.'
+);
+$migratedTextQueue = get_option(TranslationWarmer::QUEUE_OPTION, false);
+warmAssert(
+    is_string($migratedTextQueue)
+        && preg_match('/[^\x00-\x7F]/', $migratedTextQueue) !== 1,
+    'Reading a legacy text queue must migrate it to the ASCII-safe envelope.'
+);
+
+// A damaged envelope is untrusted persistence data. Decoding must fail closed
+// without warnings, partial queue recovery, or an implicit overwrite.
+$corruptedTextQueue = substr($migratedTextQueue, 0, -1)
+    . (str_ends_with($migratedTextQueue, 'A') ? 'B' : 'A');
+update_option(TranslationWarmer::QUEUE_OPTION, $corruptedTextQueue, false);
+warmAssert(
+    $legacyQueueWarmer->pending() === []
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === $corruptedTextQueue,
+    'A corrupted text queue envelope must fail closed and remain recoverable.'
+);
+$legacyQueueWarmer->enqueue(
+    ['Must not replace damaged persistence'],
+    'de',
+    'en',
+    'https://example.com/en/damaged-queue/'
+);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $corruptedTextQueue,
+    'Enqueue must not silently overwrite a corrupted queue envelope.'
+);
+warmAssert(
+    get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === false,
+    'A rejected text-queue mutation must not leave a partial URL-queue write.'
+);
+
+warmResetEnvironment();
+$wrongTypeTextQueue = ['de|en' => 'not-a-text-list'];
+update_option(TranslationWarmer::QUEUE_OPTION, $wrongTypeTextQueue, false);
+$legacyQueueWarmer->enqueue(
+    ['Must not replace wrong-type persistence'],
+    'de',
+    'en',
+    'https://example.com/en/wrong-type-queue/'
+);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $wrongTypeTextQueue
+        && get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === false,
+    'Enqueue must preserve a wrong-type legacy queue and avoid partial URL writes.'
+);
+
+warmResetEnvironment();
+$urlIntegrityWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$urlIntegrityWarmer->enqueue(
+    ['Existing durable text'],
+    'de',
+    'en',
+    'https://example.com/en/existing/'
+);
+$textBeforeCorruptUrl = get_option(TranslationWarmer::QUEUE_OPTION, false);
+$validUrlBeforeCorruption = get_option(TranslationWarmer::URL_QUEUE_OPTION, false);
+$corruptedUrlQueue = substr($validUrlBeforeCorruption, 0, -1)
+    . (str_ends_with($validUrlBeforeCorruption, 'A') ? 'B' : 'A');
+update_option(TranslationWarmer::URL_QUEUE_OPTION, $corruptedUrlQueue, false);
+$urlIntegrityWarmer->enqueue(
+    ['Must not partially enter text queue'],
+    'de',
+    'en',
+    'https://example.com/en/corrupted-url-queue/'
+);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $textBeforeCorruptUrl
+        && get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === $corruptedUrlQueue,
+    'A corrupted URL queue must block both sides of an enqueue mutation.'
+);
+
+$GLOBALS['_deepglot_queue_wakeup_calls'] = 0;
+$encodeQueueOption = new ReflectionMethod(TranslationWarmer::class, 'encodeQueueOption');
+$objectEnvelope = $encodeQueueOption->invoke(
+    $legacyQueueWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    ['de|en' => [new DeepglotWarmQueueWakeupProbe()]]
+);
+update_option(TranslationWarmer::QUEUE_OPTION, $objectEnvelope, false);
+warmAssert(
+    $legacyQueueWarmer->pending() === []
+        && $GLOBALS['_deepglot_queue_wakeup_calls'] === 0,
+    'Queue envelope decoding must reject objects without invoking their wakeup hooks.'
+);
+
+// Migration is a compare-and-set against the exact legacy raw value. A writer
+// that wins after the read must survive instead of being replaced by the stale
+// migration snapshot.
+warmResetEnvironment();
+$legacyRaceA = ['de|en' => ['Legacy snapshot A']];
+$legacyRaceB = ['de|en' => ['Concurrent snapshot B']];
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyRaceA, false);
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use ($legacyRaceB): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(TranslationWarmer::QUEUE_OPTION, $legacyRaceB, false);
+};
+$legacyQueueWarmer->pending();
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyRaceB,
+    'Legacy migration must not overwrite a concurrent queue writer.'
+);
+
+// Legacy URL queues used a language-pair => URL[] shape. The reader still
+// normalizes that wildcard shape and migrates the raw option atomically.
+warmResetEnvironment();
+$legacyUrl = 'https://example.com/en/legacy-page/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|en' => [$legacyUrl],
+], false);
+$legacyUrlWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$normalizedLegacyUrls = $readUrlQueue->invoke($legacyUrlWarmer);
+warmAssert(
+    $normalizedLegacyUrls === ['de|en' => [$legacyUrl => []]],
+    'A legacy URL list must retain its backward-compatible wildcard semantics.'
+);
+$migratedUrlQueue = get_option(TranslationWarmer::URL_QUEUE_OPTION, false);
+warmAssert(
+    is_string($migratedUrlQueue)
+        && preg_match('/[^\x00-\x7F]/', $migratedUrlQueue) !== 1,
+    'Reading a legacy URL queue must migrate it to the ASCII-safe envelope.'
 );
 
 // -----------------------------------------------------------------------------
