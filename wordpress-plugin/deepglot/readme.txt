@@ -55,7 +55,7 @@ A permanent `422 velocity_request_too_large` means one request cannot fit the ho
 
 Since version 0.12.0, ordinary page requests do not wait for a slow translation provider. The first view queues uncached text for an immediately due WP-Cron job and, once both are stored, makes one non-blocking WP-Cron nudge in the same request. The nudge is skipped for DISABLE_WP_CRON and while cron is already running. After the job succeeds, Deepglot stores the translations locally and purges completed URLs in WP Rocket, W3 Total Cache, and LiteSpeed Cache. Because WP Super Cache exposes only a global purge, Deepglot waits until the tracked queue is empty so pending pages stay cached. If later views remain in the source language, verify that WP-Cron or the host's system cron is running and purge any other page-cache plugin manually.
 
-Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII-safe storage envelope. This preserves valid Unicode, including emoji, even on legacy WordPress option tables that cannot store four-byte UTF-8 directly. Existing queue arrays migrate automatically; damaged queue data is rejected without being overwritten by new work.
+Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII-safe storage envelope. This preserves valid Unicode, including emoji, even on legacy WordPress option tables that cannot store four-byte UTF-8 directly. Existing queue arrays migrate automatically; damaged queue data is rejected without being overwritten by new work. A separate short atomic lock couples text and URL queue reconciliation with cache purging; translation-provider requests remain outside that lock.
 
 When every attempted SaaS provider returns only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can recover both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra split path.
 
@@ -85,6 +85,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 = 0.12.3 =
 * Preserved background text and URL queues containing emoji or other four-byte Unicode on legacy WordPress option tables through an ASCII-safe, checksummed storage envelope.
 * Kept existing queue arrays backward compatible and rejected damaged queue persistence without silently replacing it.
+* Coupled text and purge-target mutations with a short atomic lock while keeping translation-provider work outside the lock.
 
 = 0.12.2 =
 * Verified one safe same-origin canonical redirect in the requested target language during URL synchronization without enabling automatic redirect following.

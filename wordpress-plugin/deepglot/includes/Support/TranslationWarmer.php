@@ -41,6 +41,9 @@ class TranslationWarmer
     /** Atomic owner/expiry lock guarding against concurrent cron drains. */
     public const LOCK_OPTION = 'deepglot_warm_running';
 
+    /** Short atomic lock coupling text and URL queue mutations. */
+    public const MUTATION_LOCK_OPTION = 'deepglot_warm_queue_mutating';
+
     /** Persisted next-attempt timestamp after a classified SaaS 429. */
     public const BACKOFF_OPTION = 'deepglot_warm_backoff_until';
 
@@ -50,6 +53,12 @@ class TranslationWarmer
 
     /** Long enough to cover MAX_BATCHES_PER_RUN slow requests. */
     public const LOCK_TTL = 300;
+
+    /** Queue mutations contain no provider work and should finish promptly. */
+    public const MUTATION_LOCK_TTL = 15;
+
+    /** Bounded retry after another request owns the queue mutation window. */
+    private const MUTATION_LOCK_RETRY_DELAY = 5;
 
     /**
      * Upper bound on queued texts per language pair. A burst of cold pages
@@ -142,91 +151,102 @@ class TranslationWarmer
             return $queue;
         };
 
-        if ($requestUrl !== '') {
-            // Work out the URL tracking payload without changing the text
-            // queue. The purge target must win its CAS before the work it
-            // guards can become pending.
-            $rawQueue = get_option(self::QUEUE_OPTION, false);
-            $queueValid = false;
-            $currentQueue = $this->decodeQueueOption(self::QUEUE_OPTION, $rawQueue, $queueValid);
-            if (!$queueValid) {
+        if ($requestUrl === '') {
+            $queueApplied = false;
+            $this->updateQueue($mergeTexts, $queueApplied);
+            if (!$queueApplied) {
                 return;
             }
-            $queued = $mergeTexts($this->normalizeQueue($currentQueue));
-
-            $hadPreviousUrlEntry = false;
-            $previousUrlEntry = [];
-            $writtenUrlEntry = [];
-            $urlQueueApplied = false;
-            $this->updateUrlQueue(static function (array $queue) use (
-                $key,
-                $requestUrl,
-                $texts,
-                $queued,
-                &$hadPreviousUrlEntry,
-                &$previousUrlEntry,
-                &$writtenUrlEntry
-            ): array {
-                $hadPreviousUrlEntry = array_key_exists($requestUrl, $queue[$key] ?? []);
-                $previousUrlEntry = $hadPreviousUrlEntry
-                    ? $queue[$key][$requestUrl]
-                    : [];
-                $hasLegacyWildcard = $hadPreviousUrlEntry && empty($previousUrlEntry);
-                $tracked = $hasLegacyWildcard
-                    ? ($queued[$key] ?? $texts)
-                    : $previousUrlEntry;
-                $writtenUrlEntry = array_values(array_unique(array_merge($tracked, $texts)));
-                $queue[$key][$requestUrl] = $writtenUrlEntry;
-
-                return $queue;
-            }, $urlQueueApplied);
-            if (!$urlQueueApplied) {
+        } else {
+            $mutationLockOwner = $this->acquireMutationLock();
+            if ($mutationLockOwner === null) {
                 return;
             }
-        }
 
-        $queueApplied = false;
-        $this->updateQueue($mergeTexts, $queueApplied);
-        if (!$queueApplied) {
-            if ($requestUrl !== '') {
-                // Restore only the URL entry written by this enqueue. If a
-                // concurrent writer has changed it, leave the newer tracking
-                // data intact instead of trying to infer ownership of texts.
+            try {
+                // Work out the URL tracking payload without changing the text
+                // queue. The purge target must win its CAS before the work it
+                // guards can become pending.
+                $rawQueue = get_option(self::QUEUE_OPTION, false);
+                $queueValid = false;
+                $currentQueue = $this->decodeQueueOption(self::QUEUE_OPTION, $rawQueue, $queueValid);
+                if (!$queueValid) {
+                    return;
+                }
+                $queued = $mergeTexts($this->normalizeQueue($currentQueue));
+
+                $hadPreviousUrlEntry = false;
+                $previousUrlEntry = [];
+                $writtenUrlEntry = [];
+                $urlQueueApplied = false;
                 $this->updateUrlQueue(static function (array $queue) use (
                     $key,
                     $requestUrl,
-                    $hadPreviousUrlEntry,
-                    $previousUrlEntry,
-                    $writtenUrlEntry
+                    $texts,
+                    $queued,
+                    &$hadPreviousUrlEntry,
+                    &$previousUrlEntry,
+                    &$writtenUrlEntry
                 ): array {
-                    if (
-                        !array_key_exists($requestUrl, $queue[$key] ?? [])
-                        || $queue[$key][$requestUrl] !== $writtenUrlEntry
-                    ) {
-                        return $queue;
-                    }
-
-                    if ($hadPreviousUrlEntry) {
-                        $queue[$key][$requestUrl] = $previousUrlEntry;
-                    } else {
-                        unset($queue[$key][$requestUrl]);
-                        if (empty($queue[$key])) {
-                            unset($queue[$key]);
-                        }
-                    }
+                    $hadPreviousUrlEntry = array_key_exists($requestUrl, $queue[$key] ?? []);
+                    $previousUrlEntry = $hadPreviousUrlEntry
+                        ? $queue[$key][$requestUrl]
+                        : [];
+                    $hasLegacyWildcard = $hadPreviousUrlEntry && empty($previousUrlEntry);
+                    $tracked = $hasLegacyWildcard
+                        ? ($queued[$key] ?? $texts)
+                        : $previousUrlEntry;
+                    $writtenUrlEntry = array_values(array_unique(array_merge($tracked, $texts)));
+                    $queue[$key][$requestUrl] = $writtenUrlEntry;
 
                     return $queue;
-                });
+                }, $urlQueueApplied);
+                if (!$urlQueueApplied) {
+                    return;
+                }
+
+                $queueApplied = false;
+                $this->updateQueue($mergeTexts, $queueApplied);
+                if (!$queueApplied) {
+                    // Restore only the URL entry written by this enqueue. If a
+                    // concurrent writer has changed it, leave the newer tracking
+                    // data intact instead of trying to infer ownership of texts.
+                    $this->updateUrlQueue(static function (array $queue) use (
+                        $key,
+                        $requestUrl,
+                        $hadPreviousUrlEntry,
+                        $previousUrlEntry,
+                        $writtenUrlEntry
+                    ): array {
+                        if (
+                            !array_key_exists($requestUrl, $queue[$key] ?? [])
+                            || $queue[$key][$requestUrl] !== $writtenUrlEntry
+                        ) {
+                            return $queue;
+                        }
+
+                        if ($hadPreviousUrlEntry) {
+                            $queue[$key][$requestUrl] = $previousUrlEntry;
+                        } else {
+                            unset($queue[$key][$requestUrl]);
+                            if (empty($queue[$key])) {
+                                unset($queue[$key]);
+                            }
+                        }
+
+                        return $queue;
+                    });
+                    return;
+                }
+
+                // Different pages often contain the same text. Record every
+                // affected URL even when no new segment was added. The URL
+                // write happens first so a crash can leave only a harmless
+                // orphan purge target, never untracked text work.
+            } finally {
+                $this->releaseMutationLock($mutationLockOwner);
             }
-
-            return;
         }
-
-        // Different pages often contain the same text. Record every affected
-        // URL even when this enqueue did not add a new segment, otherwise only
-        // the first page would be purged after the shared cache is warmed.
-        // URL-backed work was recorded first above so a failed URL CAS can
-        // never leave an unpurgeable text-only queue entry behind.
 
         $retryIdentity = $this->configurationIdentity();
         $now = time();
@@ -554,33 +574,50 @@ class TranslationWarmer
         // Re-read after the provider calls: a frontend request may have
         // enqueued more work while this run was in flight. Reconcile only the
         // texts this snapshot completed and preserve everything added later.
-        if (!$this->queueOptionIsValid(self::URL_QUEUE_OPTION)) {
+        $mutationLockOwner = $this->acquireMutationLock();
+        if ($mutationLockOwner === null) {
+            // Cached provider results are already durable, while the queue is
+            // still untouched. Retry reconciliation after the short owner has
+            // left instead of repeating it inside the enqueue window.
+            $this->schedule(
+                true,
+                self::MUTATION_LOCK_RETRY_DELAY,
+                $runIdentity
+            );
             return;
         }
 
-        $queueApplied = false;
-        $this->updateQueue(static function (array $currentQueue) use (
-            $completedByKey,
-            $remainingByKey
-        ): array {
-            foreach ($completedByKey as $key => $completed) {
-                $current = $currentQueue[$key] ?? [];
-                $current = array_values(array_diff($current, $completed));
-                $current = array_values(array_unique(array_merge($current, $remainingByKey[$key] ?? [])));
-
-                if (empty($current)) {
-                    unset($currentQueue[$key]);
-                } else {
-                    $currentQueue[$key] = $current;
-                }
+        try {
+            if (!$this->queueOptionIsValid(self::URL_QUEUE_OPTION)) {
+                return;
             }
 
-            return $currentQueue;
-        }, $queueApplied);
-        if (!$queueApplied) {
-            return;
+            $queueApplied = false;
+            $this->updateQueue(static function (array $currentQueue) use (
+                $completedByKey,
+                $remainingByKey
+            ): array {
+                foreach ($completedByKey as $key => $completed) {
+                    $current = $currentQueue[$key] ?? [];
+                    $current = array_values(array_diff($current, $completed));
+                    $current = array_values(array_unique(array_merge($current, $remainingByKey[$key] ?? [])));
+
+                    if (empty($current)) {
+                        unset($currentQueue[$key]);
+                    } else {
+                        $currentQueue[$key] = $current;
+                    }
+                }
+
+                return $currentQueue;
+            }, $queueApplied);
+            if (!$queueApplied) {
+                return;
+            }
+            $this->purgeCompletedUrls(array_keys($completedByKey), $mutationLockOwner);
+        } finally {
+            $this->releaseMutationLock($mutationLockOwner);
         }
-        $this->purgeCompletedUrls(array_keys($completedByKey));
 
         // Only chase work this run never attempted. Rescheduling because a
         // batch *failed* would spin: a persistent error (exhausted quota, SaaS
@@ -1627,12 +1664,35 @@ class TranslationWarmer
     /**
      * @param string[] $keys
      */
-    private function purgeCompletedUrls(array $keys): void
+    private function purgeCompletedUrls(array $keys, ?string $mutationLockOwner = null): void
     {
         if (empty($keys)) {
             return;
         }
 
+        $releaseMutationLock = false;
+        if ($mutationLockOwner === null) {
+            $mutationLockOwner = $this->acquireMutationLock();
+            if ($mutationLockOwner === null) {
+                return;
+            }
+            $releaseMutationLock = true;
+        } elseif (!$this->mutationLockIsOwnedBy($mutationLockOwner)) {
+            return;
+        }
+
+        try {
+            $this->purgeCompletedUrlsWhileLocked($keys);
+        } finally {
+            if ($releaseMutationLock) {
+                $this->releaseMutationLock($mutationLockOwner);
+            }
+        }
+    }
+
+    /** @param string[] $keys */
+    private function purgeCompletedUrlsWhileLocked(array $keys): void
+    {
         $urls = [];
         $keyLookup = array_fill_keys($keys, true);
 
@@ -1706,6 +1766,62 @@ class TranslationWarmer
         if (empty($remainingUrlQueue) && function_exists('wp_cache_clear_cache')) {
             wp_cache_clear_cache();
         }
+    }
+
+    private function acquireMutationLock(): ?string
+    {
+        $owner = function_exists('wp_generate_uuid4')
+            ? wp_generate_uuid4()
+            : uniqid('deepglot-queue-', true);
+        $lock = [
+            'owner' => $owner,
+            'expires' => time() + self::MUTATION_LOCK_TTL,
+        ];
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            if (add_option(self::MUTATION_LOCK_OPTION, $lock, '', false)) {
+                return $owner;
+            }
+
+            $current = get_option(self::MUTATION_LOCK_OPTION, false);
+            $now = time();
+            $expires = is_array($current) ? (int) ($current['expires'] ?? 0) : 0;
+            if ($expires > $now && $expires <= $now + self::MUTATION_LOCK_TTL) {
+                return null;
+            }
+
+            // Replace only the exact expired/malformed value observed. This
+            // avoids a delete/add gap and cannot steal a concurrently renewed
+            // lock under a case-insensitive wp_options collation.
+            if ($this->compareAndStoreOption(self::MUTATION_LOCK_OPTION, $current, $lock)) {
+                return $owner;
+            }
+
+            $this->clearOptionCache(self::MUTATION_LOCK_OPTION);
+        }
+
+        return null;
+    }
+
+    private function mutationLockIsOwnedBy(string $owner): bool
+    {
+        $current = get_option(self::MUTATION_LOCK_OPTION, false);
+
+        return is_array($current)
+            && hash_equals((string) ($current['owner'] ?? ''), $owner);
+    }
+
+    private function releaseMutationLock(string $owner): void
+    {
+        $current = get_option(self::MUTATION_LOCK_OPTION, false);
+        if (
+            !is_array($current)
+            || !hash_equals((string) ($current['owner'] ?? ''), $owner)
+        ) {
+            return;
+        }
+
+        $this->compareAndStoreOption(self::MUTATION_LOCK_OPTION, $current, []);
     }
 
     private function acquireLock(): ?string

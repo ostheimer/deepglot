@@ -1342,6 +1342,150 @@ warmAssert(
     'A rejected coupled enqueue must not claim that warm work was scheduled.'
 );
 
+// A previous cron run may reconcile and purge while a new frontend enqueue is
+// between its URL-first and text writes. The coupled mutation must prevent the
+// purge from treating the new URL tracking as already completed in that gap.
+warmResetEnvironment();
+$interleavedUrl = 'https://example.com/en/enqueue-purge-race/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|en' => [$interleavedUrl => ['Previously completed text']],
+], false);
+$interleavedWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$purgeCompletedUrls = new ReflectionMethod(TranslationWarmer::class, 'purgeCompletedUrls');
+$textQueueReadCount = 0;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$textQueueReadCount,
+    $interleavedWarmer,
+    $purgeCompletedUrls
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+    $textQueueReadCount++;
+    if ($textQueueReadCount !== 3) {
+        return;
+    }
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    $purgeCompletedUrls->invoke($interleavedWarmer, ['de|en']);
+};
+$interleavedWarmer->enqueue(
+    ['New text'],
+    'de',
+    'en',
+    $interleavedUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+$interleavedUrlsAfter = $readUrlQueue->invoke($interleavedWarmer);
+warmAssert(
+    ($interleavedWarmer->pending()['de|en'] ?? []) === ['New text']
+        && ($interleavedUrlsAfter['de|en'][$interleavedUrl] ?? []) === [
+            'Previously completed text',
+            'New text',
+        ]
+        && !in_array($interleavedUrl, $GLOBALS['_deepglot_purged_urls'], true),
+    'An in-flight purge must not split a URL-first enqueue before its text write.'
+);
+
+// The queue mutation lock is a separate, short owner claim. A live owner wins,
+// a stale owner may be replaced atomically, and neither an old nor an unrelated
+// owner may release the replacement.
+warmResetEnvironment();
+$mutationLockWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$acquireMutationLock = new ReflectionMethod(TranslationWarmer::class, 'acquireMutationLock');
+$releaseMutationLock = new ReflectionMethod(TranslationWarmer::class, 'releaseMutationLock');
+$firstMutationOwner = $acquireMutationLock->invoke($mutationLockWarmer);
+$firstMutationLock = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+$contendingMutationOwner = $acquireMutationLock->invoke($mutationLockWarmer);
+$releaseMutationLock->invoke($mutationLockWarmer, 'not-the-owner');
+warmAssert(
+    is_string($firstMutationOwner)
+        && $firstMutationOwner !== ''
+        && $contendingMutationOwner === null
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === $firstMutationLock,
+    'A live queue mutation owner must reject contention and survive an unrelated release.'
+);
+
+$expiredMutationLock = [
+    'owner' => 'expired-owner',
+    'expires' => time() - 1,
+];
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $expiredMutationLock, false);
+$replacementMutationOwner = $acquireMutationLock->invoke($mutationLockWarmer);
+$replacementMutationLock = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+$releaseMutationLock->invoke($mutationLockWarmer, 'expired-owner');
+$afterExpiredOwnerRelease = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+$releaseMutationLock->invoke($mutationLockWarmer, (string) $replacementMutationOwner);
+warmAssert(
+    is_string($replacementMutationOwner)
+        && $replacementMutationOwner !== ''
+        && is_array($replacementMutationLock)
+        && ($replacementMutationLock['owner'] ?? null) === $replacementMutationOwner
+        && $afterExpiredOwnerRelease === $replacementMutationLock
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === false,
+    'An expired queue mutation lock must be replaceable without allowing its old owner to release the replacement.'
+);
+
+// Provider work precedes the short mutation claim. If reconciliation later
+// contends, translated cache data remains useful while both queues stay intact
+// and a bounded delayed retry replaces the current cron event.
+warmResetEnvironment();
+$providerLockClient = new DeepglotWarmFakeClient();
+$mutationLockDuringProvider = null;
+$providerLockClient->duringBatchCall = static function () use (&$mutationLockDuringProvider): void {
+    $mutationLockDuringProvider = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+};
+$providerLockWarmer = new TranslationWarmer(
+    $providerLockClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$providerLockUrl = 'https://example.com/en/provider-lock-boundary/';
+$providerLockWarmer->enqueue(['Provider lock boundary'], 'de', 'en', $providerLockUrl);
+$providerLockWarmer->run();
+warmAssert(
+    $providerLockClient->translateBatchesCalls === 1
+        && $mutationLockDuringProvider === false
+        && in_array($providerLockUrl, $GLOBALS['_deepglot_purged_urls'], true),
+    'Warm provider work must finish before the short queue mutation lock is acquired.'
+);
+
+warmResetEnvironment();
+$contendedDrainClient = new DeepglotWarmFakeClient();
+$contendedDrainWarmer = new TranslationWarmer(
+    $contendedDrainClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$contendedDrainUrl = 'https://example.com/en/contended-reconciliation/';
+$contendedDrainWarmer->enqueue(['Contended reconciliation'], 'de', 'en', $contendedDrainUrl);
+$foreignMutationLock = [
+    'owner' => 'foreign-enqueue',
+    'expires' => time() + TranslationWarmer::MUTATION_LOCK_TTL,
+];
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $foreignMutationLock, false);
+$beforeMutationRetry = time();
+$contendedDrainWarmer->run();
+$contendedDrainUrls = $readUrlQueue->invoke($contendedDrainWarmer);
+$mutationRetryAt = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+warmAssert(
+    $contendedDrainClient->translateBatchesCalls === 1
+        && ($contendedDrainWarmer->pending()['de|en'] ?? []) === ['Contended reconciliation']
+        && ($contendedDrainUrls['de|en'][$contendedDrainUrl] ?? []) === ['Contended reconciliation']
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === $foreignMutationLock
+        && !in_array($contendedDrainUrl, $GLOBALS['_deepglot_purged_urls'], true)
+        && $mutationRetryAt >= $beforeMutationRetry + 4
+        && $mutationRetryAt <= $beforeMutationRetry + 6,
+    'A contended drain must preserve both queues and the foreign lock while scheduling a bounded reconciliation retry.'
+);
+
 $GLOBALS['_deepglot_queue_wakeup_calls'] = 0;
 $encodeQueueOption = new ReflectionMethod(TranslationWarmer::class, 'encodeQueueOption');
 $objectEnvelope = $encodeQueueOption->invoke(
