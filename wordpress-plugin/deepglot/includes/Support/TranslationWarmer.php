@@ -97,6 +97,9 @@ class TranslationWarmer
     /** One non-blocking WP-Cron nudge per request, no matter how often we enqueue. */
     private bool $spawnAttempted = false;
 
+    /** @var array<string, true> Expired owners that still need one safe global purge. */
+    private array $mutationLockNeedsGlobalPurge = [];
+
     public function __construct(Client $client, Options $options, TranslationCache $cache)
     {
         $this->client  = $client;
@@ -304,8 +307,23 @@ class TranslationWarmer
     public function runForIdentity(?string $scheduledIdentity = null): void
     {
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
-            $this->writeQueue([]);
-            $this->writeUrlQueue([]);
+            $mutationLockOwner = $this->acquireMutationLock();
+            if ($mutationLockOwner === null) {
+                $cleanupIdentity = $this->configurationIdentity();
+                $this->schedule(
+                    true,
+                    self::MUTATION_LOCK_RETRY_DELAY,
+                    $cleanupIdentity !== '' ? $cleanupIdentity : null
+                );
+                return;
+            }
+
+            try {
+                $this->writeQueue([]);
+                $this->writeUrlQueue([]);
+            } finally {
+                $this->releaseMutationLock($mutationLockOwner);
+            }
 
             return;
         }
@@ -1682,7 +1700,10 @@ class TranslationWarmer
         }
 
         try {
-            $this->purgeCompletedUrlsWhileLocked($keys);
+            $this->purgeCompletedUrlsWhileLocked(
+                $keys,
+                !isset($this->mutationLockNeedsGlobalPurge[$mutationLockOwner])
+            );
         } finally {
             if ($releaseMutationLock) {
                 $this->releaseMutationLock($mutationLockOwner);
@@ -1691,7 +1712,7 @@ class TranslationWarmer
     }
 
     /** @param string[] $keys */
-    private function purgeCompletedUrlsWhileLocked(array $keys): void
+    private function purgeCompletedUrlsWhileLocked(array $keys, bool $allowGlobalPurge = true): void
     {
         $urls = [];
         $keyLookup = array_fill_keys($keys, true);
@@ -1763,7 +1784,11 @@ class TranslationWarmer
         // WP Super Cache exposes only a full-cache public purge API. Delay it
         // until every tracked URL has completed so one finished page cannot
         // evict pages whose translations are still pending.
-        if (empty($remainingUrlQueue) && function_exists('wp_cache_clear_cache')) {
+        if (
+            $allowGlobalPurge
+            && empty($remainingUrlQueue)
+            && function_exists('wp_cache_clear_cache')
+        ) {
             wp_cache_clear_cache();
         }
     }
@@ -1794,6 +1819,19 @@ class TranslationWarmer
             // avoids a delete/add gap and cannot steal a concurrently renewed
             // lock under a case-insensitive wp_options collation.
             if ($this->compareAndStoreOption(self::MUTATION_LOCK_OPTION, $current, $lock)) {
+                // A process may have died after its URL-first write. Reconcile
+                // every URL entry against the durable text queue before new
+                // work is admitted. Defer WP Super Cache's global purge until
+                // release so work added by this owner can keep it pending.
+                if ($current !== false) {
+                    $this->mutationLockNeedsGlobalPurge[$owner] = true;
+                    $urlQueueValid = false;
+                    $urlQueue = $this->readUrlQueue($urlQueueValid);
+                    if ($urlQueueValid && !empty($urlQueue)) {
+                        $this->purgeCompletedUrlsWhileLocked(array_keys($urlQueue), false);
+                    }
+                }
+
                 return $owner;
             }
 
@@ -1818,7 +1856,21 @@ class TranslationWarmer
             !is_array($current)
             || !hash_equals((string) ($current['owner'] ?? ''), $owner)
         ) {
+            unset($this->mutationLockNeedsGlobalPurge[$owner]);
             return;
+        }
+
+        if (isset($this->mutationLockNeedsGlobalPurge[$owner])) {
+            $urlQueueValid = false;
+            $remainingUrlQueue = $this->readUrlQueue($urlQueueValid);
+            if (
+                $urlQueueValid
+                && empty($remainingUrlQueue)
+                && function_exists('wp_cache_clear_cache')
+            ) {
+                wp_cache_clear_cache();
+            }
+            unset($this->mutationLockNeedsGlobalPurge[$owner]);
         }
 
         $this->compareAndStoreOption(self::MUTATION_LOCK_OPTION, $current, []);

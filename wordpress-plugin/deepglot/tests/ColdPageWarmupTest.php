@@ -1390,6 +1390,68 @@ warmAssert(
     'An in-flight purge must not split a URL-first enqueue before its text write.'
 );
 
+// Disabling the plugin (or removing its key) clears both queues. That cleanup
+// must use the same short mutation lock: otherwise it can delete URL tracking
+// after the URL-first CAS but before the corresponding text CAS commits.
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_disable_race',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$disableRaceWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$disableRaceIdentity = warmRateIdentity($options);
+$disableRaceUrl = 'https://example.com/en/disable-race/';
+$disableRaceQueueReads = 0;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$disableRaceQueueReads,
+    $disableRaceWarmer,
+    $disableRaceIdentity
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+
+    $disableRaceQueueReads++;
+    if ($disableRaceQueueReads !== 3) {
+        return;
+    }
+
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+        'enabled' => false,
+        'api_key' => 'dg_disable_race',
+        'source_language' => 'de',
+        'target_languages' => ['en'],
+    ]));
+    $disableRaceWarmer->runForIdentity($disableRaceIdentity);
+};
+$disableRaceWarmer->enqueue(
+    ['New text during disable'],
+    'de',
+    'en',
+    $disableRaceUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+$disableRacePending = $disableRaceWarmer->pending();
+$disableRaceUrls = $readUrlQueue->invoke($disableRaceWarmer);
+warmAssert(
+    (($disableRacePending['de|en'] ?? []) === ['New text during disable'])
+        === (($disableRaceUrls['de|en'][$disableRaceUrl] ?? []) === ['New text during disable']),
+    'Configuration cleanup must not split an in-flight URL/text enqueue mutation.'
+);
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_test_key',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+
 // The queue mutation lock is a separate, short owner claim. A live owner wins,
 // a stale owner may be replaced atomically, and neither an old nor an unrelated
 // owner may release the replacement.
@@ -1431,6 +1493,42 @@ warmAssert(
         && $afterExpiredOwnerRelease === $replacementMutationLock
         && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === false,
     'An expired queue mutation lock must be replaceable without allowing its old owner to release the replacement.'
+);
+
+// A process can die after its URL-first CAS and before its text CAS. The stale
+// lock is the durable evidence that this window may have occurred. Its next
+// owner must reconcile every URL-only entry so it cannot permanently suppress
+// the later global WP Super Cache purge.
+warmResetEnvironment();
+$crashedUrl = 'https://example.com/fr/crashed-url-first/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|fr' => [$crashedUrl => ['Crash-window text']],
+], false);
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, [
+    'owner' => 'crashed-url-first-owner',
+    'expires' => time() - 1,
+], false);
+$crashRecoveryWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$afterCrashUrl = 'https://example.com/en/after-crash/';
+$crashRecoveryWarmer->enqueue(
+    ['Work after crashed enqueue'],
+    'de',
+    'en',
+    $afterCrashUrl
+);
+$crashRecoveryWarmer->run();
+$urlQueueAfterCrashRecovery = $readUrlQueue->invoke($crashRecoveryWarmer);
+warmAssert(
+    $crashRecoveryWarmer->pending() === []
+        && $urlQueueAfterCrashRecovery === []
+        && in_array($crashedUrl, $GLOBALS['_deepglot_purged_urls'], true)
+        && in_array($afterCrashUrl, $GLOBALS['_deepglot_purged_urls'], true)
+        && $GLOBALS['_deepglot_wp_super_cache_purges'] === 1,
+    'Expired mutation-lock recovery must purge URL-only crash residue before later work completes.'
 );
 
 // Provider work precedes the short mutation claim. If reconciliation later
