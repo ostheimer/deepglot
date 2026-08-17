@@ -579,7 +579,15 @@ class TranslationWarmer
             }
 
             if (!empty($translations)) {
-                $this->cache->setMany($translations, $sourceLang, $targetLang);
+                $stored = $this->cache->setMany($translations, $sourceLang, $targetLang);
+
+                foreach ($translations as $original => $_translated) {
+                    if (($stored[$original] ?? false) !== true) {
+                        // Provider work is complete only after its cache entry
+                        // is durable. Keep failed writes in both queues.
+                        $failed[] = $original;
+                    }
+                }
             }
 
             $untouched = $untouched || !empty($deferredBatches);

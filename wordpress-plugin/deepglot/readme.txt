@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.3
+Stable tag: 0.12.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,8 @@ Since version 0.12.0, ordinary page requests do not wait for a slow translation 
 
 Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII-safe storage envelope. This preserves valid Unicode, including emoji, even on legacy WordPress option tables that cannot store four-byte UTF-8 directly. Existing queue arrays migrate automatically; damaged queue data is rejected without being overwritten or deleted during disabled cleanup. A separate short atomic lock couples text and URL queue reconciliation with cache purging, and lease fencing stops stale owners from committing only one side. Translation-provider requests remain outside that lock. If a cold render cannot durably enqueue both sides, its source-language response is marked non-cacheable so a later request can retry.
 
+Since version 0.12.4, translated cache values also use a separate versioned, checksummed ASCII-safe key space. Existing plain-string cache entries remain readable. A cache write counts as complete only after an exact readback; failed writes stay queued, their page cache is not purged, and inline responses remain non-cacheable until the translation is durable.
+
 When every attempted SaaS provider returns only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can recover both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra split path.
 
 = How do I translate existing pages without opening every URL? =
@@ -81,6 +83,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.4 =
+* Preserved translated cache values containing emoji or other four-byte Unicode on legacy three-byte WordPress option tables.
+* Kept existing plain-string cache entries readable through a separate versioned key space with canonical Base64URL and key-bound integrity checks.
+* Retained failed cache writes in the background text and URL queues and prevented incomplete inline results from entering full-page caches.
 
 = 0.12.3 =
 * Preserved background text and URL queues containing emoji or other four-byte Unicode on legacy WordPress option tables through an ASCII-safe, checksummed storage envelope.
@@ -152,6 +159,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.4 =
+Prevents paid translations containing emoji from being dropped when WordPress transients use a legacy three-byte database table.
 
 = 0.12.3 =
 Prevents valid emoji and other four-byte Unicode from stalling background translation queues on sites with legacy WordPress database encodings.

@@ -134,7 +134,7 @@ class DeepglotJsonLdNullCache extends TranslationCache
         return [];
     }
 
-    public function setMany(array $translations, string $from, string $to): void {}
+    public function setMany(array $translations, string $from, string $to): array { return array_fill_keys(array_keys($translations), true); }
 }
 
 function jsonLdAssert(bool $condition, string $message): void

@@ -277,9 +277,11 @@ class DynamicFakeCache extends TranslationCache
         return $out;
     }
 
-    public function setMany(array $translations, string $sourceLang, string $targetLang): void
+    public function setMany(array $translations, string $sourceLang, string $targetLang): array
     {
         $this->saved = $translations;
+
+        return array_fill_keys(array_keys($translations), true);
     }
 }
 

@@ -319,15 +319,6 @@ class HtmlTranslator
             $deferred,
             static fn(string $text): bool => $text !== ''
         )));
-        $this->lastPendingSegmentCount = count($deferred);
-
-        // Bot traffic is served cache-only (issue #147) and must never trigger
-        // quota spend, so crawlers observe but never fill the warm queue.
-        if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
-            if (!$this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl)) {
-                $this->markResponseNonCacheable();
-            }
-        }
 
         // Persist new translations in cache. On bot requests the SaaS is
         // cache-only: uncached words come back as identity mappings
@@ -346,7 +337,32 @@ class HtmlTranslator
         }
 
         if (!empty($cacheable)) {
-            $this->cache->setMany($cacheable, $sourceLang, $targetLanguage);
+            $stored = $this->cache->setMany($cacheable, $sourceLang, $targetLanguage);
+            $cacheFailures = [];
+
+            foreach ($cacheable as $original => $_translated) {
+                if (($stored[$original] ?? false) !== true) {
+                    $cacheFailures[] = $original;
+                }
+            }
+
+            if (!empty($cacheFailures)) {
+                // The response may contain the provider result, but it is not
+                // durable. Do not let a full-page cache turn that transient
+                // result into an unbounded cache entry; retry it via warming.
+                $deferred = array_values(array_unique(array_merge($deferred, $cacheFailures)));
+                $this->markResponseNonCacheable();
+            }
+        }
+
+        $this->lastPendingSegmentCount = count($deferred);
+
+        // Bot traffic is served cache-only (issue #147) and must never trigger
+        // quota spend, so crawlers observe but never fill the warm queue.
+        if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
+            if (!$this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl)) {
+                $this->markResponseNonCacheable();
+            }
         }
 
         $all = array_merge($cached, $apiResults);

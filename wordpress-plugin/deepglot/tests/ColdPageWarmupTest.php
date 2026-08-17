@@ -708,11 +708,23 @@ class DeepglotWarmArrayCache extends TranslationCache
         return $hits;
     }
 
-    public function setMany(array $translations, string $from, string $to): void
+    public function setMany(array $translations, string $from, string $to): array
     {
+        $results = [];
         foreach ($translations as $original => $translated) {
             $this->entries[$from . '|' . $to . '|' . $original] = $translated;
+            $results[$original] = true;
         }
+
+        return $results;
+    }
+}
+
+class DeepglotWarmWriteFailCache extends DeepglotWarmArrayCache
+{
+    public function setMany(array $translations, string $from, string $to): array
+    {
+        return array_fill_keys(array_keys($translations), false);
     }
 }
 
@@ -2008,6 +2020,57 @@ $warmer->run();
 warmAssert(
     ($warmer->pending()['de|en'] ?? []) === ['Beta'],
     'Texts omitted from a partial successful response must remain queued.'
+);
+
+// A provider result is not complete until the cache write is durable. Losing
+// it here would also incorrectly clear the URL-specific page-cache work.
+warmResetEnvironment();
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmWriteFailCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$warmer->enqueue(['Durable cache retry'], 'de', 'en', 'https://example.com/en/durable-cache-retry/');
+$warmer->run();
+
+warmAssert(
+    ($warmer->pending()['de|en'] ?? []) === ['Durable cache retry'],
+    'Provider results with failed cache writes must remain in the text queue.'
+);
+warmAssert(
+    get_option(TranslationWarmer::URL_QUEUE_OPTION, false) !== false,
+    'Provider results with failed cache writes must remain in the URL queue.'
+);
+warmAssert(
+    !in_array('https://example.com/en/durable-cache-retry/', $GLOBALS['_deepglot_purged_urls'], true),
+    'A page must not be purged as complete when its translated cache value was not durable.'
+);
+
+// Inline provider results are usable for this response but must be re-enqueued
+// and kept out of full-page caches when their translation-cache write fails.
+warmResetEnvironment();
+add_filter('deepglot_max_sync_batches', static fn() => 1);
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmWriteFailCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$translator = new HtmlTranslator($client, $options, $cache, null, $warmer);
+$rendered = $translator->translate(
+    '<p>Inline durable cache retry</p>',
+    'en',
+    'https://example.com/en/inline-durable-cache-retry/',
+    BotDetector::HUMAN
+);
+
+warmAssert(
+    str_contains($rendered, '[en] Inline durable cache retry'),
+    'The immediate response may still use the provider result when its cache write fails.'
+);
+warmAssert(
+    ($warmer->pending()['de|en'] ?? []) === ['Inline durable cache retry'],
+    'An inline cache-write failure must be re-enqueued for durable warming.'
+);
+warmAssert(
+    $translator->getLastPendingSegmentCount() === 1
+        && $GLOBALS['_deepglot_nocache_header_calls'] === 1,
+    'An inline cache-write failure must remain pending and mark the response non-cacheable.'
 );
 
 // A failure on one page must not keep URL-specific caches for an unrelated,
