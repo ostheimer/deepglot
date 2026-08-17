@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Config\Options;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
+use Deepglot\Support\WordPressInfrastructure;
 
 /**
  * Strips language prefixes from REQUEST_URI before WordPress routing
@@ -45,6 +46,7 @@ class RequestRouter
         add_filter('wp_redirect',      [$this, 'preventLanguageStrippingRedirect']);
         add_filter('wp_safe_redirect', [$this, 'preventLanguageStrippingRedirect']);
         add_filter('allowed_redirect_hosts', [$this, 'allowInternalRedirectHost'], 10, 2);
+        add_filter('redirection_url_target', [$this, 'localizeRedirectionTarget'], PHP_INT_MAX);
 
         // Redirect stale WPML-era source slugs before the translated response
         // is rendered, but after WordPress has resolved the canonical source.
@@ -161,6 +163,68 @@ class RequestRouter
         }
 
         return array_values(array_unique($hosts));
+    }
+
+    /** Keeps Redirection-plugin targets on the active translated site route. */
+    public function localizeRedirectionTarget(string $target): string
+    {
+        if ($this->currentLanguage === null) {
+            return $target;
+        }
+
+        $siteUrl = get_site_url();
+        $isRootRelative = str_starts_with($target, '/') && !str_starts_with($target, '//');
+        if (!$isRootRelative) {
+            $scheme = strtolower((string) wp_parse_url($target, PHP_URL_SCHEME));
+            $host = (string) wp_parse_url($target, PHP_URL_HOST);
+            $siteScheme = strtolower((string) wp_parse_url($siteUrl, PHP_URL_SCHEME));
+            $targetPort = wp_parse_url($target, PHP_URL_PORT);
+            $sitePort = wp_parse_url($siteUrl, PHP_URL_PORT);
+            $targetPort = is_int($targetPort) ? $targetPort : ($scheme === 'https' ? 443 : 80);
+            $sitePort = is_int($sitePort) ? $sitePort : ($siteScheme === 'https' ? 443 : 80);
+            if (
+                !in_array($scheme, ['http', 'https'], true)
+                || $host === ''
+                || !$this->routing->isInternalHost($host)
+                || $scheme !== $siteScheme
+                || $targetPort !== $sitePort
+            ) {
+                return $target;
+            }
+        }
+
+        $path = (string) wp_parse_url($target, PHP_URL_PATH);
+        $host = (string) wp_parse_url($target, PHP_URL_HOST);
+        $targetLanguage = $this->routing->detectLanguage($path !== '' ? $path : '/', $host);
+        if ($targetLanguage !== null && $targetLanguage !== strtolower($this->currentLanguage)) {
+            return $target;
+        }
+
+        $sitePath = rtrim((string) wp_parse_url($siteUrl, PHP_URL_PATH), '/');
+        $isWithinSitePath = $sitePath === ''
+            || $path === $sitePath
+            || str_starts_with($path, $sitePath . '/');
+        if (!$isWithinSitePath) {
+            return $target;
+        }
+
+        $path = $this->routing->getCanonicalPath(
+            $path !== '' ? $path : '/',
+            $targetLanguage ?? $this->currentLanguage
+        );
+        if ($sitePath !== '' && ($path === $sitePath || str_starts_with($path, $sitePath . '/'))) {
+            $path = (string) substr($path, strlen($sitePath));
+        }
+
+        $segments = array_values(array_filter(
+            explode('/', trim($path, '/')),
+            static fn(string $segment): bool => $segment !== ''
+        ));
+        if (WordPressInfrastructure::isInfrastructurePath($segments)) {
+            return $target;
+        }
+
+        return $this->routing->rewriteUrl($target, $this->currentLanguage);
     }
 
     /** Permanently redirects a stale localized slug to its configured target. */
