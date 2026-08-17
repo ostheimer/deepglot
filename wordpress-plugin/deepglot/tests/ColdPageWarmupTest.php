@@ -63,6 +63,7 @@ if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_after_get_option'] = null;
     $GLOBALS['_deepglot_after_get_transient'] = null;
     $GLOBALS['_deepglot_after_next_scheduled'] = null;
+    $GLOBALS['_deepglot_add_option_override'] = null;
 
     function get_option($key, $default = false) {
         $value = $GLOBALS['_deepglot_options'][$key] ?? $default;
@@ -80,6 +81,10 @@ if (!function_exists('get_option')) {
     }
 
     function add_option($key, $value, $deprecated = '', $autoload = true) {
+        $override = $GLOBALS['_deepglot_add_option_override'] ?? null;
+        if (is_callable($override)) {
+            return (bool) $override($key, $value, $autoload);
+        }
         if (array_key_exists($key, $GLOBALS['_deepglot_options'])) {
             return false;
         }
@@ -274,6 +279,10 @@ if (!function_exists('add_filter')) {
     }
 
     function rocket_clean_files($urls) {
+        $callback = $GLOBALS['_deepglot_during_rocket_clean_files'] ?? null;
+        if (is_callable($callback)) {
+            $callback($urls);
+        }
         $GLOBALS['_deepglot_purged_urls'] = array_merge(
             $GLOBALS['_deepglot_purged_urls'],
             is_array($urls) ? $urls : [$urls]
@@ -286,6 +295,10 @@ if (!function_exists('add_filter')) {
 
     function wp_cache_clear_cache() {
         $GLOBALS['_deepglot_wp_super_cache_purges']++;
+    }
+
+    function nocache_headers() {
+        $GLOBALS['_deepglot_nocache_header_calls']++;
     }
 }
 
@@ -331,6 +344,15 @@ class DeepglotWarmFakeWpError
         }
 
         return $this->data;
+    }
+}
+
+class DeepglotWarmQueueWakeupProbe
+{
+    public function __wakeup(): void
+    {
+        $GLOBALS['_deepglot_queue_wakeup_calls'] =
+            (int) ($GLOBALS['_deepglot_queue_wakeup_calls'] ?? 0) + 1;
     }
 }
 
@@ -744,11 +766,14 @@ function warmResetEnvironment(): void
     $GLOBALS['_deepglot_w3tc_purged_urls'] = [];
     $GLOBALS['_deepglot_litespeed_purged_urls'] = [];
     $GLOBALS['_deepglot_wp_super_cache_purges'] = 0;
+    $GLOBALS['_deepglot_during_rocket_clean_files'] = null;
+    $GLOBALS['_deepglot_nocache_header_calls'] = 0;
     $GLOBALS['_deepglot_transients'] = [];
     $GLOBALS['_deepglot_after_get_option'] = null;
     $GLOBALS['_deepglot_after_get_transient'] = null;
     $GLOBALS['_deepglot_after_next_scheduled'] = null;
     $GLOBALS['_deepglot_before_error_data'] = null;
+    $GLOBALS['_deepglot_add_option_override'] = null;
 
     foreach (array_keys($GLOBALS['_deepglot_options']) as $key) {
         if (
@@ -1134,6 +1159,797 @@ $warmer->enqueue(['Beta', 'Gamma'], 'de', 'en');
 warmAssert(
     ($warmer->pending()['de|en'] ?? []) === ['Alpha', 'Beta', 'Gamma'],
     'Repeated enqueues must deduplicate instead of piling up.'
+);
+
+// A legacy utf8 (three-byte) wp_options table rejects a serialized option
+// value containing a non-BMP character. Persist queue payloads in an
+// ASCII-safe envelope while exposing the original text through pending().
+warmResetEnvironment();
+$GLOBALS['_deepglot_add_option_override'] = static function (
+    string $key,
+    $value,
+    $autoload
+): bool {
+    if (preg_match('/[\x{10000}-\x{10FFFF}]/u', serialize($value)) === 1) {
+        return false;
+    }
+    if (array_key_exists($key, $GLOBALS['_deepglot_options'])) {
+        return false;
+    }
+    $GLOBALS['_deepglot_options'][$key] = $value;
+    return true;
+};
+$nonBmpWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$nonBmpText = 'Sehr zufrieden 😀';
+$nonBmpUrl = 'https://example.com/en/experience/';
+$nonBmpWarmer->enqueue([$nonBmpText], 'de', 'en', $nonBmpUrl);
+
+warmAssert(
+    ($nonBmpWarmer->pending()['de|en'] ?? []) === [$nonBmpText],
+    'A non-BMP source segment must remain durably queued on a legacy utf8 options table.'
+);
+$rawNonBmpQueue = $GLOBALS['_deepglot_options'][TranslationWarmer::QUEUE_OPTION] ?? null;
+$rawNonBmpUrls = $GLOBALS['_deepglot_options'][TranslationWarmer::URL_QUEUE_OPTION] ?? null;
+warmAssert(
+    is_string($rawNonBmpQueue)
+        && preg_match('/[^\x00-\x7F]/', $rawNonBmpQueue) !== 1
+        && is_string($rawNonBmpUrls)
+        && preg_match('/[^\x00-\x7F]/', $rawNonBmpUrls) !== 1,
+    'Text and URL warm queues must be stored in an ASCII-safe option envelope.'
+);
+$readUrlQueue = new ReflectionMethod(TranslationWarmer::class, 'readUrlQueue');
+warmAssert(
+    $readUrlQueue->invoke($nonBmpWarmer) === [
+        'de|en' => [$nonBmpUrl => [$nonBmpText]],
+    ],
+    'The ASCII-safe URL queue must expose the original URL and non-BMP text.'
+);
+
+// Existing sites already have native array options. Reading them must preserve
+// the public queue shape and opportunistically migrate the exact raw value into
+// the ASCII-safe envelope instead of requiring a manual reset.
+warmResetEnvironment();
+$legacyTextQueue = [
+    'de|en' => ['Legacy text', 'Legacy emoji 😀'],
+];
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyTextQueue, false);
+$legacyQueueWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+warmAssert(
+    $legacyQueueWarmer->pending() === $legacyTextQueue,
+    'A legacy native-array text queue must remain readable without data loss.'
+);
+$migratedTextQueue = get_option(TranslationWarmer::QUEUE_OPTION, false);
+warmAssert(
+    is_string($migratedTextQueue)
+        && preg_match('/[^\x00-\x7F]/', $migratedTextQueue) !== 1,
+    'Reading a legacy text queue must migrate it to the ASCII-safe envelope.'
+);
+
+// A damaged envelope is untrusted persistence data. Decoding must fail closed
+// without warnings, partial queue recovery, or an implicit overwrite.
+$corruptedTextQueue = substr($migratedTextQueue, 0, -1)
+    . (str_ends_with($migratedTextQueue, 'A') ? 'B' : 'A');
+update_option(TranslationWarmer::QUEUE_OPTION, $corruptedTextQueue, false);
+warmAssert(
+    $legacyQueueWarmer->pending() === []
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === $corruptedTextQueue,
+    'A corrupted text queue envelope must fail closed and remain recoverable.'
+);
+$legacyQueueWarmer->enqueue(
+    ['Must not replace damaged persistence'],
+    'de',
+    'en',
+    'https://example.com/en/damaged-queue/'
+);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $corruptedTextQueue,
+    'Enqueue must not silently overwrite a corrupted queue envelope.'
+);
+warmAssert(
+    get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === false,
+    'A rejected text-queue mutation must not leave a partial URL-queue write.'
+);
+
+warmResetEnvironment();
+$wrongTypeTextQueue = ['de|en' => 'not-a-text-list'];
+update_option(TranslationWarmer::QUEUE_OPTION, $wrongTypeTextQueue, false);
+$legacyQueueWarmer->enqueue(
+    ['Must not replace wrong-type persistence'],
+    'de',
+    'en',
+    'https://example.com/en/wrong-type-queue/'
+);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $wrongTypeTextQueue
+        && get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === false,
+    'Enqueue must preserve a wrong-type legacy queue and avoid partial URL writes.'
+);
+
+warmResetEnvironment();
+$urlIntegrityWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$urlIntegrityWarmer->enqueue(
+    ['Existing durable text'],
+    'de',
+    'en',
+    'https://example.com/en/existing/'
+);
+$textBeforeCorruptUrl = get_option(TranslationWarmer::QUEUE_OPTION, false);
+$validUrlBeforeCorruption = get_option(TranslationWarmer::URL_QUEUE_OPTION, false);
+$corruptedUrlQueue = substr($validUrlBeforeCorruption, 0, -1)
+    . (str_ends_with($validUrlBeforeCorruption, 'A') ? 'B' : 'A');
+update_option(TranslationWarmer::URL_QUEUE_OPTION, $corruptedUrlQueue, false);
+$urlIntegrityWarmer->enqueue(
+    ['Must not partially enter text queue'],
+    'de',
+    'en',
+    'https://example.com/en/corrupted-url-queue/'
+);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $textBeforeCorruptUrl
+        && get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === $corruptedUrlQueue,
+    'A corrupted URL queue must block both sides of an enqueue mutation.'
+);
+
+// If URL tracking loses every optimistic CAS race, the text must not commit
+// first and then remain unscheduled without its purge target. Repeated writes
+// to the URL option simulate another request winning between each read/CAS.
+warmResetEnvironment();
+$splitWriteWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$urlReadCount = 0;
+$raceUrlA = ['de|en' => ['https://example.com/en/race-a/']];
+$raceUrlB = ['de|en' => ['https://example.com/en/race-b/']];
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$urlReadCount,
+    $raceUrlA,
+    $raceUrlB
+): void {
+    if ($key !== TranslationWarmer::URL_QUEUE_OPTION) {
+        return;
+    }
+    $urlReadCount++;
+    if ($urlReadCount < 2) {
+        return;
+    }
+    update_option(
+        TranslationWarmer::URL_QUEUE_OPTION,
+        $urlReadCount % 2 === 0 ? $raceUrlA : $raceUrlB,
+        false
+    );
+};
+$splitWriteWarmer->enqueue(
+    ['Must stay coupled to its purge target'],
+    'de',
+    'en',
+    'https://example.com/en/split-write/'
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+warmAssert(
+    !in_array(
+        'Must stay coupled to its purge target',
+        $splitWriteWarmer->pending()['de|en'] ?? [],
+        true
+    ),
+    'An exhausted URL-queue CAS must not leave a text-only queue write behind.'
+);
+warmAssert(
+    !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'A rejected coupled enqueue must not claim that warm work was scheduled.'
+);
+
+// A previous cron run may reconcile and purge while a new frontend enqueue is
+// between its URL-first and text writes. The coupled mutation must prevent the
+// purge from treating the new URL tracking as already completed in that gap.
+warmResetEnvironment();
+$interleavedUrl = 'https://example.com/en/enqueue-purge-race/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|en' => [$interleavedUrl => ['Previously completed text']],
+], false);
+$interleavedWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$purgeCompletedUrls = new ReflectionMethod(TranslationWarmer::class, 'purgeCompletedUrls');
+$textQueueReadCount = 0;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$textQueueReadCount,
+    $interleavedWarmer,
+    $purgeCompletedUrls
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+    $textQueueReadCount++;
+    if ($textQueueReadCount !== 3) {
+        return;
+    }
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    $purgeCompletedUrls->invoke($interleavedWarmer, ['de|en']);
+};
+$interleavedWarmer->enqueue(
+    ['New text'],
+    'de',
+    'en',
+    $interleavedUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+$interleavedUrlsAfter = $readUrlQueue->invoke($interleavedWarmer);
+warmAssert(
+    ($interleavedWarmer->pending()['de|en'] ?? []) === ['New text']
+        && ($interleavedUrlsAfter['de|en'][$interleavedUrl] ?? []) === [
+            'Previously completed text',
+            'New text',
+        ]
+        && !in_array($interleavedUrl, $GLOBALS['_deepglot_purged_urls'], true),
+    'An in-flight purge must not split a URL-first enqueue before its text write.'
+);
+
+// Disabling the plugin (or removing its key) clears both queues. That cleanup
+// must use the same short mutation lock: otherwise it can delete URL tracking
+// after the URL-first CAS but before the corresponding text CAS commits.
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_disable_race',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$disableRaceWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$disableRaceIdentity = warmRateIdentity($options);
+$disableRaceUrl = 'https://example.com/en/disable-race/';
+$disableRaceQueueReads = 0;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$disableRaceQueueReads,
+    $disableRaceWarmer,
+    $disableRaceIdentity
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+
+    $disableRaceQueueReads++;
+    if ($disableRaceQueueReads !== 3) {
+        return;
+    }
+
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+        'enabled' => false,
+        'api_key' => 'dg_disable_race',
+        'source_language' => 'de',
+        'target_languages' => ['en'],
+    ]));
+    $disableRaceWarmer->runForIdentity($disableRaceIdentity);
+};
+$disableRaceWarmer->enqueue(
+    ['New text during disable'],
+    'de',
+    'en',
+    $disableRaceUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+$disableRacePending = $disableRaceWarmer->pending();
+$disableRaceUrls = $readUrlQueue->invoke($disableRaceWarmer);
+warmAssert(
+    (($disableRacePending['de|en'] ?? []) === ['New text during disable'])
+        === (($disableRaceUrls['de|en'][$disableRaceUrl] ?? []) === ['New text during disable']),
+    'Configuration cleanup must not split an in-flight URL/text enqueue mutation.'
+);
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_test_key',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+
+// The queue mutation lock is a separate, short owner claim. A live owner wins,
+// a stale owner may be replaced atomically, and neither an old nor an unrelated
+// owner may release the replacement.
+warmResetEnvironment();
+$mutationLockWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$acquireMutationLock = new ReflectionMethod(TranslationWarmer::class, 'acquireMutationLock');
+$releaseMutationLock = new ReflectionMethod(TranslationWarmer::class, 'releaseMutationLock');
+$firstMutationOwner = $acquireMutationLock->invoke($mutationLockWarmer);
+$firstMutationLock = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+$contendingMutationOwner = $acquireMutationLock->invoke($mutationLockWarmer);
+$releaseMutationLock->invoke($mutationLockWarmer, 'not-the-owner');
+warmAssert(
+    is_string($firstMutationOwner)
+        && $firstMutationOwner !== ''
+        && $contendingMutationOwner === null
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === $firstMutationLock,
+    'A live queue mutation owner must reject contention and survive an unrelated release.'
+);
+
+$expiredMutationLock = [
+    'owner' => 'expired-owner',
+    'expires' => time() - 1,
+];
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $expiredMutationLock, false);
+$replacementMutationOwner = $acquireMutationLock->invoke($mutationLockWarmer);
+$replacementMutationLock = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+$releaseMutationLock->invoke($mutationLockWarmer, 'expired-owner');
+$afterExpiredOwnerRelease = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+$releaseMutationLock->invoke($mutationLockWarmer, (string) $replacementMutationOwner);
+warmAssert(
+    is_string($replacementMutationOwner)
+        && $replacementMutationOwner !== ''
+        && is_array($replacementMutationLock)
+        && ($replacementMutationLock['owner'] ?? null) === $replacementMutationOwner
+        && $afterExpiredOwnerRelease === $replacementMutationLock
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === false,
+    'An expired queue mutation lock must be replaceable without allowing its old owner to release the replacement.'
+);
+
+// A cold render that loses the short mutation lock has no durable queue entry.
+// Its source-language response must therefore be explicitly non-cacheable so a
+// later visitor or controlled URL sync can retry instead of pinning that page.
+warmResetEnvironment();
+$busyLockWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$busyLockTranslator = new HtmlTranslator(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache(),
+    null,
+    $busyLockWarmer
+);
+$busyForeignLock = [
+    'owner' => 'busy-cold-render-owner',
+    'expires' => time() + TranslationWarmer::MUTATION_LOCK_TTL,
+];
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $busyForeignLock, false);
+$busyLockTranslator->translate(
+    '<!DOCTYPE html><html><body><p>Cold lock contention text</p></body></html>',
+    'en',
+    'https://example.com/en/busy-lock/',
+    BotDetector::HUMAN
+);
+warmAssert(
+    $busyLockWarmer->pending() === []
+        && $readUrlQueue->invoke($busyLockWarmer) === []
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === $busyForeignLock
+        && $busyLockTranslator->getLastPendingSegmentCount() === 1
+        && $GLOBALS['_deepglot_nocache_header_calls'] === 1,
+    'A cold response whose coupled enqueue loses the mutation lock must be marked non-cacheable.'
+);
+
+// Even without slow recovery, an enqueue can pause after its URL-first CAS.
+// If the lease expires and a foreign owner takes over, the stale request must
+// not commit text under a lock it no longer owns.
+warmResetEnvironment();
+$lostLeaseWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$lostLeaseUrl = 'https://example.com/en/lost-before-text-cas/';
+$lostLeaseForeignOwner = [
+    'owner' => 'foreign-before-text-cas',
+    'expires' => time() + TranslationWarmer::MUTATION_LOCK_TTL,
+];
+$lostLeaseQueueReads = 0;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$lostLeaseQueueReads,
+    $lostLeaseForeignOwner
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+
+    $lostLeaseQueueReads++;
+    if ($lostLeaseQueueReads !== 3) {
+        return;
+    }
+
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $lostLeaseForeignOwner, false);
+};
+$lostLeaseAccepted = $lostLeaseWarmer->enqueue(
+    ['Must not commit after lease loss'],
+    'de',
+    'en',
+    $lostLeaseUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+warmAssert(
+    $lostLeaseAccepted === false
+        && $lostLeaseWarmer->pending() === []
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === $lostLeaseForeignOwner,
+    'A stale enqueue owner must revalidate its lease before committing the text queue.'
+);
+
+// The replacement owner may enqueue the exact same URL and text while the old
+// request resumes. Payload equality is not ownership: after losing its lease,
+// the old request must not compensate by deleting the new owner's URL entry.
+warmResetEnvironment();
+$identicalText = 'Identical takeover text';
+$identicalUrl = 'https://example.com/en/identical-takeover/';
+$oldTakeoverWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$newTakeoverWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$identicalQueueReads = 0;
+$newOwnerAccepted = null;
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use (
+    &$identicalQueueReads,
+    &$newOwnerAccepted,
+    $newTakeoverWarmer,
+    $identicalText,
+    $identicalUrl
+): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+
+    $identicalQueueReads++;
+    if ($identicalQueueReads !== 3) {
+        return;
+    }
+
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    $oldLock = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+    if (is_array($oldLock)) {
+        $oldLock['expires'] = time() - 1;
+        update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $oldLock, false);
+    }
+    $newOwnerAccepted = $newTakeoverWarmer->enqueue(
+        [$identicalText],
+        'de',
+        'en',
+        $identicalUrl
+    );
+};
+$oldOwnerAccepted = $oldTakeoverWarmer->enqueue(
+    [$identicalText],
+    'de',
+    'en',
+    $identicalUrl
+);
+$GLOBALS['_deepglot_after_get_option'] = null;
+$identicalUrlsAfterTakeover = $readUrlQueue->invoke($newTakeoverWarmer);
+warmAssert(
+    $oldOwnerAccepted === false
+        && $newOwnerAccepted === true
+        && ($newTakeoverWarmer->pending()['de|en'] ?? []) === [$identicalText]
+        && ($identicalUrlsAfterTakeover['de|en'][$identicalUrl] ?? []) === [$identicalText],
+    'A stale owner must not delete an identical URL entry committed by its replacement.'
+);
+
+// A process can die after its URL-first CAS and before its text CAS. The stale
+// lock is the durable evidence that this window may have occurred. Its next
+// owner must reconcile every URL-only entry so it cannot permanently suppress
+// the later global WP Super Cache purge.
+warmResetEnvironment();
+$crashedUrl = 'https://example.com/fr/crashed-url-first/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|fr' => [$crashedUrl => ['Crash-window text']],
+], false);
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, [
+    'owner' => 'crashed-url-first-owner',
+    'expires' => time() - 1,
+], false);
+$crashRecoveryWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$afterCrashUrl = 'https://example.com/en/after-crash/';
+$crashRecoveryWarmer->enqueue(
+    ['Work after crashed enqueue'],
+    'de',
+    'en',
+    $afterCrashUrl
+);
+$crashRecoveryWarmer->run();
+$urlQueueAfterCrashRecovery = $readUrlQueue->invoke($crashRecoveryWarmer);
+warmAssert(
+    $crashRecoveryWarmer->pending() === []
+        && $urlQueueAfterCrashRecovery === []
+        && in_array($crashedUrl, $GLOBALS['_deepglot_purged_urls'], true)
+        && in_array($afterCrashUrl, $GLOBALS['_deepglot_purged_urls'], true)
+        && $GLOBALS['_deepglot_wp_super_cache_purges'] === 1,
+    'Expired mutation-lock recovery must purge URL-only crash residue before later work completes.'
+);
+
+// Recovery may call third-party cache integrations. If that work outlives the
+// 15-second lease and another request replaces the owner, acquire must not hand
+// the stale owner back to code that will mutate both queues.
+warmResetEnvironment();
+$leaseLossUrl = 'https://example.com/fr/recovery-lease-loss/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|fr' => [$leaseLossUrl => ['Lease-loss crash text']],
+], false);
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, [
+    'owner' => 'expired-before-slow-recovery',
+    'expires' => time() - 1,
+], false);
+$leaseLossWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$foreignOwnerAfterRecovery = [
+    'owner' => 'new-foreign-owner',
+    'expires' => time() + TranslationWarmer::MUTATION_LOCK_TTL,
+];
+$replacedDuringRecovery = false;
+$GLOBALS['_deepglot_during_rocket_clean_files'] = static function () use (
+    &$replacedDuringRecovery,
+    $foreignOwnerAfterRecovery
+): void {
+    $replacedDuringRecovery = true;
+    update_option(
+        TranslationWarmer::MUTATION_LOCK_OPTION,
+        $foreignOwnerAfterRecovery,
+        false
+    );
+};
+$ownerReturnedAfterRecovery = $acquireMutationLock->invoke($leaseLossWarmer);
+$GLOBALS['_deepglot_during_rocket_clean_files'] = null;
+$actualOwnerAfterRecovery = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+warmAssert(
+    $replacedDuringRecovery
+        && $actualOwnerAfterRecovery === $foreignOwnerAfterRecovery
+        && $ownerReturnedAfterRecovery === null,
+    'A stale owner lost during crash recovery must never be returned as the current mutation owner.'
+);
+
+// Provider work precedes the short mutation claim. If reconciliation later
+// contends, translated cache data remains useful while both queues stay intact
+// and a bounded delayed retry replaces the current cron event.
+warmResetEnvironment();
+$providerLockClient = new DeepglotWarmFakeClient();
+$mutationLockDuringProvider = null;
+$providerLockClient->duringBatchCall = static function () use (&$mutationLockDuringProvider): void {
+    $mutationLockDuringProvider = get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false);
+};
+$providerLockWarmer = new TranslationWarmer(
+    $providerLockClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$providerLockUrl = 'https://example.com/en/provider-lock-boundary/';
+$providerLockWarmer->enqueue(['Provider lock boundary'], 'de', 'en', $providerLockUrl);
+$providerLockWarmer->run();
+warmAssert(
+    $providerLockClient->translateBatchesCalls === 1
+        && $mutationLockDuringProvider === false
+        && in_array($providerLockUrl, $GLOBALS['_deepglot_purged_urls'], true),
+    'Warm provider work must finish before the short queue mutation lock is acquired.'
+);
+
+warmResetEnvironment();
+$contendedDrainClient = new DeepglotWarmFakeClient();
+$contendedDrainWarmer = new TranslationWarmer(
+    $contendedDrainClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$contendedDrainUrl = 'https://example.com/en/contended-reconciliation/';
+$contendedDrainWarmer->enqueue(['Contended reconciliation'], 'de', 'en', $contendedDrainUrl);
+$foreignMutationLock = [
+    'owner' => 'foreign-enqueue',
+    'expires' => time() + TranslationWarmer::MUTATION_LOCK_TTL,
+];
+update_option(TranslationWarmer::MUTATION_LOCK_OPTION, $foreignMutationLock, false);
+$beforeMutationRetry = time();
+$contendedDrainWarmer->run();
+$contendedDrainUrls = $readUrlQueue->invoke($contendedDrainWarmer);
+$mutationRetryAt = (int) ($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK] ?? 0);
+warmAssert(
+    $contendedDrainClient->translateBatchesCalls === 1
+        && ($contendedDrainWarmer->pending()['de|en'] ?? []) === ['Contended reconciliation']
+        && ($contendedDrainUrls['de|en'][$contendedDrainUrl] ?? []) === ['Contended reconciliation']
+        && get_option(TranslationWarmer::MUTATION_LOCK_OPTION, false) === $foreignMutationLock
+        && !in_array($contendedDrainUrl, $GLOBALS['_deepglot_purged_urls'], true)
+        && $mutationRetryAt >= $beforeMutationRetry + 4
+        && $mutationRetryAt <= $beforeMutationRetry + 6,
+    'A contended drain must preserve both queues and the foreign lock while scheduling a bounded reconciliation retry.'
+);
+
+$GLOBALS['_deepglot_queue_wakeup_calls'] = 0;
+$encodeQueueOption = new ReflectionMethod(TranslationWarmer::class, 'encodeQueueOption');
+$objectEnvelope = $encodeQueueOption->invoke(
+    $legacyQueueWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    ['de|en' => [new DeepglotWarmQueueWakeupProbe()]]
+);
+update_option(TranslationWarmer::QUEUE_OPTION, $objectEnvelope, false);
+warmAssert(
+    $legacyQueueWarmer->pending() === []
+        && $GLOBALS['_deepglot_queue_wakeup_calls'] === 0,
+    'Queue envelope decoding must reject objects without invoking their wakeup hooks.'
+);
+
+// Migration is a compare-and-set against the exact legacy raw value. A writer
+// that wins after the read must survive instead of being replaced by the stale
+// migration snapshot.
+warmResetEnvironment();
+$legacyRaceA = ['de|en' => ['Legacy snapshot A']];
+$legacyRaceB = ['de|en' => ['Concurrent snapshot B']];
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyRaceA, false);
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use ($legacyRaceB): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(TranslationWarmer::QUEUE_OPTION, $legacyRaceB, false);
+};
+$legacyQueueWarmer->pending();
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyRaceB,
+    'Legacy migration must not overwrite a concurrent queue writer.'
+);
+
+// wp_options normally compares LONGTEXT under a case-insensitive collation.
+// A case-only concurrent change therefore needs an explicit byte-exact SQL
+// predicate; ordinary $wpdb->update() can match and replace the newer value.
+warmResetEnvironment();
+$legacyCaseA = ['de|en' => ['Alpha']];
+$legacyCaseB = ['de|en' => ['alpha']];
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseA, false);
+$GLOBALS['_deepglot_after_get_option'] = static function ($key, $value) use ($legacyCaseB): void {
+    if ($key !== TranslationWarmer::QUEUE_OPTION) {
+        return;
+    }
+    $GLOBALS['_deepglot_after_get_option'] = null;
+    update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseB, false);
+};
+$GLOBALS['wpdb'] = new class {
+    public string $options = 'wp_options';
+    public bool $usedBinaryComparison = false;
+    /** @var mixed[] */
+    private array $preparedArgs = [];
+
+    public function update($table, $data, $where, $format = null, $whereFormat = null): int
+    {
+        $actual = get_option($where['option_name'], false);
+        $actualStored = is_array($actual) || is_object($actual)
+            ? serialize($actual)
+            : (string) $actual;
+        if (strcasecmp($actualStored, (string) $where['option_value']) !== 0) {
+            return 0;
+        }
+        update_option($where['option_name'], $data['option_value'], false);
+        return 1;
+    }
+
+    public function delete($table, $where, $whereFormat = null): int
+    {
+        return 0;
+    }
+
+    public function prepare($query, ...$args): string
+    {
+        $this->usedBinaryComparison = stripos((string) $query, 'binary') !== false;
+        $this->preparedArgs = $args;
+        return (string) $query;
+    }
+
+    public function query($query): int
+    {
+        if (!$this->usedBinaryComparison || count($this->preparedArgs) < 2) {
+            return 0;
+        }
+        if (count($this->preparedArgs) === 2) {
+            [$option, $expected] = $this->preparedArgs;
+            $next = null;
+        } else {
+            [$next, $option, $expected] = $this->preparedArgs;
+        }
+        $actual = get_option((string) $option, false);
+        $actualStored = is_array($actual) || is_object($actual)
+            ? serialize($actual)
+            : (string) $actual;
+        if (!hash_equals((string) $expected, $actualStored)) {
+            return 0;
+        }
+        if (count($this->preparedArgs) === 2) {
+            delete_option((string) $option);
+        } else {
+            update_option((string) $option, $next, false);
+        }
+        return 1;
+    }
+};
+$caseRaceWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$caseRaceWarmer->pending();
+$caseRaceUsedBinary = $GLOBALS['wpdb']->usedBinaryComparison;
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyCaseB
+        && $caseRaceUsedBinary,
+    'Legacy queue migration must compare the expected option bytes exactly.'
+);
+
+$compareAndStoreQueue = new ReflectionMethod(TranslationWarmer::class, 'compareAndStoreOption');
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseB, false);
+$caseOnlyDeleteResult = $compareAndStoreQueue->invoke(
+    $caseRaceWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    $legacyCaseA,
+    []
+);
+warmAssert(
+    $caseOnlyDeleteResult === false
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === $legacyCaseB,
+    'Queue deletion CAS must not match a case-only concurrent option value.'
+);
+update_option(TranslationWarmer::QUEUE_OPTION, $legacyCaseA, false);
+$exactDeleteResult = $compareAndStoreQueue->invoke(
+    $caseRaceWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    $legacyCaseA,
+    []
+);
+$caseRaceUsedBinaryDelete = $GLOBALS['wpdb']->usedBinaryComparison;
+unset($GLOBALS['wpdb']);
+warmAssert(
+    $exactDeleteResult === true
+        && get_option(TranslationWarmer::QUEUE_OPTION, false) === false
+        && $caseRaceUsedBinaryDelete,
+    'Queue deletion CAS must delete one byte-exact expected option value.'
+);
+
+// Legacy URL queues used a language-pair => URL[] shape. The reader still
+// normalizes that wildcard shape and migrates the raw option atomically.
+warmResetEnvironment();
+$legacyUrl = 'https://example.com/en/legacy-page/';
+update_option(TranslationWarmer::URL_QUEUE_OPTION, [
+    'de|en' => [$legacyUrl],
+], false);
+$legacyUrlWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$normalizedLegacyUrls = $readUrlQueue->invoke($legacyUrlWarmer);
+warmAssert(
+    $normalizedLegacyUrls === ['de|en' => [$legacyUrl => []]],
+    'A legacy URL list must retain its backward-compatible wildcard semantics.'
+);
+$migratedUrlQueue = get_option(TranslationWarmer::URL_QUEUE_OPTION, false);
+warmAssert(
+    is_string($migratedUrlQueue)
+        && preg_match('/[^\x00-\x7F]/', $migratedUrlQueue) !== 1,
+    'Reading a legacy URL queue must migrate it to the ASCII-safe envelope.'
 );
 
 // -----------------------------------------------------------------------------
@@ -2093,6 +2909,58 @@ foreach (['disabled', 'missing-key'] as $unconfiguredState) {
         )
     );
 }
+
+// Disabled cleanup must retain the exact raw evidence when either persisted
+// queue envelope is damaged. Deleting one or both would defeat fail-closed
+// backup/repair and could split otherwise recoverable queue state.
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_corrupt_cleanup',
+    'api_base_url' => 'https://corrupt-cleanup.deepglot.test/api',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$corruptCleanupWarmer = new TranslationWarmer(
+    new DeepglotWarmFakeClient(),
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$corruptCleanupIdentity = warmRateIdentity($options);
+$encodeQueueOptionForCleanup = new ReflectionMethod(TranslationWarmer::class, 'encodeQueueOption');
+$validCleanupQueue = $encodeQueueOptionForCleanup->invoke(
+    $corruptCleanupWarmer,
+    TranslationWarmer::QUEUE_OPTION,
+    ['de|en' => ['Recoverable queue text']]
+);
+$corruptCleanupQueue = substr($validCleanupQueue, 0, -1)
+    . (str_ends_with($validCleanupQueue, 'A') ? 'B' : 'A');
+$validCleanupUrls = $encodeQueueOptionForCleanup->invoke(
+    $corruptCleanupWarmer,
+    TranslationWarmer::URL_QUEUE_OPTION,
+    ['de|en' => ['https://example.com/en/recoverable/' => ['Recoverable queue text']]]
+);
+update_option(TranslationWarmer::QUEUE_OPTION, $corruptCleanupQueue, false);
+update_option(TranslationWarmer::URL_QUEUE_OPTION, $validCleanupUrls, false);
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => false,
+    'api_key' => 'dg_corrupt_cleanup',
+    'api_base_url' => 'https://corrupt-cleanup.deepglot.test/api',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
+$corruptCleanupWarmer->runForIdentity($corruptCleanupIdentity);
+warmAssert(
+    get_option(TranslationWarmer::QUEUE_OPTION, false) === $corruptCleanupQueue
+        && get_option(TranslationWarmer::URL_QUEUE_OPTION, false) === $validCleanupUrls,
+    'Disabled cleanup must preserve both queues when either persisted envelope is malformed.'
+);
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_test_key',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+]));
 
 // -----------------------------------------------------------------------------
 // 28. A rate-limit retry time read for configuration A must not be rebound to
