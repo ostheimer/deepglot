@@ -11,6 +11,7 @@ use Deepglot\Frontend\AvadaLiveSearchCompat;
 use Deepglot\Frontend\BrowserRedirector;
 use Deepglot\Frontend\DynamicAssets;
 use Deepglot\Frontend\DynamicTranslationController;
+use Deepglot\Frontend\DynamicUrlLocalizer;
 use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
@@ -314,8 +315,13 @@ class Plugin
             return new DynamicTranslationController(
                 $c->get(Options::class),
                 $c->get(Client::class),
-                $c->get(TranslationCache::class)
+                $c->get(TranslationCache::class),
+                $c->get(DynamicUrlLocalizer::class)
             );
+        });
+
+        $this->container->singleton(DynamicUrlLocalizer::class, function (Container $c) {
+            return new DynamicUrlLocalizer($c->get(SiteRouting::class));
         });
 
         $this->container->singleton(DynamicAssets::class, function (Container $c) {

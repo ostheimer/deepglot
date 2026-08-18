@@ -43,17 +43,73 @@ if (!function_exists('get_query_var')) {
     function get_query_var($key, $default = '') { return $GLOBALS['_deepglot_sitemap_query'][$key] ?? $default; }
 }
 if (!function_exists('get_post_types')) {
-    function get_post_types($args = [], $output = 'names') { return ['post', 'page', 'attachment']; }
-    function get_posts($args = []) { return [11, 12, 13]; }
+    $GLOBALS['_deepglot_sitemap_post_type_queries'] = [];
+    $GLOBALS['_deepglot_sitemap_taxonomy_queries'] = [];
+    $GLOBALS['_deepglot_sitemap_post_queries'] = [];
+    $GLOBALS['_deepglot_sitemap_term_queries'] = [];
+
+    function get_post_types($args = [], $output = 'names') {
+        $GLOBALS['_deepglot_sitemap_post_type_queries'][] = $args;
+        $types = [
+            'post' => ['public' => true, 'publicly_queryable' => true],
+            'page' => ['public' => true, 'publicly_queryable' => true],
+            'attachment' => ['public' => true, 'publicly_queryable' => true],
+            'builder-template' => ['public' => true, 'publicly_queryable' => false],
+        ];
+
+        return array_keys(array_filter($types, static function (array $properties) use ($args): bool {
+            foreach ($args as $property => $expected) {
+                if (($properties[$property] ?? null) !== $expected) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    function get_posts($args = []) {
+        $GLOBALS['_deepglot_sitemap_post_queries'][] = $args['post_type'] ?? '';
+
+        return [11, 12, 13];
+    }
     function get_permalink($postId) {
         if ($postId === 12) return 'https://evil.example/phishing/';
         if ($postId === 13) return 'javascript:alert(1)';
         return 'https://example.com/news/?topic=a&sort=1';
     }
     function get_post_modified_time($format, $gmt, $postId) { return '2026-07-13T08:00:00+00:00'; }
-    function get_taxonomies($args = [], $output = 'names') { return ['category']; }
-    function get_terms($args = []) { return [(object) ['term_id' => 21], (object) ['term_id' => 22]]; }
-    function get_term_link($term) { return $term->term_id === 21 ? 'https://example.com/category/tipps/' : 'https://tracker.example/category/ads/'; }
+    function get_taxonomies($args = [], $output = 'names') {
+        $GLOBALS['_deepglot_sitemap_taxonomy_queries'][] = $args;
+        $taxonomies = [
+            'category' => ['public' => true, 'publicly_queryable' => true],
+            'element_category' => ['public' => true, 'publicly_queryable' => false],
+            'slide-page' => ['public' => true, 'publicly_queryable' => false],
+        ];
+
+        return array_keys(array_filter($taxonomies, static function (array $properties) use ($args): bool {
+            foreach ($args as $property => $expected) {
+                if (($properties[$property] ?? null) !== $expected) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    function get_terms($args = []) {
+        $GLOBALS['_deepglot_sitemap_term_queries'][] = $args['taxonomy'] ?? '';
+        if (($args['taxonomy'] ?? '') === 'element_category') return [(object) ['term_id' => 23]];
+        if (($args['taxonomy'] ?? '') === 'slide-page') return [(object) ['term_id' => 24]];
+        return [(object) ['term_id' => 21], (object) ['term_id' => 22]];
+    }
+    function get_term_link($term) {
+        if ($term->term_id === 21) return 'https://example.com/category/tipps/';
+        if ($term->term_id === 23) return 'https://example.com/element_category/sections/';
+        if ($term->term_id === 24) return 'https://example.com/slide-page/juvenis-infoscreen/';
+        return 'https://tracker.example/category/ads/';
+    }
 }
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_options'] = [];
@@ -126,6 +182,27 @@ $collected = $pathSitemap->collectSourceEntries();
 $collectedJson = json_encode($collected, JSON_UNESCAPED_SLASHES);
 sitemapAssert(str_contains($collectedJson, 'example.com/news'), 'Published internal permalink is collected');
 sitemapAssert(str_contains($collectedJson, 'example.com/category/tipps'), 'Internal public taxonomy term is collected');
+sitemapAssert(!str_contains($collectedJson, '/slide-page/'), 'Builder-internal slide pages are excluded from the multilingual sitemap');
+sitemapAssert(!str_contains($collectedJson, '/element_category/'), 'Builder-internal element categories are excluded from the multilingual sitemap');
+sitemapAssert(
+    $GLOBALS['_deepglot_sitemap_post_type_queries'][0] === ['public' => true, 'publicly_queryable' => true],
+    'Discovery requires public and publicly queryable post types.'
+);
+sitemapAssert(
+    $GLOBALS['_deepglot_sitemap_taxonomy_queries'][0] === ['public' => true, 'publicly_queryable' => true],
+    'Discovery requires public and publicly queryable taxonomies.'
+);
+sitemapAssert(
+    in_array('post', $GLOBALS['_deepglot_sitemap_post_queries'], true)
+        && !in_array('builder-template', $GLOBALS['_deepglot_sitemap_post_queries'], true),
+    'Non-queryable public post types are never queried while ordinary posts remain discoverable.'
+);
+sitemapAssert(
+    in_array('category', $GLOBALS['_deepglot_sitemap_term_queries'], true)
+        && !in_array('element_category', $GLOBALS['_deepglot_sitemap_term_queries'], true)
+        && !in_array('slide-page', $GLOBALS['_deepglot_sitemap_term_queries'], true),
+    'Non-queryable public taxonomies are never queried while ordinary categories remain discoverable.'
+);
 sitemapAssert(!str_contains($collectedJson, 'evil.example'), 'External filtered permalink is rejected');
 sitemapAssert(!str_contains($collectedJson, 'tracker.example'), 'External filtered term link is rejected');
 sitemapAssert(!str_contains($collectedJson, 'javascript:'), 'Non-HTTP URLs are rejected');

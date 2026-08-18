@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.4
+Stable tag: 0.12.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,8 @@ Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII
 
 Since version 0.12.4, translated cache values also use a separate versioned, checksummed ASCII-safe key space. Existing plain-string cache entries remain readable. A cache write counts as complete only after an exact readback; failed writes stay queued, their page cache is not purged, and inline responses remain non-cacheable until the translation is durable.
 
+Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. The multilingual sitemap now includes only public content types and taxonomies that WordPress also marks as publicly queryable, so builder-internal archives are excluded.
+
 When every attempted SaaS provider returns only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can recover both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra split path.
 
 = How do I translate existing pages without opening every URL? =
@@ -83,6 +85,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.5 =
+* Translated configured cookie-consent widgets that render before the dynamic footer observer starts without rescanning the normal server-rendered page.
+* Localized internal links inside dynamic widgets with the server-side routing rules while keeping URLs out of translation-provider requests.
+* Excluded public but non-queryable builder content types and taxonomies from the multilingual sitemap and URL synchronization inventory.
 
 = 0.12.4 =
 * Preserved translated cache values containing emoji or other four-byte Unicode on legacy three-byte WordPress option tables.
@@ -159,6 +166,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.5 =
+Keeps early cookie-consent widgets and their legal links in the active language and removes non-queryable builder archives from multilingual discovery.
 
 = 0.12.4 =
 Prevents paid translations containing emoji from being dropped when WordPress transients use a legacy three-byte database table.

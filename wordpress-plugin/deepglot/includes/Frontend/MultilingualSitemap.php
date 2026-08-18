@@ -129,16 +129,18 @@ class MultilingualSitemap
         $this->appendEntry($entries, home_url('/'));
 
         $postTypes = function_exists('get_post_types')
-            ? (array) get_post_types(['public' => true], 'names')
+            ? (array) get_post_types(['public' => true, 'publicly_queryable' => true], 'names')
             : [];
 
         foreach ($postTypes as $postType) {
-            if ((string) $postType === 'attachment' || count($entries) >= $limit) {
+            $postType = (string) $postType;
+
+            if ($postType === 'attachment' || count($entries) >= $limit) {
                 continue;
             }
 
             $postIds = get_posts([
-                'post_type' => (string) $postType,
+                'post_type' => $postType,
                 'post_status' => 'publish',
                 'numberposts' => $limit,
                 'fields' => 'ids',
@@ -162,12 +164,14 @@ class MultilingualSitemap
 
         if (count($entries) < $limit) {
             $taxonomies = function_exists('get_taxonomies')
-                ? (array) get_taxonomies(['public' => true], 'names')
+                ? (array) get_taxonomies(['public' => true, 'publicly_queryable' => true], 'names')
                 : [];
 
             foreach ($taxonomies as $taxonomy) {
+                $taxonomy = (string) $taxonomy;
+
                 $terms = get_terms([
-                    'taxonomy' => (string) $taxonomy,
+                    'taxonomy' => $taxonomy,
                     'hide_empty' => true,
                 ]);
 
