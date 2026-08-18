@@ -151,12 +151,18 @@ require_once __DIR__ . '/../includes/Config/Options.php';
 require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/TranslationRules.php';
+require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
+require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Frontend/DynamicTranslationController.php';
+require_once __DIR__ . '/../includes/Frontend/DynamicUrlLocalizer.php';
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Frontend\DynamicTranslationController;
+use Deepglot\Frontend\DynamicUrlLocalizer;
+use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationCache;
+use Deepglot\Support\UrlLanguageResolver;
 
 function dynCheck($condition, string $message): void
 {
@@ -613,6 +619,61 @@ dynCheck($client->callCount === 1, 'A dynamic cache miss reaches the SaaS once b
 dynCheck(($responseData['retry_after'] ?? null) === 1800, 'The dynamic response must preserve a fixed-window 429 backoff beyond five minutes.');
 dynCheck(is_array($ipBucket) && (int) $ipBucket['spent'] === 0, 'A dynamic 429 must roll back the per-IP budget.');
 dynCheck(is_array($ticketBucket) && (int) $ticketBucket['spent'] === 0, 'A dynamic 429 must roll back the ticket budget.');
+
+// 22. URL localization uses the same public dynamic endpoint but is routing
+//     only: it must work without a nonce/ticket and never spend provider words.
+configureDynamicOptions();
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.37';
+$_SERVER['HTTP_HOST'] = 'example.test';
+$client = new DynamicFakeClient();
+$routing = new SiteRouting(
+    new UrlLanguageResolver('de', ['en']),
+    'https://example.test',
+    'PATH_PREFIX',
+    []
+);
+$controller = new DynamicTranslationController(
+    new Options(),
+    $client,
+    new DynamicFakeCache([]),
+    new DynamicUrlLocalizer($routing)
+);
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => [],
+    'urls' => [
+        '/impressum/',
+        'https://outside.example/legal/',
+        'mailto:privacy@example.test',
+        '//cdn.example.test/privacy.pdf',
+        '/wp-content/uploads/privacy.pdf',
+    ],
+    'lang_to' => 'en',
+], []));
+$responseData = $response->get_data();
+dynCheck($client->callCount === 0, 'URL-only localization must not call the translation provider.');
+dynCheck(
+    $responseData === [
+        'from_words' => [],
+        'to_words' => [],
+        'from_urls' => ['/impressum/'],
+        'to_urls' => ['/en/impressum/'],
+    ],
+    'The dynamic endpoint must return only safe local URL mappings alongside the text response shape.'
+);
+
+// 23. Invalid or unconfigured targets do not produce URL rewrites.
+$_SERVER['REMOTE_ADDR'] = '198.51.100.38';
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => [],
+    'urls' => ['/impressum/'],
+    'lang_to' => 'it',
+], []));
+$responseData = $response->get_data();
+dynCheck(
+    $responseData['from_urls'] === [] && $responseData['to_urls'] === [],
+    'An unconfigured URL target language must fail closed.'
+);
 
 
 // isBot() ist als Spiegel von BrowserRedirector::isBotRequest() dokumentiert:

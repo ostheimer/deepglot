@@ -388,6 +388,12 @@ The plugin REST status endpoint (`GET /wp-json/deepglot/v1/status`) exposes `quo
 
 The status/test-connection ping sends `quota_probe: true`, so the SaaS rejects an exhausted quota even when every pinged word is already cached (ROADMAP 8.34) — the health check cannot be masked by cache hits.
 
+### Dynamic consent widgets and multilingual discovery
+
+Since WordPress plugin v0.12.5, the dynamic browser pass scans only explicitly configured consent-widget roots that already exist before its footer observer starts. It does not rescan the normal server-rendered document. Text follows the existing bounded dynamic endpoint; internal widget links are localized separately with server-side `SiteRouting` rules and URL values never enter provider requests. Acceptance must use a fresh browser context and verify both visible consent copy and the final targets of legal links on a target-language route.
+
+The multilingual sitemap and administrator-triggered URL synchronization include only post types and taxonomies that WordPress marks both `public` and `publicly_queryable`. A production acceptance should confirm that ordinary pages and categories remain present while builder-internal or redirect-only archives are absent.
+
 ### Raising the quota
 
 To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `stripeSubscriptionId IS NULL`), update `Subscription.wordsLimit` directly in the database:

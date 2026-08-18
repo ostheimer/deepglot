@@ -105,12 +105,19 @@ class DynamicTranslationController
     private Options $options;
     private Client $client;
     private TranslationCache $cache;
+    private ?DynamicUrlLocalizer $urlLocalizer;
 
-    public function __construct(Options $options, Client $client, TranslationCache $cache)
+    public function __construct(
+        Options $options,
+        Client $client,
+        TranslationCache $cache,
+        ?DynamicUrlLocalizer $urlLocalizer = null
+    )
     {
-        $this->options = $options;
-        $this->client  = $client;
-        $this->cache   = $cache;
+        $this->options      = $options;
+        $this->client       = $client;
+        $this->cache        = $cache;
+        $this->urlLocalizer = $urlLocalizer;
     }
 
     public function register(): void
@@ -127,6 +134,11 @@ class DynamicTranslationController
             'args'                => [
                 'texts' => [
                     'required' => true,
+                    'type'     => 'array',
+                    'items'    => ['type' => 'string'],
+                ],
+                'urls' => [
+                    'required' => false,
                     'type'     => 'array',
                     'items'    => ['type' => 'string'],
                 ],
@@ -153,6 +165,8 @@ class DynamicTranslationController
         }
 
         $texts  = (array) $request->get_param('texts');
+        $rawUrls = $request->get_param('urls');
+        $urls   = is_array($rawUrls) ? $rawUrls : [];
         $langTo = (string) $request->get_param('lang_to');
 
         // A valid REST nonce plus a server-issued quota ticket unlock the
@@ -164,6 +178,13 @@ class DynamicTranslationController
         $allowApi   = $nonceValid && $this->hasValidQuotaTicket($quotaTicket);
 
         $result = $this->translateTexts($texts, $langTo, $allowApi, $quotaTicket);
+
+        // Preserve the exact established text-only response shape. Browsers
+        // that opt into URL localization always send an array (including an
+        // empty one), so they receive the independent URL mapping fields.
+        if (is_array($rawUrls)) {
+            $result = array_merge($result, $this->localizeUrls($urls, $langTo));
+        }
 
         return new WP_REST_Response($result, 200);
     }
@@ -304,6 +325,27 @@ class DynamicTranslationController
         }
 
         return $result;
+    }
+
+    /**
+     * Local URL routing is independent of provider translation and quota
+     * tickets. The DynamicUrlLocalizer owns all URL count/length validation.
+     *
+     * @param array<int, mixed> $urls
+     * @return array{from_urls: string[], to_urls: string[]}
+     */
+    private function localizeUrls(array $urls, string $langTo): array
+    {
+        if (
+            $this->urlLocalizer === null
+            || !$this->options->isEnabled()
+            || !$this->options->isConfigured()
+            || !$this->options->shouldTranslateDynamicContent()
+        ) {
+            return ['from_urls' => [], 'to_urls' => []];
+        }
+
+        return $this->urlLocalizer->localize($urls, $langTo);
     }
 
     // -------------------------------------------------------------------------

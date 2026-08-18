@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.4\n"
+"Project-Id-Version: Deepglot 0.12.5\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -754,15 +754,15 @@ msgstr "Плаващи знамена"
 msgid "Runde Flaggen als schwebender Umschalter unten rechts."
 msgstr "Кръгли знамена като плаващ превключвател долу вдясно."
 
-#: includes/Frontend/DynamicTranslationController.php:151
+#: includes/Frontend/DynamicTranslationController.php:163
 msgid "Zu viele Anfragen."
 msgstr "Твърде много заявки."
 
-#: includes/Frontend/DynamicTranslationController.php:321
+#: includes/Frontend/DynamicTranslationController.php:356
 msgid "Nicht verfügbar."
 msgstr "Не е наличен."
 
-#: includes/Frontend/DynamicTranslationController.php:330
+#: includes/Frontend/DynamicTranslationController.php:365
 msgid "Ungültige Herkunft."
 msgstr "Невалиден произход."
 
