@@ -44,6 +44,7 @@ if (!function_exists('get_query_var')) {
 }
 if (!function_exists('get_post_types')) {
     $GLOBALS['_deepglot_sitemap_post_type_queries'] = [];
+    $GLOBALS['_deepglot_sitemap_post_type_viewability_checks'] = [];
     $GLOBALS['_deepglot_sitemap_taxonomy_queries'] = [];
     $GLOBALS['_deepglot_sitemap_post_queries'] = [];
     $GLOBALS['_deepglot_sitemap_term_queries'] = [];
@@ -51,13 +52,16 @@ if (!function_exists('get_post_types')) {
     function get_post_types($args = [], $output = 'names') {
         $GLOBALS['_deepglot_sitemap_post_type_queries'][] = $args;
         $types = [
-            'post' => ['public' => true, 'publicly_queryable' => true],
-            'page' => ['public' => true, 'publicly_queryable' => true],
-            'attachment' => ['public' => true, 'publicly_queryable' => true],
-            'builder-template' => ['public' => true, 'publicly_queryable' => false],
+            'post' => ['public' => true, 'publicly_queryable' => true, '_builtin' => true],
+            // WordPress core registers the built-in page type as public but
+            // not publicly_queryable even though published page permalinks
+            // are directly viewable and belong in public sitemaps.
+            'page' => ['public' => true, 'publicly_queryable' => false, '_builtin' => true],
+            'attachment' => ['public' => true, 'publicly_queryable' => true, '_builtin' => true],
+            'builder-template' => ['public' => true, 'publicly_queryable' => false, '_builtin' => false],
         ];
 
-        return array_keys(array_filter($types, static function (array $properties) use ($args): bool {
+        $types = array_filter($types, static function (array $properties) use ($args): bool {
             foreach ($args as $property => $expected) {
                 if (($properties[$property] ?? null) !== $expected) {
                     return false;
@@ -65,7 +69,25 @@ if (!function_exists('get_post_types')) {
             }
 
             return true;
-        }));
+        });
+
+        if ($output === 'objects') {
+            return array_map(static function (array $properties, string $name): object {
+                return (object) array_merge(['name' => $name], $properties);
+            }, $types, array_keys($types));
+        }
+
+        return array_keys($types);
+    }
+
+    function is_post_type_viewable($postType): bool {
+        $GLOBALS['_deepglot_sitemap_post_type_viewability_checks'][] = is_object($postType)
+            ? ($postType->name ?? '')
+            : (string) $postType;
+
+        return is_object($postType)
+            && (!empty($postType->publicly_queryable)
+                || (!empty($postType->_builtin) && !empty($postType->public)));
     }
 
     function get_posts($args = []) {
@@ -185,8 +207,8 @@ sitemapAssert(str_contains($collectedJson, 'example.com/category/tipps'), 'Inter
 sitemapAssert(!str_contains($collectedJson, '/slide-page/'), 'Builder-internal slide pages are excluded from the multilingual sitemap');
 sitemapAssert(!str_contains($collectedJson, '/element_category/'), 'Builder-internal element categories are excluded from the multilingual sitemap');
 sitemapAssert(
-    $GLOBALS['_deepglot_sitemap_post_type_queries'][0] === ['public' => true, 'publicly_queryable' => true],
-    'Discovery requires public and publicly queryable post types.'
+    $GLOBALS['_deepglot_sitemap_post_type_queries'][0] === ['public' => true],
+    'Discovery asks WordPress for public post-type objects, then applies its viewability contract.'
 );
 sitemapAssert(
     $GLOBALS['_deepglot_sitemap_taxonomy_queries'][0] === ['public' => true, 'publicly_queryable' => true],
@@ -194,8 +216,19 @@ sitemapAssert(
 );
 sitemapAssert(
     in_array('post', $GLOBALS['_deepglot_sitemap_post_queries'], true)
+        && in_array('page', $GLOBALS['_deepglot_sitemap_post_queries'], true)
+        && !in_array('attachment', $GLOBALS['_deepglot_sitemap_post_queries'], true)
         && !in_array('builder-template', $GLOBALS['_deepglot_sitemap_post_queries'], true),
-    'Non-queryable public post types are never queried while ordinary posts remain discoverable.'
+    'WordPress-viewable core posts and pages remain discoverable while attachments and non-viewable builder templates are not queried.'
+);
+sitemapAssert(
+    in_array('page', $GLOBALS['_deepglot_sitemap_post_queries'], true),
+    'Built-in public pages remain discoverable even though WordPress core marks them publicly_queryable=false.'
+);
+sitemapAssert(
+    in_array('page', $GLOBALS['_deepglot_sitemap_post_type_viewability_checks'], true)
+        && in_array('builder-template', $GLOBALS['_deepglot_sitemap_post_type_viewability_checks'], true),
+    'Post-type discovery delegates page versus builder-template eligibility to the WordPress viewability contract.'
 );
 sitemapAssert(
     in_array('category', $GLOBALS['_deepglot_sitemap_term_queries'], true)
