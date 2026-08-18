@@ -129,13 +129,17 @@ class MultilingualSitemap
         $this->appendEntry($entries, home_url('/'));
 
         $postTypes = function_exists('get_post_types')
-            ? (array) get_post_types(['public' => true, 'publicly_queryable' => true], 'names')
+            ? (array) get_post_types(['public' => true], 'objects')
             : [];
 
         foreach ($postTypes as $postType) {
-            $postType = (string) $postType;
+            if (!$this->isPostTypeViewable($postType)) {
+                continue;
+            }
 
-            if ($postType === 'attachment' || count($entries) >= $limit) {
+            $postType = is_object($postType) ? (string) ($postType->name ?? '') : (string) $postType;
+
+            if ($postType === '' || $postType === 'attachment' || count($entries) >= $limit) {
                 continue;
             }
 
@@ -213,6 +217,31 @@ class MultilingualSitemap
         }
 
         return array_values($validated);
+    }
+
+    /**
+     * WordPress considers built-in public post types viewable even where they
+     * are not publicly queryable (notably the core `page` type). Prefer its
+     * own contract, with the equivalent fallback for older supported cores.
+     *
+     * @param mixed $postType WP_Post_Type object on WordPress; string only as a defensive fallback.
+     */
+    private function isPostTypeViewable($postType): bool
+    {
+        if (function_exists('is_post_type_viewable')) {
+            return (bool) is_post_type_viewable($postType);
+        }
+
+        if (is_string($postType) && function_exists('get_post_type_object')) {
+            $postType = get_post_type_object($postType);
+        }
+
+        if (!is_object($postType)) {
+            return false;
+        }
+
+        return !empty($postType->publicly_queryable)
+            || (!empty($postType->_builtin) && !empty($postType->public));
     }
 
     /**

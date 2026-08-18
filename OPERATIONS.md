@@ -394,7 +394,7 @@ Since WordPress plugin v0.12.5, the dynamic browser pass scans only explicitly c
 
 On sites where WP Rocket rewrites JavaScript to `wp-content/cache/min/`, a normal page-cache purge can leave an older optimized copy of `dynamic-translator.js` active even though the direct plugin asset and its version query are current. After replacing the plugin, clear the WP Rocket JavaScript minify cache as well as the page and host caches. Do not accept the rollout from the direct asset alone: inspect the query-free target-language page, confirm that its actually loaded optimized asset contains the current URL-localization contract, and verify in a fresh human browser request that the dynamic payload includes `urls` and the response maps the legal links through `from_urls` and `to_urls`.
 
-The multilingual sitemap and administrator-triggered URL synchronization include only post types and taxonomies that WordPress marks both `public` and `publicly_queryable`. A production acceptance should confirm that ordinary pages and categories remain present while builder-internal or redirect-only archives are absent.
+Since WordPress plugin v0.12.6, post-type discovery follows WordPress core `is_post_type_viewable()` semantics. Built-in public pages therefore remain discoverable even though core marks them `publicly_queryable=false`; non-viewable custom builder content types and attachments stay excluded. Taxonomies must be both `public` and `publicly_queryable`. Production acceptance must confirm that ordinary pages and categories are present while builder-internal or redirect-only archives are absent.
 
 ### Raising the quota
 

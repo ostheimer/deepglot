@@ -383,7 +383,7 @@ BASH;
             . $failingShaRetry['stdout'] . $failingShaRetry['stderr']
     );
 
-    $guardedZip = $failingShaOutput . '/deepglot-0.12.5.zip';
+    $guardedZip = $failingShaOutput . '/deepglot-0.12.6.zip';
     $guardedChecksum = $guardedZip . '.sha256';
     $guardedZipHash = hash_file('sha256', $guardedZip);
     $guardedChecksumHash = hash_file('sha256', $guardedChecksum);
@@ -459,7 +459,7 @@ if [[ $collision_status -ne 75 ]]; then
     printf 'unexpected collision status: %s\n' "$collision_status" >&2
     exit 90
 fi
-if [[ ! -f "$output_directory/deepglot-0.12.5.zip" || -f "$output_directory/deepglot-0.12.5.zip.sha256" ]]; then
+if [[ ! -f "$output_directory/deepglot-0.12.6.zip" || -f "$output_directory/deepglot-0.12.6.zip.sha256" ]]; then
     printf 'parallel collision changed the first build artifacts\n' >&2
     exit 91
 fi
@@ -467,11 +467,11 @@ fi
 : > "$release_file"
 wait "$first_pid"
 first_pid=''
-if [[ ! -f "$output_directory/deepglot-0.12.5.zip" || ! -f "$output_directory/deepglot-0.12.5.zip.sha256" ]]; then
+if [[ ! -f "$output_directory/deepglot-0.12.6.zip" || ! -f "$output_directory/deepglot-0.12.6.zip.sha256" ]]; then
     printf 'first parallel build did not complete\n' >&2
     exit 92
 fi
-if [[ -e "$output_directory/.deepglot-0.12.5.lock" ]]; then
+if [[ -e "$output_directory/.deepglot-0.12.6.lock" ]]; then
     printf 'parallel build lock was not removed\n' >&2
     exit 93
 fi
@@ -484,7 +484,7 @@ if [[ $guard_status -ne 73 ]]; then
     printf 'unexpected overwrite guard status: %s\n' "$guard_status" >&2
     exit 94
 fi
-if [[ -e "$output_directory/.deepglot-0.12.5.lock" ]]; then
+if [[ -e "$output_directory/.deepglot-0.12.6.lock" ]]; then
     printf 'overwrite guard did not release the build lock\n' >&2
     exit 95
 fi
@@ -508,9 +508,9 @@ BASH;
         "Parallel release lock must reject the second builder without harming the first\n"
             . $parallelBuild['stdout'] . $parallelBuild['stderr']
     );
-    $parallelZip = $parallelOutput . '/deepglot-0.12.5.zip';
+    $parallelZip = $parallelOutput . '/deepglot-0.12.6.zip';
     packageAssert(
-        file_get_contents($parallelZip . '.sha256') === hash_file('sha256', $parallelZip) . "  deepglot-0.12.5.zip\n",
+        file_get_contents($parallelZip . '.sha256') === hash_file('sha256', $parallelZip) . "  deepglot-0.12.6.zip\n",
         'First parallel build must retain a correct ZIP and checksum'
     );
 
@@ -525,13 +525,13 @@ BASH;
         packageAssert($result['exitCode'] === 0, 'Release build failed: ' . $result['stderr']);
     }
 
-    $firstZip = $fixtureRoot . '/dist-utc/deepglot-0.12.5.zip';
-    $secondZip = $fixtureRoot . '/dist-honolulu/deepglot-0.12.5.zip';
-    $firstChecksum = $fixtureRoot . '/dist-utc/deepglot-0.12.5.zip.sha256';
+    $firstZip = $fixtureRoot . '/dist-utc/deepglot-0.12.6.zip';
+    $secondZip = $fixtureRoot . '/dist-honolulu/deepglot-0.12.6.zip';
+    $firstChecksum = $fixtureRoot . '/dist-utc/deepglot-0.12.6.zip.sha256';
     packageAssert(is_file($firstZip) && is_file($secondZip), 'Expected release ZIPs were not created');
     packageAssert(hash_file('sha256', $firstZip) === hash_file('sha256', $secondZip), 'Cross-timezone builds must be byte-identical');
 
-    $expectedChecksum = hash_file('sha256', $firstZip) . "  deepglot-0.12.5.zip\n";
+    $expectedChecksum = hash_file('sha256', $firstZip) . "  deepglot-0.12.6.zip\n";
     packageAssert(file_get_contents($firstChecksum) === $expectedChecksum, 'Checksum sidecar must use the relative ZIP filename');
 
     $archiveListing = runPackageCommand([$unzipBinary, '-Z1', $firstZip], $fixtureRoot);

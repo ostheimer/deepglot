@@ -34,13 +34,18 @@ test("help, developer docs, and product copy describe every requested release", 
   const home = source("src/components/marketing/marketing-home.tsx");
   const readme = source("wordpress-plugin/deepglot/readme.txt");
 
-  for (const version of ["v0.11.4", "v0.11.5", "v0.11.6", "v0.11.7", "v0.12.1", "v0.12.2", "v0.12.3", "v0.12.4", "v0.12.5"]) {
+  for (const version of ["v0.11.4", "v0.11.5", "v0.11.6", "v0.11.7", "v0.12.1", "v0.12.2", "v0.12.3", "v0.12.4", "v0.12.5", "v0.12.6"]) {
     const escapedVersion = version.replaceAll(".", "\\.");
     assert.match(help, new RegExp(escapedVersion));
     assert.match(docs, new RegExp(escapedVersion));
     assert.match(readme, new RegExp(`(?:v)?${escapedVersion.slice(1)}`));
   }
   assert.match(docs, /weekly digest|Wochenrückblick/);
+  assert.doesNotMatch(
+    docs,
+    /documented as Git tags|als Git-Tags dokumentiert/,
+    "public release notes must not claim Git tags that do not exist",
+  );
   assert.match(home, /weekly digest|Wochenrückblick/);
   assert.match(home, /background|Hintergrund/);
 });
