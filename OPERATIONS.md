@@ -392,6 +392,8 @@ The status/test-connection ping sends `quota_probe: true`, so the SaaS rejects a
 
 Since WordPress plugin v0.12.5, the dynamic browser pass scans only explicitly configured consent-widget roots that already exist before its footer observer starts. It does not rescan the normal server-rendered document. Text follows the existing bounded dynamic endpoint; internal widget links are localized separately with server-side `SiteRouting` rules and URL values never enter provider requests. Acceptance must use a fresh browser context and verify both visible consent copy and the final targets of legal links on a target-language route.
 
+On sites where WP Rocket rewrites JavaScript to `wp-content/cache/min/`, a normal page-cache purge can leave an older optimized copy of `dynamic-translator.js` active even though the direct plugin asset and its version query are current. After replacing the plugin, clear the WP Rocket JavaScript minify cache as well as the page and host caches. Do not accept the rollout from the direct asset alone: inspect the query-free target-language page, confirm that its actually loaded optimized asset contains the current URL-localization contract, and verify in a fresh human browser request that the dynamic payload includes `urls` and the response maps the legal links through `from_urls` and `to_urls`.
+
 The multilingual sitemap and administrator-triggered URL synchronization include only post types and taxonomies that WordPress marks both `public` and `publicly_queryable`. A production acceptance should confirm that ordinary pages and categories remain present while builder-internal or redirect-only archives are absent.
 
 ### Raising the quota
