@@ -116,6 +116,15 @@ test("operations document real fresh/cache latency evidence and its write bounda
   );
 });
 
+test("operations require public robots verification when a physical file bypasses WordPress", () => {
+  const operations = source("OPERATIONS.md");
+
+  assert.match(operations, /physical `robots\.txt`/i);
+  assert.match(operations, /bypasses the WordPress `robots_txt` filter/i);
+  assert.match(operations, /query-free public `robots\.txt`/i);
+  assert.match(operations, /canonical production host/i);
+});
+
 test("plugin and developer docs pin localized purges, immediate nudges, and WP Super queue draining", () => {
   const pluginReadme = source("wordpress-plugin/deepglot/README.md");
   const wpOrgReadme = source("wordpress-plugin/deepglot/readme.txt");

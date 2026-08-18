@@ -396,6 +396,8 @@ On sites where WP Rocket rewrites JavaScript to `wp-content/cache/min/`, a norma
 
 Since WordPress plugin v0.12.6, post-type discovery follows WordPress core `is_post_type_viewable()` semantics. Built-in public pages therefore remain discoverable even though core marks them `publicly_queryable=false`; non-viewable custom builder content types and attachments stay excluded. Taxonomies must be both `public` and `publicly_queryable`. Production acceptance must confirm that ordinary pages and categories are present while builder-internal or redirect-only archives are absent.
 
+Deepglot normally advertises that sitemap through WordPress's `robots_txt` filter. A physical `robots.txt` in the WordPress document root bypasses the WordPress `robots_txt` filter completely, so plugin tests and the virtual route cannot prove the public result. Back up any physical file before editing it, preserve its existing directives, and add exactly one `Sitemap:` line using the canonical production host. Acceptance must read the query-free public `robots.txt` after all host caches are purged. Managed staging environments may intentionally replace it with `Disallow: /`; do not weaken that host-level protection merely to expose a staging sitemap.
+
 ### Raising the quota
 
 To lift the monthly word limit for a specific org (e.g. an ENTERPRISE org with `stripeSubscriptionId IS NULL`), update `Subscription.wordsLimit` directly in the database:
