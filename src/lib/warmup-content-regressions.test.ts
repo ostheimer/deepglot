@@ -37,7 +37,16 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     wpOrgReadme,
   ]) {
     assert.match(documentation, /count mismatch/i);
-    assert.match(documentation, /six provider (?:HTTP )?calls/i);
+    assert.match(
+      documentation,
+      /default eight-text chunk with two providers[^.]*30 provider (?:HTTP )?calls/i
+    );
+    assert.match(
+      documentation,
+      /provider-call ceiling[^.]*root chunk size[^.]*configured provider chain/i
+    );
+    assert.doesNotMatch(documentation, /(?:at most|capped at) six provider/i);
+    assert.doesNotMatch(documentation, /höchstens sechs Anbieteraufrufe/i);
     assert.match(
       documentation,
       /(?:100-second (?:provider-work )?deadline|provider-work deadline of at most 100 seconds)/i
@@ -46,8 +55,16 @@ test("provider count-mismatch isolation is documented across support surfaces", 
 
   assert.match(help, /Abweichung bei der Ergebnisanzahl/);
   assert.match(help, /alle versuchten Anbieter/);
+  assert.match(
+    help,
+    /Standardfall mit acht Texten und zwei Anbietern[^.]*30 Anbieteraufrufe/
+  );
   assert.match(developerDocs, /Ergebnisanzahl/);
   assert.match(developerDocs, /alle versuchten Anbieter/);
+  assert.match(
+    developerDocs,
+    /Standardfall mit acht Texten und zwei Anbietern[^.]*30 Anbieteraufrufe/
+  );
   assert.match(operations, /never source or translated text, URLs, or credentials/i);
   assert.match(readme, /timeouts, authentication, rate limits, NUL output/i);
 });

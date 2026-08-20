@@ -541,79 +541,99 @@ test("bounds provider calls while isolating the default eight-text chunk", async
   }
 });
 
-test("caps total provider time below the translate route duration", async () => {
+test("caps total provider time below the translate route duration", { timeout: 5_000 }, async () => {
   const originalFetch = globalThis.fetch;
-  const originalTimeout = AbortSignal.timeout;
-  const requestedTimeouts: number[] = [];
+  const originalError = console.error;
 
-  AbortSignal.timeout = ((milliseconds: number) => {
-    requestedTimeouts.push(milliseconds);
-    return originalTimeout(10_000);
-  }) as typeof AbortSignal.timeout;
-  globalThis.fetch = (async () =>
-    openAIResponse([{ text: "route-ceiling-applied" }])) as typeof fetch;
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const watchdog = setTimeout(
+        () => reject(new Error("the route request deadline was not applied")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
 
   try {
-    const result = await translateTexts(
-      { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
-      {
-        TRANSLATION_PROVIDER: "openai",
-        OPENAI_API_KEY: "openai-key",
-        TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
-        TRANSLATION_REQUEST_TIMEOUT_MS: "30",
-      }
-    );
-
-    assert.deepEqual(result, [
-      { detectedSourceLanguage: undefined, text: "route-ceiling-applied" },
-    ]);
-    assert.equal(
-      requestedTimeouts[0],
-      30,
-      "the shared provider budget must remain below the translate route duration"
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "30",
+          }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
     );
   } finally {
-    AbortSignal.timeout = originalTimeout;
     globalThis.fetch = originalFetch;
+    console.error = originalError;
   }
 });
 
-test("honors a caller-specific provider-work ceiling below the translate route budget", async () => {
+test("honors a caller-specific provider-work ceiling below the translate route budget", { timeout: 5_000 }, async () => {
   const originalFetch = globalThis.fetch;
-  const originalTimeout = AbortSignal.timeout;
-  const requestedTimeouts: number[] = [];
+  const originalError = console.error;
 
-  AbortSignal.timeout = ((milliseconds: number) => {
-    requestedTimeouts.push(milliseconds);
-    return originalTimeout(10_000);
-  }) as typeof AbortSignal.timeout;
-  globalThis.fetch = (async () =>
-    openAIResponse([{ text: "caller-ceiling-applied" }])) as typeof fetch;
+  console.error = () => {};
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const signal = init?.signal;
+    assert.ok(signal, "provider calls require an abort signal");
+
+    return new Promise<Response>((_resolve, reject) => {
+      const watchdog = setTimeout(
+        () => reject(new Error("the caller-specific request deadline was not applied")),
+        1_000
+      );
+      const rejectWithReason = () => {
+        clearTimeout(watchdog);
+        reject(signal.reason);
+      };
+      if (signal.aborted) {
+        rejectWithReason();
+        return;
+      }
+      signal.addEventListener("abort", rejectWithReason, { once: true });
+    });
+  }) as typeof fetch;
 
   try {
-    const result = await translateTexts(
-      { texts: ["Ein PDF-Text"], sourceLang: "de", targetLang: "en" },
-      {
-        TRANSLATION_PROVIDER: "openai",
-        OPENAI_API_KEY: "openai-key",
-        TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
-        TRANSLATION_REQUEST_TIMEOUT_MS: "10000",
-      },
-      null,
-      { maxRequestTimeoutMs: 30 }
-    );
-
-    assert.deepEqual(result, [
-      { detectedSourceLanguage: undefined, text: "caller-ceiling-applied" },
-    ]);
-    assert.equal(
-      requestedTimeouts[0],
-      30,
-      "the caller-specific ceiling must bound the shared provider budget"
+    await assert.rejects(
+      () =>
+        translateTexts(
+          { texts: ["Ein PDF-Text"], sourceLang: "de", targetLang: "en" },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "10000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "10000",
+          },
+          null,
+          { maxRequestTimeoutMs: 30 }
+        ),
+      (error: unknown) =>
+        error instanceof Error && error.name === "TimeoutError"
     );
   } finally {
-    AbortSignal.timeout = originalTimeout;
     globalThis.fetch = originalFetch;
+    console.error = originalError;
   }
 });
 
