@@ -60,15 +60,21 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     );
     assert.match(
       documentation,
-      /ceil\(remaining singleton texts \/ request-wide concurrency\)[^.]*observed calibration-wave duration/i
+      /remaining work is split into request-wide bounded waves/i
     );
     assert.match(
       documentation,
-      /cannot fit the remaining request deadline/i
+      /before each later wave[^.]*waves still pending × duration of the immediately preceding observed singleton wave/i
     );
     assert.match(
       documentation,
-      /after calibration and before any further singleton call/i
+      /earlier of the local provider-work ceiling and the caller's monotonic absolute deadline/i
+    );
+    assert.match(documentation, /translation_count_mismatch_deadline/i);
+    assert.match(documentation, /503[^.]*at most 60 seconds/i);
+    assert.match(
+      documentation,
+      /after the last retained wave and before any further singleton call/i
     );
     assert.match(documentation, /same globally bounded singleton queue/i);
     assert.doesNotMatch(documentation, /bounded binary isolation/i);
@@ -90,7 +96,8 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   );
   assert.match(help, /anfrageweite Parallelitätsgrenze von standardmäßig 12/);
   assert.match(help, /genau eine globale Kalibrierungswelle/);
-  assert.match(help, /gemessene Dauer der Kalibrierungswelle/);
+  assert.match(help, /gemessene Dauer der unmittelbar vorherigen Einzeltextwelle/);
+  assert.match(help, /monotoner absoluter Aufruferfrist/);
   assert.match(help, /vor jedem weiteren Einzeltextaufruf/);
   assert.match(help, /dieselbe global begrenzte Einzeltextwarteschlange/);
   assert.match(developerDocs, /Ergebnisanzahl/);
@@ -108,7 +115,11 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     developerDocs,
     /genau eine globale Kalibrierungswelle/
   );
-  assert.match(developerDocs, /gemessene Dauer der Kalibrierungswelle/);
+  assert.match(
+    developerDocs,
+    /gemessene Dauer der unmittelbar vorherigen Einzeltextwelle/
+  );
+  assert.match(developerDocs, /monotoner absoluter Aufruferfrist/);
   assert.match(developerDocs, /vor jedem weiteren Einzeltextaufruf/);
   assert.match(
     developerDocs,
@@ -139,6 +150,12 @@ test("PDF count-mismatch recovery keeps a route-specific provider-work margin", 
   assert.match(
     pdfTranslation,
     /maxRequestTimeoutMs:\s*PDF_TRANSLATION_REQUEST_TIMEOUT_MS/
+  );
+  assert.match(pdfTranslation, /deadlineAt:\s*providerBudgetDeadlineAt/);
+  assert.match(pdfRoute, /providerBudgetDeadlineAt/);
+  assert.match(
+    pdfTranslation,
+    /"translation_count_mismatch_deadline",\s*503/
   );
 
   for (const documentation of [

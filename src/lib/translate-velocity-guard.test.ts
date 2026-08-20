@@ -177,7 +177,7 @@ test("translate idempotency deduplicates retryable 429 only until its Retry-Afte
   );
 });
 
-test("provider failures refund the reserved velocity words before returning 500", () => {
+test("provider failures refund the reserved velocity words before returning an API error", () => {
   const source = routeSource();
 
   assert.match(
@@ -188,7 +188,7 @@ test("provider failures refund the reserved velocity words before returning 500"
   assert.match(
     source,
     /catch\s*\([^)]*\)\s*\{[\s\S]{0,600}releaseTranslateWordVelocity[\s\S]{0,600}throw\s+error/,
-    "provider errors must refund the velocity reservation before the route rethrows to its 500 handler"
+    "provider errors must refund the velocity reservation before the route rethrows to its typed 5xx handler"
   );
 });
 

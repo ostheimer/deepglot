@@ -6,6 +6,7 @@ import { maybeSendQuotaAlerts } from "@/lib/quota-alert";
 import {
   countWords,
   resolveTranslationProvider,
+  TranslationCountMismatchDeadlineError,
   translateTexts,
 } from "@/lib/translation";
 import { db } from "@/lib/db";
@@ -760,6 +761,15 @@ async function executeAuthenticatedTranslateRequest(
       to_words: translatedTexts,
     });
   } catch (error) {
+    if (error instanceof TranslationCountMismatchDeadlineError) {
+      return apiProblem({
+        status: 503,
+        title: "Translation temporarily unavailable",
+        detail: error.message,
+        code: "translation_count_mismatch_deadline",
+        instance: "/api/translate",
+      });
+    }
     console.error("[/api/translate] Fehler:", error);
     return apiProblem({
       status: 500,
@@ -772,8 +782,23 @@ async function executeAuthenticatedTranslateRequest(
 }
 
 const translateIdempotencyStore = new PrismaApiIdempotencyStore();
+const TRANSLATION_DEADLINE_IDEMPOTENCY_RETENTION_MS = 60_000;
 
 function translateIdempotencyResponseRetentionMs(response: StoredApiResponse) {
+  const responseCode =
+    response.body &&
+    typeof response.body === "object" &&
+    !Array.isArray(response.body) &&
+    typeof (response.body as { code?: unknown }).code === "string"
+      ? (response.body as { code: string }).code
+      : null;
+  if (
+    response.status === 503 &&
+    responseCode === "translation_count_mismatch_deadline"
+  ) {
+    return TRANSLATION_DEADLINE_IDEMPOTENCY_RETENTION_MS;
+  }
+
   if (response.status !== 429) {
     return API_IDEMPOTENCY_RETENTION_MS;
   }
@@ -887,7 +912,8 @@ export async function POST(req: NextRequest) {
       requestBody: parsedBody,
       store: translateIdempotencyStore,
       responseRetentionMs: translateIdempotencyResponseRetentionMs,
-      // Retry-After bounds replay retention for transient 429 responses.
+      // Retry-After bounds transient 429 replay; the classified count-mismatch
+      // deadline 503 is retained for only 60 seconds rather than a full day.
       execute: async () =>
         captureApiResponse(
           await executeAuthenticatedTranslateRequest(

@@ -54,6 +54,28 @@ function geminiResponse(translations: unknown): Response {
   );
 }
 
+async function waitForProviderDelay(
+  milliseconds: number,
+  signal: AbortSignal | null | undefined
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
 test("counts words for usage tracking", () => {
   assert.equal(countWords("Hallo Welt"), 2);
   assert.equal(countWords("   one   two   three   "), 3);
@@ -2225,6 +2247,166 @@ test("admits request-wide recovery from measured singleton waves rather than bat
       providerCalls,
       90,
       "nine two-provider roots plus 72 singleton calls must complete"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
+ * PDF provider work starts after authentication, multipart parsing, and text
+ * extraction. Its caller-owned deadline can therefore have substantially less
+ * time left than translateTexts' fresh local ceiling. Admission must use that
+ * absolute caller deadline and classify the request after the retained
+ * calibration wave, before any additional paid singleton work starts.
+ */
+test("uses the caller's absolute deadline when admitting singleton recovery", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    await waitForProviderDelay(20, init?.signal);
+
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const callerBudgetMs = 160;
+    const deadlineAt = performance.now() + callerBudgetMs;
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 100 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: AbortSignal.timeout(callerBudgetMs),
+            deadlineAt,
+          }
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        return true;
+      }
+    );
+    assert.equal(
+      providerCalls,
+      38,
+      "the caller deadline must stop after thirteen root chains and one calibration wave"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
+ * Singleton latency and fallback depth can change with the input. A fast first
+ * wave is not permission to launch every later wave. Re-admission after a
+ * slower wave must stop before starting the final wave when that observed work
+ * no longer fits the shared deadline.
+ */
+test("rechecks admission between heterogeneous singleton waves", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+      if (texts.length > 1) {
+        await waitForProviderDelay(20, init?.signal);
+        return openAIResponse([]);
+      }
+      const index = Number(texts[0].replace("Segment ", ""));
+      await waitForProviderDelay(index < 12 ? 10 : 30, init?.signal);
+      return openAIResponse(
+        index < 12 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      const { texts } = JSON.parse(body.contents[0].parts[0].text) as {
+        texts: string[];
+      };
+      await waitForProviderDelay(texts.length === 1 ? 30 : 20, init?.signal);
+      return geminiResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 36 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "160",
+          }
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        return true;
+      }
+    );
+    assert.equal(
+      providerCalls,
+      46,
+      "five root chains, calibration, and one slower wave may run; the final wave must not start"
     );
   } finally {
     globalThis.fetch = originalFetch;

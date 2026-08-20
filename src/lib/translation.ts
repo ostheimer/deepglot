@@ -248,8 +248,10 @@ export const DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS = 100_000;
 export type TranslationExecutionOptions = {
   /** Caller-owned ceiling for all provider work in this translation. */
   maxRequestTimeoutMs?: number;
-  /** Absolute caller deadline, which may start before translateTexts. */
+  /** Caller-owned abort signal, which may start before translateTexts. */
   signal?: AbortSignal;
+  /** Monotonic absolute deadline from performance.now() at caller entry. */
+  deadlineAt?: number;
 };
 
 export function resolveTranslationRequestTimeoutMs(
@@ -296,7 +298,7 @@ class TranslationRootCountMismatchError extends Error {
   }
 }
 
-class TranslationCountMismatchDeadlineError extends Error {
+export class TranslationCountMismatchDeadlineError extends Error {
   constructor() {
     super(
       "Count-mismatch singleton recovery cannot fit the remaining request deadline."
@@ -445,6 +447,21 @@ export async function translateTexts(
     env,
     executionOptions
   );
+  const localDeadlineAt = performance.now() + executionTimeoutMs;
+  const callerDeadlineAt = executionOptions?.deadlineAt;
+  const requestDeadlineAt =
+    typeof callerDeadlineAt === "number" &&
+    Number.isFinite(callerDeadlineAt) &&
+    callerDeadlineAt > 0
+      ? Math.min(localDeadlineAt, callerDeadlineAt)
+      : localDeadlineAt;
+  const requestTimeoutMs = requestDeadlineAt - performance.now();
+  if (requestTimeoutMs <= 0) {
+    throw new DOMException(
+      "Translation provider work exceeded the request deadline.",
+      "TimeoutError"
+    );
+  }
 
   const primary = resolveTranslationProviderConfig({ settings, env });
   const chain = buildFallbackProviderChain(primary, env);
@@ -459,15 +476,14 @@ export async function translateTexts(
   // surrounding code, on main as well as here. An explicit ref'ed timer fires
   // on every supported runtime and is cleared as soon as the work settles.
   const requestTimeoutController = new AbortController();
-  const requestDeadlineAt = performance.now() + executionTimeoutMs;
   const requestTimeoutTimer = setTimeout(() => {
     requestTimeoutController.abort(
       new DOMException(
-        `Translation provider work exceeded ${executionTimeoutMs}ms.`,
+        "Translation provider work exceeded the request deadline.",
         "TimeoutError"
       )
     );
-  }, executionTimeoutMs);
+  }, Math.ceil(requestTimeoutMs));
   const requestSignal = AbortSignal.any([
     failedChunkController.signal,
     requestTimeoutController.signal,
@@ -538,7 +554,10 @@ export async function translateTexts(
     });
     const calibrationSize = Math.min(concurrency, singletonWork.length);
     const calibrationWork = singletonWork.slice(0, calibrationSize);
-    const remainingSingletonWork = singletonWork.slice(calibrationSize);
+    const remainingSingletonWaves = chunk(
+      singletonWork.slice(calibrationSize),
+      concurrency
+    );
     const runSingletonWork = (
       work: typeof singletonWork
     ): Promise<
@@ -571,37 +590,45 @@ export async function translateTexts(
       // and use that measured wave only to admit the remaining work.
       const calibrationStartedAt = performance.now();
       const calibrationResults = await runSingletonWork(calibrationWork);
-      const observedCalibrationWaveDurationMs = Math.max(
+      let observedWaveDurationMs = Math.max(
         1,
         performance.now() - calibrationStartedAt
       );
       requestSignal.throwIfAborted();
+      singletonResults = [...calibrationResults];
 
-      const remainingSingletonWaves = Math.ceil(
-        remainingSingletonWork.length / concurrency
-      );
-      const optimisticRemainingDurationMs =
-        observedCalibrationWaveDurationMs * remainingSingletonWaves;
-      const remainingRequestMs = Math.max(
-        0,
-        requestDeadlineAt - performance.now()
-      );
-
-      if (
-        remainingSingletonWaves > 0 &&
-        optimisticRemainingDurationMs >= remainingRequestMs
+      for (
+        let waveIndex = 0;
+        waveIndex < remainingSingletonWaves.length;
+        waveIndex += 1
       ) {
-        const error = new TranslationCountMismatchDeadlineError();
-        console.error(
-          `[translation] count-mismatch singleton recovery cannot fit the remaining request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}, remaining waves: ${remainingSingletonWaves}).`
+        requestSignal.throwIfAborted();
+        const wavesLeft = remainingSingletonWaves.length - waveIndex;
+        const optimisticRemainingDurationMs =
+          observedWaveDurationMs * wavesLeft;
+        const remainingRequestMs = Math.max(
+          0,
+          requestDeadlineAt - performance.now()
         );
-        throw error;
-      }
 
-      const remainingResults = await runSingletonWork(
-        remainingSingletonWork
-      );
-      singletonResults = [...calibrationResults, ...remainingResults];
+        if (optimisticRemainingDurationMs >= remainingRequestMs) {
+          const error = new TranslationCountMismatchDeadlineError();
+          console.error(
+            `[translation] count-mismatch singleton recovery cannot fit the remaining request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}, remaining waves: ${wavesLeft}).`
+          );
+          throw error;
+        }
+
+        const waveStartedAt = performance.now();
+        const waveResults = await runSingletonWork(
+          remainingSingletonWaves[waveIndex]
+        );
+        observedWaveDurationMs = Math.max(
+          1,
+          performance.now() - waveStartedAt
+        );
+        singletonResults.push(...waveResults);
+      }
     } catch (error) {
       if (!failedChunkController.signal.aborted) {
         failedChunkController.abort(error);

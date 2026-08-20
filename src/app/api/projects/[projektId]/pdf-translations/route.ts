@@ -17,7 +17,10 @@ type PdfTranslationRouteDependencies = {
   getUserId: () => Promise<string | null>;
   translateProjectPdf: (
     input: TranslateProjectPdfInput,
-    dependencies?: Pick<PdfTranslationDependencies, "providerBudgetSignal">
+    dependencies?: Pick<
+      PdfTranslationDependencies,
+      "providerBudgetSignal" | "providerBudgetDeadlineAt"
+    >
   ) => Promise<{
     bytes: Uint8Array;
     filename: string;
@@ -49,6 +52,8 @@ export function createPdfTranslationPostHandler(
     request: NextRequest,
     { params }: { params: Promise<{ projektId: string }> }
   ) {
+    const providerBudgetDeadlineAt =
+      performance.now() + PDF_TRANSLATION_REQUEST_TIMEOUT_MS;
     const providerBudgetSignal = AbortSignal.timeout(
       PDF_TRANSLATION_REQUEST_TIMEOUT_MS
     );
@@ -94,7 +99,7 @@ export function createPdfTranslationPostHandler(
           langTo,
           file,
         },
-        { providerBudgetSignal }
+        { providerBudgetSignal, providerBudgetDeadlineAt }
       );
 
       return new Response(Buffer.from(result.bytes), {
