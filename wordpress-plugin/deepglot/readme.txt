@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.1
+Stable tag: 0.12.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,11 +55,17 @@ A permanent `422 velocity_request_too_large` means one request cannot fit the ho
 
 Since version 0.12.0, ordinary page requests do not wait for a slow translation provider. The first view queues uncached text for an immediately due WP-Cron job and, once both are stored, makes one non-blocking WP-Cron nudge in the same request. The nudge is skipped for DISABLE_WP_CRON and while cron is already running. After the job succeeds, Deepglot stores the translations locally and purges completed URLs in WP Rocket, W3 Total Cache, and LiteSpeed Cache. Because WP Super Cache exposes only a global purge, Deepglot waits until the tracked queue is empty so pending pages stay cached. If later views remain in the source language, verify that WP-Cron or the host's system cron is running and purge any other page-cache plugin manually.
 
+Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII-safe storage envelope. This preserves valid Unicode, including emoji, even on legacy WordPress option tables that cannot store four-byte UTF-8 directly. Existing queue arrays migrate automatically; damaged queue data is rejected without being overwritten or deleted during disabled cleanup. A separate short atomic lock couples text and URL queue reconciliation with cache purging, and lease fencing stops stale owners from committing only one side. Translation-provider requests remain outside that lock. If a cold render cannot durably enqueue both sides, its source-language response is marked non-cacheable so a later request can retry.
+
+Since version 0.12.4, translated cache values also use a separate versioned, checksummed ASCII-safe key space. Existing plain-string cache entries remain readable. A cache write counts as complete only after an exact readback; failed writes stay queued, their page cache is not purged, and inline responses remain non-cacheable until the translation is durable.
+
+Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable.
+
 When every attempted SaaS provider returns only a count mismatch for the same multi-text chunk, Deepglot starts bounded binary isolation. The observed two-text case can recover both singletons, but each original chunk allows at most six provider calls and all provider work shares a 100-second deadline. A failing parallel chunk stops further recursive calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain errors; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra split path.
 
 = How do I translate existing pages without opening every URL? =
 
-Under `Settings -> Deepglot`, create a URL preview with a small limit and the required target languages, review the sample URLs, and explicitly confirm the immutable snapshot. When WordPress recognizes a safe HTTPS request on the same host as an internal target still stored with HTTP, the preview changes only that target's scheme to HTTPS; semantic query parameters and fragments are preserved. It never copies a foreign request host, and genuine redirects remain failures. One batch contains at most 250 safe internal entries from the multilingual sitemap and opens at most two target pages per cron run. The job reports aggregate progress and can be paused, resumed, cancelled, or retried for failed URLs. It pauses when the quota is exhausted or the API key is invalid and automatically backs off on API rate limits. Continue large sites with the next bounded batch. This is an explicit administrator action, not a permanent crawler.
+Under `Settings -> Deepglot`, create a URL preview with a small limit and the required target languages, review the sample URLs, and explicitly confirm the immutable snapshot. When WordPress recognizes a safe HTTPS request on the same host as an internal target still stored with HTTP, the preview changes only that target's scheme to HTTPS; semantic query parameters and fragments are preserved. It never copies a foreign request host. One absolute, query-free redirect on the exact same origin and in the requested target language is verified through separate public and origin probes while automatic redirect following stays disabled. Other redirects remain bounded failures; unsafe targets do too. One batch contains at most 250 safe internal entries from the multilingual sitemap and opens at most two target pages per cron run. The job reports aggregate progress and can be paused, resumed, cancelled, or retried for failed URLs. It pauses when the quota is exhausted or the API key is invalid and automatically backs off on API rate limits. Continue large sites with the next bounded batch. This is an explicit administrator action, not a permanent crawler.
 
 == External services ==
 
@@ -79,6 +85,28 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.6 =
+* Restored built-in public pages to the multilingual sitemap and URL synchronization inventory by following WordPress core post-type viewability.
+* Kept non-viewable builder content types, attachments, and non-queryable taxonomies out of multilingual discovery.
+
+= 0.12.5 =
+* Translated configured cookie-consent widgets that render before the dynamic footer observer starts without rescanning the normal server-rendered page.
+* Localized internal links inside dynamic widgets with the server-side routing rules while keeping URLs out of translation-provider requests.
+* Excluded public but non-queryable builder content types and taxonomies from the multilingual sitemap and URL synchronization inventory.
+
+= 0.12.4 =
+* Preserved translated cache values containing emoji or other four-byte Unicode on legacy three-byte WordPress option tables.
+* Kept existing plain-string cache entries readable through a separate versioned key space with canonical Base64URL and key-bound integrity checks.
+* Retained failed cache writes in the background text and URL queues and prevented incomplete inline results from entering full-page caches.
+
+= 0.12.3 =
+* Preserved background text and URL queues containing emoji or other four-byte Unicode on legacy WordPress option tables through an ASCII-safe, checksummed storage envelope.
+* Kept existing queue arrays backward compatible and rejected damaged queue persistence without silently replacing it.
+* Coupled text and purge-target mutations with a short atomic lock while keeping translation-provider work outside the lock.
+
+= 0.12.2 =
+* Verified one safe same-origin canonical redirect in the requested target language during URL synchronization without enabling automatic redirect following.
 
 = 0.12.1 =
 * Assigned a new public asset version to the Retry-After-aware dynamic translator so WordPress and intermediary caches do not keep serving the older browser behavior.
@@ -142,6 +170,21 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.6 =
+Keeps ordinary WordPress pages discoverable for multilingual synchronization while builder-only archives remain excluded.
+
+= 0.12.5 =
+Keeps early cookie-consent widgets and their legal links in the active language and removes non-queryable builder archives from multilingual discovery.
+
+= 0.12.4 =
+Prevents paid translations containing emoji from being dropped when WordPress transients use a legacy three-byte database table.
+
+= 0.12.3 =
+Prevents valid emoji and other four-byte Unicode from stalling background translation queues on sites with legacy WordPress database encodings.
+
+= 0.12.2 =
+Allows bounded URL synchronization to complete for safe canonical aliases while preserving strict origin, language, and no-follow validation.
 
 = 0.12.1 =
 Refreshes the dynamic translator asset for bounded Retry-After handling and corrects safe same-host HTTPS URL-sync previews. Preparing or publishing the package does not update customer sites automatically.

@@ -6,9 +6,11 @@
  */
 
 $GLOBALS['_deepglot_canonical_redirect_actions'] = [];
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
 $GLOBALS['_deepglot_canonical_redirect'] = null;
 $GLOBALS['_deepglot_canonical_redirect_is_404'] = false;
 $GLOBALS['_deepglot_canonical_redirect_failures'] = 0;
+$GLOBALS['_deepglot_canonical_site_url'] = 'https://example.com';
 
 if (!function_exists('add_action')) {
     function add_action($hook, $callback, $priority = 10, $acceptedArgs = 1): void
@@ -20,6 +22,10 @@ if (!function_exists('add_action')) {
 if (!function_exists('add_filter')) {
     function add_filter($hook, $callback, $priority = 10, $acceptedArgs = 1): void
     {
+        $GLOBALS['_deepglot_canonical_redirect_filters'][$hook][$priority][] = [
+            'callback' => $callback,
+            'accepted_args' => $acceptedArgs,
+        ];
     }
 }
 
@@ -50,7 +56,7 @@ if (!function_exists('flush_rewrite_rules')) {
 if (!function_exists('get_site_url')) {
     function get_site_url(): string
     {
-        return 'https://example.com';
+        return $GLOBALS['_deepglot_canonical_site_url'];
     }
 }
 
@@ -112,6 +118,21 @@ function canonicalSlugRedirectAssert($expected, $actual, string $message): void
         fwrite(STDERR, 'Expected: ' . var_export($expected, true) . PHP_EOL);
         fwrite(STDERR, 'Actual:   ' . var_export($actual, true) . PHP_EOL);
     }
+}
+
+function canonicalSlugRedirectApplyFilter(string $hook, $value, ...$args)
+{
+    $callbacksByPriority = $GLOBALS['_deepglot_canonical_redirect_filters'][$hook] ?? [];
+    ksort($callbacksByPriority);
+
+    foreach ($callbacksByPriority as $callbacks) {
+        foreach ($callbacks as $registered) {
+            $filterArgs = array_slice([$value, ...$args], 0, $registered['accepted_args']);
+            $value = $registered['callback'](...$filterArgs);
+        }
+    }
+
+    return $value;
 }
 
 /**
@@ -344,6 +365,187 @@ canonicalSlugRedirectAssert(
     ['example.com'],
     $subdomainRouter->allowInternalRedirectHost(['example.com'], 'evil.example'),
     'An unconfigured host must never be admitted as a safe redirect target.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$redirectionTransformerRouter = new RequestRouter(
+    $options,
+    new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [])
+);
+add_filter(
+    'redirection_url_target',
+    static fn(string $target): string => 'https://example.com/final-target/',
+    20
+);
+$redirectionTransformerRouter->register();
+
+$_SERVER['REQUEST_URI'] = '/en/legacy-alias/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$redirectionTransformerRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com/en/final-target/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com/legacy-target/',
+        '/legacy-alias/'
+    ),
+    'Deepglot must localize the final target after Redirection target transformers have run.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$redirectionPluginRouter = new RequestRouter(
+    $options,
+    new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [])
+);
+$redirectionPluginRouter->register();
+
+$_SERVER['REQUEST_URI'] = '/en/kinesiotaping-gegen-schmerzen/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$redirectionPluginRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com/en/kinesiotaping-wien/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com/kinesiotaping-wien/',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'Redirection-plugin aliases matched after PATH_PREFIX routing must keep the active target-language prefix.'
+);
+
+canonicalSlugRedirectAssert(
+    'https://external.example/kinesiotaping-wien/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://external.example/kinesiotaping-wien/',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'External Redirection-plugin targets must never be rewritten.'
+);
+
+canonicalSlugRedirectAssert(
+    'mailto:ordination@example.com',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'mailto:ordination@example.com',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'Non-HTTP Redirection-plugin targets must never be converted into internal URLs.'
+);
+
+foreach ([
+    '/wp-content/uploads/juvenis-information.pdf',
+    'https://example.com/wp-login.php?action=login',
+    '/wp-admin/',
+] as $infrastructureTarget) {
+    canonicalSlugRedirectAssert(
+        $infrastructureTarget,
+        canonicalSlugRedirectApplyFilter(
+            'redirection_url_target',
+            $infrastructureTarget,
+            '/kinesiotaping-gegen-schmerzen/'
+        ),
+        'WordPress infrastructure and static Redirection targets must never receive a language prefix.'
+    );
+}
+
+$_SERVER['REQUEST_URI'] = '/kinesiotaping-gegen-schmerzen/';
+$redirectionPluginRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com/kinesiotaping-wien/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com/kinesiotaping-wien/',
+        '/kinesiotaping-gegen-schmerzen/'
+    ),
+    'Source-language Redirection-plugin aliases must remain unchanged.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$multilingualRedirectionRouter = new RequestRouter(
+    $options,
+    new SiteRouting(
+        new UrlLanguageResolver('de', ['en', 'fr']),
+        'https://example.com',
+        'PATH_PREFIX',
+        [],
+        [
+            'en' => ['ueber-uns' => 'about-us'],
+            'fr' => ['ueber-uns' => 'a-propos'],
+        ]
+    )
+);
+$multilingualRedirectionRouter->register();
+$_SERVER['REQUEST_URI'] = '/en/legacy-alias/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$multilingualRedirectionRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    '/fr/a-propos/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        '/fr/a-propos/',
+        '/legacy-alias/'
+    ),
+    'An explicitly localized target in another configured language must remain untouched.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$GLOBALS['_deepglot_canonical_site_url'] = 'https://example.com/blog';
+$subdirectoryRedirectionRouter = new RequestRouter(
+    $options,
+    new SiteRouting($resolver, 'https://example.com/blog', 'PATH_PREFIX', [])
+);
+$subdirectoryRedirectionRouter->register();
+$_SERVER['REQUEST_URI'] = '/blog/en/legacy-alias/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$subdirectoryRedirectionRouter->rewriteRequestUri();
+foreach (['/shop/', 'https://example.com/shop/'] as $outsideSiteTarget) {
+    canonicalSlugRedirectAssert(
+        $outsideSiteTarget,
+        canonicalSlugRedirectApplyFilter(
+            'redirection_url_target',
+            $outsideSiteTarget,
+            '/blog/legacy-alias/'
+        ),
+        'Same-origin targets outside the WordPress subdirectory must remain untouched.'
+    );
+}
+canonicalSlugRedirectAssert(
+    '/blog/en/kontakt/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        '/blog/kontakt/',
+        '/blog/legacy-alias/'
+    ),
+    'Targets inside the WordPress subdirectory must still be localized.'
+);
+
+$GLOBALS['_deepglot_canonical_redirect_filters'] = [];
+$GLOBALS['_deepglot_canonical_site_url'] = 'https://example.com';
+$alternatePortRouter = new RequestRouter(
+    $options,
+    new SiteRouting($resolver, 'https://example.com', 'PATH_PREFIX', [])
+);
+$alternatePortRouter->register();
+$_SERVER['REQUEST_URI'] = '/en/legacy-alias/';
+$_SERVER['HTTP_HOST'] = 'example.com';
+$alternatePortRouter->rewriteRequestUri();
+canonicalSlugRedirectAssert(
+    'https://example.com:8443/service/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com:8443/service/',
+        '/legacy-alias/'
+    ),
+    'A same-host target on a different effective port must remain untouched.'
+);
+canonicalSlugRedirectAssert(
+    'https://example.com/en/service/',
+    canonicalSlugRedirectApplyFilter(
+        'redirection_url_target',
+        'https://example.com:443/service/',
+        '/legacy-alias/'
+    ),
+    'An explicit default HTTPS port must still count as the WordPress origin.'
 );
 
 if ($GLOBALS['_deepglot_canonical_redirect_failures'] > 0) {

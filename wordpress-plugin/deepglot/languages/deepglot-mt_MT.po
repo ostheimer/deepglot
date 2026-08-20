@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.1\n"
+"Project-Id-Version: Deepglot 0.12.6\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -754,15 +754,15 @@ msgstr "Bnadar f'wiċċ l-ilma"
 msgid "Runde Flaggen als schwebender Umschalter unten rechts."
 msgstr "Bnadar tondi bħala toggle f'wiċċ l-ilma fin-naħa t'isfel tal-lemin."
 
-#: includes/Frontend/DynamicTranslationController.php:151
+#: includes/Frontend/DynamicTranslationController.php:163
 msgid "Zu viele Anfragen."
 msgstr "Wisq talbiet."
 
-#: includes/Frontend/DynamicTranslationController.php:321
+#: includes/Frontend/DynamicTranslationController.php:363
 msgid "Nicht verfügbar."
 msgstr "Mhux disponibbli."
 
-#: includes/Frontend/DynamicTranslationController.php:330
+#: includes/Frontend/DynamicTranslationController.php:372
 msgid "Ungültige Herkunft."
 msgstr "Oriġini invalida."
 

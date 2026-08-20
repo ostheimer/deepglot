@@ -10,6 +10,7 @@ const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 function createHarness(fetchHandler, options = {}) {
   const timers = [];
   const fetchCalls = [];
+  const fetchPayloads = [];
   let observerId = 0;
   let now = 0;
 
@@ -78,14 +79,23 @@ function createHarness(fetchHandler, options = {}) {
       notify({ type: 'attributes', target: this, attributeName: name });
     }
 
+    matches(selector) {
+      if (selector === '*') return true;
+      if (selector === '.cc-window[data-nosnippet="true"]') {
+        return this.classList.contains('cc-window')
+          && this.getAttribute('data-nosnippet') === 'true';
+      }
+      if (selector.charAt(0) === '.') return this.classList.contains(selector.slice(1));
+      return false;
+    }
+
     querySelectorAll(selector) {
-      assert.equal(selector, '*', 'test DOM only implements querySelectorAll("*")');
       const elements = [];
       function visit(node) {
         if (!node || !node.childNodes) return;
         for (const child of node.childNodes) {
           if (child.nodeType === 1) {
-            elements.push(child);
+            if (child.matches(selector)) elements.push(child);
             visit(child);
           }
         }
@@ -147,6 +157,11 @@ function createHarness(fetchHandler, options = {}) {
     body: new FakeElement('body'),
     createElement: (tagName) => new FakeElement(tagName),
     createTextNode: (data) => new FakeText(data),
+    querySelectorAll(selector) {
+      const matches = [];
+      if (this.body.matches(selector)) matches.push(this.body);
+      return matches.concat(this.body.querySelectorAll(selector));
+    },
     addEventListener: () => {},
     createTreeWalker(root) {
       const textNodes = [];
@@ -189,6 +204,7 @@ function createHarness(fetchHandler, options = {}) {
       minLength: 2,
       batchSize: options.batchSize || 200,
       maxTextLength: 5000,
+      initialDynamicSelectors: options.initialDynamicSelectors || [],
     },
     setTimeout(callback, delay = 0) {
       timers.push({ callback, dueAt: now + Math.max(0, Number(delay) || 0) });
@@ -205,9 +221,36 @@ function createHarness(fetchHandler, options = {}) {
     fetch: async (url, options) => {
       const payload = JSON.parse(options.body);
       fetchCalls.push(payload.texts);
-      return fetchHandler(payload.texts, options);
+      fetchPayloads.push(payload);
+      return fetchHandler(payload.texts, options, payload);
     },
   };
+
+  let preexistingText = null;
+  let preexistingLink = null;
+  if (options.preexistingDynamicText || options.preexistingDynamicHref) {
+    const modal = document.createElement('div');
+    modal.setAttribute('class', 'cc-window');
+    modal.setAttribute('data-nosnippet', 'true');
+    if (options.preexistingDynamicText) {
+      preexistingText = document.createTextNode(options.preexistingDynamicText);
+      modal.appendChild(preexistingText);
+    }
+    if (options.preexistingDynamicHref) {
+      preexistingLink = document.createElement('a');
+      preexistingLink.setAttribute('href', options.preexistingDynamicHref);
+      modal.appendChild(preexistingLink);
+    }
+    document.body.appendChild(modal);
+  }
+
+  let preexistingStaticText = null;
+  if (options.preexistingStaticText) {
+    const staticContent = document.createElement('p');
+    preexistingStaticText = document.createTextNode(options.preexistingStaticText);
+    staticContent.appendChild(preexistingStaticText);
+    document.body.appendChild(staticContent);
+  }
 
   vm.runInNewContext(scriptSource, context, { filename: scriptPath });
 
@@ -230,7 +273,16 @@ function createHarness(fetchHandler, options = {}) {
     await runTimers(1000);
   }
 
-  return { document, fetchCalls, runTimers, advanceTime };
+  return {
+    document,
+    fetchCalls,
+    fetchPayloads,
+    runTimers,
+    advanceTime,
+    preexistingText,
+    preexistingLink,
+    preexistingStaticText,
+  };
 }
 
 function jsonResponse(body) {
@@ -265,6 +317,65 @@ async function testProcessedTextNodeCanBeTranslatedAfterChanging() {
 
   assert.deepEqual(harness.fetchCalls, [['1 item'], ['2 items']]);
   assert.equal(text.data, '2 Artikel');
+}
+
+async function testConfiguredPreexistingDynamicRootIsTranslated() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    'Wir verwenden Cookies': 'We use cookies',
+  }), {
+    initialDynamicSelectors: ['.cc-window[data-nosnippet="true"]'],
+    preexistingDynamicText: 'Wir verwenden Cookies',
+  });
+
+  await harness.runTimers();
+
+  assert.deepEqual(
+    harness.fetchCalls,
+    [['Wir verwenden Cookies']],
+    'Dynamic widgets inserted before the footer observer starts must still be translated.'
+  );
+  assert.equal(harness.preexistingText.data, 'We use cookies');
+}
+
+async function testUnconfiguredPreexistingServerDomIsNotTranslated() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    'Server rendered copy': 'Serverseitig gerenderter Text',
+  }), {
+    initialDynamicSelectors: ['.cc-window[data-nosnippet="true"]'],
+    preexistingStaticText: 'Server rendered copy',
+  });
+
+  await harness.runTimers();
+
+  assert.deepEqual(
+    harness.fetchCalls,
+    [],
+    'Only configured pre-existing dynamic roots may be scanned before observing mutations.'
+  );
+  assert.equal(harness.preexistingStaticText.data, 'Server rendered copy');
+}
+
+async function testConfiguredPreexistingDynamicRootLocalizesInternalLinks() {
+  const sourceHref = 'https://example.com/datenschutzerklaerung/';
+  const targetHref = 'https://example.com/en/datenschutzerklaerung/';
+  const harness = createHarness(async (texts, options, payload) => jsonResponse({
+    from_words: [],
+    to_words: [],
+    from_urls: payload.urls,
+    to_urls: [targetHref],
+  }), {
+    initialDynamicSelectors: ['.cc-window[data-nosnippet="true"]'],
+    preexistingDynamicHref: sourceHref,
+  });
+
+  await harness.runTimers();
+
+  assert.deepEqual(
+    harness.fetchPayloads,
+    [{ texts: [], urls: [sourceHref], lang_to: 'en' }],
+    'Configured dynamic roots must localize their internal hrefs separately from provider text.'
+  );
+  assert.equal(harness.preexistingLink.getAttribute('href'), targetHref);
 }
 
 async function testAttributeMutationsAreTranslated() {
@@ -491,6 +602,41 @@ async function testRateLimitBackoffStopsImmediateDynamicRequests() {
   );
 }
 
+async function testRateLimitedTextDoesNotBlockUrlLocalization() {
+  const targetHref = '/en/impressum/';
+  const harness = createHarness(async (texts, options, payload) => {
+    if (payload.urls.length) {
+      return jsonResponse({
+        from_words: [],
+        to_words: [],
+        from_urls: payload.urls,
+        to_urls: [targetHref],
+      });
+    }
+    return jsonResponse({ from_words: [], to_words: [], retry_after: 3600 });
+  });
+
+  harness.document.body.appendChild(
+    harness.document.createTextNode('Text rate limited first')
+  );
+  await harness.runTimers();
+
+  const link = harness.document.createElement('a');
+  link.setAttribute('href', '/impressum/');
+  harness.document.body.appendChild(link);
+  await harness.runTimers();
+
+  assert.deepEqual(
+    harness.fetchPayloads,
+    [
+      { texts: ['Text rate limited first'], urls: [], lang_to: 'en' },
+      { texts: [], urls: ['/impressum/'], lang_to: 'en' },
+    ],
+    'A text Retry-After must not block independent local URL localization.'
+  );
+  assert.equal(link.getAttribute('href'), targetHref);
+}
+
 async function testParallelRateLimitsKeepTheLongestBackoff() {
   const pendingResponses = [];
   const harness = createHarness((texts) => new Promise((resolve) => {
@@ -532,6 +678,9 @@ async function testParallelRateLimitsKeepTheLongestBackoff() {
 
 async function main() {
   const tests = [
+    testConfiguredPreexistingDynamicRootIsTranslated,
+    testUnconfiguredPreexistingServerDomIsNotTranslated,
+    testConfiguredPreexistingDynamicRootLocalizesInternalLinks,
     testProcessedTextNodeCanBeTranslatedAfterChanging,
     testAttributeMutationsAreTranslated,
     testPropertyOnlyButtonInputValueIsTranslatedOnInsert,
@@ -544,6 +693,7 @@ async function main() {
     testRawWhitespaceKeyIsSent,
     testQuotaExhaustedStopsFurtherRequests,
     testRateLimitBackoffStopsImmediateDynamicRequests,
+    testRateLimitedTextDoesNotBlockUrlLocalization,
     testParallelRateLimitsKeepTheLongestBackoff,
   ];
 

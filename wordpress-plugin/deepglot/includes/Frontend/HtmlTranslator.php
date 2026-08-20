@@ -161,6 +161,18 @@ class HtmlTranslator
         return is_numeric($limit) && (int) $limit >= 0 ? (int) $limit : self::MAX_SYNC_BATCHES;
     }
 
+    /** Prevent a source-language cold response from becoming a durable page-cache hit. */
+    private function markResponseNonCacheable(): void
+    {
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+
+        if (!defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
+        }
+    }
+
     /**
      * Translates all text nodes in the given HTML string from the source
      * language to $targetLanguage and returns the modified HTML.
@@ -307,13 +319,6 @@ class HtmlTranslator
             $deferred,
             static fn(string $text): bool => $text !== ''
         )));
-        $this->lastPendingSegmentCount = count($deferred);
-
-        // Bot traffic is served cache-only (issue #147) and must never trigger
-        // quota spend, so crawlers observe but never fill the warm queue.
-        if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
-            $this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl);
-        }
 
         // Persist new translations in cache. On bot requests the SaaS is
         // cache-only: uncached words come back as identity mappings
@@ -332,7 +337,32 @@ class HtmlTranslator
         }
 
         if (!empty($cacheable)) {
-            $this->cache->setMany($cacheable, $sourceLang, $targetLanguage);
+            $stored = $this->cache->setMany($cacheable, $sourceLang, $targetLanguage);
+            $cacheFailures = [];
+
+            foreach ($cacheable as $original => $_translated) {
+                if (($stored[$original] ?? false) !== true) {
+                    $cacheFailures[] = $original;
+                }
+            }
+
+            if (!empty($cacheFailures)) {
+                // The response may contain the provider result, but it is not
+                // durable. Do not let a full-page cache turn that transient
+                // result into an unbounded cache entry; retry it via warming.
+                $deferred = array_values(array_unique(array_merge($deferred, $cacheFailures)));
+                $this->markResponseNonCacheable();
+            }
+        }
+
+        $this->lastPendingSegmentCount = count($deferred);
+
+        // Bot traffic is served cache-only (issue #147) and must never trigger
+        // quota spend, so crawlers observe but never fill the warm queue.
+        if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
+            if (!$this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl)) {
+                $this->markResponseNonCacheable();
+            }
         }
 
         $all = array_merge($cached, $apiResults);

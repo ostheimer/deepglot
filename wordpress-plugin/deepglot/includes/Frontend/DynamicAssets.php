@@ -97,7 +97,12 @@ class DynamicAssets
             'inputValueTypes'  => TranslationRules::TRANSLATABLE_INPUT_VALUE_TYPES,
             'minLength'        => TranslationRules::MIN_TEXT_LENGTH,
             'batchSize'        => 200,
+            'maxUrls'          => 200,
             'maxTextLength'    => 5000,
+            // This Cookie-Consent root can be inserted before the footer
+            // observer starts; only this explicit pre-existing widget is
+            // scanned, never the rest of the server-rendered document.
+            'initialDynamicSelectors' => ['.cc-window[data-nosnippet="true"]'],
         ]);
 
         wp_enqueue_script(self::HANDLE);

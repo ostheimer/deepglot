@@ -38,14 +38,13 @@
   var noTranslateAttr = cfg.noTranslateAttr || 'data-deepglot-no-translate';
   var minLength = cfg.minLength || 2;
   var batchSize = cfg.batchSize || 200;
+  var maxUrls = cfg.maxUrls || 200;
   var maxTextLength = cfg.maxTextLength || 5000;
 
   // Element/attribute copy (alt, aria-label, placeholder, option labels, …) so
   // SPA-injected elements that carry only such an attribute still get localized.
   var attrMap = cfg.attrMap || {};
   var inputValueTypes = toSet(cfg.inputValueTypes);
-  var hasAttrTargets =
-    Object.keys(attrMap).length > 0 || Object.keys(inputValueTypes).length > 0;
 
   var classSelectors = [];
   var idSelectors = [];
@@ -63,10 +62,14 @@
 
   var translated = Object.create(null); // raw source -> translation
   var inflight = Object.create(null);    // raw source -> awaiting response
+  var localizedUrls = Object.create(null); // raw href -> localized href
+  var inflightUrls = Object.create(null);  // raw href -> awaiting response
   var processedNodes = new WeakMap();     // text node -> raw value last written
   var processedAttrs = new WeakMap();     // element -> { attrName: raw value last written }
+  var processedLinks = new WeakMap();     // link element -> href last written
   var pendingNodes = [];                  // {node, key}
   var pendingAttrs = [];                  // {el, attr, key}
+  var pendingLinks = [];                  // {el, key}
   var flushTimer = null;
   var observer = null;
   // Set once the proxy reports the monthly word quota is exhausted (HTTP 402
@@ -85,6 +88,7 @@
     (attrMap[tag] || []).forEach(function (attr) { observedAttrs[attr] = true; });
   });
   if (Object.keys(inputValueTypes).length > 0) observedAttrs.value = true;
+  observedAttrs.href = true;
 
   var OBSERVE = { childList: true, subtree: true, characterData: true };
   var attributeFilter = Object.keys(observedAttrs);
@@ -168,6 +172,14 @@
     pendingAttrs.push({ el: el, attr: 'value', key: raw, prop: true });
   }
 
+  function considerLink(el) {
+    if (!el || el.nodeType !== 1 || (el.tagName || '').toLowerCase() !== 'a') return;
+    if (!el.hasAttribute('href') || excludedAttr(el)) return;
+    var raw = el.getAttribute('href') || '';
+    if (raw === '' || processedLinks.get(el) === raw) return;
+    pendingLinks.push({ el: el, key: raw });
+  }
+
   function considerElementAttrs(el) {
     if (!el || el.nodeType !== 1) return;
     var tag = el.tagName ? el.tagName.toLowerCase() : '';
@@ -200,6 +212,12 @@
     return !excludedAttr(item.el) && pendingAttrValue(item) === item.key;
   }
 
+  function pendingLinkIsCurrent(item) {
+    return item.el.parentNode &&
+      item.el.getAttribute('href') === item.key &&
+      !excludedAttr(item.el);
+  }
+
   /** Collect translatable text nodes + attributes inside a fresh subtree. */
   function walk(root) {
     if (!root) return;
@@ -211,10 +229,12 @@
       var node;
       while ((node = walker.nextNode())) consider(node);
     }
-    if (hasAttrTargets) {
-      considerElementAttrs(root);
-      var elements = root.querySelectorAll('*');
-      for (var i = 0; i < elements.length; i++) considerElementAttrs(elements[i]);
+    considerElementAttrs(root);
+    considerLink(root);
+    var elements = root.querySelectorAll('*');
+    for (var i = 0; i < elements.length; i++) {
+      considerElementAttrs(elements[i]);
+      considerLink(elements[i]);
     }
   }
 
@@ -240,7 +260,7 @@
 
   /** Write every pending node/attribute whose translation is already known. */
   function applyPending() {
-    if (!pendingNodes.length && !pendingAttrs.length) return;
+    if (!pendingNodes.length && !pendingAttrs.length && !pendingLinks.length) return;
     if (observer) observer.disconnect();
 
     var remainingNodes = [];
@@ -270,6 +290,17 @@
     }
     pendingAttrs = remainingAttrs;
 
+    var remainingLinks = [];
+    for (var k = 0; k < pendingLinks.length; k++) {
+      var linkItem = pendingLinks[k];
+      if (!pendingLinkIsCurrent(linkItem)) continue;
+      var href = localizedUrls[linkItem.key];
+      if (href == null) { remainingLinks.push(linkItem); continue; }
+      linkItem.el.setAttribute('href', href);
+      processedLinks.set(linkItem.el, href);
+    }
+    pendingLinks = remainingLinks;
+
     if (observer && document.body) observer.observe(document.body, OBSERVE);
   }
 
@@ -277,26 +308,44 @@
     flushTimer = null;
     applyPending();
 
-    if (Date.now() < rateLimitedUntil) {
-      scheduleRateLimitWake();
-      return;
-    }
-
     var need = [];
     var seen = Object.create(null);
+    var urlNeed = [];
+    var seenUrls = Object.create(null);
     function addNeed(text) {
       if (translated[text] != null || inflight[text] || seen[text]) return;
       seen[text] = true;
       need.push(text);
     }
+    function addUrlNeed(url) {
+      if (localizedUrls[url] != null || inflightUrls[url] || seenUrls[url]) return;
+      seenUrls[url] = true;
+      urlNeed.push(url);
+    }
     for (var i = 0; i < pendingNodes.length; i++) addNeed(pendingNodes[i].key);
     for (var j = 0; j < pendingAttrs.length; j++) addNeed(pendingAttrs[j].key);
-    if (!need.length || quotaExhausted) return;
+    for (var k = 0; k < pendingLinks.length; k++) addUrlNeed(pendingLinks[k].key);
 
-    for (var start = 0; start < need.length; start += batchSize) {
-      var chunk = need.slice(start, start + batchSize);
+    // Retry-After throttles only provider-backed text. Local URL routing does
+    // not consume provider quota, so it remains available while text waits.
+    if (Date.now() < rateLimitedUntil) {
+      scheduleRateLimitWake();
+      need = [];
+    }
+
+    if ((!need.length && !urlNeed.length) || (quotaExhausted && !urlNeed.length)) return;
+
+    if (quotaExhausted) need = [];
+    var batchCount = Math.max(
+      Math.ceil(need.length / batchSize),
+      Math.ceil(urlNeed.length / maxUrls)
+    );
+    for (var batch = 0; batch < batchCount; batch++) {
+      var chunk = need.slice(batch * batchSize, (batch + 1) * batchSize);
+      var urlChunk = urlNeed.slice(batch * maxUrls, (batch + 1) * maxUrls);
       chunk.forEach(function (text) { inflight[text] = true; });
-      request(chunk);
+      urlChunk.forEach(function (url) { inflightUrls[url] = true; });
+      request(chunk, urlChunk);
     }
   }
 
@@ -327,14 +376,30 @@
     texts.forEach(function (text) { if (!handled[text]) translated[text] = text; });
   }
 
-  function finalize(texts) {
+  function ingestUrls(urls, data) {
+    var handled = Object.create(null);
+    if (data && Array.isArray(data.from_urls) && Array.isArray(data.to_urls)) {
+      for (var i = 0; i < data.from_urls.length; i++) {
+        var from = data.from_urls[i];
+        var to = data.to_urls[i];
+        if (typeof from === 'string' && typeof to === 'string') {
+          localizedUrls[from] = to;
+          handled[from] = true;
+        }
+      }
+    }
+    urls.forEach(function (url) { if (!handled[url]) localizedUrls[url] = url; });
+  }
+
+  function finalize(texts, urls) {
     texts.forEach(function (text) { delete inflight[text]; });
+    urls.forEach(function (url) { delete inflightUrls[url]; });
     applyPending();
   }
 
-  function request(texts) { send(texts, false); }
+  function request(texts, urls) { send(texts, urls, false); }
 
-  function send(texts, withoutNonce) {
+  function send(texts, urls, withoutNonce) {
     var headers = { 'Content-Type': 'application/json' };
     if (!withoutNonce && cfg.nonce) headers['X-WP-Nonce'] = cfg.nonce;
     if (!withoutNonce && cfg.quotaTicket) headers['X-Deepglot-Quota-Ticket'] = cfg.quotaTicket;
@@ -343,26 +408,34 @@
       method: 'POST',
       credentials: 'same-origin',
       headers: headers,
-      body: JSON.stringify({ texts: texts, lang_to: cfg.langTo })
+      body: JSON.stringify({ texts: texts, urls: urls, lang_to: cfg.langTo })
     }).then(function (response) {
       // A stale full-page-cache nonce is rejected by WP core (403) before our
       // cache-only fallback runs; retry once WITHOUT the nonce to reach it.
       if (response && response.status === 403 && !withoutNonce) {
-        send(texts, true);
+        send(texts, urls, true);
         return null;
       }
-      if (!response || !response.ok) { ingest(texts, null); finalize(texts); return null; }
+      if (!response || !response.ok) {
+        ingest(texts, null);
+        ingestUrls(urls, null);
+        finalize(texts, urls);
+        return null;
+      }
       return response.json().then(function (data) {
         ingest(texts, data || {});
-        finalize(texts);
+        ingestUrls(urls, data || {});
+        finalize(texts, urls);
       }).catch(function () {
         ingest(texts, null);
-        finalize(texts);
+        ingestUrls(urls, null);
+        finalize(texts, urls);
       });
     }).catch(function () {
       // Fail open: drop these strings (mark as no-op) so they are not resent.
       ingest(texts, null);
-      finalize(texts);
+      ingestUrls(urls, null);
+      finalize(texts, urls);
     });
   }
 
@@ -373,18 +446,46 @@
         consider(mutation.target);
       } else if (mutation.type === 'attributes') {
         considerElementAttrs(mutation.target);
+        considerLink(mutation.target);
       } else if (mutation.addedNodes) {
         for (var j = 0; j < mutation.addedNodes.length; j++) {
           walk(mutation.addedNodes[j]);
         }
       }
     }
-    if (pendingNodes.length || pendingAttrs.length) scheduleFlush();
+    if (pendingNodes.length || pendingAttrs.length || pendingLinks.length) scheduleFlush();
+  }
+
+  /**
+   * The normal initial page is already handled by the server-side pass.
+   * Some opt-in widgets, however, render before this footer script starts;
+   * scan only their explicitly configured roots once before observing changes.
+   */
+  function scanConfiguredInitialDynamicRoots() {
+    var selectors = cfg.initialDynamicSelectors || [];
+
+    for (var i = 0; i < selectors.length; i++) {
+      var selector = selectors[i];
+      if (typeof selector !== 'string' || selector === '') continue;
+
+      var roots;
+      try {
+        roots = document.querySelectorAll(selector);
+      } catch {
+        continue;
+      }
+
+      for (var j = 0; j < roots.length; j++) walk(roots[j]);
+    }
+
+    if (pendingNodes.length || pendingAttrs.length || pendingLinks.length) scheduleFlush();
   }
 
   function start() {
     if (!document.body) return;
-    // The initial DOM is already server-translated — only watch for changes.
+    scanConfiguredInitialDynamicRoots();
+    // The initial DOM is already server-translated — only watch for changes
+    // after the configured pre-existing widget roots above.
     observer = new MutationObserver(onMutations);
     observer.observe(document.body, OBSERVE);
   }
