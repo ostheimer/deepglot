@@ -234,9 +234,9 @@ test("replays completed error responses but releases a failed execution for retr
 test("retains retryable 429 only until Retry-After but replays deterministic oversize for the normal retention", async () => {
   const store = new MemoryApiIdempotencyStore();
   const complete = store.complete.bind(store);
-  let completedExpiresAt: Date | null = null;
+  const completion = { expiresAt: null as Date | null };
   store.complete = async (input) => {
-    completedExpiresAt = input.expiresAt;
+    completion.expiresAt = input.expiresAt;
     await complete(input);
   };
   let retryableExecutions = 0;
@@ -265,8 +265,8 @@ test("retains retryable 429 only until Retry-After but replays deterministic ove
     ...retryableRequest,
     now: new Date("2026-08-09T00:00:00Z"),
   });
-  assert.ok(completedExpiresAt);
-  const firstExpiresAt = completedExpiresAt;
+  assert.ok(completion.expiresAt);
+  const firstExpiresAt = completion.expiresAt;
   const beforeReset = await executeIdempotently({
     ...retryableRequest,
     now: new Date(firstExpiresAt.getTime() - 1_000),
