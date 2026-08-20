@@ -384,6 +384,47 @@ test("a response-specific retention can shorten but never extend the configured 
   assert.equal(executions, 2);
 });
 
+test("starts response-specific retention when a slow execution completes", async () => {
+  const store = new MemoryApiIdempotencyStore();
+  let executions = 0;
+  const startedAt = new Date("2026-08-09T12:00:00.000Z");
+  const request = {
+    scope: "api-key-1:/api/translate",
+    key: "slow-transient-response",
+    requestBody: { words: [{ w: "Slow", t: 1 }] },
+    store,
+    responseRetentionMs: 20,
+    execute: async () => {
+      executions += 1;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return {
+        status: 503,
+        headers: { "content-type": "application/problem+json" },
+        body: { code: "translation_count_mismatch_deadline" },
+      };
+    },
+  };
+
+  const first = await executeIdempotently({ ...request, now: startedAt });
+  const immediateRetry = await executeIdempotently({
+    ...request,
+    now: new Date(startedAt.getTime() + 35),
+  });
+  const retryAfterCompletionRetention = await executeIdempotently({
+    ...request,
+    now: new Date(startedAt.getTime() + 60),
+  });
+
+  assert.equal(first.kind, "executed");
+  assert.equal(immediateRetry.kind, "replayed");
+  assert.equal(retryAfterCompletionRetention.kind, "executed");
+  assert.equal(
+    executions,
+    2,
+    "the bounded retention must expire after the response-completion window",
+  );
+});
+
 test("allows a key to execute again after its bounded retention expires", async () => {
   const store = new MemoryApiIdempotencyStore();
   let executions = 0;

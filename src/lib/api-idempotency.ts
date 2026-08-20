@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { performance } from "node:perf_hooks";
 
 export const API_IDEMPOTENCY_RETENTION_MS = 24 * 60 * 60 * 1_000;
 export const API_IDEMPOTENCY_PROCESSING_LEASE_MS = 5 * 60 * 1_000;
@@ -544,6 +545,7 @@ export async function executeIdempotently({
 
   for (;;) {
     const ownerToken = crypto.randomUUID();
+    const claimStartedAt = performance.now();
     const claim = await store.claim({
       scope,
       keyHash,
@@ -585,6 +587,9 @@ export async function executeIdempotently({
 
     try {
       const response = await execute();
+      const completedAt = new Date(
+        now.getTime() + Math.max(0, performance.now() - claimStartedAt),
+      );
       const requestedResponseRetentionMs =
         typeof responseRetentionMs === "function"
           ? responseRetentionMs(response)
@@ -602,7 +607,7 @@ export async function executeIdempotently({
         keyHash,
         ownerToken,
         response,
-        expiresAt: new Date(now.getTime() + safeResponseRetentionMs),
+        expiresAt: new Date(completedAt.getTime() + safeResponseRetentionMs),
       });
       return { kind: "executed", response };
     } catch (error) {
