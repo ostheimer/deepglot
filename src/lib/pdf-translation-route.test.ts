@@ -75,6 +75,7 @@ test("PDF route returns the generated PDF as an attachment", async () => {
 test("PDF route starts the provider budget before authentication and multipart parsing", async () => {
   const originalTimeout = AbortSignal.timeout;
   const events: string[] = [];
+  const routeStartedAt = performance.now();
   AbortSignal.timeout = ((milliseconds: number) => {
     events.push(`deadline:${milliseconds}`);
     return originalTimeout(milliseconds);
@@ -91,7 +92,13 @@ test("PDF route starts the provider budget before authentication and multipart p
         events.push("service");
         assert.ok(
           dependencies?.providerBudgetSignal instanceof AbortSignal,
-          "the service must receive the route-owned absolute deadline"
+          "the service must receive the route-owned abort signal"
+        );
+        assert.ok(
+          typeof dependencies?.providerBudgetDeadlineAt === "number" &&
+            dependencies.providerBudgetDeadlineAt >= routeStartedAt + 39_000 &&
+            dependencies.providerBudgetDeadlineAt <= routeStartedAt + 40_100,
+          "the service must receive the monotonic route-entry deadline"
         );
         return {
           bytes: new Uint8Array([37, 80, 68, 70]),
@@ -111,6 +118,31 @@ test("PDF route starts the provider budget before authentication and multipart p
   } finally {
     AbortSignal.timeout = originalTimeout;
   }
+});
+
+test("PDF route exposes count-mismatch deadline rejection as a stable 503", async () => {
+  const handler = createPdfTranslationPostHandler({
+    getUserId: async () => "user-1",
+    translateProjectPdf: async () => {
+      throw new PdfTranslationError(
+        "Count-mismatch singleton recovery cannot fit the remaining request deadline.",
+        "translation_count_mismatch_deadline",
+        503
+      );
+    },
+  });
+
+  const response = await handler(uploadRequest(), {
+    params: Promise.resolve({ projektId: "project-1" }),
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(body, {
+    error:
+      "Count-mismatch singleton recovery cannot fit the remaining request deadline.",
+    code: "translation_count_mismatch_deadline",
+  });
 });
 
 test("PDF route preserves safe service error codes and statuses", async () => {

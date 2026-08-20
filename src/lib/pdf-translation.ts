@@ -18,6 +18,7 @@ import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 import {
   countWords,
   resolveTranslationProvider,
+  TranslationCountMismatchDeadlineError,
   translateTexts,
 } from "@/lib/translation";
 
@@ -66,8 +67,10 @@ export type TranslateProjectPdfInput = {
 
 export type PdfTranslationDependencies = {
   translateTexts?: typeof translateTexts;
-  /** Route-owned absolute deadline; direct calls get a service-entry fallback. */
+  /** Route-owned abort signal; direct calls get a service-entry fallback. */
   providerBudgetSignal?: AbortSignal;
+  /** Monotonic route-entry deadline from performance.now(). */
+  providerBudgetDeadlineAt?: number;
 };
 
 export function validatePdfUpload(file: Pick<PdfUpload, "name" | "type" | "size">) {
@@ -351,6 +354,14 @@ export async function translateProjectPdf(
   input: TranslateProjectPdfInput,
   dependencies: PdfTranslationDependencies = {}
 ) {
+  const serviceDeadlineAt = performance.now() + PDF_TRANSLATION_REQUEST_TIMEOUT_MS;
+  const callerDeadlineAt = dependencies.providerBudgetDeadlineAt;
+  const providerBudgetDeadlineAt =
+    typeof callerDeadlineAt === "number" &&
+    Number.isFinite(callerDeadlineAt) &&
+    callerDeadlineAt > 0
+      ? Math.min(serviceDeadlineAt, callerDeadlineAt)
+      : serviceDeadlineAt;
   const providerBudgetSignal = AbortSignal.any([
     AbortSignal.timeout(PDF_TRANSLATION_REQUEST_TIMEOUT_MS),
     ...(dependencies.providerBudgetSignal
@@ -494,6 +505,7 @@ export async function translateProjectPdf(
       {
         maxRequestTimeoutMs: PDF_TRANSLATION_REQUEST_TIMEOUT_MS,
         signal: providerBudgetSignal,
+        deadlineAt: providerBudgetDeadlineAt,
       }
     );
 
@@ -506,6 +518,13 @@ export async function translateProjectPdf(
     translatedPages = results.map((result) => result.text.trim());
   } catch (error) {
     await releaseVelocityReservation(project.organizationId, parsed.wordCount);
+    if (error instanceof TranslationCountMismatchDeadlineError) {
+      throw new PdfTranslationError(
+        error.message,
+        "translation_count_mismatch_deadline",
+        503
+      );
+    }
     console.error("[pdf-translation] Provider failed:", error);
     throw new PdfTranslationError(
       "The translation provider could not translate this PDF.",

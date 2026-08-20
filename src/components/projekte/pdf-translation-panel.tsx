@@ -77,6 +77,10 @@ export function PdfTranslationPanel({
       "Split the PDF into smaller files so each request fits the plan velocity cap.",
       "Teile die PDF-Datei in kleinere Dateien, damit jede Anfrage in das Wortgeschwindigkeitslimit des Tarifs passt."
     ),
+    translation_count_mismatch_deadline: t(
+      "The translation could not finish within the request time limit. Try again.",
+      "Die Übersetzung konnte nicht innerhalb des Zeitlimits abgeschlossen werden. Versuche es erneut."
+    ),
     provider_failed: t(
       "The configured translation provider could not process the PDF.",
       "Der konfigurierte Übersetzungsanbieter konnte die PDF-Datei nicht verarbeiten."

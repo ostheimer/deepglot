@@ -233,6 +233,12 @@ test("replays completed error responses but releases a failed execution for retr
 
 test("retains retryable 429 only until Retry-After but replays deterministic oversize for the normal retention", async () => {
   const store = new MemoryApiIdempotencyStore();
+  const complete = store.complete.bind(store);
+  const completion = { expiresAt: null as Date | null };
+  store.complete = async (input) => {
+    completion.expiresAt = input.expiresAt;
+    await complete(input);
+  };
   let retryableExecutions = 0;
   const retryableResponse = {
     status: 429,
@@ -259,21 +265,24 @@ test("retains retryable 429 only until Retry-After but replays deterministic ove
     ...retryableRequest,
     now: new Date("2026-08-09T00:00:00Z"),
   });
+  assert.ok(completion.expiresAt);
+  const firstExpiresAt = completion.expiresAt;
   const beforeReset = await executeIdempotently({
     ...retryableRequest,
-    now: new Date("2026-08-09T00:59:59Z"),
+    now: new Date(firstExpiresAt.getTime() - 1_000),
   });
   const afterReset = await executeIdempotently({
     ...retryableRequest,
-    now: new Date("2026-08-09T01:00:01Z"),
+    now: new Date(firstExpiresAt.getTime() + 1_000),
   });
 
   assert.equal(first.kind, "executed");
   assert.equal(beforeReset.kind, "replayed");
-  assert.equal(beforeReset.response.headers["retry-after"], "1");
+  const replayRetryAfter = Number(beforeReset.response.headers["retry-after"]);
+  assert.equal(replayRetryAfter, 1);
   assert.deepEqual(beforeReset.response.body, {
     code: "velocity_limited",
-    retry_after: 1,
+    retry_after: replayRetryAfter,
   });
   assert.equal(
     retryableResponse.headers["retry-after"],
@@ -382,6 +391,58 @@ test("a response-specific retention can shorten but never extend the configured 
 
   assert.equal(afterConfiguredRetention.kind, "executed");
   assert.equal(executions, 2);
+});
+
+test("starts response-specific retention when a slow execution completes", async () => {
+  const store = new MemoryApiIdempotencyStore();
+  const complete = store.complete.bind(store);
+  const completion = { expiresAt: null as Date | null };
+  store.complete = async (input) => {
+    completion.expiresAt = input.expiresAt;
+    await complete(input);
+  };
+  let executions = 0;
+  const startedAt = new Date("2026-08-09T12:00:00.000Z");
+  const request = {
+    scope: "api-key-1:/api/translate",
+    key: "slow-transient-response",
+    requestBody: { words: [{ w: "Slow", t: 1 }] },
+    store,
+    responseRetentionMs: 20,
+    execute: async () => {
+      executions += 1;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        status: 503,
+        headers: { "content-type": "application/problem+json" },
+        body: { code: "translation_count_mismatch_deadline" },
+      };
+    },
+  };
+
+  const first = await executeIdempotently({ ...request, now: startedAt });
+  assert.ok(completion.expiresAt);
+  const firstExpiresAt = completion.expiresAt;
+  const immediateRetry = await executeIdempotently({
+    ...request,
+    now: new Date(firstExpiresAt.getTime() - 1),
+  });
+
+  assert.equal(first.kind, "executed");
+  assert.equal(immediateRetry.kind, "replayed");
+  assert.equal(executions, 1, "an immediate retry must not repeat slow paid work");
+
+  const retryAfterCompletionRetention = await executeIdempotently({
+    ...request,
+    now: new Date(firstExpiresAt.getTime() + 1),
+  });
+
+  assert.equal(retryAfterCompletionRetention.kind, "executed");
+  assert.equal(
+    executions,
+    2,
+    "the bounded retention must expire after the response-completion window",
+  );
 });
 
 test("allows a key to execute again after its bounded retention expires", async () => {

@@ -42,3 +42,15 @@ test("PDF UI explains that permanent velocity oversize must be split", () => {
   assert.match(panelSource, /Split the PDF into smaller files/);
   assert.match(panelSource, /Teile die PDF-Datei in kleinere Dateien/);
 });
+
+test("PDF UI localizes the count-mismatch recovery deadline", () => {
+  assert.match(panelSource, /translation_count_mismatch_deadline/);
+  assert.match(
+    panelSource,
+    /The translation could not finish within the request time limit\. Try again\./,
+  );
+  assert.match(
+    panelSource,
+    /Die Übersetzung konnte nicht innerhalb des Zeitlimits abgeschlossen werden\. Versuche es erneut\./,
+  );
+});

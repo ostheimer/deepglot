@@ -122,3 +122,22 @@ test("all six public and plugin-facing routes wire the shared helper", () => {
   );
   assert.match(settingsSource, /code: "domain_mapping_conflict"/);
 });
+
+test("translate exposes count-mismatch deadline rejection as a stable API problem", () => {
+  const source = readFileSync(
+    path.join(process.cwd(), "src/app/api/translate/route.ts"),
+    "utf8",
+  );
+
+  assert.match(source, /TranslationCountMismatchDeadlineError/);
+  assert.match(source, /code: "translation_count_mismatch_deadline"/);
+  assert.match(source, /status: 503/);
+  assert.match(
+    source,
+    /TRANSLATION_DEADLINE_IDEMPOTENCY_RETENTION_MS\s*=\s*60_000/
+  );
+  assert.match(
+    source,
+    /responseCode === "translation_count_mismatch_deadline"/
+  );
+});

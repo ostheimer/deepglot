@@ -208,20 +208,33 @@ export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
 
 /**
  * A count mismatch may be shape-dependent, so retry a failed multi-text chunk
- * as smaller halves. Three levels are the structural recursion ceiling; the
- * stricter provider-call and request-time budgets below normally stop a wider
- * tree sooner.
+ * as isolated singletons after the complete provider chain returned only count
+ * mismatches for the root shape.
+ *
+ * The isolation limits are derived from the root chunk, not fixed: production
+ * showed 28 `TranslationProviderCallBudgetError` 500s in the 3.7 days after
+ * the fixed budget of 6 shipped, with the log reading "stopped at
+ * provider-call budget 6 … batch size: 1" — the walk down 8→4→2→1 with a
+ * two-provider chain costs 6 calls before the first singleton is even
+ * attempted, so the budget killed the repair at the exact moment it had
+ * isolated the problem. Retrying binary intermediate shapes adds provider
+ * calls without adding evidence once the complete root chain confirmed the
+ * mismatch. Trying each singleton directly needs at most one root chain plus
+ * one complete chain per text: chain length x (chunk size + 1) calls for a
+ * multi-text root, or one chain for an original singleton. The real cost
+ * ceilings remain the request deadline below, the request-wide provider-call
+ * slots, and sibling cancellation in translateTexts; the call budget remains
+ * a backstop against control-flow bugs.
  */
-const MAX_COUNT_MISMATCH_ISOLATION_DEPTH = 3;
-
-/**
- * Count every provider HTTP call made for one root chunk, including its
- * original fallback chain. Six attempts retain the observed two-text recovery
- * (primary + fallback for the pair, then one successful primary per singleton)
- * while preventing a default eight-text chunk from expanding into the full
- * fifteen-node isolation tree.
- */
-const MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK = 6;
+function countMismatchIsolationLimits(
+  chunkSize: number,
+  chainLength: number
+): { maxProviderCalls: number } {
+  return {
+    maxProviderCalls:
+      chainLength * (chunkSize > 1 ? chunkSize + 1 : 1),
+  };
+}
 
 /**
  * `/api/translate` has a 120-second route duration. Provider work gets at most
@@ -235,8 +248,10 @@ export const DEFAULT_TRANSLATION_REQUEST_TIMEOUT_MS = 100_000;
 export type TranslationExecutionOptions = {
   /** Caller-owned ceiling for all provider work in this translation. */
   maxRequestTimeoutMs?: number;
-  /** Absolute caller deadline, which may start before translateTexts. */
+  /** Caller-owned abort signal, which may start before translateTexts. */
   signal?: AbortSignal;
+  /** Monotonic absolute deadline from performance.now() at caller entry. */
+  deadlineAt?: number;
 };
 
 export function resolveTranslationRequestTimeoutMs(
@@ -268,16 +283,40 @@ function resolveTranslationExecutionTimeoutMs(
 }
 
 class TranslationProviderCallBudgetError extends Error {
-  constructor() {
+  constructor(maxProviderCalls: number) {
     super(
-      `Provider-call budget of ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} exhausted during count-mismatch isolation.`
+      `Provider-call budget of ${maxProviderCalls} exhausted during count-mismatch isolation.`
     );
     this.name = "TranslationProviderCallBudgetError";
   }
 }
 
+class TranslationRootCountMismatchError extends Error {
+  constructor() {
+    super("Every provider returned a count mismatch for the root chunk.");
+    this.name = "TranslationRootCountMismatchError";
+  }
+}
+
+export class TranslationCountMismatchDeadlineError extends Error {
+  constructor() {
+    super(
+      "Count-mismatch singleton recovery cannot fit the remaining request deadline."
+    );
+    this.name = "TranslationCountMismatchDeadlineError";
+  }
+}
+
 type TranslationChunkBudget = {
   providerCalls: number;
+  maxProviderCalls: number;
+  /**
+   * Isolated singletons run in parallel, so two branches can fail terminally
+   * before the request-level abort reaches the survivor. Only the first
+   * failure propagates to the caller; logging the racing sibling would just
+   * duplicate the same privacy-safe line.
+   */
+  terminalErrorLogged: boolean;
 };
 
 function positiveIntSetting(raw: string | undefined, fallback: number): number {
@@ -300,6 +339,54 @@ export function resolveTranslationChunking(
     ),
   };
 }
+
+/**
+ * Counting semaphore over provider HTTP calls for one request.
+ *
+ * The chunk concurrency was sized to stay clear of provider rate limits.
+ * Direct singleton isolation can fan out every text from several drifting
+ * root chunks at once, so it must share this same request-wide ceiling rather
+ * than creating an independent pool per root. Slots are held only for the
+ * duration of one provider call; queued singleton workers hold no slots, so
+ * they cannot deadlock the semaphore.
+ */
+function createProviderCallSlots(limit: number): {
+  acquire(): Promise<() => void>;
+} {
+  let inFlight = 0;
+  const waiters: Array<() => void> = [];
+
+  return {
+    async acquire() {
+      while (inFlight >= limit) {
+        await new Promise<void>((resolve) => waiters.push(resolve));
+      }
+      inFlight += 1;
+
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        inFlight -= 1;
+        waiters.shift()?.();
+      };
+    },
+  };
+}
+
+type ProviderCallSlots = ReturnType<typeof createProviderCallSlots>;
+
+type TranslationRootChunkResult =
+  | {
+      kind: "translated";
+      translations: TranslationResult[];
+    }
+  | {
+      kind: "count_mismatch";
+      texts: string[];
+      budget: TranslationChunkBudget;
+      fullChainDurationMs: number;
+    };
 
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -361,40 +448,270 @@ export async function translateTexts(
     env,
     executionOptions
   );
+  const localDeadlineAt = performance.now() + executionTimeoutMs;
+  const callerDeadlineAt = executionOptions?.deadlineAt;
+  const requestDeadlineAt =
+    typeof callerDeadlineAt === "number" &&
+    Number.isFinite(callerDeadlineAt) &&
+    callerDeadlineAt > 0
+      ? Math.min(localDeadlineAt, callerDeadlineAt)
+      : localDeadlineAt;
+  const requestTimeoutMs = requestDeadlineAt - performance.now();
+  if (requestTimeoutMs <= 0) {
+    throw new DOMException(
+      "Translation provider work exceeded the request deadline.",
+      "TimeoutError"
+    );
+  }
 
   const primary = resolveTranslationProviderConfig({ settings, env });
   const chain = buildFallbackProviderChain(primary, env);
   const { size, concurrency } = resolveTranslationChunking(env);
   const chunks = chunk(input.texts, size);
+  const providerCallSlots = createProviderCallSlots(concurrency);
   const failedChunkController = new AbortController();
+  // The request deadline is an owned timer rather than AbortSignal.timeout():
+  // timeout signals use unref'ed timers, and inside a nested AbortSignal.any()
+  // current Node 20.x fails to deliver the abort at all — the deadline test
+  // fails deterministically on Node 20.20 with either construction of the
+  // surrounding code, on main as well as here. An explicit ref'ed timer fires
+  // on every supported runtime and is cleared as soon as the work settles.
+  const requestTimeoutController = new AbortController();
+  const requestTimeoutTimer = setTimeout(() => {
+    requestTimeoutController.abort(
+      new DOMException(
+        "Translation provider work exceeded the request deadline.",
+        "TimeoutError"
+      )
+    );
+  }, Math.ceil(requestTimeoutMs));
   const requestSignal = AbortSignal.any([
     failedChunkController.signal,
-    AbortSignal.timeout(executionTimeoutMs),
+    requestTimeoutController.signal,
     ...(executionOptions?.signal ? [executionOptions.signal] : []),
   ]);
 
-  const translatedChunks = await mapWithConcurrency(
-    chunks,
-    concurrency,
-    async (texts) => {
-      try {
-        return await translateChunk(
-          { ...input, texts },
-          env,
-          chain,
-          requestSignal,
-          { providerCalls: 0 }
+  try {
+    const rootChunks = await mapWithConcurrency(
+      chunks,
+      concurrency,
+      async (texts): Promise<TranslationRootChunkResult> => {
+        const rootAttemptStartedAt = performance.now();
+        const budget: TranslationChunkBudget = {
+          providerCalls: 0,
+          terminalErrorLogged: false,
+          ...countMismatchIsolationLimits(texts.length, chain.length),
+        };
+        try {
+          const translations = await translateChunk(
+            { ...input, texts },
+            env,
+            chain,
+            requestSignal,
+            budget,
+            providerCallSlots,
+            0,
+            true
+          );
+          return { kind: "translated", translations };
+        } catch (error) {
+          if (error instanceof TranslationRootCountMismatchError) {
+            return {
+              kind: "count_mismatch",
+              texts,
+              budget,
+              fullChainDurationMs: Math.max(
+                1,
+                performance.now() - rootAttemptStartedAt
+              ),
+            };
+          }
+          if (!failedChunkController.signal.aborted) {
+            failedChunkController.abort(error);
+          }
+          throw error;
+        }
+      }
+    );
+
+    const mismatchTextCount = rootChunks.reduce(
+      (total, root) =>
+        total + (root.kind === "count_mismatch" ? root.texts.length : 0),
+      0
+    );
+    if (mismatchTextCount === 0) {
+      return rootChunks.flatMap((root) =>
+        root.kind === "translated" ? root.translations : []
+      );
+    }
+
+    // A real calibration wave must not start when the completed root phase has
+    // already left less time than the fastest full mismatch chain observed in
+    // this request. This conservative reserve is used only for admitting the
+    // calibration itself; later waves use measured singleton-wave durations.
+    const observedCalibrationReserveMs = Math.min(
+      ...rootChunks.flatMap((root) =>
+        root.kind === "count_mismatch" ? [root.fullChainDurationMs] : []
+      )
+    );
+    const remainingBeforeCalibrationMs = Math.max(
+      0,
+      requestDeadlineAt - performance.now()
+    );
+    const calibrationSize = Math.min(concurrency, mismatchTextCount);
+    if (observedCalibrationReserveMs >= remainingBeforeCalibrationMs) {
+      const error = new TranslationCountMismatchDeadlineError();
+      console.error(
+        `[translation] count-mismatch singleton calibration cannot fit the remaining request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}).`
+      );
+      throw error;
+    }
+
+    try {
+      requestSignal.throwIfAborted();
+    } catch (error) {
+      if (error instanceof Error && error.name === "TimeoutError") {
+        const classifiedError = new TranslationCountMismatchDeadlineError();
+        console.error(
+          `[translation] count-mismatch singleton calibration cannot start after the request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}).`
         );
+        throw classifiedError;
+      }
+      throw error;
+    }
+    const providerChain = chain.map((entry) => entry.provider).join(" -> ");
+    const singletonWork = rootChunks.flatMap((root, rootIndex) => {
+      if (root.kind !== "count_mismatch") return [];
+      console.warn(
+        `[translation] isolating provider count mismatch after exhausting chain ${providerChain} (batch size: ${root.texts.length}).`
+      );
+      return root.texts.map((text) => ({
+        rootIndex,
+        text,
+        budget: root.budget,
+      }));
+    });
+    const calibrationWork = singletonWork.slice(0, calibrationSize);
+    const remainingSingletonWaves = chunk(
+      singletonWork.slice(calibrationSize),
+      concurrency
+    );
+    const runSingletonWork = (
+      work: typeof singletonWork
+    ): Promise<
+      Array<{ rootIndex: number; translations: TranslationResult[] }>
+    > =>
+      mapWithConcurrency(
+        work,
+        concurrency,
+        async ({ rootIndex, text, budget }) => ({
+          rootIndex,
+          translations: await translateChunk(
+            { ...input, texts: [text] },
+            env,
+            chain,
+            requestSignal,
+            budget,
+            providerCallSlots,
+            1
+          ),
+        })
+      );
+    const runAdmittedSingletonWave = async (
+      work: typeof singletonWork
+    ): Promise<Array<{ rootIndex: number; translations: TranslationResult[] }>> => {
+      try {
+        const results = await runSingletonWork(work);
+        requestSignal.throwIfAborted();
+        return results;
       } catch (error) {
-        if (!failedChunkController.signal.aborted) {
-          failedChunkController.abort(error);
+        const deadlineReason = requestSignal.aborted
+          ? (requestSignal.reason ?? error)
+          : null;
+        if (
+          deadlineReason instanceof Error &&
+          deadlineReason.name === "TimeoutError"
+        ) {
+          const classifiedError = new TranslationCountMismatchDeadlineError();
+          console.error(
+            `[translation] admitted count-mismatch singleton wave reached the request deadline (mismatch texts: ${mismatchTextCount}, wave texts: ${work.length}).`
+          );
+          throw classifiedError;
         }
         throw error;
       }
-    }
-  );
+    };
 
-  return translatedChunks.flat();
+    let singletonResults: Array<{
+      rootIndex: number;
+      translations: TranslationResult[];
+    }>;
+    try {
+      // Root latency is not a reliable lower bound for singleton work. Run
+      // exactly one globally bounded real singleton wave, retain its results,
+      // and use that measured wave only to admit the remaining work.
+      const calibrationStartedAt = performance.now();
+      const calibrationResults = await runAdmittedSingletonWave(calibrationWork);
+      let observedWaveDurationMs = Math.max(
+        1,
+        performance.now() - calibrationStartedAt
+      );
+      singletonResults = [...calibrationResults];
+
+      for (
+        let waveIndex = 0;
+        waveIndex < remainingSingletonWaves.length;
+        waveIndex += 1
+      ) {
+        requestSignal.throwIfAborted();
+        const wavesLeft = remainingSingletonWaves.length - waveIndex;
+        const optimisticRemainingDurationMs =
+          observedWaveDurationMs * wavesLeft;
+        const remainingRequestMs = Math.max(
+          0,
+          requestDeadlineAt - performance.now()
+        );
+
+        if (optimisticRemainingDurationMs >= remainingRequestMs) {
+          const error = new TranslationCountMismatchDeadlineError();
+          console.error(
+            `[translation] count-mismatch singleton recovery cannot fit the remaining request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}, remaining waves: ${wavesLeft}).`
+          );
+          throw error;
+        }
+
+        const waveStartedAt = performance.now();
+        const waveResults = await runAdmittedSingletonWave(
+          remainingSingletonWaves[waveIndex]
+        );
+        observedWaveDurationMs = Math.max(
+          1,
+          performance.now() - waveStartedAt
+        );
+        singletonResults.push(...waveResults);
+      }
+    } catch (error) {
+      if (!failedChunkController.signal.aborted) {
+        failedChunkController.abort(error);
+      }
+      throw error;
+    }
+
+    const recoveredByRoot = new Map<number, TranslationResult[]>();
+    for (const { rootIndex, translations } of singletonResults) {
+      const recovered = recoveredByRoot.get(rootIndex) ?? [];
+      recovered.push(...translations);
+      recoveredByRoot.set(rootIndex, recovered);
+    }
+
+    return rootChunks.flatMap((root, rootIndex) =>
+      root.kind === "translated"
+        ? root.translations
+        : (recoveredByRoot.get(rootIndex) ?? [])
+    );
+  } finally {
+    clearTimeout(requestTimeoutTimer);
+  }
 }
 
 async function translateChunk(
@@ -403,7 +720,9 @@ async function translateChunk(
   chain: TranslationProviderConfig[],
   requestSignal: AbortSignal,
   budget: TranslationChunkBudget,
-  isolationDepth = 0
+  providerCallSlots: ProviderCallSlots,
+  isolationDepth = 0,
+  deferRootCountMismatch = false
 ): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
 
@@ -412,24 +731,32 @@ async function translateChunk(
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
     requestSignal.throwIfAborted();
-    if (
-      (isolationDepth > 0 || everyAttemptWasCountMismatch) &&
-      budget.providerCalls >= MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK
-    ) {
+    // Structurally unreachable while the limits match the direct-isolation
+    // bound; kept as a backstop so a future control-flow bug fails loudly
+    // instead of running away against the provider.
+    if (budget.providerCalls >= budget.maxProviderCalls) {
       console.error(
-        `[translation] count-mismatch isolation stopped at provider-call budget ${MAX_COUNT_MISMATCH_PROVIDER_CALLS_PER_CHUNK} (chain: ${providerChain}, batch size: ${input.texts.length}).`
+        `[translation] count-mismatch isolation stopped at provider-call budget ${budget.maxProviderCalls} (chain: ${providerChain}, batch size: ${input.texts.length}).`
       );
-      throw new TranslationProviderCallBudgetError();
+      throw new TranslationProviderCallBudgetError(budget.maxProviderCalls);
     }
     budget.providerCalls += 1;
 
     try {
-      const results = await translateWithProvider(
-        input,
-        env,
-        candidate,
-        requestSignal
-      );
+      const releaseSlot = await providerCallSlots.acquire();
+      let results: TranslationResult[];
+      try {
+        // The request may have been aborted while this call waited for a slot.
+        requestSignal.throwIfAborted();
+        results = await translateWithProvider(
+          input,
+          env,
+          candidate,
+          requestSignal
+        );
+      } finally {
+        releaseSlot();
+      }
       requestSignal.throwIfAborted();
       for (const [resultIndex, result] of results.entries()) {
         const nulError = inspectPostgresText(result.text, {
@@ -447,15 +774,28 @@ async function translateChunk(
       }
       return results;
     } catch (error) {
-      if (requestSignal.aborted) {
-        throw requestSignal.reason ?? error;
-      }
-
       lastError = error;
       const isCountMismatch =
         error instanceof TranslationProviderCountMismatchError;
       everyAttemptWasCountMismatch &&= isCountMismatch;
       const hasNext = index < chain.length - 1;
+      const isCompleteDeferredRootMismatch =
+        !hasNext &&
+        everyAttemptWasCountMismatch &&
+        input.texts.length > 1 &&
+        isolationDepth === 0 &&
+        deferRootCountMismatch;
+
+      // A deadline can fire in the same turn that the final provider returns
+      // its confirmed count mismatch. Preserve that completed root evidence so
+      // request-wide admission can classify the exhausted recovery budget;
+      // every incomplete, non-mismatch, or non-root abort still propagates.
+      if (requestSignal.aborted) {
+        if (isCompleteDeferredRootMismatch) {
+          throw new TranslationRootCountMismatchError();
+        }
+        throw requestSignal.reason ?? error;
+      }
 
       // Recoverable provider response / quota / rate-limit / 5xx / network
       // error with another provider still to try: warn rather than error — the
@@ -474,36 +814,8 @@ async function translateChunk(
         continue;
       }
 
-      if (
-        !hasNext &&
-        everyAttemptWasCountMismatch &&
-        input.texts.length > 1 &&
-        isolationDepth < MAX_COUNT_MISMATCH_ISOLATION_DEPTH
-      ) {
-        if (isolationDepth === 0) {
-          console.warn(
-            `[translation] isolating provider count mismatch after exhausting chain ${providerChain} (batch size: ${input.texts.length}).`
-          );
-        }
-
-        const midpoint = Math.ceil(input.texts.length / 2);
-        const left = await translateChunk(
-          { ...input, texts: input.texts.slice(0, midpoint) },
-          env,
-          chain,
-          requestSignal,
-          budget,
-          isolationDepth + 1
-        );
-        const right = await translateChunk(
-          { ...input, texts: input.texts.slice(midpoint) },
-          env,
-          chain,
-          requestSignal,
-          budget,
-          isolationDepth + 1
-        );
-        return [...left, ...right];
+      if (isCompleteDeferredRootMismatch) {
+        throw new TranslationRootCountMismatchError();
       }
 
       // Terminal failure: either the last provider in the chain failed, or the
@@ -512,11 +824,14 @@ async function translateChunk(
       // level with the failing provider, the full message and the attempted
       // chain — the previous code logged nothing here and left only the route's
       // generic "[/api/translate] Fehler" line.
-      console.error(
-        `[translation] translation failed via ${candidate.provider}${
-          hasNext ? " (non-failover error, not retrying)" : " (last provider in chain)"
-        } (chain: ${providerChain}). ${describeProviderError(error)}`
-      );
+      if (!budget.terminalErrorLogged) {
+        budget.terminalErrorLogged = true;
+        console.error(
+          `[translation] translation failed via ${candidate.provider}${
+            hasNext ? " (non-failover error, not retrying)" : " (last provider in chain)"
+          } (chain: ${providerChain}). ${describeProviderError(error)}`
+        );
+      }
       throw error;
     }
   }

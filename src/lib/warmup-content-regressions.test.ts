@@ -37,7 +37,63 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     wpOrgReadme,
   ]) {
     assert.match(documentation, /count mismatch/i);
-    assert.match(documentation, /six provider (?:HTTP )?calls/i);
+    assert.match(documentation, /direct singleton isolation/i);
+    assert.match(
+      documentation,
+      /default eight-text chunk with two providers[^.]*18 provider (?:HTTP )?calls/i
+    );
+    assert.match(
+      documentation,
+      /provider-call ceiling[^.]*chain length × \(chunk size \+ 1\)/i
+    );
+    assert.match(
+      documentation,
+      /request-wide provider-call concurrency cap \(default 12\)/i
+    );
+    assert.match(
+      documentation,
+      /(?:finishes all bounded root-chunk attempts before starting singleton|complete the bounded root-chunk phase before any singleton)/i
+    );
+    assert.match(
+      documentation,
+      /one global calibration wave containing the first[^.]*real singletons/i
+    );
+    assert.match(
+      documentation,
+      /before calibration[^.]*fastest elapsed duration among the completed full count-mismatch root chains/i
+    );
+    assert.match(documentation, /no singleton provider call starts/i);
+    assert.match(
+      documentation,
+      /root-derived reserve is used only for calibration admission and is never extrapolated across later work/i
+    );
+    assert.match(
+      documentation,
+      /deadline expires during any admitted singleton wave[^.]*typed deadline error instead of a generic timeout/i
+    );
+    assert.match(
+      documentation,
+      /remaining work is split into request-wide bounded waves/i
+    );
+    assert.match(
+      documentation,
+      /before each later wave[^.]*waves still pending × duration of the immediately preceding observed singleton wave/i
+    );
+    assert.match(
+      documentation,
+      /earlier of the local provider-work ceiling and the caller's monotonic absolute deadline/i
+    );
+    assert.match(documentation, /translation_count_mismatch_deadline/i);
+    assert.match(documentation, /503[^.]*at most 60 seconds/i);
+    assert.match(
+      documentation,
+      /after the last retained wave and before any further singleton call/i
+    );
+    assert.match(documentation, /same globally bounded singleton queue/i);
+    assert.doesNotMatch(documentation, /bounded binary isolation/i);
+    assert.doesNotMatch(documentation, /30 provider (?:HTTP )?calls/i);
+    assert.doesNotMatch(documentation, /(?:at most|capped at) six provider/i);
+    assert.doesNotMatch(documentation, /höchstens sechs Anbieteraufrufe/i);
     assert.match(
       documentation,
       /(?:100-second (?:provider-work )?deadline|provider-work deadline of at most 100 seconds)/i
@@ -46,8 +102,60 @@ test("provider count-mismatch isolation is documented across support surfaces", 
 
   assert.match(help, /Abweichung bei der Ergebnisanzahl/);
   assert.match(help, /alle versuchten Anbieter/);
+  assert.match(help, /direkte Einzeltext-Isolierung/);
+  assert.match(
+    help,
+    /Standardfall mit acht Texten und zwei Anbietern[^.]*18 Anbieteraufrufe/
+  );
+  assert.match(help, /anfrageweite Parallelitätsgrenze von standardmäßig 12/);
+  assert.match(help, /genau eine globale Kalibrierungswelle/);
+  assert.match(help, /kürzesten gemessenen Gesamtdauer/);
+  assert.match(help, /beginnt kein Einzeltext-Anbieteraufruf/);
+  assert.match(help, /wird nie auf spätere Arbeit hochgerechnet/);
+  assert.match(help, /während einer bereits zugelassenen Einzeltextwelle/);
+  assert.match(help, /typisierten Fristfehler statt einer allgemeinen Zeitüberschreitung/);
+  assert.match(help, /gemessene Dauer der unmittelbar vorherigen Einzeltextwelle/);
+  assert.match(help, /monotoner absoluter Aufruferfrist/);
+  assert.match(help, /vor jedem weiteren Einzeltextaufruf/);
+  assert.match(help, /dieselbe global begrenzte Einzeltextwarteschlange/);
   assert.match(developerDocs, /Ergebnisanzahl/);
   assert.match(developerDocs, /alle versuchten Anbieter/);
+  assert.match(developerDocs, /direkte Einzeltext-Isolierung/);
+  assert.match(
+    developerDocs,
+    /Standardfall mit acht Texten und zwei Anbietern[^.]*18 Anbieteraufrufe/
+  );
+  assert.match(
+    developerDocs,
+    /anfrageweite Parallelitätsgrenze von standardmäßig 12/
+  );
+  assert.match(
+    developerDocs,
+    /genau eine globale Kalibrierungswelle/
+  );
+  assert.match(developerDocs, /kürzesten gemessenen Gesamtdauer/);
+  assert.match(developerDocs, /beginnt kein Einzeltext-Anbieteraufruf/);
+  assert.match(developerDocs, /wird nie auf spätere Arbeit hochgerechnet/);
+  assert.match(
+    developerDocs,
+    /während einer bereits zugelassenen Einzeltextwelle/
+  );
+  assert.match(
+    developerDocs,
+    /typisierten Fristfehler statt einer allgemeinen Zeitüberschreitung/
+  );
+  assert.match(
+    developerDocs,
+    /gemessene Dauer der unmittelbar vorherigen Einzeltextwelle/
+  );
+  assert.match(developerDocs, /monotoner absoluter Aufruferfrist/);
+  assert.match(developerDocs, /vor jedem weiteren Einzeltextaufruf/);
+  assert.match(
+    developerDocs,
+    /dieselbe global begrenzte Einzeltextwarteschlange/
+  );
+  assert.doesNotMatch(help, /30 Anbieteraufrufe/);
+  assert.doesNotMatch(developerDocs, /30 Anbieteraufrufe/);
   assert.match(operations, /never source or translated text, URLs, or credentials/i);
   assert.match(readme, /timeouts, authentication, rate limits, NUL output/i);
 });
@@ -71,6 +179,12 @@ test("PDF count-mismatch recovery keeps a route-specific provider-work margin", 
   assert.match(
     pdfTranslation,
     /maxRequestTimeoutMs:\s*PDF_TRANSLATION_REQUEST_TIMEOUT_MS/
+  );
+  assert.match(pdfTranslation, /deadlineAt:\s*providerBudgetDeadlineAt/);
+  assert.match(pdfRoute, /providerBudgetDeadlineAt/);
+  assert.match(
+    pdfTranslation,
+    /"translation_count_mismatch_deadline",\s*503/
   );
 
   for (const documentation of [
