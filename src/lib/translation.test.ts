@@ -2680,3 +2680,157 @@ test("rechecks admission between heterogeneous singleton waves", { timeout: 2_00
     console.error = originalError;
   }
 });
+
+/**
+ * Admission cannot predict an abrupt latency increase in the wave it is about
+ * to launch. If that admitted singleton wave reaches the shared deadline, the
+ * public API/PDF contract still needs the typed count-mismatch deadline error
+ * rather than a generic provider timeout.
+ */
+test("classifies a shared deadline reached during a later singleton wave", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const errorLogs: string[] = [];
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "));
+  };
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const texts = url.includes("openai.com")
+      ? (JSON.parse(body.messages[1].content) as { texts: string[] }).texts
+      : (JSON.parse(body.contents[0].parts[0].text) as { texts: string[] }).texts;
+
+    if (texts.length > 1) {
+      await waitForProviderDelay(20, init?.signal);
+      return url.includes("openai.com") ? openAIResponse([]) : geminiResponse([]);
+    }
+
+    const index = Number(texts[0].replace("Segment ", ""));
+    await waitForProviderDelay(index < 12 ? 10 : 200, init?.signal);
+    if (url.includes("openai.com")) {
+      return openAIResponse([{ text: `en:${texts[0]}` }]);
+    }
+    return geminiResponse([{ text: `en:${texts[0]}` }]);
+  }) as typeof fetch;
+
+  try {
+    const callerBudgetMs = 160;
+    const deadlineAt = performance.now() + callerBudgetMs;
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 24 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: AbortSignal.timeout(callerBudgetMs),
+            deadlineAt,
+          },
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        return true;
+      },
+    );
+    assert.equal(
+      providerCalls,
+      30,
+      "three root chains, calibration, and the admitted slower wave may start before classification",
+    );
+    assert.equal(errorLogs.length, 1, "the admitted-wave deadline is logged once");
+    assert.match(errorLogs[0], /admitted count-mismatch singleton wave/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("preserves non-timeout cancellation during a later singleton wave", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const callerController = new AbortController();
+  const cancellation = new Error("caller cancelled");
+  const errorLogs: string[] = [];
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "));
+  };
+  globalThis.fetch = (async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    if (!url.includes("openai.com")) throw new Error(`Unexpected fetch url ${url}`);
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const texts = (JSON.parse(body.messages[1].content) as { texts: string[] })
+      .texts;
+
+    if (texts.length > 1) return openAIResponse([]);
+    const index = Number(texts[0].replace("Segment ", ""));
+    if (index >= 12) callerController.abort(cancellation);
+    return openAIResponse([{ text: `en:${texts[0]}` }]);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 16 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: callerController.signal,
+            deadlineAt: performance.now() + 500,
+          }
+        ),
+      (error: unknown) => error === cancellation
+    );
+    assert.ok(
+      providerCalls > 14,
+      "root work and calibration complete before cancellation"
+    );
+    assert.deepEqual(errorLogs, []);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});

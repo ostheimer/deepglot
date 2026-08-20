@@ -617,23 +617,13 @@ export async function translateTexts(
           ),
         })
       );
-
-    let singletonResults: Array<{
-      rootIndex: number;
-      translations: TranslationResult[];
-    }>;
-    try {
-      // Root latency is not a reliable lower bound for singleton work. Run
-      // exactly one globally bounded real singleton wave, retain its results,
-      // and use that measured wave only to admit the remaining work.
-      const calibrationStartedAt = performance.now();
-      let calibrationResults: Array<{
-        rootIndex: number;
-        translations: TranslationResult[];
-      }>;
+    const runAdmittedSingletonWave = async (
+      work: typeof singletonWork
+    ): Promise<Array<{ rootIndex: number; translations: TranslationResult[] }>> => {
       try {
-        calibrationResults = await runSingletonWork(calibrationWork);
+        const results = await runSingletonWork(work);
         requestSignal.throwIfAborted();
+        return results;
       } catch (error) {
         const deadlineReason = requestSignal.aborted
           ? (requestSignal.reason ?? error)
@@ -644,12 +634,24 @@ export async function translateTexts(
         ) {
           const classifiedError = new TranslationCountMismatchDeadlineError();
           console.error(
-            `[translation] count-mismatch singleton calibration reached the request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}).`
+            `[translation] admitted count-mismatch singleton wave reached the request deadline (mismatch texts: ${mismatchTextCount}, wave texts: ${work.length}).`
           );
           throw classifiedError;
         }
         throw error;
       }
+    };
+
+    let singletonResults: Array<{
+      rootIndex: number;
+      translations: TranslationResult[];
+    }>;
+    try {
+      // Root latency is not a reliable lower bound for singleton work. Run
+      // exactly one globally bounded real singleton wave, retain its results,
+      // and use that measured wave only to admit the remaining work.
+      const calibrationStartedAt = performance.now();
+      const calibrationResults = await runAdmittedSingletonWave(calibrationWork);
       let observedWaveDurationMs = Math.max(
         1,
         performance.now() - calibrationStartedAt
@@ -679,7 +681,7 @@ export async function translateTexts(
         }
 
         const waveStartedAt = performance.now();
-        const waveResults = await runSingletonWork(
+        const waveResults = await runAdmittedSingletonWave(
           remainingSingletonWaves[waveIndex]
         );
         observedWaveDurationMs = Math.max(

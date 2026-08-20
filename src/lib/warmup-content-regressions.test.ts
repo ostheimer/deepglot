@@ -69,7 +69,7 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     );
     assert.match(
       documentation,
-      /deadline expires during calibration[^.]*typed deadline error instead of a generic timeout/i
+      /deadline expires during any admitted singleton wave[^.]*typed deadline error instead of a generic timeout/i
     );
     assert.match(
       documentation,
@@ -112,6 +112,7 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   assert.match(help, /kürzesten gemessenen Gesamtdauer/);
   assert.match(help, /beginnt kein Einzeltext-Anbieteraufruf/);
   assert.match(help, /wird nie auf spätere Arbeit hochgerechnet/);
+  assert.match(help, /während einer bereits zugelassenen Einzeltextwelle/);
   assert.match(help, /typisierten Fristfehler statt einer allgemeinen Zeitüberschreitung/);
   assert.match(help, /gemessene Dauer der unmittelbar vorherigen Einzeltextwelle/);
   assert.match(help, /monotoner absoluter Aufruferfrist/);
@@ -135,6 +136,10 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   assert.match(developerDocs, /kürzesten gemessenen Gesamtdauer/);
   assert.match(developerDocs, /beginnt kein Einzeltext-Anbieteraufruf/);
   assert.match(developerDocs, /wird nie auf spätere Arbeit hochgerechnet/);
+  assert.match(
+    developerDocs,
+    /während einer bereits zugelassenen Einzeltextwelle/
+  );
   assert.match(
     developerDocs,
     /typisierten Fristfehler statt einer allgemeinen Zeitüberschreitung/
