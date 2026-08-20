@@ -467,21 +467,20 @@ test("caps count mismatch isolation for a large permanently failing chunk", asyn
             TRANSLATION_CHUNK_SIZE: "64",
           }
         ),
-      // Isolation now descends all the way: the terminal failure is a
-      // singleton the provider still cannot translate — a genuine failure,
-      // not an artifact of the isolation limits.
+      // Direct isolation reaches a singleton the provider still cannot
+      // translate — a genuine failure, not an artifact of the limits.
       /OpenAI hat 0 statt 1 Uebersetzungen geliefert/
     );
-    // Parallel branches race the request-level abort, so the exact count is
-    // nondeterministic — but it can never exceed the full-tree bound of
-    // chain-length x (2n - 1) calls.
+    // Parallel singletons race the request-level abort, so the exact count is
+    // nondeterministic — but it can never exceed one root call plus one call
+    // for each of the 64 isolated texts.
     assert.ok(
-      providerCalls >= 7,
-      `the leftmost descent alone needs 7 calls, saw ${providerCalls}`
+      providerCalls >= 2,
+      `recovery must attempt the root and at least one singleton, saw ${providerCalls}`
     );
     assert.ok(
-      providerCalls <= 127,
-      `calls must stay within the 64-text tree bound of 127, saw ${providerCalls}`
+      providerCalls <= 65,
+      `calls must stay within the 64-text isolation bound of 65, saw ${providerCalls}`
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -527,12 +526,12 @@ test("bounds provider calls while isolating the default eight-text chunk", async
       result.map((entry) => entry.text),
       Array.from({ length: 8 }, (_, index) => `translated:Segment ${index}`)
     );
-    // …and the completed tree is exactly its structural bound with a
-    // single-provider chain: 7 failing internal nodes plus 8 singletons.
+    // …and direct singleton isolation avoids redundant intermediate shapes:
+    // one failing root plus eight successful singletons.
     assert.equal(
       providerCalls,
-      15,
-      "a completed isolation must not exceed the full-tree call bound"
+      9,
+      "a completed isolation must stay at the direct-singleton call bound"
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -727,7 +726,7 @@ test("does not start provider work after the caller-specific budget has already 
   }
 });
 
-test("does not recursively isolate an in-flight sibling after another root chunk fails", async () => {
+test("does not isolate an in-flight sibling after another root chunk fails", async () => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -769,7 +768,7 @@ test("does not recursively isolate an in-flight sibling after another root chunk
     assert.equal(
       calls.filter((call) => call.group === "B" && call.size === 1).length,
       0,
-      "a sibling still in flight must observe the shared failure before recursing"
+      "a sibling still in flight must observe the shared failure before isolating"
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -1839,10 +1838,10 @@ test("keeps the shared provider deadline below the route duration", () => {
 /**
  * Production repro (28 occurrences in the 3.7 days after #299 deployed):
  * "count-mismatch isolation stopped at provider-call budget 6 … batch size: 1".
- * Both providers drift on every multi-text shape, the tree descends 8→4→2→1,
+ * Both providers drift on every multi-text shape; the previous tree descended 8→4→2→1,
  * and the walk to the first singleton alone costs 6 calls — so the budget
  * killed the repair at the exact moment it had isolated the problem. The
- * budget must be sized so a tree whose singletons succeed can finish.
+ * budget must be sized so the singleton repair can finish.
  */
 test("completes isolation down to singletons instead of dying at the call budget", async () => {
   const originalFetch = globalThis.fetch;
@@ -1858,15 +1857,17 @@ test("completes isolation down to singletons instead of dying at the call budget
     const body = JSON.parse(String(init?.body ?? "{}"));
 
     if (url.includes("openai.com")) {
-      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
-
-      return openAIResponse(
-        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
-      );
+      return openAIResponse([]);
     }
     if (url.includes("generativelanguage.googleapis.com")) {
-      // The fallback drifts on the same multi-text shapes as the primary.
-      return geminiResponse([]);
+      const { texts } = JSON.parse(body.contents[0].parts[0].text) as {
+        texts: string[];
+      };
+      // The fallback drifts on multi-text shapes but can translate each
+      // singleton after the primary also mismatches there.
+      return geminiResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
     }
     throw new Error(`Unexpected fetch url ${url}`);
   }) as typeof fetch;
@@ -1888,9 +1889,10 @@ test("completes isolation down to singletons instead of dying at the call budget
       result.map((entry) => entry.text),
       texts.map((text) => `en:${text}`)
     );
-    // 7 internal nodes fail through both providers, 8 singletons succeed on
-    // the primary: the completed tree is bounded, not open-ended.
-    assert.equal(providerCalls, 7 * 2 + 8);
+    // The root exhausts both providers, then every singleton preserves the
+    // full fallback chain. This reaches the exact two-provider ceiling:
+    // chain length x (chunk size + 1) = 2 x 9.
+    assert.equal(providerCalls, 2 * (8 + 1));
   } finally {
     globalThis.fetch = originalFetch;
     console.warn = originalWarn;
@@ -1899,11 +1901,11 @@ test("completes isolation down to singletons instead of dying at the call budget
 });
 
 /**
- * The isolation depth was a constant sized for the default chunk of 8. A site
- * running TRANSLATION_CHUNK_SIZE=12 needs four halvings to reach singletons —
- * with the constant, the tree stalled at two-text leaves and failed.
+ * Isolation limits used to be sized for the default chunk of 8. An operator
+ * chunk of 12 must still isolate every original text without hitting a call
+ * ceiling sized for a smaller root.
  */
-test("derives the isolation depth from the chunk size instead of assuming 8", async () => {
+test("derives singleton isolation limits from a non-default chunk size", async () => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -1947,11 +1949,10 @@ test("derives the isolation depth from the chunk size instead of assuming 8", as
 });
 
 /**
- * The chunk concurrency exists to stay clear of provider rate limits, and the
- * old sequential isolation implicitly respected it: one call in flight per
- * chunk, at most 12 total. Parallel isolation must not bypass that ceiling —
- * 12 drifting chunks descending in lockstep would otherwise put ~96 calls in
- * flight and provoke the 429 that terminally kills the request.
+ * The chunk concurrency exists to stay clear of provider rate limits. Direct
+ * singleton isolation must not create an independent pool for every root —
+ * several drifting chunks could otherwise fan out far beyond that ceiling and
+ * provoke the 429 that terminally kills the request.
  */
 test("caps in-flight provider calls during parallel isolation at the request concurrency", async () => {
   const originalFetch = globalThis.fetch;
@@ -1982,8 +1983,8 @@ test("caps in-flight provider calls during parallel isolation at the request con
   }) as typeof fetch;
 
   try {
-    // Two 8-text chunks that both drift on every multi-text shape: the
-    // isolation trees descend concurrently and end in 16 singleton calls.
+    // Two 8-text chunks that both drift on the root shape isolate concurrently
+    // into 16 singleton calls.
     const texts = Array.from({ length: 16 }, (_, index) => `Segment ${index}`);
     const result = await translateTexts(
       { texts, sourceLang: "de", targetLang: "en" },
@@ -2004,6 +2005,70 @@ test("caps in-flight provider calls during parallel isolation at the request con
       `isolation must respect the request concurrency of 3, saw ${peakInFlight} in flight`
     );
     assert.ok(peakInFlight > 1, "the repair must still overlap calls");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
+ * Six default root chunks already exceed the shared request deadline when
+ * every chunk walks its complete binary tree: 6 x 22 provider calls need at
+ * least eleven 25-ms waves, which cannot fit a 240-ms deadline. Direct
+ * singleton isolation needs only the two root-provider waves plus four
+ * singleton waves, leaving enough margin for the same request to finish.
+ */
+test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const texts = Array.from({ length: 48 }, (_, index) => `Segment ${index}`);
+    const result = await translateTexts(
+      { texts, sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+        TRANSLATION_CHUNK_SIZE: "8",
+        TRANSLATION_CHUNK_CONCURRENCY: "12",
+        TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+        TRANSLATION_REQUEST_TIMEOUT_MS: "240",
+      }
+    );
+
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      texts.map((text) => `en:${text}`)
+    );
+    assert.ok(
+      providerCalls <= 60,
+      `six default chunks should need at most 60 calls, saw ${providerCalls}`
+    );
   } finally {
     globalThis.fetch = originalFetch;
     console.warn = originalWarn;

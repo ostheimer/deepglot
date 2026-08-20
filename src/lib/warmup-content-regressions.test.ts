@@ -37,14 +37,21 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     wpOrgReadme,
   ]) {
     assert.match(documentation, /count mismatch/i);
+    assert.match(documentation, /direct singleton isolation/i);
     assert.match(
       documentation,
-      /default eight-text chunk with two providers[^.]*30 provider (?:HTTP )?calls/i
+      /default eight-text chunk with two providers[^.]*18 provider (?:HTTP )?calls/i
     );
     assert.match(
       documentation,
-      /provider-call ceiling[^.]*root chunk size[^.]*configured provider chain/i
+      /provider-call ceiling[^.]*chain length × \(chunk size \+ 1\)/i
     );
+    assert.match(
+      documentation,
+      /request-wide provider-call concurrency cap \(default 12\)/i
+    );
+    assert.doesNotMatch(documentation, /bounded binary isolation/i);
+    assert.doesNotMatch(documentation, /30 provider (?:HTTP )?calls/i);
     assert.doesNotMatch(documentation, /(?:at most|capped at) six provider/i);
     assert.doesNotMatch(documentation, /höchstens sechs Anbieteraufrufe/i);
     assert.match(
@@ -55,16 +62,25 @@ test("provider count-mismatch isolation is documented across support surfaces", 
 
   assert.match(help, /Abweichung bei der Ergebnisanzahl/);
   assert.match(help, /alle versuchten Anbieter/);
+  assert.match(help, /direkte Einzeltext-Isolierung/);
   assert.match(
     help,
-    /Standardfall mit acht Texten und zwei Anbietern[^.]*30 Anbieteraufrufe/
+    /Standardfall mit acht Texten und zwei Anbietern[^.]*18 Anbieteraufrufe/
   );
+  assert.match(help, /anfrageweite Parallelitätsgrenze von standardmäßig 12/);
   assert.match(developerDocs, /Ergebnisanzahl/);
   assert.match(developerDocs, /alle versuchten Anbieter/);
+  assert.match(developerDocs, /direkte Einzeltext-Isolierung/);
   assert.match(
     developerDocs,
-    /Standardfall mit acht Texten und zwei Anbietern[^.]*30 Anbieteraufrufe/
+    /Standardfall mit acht Texten und zwei Anbietern[^.]*18 Anbieteraufrufe/
   );
+  assert.match(
+    developerDocs,
+    /anfrageweite Parallelitätsgrenze von standardmäßig 12/
+  );
+  assert.doesNotMatch(help, /30 Anbieteraufrufe/);
+  assert.doesNotMatch(developerDocs, /30 Anbieteraufrufe/);
   assert.match(operations, /never source or translated text, URLs, or credentials/i);
   assert.match(readme, /timeouts, authentication, rate limits, NUL output/i);
 });

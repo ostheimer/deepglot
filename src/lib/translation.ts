@@ -208,7 +208,8 @@ export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
 
 /**
  * A count mismatch may be shape-dependent, so retry a failed multi-text chunk
- * as smaller halves.
+ * as isolated singletons after the complete provider chain returned only count
+ * mismatches for the root shape.
  *
  * The isolation limits are derived from the root chunk, not fixed: production
  * showed 28 `TranslationProviderCallBudgetError` 500s in the 3.7 days after
@@ -216,31 +217,22 @@ export const DEFAULT_TRANSLATION_CHUNK_CONCURRENCY = 12;
  * provider-call budget 6 … batch size: 1" — the walk down 8→4→2→1 with a
  * two-provider chain costs 6 calls before the first singleton is even
  * attempted, so the budget killed the repair at the exact moment it had
- * isolated the problem. The tree over n texts has 2n−1 nodes and each node
- * makes at most chain-length calls, so that product is the completion bound;
- * anything smaller re-creates a cliff where a recoverable request 500s. The
- * real cost ceilings are the request deadline below, the per-request
- * provider-call slots, and the sibling cancellation in translateTexts — the
- * call budget remains only as a backstop against recursion bugs.
- *
- * Known limit: the critical path is still sequential per branch
- * (ceil(log2(n)) failing levels x chain length, ~10s per drifting call), so a
- * full descent fits the 100s request deadline for the default chunk of 8 but
- * not for operator-set chunk sizes beyond roughly 16 — there a fully drifting
- * tree dies as a timeout. That is strictly better than the fixed budget,
- * which killed the repair at every size, but large-chunk configurations trade
- * repair coverage for fewer provider calls.
+ * isolated the problem. Retrying binary intermediate shapes adds provider
+ * calls without adding evidence once the complete root chain confirmed the
+ * mismatch. Trying each singleton directly needs at most one root chain plus
+ * one complete chain per text: chain length x (chunk size + 1) calls for a
+ * multi-text root, or one chain for an original singleton. The real cost
+ * ceilings remain the request deadline below, the request-wide provider-call
+ * slots, and sibling cancellation in translateTexts; the call budget remains
+ * a backstop against control-flow bugs.
  */
 function countMismatchIsolationLimits(
   chunkSize: number,
   chainLength: number
-): { maxProviderCalls: number; maxIsolationDepth: number } {
+): { maxProviderCalls: number } {
   return {
-    maxProviderCalls: chainLength * (2 * chunkSize - 1),
-    // ceil(log2(n)) halvings always reach singletons, also for uneven sizes
-    // (the split rounds the left half up).
-    maxIsolationDepth:
-      chunkSize > 1 ? Math.ceil(Math.log2(chunkSize)) : 0,
+    maxProviderCalls:
+      chainLength * (chunkSize > 1 ? chunkSize + 1 : 1),
   };
 }
 
@@ -300,9 +292,8 @@ class TranslationProviderCallBudgetError extends Error {
 type TranslationChunkBudget = {
   providerCalls: number;
   maxProviderCalls: number;
-  maxIsolationDepth: number;
   /**
-   * Isolation halves run in parallel, so two branches can fail terminally
+   * Isolated singletons run in parallel, so two branches can fail terminally
    * before the request-level abort reaches the survivor. Only the first
    * failure propagates to the caller; logging the racing sibling would just
    * duplicate the same privacy-safe line.
@@ -334,22 +325,22 @@ export function resolveTranslationChunking(
 /**
  * Counting semaphore over provider HTTP calls for one request.
  *
- * The chunk concurrency was sized to stay clear of provider rate limits, and
- * the sequential isolation implicitly respected it: one call in flight per
- * chunk. Parallel isolation doubles its in-flight branches per tree level, so
- * without this cap twelve drifting chunks would descend in lockstep and put
- * ~96 calls in flight — provoking exactly the 429 that, on the last provider
- * in the chain, terminally kills the request. Slots are held only for the
- * duration of a single provider call (parents split only after their own
- * calls finished), so the recursion cannot deadlock on it.
+ * The chunk concurrency was sized to stay clear of provider rate limits.
+ * Direct singleton isolation can fan out every text from several drifting
+ * root chunks at once, so it must share this same request-wide ceiling rather
+ * than creating an independent pool per root. Slots are held only for the
+ * duration of one provider call; queued singleton workers hold no slots, so
+ * they cannot deadlock the semaphore.
  */
 function createProviderCallSlots(limit: number): {
+  readonly limit: number;
   acquire(): Promise<() => void>;
 } {
   let inFlight = 0;
   const waiters: Array<() => void> = [];
 
   return {
+    limit,
     async acquire() {
       while (inFlight >= limit) {
         await new Promise<void>((resolve) => waiters.push(resolve));
@@ -506,9 +497,9 @@ async function translateChunk(
   for (let index = 0; index < chain.length; index += 1) {
     const candidate = chain[index];
     requestSignal.throwIfAborted();
-    // Structurally unreachable while the limits match the tree bound; kept as
-    // a backstop so a future recursion bug fails loudly instead of running
-    // away against the provider.
+    // Structurally unreachable while the limits match the direct-isolation
+    // bound; kept as a backstop so a future control-flow bug fails loudly
+    // instead of running away against the provider.
     if (budget.providerCalls >= budget.maxProviderCalls) {
       console.error(
         `[translation] count-mismatch isolation stopped at provider-call budget ${budget.maxProviderCalls} (chain: ${providerChain}, batch size: ${input.texts.length}).`
@@ -579,8 +570,7 @@ async function translateChunk(
       if (
         !hasNext &&
         everyAttemptWasCountMismatch &&
-        input.texts.length > 1 &&
-        isolationDepth < budget.maxIsolationDepth
+        input.texts.length > 1
       ) {
         if (isolationDepth === 0) {
           console.warn(
@@ -588,35 +578,27 @@ async function translateChunk(
           );
         }
 
-        // The halves run in parallel: a full descent 8→4→2→1 with a
-        // two-provider chain costs 7 failing internal nodes at ~10s per call
-        // before the singletons even start — sequentially that exceeds the
-        // request deadline, so the repair would time out exactly in the case
-        // it exists for. If one half fails terminally, the rejection
-        // propagates to translateTexts, which aborts requestSignal and stops
-        // the surviving half's remaining calls.
-        const midpoint = Math.ceil(input.texts.length / 2);
-        const [left, right] = await Promise.all([
-          translateChunk(
-            { ...input, texts: input.texts.slice(0, midpoint) },
-            env,
-            chain,
-            requestSignal,
-            budget,
-            providerCallSlots,
-            isolationDepth + 1
-          ),
-          translateChunk(
-            { ...input, texts: input.texts.slice(midpoint) },
-            env,
-            chain,
-            requestSignal,
-            budget,
-            providerCallSlots,
-            isolationDepth + 1
-          ),
-        ]);
-        return [...left, ...right];
+        // Once every provider returned only a count mismatch for the root
+        // shape, binary intermediate shapes add no evidence and can consume
+        // the shared request deadline before reaching the actual texts. Go
+        // directly to singletons instead. mapWithConcurrency preserves order,
+        // while the shared provider slots keep all root chunks under the same
+        // request-wide HTTP concurrency ceiling.
+        const isolated = await mapWithConcurrency(
+          input.texts,
+          providerCallSlots.limit,
+          (text) =>
+            translateChunk(
+              { ...input, texts: [text] },
+              env,
+              chain,
+              requestSignal,
+              budget,
+              providerCallSlots,
+              isolationDepth + 1
+            )
+        );
+        return isolated.flat();
       }
 
       // Terminal failure: either the last provider in the chain failed, or the
