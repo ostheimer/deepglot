@@ -56,13 +56,21 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     );
     assert.match(
       documentation,
-      /shortest provider-call duration observed in those root chains[^.]*ceil\(total mismatched texts \/ request-wide concurrency\)/i
+      /one global calibration wave containing the first[^.]*real singletons/i
+    );
+    assert.match(
+      documentation,
+      /ceil\(remaining singleton texts \/ request-wide concurrency\)[^.]*observed calibration-wave duration/i
     );
     assert.match(
       documentation,
       /cannot fit the remaining request deadline/i
     );
-    assert.match(documentation, /one globally bounded singleton queue/i);
+    assert.match(
+      documentation,
+      /after calibration and before any further singleton call/i
+    );
+    assert.match(documentation, /same globally bounded singleton queue/i);
     assert.doesNotMatch(documentation, /bounded binary isolation/i);
     assert.doesNotMatch(documentation, /30 provider (?:HTTP )?calls/i);
     assert.doesNotMatch(documentation, /(?:at most|capped at) six provider/i);
@@ -81,8 +89,10 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     /Standardfall mit acht Texten und zwei Anbietern[^.]*18 Anbieteraufrufe/
   );
   assert.match(help, /anfrageweite Parallelitätsgrenze von standardmäßig 12/);
-  assert.match(help, /kürzeste in diesen Ausgangsketten beobachtete Anbieteraufrufdauer/);
-  assert.match(help, /eine einzige global begrenzte Einzeltextwarteschlange/);
+  assert.match(help, /genau eine globale Kalibrierungswelle/);
+  assert.match(help, /gemessene Dauer der Kalibrierungswelle/);
+  assert.match(help, /vor jedem weiteren Einzeltextaufruf/);
+  assert.match(help, /dieselbe global begrenzte Einzeltextwarteschlange/);
   assert.match(developerDocs, /Ergebnisanzahl/);
   assert.match(developerDocs, /alle versuchten Anbieter/);
   assert.match(developerDocs, /direkte Einzeltext-Isolierung/);
@@ -96,11 +106,13 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   );
   assert.match(
     developerDocs,
-    /kürzeste in diesen Ausgangsketten beobachtete Anbieteraufrufdauer/
+    /genau eine globale Kalibrierungswelle/
   );
+  assert.match(developerDocs, /gemessene Dauer der Kalibrierungswelle/);
+  assert.match(developerDocs, /vor jedem weiteren Einzeltextaufruf/);
   assert.match(
     developerDocs,
-    /eine einzige global begrenzte Einzeltextwarteschlange/
+    /dieselbe global begrenzte Einzeltextwarteschlange/
   );
   assert.doesNotMatch(help, /30 Anbieteraufrufe/);
   assert.doesNotMatch(developerDocs, /30 Anbieteraufrufe/);

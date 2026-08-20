@@ -2081,8 +2081,9 @@ test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { t
  * singleton succeeds on the first provider, direct isolation would need 126
  * calls; at 25 ms per call and twelve request-wide slots, that work cannot fit
  * after the root chains have consumed part of a 240-ms shared deadline. The
- * request must classify that impossibility before starting singleton work
- * instead of spending until the deadline aborts it.
+ * request must classify that impossibility after at most one bounded
+ * singleton calibration wave instead of spending until the deadline aborts
+ * it.
  */
 test("rejects request-wide count-mismatch recovery before impossible singleton work starts", { timeout: 2_000 }, async () => {
   const originalFetch = globalThis.fetch;
@@ -2142,16 +2143,88 @@ test("rejects request-wide count-mismatch recovery before impossible singleton w
     );
     assert.equal(
       providerCalls,
-      26,
-      "the thirteen two-provider root chains must finish without starting singleton calls"
+      38,
+      "the thirteen two-provider roots plus one twelve-call calibration wave must bound the rejection"
     );
     assert.equal(errors.length, 1, "the admission failure needs one terminal log");
     assert.match(errors[0], /cannot fit the remaining request deadline/i);
-    assert.match(errors[0], /mismatch texts: 100, optimistic waves: 9/);
+    assert.match(
+      errors[0],
+      /mismatch texts: 100, calibration texts: 12, remaining waves: 8/
+    );
     assert.doesNotMatch(
       JSON.stringify(errors),
       /Segment 0|Segment 99/,
       "the admission log must not contain source text"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
+ * Batched root latency is not a singleton lower bound: provider work has a
+ * fixed cost plus payload-dependent work. Nine eight-text roots take two
+ * 50-ms provider stages, while their 72 singletons still fit in six 25-ms
+ * waves. Admission must measure an actual bounded singleton wave instead of
+ * multiplying the slower root duration and rejecting recoverable work. The
+ * 350-ms request deadline stays between the old 6 × 50-ms estimate after the
+ * root phase and the new 5 × 25-ms remaining-work estimate with ample jitter
+ * margin.
+ */
+test("admits request-wide recovery from measured singleton waves rather than batched latency", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+      await new Promise((resolve) => setTimeout(resolve, texts.length === 1 ? 25 : 50));
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const texts = Array.from({ length: 72 }, (_, index) => `Segment ${index}`);
+    const result = await translateTexts(
+      { texts, sourceLang: "de", targetLang: "en" },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+        TRANSLATION_CHUNK_SIZE: "8",
+        TRANSLATION_CHUNK_CONCURRENCY: "12",
+        TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+        TRANSLATION_REQUEST_TIMEOUT_MS: "350",
+      }
+    );
+
+    assert.deepEqual(
+      result.map((entry) => entry.text),
+      texts.map((text) => `en:${text}`)
+    );
+    assert.equal(
+      providerCalls,
+      90,
+      "nine two-provider roots plus 72 singleton calls must complete"
     );
   } finally {
     globalThis.fetch = originalFetch;
