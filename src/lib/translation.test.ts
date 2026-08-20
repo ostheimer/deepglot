@@ -2075,3 +2075,87 @@ test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { t
     console.error = originalError;
   }
 });
+
+/**
+ * A 100-text request has thirteen default root chunks. Even when every
+ * singleton succeeds on the first provider, direct isolation would need 126
+ * calls; at 25 ms per call and twelve request-wide slots, that work cannot fit
+ * after the root chains have consumed part of a 240-ms shared deadline. The
+ * request must classify that impossibility before starting singleton work
+ * instead of spending until the deadline aborts it.
+ */
+test("rejects request-wide count-mismatch recovery before impossible singleton work starts", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+  const errors: string[] = [];
+
+  console.warn = () => {};
+  console.error = (...args) => {
+    errors.push(args.map((value) => String(value)).join(" "));
+  };
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
+    if (url.includes("generativelanguage.googleapis.com")) {
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 100 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "240",
+          }
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        assert.match(error.message, /cannot fit the remaining request deadline/i);
+        return true;
+      }
+    );
+    assert.equal(
+      providerCalls,
+      26,
+      "the thirteen two-provider root chains must finish without starting singleton calls"
+    );
+    assert.equal(errors.length, 1, "the admission failure needs one terminal log");
+    assert.match(errors[0], /cannot fit the remaining request deadline/i);
+    assert.match(errors[0], /mismatch texts: 100, optimistic waves: 9/);
+    assert.doesNotMatch(
+      JSON.stringify(errors),
+      /Segment 0|Segment 99/,
+      "the admission log must not contain source text"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});

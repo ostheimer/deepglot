@@ -50,6 +50,19 @@ test("provider count-mismatch isolation is documented across support surfaces", 
       documentation,
       /request-wide provider-call concurrency cap \(default 12\)/i
     );
+    assert.match(
+      documentation,
+      /(?:finishes all bounded root-chunk attempts before starting singleton|complete the bounded root-chunk phase before any singleton)/i
+    );
+    assert.match(
+      documentation,
+      /shortest provider-call duration observed in those root chains[^.]*ceil\(total mismatched texts \/ request-wide concurrency\)/i
+    );
+    assert.match(
+      documentation,
+      /cannot fit the remaining request deadline/i
+    );
+    assert.match(documentation, /one globally bounded singleton queue/i);
     assert.doesNotMatch(documentation, /bounded binary isolation/i);
     assert.doesNotMatch(documentation, /30 provider (?:HTTP )?calls/i);
     assert.doesNotMatch(documentation, /(?:at most|capped at) six provider/i);
@@ -68,6 +81,8 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     /Standardfall mit acht Texten und zwei Anbietern[^.]*18 Anbieteraufrufe/
   );
   assert.match(help, /anfrageweite Parallelitätsgrenze von standardmäßig 12/);
+  assert.match(help, /kürzeste in diesen Ausgangsketten beobachtete Anbieteraufrufdauer/);
+  assert.match(help, /eine einzige global begrenzte Einzeltextwarteschlange/);
   assert.match(developerDocs, /Ergebnisanzahl/);
   assert.match(developerDocs, /alle versuchten Anbieter/);
   assert.match(developerDocs, /direkte Einzeltext-Isolierung/);
@@ -78,6 +93,14 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   assert.match(
     developerDocs,
     /anfrageweite Parallelitätsgrenze von standardmäßig 12/
+  );
+  assert.match(
+    developerDocs,
+    /kürzeste in diesen Ausgangsketten beobachtete Anbieteraufrufdauer/
+  );
+  assert.match(
+    developerDocs,
+    /eine einzige global begrenzte Einzeltextwarteschlange/
   );
   assert.doesNotMatch(help, /30 Anbieteraufrufe/);
   assert.doesNotMatch(developerDocs, /30 Anbieteraufrufe/);

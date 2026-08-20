@@ -199,6 +199,10 @@ The follow-up v0.12.1 production acceptance passed on `meinhaushalt.at` from mer
 
 An already active WordPress core `doing_cron` lock can legitimately defer the immediate loopback; Deepglot leaves the event due so a later request or the configured system cron can claim it. Do not remove an active lock. If the queue and due event remain after the configured `WP_CRON_LOCK_TIMEOUT` (60 seconds by default), verify loopback reachability, `DISABLE_WP_CRON`, the host's system-cron schedule, and the `doing_cron` lock age before retrying or purging anything manually.
 
+### Request-wide count-mismatch admission
+
+Complete the bounded root-chunk phase before any singleton request starts. Collect only roots whose complete provider chains produced count mismatches; every other terminal error must still abort siblings immediately. Before isolation, compare the remaining shared deadline with an optimistic first-provider-only estimate: the shortest provider-call duration observed in those root chains × `ceil(total mismatched texts / request-wide concurrency)`. If even that optimistic work cannot fit, fail before the first singleton with the privacy-safe classified error `count-mismatch singleton recovery cannot fit the remaining request deadline`. Otherwise, process all affected roots through one globally bounded singleton queue, preserving result order and the full provider fallback chain for every text.
+
 ## Stripe Acceptance
 
 The repository defines the supported Stripe plan structure in `src/lib/billing-plans.ts`. Account, price, webhook, and Vercel-Production state are time-sensitive and must be verified with the read-only acceptance command below before being described as live. Do not put account identifiers or secret material in this runbook, and do not create ad-hoc Stripe objects outside the defined plan structure.

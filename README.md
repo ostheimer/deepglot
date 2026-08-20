@@ -163,6 +163,8 @@ Run the full WordPress suite locally:
 npm run test:wp
 ```
 
+Deepglot finishes all bounded root-chunk attempts before starting singleton work. It collects only roots whose complete provider chains produced count mismatches; any other terminal error still aborts siblings immediately. It then compares the remaining shared deadline with an optimistic first-provider-only estimate: the shortest provider-call duration observed in those root chains × `ceil(total mismatched texts / request-wide concurrency)`. If even that cannot fit, Deepglot returns the privacy-safe classified error `count-mismatch singleton recovery cannot fit the remaining request deadline` before the first singleton call. Otherwise, all affected roots enter one globally bounded singleton queue that preserves result order and each text's full provider fallback chain.
+
 ## Deployment
 
 The app is deployed on Vercel. For a local production check:

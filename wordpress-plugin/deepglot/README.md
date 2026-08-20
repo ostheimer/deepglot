@@ -14,6 +14,8 @@ A permanent `422 velocity_request_too_large` means one request cannot fit the ho
 
 v0.11.7 exposes a fail-safe final translated-HTML filter for trusted site-specific localization such as language-specific media embeds; v0.11.6 splits content-heavy cold pages into ordered parallel requests bounded by 2,000 UTF-8 source bytes and 200 strings. Publishing this package does not automatically install or update the plugin on customer sites.
 
+The SaaS finishes all bounded root-chunk attempts before starting singleton work. It collects only roots whose complete provider chains produced count mismatches; any other terminal error still aborts siblings immediately. It then compares the remaining shared deadline with an optimistic first-provider-only estimate: the shortest provider-call duration observed in those root chains × `ceil(total mismatched texts / request-wide concurrency)`. If even that cannot fit, the request fails with the privacy-safe classified error `count-mismatch singleton recovery cannot fit the remaining request deadline` before the first singleton call. Otherwise, all affected roots enter one globally bounded singleton queue that preserves result order and each text's full provider fallback chain.
+
 ## Author
 
 Andreas Ostheimer  

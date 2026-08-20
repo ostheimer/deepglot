@@ -172,6 +172,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
+              ? "Deepglot wertet alle begrenzten Ausgangsstapel aus, bevor Einzeltextaufrufe beginnen. Gesammelt werden nur Ausgangsstapel, deren vollständige Anbieterkette ausschließlich Abweichungen bei der Ergebnisanzahl geliefert hat; jeder andere endgültige Fehler bricht Geschwister weiterhin sofort ab. Danach wird die verbleibende gemeinsame Frist mit einer optimistischen Schätzung nur für die erste Anbieterstufe verglichen: kürzeste in diesen Ausgangsketten beobachtete Anbieteraufrufdauer × aufgerundet(Anzahl abweichender Texte / anfrageweite Parallelität). Passt selbst diese Arbeit nicht mehr, endet die Anfrage vor dem ersten Einzeltextaufruf mit dem datensparsamen klassifizierten Fehler „count-mismatch singleton recovery cannot fit the remaining request deadline“. Andernfalls laufen alle betroffenen Ausgangsstapel durch eine einzige global begrenzte Einzeltextwarteschlange; Ergebnisreihenfolge und vollständige Anbieter-Fallbackkette bleiben erhalten."
+              : "Deepglot finishes all bounded root-chunk attempts before starting singleton work. It collects only roots whose complete provider chains produced count mismatches; any other terminal error still aborts siblings immediately. It then compares the remaining shared deadline with an optimistic first-provider-only estimate: the shortest provider-call duration observed in those root chains × ceil(total mismatched texts / request-wide concurrency). If even that cannot fit, the request returns the privacy-safe classified error ‘count-mismatch singleton recovery cannot fit the remaining request deadline’ before the first singleton call. Otherwise, all affected roots enter one globally bounded singleton queue that preserves result order and each text's full provider fallback chain."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
               ? "Die lokalisierte öffentliche Anfrage-URL bleibt dabei das Cache-Ziel, auch nachdem der Request-Router intern auf den Quellpfad umgeschrieben hat."
               : "The localized public request URL remains the cache target even after the request router internally rewrites it to the source path."}
           </p>
