@@ -385,6 +385,7 @@ type TranslationRootChunkResult =
       kind: "count_mismatch";
       texts: string[];
       budget: TranslationChunkBudget;
+      fullChainDurationMs: number;
     };
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -495,6 +496,7 @@ export async function translateTexts(
       chunks,
       concurrency,
       async (texts): Promise<TranslationRootChunkResult> => {
+        const rootAttemptStartedAt = performance.now();
         const budget: TranslationChunkBudget = {
           providerCalls: 0,
           terminalErrorLogged: false,
@@ -518,6 +520,10 @@ export async function translateTexts(
               kind: "count_mismatch",
               texts,
               budget,
+              fullChainDurationMs: Math.max(
+                1,
+                performance.now() - rootAttemptStartedAt
+              ),
             };
           }
           if (!failedChunkController.signal.aborted) {
@@ -539,7 +545,40 @@ export async function translateTexts(
       );
     }
 
-    requestSignal.throwIfAborted();
+    // A real calibration wave must not start when the completed root phase has
+    // already left less time than the fastest full mismatch chain observed in
+    // this request. This conservative reserve is used only for admitting the
+    // calibration itself; later waves use measured singleton-wave durations.
+    const observedCalibrationReserveMs = Math.min(
+      ...rootChunks.flatMap((root) =>
+        root.kind === "count_mismatch" ? [root.fullChainDurationMs] : []
+      )
+    );
+    const remainingBeforeCalibrationMs = Math.max(
+      0,
+      requestDeadlineAt - performance.now()
+    );
+    const calibrationSize = Math.min(concurrency, mismatchTextCount);
+    if (observedCalibrationReserveMs >= remainingBeforeCalibrationMs) {
+      const error = new TranslationCountMismatchDeadlineError();
+      console.error(
+        `[translation] count-mismatch singleton calibration cannot fit the remaining request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}).`
+      );
+      throw error;
+    }
+
+    try {
+      requestSignal.throwIfAborted();
+    } catch (error) {
+      if (error instanceof Error && error.name === "TimeoutError") {
+        const classifiedError = new TranslationCountMismatchDeadlineError();
+        console.error(
+          `[translation] count-mismatch singleton calibration cannot start after the request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}).`
+        );
+        throw classifiedError;
+      }
+      throw error;
+    }
     const providerChain = chain.map((entry) => entry.provider).join(" -> ");
     const singletonWork = rootChunks.flatMap((root, rootIndex) => {
       if (root.kind !== "count_mismatch") return [];
@@ -552,7 +591,6 @@ export async function translateTexts(
         budget: root.budget,
       }));
     });
-    const calibrationSize = Math.min(concurrency, singletonWork.length);
     const calibrationWork = singletonWork.slice(0, calibrationSize);
     const remainingSingletonWaves = chunk(
       singletonWork.slice(calibrationSize),
@@ -589,12 +627,33 @@ export async function translateTexts(
       // exactly one globally bounded real singleton wave, retain its results,
       // and use that measured wave only to admit the remaining work.
       const calibrationStartedAt = performance.now();
-      const calibrationResults = await runSingletonWork(calibrationWork);
+      let calibrationResults: Array<{
+        rootIndex: number;
+        translations: TranslationResult[];
+      }>;
+      try {
+        calibrationResults = await runSingletonWork(calibrationWork);
+        requestSignal.throwIfAborted();
+      } catch (error) {
+        const deadlineReason = requestSignal.aborted
+          ? (requestSignal.reason ?? error)
+          : null;
+        if (
+          deadlineReason instanceof Error &&
+          deadlineReason.name === "TimeoutError"
+        ) {
+          const classifiedError = new TranslationCountMismatchDeadlineError();
+          console.error(
+            `[translation] count-mismatch singleton calibration reached the request deadline (mismatch texts: ${mismatchTextCount}, calibration texts: ${calibrationSize}).`
+          );
+          throw classifiedError;
+        }
+        throw error;
+      }
       let observedWaveDurationMs = Math.max(
         1,
         performance.now() - calibrationStartedAt
       );
-      requestSignal.throwIfAborted();
       singletonResults = [...calibrationResults];
 
       for (
@@ -713,15 +772,28 @@ async function translateChunk(
       }
       return results;
     } catch (error) {
-      if (requestSignal.aborted) {
-        throw requestSignal.reason ?? error;
-      }
-
       lastError = error;
       const isCountMismatch =
         error instanceof TranslationProviderCountMismatchError;
       everyAttemptWasCountMismatch &&= isCountMismatch;
       const hasNext = index < chain.length - 1;
+      const isCompleteDeferredRootMismatch =
+        !hasNext &&
+        everyAttemptWasCountMismatch &&
+        input.texts.length > 1 &&
+        isolationDepth === 0 &&
+        deferRootCountMismatch;
+
+      // A deadline can fire in the same turn that the final provider returns
+      // its confirmed count mismatch. Preserve that completed root evidence so
+      // request-wide admission can classify the exhausted recovery budget;
+      // every incomplete, non-mismatch, or non-root abort still propagates.
+      if (requestSignal.aborted) {
+        if (isCompleteDeferredRootMismatch) {
+          throw new TranslationRootCountMismatchError();
+        }
+        throw requestSignal.reason ?? error;
+      }
 
       // Recoverable provider response / quota / rate-limit / 5xx / network
       // error with another provider still to try: warn rather than error — the
@@ -740,13 +812,7 @@ async function translateChunk(
         continue;
       }
 
-      if (
-        !hasNext &&
-        everyAttemptWasCountMismatch &&
-        input.texts.length > 1 &&
-        isolationDepth === 0 &&
-        deferRootCountMismatch
-      ) {
+      if (isCompleteDeferredRootMismatch) {
         throw new TranslationRootCountMismatchError();
       }
 

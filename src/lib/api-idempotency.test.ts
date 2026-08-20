@@ -233,6 +233,12 @@ test("replays completed error responses but releases a failed execution for retr
 
 test("retains retryable 429 only until Retry-After but replays deterministic oversize for the normal retention", async () => {
   const store = new MemoryApiIdempotencyStore();
+  const complete = store.complete.bind(store);
+  let completedExpiresAt: Date | null = null;
+  store.complete = async (input) => {
+    completedExpiresAt = input.expiresAt;
+    await complete(input);
+  };
   let retryableExecutions = 0;
   const retryableResponse = {
     status: 429,
@@ -259,21 +265,24 @@ test("retains retryable 429 only until Retry-After but replays deterministic ove
     ...retryableRequest,
     now: new Date("2026-08-09T00:00:00Z"),
   });
+  assert.ok(completedExpiresAt);
+  const firstExpiresAt = completedExpiresAt;
   const beforeReset = await executeIdempotently({
     ...retryableRequest,
-    now: new Date("2026-08-09T00:59:59Z"),
+    now: new Date(firstExpiresAt.getTime() - 1_000),
   });
   const afterReset = await executeIdempotently({
     ...retryableRequest,
-    now: new Date("2026-08-09T01:00:01Z"),
+    now: new Date(firstExpiresAt.getTime() + 1_000),
   });
 
   assert.equal(first.kind, "executed");
   assert.equal(beforeReset.kind, "replayed");
-  assert.equal(beforeReset.response.headers["retry-after"], "1");
+  const replayRetryAfter = Number(beforeReset.response.headers["retry-after"]);
+  assert.equal(replayRetryAfter, 1);
   assert.deepEqual(beforeReset.response.body, {
     code: "velocity_limited",
-    retry_after: 1,
+    retry_after: replayRetryAfter,
   });
   assert.equal(
     retryableResponse.headers["retry-after"],

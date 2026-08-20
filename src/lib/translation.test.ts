@@ -2335,6 +2335,272 @@ test("uses the caller's absolute deadline when admitting singleton recovery", { 
 });
 
 /**
+ * A complete two-provider root mismatch can leave too little caller time for
+ * even the first singleton wave. Recovery must classify that state before it
+ * launches any paid calibration calls instead of letting the shared timer
+ * abort them with a generic timeout.
+ */
+test("checks the remaining deadline before starting singleton calibration", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    await waitForProviderDelay(30, init?.signal);
+
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) return openAIResponse([]);
+    if (url.includes("generativelanguage.googleapis.com")) {
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const callerBudgetMs = 120;
+    const deadlineAt = performance.now() + callerBudgetMs;
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: AbortSignal.timeout(callerBudgetMs),
+            deadlineAt,
+          },
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        return true;
+      },
+    );
+    assert.equal(
+      providerCalls,
+      2,
+      "the complete root chain may run, but no singleton calibration call may start",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("classifies a caller timeout observed before singleton calibration", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const callerController = new AbortController();
+  const errorLogs: string[] = [];
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "));
+  };
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) return openAIResponse([]);
+    if (url.includes("generativelanguage.googleapis.com")) {
+      callerController.abort(
+        new DOMException("The caller deadline elapsed.", "TimeoutError")
+      );
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: callerController.signal,
+            deadlineAt: performance.now() + 500,
+          }
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        return true;
+      }
+    );
+    assert.equal(providerCalls, 2);
+    assert.equal(errorLogs.length, 1, "the classified pre-calibration timeout is logged once");
+    assert.match(errorLogs[0], /calibration cannot start after the request deadline/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("preserves non-timeout cancellation before singleton calibration", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const callerController = new AbortController();
+  const cancellation = new Error("caller cancelled");
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("openai.com")) return openAIResponse([]);
+    if (url.includes("generativelanguage.googleapis.com")) {
+      callerController.abort(cancellation);
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: callerController.signal,
+            deadlineAt: performance.now() + 500,
+          }
+        ),
+      (error: unknown) => error === cancellation
+    );
+    assert.equal(providerCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+test("classifies a shared deadline reached during singleton calibration", { timeout: 2_000 }, async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  let providerCalls = 0;
+
+  console.warn = () => {};
+  console.error = () => {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    providerCalls += 1;
+    const url = typeof input === "string" ? input : input.toString();
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const texts = url.includes("openai.com")
+      ? (JSON.parse(body.messages[1].content) as { texts: string[] }).texts
+      : (JSON.parse(body.contents[0].parts[0].text) as { texts: string[] }).texts;
+    await waitForProviderDelay(texts.length === 1 ? 200 : 20, init?.signal);
+
+    if (url.includes("openai.com")) return openAIResponse([]);
+    if (url.includes("generativelanguage.googleapis.com")) {
+      return geminiResponse([]);
+    }
+    throw new Error(`Unexpected fetch url ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const callerBudgetMs = 160;
+    const deadlineAt = performance.now() + callerBudgetMs;
+    await assert.rejects(
+      () =>
+        translateTexts(
+          {
+            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+            sourceLang: "de",
+            targetLang: "en",
+          },
+          {
+            TRANSLATION_PROVIDER: "openai",
+            OPENAI_API_KEY: "openai-key",
+            GEMINI_API_KEY: "gemini-key",
+            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+            TRANSLATION_CHUNK_SIZE: "8",
+            TRANSLATION_CHUNK_CONCURRENCY: "12",
+            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+          },
+          null,
+          {
+            maxRequestTimeoutMs: 500,
+            signal: AbortSignal.timeout(callerBudgetMs),
+            deadlineAt,
+          }
+        ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
+        return true;
+      }
+    );
+    assert.equal(
+      providerCalls,
+      10,
+      "the root chain and one eight-call calibration wave may start before the typed deadline backstop"
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.warn = originalWarn;
+    console.error = originalError;
+  }
+});
+
+/**
  * Singleton latency and fallback depth can change with the input. A fast first
  * wave is not permission to launch every later wave. Re-admission after a
  * slower wave must stop before starting the final wave when that observed work

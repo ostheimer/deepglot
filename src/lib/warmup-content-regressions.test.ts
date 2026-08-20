@@ -60,6 +60,19 @@ test("provider count-mismatch isolation is documented across support surfaces", 
     );
     assert.match(
       documentation,
+      /before calibration[^.]*fastest elapsed duration among the completed full count-mismatch root chains/i
+    );
+    assert.match(documentation, /no singleton provider call starts/i);
+    assert.match(
+      documentation,
+      /root-derived reserve is used only for calibration admission and is never extrapolated across later work/i
+    );
+    assert.match(
+      documentation,
+      /deadline expires during calibration[^.]*typed deadline error instead of a generic timeout/i
+    );
+    assert.match(
+      documentation,
       /remaining work is split into request-wide bounded waves/i
     );
     assert.match(
@@ -96,6 +109,10 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   );
   assert.match(help, /anfrageweite Parallelitätsgrenze von standardmäßig 12/);
   assert.match(help, /genau eine globale Kalibrierungswelle/);
+  assert.match(help, /kürzesten gemessenen Gesamtdauer/);
+  assert.match(help, /beginnt kein Einzeltext-Anbieteraufruf/);
+  assert.match(help, /wird nie auf spätere Arbeit hochgerechnet/);
+  assert.match(help, /typisierten Fristfehler statt einer allgemeinen Zeitüberschreitung/);
   assert.match(help, /gemessene Dauer der unmittelbar vorherigen Einzeltextwelle/);
   assert.match(help, /monotoner absoluter Aufruferfrist/);
   assert.match(help, /vor jedem weiteren Einzeltextaufruf/);
@@ -114,6 +131,13 @@ test("provider count-mismatch isolation is documented across support surfaces", 
   assert.match(
     developerDocs,
     /genau eine globale Kalibrierungswelle/
+  );
+  assert.match(developerDocs, /kürzesten gemessenen Gesamtdauer/);
+  assert.match(developerDocs, /beginnt kein Einzeltext-Anbieteraufruf/);
+  assert.match(developerDocs, /wird nie auf spätere Arbeit hochgerechnet/);
+  assert.match(
+    developerDocs,
+    /typisierten Fristfehler statt einer allgemeinen Zeitüberschreitung/
   );
   assert.match(
     developerDocs,
