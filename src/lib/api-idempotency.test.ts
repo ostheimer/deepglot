@@ -395,6 +395,12 @@ test("a response-specific retention can shorten but never extend the configured 
 
 test("starts response-specific retention when a slow execution completes", async () => {
   const store = new MemoryApiIdempotencyStore();
+  const complete = store.complete.bind(store);
+  const completion = { expiresAt: null as Date | null };
+  store.complete = async (input) => {
+    completion.expiresAt = input.expiresAt;
+    await complete(input);
+  };
   let executions = 0;
   const startedAt = new Date("2026-08-09T12:00:00.000Z");
   const request = {
@@ -405,7 +411,7 @@ test("starts response-specific retention when a slow execution completes", async
     responseRetentionMs: 20,
     execute: async () => {
       executions += 1;
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       return {
         status: 503,
         headers: { "content-type": "application/problem+json" },
@@ -415,17 +421,22 @@ test("starts response-specific retention when a slow execution completes", async
   };
 
   const first = await executeIdempotently({ ...request, now: startedAt });
+  assert.ok(completion.expiresAt);
+  const firstExpiresAt = completion.expiresAt;
   const immediateRetry = await executeIdempotently({
     ...request,
-    now: new Date(startedAt.getTime() + 35),
-  });
-  const retryAfterCompletionRetention = await executeIdempotently({
-    ...request,
-    now: new Date(startedAt.getTime() + 60),
+    now: new Date(firstExpiresAt.getTime() - 1),
   });
 
   assert.equal(first.kind, "executed");
   assert.equal(immediateRetry.kind, "replayed");
+  assert.equal(executions, 1, "an immediate retry must not repeat slow paid work");
+
+  const retryAfterCompletionRetention = await executeIdempotently({
+    ...request,
+    now: new Date(firstExpiresAt.getTime() + 1),
+  });
+
   assert.equal(retryAfterCompletionRetention.kind, "executed");
   assert.equal(
     executions,
