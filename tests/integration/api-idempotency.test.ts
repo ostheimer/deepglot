@@ -161,11 +161,18 @@ test(
     };
 
     const first = await executeIdempotently({ ...request, now: windowStart });
+    const { db } = await import("@/lib/db");
+    const storedAfterCompletion = await db.apiIdempotencyRecord.findUnique({
+      where: {
+        scope_keyHash: { scope, keyHash: hashApiIdempotencyKey(key) },
+      },
+      select: { expiresAt: true },
+    });
+    assert.ok(storedAfterCompletion);
     const beforeReset = await executeIdempotently({
       ...request,
-      now: new Date(windowStart.getTime() + 3_599_000),
+      now: new Date(storedAfterCompletion.expiresAt.getTime() - 1_000),
     });
-    const { db } = await import("@/lib/db");
     const storedBeforeReset = await db.apiIdempotencyRecord.findUnique({
       where: {
         scope_keyHash: { scope, keyHash: hashApiIdempotencyKey(key) },
@@ -174,7 +181,7 @@ test(
     });
     const afterReset = await executeIdempotently({
       ...request,
-      now: new Date(windowStart.getTime() + 3_601_000),
+      now: new Date(storedAfterCompletion.expiresAt.getTime() + 1_000),
     });
     assert.equal(first.kind, "executed");
     assert.equal(beforeReset.kind, "replayed");
