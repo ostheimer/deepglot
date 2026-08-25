@@ -45,6 +45,7 @@ class SettingsSync
 
         if ($this->runtimeSourceChanged($oldValue, $newValue)) {
             $this->options->clearUrlSlugMappings();
+            $this->options->clearMediaReplacements();
             // A new key or backend invalidates the cached 401 verdict. Without
             // this reset a corrected key would only take effect once the
             // circuit breaker's TTL expired (#245).

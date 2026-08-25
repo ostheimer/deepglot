@@ -114,6 +114,77 @@ The `POST /api/translate` route is designed for drop-in compatibility:
   - `GET /api/public/languages`
   - `GET /api/public/languages/is-supported`
 
+## Locale-specific image replacements
+
+Project managers can explicitly map an original image to a localized image for
+one active target language. Configuration currently uses authenticated project
+management endpoints; there is no dashboard editing interface yet:
+
+- `GET /api/projects/{projectId}/media` lists project-owned image mappings.
+- `POST /api/projects/{projectId}/media` creates one mapping.
+- `PATCH /api/projects/{projectId}/media/{mediaId}` updates selected fields.
+- `DELETE /api/projects/{projectId}/media/{mediaId}` removes one mapping.
+
+For example, the create endpoint accepts:
+
+```json
+{
+  "langTo": "en",
+  "originalUrl": "https://example.com/wp-content/uploads/product.png",
+  "localizedUrl": "/wp-content/uploads/product-en.webp"
+}
+```
+
+Returned records contain `id`, `langTo`, `originalUrl`, `localizedUrl`,
+`createdAt`, and `updatedAt`. The collection response includes
+`mediaReplacements` and `limitExceeded`; listing remains bounded while allowing
+managers to inspect and remove historical overflow. Every read and write
+requires project-management access. Image ownership is project-scoped, target
+languages must be active, and the same original image can have a different
+replacement for each target language or independent project.
+Validation and conflict responses include stable machine-readable `code` values
+such as `invalid_media_image_url`, `inactive_target_language`, and
+`media_replacement_already_exists` alongside their localized error message.
+
+Both image URLs must be root-relative paths or HTTPS URLs on the exact project
+hostname. Accepted image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF.
+Absolute same-site URLs are stored in canonical root-relative form. Foreign
+origins, IP hosts, embedded credentials, fragments, unsafe path encodings, SVG,
+and executable formats are rejected. Project managers are responsible for
+owning or obtaining the necessary usage and redistribution rights for every
+original and localized image; Deepglot does not verify media licenses.
+
+A project can contain at most **500 image replacements**. Concurrent creation
+uses a serializable project-scoped capacity check; an exhausted limit or a
+duplicate mapping returns HTTP 409. The authenticated plugin runtime includes
+only mappings belonging to its API key's project and currently active target
+languages. Its JSON image payload is limited to **224 KiB**; WordPress applies
+a separate **256 KiB** serialized-option limit and keeps the mappings in a
+dedicated, non-autoloaded `deepglot_media_replacements` option.
+
+During server-side target-language rendering, the plugin replaces matching
+`img[src]`, `img[srcset]`, `img[data-src]`, and `img[data-srcset]` values, plus
+`srcset` and `data-srcset` on `picture > source`. Responsive descriptors are
+preserved, excluded subtrees are not modified, and source-language pages remain
+unchanged. Runtime settings refresh at most every **300 seconds** on a request
+that reaches WordPress. Existing full-page caches are not automatically purged
+when image mappings change; operators must manually purge affected translated
+page URLs after synchronization and verify the public response.
+
+This initial slice does not provide a dashboard interface, uploads, file
+storage, external CDN images, SVG/PDF/document/video localization, AI-generated
+media, or image replacement in dynamically inserted AJAX content.
+
+**Production rollout gate:** before production traffic can reach a build with
+image replacements, inspect the exact target database and apply only the
+additive `ProjectMediaReplacement` table, its project foreign key with cascade,
+its unique `(projectId, langTo, originalUrl)` constraint, and its
+`(projectId, langTo)` index. The existing plugin runtime endpoint reads this
+table for every configured project, so deploying code before this additive
+schema change can break runtime synchronization for all current WordPress
+sites. Do not run a broad production `prisma db push` that would also apply
+unrelated schema drift.
+
 ## Optional page-view analytics
 
 Real page-view analytics is disabled by default for every project and can only
@@ -173,6 +244,8 @@ Features:
 - Deepglot API client (HTTP requests to the Next.js backend)
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
+- Explicit, project- and target-language-scoped same-site image replacement
+  for server-rendered responsive and lazy-loaded image attributes
 - hreflang SEO tags and `<html lang>` switching
 - Independent language switchers: named shortcode/block/widget/automatic instances, safe legacy migration, 5 flag styles, list/dropdown mode, fixed/floating or validated selector placement, per-language custom flags, responsive hide, three versioned templates, and a same-origin visual placement preview
 - Gutenberg block for language switcher

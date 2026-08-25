@@ -117,6 +117,9 @@ const rateLimitQuery = test.mock.fn(async (...queryArguments: unknown[]) => {
   urlSlug: {
     findMany: slugFindMany,
   },
+  projectMediaReplacement: {
+    findMany: async () => [],
+  },
   $queryRaw: rateLimitQuery,
 };
 

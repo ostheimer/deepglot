@@ -65,6 +65,8 @@ The plugin ships a complete translation pipeline:
 - Admin configuration under `Settings → Deepglot` (API identity plus WordPress-owned routing, switcher, and exclusions); SaaS-owned project languages and automatic redirect appear as read-only runtime mirrors after authenticated sync.
 - `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
 - `LinkRewriter` rewrites internal links; SaaS-managed translated URL-slug mappings are applied and reversed for path-prefix and subdomain routing; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
+- `MediaRewriter` applies explicit project- and target-language-scoped same-site
+  image replacements to server-rendered, responsive, and lazy-loaded images.
 - A WordPress-transient translation cache, bounded background cache warming, batched + parallel API requests, and path-prefix / subdomain routing. Queue claims are atomic, partial responses stay queued, and supported full-page caches are purged after a page finishes warming.
 - Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
 - WooCommerce email translation and SaaS-controlled browser-language redirect.
@@ -151,6 +153,53 @@ The legacy global switcher is migrated to the `default` instance without changin
 - Automatic placement: enable auto placement and either enter a conservative DOM selector or select an element in the same-origin, script-free preview iframe.
 
 If a saved selector is invalid or no longer exists after a theme change, the switcher remains at its safe WordPress footer fallback. Every render retains a unique checkbox/label ID for independent dropdown and ARIA state.
+
+## Locale-specific image replacements
+
+Project managers can explicitly configure original-to-localized image mappings
+for active target languages through the authenticated SaaS management API:
+
+- `GET /api/projects/{projectId}/media`
+- `POST /api/projects/{projectId}/media`
+- `PATCH /api/projects/{projectId}/media/{mediaId}`
+- `DELETE /api/projects/{projectId}/media/{mediaId}`
+
+A create request contains `langTo`, `originalUrl`, and `localizedUrl`; returned
+records also include `id`, `createdAt`, and `updatedAt`. The collection returns
+`mediaReplacements` and a `limitExceeded` recovery indicator. Only organization
+owners/administrators or project administrators can manage mappings; other
+projects and inactive languages never enter the plugin runtime response.
+
+- **Permitted images:** PNG, JPG, JPEG, WebP, AVIF, and GIF on the exact project
+  hostname. Use a root-relative path or same-site HTTPS URL. Safe same-site
+  absolute URLs are normalized to root-relative storage. External domains, IP
+  hosts, credentials, fragments, traversal, SVG, and unsupported file types are
+  rejected.
+- **Rendered attributes:** `img[src]`, `img[srcset]`, `img[data-src]`, and
+  `img[data-srcset]`, plus `srcset` and `data-srcset` on `picture > source`.
+  Responsive width/density descriptors and the original URL's absolute or
+  root-relative style are preserved. Source-language pages, excluded subtrees,
+  unrelated images, and dynamically inserted AJAX content are unchanged.
+- **Capacity and storage:** at most 500 mappings per project. The SaaS limits
+  the JSON runtime payload to 224 KiB; WordPress independently bounds the
+  serialized `deepglot_media_replacements` option to 256 KiB. The dedicated
+  option is not autoloaded, and changing the configured API key or backend
+  clears stale project mappings.
+- **Synchronization and caches:** runtime configuration refreshes at most once
+  every 300 seconds on a frontend request that reaches WordPress. Mapping
+  changes do not automatically invalidate full-page caches. After the new
+  mapping arrives, manually purge only the affected translated page URLs and
+  verify their public HTML.
+- **Rights:** managers must own or otherwise hold the rights to use and
+  redistribute both original and localized images. Deepglot does not fetch,
+  upload, host, generate, or license media on their behalf.
+
+There is currently no dashboard editing UI, media upload/storage, external CDN
+support, SVG/PDF/document/video localization, AI-generated media, or AJAX image
+replacement. Before deploying the matching SaaS code to production, apply only
+the additive `ProjectMediaReplacement` table, project foreign key, unique
+constraint, and index to the verified target database; do not use a broad
+production schema push to apply unrelated drift.
 
 ## Anonymous page-view analytics (explicit opt-in)
 

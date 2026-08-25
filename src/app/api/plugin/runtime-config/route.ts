@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
 import { buildRuntimeExclusions } from "@/lib/exclusions";
+import {
+  MAX_RUNTIME_MEDIA_REPLACEMENTS,
+  buildRuntimeMediaReplacements,
+} from "@/lib/media-replacements";
 import { apiProblem } from "@/lib/problem-details";
 import { buildProjectRuntimeSettings } from "@/lib/project-general-settings";
 import {
@@ -17,6 +21,12 @@ import {
 } from "@/lib/runtime-url-slugs";
 
 export { MAX_RUNTIME_URL_SLUGS } from "@/lib/runtime-url-slugs";
+export { MAX_RUNTIME_MEDIA_REPLACEMENTS } from "@/lib/media-replacements";
+
+// PHP's serialized associative arrays contain more structural overhead than
+// JSON. Reserve 32 KiB so every accepted <=500-row payload still fits the
+// plugin's separate 256 KiB, non-autoloaded WordPress option.
+export const MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES = 229_376;
 
 function getRawApiKey(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -76,7 +86,7 @@ export async function GET(request: NextRequest) {
       .filter((language) => language.isActive)
       .map((language) => language.langCode);
 
-    const [rules, urlSlugs] = await Promise.all([
+    const [rules, urlSlugs, mediaReplacementRows] = await Promise.all([
       db.translationExclusion.findMany({
         where: { projectId: apiKey.projectId },
         orderBy: [{ createdAt: "asc" }, { value: "asc" }],
@@ -100,6 +110,21 @@ export async function GET(request: NextRequest) {
         // a silently truncated set of source slugs.
         take: MAX_RUNTIME_URL_SLUGS + 1,
       }),
+      db.projectMediaReplacement.findMany({
+        where: {
+          projectId: apiKey.projectId,
+          langTo: { in: activeTargetLanguages },
+        },
+        orderBy: [{ langTo: "asc" }, { originalUrl: "asc" }],
+        select: {
+          originalUrl: true,
+          localizedUrl: true,
+          langTo: true,
+        },
+        // Reject an oversized mapping set rather than silently localizing an
+        // arbitrary prefix of the project's images.
+        take: MAX_RUNTIME_MEDIA_REPLACEMENTS + 1,
+      }),
     ]);
 
     if (urlSlugs.length > MAX_RUNTIME_URL_SLUGS) {
@@ -113,10 +138,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (mediaReplacementRows.length > MAX_RUNTIME_MEDIA_REPLACEMENTS) {
+      return apiProblem({
+        status: 413,
+        title: "Runtime configuration too large",
+        detail: `The project has more than ${MAX_RUNTIME_MEDIA_REPLACEMENTS} image replacements. Reduce the mapping set before retrying.`,
+        code: "runtime_media_replacements_limit_exceeded",
+        instance: "/api/plugin/runtime-config",
+        extensions: { limit: MAX_RUNTIME_MEDIA_REPLACEMENTS },
+      });
+    }
+
+    const mediaReplacements = buildRuntimeMediaReplacements(mediaReplacementRows);
+    const mediaReplacementBytes = new TextEncoder().encode(
+      JSON.stringify(mediaReplacements),
+    ).byteLength;
+
+    if (mediaReplacementBytes > MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES) {
+      return apiProblem({
+        status: 413,
+        title: "Runtime configuration too large",
+        detail: "The project's image replacement configuration exceeds its safe size limit.",
+        code: "runtime_media_replacements_limit_exceeded",
+        instance: "/api/plugin/runtime-config",
+        extensions: { limit: MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES },
+      });
+    }
+
     const exclusions = buildRuntimeExclusions(rules);
 
     return NextResponse.json({
       exclusions,
+      mediaReplacements,
       pageViewsEnabled:
         apiKey.project.settings?.pageViewsEnabled === true &&
         apiKey.project.settings.pageViewsConsentGrantedAt instanceof Date,

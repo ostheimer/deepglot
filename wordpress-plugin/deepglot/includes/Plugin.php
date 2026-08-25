@@ -16,6 +16,7 @@ use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
 use Deepglot\Frontend\LinkRewriter;
+use Deepglot\Frontend\MediaRewriter;
 use Deepglot\Frontend\MultilingualSitemap;
 use Deepglot\Frontend\NavMenuSwitcher;
 use Deepglot\Frontend\OutputBuffer;
@@ -296,6 +297,10 @@ class Plugin
             return new LinkRewriter($c->get(SiteRouting::class));
         });
 
+        $this->container->singleton(MediaRewriter::class, function (Container $c) {
+            return new MediaRewriter($c->get(Options::class), get_site_url());
+        });
+
         $this->container->singleton(HreflangInjector::class, function (Container $c) {
             return new HreflangInjector($c->get(Options::class), $c->get(SiteRouting::class));
         });
@@ -316,7 +321,8 @@ class Plugin
                 $c->get(HreflangInjector::class),
                 $c->get(RequestRouter::class),
                 $c->get(SiteRouting::class),
-                $c->get(UrlTranslationSync::class)
+                $c->get(UrlTranslationSync::class),
+                $c->get(MediaRewriter::class)
             );
         });
 

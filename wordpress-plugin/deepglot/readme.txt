@@ -16,6 +16,7 @@ Deepglot translates rendered WordPress pages through the Deepglot translation AP
 
 * Translates text, metadata, accessibility attributes, and JSON-LD structured data.
 * Rewrites internal links and SaaS-managed translated URL slugs for path-prefix or subdomain routing.
+* Replaces explicitly mapped same-site images for active target languages in rendered responsive and lazy-loaded markup.
 * Adds canonical and `hreflang` tags plus a multilingual sitemap.
 * Provides shortcode, block, widget, nav-menu, and automatic language switchers.
 * Caches translations locally and serves cached translations to crawlers without spending quota.
@@ -44,6 +45,14 @@ Change these project-wide values in the Deepglot dashboard. After the plugin rec
 = Does the plugin duplicate posts? =
 
 No. Translation happens on rendered output. Source content remains in the original WordPress posts and pages.
+
+= Can translated pages use different images? =
+
+Yes. A project manager can explicitly map an original same-site image to a localized same-site image for each active target language through the authenticated Deepglot project management API. The plugin updates `src`, `srcset`, `data-src`, and `data-srcset` on translated image elements, including responsive `picture` sources. Source-language pages and excluded content are unchanged.
+
+Each project supports at most 500 PNG, JPG, JPEG, WebP, AVIF, or GIF mappings. Original and replacement images must use root-relative paths or HTTPS URLs on the same project host; external CDN images, SVG, PDF, documents, video, uploads, AI-generated assets, and dynamically inserted AJAX images are unsupported. Managers are responsible for holding all image usage and redistribution rights. There is currently no dashboard editing interface.
+
+The plugin refreshes runtime mappings at most every 300 seconds when a request reaches WordPress and stores them in a dedicated non-autoloaded option. Existing full-page caches are not automatically invalidated when mappings change; manually purge the affected translated page URLs after synchronization.
 
 = What happens when the quota is exhausted? =
 
@@ -81,7 +90,7 @@ For translation requests, the plugin sends the configured API key, text fragment
 
 Settings synchronization sends the configured API key, site URL, WordPress-owned routing mode and domain mappings, and the feature flags for email translation, search translation, AMP translation, and dynamic translation. It also sends bootstrap mirrors for source language, target languages, and automatic redirect; the authenticated SaaS project remains authoritative for those three project-wide values.
 
-Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, and translated URL-slug mappings. The plugin can also request the public supported-languages list without an API key.
+Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, translated URL-slug mappings, and active-language image replacements scoped to that API key's project. The plugin can also request the public supported-languages list without an API key.
 
 Starting the Visual Editor verifies its token through the project-scoped `editor-sessions/verify` endpoint. Saving a manual translation sends the token, original and translated text, source and target language codes, and the request URL to the project-scoped `manual-translations` endpoint.
 
