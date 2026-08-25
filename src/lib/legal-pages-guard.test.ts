@@ -78,3 +78,31 @@ test("repository contains a legal-review checklist for billing and privacy chang
   assert.match(checklist, /privacy/i);
   assert.match(checklist, /legal review/i);
 });
+
+test("privacy notice discloses passkey storage boundaries and its approved revision", () => {
+  const privacy = read("src/app/datenschutz/page.tsx");
+  const checklist = read("docs/LEGAL-REVIEW.md");
+
+  for (const required of [
+    "passkey",
+    "credential identifier",
+    "public key",
+    "signature counter",
+    "biometric data",
+    "öffentlichen Schlüssel",
+    "biometrische Daten",
+    "25 August 2026",
+    "25. August 2026",
+  ]) {
+    assert.ok(
+      privacy.toLowerCase().includes(required.toLowerCase()),
+      `Privacy notice omits approved passkey detail: ${required}`
+    );
+  }
+
+  assert.match(
+    checklist,
+    /passkey\s+authentication and its public privacy disclosure/i
+  );
+  assert.match(checklist, /2026-08-25/);
+});

@@ -1,11 +1,13 @@
 # Legal review checklist
 
-Status: owner-approved for the current launch stage, 2026-07-14.
+Status: owner-approved for the current launch stage, including passkey
+authentication and its public privacy disclosure, 2026-08-25.
 
 This checklist is a product-maintenance guard, not legal advice or a guarantee
 of compliance. The owner approved the public English and German texts for the
-current launch stage on 2026-07-14. That decision does not represent qualified
-legal advice, add launch markets, or waive a later review where needed.
+current launch stage on 2026-07-14 and approved the passkey authentication and
+privacy update on 2026-08-25. These decisions do not represent qualified legal
+advice, add launch markets, or waive a later review where needed.
 
 ## Approval record
 
@@ -16,11 +18,13 @@ legal advice, add launch markets, or waive a later review where needed.
 - [ ] Confirm whether the terms target businesses, consumers, or both and add
   any mandatory consumer withdrawal information and model form.
 - [x] Record reviewer, approval date, approved commit, launch countries, and
-  next scheduled review. Reviewer: Andreas Ostheimer (owner); approved on
-  2026-07-14 in the Codex task; approved content commit: `d46795a`; scope:
-  current launch stage and existing launch markets only; next review: before a
+  next scheduled review. Reviewer: Andreas Ostheimer (owner); initial content
+  approved on 2026-07-14 in the Codex task at commit `d46795a`; passkey
+  authentication and its public privacy disclosure approved on 2026-08-25 in
+  the Codex task against implementation baseline `6b60ee8`; scope: current
+  launch stage and existing launch markets only; next review: before a
   material billing, privacy, customer-group, or launch-market change and no
-  later than 2027-07-14.
+  later than 2027-08-25.
 - [x] Verify the rendered `/legal-notice`, `/terms`, `/privacy`,
   `/de/impressum`, `/de/agb`, and `/de/datenschutz` routes.
 
@@ -50,6 +54,8 @@ Run privacy and legal review whenever a change affects:
 
 - account, OAuth, organization, project, translation, glossary, import/export,
   visual-editor, analytics, webhook, support, security, or billing data;
+- passkey credential identifiers, public keys, signature counters, device and
+  backup metadata, transport details, and account-bound enrollment or removal;
 - processor or recipient lists, including Vercel, Neon, Cloudflare, Stripe,
   GitHub, Google, translation providers, custom gateways, and subprocessors;
 - provider API credentials, secret encryption, webhook payloads, runtime logs,
