@@ -56,6 +56,7 @@ test("the generator protects brand terms before translation", () => {
   )?.[0];
 
   assert.match(generator, /const BRAND_TERMS = \[[^\]]*"Deepglot"/);
+  assert.match(generator, /const PROTECTED_TECHNICAL_TERMS = \[[\s\S]*"Passkey"/);
   assert.match(generator, /isExactBrandTerm/);
   assert.ok(translateMissing, "translateMissing must exist in the generator");
   assert.match(
@@ -67,4 +68,30 @@ test("the generator protects brand terms before translation", () => {
     translateMissing,
     /for \(let index = 0; index < missing\.length; index \+= batchSize\)/
   );
+});
+
+test("passkey privacy disclosures and revision dates are localized for every supported locale", () => {
+  const privacyRevision =
+    "This notice explains how Deepglot processes personal data for accounts, translation projects, integrations, support, security, and billing. Last updated: 25 August 2026.";
+  const passkeyDisclosure =
+    "When you add a passkey, we store its credential identifier, public key, signature counter, device type, backup status, and connection-transport metadata to authenticate your account. Private keys and biometric data remain on your authenticator and are never received or stored by Deepglot.";
+
+  for (const locale of SITE_LOCALES) {
+    const revision = uiText(locale, privacyRevision);
+    const disclosure = uiText(locale, passkeyDisclosure);
+
+    assert.match(revision, /25/, `${locale}: privacy revision date is missing`);
+    assert.match(revision, /2026/, `${locale}: privacy revision year is missing`);
+    assert.match(disclosure, /passkey/i, `${locale}: Passkey term is missing`);
+    assert.match(disclosure, /Deepglot/, `${locale}: Deepglot brand is missing`);
+
+    if (locale !== "en") {
+      assert.notEqual(revision, privacyRevision, `${locale}: revision falls back to English`);
+      assert.notEqual(
+        disclosure,
+        passkeyDisclosure,
+        `${locale}: passkey disclosure falls back to English`
+      );
+    }
+  }
 });

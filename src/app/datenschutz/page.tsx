@@ -37,8 +37,8 @@ export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
       description={
         uiText(
           locale,
-          "This notice explains how Deepglot processes personal data for accounts, translation projects, integrations, support, security, and billing. Last updated: 14 July 2026.",
-          "Diese Erklärung beschreibt, wie Deepglot personenbezogene Daten für Konten, Übersetzungsprojekte, Integrationen, Support, Sicherheit und Abrechnung verarbeitet. Stand: 14. Juli 2026."
+          "This notice explains how Deepglot processes personal data for accounts, translation projects, integrations, support, security, and billing. Last updated: 25 August 2026.",
+          "Diese Erklärung beschreibt, wie Deepglot personenbezogene Daten für Konten, Übersetzungsprojekte, Integrationen, Support, Sicherheit und Abrechnung verarbeitet. Stand: 25. August 2026."
         )
       }
       sections={[
@@ -52,11 +52,18 @@ export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
         },
         {
           title: uiText(locale, "2. Account and authentication data", "2. Konto- und Authentifizierungsdaten"),
-          body: uiText(
-            locale,
-            "We process names, email addresses, password hashes, account and organization memberships, roles, login sessions, invitation and password-reset data, and optional GitHub or Google OAuth identifiers. The legal basis is performance of the user contract and pre-contract steps; security logging and abuse prevention rely on our legitimate interest in a secure, reliable service. Where consent is specifically requested, consent is the legal basis and can be withdrawn for the future.",
-            "Wir verarbeiten Namen, E-Mail-Adressen, Passwort-Hashes, Konto- und Organisationsmitgliedschaften, Rollen, Login-Sitzungen, Einladungs- und Passwort-zurücksetzen-Daten sowie optionale GitHub- oder Google-OAuth-Kennungen. Rechtsgrundlage sind die Vertragserfüllung und vorvertragliche Maßnahmen; Sicherheitsprotokollierung und Missbrauchsprävention beruhen auf unserem berechtigten Interesse an einem sicheren und zuverlässigen Dienst. Wird ausdrücklich eine Einwilligung eingeholt, ist sie die Rechtsgrundlage und kann für die Zukunft widerrufen werden."
-          ),
+          body: [
+            uiText(
+              locale,
+              "We process names, email addresses, password hashes, account and organization memberships, roles, login sessions, invitation and password-reset data, and optional GitHub or Google OAuth identifiers. The legal basis is performance of the user contract and pre-contract steps; security logging and abuse prevention rely on our legitimate interest in a secure, reliable service. Where consent is specifically requested, consent is the legal basis and can be withdrawn for the future.",
+              "Wir verarbeiten Namen, E-Mail-Adressen, Passwort-Hashes, Konto- und Organisationsmitgliedschaften, Rollen, Login-Sitzungen, Einladungs- und Passwort-zurücksetzen-Daten sowie optionale GitHub- oder Google-OAuth-Kennungen. Rechtsgrundlage sind die Vertragserfüllung und vorvertragliche Maßnahmen; Sicherheitsprotokollierung und Missbrauchsprävention beruhen auf unserem berechtigten Interesse an einem sicheren und zuverlässigen Dienst. Wird ausdrücklich eine Einwilligung eingeholt, ist sie die Rechtsgrundlage und kann für die Zukunft widerrufen werden."
+            ),
+            uiText(
+              locale,
+              "When you add a passkey, we store its credential identifier, public key, signature counter, device type, backup status, and connection-transport metadata to authenticate your account. Private keys and biometric data remain on your authenticator and are never received or stored by Deepglot.",
+              "Wenn du einen Passkey hinzufügst, speichern wir zur Authentifizierung deines Kontos dessen Kennung, öffentlichen Schlüssel, Signaturzähler, Gerätetyp, Sicherungsstatus und Verbindungsmetadaten. Private Schlüssel und biometrische Daten verbleiben auf deinem Authentifikator und werden von Deepglot weder empfangen noch gespeichert."
+            ),
+          ].join(" "),
         },
         {
           title: uiText(locale, "3. Projects and translation content", "3. Projekte und Übersetzungsinhalte"),

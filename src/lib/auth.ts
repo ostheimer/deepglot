@@ -10,13 +10,19 @@ import { toAuthUser } from "@/lib/auth-user";
 import { getEnabledOAuthProviders } from "@/lib/oauth-provider-config";
 import { ensureTestLoginUser } from "@/lib/test-login";
 import { isTestLoginEnabled } from "@/lib/test-login-config";
+import { createPasskeyProvider } from "@/lib/passkey-provider";
 
 const enabledOAuthProviders = getEnabledOAuthProviders();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(db),
+  experimental: {
+    ...authConfig.experimental,
+    enableWebAuthn: true,
+  },
   providers: [
+    createPasskeyProvider(),
     ...(enabledOAuthProviders.github
       ? [
           GitHub({

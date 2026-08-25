@@ -36,6 +36,12 @@ const SKIP_KEYS = new Set([
 // is stored verbatim; a brand term embedded in a longer string is tokenized
 // out before translation (see protectPlaceholders) and restored afterwards.
 const BRAND_TERMS = ["Deepglot"] as const;
+const PROTECTED_TECHNICAL_TERMS = [
+  "Passkeys",
+  "Passkey",
+  "passkeys",
+  "passkey",
+] as const;
 
 function isExactBrandTerm(message: string): boolean {
   return (BRAND_TERMS as readonly string[]).includes(message.trim());
@@ -293,6 +299,16 @@ function protectPlaceholders(text: string) {
     protectedText = protectedText.replaceAll(brand, () => {
       const token = `__DGPH${placeholders.length}__`;
       placeholders.push(brand);
+      return token;
+    });
+  }
+
+  // Generic translation engines often translate "passkey" as "password",
+  // which describes a different authentication factor.
+  for (const term of PROTECTED_TECHNICAL_TERMS) {
+    protectedText = protectedText.replaceAll(term, () => {
+      const token = `__DGPH${placeholders.length}__`;
+      placeholders.push(term);
       return token;
     });
   }
