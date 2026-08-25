@@ -34,6 +34,7 @@ for (const locale of passkeyLocales) {
   test(`registers, uses, and revokes a passkey in ${locale.name}`, async ({
     context,
     page,
+    request,
   }) => {
     const cdp = await context.newCDPSession(page);
     await cdp.send("WebAuthn.enable");
@@ -75,7 +76,7 @@ for (const locale of passkeyLocales) {
         "preview@deepglot.local",
         "unknown-passkey-user@deepglot.local",
       ]) {
-        const unauthorizedEnrollment = await page.request.get(
+        const unauthorizedEnrollment = await request.get(
           `/api/auth/webauthn-options/passkey?action=register&email=${encodeURIComponent(email)}`
         );
         expect(unauthorizedEnrollment.status()).toBe(400);
