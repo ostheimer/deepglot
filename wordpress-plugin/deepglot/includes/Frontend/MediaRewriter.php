@@ -273,15 +273,23 @@ class MediaRewriter
             return true;
         }
 
-        if (preg_match('/^[1-9][0-9]*w$/D', $descriptor) === 1) {
-            return true;
+        if (preg_match('/^([0-9]+)w$/D', $descriptor, $matches) === 1) {
+            return ltrim($matches[1], '0') !== '';
         }
 
-        if (preg_match('/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)x$/D', $descriptor) !== 1) {
+        if (
+            preg_match(
+                '/^((?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)x$/D',
+                $descriptor,
+                $matches
+            ) !== 1
+        ) {
             return false;
         }
 
-        return (float) substr($descriptor, 0, -1) > 0;
+        $density = (float) $matches[1];
+
+        return is_finite($density) && $density > 0;
     }
 
     /**
@@ -357,14 +365,31 @@ class MediaRewriter
         if (
             $this->siteOrigin === null
             || $url === ''
-            || preg_match('/[\x00-\x20\x7f\\\\]/', $url) === 1
+            || preg_match('/[\x00-\x1f\x7f\\\\]/', $url) === 1
             || preg_match('/%(?![a-f0-9]{2})/i', $url) === 1
             || str_starts_with($url, '//')
         ) {
             return null;
         }
 
-        $parts = wp_parse_url($url);
+        if (preg_match('//u', $url) !== 1) {
+            return null;
+        }
+
+        // PHP parse_url replaces some valid UTF-8 continuation bytes with
+        // underscores. Encode rendered Unicode and spaces before parsing so
+        // its path/query identity matches the SaaS WHATWG URL canonicalizer.
+        $parseableUrl = preg_replace_callback(
+            '/[^\x21-\x7e]/',
+            static fn (array $matches): string => rawurlencode($matches[0]),
+            $url
+        );
+
+        if (!is_string($parseableUrl)) {
+            return null;
+        }
+
+        $parts = wp_parse_url($parseableUrl);
 
         if (
             !is_array($parts)
@@ -408,10 +433,20 @@ class MediaRewriter
             return null;
         }
 
-        $identity = $path;
+        $identity = $this->canonicalizeUrlComponent($path, false);
+
+        if ($identity === null) {
+            return null;
+        }
 
         if (isset($parts['query'])) {
-            $identity .= '?' . $parts['query'];
+            $query = $this->canonicalizeUrlComponent((string) $parts['query'], true);
+
+            if ($query === null) {
+                return null;
+            }
+
+            $identity .= '?' . $query;
         }
 
         return [
@@ -419,6 +454,25 @@ class MediaRewriter
             'absolute' => $absolute,
             'origin' => $origin,
         ];
+    }
+
+    private function canonicalizeUrlComponent(string $value, bool $query): ?string
+    {
+        if (preg_match('//u', $value) !== 1) {
+            return null;
+        }
+
+        $pattern = $query
+            ? '/[^\x21-\x7e]|["\'<>]/'
+            : '/[^\x21-\x7e]|["<>^`{}]/';
+
+        $canonical = preg_replace_callback(
+            $pattern,
+            static fn (array $matches): string => rawurlencode($matches[0]),
+            $value
+        );
+
+        return is_string($canonical) ? $canonical : null;
     }
 
     private function hasSafePathSegments(string $path): bool

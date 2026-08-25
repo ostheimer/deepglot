@@ -241,4 +241,98 @@ $fragmentSite = makeMediaDocument('<img id="image" src="/wp-content/uploads/cove
 (new MediaRewriter($options, 'https://example.com#unsafe'))->rewrite($fragmentSite, 'en');
 assertMediaRewrite(mediaAttribute($fragmentSite, 'image', 'src') === '/wp-content/uploads/cover.jpg', 'Site origins with fragments fail closed');
 
+foreach (['0400w', '0001w'] as $descriptor) {
+    $document = makeMediaDocument(
+        '<img id="responsive" srcset="  /wp-content/uploads/cover.jpg ' . $descriptor . ',   /wp-content/uploads/cover-400.jpg 0800w  ">'
+        . '<img id="lazy" data-srcset=" /wp-content/uploads/cover.jpg ' . $descriptor . ' ">'
+        . '<picture><source id="picture" srcset=" /wp-content/uploads/cover.jpg ' . $descriptor . ' " data-srcset="  /wp-content/uploads/cover.jpg ' . $descriptor . '  "></picture>'
+    );
+    $responsiveBefore = mediaAttribute($document, 'responsive', 'srcset');
+    $lazyBefore = mediaAttribute($document, 'lazy', 'data-srcset');
+    $pictureBefore = mediaAttribute($document, 'picture', 'srcset');
+    $pictureLazyBefore = mediaAttribute($document, 'picture', 'data-srcset');
+
+    $rewriter->rewrite($document, 'en');
+
+    assertMediaRewrite(
+        mediaAttribute($document, 'responsive', 'srcset') === str_replace(['/cover.jpg', '/cover-400.jpg'], ['/cover-en.jpg', '/cover-en-400.jpg'], $responsiveBefore),
+        "Valid HTML width descriptor {$descriptor} preserves leading zeroes and exact spacing"
+    );
+    assertMediaRewrite(
+        mediaAttribute($document, 'lazy', 'data-srcset') === str_replace('/cover.jpg', '/cover-en.jpg', $lazyBefore),
+        "Lazy image accepts valid HTML width descriptor {$descriptor}"
+    );
+    assertMediaRewrite(
+        mediaAttribute($document, 'picture', 'srcset') === str_replace('/cover.jpg', '/cover-en.jpg', $pictureBefore),
+        "Picture source accepts valid HTML width descriptor {$descriptor}"
+    );
+    assertMediaRewrite(
+        mediaAttribute($document, 'picture', 'data-srcset') === str_replace('/cover.jpg', '/cover-en.jpg', $pictureLazyBefore),
+        "Lazy picture source accepts valid HTML width descriptor {$descriptor}"
+    );
+}
+
+foreach (['1e0x', '1E+1x', '.5e-1x', '01.25e+0x'] as $descriptor) {
+    $document = makeMediaDocument(
+        '<img id="responsive" srcset="  /wp-content/uploads/cover.jpg ' . $descriptor . ',   /wp-content/uploads/cover-400.jpg 2.5e+1x  ">'
+        . '<img id="lazy" data-srcset=" /wp-content/uploads/cover.jpg ' . $descriptor . ' ">'
+        . '<picture><source id="picture" srcset=" /wp-content/uploads/cover.jpg ' . $descriptor . ' " data-srcset="  /wp-content/uploads/cover.jpg ' . $descriptor . '  "></picture>'
+    );
+    $responsiveBefore = mediaAttribute($document, 'responsive', 'srcset');
+    $lazyBefore = mediaAttribute($document, 'lazy', 'data-srcset');
+    $pictureBefore = mediaAttribute($document, 'picture', 'srcset');
+    $pictureLazyBefore = mediaAttribute($document, 'picture', 'data-srcset');
+
+    $rewriter->rewrite($document, 'en');
+
+    assertMediaRewrite(
+        mediaAttribute($document, 'responsive', 'srcset') === str_replace(['/cover.jpg', '/cover-400.jpg'], ['/cover-en.jpg', '/cover-en-400.jpg'], $responsiveBefore),
+        "Valid HTML density descriptor {$descriptor} preserves exponent notation and exact spacing"
+    );
+    assertMediaRewrite(
+        mediaAttribute($document, 'lazy', 'data-srcset') === str_replace('/cover.jpg', '/cover-en.jpg', $lazyBefore),
+        "Lazy image accepts valid HTML density descriptor {$descriptor}"
+    );
+    assertMediaRewrite(
+        mediaAttribute($document, 'picture', 'srcset') === str_replace('/cover.jpg', '/cover-en.jpg', $pictureBefore),
+        "Picture source accepts valid HTML density descriptor {$descriptor}"
+    );
+    assertMediaRewrite(
+        mediaAttribute($document, 'picture', 'data-srcset') === str_replace('/cover.jpg', '/cover-en.jpg', $pictureLazyBefore),
+        "Lazy picture source accepts valid HTML density descriptor {$descriptor}"
+    );
+}
+
+foreach ([
+    '0w',
+    '0000w',
+    '0x',
+    '0e1x',
+    '-1x',
+    '+1x',
+    'Infinityx',
+    'NaNx',
+    '1e999x',
+    '1e-999x',
+    '1.x',
+    '1ex',
+    '1e+x',
+    '1_0x',
+    '1x 2x',
+    '0400w 800w',
+    '1e0x 2x',
+] as $descriptor) {
+    $document = makeMediaDocument(
+        '<img id="responsive" srcset="  /wp-content/uploads/cover.jpg ' . $descriptor . ', /wp-content/uploads/cover-400.jpg 2x  ">'
+    );
+    $original = mediaAttribute($document, 'responsive', 'srcset');
+
+    $rewriter->rewrite($document, 'en');
+
+    assertMediaRewrite(
+        mediaAttribute($document, 'responsive', 'srcset') === $original,
+        "Invalid, zero, overflowing, or duplicated HTML descriptor {$descriptor} fails closed"
+    );
+}
+
 fwrite(STDOUT, "OK: MediaRewriter locale isolation, responsive images, exclusions, and URL safety\n");

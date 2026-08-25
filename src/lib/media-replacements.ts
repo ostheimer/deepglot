@@ -7,6 +7,7 @@ const SAFE_IMAGE_EXTENSION = /\.(?:png|jpe?g|webp|avif|gif)$/i;
 const SAFE_LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const ENCODED_UNSAFE_CHARACTER = /%(?:0[0-9a-f]|1[0-9a-f]|2f|5c|7f)/i;
+const RECURSIVELY_ENCODED_PATH_DELIMITER = /%(?:2e|2f|5c)/i;
 const MALFORMED_PERCENT_ESCAPE = /%(?![0-9a-f]{2})/i;
 const DOT_PATH_SEGMENT = /(?:^|\/)(?:\.|%2e){1,2}(?=\/|$)/i;
 
@@ -161,6 +162,18 @@ export function normalizeMediaImageUrl(
       normalizedPublicHostname(projectOrigin.hostname)
   ) {
     invalidImageUrl("Images must belong to the same public project hostname.");
+  }
+
+  // Match WordPress rawurldecode exactly once, including non-UTF-8 bytes, and
+  // reject only the encoded path delimiters its runtime will subsequently drop.
+  const decodedPath = parsedImageUrl.pathname.replace(
+    /%([0-9a-f]{2})/gi,
+    (_escape, hexadecimalByte: string) =>
+      String.fromCharCode(Number.parseInt(hexadecimalByte, 16))
+  );
+
+  if (RECURSIVELY_ENCODED_PATH_DELIMITER.test(decodedPath)) {
+    invalidImageUrl("The image URL contains recursively encoded path delimiters.");
   }
 
   if (!SAFE_IMAGE_EXTENSION.test(parsedImageUrl.pathname)) {

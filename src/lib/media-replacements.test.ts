@@ -165,6 +165,60 @@ test("media images reject executable formats, traversal, fragments and ambiguous
   }
 });
 
+test("media images reject the recursively encoded path delimiters WordPress rejects after one decode", () => {
+  const rejectedPaths = [
+    "/uploads/%252e%252e/image.png",
+    "/uploads/%252E%252E/image.png",
+    "/uploads/private%252fasset.png",
+    "/uploads/private%252Fasset.png",
+    "/uploads/private%255casset.png",
+    "/uploads/private%255Casset.png",
+    "/uploads/private%25%32%66asset.png",
+    "/uploads/private%25%35%63asset.png",
+  ];
+
+  for (const path of rejectedPaths) {
+    for (const imageUrl of [path, `https://example.com${path}`]) {
+      assert.throws(
+        () => normalizeMediaImageUrl(imageUrl, "example.com"),
+        (error: unknown) =>
+          error instanceof MediaReplacementError &&
+          error.code === "INVALID_IMAGE_URL",
+        `WordPress-incompatible recursively encoded image paths must fail before persistence: ${imageUrl}`
+      );
+    }
+
+    assert.throws(() =>
+      buildRuntimeMediaReplacements([
+        {
+          langTo: "en",
+          originalUrl: "/uploads/original.png",
+          localizedUrl: path,
+        },
+      ])
+    );
+  }
+});
+
+test("media images retain WordPress-compatible literal percent encodings and query strings", () => {
+  const acceptedPaths = [
+    "/uploads/discount%25.png",
+    "/uploads/hash%2523asset.png",
+    "/uploads/nul%2500asset.png",
+    "/uploads/triple%25252fasset.png",
+    "/uploads/%25252e%25252e/image.png",
+    "/uploads/image.png?literal=%252f&hash=%2523&discount=50%25",
+  ];
+
+  for (const path of acceptedPaths) {
+    assert.equal(
+      normalizeMediaImageUrl(path, "example.com"),
+      path,
+      `WordPress accepts this literal percent sequence after exactly one decode: ${path}`
+    );
+  }
+});
+
 test("runtime media mappings are grouped by active target-language shape", () => {
   assert.deepEqual(
     buildRuntimeMediaReplacements([

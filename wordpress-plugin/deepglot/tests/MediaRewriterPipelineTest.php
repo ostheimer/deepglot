@@ -106,6 +106,18 @@ update_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [
         '/wp-content/uploads/cover.png' => '/wp-content/uploads/cover-en.png',
         '/wp-content/uploads/cover-800.png' => '/wp-content/uploads/cover-en-800.png',
         '/wp-content/uploads/cover.png?crop=10,20' => '/wp-content/uploads/cover-en.png?crop=30,40',
+        '/wp-content/uploads/caf%C3%A9.png' => '/wp-content/uploads/coffee%20english.webp',
+        '/wp-content/uploads/summer%20photo.jpg' => '/wp-content/uploads/summer%20english.jpg',
+        '/wp-content/uploads/query.png?caption=caf%C3%A9%20au%20lait&crop=10,20'
+            => '/wp-content/uploads/query-en.webp?caption=coffee%20with%20milk&crop=30,40',
+        '/wp-content/uploads/tea-%F0%9F%8D%B5.png'
+            => '/wp-content/uploads/tea%20english.webp',
+        '/wp-content/uploads/%E6%9D%B1%E4%BA%AC.png'
+            => '/wp-content/uploads/tokyo%20english.webp',
+        '/wp-content/uploads/literal%2520.png'
+            => '/wp-content/uploads/literal%2520-en.webp',
+        '/wp-content/uploads/punctuation.png?label=caf%C3%A9%20%27au%27&tags=a+b,2'
+            => '/wp-content/uploads/punctuation-en.webp?label=coffee%20%27and%27&tags=a+b,2',
     ],
     'fr' => [
         '/wp-content/uploads/cover.png' => '/wp-content/uploads/cover-fr.png',
@@ -136,11 +148,28 @@ assertMediaPipeline(
     'Production Plugin factory injects its MediaRewriter singleton into OutputBuffer'
 );
 
-$html = '<!DOCTYPE html><html lang="de"><head><title>Hallo</title></head><body>'
+$html = '<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Hallo</title></head><body>'
     . '<a id="page-link" href="/angebote/">Angebote</a>'
     . '<a id="media-link" href="/wp-content/uploads/cover.png">Download</a>'
     . '<img id="cover" src="/wp-content/uploads/cover.png" alt="Bildbeschreibung" width="640" height="480">'
     . '<img id="absolute" src="https://example.com/wp-content/uploads/cover.png">'
+    . '<img id="unicode-literal" src="/wp-content/uploads/café.png">'
+    . '<img id="unicode-encoded" src="/wp-content/uploads/caf%C3%A9.png">'
+    . '<img id="unicode-absolute" data-src="https://example.com/wp-content/uploads/café.png">'
+    . '<img id="space-literal" src="/wp-content/uploads/summer photo.jpg">'
+    . '<img id="space-encoded" data-src="/wp-content/uploads/summer%20photo.jpg">'
+    . '<img id="query-literal" src="/wp-content/uploads/query.png?caption=café au lait&amp;crop=10,20">'
+    . '<img id="query-encoded" data-src="/wp-content/uploads/query.png?caption=caf%C3%A9%20au%20lait&amp;crop=10,20">'
+    . '<img id="unicode-emoji" src="/wp-content/uploads/tea-🍵.png">'
+    . '<img id="unicode-cjk" data-src="https://example.com/wp-content/uploads/東京.png">'
+    . '<img id="literal-percent" src="/wp-content/uploads/literal%2520.png">'
+    . '<img id="query-punctuation" src="/wp-content/uploads/punctuation.png?label=café \'au\'&amp;tags=a+b,2">'
+    . '<img id="unicode-srcset" srcset="/wp-content/uploads/café.png 1x, /wp-content/uploads/cover-800.png 2x">'
+    . '<img id="unicode-foreign" src="https://outside.example/wp-content/uploads/café.png">'
+    . '<img id="unicode-malformed" src="/wp-content/uploads/caf%C3%GG.png">'
+    . '<img id="unicode-traversal" src="/wp-content/uploads/%2e%2e/café.png">'
+    . '<img id="unicode-credentials" src="https://attacker@example.com/wp-content/uploads/café.png">'
+    . '<img id="unicode-fragment" src="/wp-content/uploads/café.png#unsafe">'
     . '<img id="comma-lazy" data-srcset="  /wp-content/uploads/cover.png?crop=10,20 1x,  /wp-content/uploads/cover-800.png 2x ">'
     . '<picture><source id="responsive" srcset="/wp-content/uploads/cover.png 400w, /wp-content/uploads/cover-800.png 800w" data-srcset="/wp-content/uploads/cover.png?crop=10,20 400w, /wp-content/uploads/cover-800.png 800w">'
     . '<img id="fallback" src="/wp-content/uploads/cover.png"></picture>'
@@ -150,6 +179,23 @@ $translated = mediaPipelineDocument($buffer->process($html, 'en'));
 
 assertMediaPipeline(mediaPipelineAttribute($translated, 'cover', 'src') === '/wp-content/uploads/cover-en.png', 'Translated response rewrites the mapped image');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'absolute', 'src') === 'https://example.com/wp-content/uploads/cover-en.png', 'Translated response preserves absolute same-origin URLs');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-literal', 'src') === '/wp-content/uploads/coffee%20english.webp', 'Production pipeline matches rendered literal UTF-8 paths against SaaS-canonical mappings');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-encoded', 'src') === '/wp-content/uploads/coffee%20english.webp', 'Production pipeline preserves already encoded image paths without double encoding');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-absolute', 'data-src') === 'https://example.com/wp-content/uploads/coffee%20english.webp', 'Production pipeline canonicalizes literal UTF-8 while preserving absolute same-origin lazy URLs');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'space-literal', 'src') === '/wp-content/uploads/summer%20english.jpg', 'Production pipeline matches rendered literal spaces against SaaS-canonical mappings');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'space-encoded', 'data-src') === '/wp-content/uploads/summer%20english.jpg', 'Production pipeline preserves existing percent-encoded spaces');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'query-literal', 'src') === '/wp-content/uploads/query-en.webp?caption=coffee%20with%20milk&crop=30,40', 'Production pipeline canonicalizes literal UTF-8 and spaces in image queries');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'query-encoded', 'data-src') === '/wp-content/uploads/query-en.webp?caption=coffee%20with%20milk&crop=30,40', 'Production pipeline preserves existing percent escapes and query separators');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-emoji', 'src') === '/wp-content/uploads/tea%20english.webp', 'Production pipeline canonicalizes four-byte Unicode without PHP parser corruption');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-cjk', 'data-src') === 'https://example.com/wp-content/uploads/tokyo%20english.webp', 'Production pipeline canonicalizes CJK characters while preserving absolute lazy image URLs');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'literal-percent', 'src') === '/wp-content/uploads/literal%2520-en.webp', 'Production pipeline never double-encodes existing valid percent escapes');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'query-punctuation', 'src') === "/wp-content/uploads/punctuation-en.webp?label=coffee%20%27and%27&tags=a+b,2", 'Production pipeline preserves query delimiters while encoding spaces, UTF-8, and special-query apostrophes');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-srcset', 'srcset') === '/wp-content/uploads/coffee%20english.webp 1x, /wp-content/uploads/cover-en-800.png 2x', 'Production pipeline canonicalizes valid literal UTF-8 srcset URL tokens');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-foreign', 'src') === 'https://outside.example/wp-content/uploads/caf%C3%A9.png', 'Canonicalization never rewrites foreign-origin UTF-8 image URLs');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-malformed', 'src') === '/wp-content/uploads/caf%C3%GG.png', 'Canonicalization rejects malformed percent escapes');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-traversal', 'src') === '/wp-content/uploads/%2e%2e/caf%C3%A9.png', 'Canonicalization rejects encoded traversal mixed with literal UTF-8');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-credentials', 'src') === 'https://attacker@example.com/wp-content/uploads/caf%C3%A9.png', 'Canonicalization rejects same-origin URLs containing credentials');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'unicode-fragment', 'src') === '/wp-content/uploads/caf%C3%A9.png#unsafe', 'Canonicalization rejects URL fragments instead of dropping them');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'responsive', 'srcset') === '/wp-content/uploads/cover-en.png 400w, /wp-content/uploads/cover-en-800.png 800w', 'Translated response rewrites responsive picture candidates');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'comma-lazy', 'data-srcset') === '  /wp-content/uploads/cover-en.png?crop=30,40 1x,  /wp-content/uploads/cover-en-800.png 2x ', 'Translated response preserves lazy query commas and exact candidate spacing');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'responsive', 'data-srcset') === '/wp-content/uploads/cover-en.png?crop=30,40 400w, /wp-content/uploads/cover-en-800.png 800w', 'Translated picture sources preserve lazy responsive query commas');
@@ -167,6 +213,7 @@ assertMediaPipeline($xpath->query('//link[@rel="alternate" and @hreflang="fr"]')
 $_SERVER['REQUEST_URI'] = '/blog/';
 $source = mediaPipelineDocument($buffer->processSource($html));
 assertMediaPipeline(mediaPipelineAttribute($source, 'cover', 'src') === '/wp-content/uploads/cover.png', 'Source-language response does not rewrite mapped images');
+assertMediaPipeline(mediaPipelineAttribute($source, 'unicode-literal', 'src') === '/wp-content/uploads/caf%C3%A9.png', 'Source-language response never replaces literal UTF-8 image paths');
 assertMediaPipeline(mediaPipelineAttribute($source, 'comma-lazy', 'data-srcset') === '  /wp-content/uploads/cover.png?crop=10,20 1x,  /wp-content/uploads/cover-800.png 2x ', 'Source-language response does not rewrite responsive image queries containing commas');
 assertMediaPipeline(mediaPipelineAttribute($source, 'page-link', 'href') === '/angebote/', 'Source-language response does not localize page links');
 

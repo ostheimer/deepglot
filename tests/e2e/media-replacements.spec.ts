@@ -48,6 +48,33 @@ test("project managers safely manage locale-specific image mappings end to end",
       code: "invalid_media_image_url",
     });
 
+    for (const recursivelyEncodedPath of [
+      "/wp-content/uploads/%252e%252e/undeliverable.jpg",
+      "/wp-content/uploads/private%252fasset.jpg",
+    ]) {
+      const response = await page.request.post(collectionPath, {
+        data: {
+          langTo: "en",
+          originalUrl: recursivelyEncodedPath,
+          localizedUrl: englishUrl,
+        },
+      });
+
+      if (response.status() === 201) {
+        const unexpectedlyCreated = (await response.json()) as {
+          mediaReplacement: { id: string };
+        };
+        await page.request.delete(
+          `${collectionPath}/${unexpectedlyCreated.mediaReplacement.id}`,
+        );
+      }
+
+      expect(response.status()).toBe(400);
+      expect(await response.json()).toMatchObject({
+        code: "invalid_media_image_url",
+      });
+    }
+
     const createResponse = await page.request.post(collectionPath, {
       data: {
         langTo: "en",
@@ -89,6 +116,21 @@ test("project managers safely manage locale-specific image mappings end to end",
     });
     expect(foreignOriginResponse.status()).toBe(400);
     expect(await foreignOriginResponse.json()).toMatchObject({
+      code: "invalid_media_image_url",
+    });
+
+    const recursivelyEncodedLocalizedResponse = await page.request.post(
+      collectionPath,
+      {
+        data: {
+          langTo: "fr",
+          originalUrl,
+          localizedUrl: "/wp-content/uploads/private%252fasset.webp",
+        },
+      },
+    );
+    expect(recursivelyEncodedLocalizedResponse.status()).toBe(400);
+    expect(await recursivelyEncodedLocalizedResponse.json()).toMatchObject({
       code: "invalid_media_image_url",
     });
 

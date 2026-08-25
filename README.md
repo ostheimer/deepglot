@@ -152,10 +152,11 @@ Both image URLs must be root-relative paths or HTTPS URLs on the exact project
 hostname. Accepted image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF.
 Absolute same-site URLs are stored in canonical root-relative form, with a
 maximum length of 2,048 characters after percent encoding. Foreign origins,
-IP hosts, embedded credentials, fragments, unsafe path encodings, SVG, and
-executable formats are rejected. Project managers are responsible for owning
-or obtaining the necessary usage and redistribution rights for every original
-and localized image; Deepglot does not verify media licenses.
+IP hosts, embedded credentials, fragments, unsafe or recursively encoded path
+separators, SVG, and executable formats are rejected. Project managers are
+responsible for owning or obtaining the necessary usage and redistribution
+rights for every original and localized image; Deepglot does not verify media
+licenses.
 
 A project can contain at most **500 image replacements**. Concurrent creation
 and partial updates use serializable project-scoped checks; a duplicate,
@@ -172,12 +173,15 @@ mappings in a dedicated, non-autoloaded
 
 During server-side target-language rendering, the plugin replaces matching
 `img[src]`, `img[srcset]`, `img[data-src]`, and `img[data-srcset]` values, plus
-`srcset` and `data-srcset` on `picture > source`. Responsive descriptors are
-preserved, excluded subtrees are not modified, and source-language pages remain
-unchanged. Runtime settings refresh at most every **300 seconds** on a request
-that reaches WordPress. Existing full-page caches are not automatically purged
-when image mappings change; operators must manually purge affected translated
-page URLs after synchronization and verify the public response.
+`srcset` and `data-srcset` on `picture > source`. Literal Unicode and spaces in
+rendered image paths are normalized to the same canonical representation as the
+saved mapping. Valid responsive width and density descriptors are preserved,
+including leading zeros and scientific notation; excluded subtrees are not
+modified, and source-language pages remain unchanged. Runtime settings refresh
+at most every **300 seconds** on a request that reaches WordPress. Existing
+full-page caches are not automatically purged when image mappings change;
+operators must manually purge affected translated page URLs after
+synchronization and verify the public response.
 
 This initial slice does not provide a dashboard interface, uploads, file
 storage, external CDN images, SVG/PDF/document/video localization, AI-generated
