@@ -12,6 +12,7 @@ import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { PasskeySettings } from "@/components/einstellungen/passkey-settings";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Account settings", "Konto-Einstellungen");
@@ -35,21 +36,31 @@ export default async function EinstellungenPage({
   const session = await auth();
   if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-  });
-
-  const memberships = await db.organizationMember.findMany({
-    where: { userId: session.user.id },
-    include: {
-      organization: {
-        include: {
-          subscription: true,
-          _count: { select: { projects: true, members: true } },
+  const [user, memberships, passkeys] = await Promise.all([
+    db.user.findUnique({
+      where: { id: session.user.id },
+    }),
+    db.organizationMember.findMany({
+      where: { userId: session.user.id },
+      include: {
+        organization: {
+          include: {
+            subscription: true,
+            _count: { select: { projects: true, members: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    db.authenticator.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        credentialID: true,
+        credentialBackedUp: true,
+        createdAt: true,
+      },
+    }),
+  ]);
 
   const nameParts = (user?.name ?? "").split(" ");
   const firstName = nameParts[0] ?? "";
@@ -107,6 +118,14 @@ export default async function EinstellungenPage({
         </h2>
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <PasswordChangeForm hasPassword={!!user?.password} />
+
+          <PasskeySettings
+            locale={locale}
+            passkeys={passkeys.map((passkey) => ({
+              ...passkey,
+              createdAt: passkey.createdAt.toISOString(),
+            }))}
+          />
 
           <div className="border-t border-gray-100">
             <div className="bg-white p-5">

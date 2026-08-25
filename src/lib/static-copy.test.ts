@@ -56,6 +56,7 @@ test("the generator protects brand terms before translation", () => {
   )?.[0];
 
   assert.match(generator, /const BRAND_TERMS = \[[^\]]*"Deepglot"/);
+  assert.match(generator, /const PROTECTED_TECHNICAL_TERMS = \[[\s\S]*"Passkey"/);
   assert.match(generator, /isExactBrandTerm/);
   assert.ok(translateMissing, "translateMissing must exist in the generator");
   assert.match(

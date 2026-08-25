@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { Github, Sparkles } from "lucide-react";
+import { Github, KeyRound, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ const COPY = {
     forgotPassword: "Forgot password?",
     submit: "Sign in",
     submitting: "Signing in...",
+    passkey: "Sign in with passkey",
+    passkeyPending: "Waiting for passkey...",
+    passkeyFailed: "Passkey sign-in was cancelled or failed.",
     noAccount: "No account yet?",
     signup: "Start for free",
     invalidCredentials: "Wrong email address or password",
@@ -56,6 +59,9 @@ const COPY = {
     forgotPassword: "Passwort vergessen?",
     submit: "Anmelden",
     submitting: "Anmelden...",
+    passkey: "Mit Passkey anmelden",
+    passkeyPending: "Passkey wird geprüft...",
+    passkeyFailed: "Die Passkey-Anmeldung wurde abgebrochen oder ist fehlgeschlagen.",
     noAccount: "Noch kein Konto?",
     signup: "Kostenlos starten",
     invalidCredentials: "Falsche E-Mail-Adresse oder falsches Passwort",
@@ -89,6 +95,7 @@ export function LoginCard({
   const dashboardPath = callbackUrl ?? withLocalePrefix("/dashboard", locale);
   const [isLoading, setIsLoading] = useState(false);
   const [isTestLoginLoading, setIsTestLoginLoading] = useState(false);
+  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -131,6 +138,35 @@ export function LoginCard({
       window.location.assign(dashboardPath);
     } finally {
       setIsTestLoginLoading(false);
+    }
+  }
+
+  async function handlePasskeySignIn() {
+    setIsPasskeyLoading(true);
+
+    try {
+      if (!("PublicKeyCredential" in window)) {
+        toast.error(copy.passkeyFailed);
+        return;
+      }
+
+      const { signIn: signInWithPasskey } = await import("next-auth/webauthn");
+      const result = await signInWithPasskey("passkey", {
+        action: "authenticate",
+        redirect: false,
+        redirectTo: dashboardPath,
+      });
+
+      if (!result?.ok || result.error) {
+        toast.error(copy.passkeyFailed);
+        return;
+      }
+
+      window.location.assign(result.url ?? dashboardPath);
+    } catch {
+      toast.error(copy.passkeyFailed);
+    } finally {
+      setIsPasskeyLoading(false);
     }
   }
 
@@ -215,6 +251,23 @@ export function LoginCard({
           </>
         )}
 
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handlePasskeySignIn}
+          disabled={isLoading || isTestLoginLoading || isPasskeyLoading}
+        >
+          <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
+          {isPasskeyLoading ? copy.passkeyPending : copy.passkey}
+        </Button>
+
+        <div className="flex items-center gap-4">
+          <Separator className="flex-1" />
+          <span className="text-xs text-gray-400">{copy.separator}</span>
+          <Separator className="flex-1" />
+        </div>
+
         <form onSubmit={handleCredentialsSignIn} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">{copy.email}</Label>
@@ -249,7 +302,7 @@ export function LoginCard({
           <Button
             type="submit"
             className="w-full bg-brand-600 hover:bg-brand-700"
-            disabled={isLoading || isTestLoginLoading}
+            disabled={isLoading || isTestLoginLoading || isPasskeyLoading}
           >
             {isLoading ? copy.submitting : copy.submit}
           </Button>

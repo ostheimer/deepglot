@@ -94,6 +94,10 @@ The authentication entry points are now:
 
 GitHub and Google sign-in are only registered when both provider secrets are configured. Local credentials login and the shared test-login therefore continue to work even when local OAuth credentials are intentionally absent.
 
+Passkey sign-in uses Auth.js WebAuthn with discoverable, user-verified credentials. Users can add or remove passkeys only from their authenticated account settings; the public login flow does not create new accounts. Existing password and OAuth sign-in remain available.
+
+Before enabling a build with passkey support against an existing database, run `npx prisma db push` for that exact environment so the required `Authenticator` table exists. Production WebAuthn requires HTTPS and a stable application origin matching the relying-party hostname. Auth.js currently marks its WebAuthn implementation as experimental. Because passkey credential identifiers, public keys, counters, device type, and backup status are stored, review the approved privacy notice before production rollout; private keys and biometric data are not stored by Deepglot.
+
 ## API compatibility
 
 The `POST /api/translate` route is designed for drop-in compatibility:
@@ -411,6 +415,7 @@ Four scripts under `scripts/` automate i18n maintenance tasks:
 The current lightweight test suite covers:
 
 - Auth.js-safe user normalization in `src/lib/auth-user.ts`
+- existing-account-only passkey enrollment and ownership-bound revocation in `src/lib/passkey-provider.test.ts` and `src/lib/passkey-management.test.ts`
 - auth redirect rules in `src/lib/route-access.ts`
 - locale path mapping, canonical route generation, and legacy redirects in `src/lib/site-locale.ts`
 - billing portal return URL resolution in `src/lib/billing.ts`
@@ -429,6 +434,7 @@ The current lightweight test suite covers:
 - project invitation token lifecycle in `src/lib/project-invitations.test.ts`
 - end-to-end locale switching, query preservation, legacy German redirects, and locale-aware auth redirects via Playwright in `tests/e2e/locale-routing.spec.ts`
 - end-to-end account settings flows via Playwright in `tests/e2e/account-settings.spec.ts`
+- English and German virtual-authenticator passkey registration, passwordless login, revocation, revoked-credential rejection, and anonymous-enrollment blocking via Playwright in `tests/e2e/passkey-auth.spec.ts`
 - full UI navigation audit via Playwright in `tests/e2e/full-ui-audit.spec.ts`
 - phase 6 dashboard features (glossary, import/export, analytics, webhooks, visual editor) via Playwright in `tests/e2e/phase-6-dashboard.spec.ts`
 - project settings accessibility via Playwright in `tests/e2e/project-settings-accessibility.spec.ts`
