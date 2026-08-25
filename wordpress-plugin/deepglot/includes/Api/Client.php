@@ -522,6 +522,11 @@ class Client
             return new \WP_Error('deepglot_sync_missing_key', __('Kein API-Key für die Synchronisierung vorhanden.', 'deepglot'));
         }
 
+        $targetLanguages = array_values(array_map(
+            'strtolower',
+            (array) ($settings['target_languages'] ?? [])
+        ));
+        $activeTargetLanguages = array_fill_keys($targetLanguages, true);
         $domainMappings = [];
 
         foreach ((array) ($settings['domain_mappings'] ?? []) as $lang => $host) {
@@ -529,8 +534,13 @@ class Client
                 continue;
             }
 
+            $lang = strtolower(trim($lang));
+            if (!isset($activeTargetLanguages[$lang])) {
+                continue;
+            }
+
             $domainMappings[] = [
-                'langCode' => strtolower(trim($lang)),
+                'langCode' => $lang,
                 'host' => strtolower(trim($host)),
             ];
         }
@@ -539,7 +549,7 @@ class Client
             'routingMode' => strtoupper((string) ($settings['routing_mode'] ?? 'PATH_PREFIX')) === 'SUBDOMAIN' ? 'SUBDOMAIN' : 'PATH_PREFIX',
             'siteUrl' => get_site_url(),
             'sourceLanguage' => strtolower((string) ($settings['source_language'] ?? 'de')),
-            'targetLanguages' => array_values(array_map('strtolower', (array) ($settings['target_languages'] ?? []))),
+            'targetLanguages' => $targetLanguages,
             'autoRedirect' => !empty($settings['auto_redirect']),
             'translateEmails' => !empty($settings['translate_emails']),
             'translateSearch' => !empty($settings['translate_search']),

@@ -274,6 +274,31 @@ dgLangAssert(
     ($GLOBALS['_deepglot_translated_html_filter_calls'][0][1] ?? null) === 'https://example.com/blog/',
     'Translated HTML filter must receive the canonical request URL.'
 );
+dgLangAssert(
+    !str_contains($processed, 'data-deepglot-ai-notice'),
+    'The AI notice must remain absent unless the authenticated SaaS setting enables it.'
+);
+
+update_option(Options::OPTION_KEY, array_merge($options->all(), [
+    'display_ai_notice' => true,
+]));
+$noticeProcessed = $buffer->process($html, 'en');
+dgLangAssert(
+    str_contains($noticeProcessed, 'data-deepglot-ai-notice'),
+    'An enabled SaaS AI notice must be rendered on a translated page.'
+);
+dgLangAssert(
+    str_contains($noticeProcessed, 'This page was translated with AI.'),
+    'The English target page must receive an explicit AI translation notice.'
+);
+dgLangAssert(
+    substr_count($noticeProcessed, 'data-deepglot-ai-notice') === 1,
+    'The output pipeline must inject at most one AI notice.'
+);
+dgLangAssert(
+    !str_contains($buffer->processSource($html), 'data-deepglot-ai-notice'),
+    'The source-language page must never receive an AI translation notice.'
+);
 
 $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = true;
 $fallbackProcessed = $buffer->process($html, 'en');

@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { userCanManageProject } from "@/lib/project-access";
+import {
+  userCanManageProject,
+  userHasProjectAccess,
+} from "@/lib/project-access";
+import {
+  getProjectGeneralSettings,
+  projectGeneralSettingsPatchSchema,
+  updateProjectGeneralSettings,
+} from "@/lib/project-general-settings";
 
-// Reading basic project info stays available to any organization member.
+// Reading basic project info stays available to every organization or explicit
+// project member.
 // Mutating actions (PATCH/DELETE) are management-only — see the
 // `userCanManageProject` checks below — so the API mirrors the settings pages,
 // which all gate on `requireProjectManagement`.
-async function verifyOrgMembership(userId: string, projektId: string) {
-  return db.project.findFirst({
-    where: {
-      id: projektId,
-      organization: { members: { some: { userId } } },
-    },
-  });
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ projektId: string }> }
@@ -27,7 +26,10 @@ export async function GET(
     return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
 
   const { projektId } = await params;
-  const project = await verifyOrgMembership(session.user.id, projektId);
+  if (!(await userHasProjectAccess(session.user.id, projektId)))
+    return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+
+  const project = await getProjectGeneralSettings(db, projektId);
   if (!project)
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
@@ -53,11 +55,6 @@ export async function DELETE(
   return NextResponse.json({ success: true });
 }
 
-const patchSchema = z.object({
-  name: z.string().trim().min(1).max(120).optional(),
-  domain: z.string().trim().min(1).max(255).optional(),
-});
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ projektId: string }> }
@@ -71,18 +68,59 @@ export async function PATCH(
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
-  const parsed = patchSchema.safeParse(await request.json().catch(() => null));
+  const parsed = projectGeneralSettingsPatchSchema.safeParse(
+    await request.json().catch(() => null)
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });
   }
 
-  const updated = await db.project.update({
-    where: { id: projektId },
-    data: {
-      ...(parsed.data.name !== undefined && { name: parsed.data.name }),
-      ...(parsed.data.domain !== undefined && { domain: parsed.data.domain }),
-    },
+  const { expectedVersion, ...patch } = parsed.data;
+  const result = await updateProjectGeneralSettings(db, {
+    projectId: projektId,
+    expectedVersion,
+    patch,
   });
 
-  return NextResponse.json(updated);
+  if (result.kind === "updated") {
+    return NextResponse.json(result.project);
+  }
+
+  if (result.kind === "conflict") {
+    return NextResponse.json(
+      {
+        error:
+          "Die Projekteinstellungen wurden zwischenzeitlich geändert. Bitte lade die aktuellen Werte und versuche es erneut.",
+        code: "project_settings_conflict",
+        project: result.project,
+      },
+      { status: 409 }
+    );
+  }
+
+  if (result.kind === "source_language_locked") {
+    return NextResponse.json(
+      {
+        error:
+          "Die Originalsprache kann nicht mehr geändert werden, nachdem sprachabhängige Inhalte erstellt wurden.",
+        code: "original_language_locked",
+        project: result.project,
+      },
+      { status: 409 }
+    );
+  }
+
+  if (result.kind === "source_language_not_active_target") {
+    return NextResponse.json(
+      {
+        error:
+          "Als neue Originalsprache kann nur eine aktuell aktive Zielsprache gewählt werden.",
+        code: "source_language_must_be_active_target",
+        project: result.project,
+      },
+      { status: 409 }
+    );
+  }
+
+  return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 }

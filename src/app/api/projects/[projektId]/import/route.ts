@@ -16,6 +16,7 @@ import {
   getProjectAccess,
   type ProjectAccessContext,
 } from "@/lib/project-access";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { getCookieLocale } from "@/lib/request-locale";
 import {
@@ -151,17 +152,25 @@ async function projectHasWebhookEndpoints(projectId: string) {
 async function writeInChunks<T>(
   items: readonly T[],
   locale: SiteLocale,
+  beforeChunk: (
+    items: readonly T[],
+    tx: Prisma.TransactionClient,
+  ) => Promise<void>,
   handler: (item: T, tx: Prisma.TransactionClient) => Promise<void>
 ) {
   let committed = 0;
   for (const slice of chunk(items, IMPORT_CHUNK_SIZE)) {
     try {
       await db.$transaction(async (tx) => {
+        await beforeChunk(slice, tx);
         for (const item of slice) {
           await handler(item, tx);
         }
       }, IMPORT_TX_OPTIONS);
     } catch (error) {
+      if (error instanceof ImportError) {
+        throw error;
+      }
       console.error(
         `[import] chunk failed after ${committed} committed rows:`,
         error
@@ -176,6 +185,17 @@ async function writeInChunks<T>(
     }
     committed += slice.length;
   }
+}
+
+function languageConfigurationChanged(locale: SiteLocale) {
+  return new ImportError(
+    t(
+      locale,
+      "Die Sprachkonfiguration des Projekts hat sich geändert. Bitte neu laden und den Import erneut starten.",
+      "The project's language configuration changed. Reload and restart the import.",
+    ),
+    409,
+  );
 }
 
 type ImportContext = {
@@ -219,77 +239,96 @@ async function importTranslationsPo(
     }
   }
 
-  await writeInChunks(rows, locale, async (row, tx) => {
-    const originalHash = computeTranslationHash(
-      row.originalText,
-      project.originalLang,
-      langTo
-    );
-    const existing = await tx.translation.findUnique({
-      where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      select: {
-        id: true,
-        workflowStatus: true,
-        assignedToId: true,
-        translatedText: true,
-      },
-    });
-    assertPostgresTextFields(
-      {
-        originalText: row.originalText,
-        translatedText: row.translatedText,
-        langFrom: project.originalLang,
-        langTo,
-      },
-      { boundary: "translation_import_persistence" },
-    );
-    const translation = await tx.translation.upsert({
-      where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      create: {
-        projectId: project.id,
-        originalHash,
-        originalText: row.originalText,
-        translatedText: row.translatedText,
-        langFrom: project.originalLang,
-        langTo,
-        isManual: true,
-        source: "IMPORT",
-        wordCount: countWords(row.originalText),
-      },
-      update: {
-        translatedText: row.translatedText,
-        langFrom: project.originalLang,
-        langTo,
-        isManual: true,
-        source: "IMPORT",
-        ...(existing
-          ? workflowResetFieldsIfTranslatedTextChanged(
-              existing,
-              row.translatedText,
-            )
-          : {}),
-      },
-    });
-
-    if (emitRowEvents) {
-      await queueProjectWebhookEvent(
-        {
+  await writeInChunks(
+    rows,
+    locale,
+    async (_slice, tx) => {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
-          eventType: existing ? "translation.updated" : "translation.created",
-          payload: {
-            type: existing ? "translation.updated" : "translation.created",
-            translationId: translation.id,
-            originalText: translation.originalText,
-            translatedText: translation.translatedText,
-            langFrom: translation.langFrom,
-            langTo: translation.langTo,
-            imported: true,
-          },
-        },
-        tx
+          sourceLanguages: [project.originalLang],
+          targetLanguages: [langTo],
+        });
+      if (!languageConfigurationIsCurrent) {
+        throw languageConfigurationChanged(locale);
+      }
+    },
+    async (row, tx) => {
+      const originalHash = computeTranslationHash(
+        row.originalText,
+        project.originalLang,
+        langTo
       );
-    }
-  });
+      const existing = await tx.translation.findUnique({
+        where: {
+          projectId_originalHash: { projectId: project.id, originalHash },
+        },
+        select: {
+          id: true,
+          workflowStatus: true,
+          assignedToId: true,
+          translatedText: true,
+        },
+      });
+      assertPostgresTextFields(
+        {
+          originalText: row.originalText,
+          translatedText: row.translatedText,
+          langFrom: project.originalLang,
+          langTo,
+        },
+        { boundary: "translation_import_persistence" },
+      );
+      const translation = await tx.translation.upsert({
+        where: {
+          projectId_originalHash: { projectId: project.id, originalHash },
+        },
+        create: {
+          projectId: project.id,
+          originalHash,
+          originalText: row.originalText,
+          translatedText: row.translatedText,
+          langFrom: project.originalLang,
+          langTo,
+          isManual: true,
+          source: "IMPORT",
+          wordCount: countWords(row.originalText),
+        },
+        update: {
+          translatedText: row.translatedText,
+          langFrom: project.originalLang,
+          langTo,
+          isManual: true,
+          source: "IMPORT",
+          ...(existing
+            ? workflowResetFieldsIfTranslatedTextChanged(
+                existing,
+                row.translatedText,
+              )
+            : {}),
+        },
+      });
+
+      if (emitRowEvents) {
+        await queueProjectWebhookEvent(
+          {
+            projectId: project.id,
+            eventType: existing ? "translation.updated" : "translation.created",
+            payload: {
+              type: existing ? "translation.updated" : "translation.created",
+              translationId: translation.id,
+              originalText: translation.originalText,
+              translatedText: translation.translatedText,
+              langFrom: translation.langFrom,
+              langTo: translation.langTo,
+              imported: true,
+            },
+          },
+          tx
+        );
+      }
+    },
+  );
 
   const totalWords = rows.reduce((sum, row) => sum + countWords(row.originalText), 0);
   await recordTranslationBatch({
@@ -343,49 +382,64 @@ async function importGlossaryCsv(
     }
   }
 
-  await writeInChunks(rows, locale, async (row, tx) => {
-    const glossaryRule = await tx.glossaryRule.upsert({
-      where: {
-        projectId_originalTerm_langFrom_langTo: {
+  await writeInChunks(
+    rows,
+    locale,
+    async (slice, tx) => {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
-          originalTerm: row.originalTerm,
-          langFrom: row.langFrom,
-          langTo: row.langTo,
-        },
-      },
-      create: {
-        projectId: project.id,
-        originalTerm: row.originalTerm,
-        translatedTerm: row.translatedTerm,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-        caseSensitive: row.caseSensitive,
-      },
-      update: {
-        translatedTerm: row.translatedTerm,
-        caseSensitive: row.caseSensitive,
-      },
-    });
-
-    if (emitRowEvents) {
-      await queueProjectWebhookEvent(
-        {
-          projectId: project.id,
-          eventType: "glossary.upserted",
-          payload: {
-            type: "glossary.upserted",
-            ruleId: glossaryRule.id,
-            originalTerm: glossaryRule.originalTerm,
-            translatedTerm: glossaryRule.translatedTerm,
-            langFrom: glossaryRule.langFrom,
-            langTo: glossaryRule.langTo,
-            imported: true,
+          sourceLanguages: slice.map((row) => row.langFrom),
+          targetLanguages: slice.map((row) => row.langTo),
+        });
+      if (!languageConfigurationIsCurrent) {
+        throw languageConfigurationChanged(locale);
+      }
+    },
+    async (row, tx) => {
+      const glossaryRule = await tx.glossaryRule.upsert({
+        where: {
+          projectId_originalTerm_langFrom_langTo: {
+            projectId: project.id,
+            originalTerm: row.originalTerm,
+            langFrom: row.langFrom,
+            langTo: row.langTo,
           },
         },
-        tx
-      );
-    }
-  });
+        create: {
+          projectId: project.id,
+          originalTerm: row.originalTerm,
+          translatedTerm: row.translatedTerm,
+          langFrom: row.langFrom,
+          langTo: row.langTo,
+          caseSensitive: row.caseSensitive,
+        },
+        update: {
+          translatedTerm: row.translatedTerm,
+          caseSensitive: row.caseSensitive,
+        },
+      });
+
+      if (emitRowEvents) {
+        await queueProjectWebhookEvent(
+          {
+            projectId: project.id,
+            eventType: "glossary.upserted",
+            payload: {
+              type: "glossary.upserted",
+              ruleId: glossaryRule.id,
+              originalTerm: glossaryRule.originalTerm,
+              translatedTerm: glossaryRule.translatedTerm,
+              langFrom: glossaryRule.langFrom,
+              langTo: glossaryRule.langTo,
+              imported: true,
+            },
+          },
+          tx
+        );
+      }
+    },
+  );
 
   await queueProjectWebhookEvent({
     projectId: project.id,
@@ -425,46 +479,61 @@ async function importSlugsCsv(
     }
   }
 
-  await writeInChunks(rows, locale, async (row, tx) => {
-    const slug = await tx.urlSlug.upsert({
-      where: {
-        projectId_originalSlug_langTo: {
+  await writeInChunks(
+    rows,
+    locale,
+    async (slice, tx) => {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
-          originalSlug: row.originalSlug,
-          langTo: row.langTo,
-        },
-      },
-      create: {
-        projectId: project.id,
-        originalSlug: row.originalSlug,
-        translatedSlug: row.translatedSlug || null,
-        langTo: row.langTo,
-        urlCount: row.urlCount,
-      },
-      update: {
-        translatedSlug: row.translatedSlug || null,
-        urlCount: row.urlCount,
-      },
-    });
-
-    if (emitRowEvents) {
-      await queueProjectWebhookEvent(
-        {
-          projectId: project.id,
-          eventType: "slug.upserted",
-          payload: {
-            type: "slug.upserted",
-            slugId: slug.id,
-            originalSlug: slug.originalSlug,
-            translatedSlug: slug.translatedSlug,
-            langTo: slug.langTo,
-            imported: true,
+          sourceLanguages: [project.originalLang],
+          targetLanguages: slice.map((row) => row.langTo),
+        });
+      if (!languageConfigurationIsCurrent) {
+        throw languageConfigurationChanged(locale);
+      }
+    },
+    async (row, tx) => {
+      const slug = await tx.urlSlug.upsert({
+        where: {
+          projectId_originalSlug_langTo: {
+            projectId: project.id,
+            originalSlug: row.originalSlug,
+            langTo: row.langTo,
           },
         },
-        tx
-      );
-    }
-  });
+        create: {
+          projectId: project.id,
+          originalSlug: row.originalSlug,
+          translatedSlug: row.translatedSlug || null,
+          langTo: row.langTo,
+          urlCount: row.urlCount,
+        },
+        update: {
+          translatedSlug: row.translatedSlug || null,
+          urlCount: row.urlCount,
+        },
+      });
+
+      if (emitRowEvents) {
+        await queueProjectWebhookEvent(
+          {
+            projectId: project.id,
+            eventType: "slug.upserted",
+            payload: {
+              type: "slug.upserted",
+              slugId: slug.id,
+              originalSlug: slug.originalSlug,
+              translatedSlug: slug.translatedSlug,
+              langTo: slug.langTo,
+              imported: true,
+            },
+          },
+          tx
+        );
+      }
+    },
+  );
 
   await queueProjectWebhookEvent({
     projectId: project.id,

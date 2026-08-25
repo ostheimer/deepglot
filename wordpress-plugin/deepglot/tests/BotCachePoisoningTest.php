@@ -32,6 +32,13 @@ if (!function_exists('__')) {
     }
 }
 
+$GLOBALS['_deepglot_nocache_header_calls'] = 0;
+if (!function_exists('nocache_headers')) {
+    function nocache_headers() {
+        $GLOBALS['_deepglot_nocache_header_calls']++;
+    }
+}
+
 if (!function_exists('get_option')) {
     $GLOBALS['_deepglot_options'] = [];
     $GLOBALS['_transient_store'] = [];
@@ -122,6 +129,9 @@ class DeepglotPoisoningFakeClient extends Client
     /** @var array<string, string> original => translated (SaaS-side cache) */
     public array $saasCache = [];
 
+    /** Models automaticTranslation=false for an authenticated human request. */
+    public bool $cacheOnly = false;
+
     public function __construct() {}
 
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
@@ -132,14 +142,19 @@ class DeepglotPoisoningFakeClient extends Client
         foreach ($texts as $text) {
             if (isset($this->saasCache[$text])) {
                 $toWords[] = $this->saasCache[$text];
-            } elseif ($bot >= BotDetector::OTHER) {
+            } elseif ($bot >= BotDetector::OTHER || $this->cacheOnly) {
                 $toWords[] = $text; // identity fallback for uncached bot words
             } else {
                 $toWords[] = '[en] ' . $text;
             }
         }
 
-        return ['from_words' => array_values($texts), 'to_words' => $toWords];
+        $result = ['from_words' => array_values($texts), 'to_words' => $toWords];
+        if ($this->cacheOnly) {
+            $result['cache_only'] = true;
+        }
+
+        return $result;
     }
 }
 
@@ -252,6 +267,120 @@ $identityTranslator->translate($identityHtml, 'en', '', BotDetector::HUMAN);
 poisoningCheck(
     $identityCache->get('Photosynthese Museum Berlin', 'de', 'en') === 'Photosynthese Museum Berlin',
     'A legitimately identical translation from a human/provider-backed request stays cacheable.'
+);
+
+// ---------------------------------------------------------------------------
+// Scenario 5: automatic translation is disabled for a human request. The SaaS
+// explicitly marks the response cache-only, so real SaaS-cache hits remain
+// usable while identity fallbacks must not enter normal or editor caches.
+// ---------------------------------------------------------------------------
+
+$GLOBALS['_transient_store'] = [];
+$cacheOnlyClient = new DeepglotPoisoningFakeClient();
+$cacheOnlyClient->cacheOnly = true;
+$cacheOnlyClient->saasCache['Bereits übersetzt'] = 'Already translated';
+$cacheOnlyCache = new TranslationCache();
+$cacheOnlyTranslator = new HtmlTranslator($cacheOnlyClient, $options, $cacheOnlyCache);
+$cacheOnlyHtml = '<!DOCTYPE html><html><head></head><body>'
+    . '<p>Bereits übersetzt</p><p>Noch nicht übersetzt</p></body></html>';
+
+$cacheOnlyResult = $cacheOnlyTranslator->translateInline($cacheOnlyHtml, 'en');
+poisoningCheck(
+    str_contains($cacheOnlyResult, 'Already translated'),
+    'A cache-only human response must still render a genuine SaaS cache hit.'
+);
+poisoningCheck(
+    str_contains($cacheOnlyResult, 'Noch nicht übersetzt'),
+    'A cache-only identity miss must remain source text.'
+);
+poisoningCheck(
+    $cacheOnlyCache->get('Bereits übersetzt', 'de', 'en') === 'Already translated',
+    'A genuine cache hit from a cache-only response may be persisted locally.'
+);
+poisoningCheck(
+    $cacheOnlyCache->get('Noch nicht übersetzt', 'de', 'en') === null,
+    'A human cache-only identity fallback must never poison the local cache.'
+);
+poisoningCheck(
+    $GLOBALS['_deepglot_nocache_header_calls'] === 1,
+    'A target-language response with a cache-only identity fallback must be explicitly non-cacheable.'
+);
+
+$GLOBALS['_transient_store'] = [];
+$editorClient = new DeepglotPoisoningFakeClient();
+$editorClient->cacheOnly = true;
+$editorClient->saasCache['Editor Cache-Hit'] = 'Editor cache hit';
+$editorCache = new TranslationCache();
+$editorTranslator = new HtmlTranslator($editorClient, $options, $editorCache);
+$editorResult = $editorTranslator->translateForEditor(
+    '<!DOCTYPE html><html><head></head><body><p>Editor Cache-Hit</p><p>Editor Miss</p></body></html>',
+    'en'
+);
+poisoningCheck(
+    count($editorResult['segments']) === 1
+        && ($editorResult['segments'][0]['translatedText'] ?? '') === 'Editor cache hit',
+    'The editor must annotate only genuine cache-only hits, never identity misses.'
+);
+poisoningCheck(
+    $editorCache->get('Editor Miss', 'de', 'en') === null,
+    'The synchronous editor path must not persist a cache-only identity miss.'
+);
+
+// ---------------------------------------------------------------------------
+// Scenario 6: the local authenticated snapshot still has automatic translation
+// disabled while SaaS has already been re-enabled. Every HTML entrypoint must
+// keep requesting SaaS cache-only until the next runtime refresh updates the
+// local snapshot; otherwise this stale window can start fresh provider work.
+// ---------------------------------------------------------------------------
+
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_test_key',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'automatic_translation' => false,
+]));
+$localPolicyClient = new DeepglotPoisoningFakeClient();
+$localPolicyTranslator = new HtmlTranslator(
+    $localPolicyClient,
+    $options,
+    new TranslationCache()
+);
+
+$normalPolicyResult = $localPolicyTranslator->translate(
+    '<!DOCTYPE html><html><head></head><body><p>Normaler Cache-Miss</p></body></html>',
+    'en',
+    '',
+    BotDetector::HUMAN
+);
+$inlinePolicyResult = $localPolicyTranslator->translateInline(
+    '<!DOCTYPE html><html><head></head><body><p>Inline Cache-Miss</p></body></html>',
+    'en'
+);
+$editorPolicyResult = $localPolicyTranslator->translateForEditor(
+    '<!DOCTYPE html><html><head></head><body><p>Editor Cache-Miss</p></body></html>',
+    'en'
+);
+
+poisoningCheck(
+    array_column($localPolicyClient->calls, 'bot') === [
+        BotDetector::OTHER,
+        BotDetector::OTHER,
+        BotDetector::OTHER,
+    ],
+    'Normal, synchronous inline and editor HTML paths must all force cache-only while the local project snapshot disables automatic translation.'
+);
+poisoningCheck(
+    !str_contains($normalPolicyResult, '[en]')
+        && !str_contains($inlinePolicyResult, '[en]')
+        && array_filter(
+            $editorPolicyResult['segments'],
+            static fn(array $segment): bool => str_starts_with(
+                (string) ($segment['translatedText'] ?? ''),
+                '[en]'
+            )
+        ) === [],
+    'A stale local disabled snapshot must prevent fresh provider-style output in every HTML path.'
 );
 
 fwrite(STDOUT, "BotCachePoisoningTest: OK\n");

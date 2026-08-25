@@ -10,6 +10,7 @@ import {
   canAccessProjectLanguage,
   type ProjectAccessContext,
 } from "@/lib/project-access";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import {
   assertPostgresTextFields,
@@ -106,17 +107,25 @@ function assertLanguagesAllowed(
 async function writeInChunks<T>(
   items: readonly T[],
   locale: SiteLocale,
+  beforeChunk: (
+    items: readonly T[],
+    tx: Prisma.TransactionClient,
+  ) => Promise<void>,
   handler: (item: T, tx: Prisma.TransactionClient) => Promise<void>,
 ) {
   let committed = 0;
   for (const slice of chunk(items, IMPORT_CHUNK_SIZE)) {
     try {
       await db.$transaction(async (tx) => {
+        await beforeChunk(slice, tx);
         for (const item of slice) {
           await handler(item, tx);
         }
       }, IMPORT_TX_OPTIONS);
     } catch (error) {
+      if (error instanceof ProjectTranslationImportError) {
+        throw error;
+      }
       console.error(
         `[import] chunk failed after ${committed} committed rows:`,
         error,
@@ -131,6 +140,17 @@ async function writeInChunks<T>(
     }
     committed += slice.length;
   }
+}
+
+function languageConfigurationChanged(locale: SiteLocale) {
+  return new ProjectTranslationImportError(
+    t(
+      locale,
+      "Die Sprachkonfiguration des Projekts hat sich geändert. Bitte neu laden und den Import erneut starten.",
+      "The project's language configuration changed. Reload and restart the import.",
+    ),
+    409,
+  );
 }
 
 export type ProjectTranslationImportContext = {
@@ -168,77 +188,96 @@ export async function importTranslationsCsv(
     }
   }
 
-  await writeInChunks(rows, locale, async (row, tx) => {
-    const originalHash = computeTranslationHash(
-      row.originalText,
-      row.langFrom,
-      row.langTo,
-    );
-    const existing = await tx.translation.findUnique({
-      where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      select: {
-        id: true,
-        workflowStatus: true,
-        assignedToId: true,
-        translatedText: true,
-      },
-    });
-    assertPostgresTextFields(
-      {
-        originalText: row.originalText,
-        translatedText: row.translatedText,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-      },
-      { boundary: "translation_import_persistence", index: row.line },
-    );
-    const translation = await tx.translation.upsert({
-      where: { projectId_originalHash: { projectId: project.id, originalHash } },
-      create: {
-        projectId: project.id,
-        originalHash,
-        originalText: row.originalText,
-        translatedText: row.translatedText,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-        isManual: true,
-        source: "IMPORT",
-        wordCount: countWords(row.originalText),
-      },
-      update: {
-        translatedText: row.translatedText,
-        langFrom: row.langFrom,
-        langTo: row.langTo,
-        isManual: true,
-        source: "IMPORT",
-        ...(existing
-          ? workflowResetFieldsIfTranslatedTextChanged(
-              existing,
-              row.translatedText,
-            )
-          : {}),
-      },
-    });
-
-    if (emitRowEvents) {
-      await queueProjectWebhookEvent(
-        {
+  await writeInChunks(
+    rows,
+    locale,
+    async (slice, tx) => {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
-          eventType: existing ? "translation.updated" : "translation.created",
-          payload: {
-            type: existing ? "translation.updated" : "translation.created",
-            translationId: translation.id,
-            originalText: translation.originalText,
-            translatedText: translation.translatedText,
-            langFrom: translation.langFrom,
-            langTo: translation.langTo,
-            imported: true,
-          },
-        },
-        tx,
+          sourceLanguages: slice.map((row) => row.langFrom),
+          targetLanguages: slice.map((row) => row.langTo),
+        });
+      if (!languageConfigurationIsCurrent) {
+        throw languageConfigurationChanged(locale);
+      }
+    },
+    async (row, tx) => {
+      const originalHash = computeTranslationHash(
+        row.originalText,
+        row.langFrom,
+        row.langTo,
       );
-    }
-  });
+      const existing = await tx.translation.findUnique({
+        where: {
+          projectId_originalHash: { projectId: project.id, originalHash },
+        },
+        select: {
+          id: true,
+          workflowStatus: true,
+          assignedToId: true,
+          translatedText: true,
+        },
+      });
+      assertPostgresTextFields(
+        {
+          originalText: row.originalText,
+          translatedText: row.translatedText,
+          langFrom: row.langFrom,
+          langTo: row.langTo,
+        },
+        { boundary: "translation_import_persistence", index: row.line },
+      );
+      const translation = await tx.translation.upsert({
+        where: {
+          projectId_originalHash: { projectId: project.id, originalHash },
+        },
+        create: {
+          projectId: project.id,
+          originalHash,
+          originalText: row.originalText,
+          translatedText: row.translatedText,
+          langFrom: row.langFrom,
+          langTo: row.langTo,
+          isManual: true,
+          source: "IMPORT",
+          wordCount: countWords(row.originalText),
+        },
+        update: {
+          translatedText: row.translatedText,
+          langFrom: row.langFrom,
+          langTo: row.langTo,
+          isManual: true,
+          source: "IMPORT",
+          ...(existing
+            ? workflowResetFieldsIfTranslatedTextChanged(
+                existing,
+                row.translatedText,
+              )
+            : {}),
+        },
+      });
+
+      if (emitRowEvents) {
+        await queueProjectWebhookEvent(
+          {
+            projectId: project.id,
+            eventType: existing ? "translation.updated" : "translation.created",
+            payload: {
+              type: existing ? "translation.updated" : "translation.created",
+              translationId: translation.id,
+              originalText: translation.originalText,
+              translatedText: translation.translatedText,
+              langFrom: translation.langFrom,
+              langTo: translation.langTo,
+              imported: true,
+            },
+          },
+          tx,
+        );
+      }
+    },
+  );
 
   const wordsByPair = new Map<
     string,

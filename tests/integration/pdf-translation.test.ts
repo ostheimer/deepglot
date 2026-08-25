@@ -43,7 +43,7 @@ function rejectsWith(code: string, status: number) {
 }
 
 test(
-  "PDF translation enforces tenant, language, quota and provider boundaries and records every successful provider spend",
+  "PDF translation enforces tenant, language, quota and provider boundaries while conservatively charging every provider attempt",
   { skip: skipWithoutDatabase },
   async () => {
     const { db } = await import("@/lib/db");
@@ -235,7 +235,11 @@ test(
         },
       });
       assert.equal(usageAfterProviderFailure?.words, 0);
-      assert.equal(velocityAfterProviderFailure?.count, 0);
+      assert.equal(
+        velocityAfterProviderFailure?.count,
+        4,
+        "provider attempts retain their velocity charge because upstream cost may already have been incurred",
+      );
 
       await db.rateLimitBucket.deleteMany({
         where: {

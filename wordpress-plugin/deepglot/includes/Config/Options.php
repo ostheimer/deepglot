@@ -78,6 +78,12 @@ class Options
             'source_language' => 'de',
             'target_languages' => ['en'],
             'auto_redirect' => false,
+            // General project runtime values are read back from the authenticated
+            // SaaS project. They are preserved across ordinary wp-admin saves and
+            // reset when the API key/backend identity changes.
+            'display_ai_notice' => false,
+            'automatic_translation' => true,
+            'saas_project_version' => '',
             'routing_mode' => 'PATH_PREFIX',
             'domain_mappings' => [],
             'translate_emails' => false,
@@ -175,29 +181,56 @@ class Options
     {
         $input = is_array($input) ? $input : [];
 
-        $targetLanguages = $this->normalizeLanguageList($input['target_languages'] ?? []);
         $incomingApiKey = sanitize_text_field((string) ($input['api_key'] ?? ''));
         $incomingBaseUrl = untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url'])));
         $storedSettings = get_option(self::OPTION_KEY, []);
         $storedSettings = is_array($storedSettings) ? $storedSettings : [];
         $storedApiKey = trim((string) ($storedSettings['api_key'] ?? ''));
         $storedBaseUrl = untrailingslashit((string) ($storedSettings['api_base_url'] ?? self::defaults()['api_base_url']));
+        $sameRuntimeIdentity = $incomingApiKey !== ''
+            && $storedApiKey !== ''
+            && hash_equals($storedApiKey, $incomingApiKey)
+            && $incomingBaseUrl === $storedBaseUrl;
+
+        // The dashboard owns this project-wide state. The legacy WordPress form
+        // still posts these fields, so a normal save must not overwrite a newer
+        // authenticated runtime readback. For a new key/backend, keep the form's
+        // bootstrap languages until that identity returns its own project state,
+        // but discard every value that could have belonged to the old project.
+        $sourceLanguage = $sameRuntimeIdentity
+            ? $this->sanitizeLanguage((string) ($storedSettings['source_language'] ?? 'de'))
+            : $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de'));
+        $targetLanguages = $sameRuntimeIdentity
+            ? $this->normalizeLanguageList($storedSettings['target_languages'] ?? [])
+            : $this->normalizeLanguageList($input['target_languages'] ?? []);
+        $autoRedirect = $sameRuntimeIdentity
+            ? !empty($storedSettings['auto_redirect'])
+            : !empty($input['auto_redirect']);
+        $displayAiNotice = $sameRuntimeIdentity
+            && ($storedSettings['display_ai_notice'] ?? false) === true;
+        $automaticTranslation = $sameRuntimeIdentity
+            ? ($storedSettings['automatic_translation'] ?? true) === true
+            : true;
+        $saasProjectVersion = $sameRuntimeIdentity
+            ? $this->normalizeSaasProjectVersion($storedSettings['saas_project_version'] ?? '')
+            : '';
+
         // The wp-admin form intentionally has no tracking toggle: consent lives
         // on the SaaS project. Preserve that authoritative runtime value across
         // ordinary saves, but fail closed immediately when project/backend changes.
-        $preservePageViewOptIn = $incomingApiKey !== ''
-            && $storedApiKey !== ''
-            && hash_equals($storedApiKey, $incomingApiKey)
-            && $incomingBaseUrl === $storedBaseUrl
+        $preservePageViewOptIn = $sameRuntimeIdentity
             && !empty($storedSettings['page_views_enabled']);
 
         $sanitized = [
             'enabled' => !empty($input['enabled']),
             'api_base_url' => $incomingBaseUrl,
             'api_key' => $incomingApiKey,
-            'source_language' => $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de')),
+            'source_language' => $sourceLanguage,
             'target_languages' => $targetLanguages,
-            'auto_redirect' => !empty($input['auto_redirect']),
+            'auto_redirect' => $autoRedirect,
+            'display_ai_notice' => $displayAiNotice,
+            'automatic_translation' => $automaticTranslation,
+            'saas_project_version' => $saasProjectVersion,
             'routing_mode' => $this->sanitizeRoutingMode((string) ($input['routing_mode'] ?? 'PATH_PREFIX')),
             'domain_mappings' => $this->normalizeDomainMappings($input['domain_mappings'] ?? []),
             'translate_emails' => !empty($input['translate_emails']),
@@ -606,6 +639,30 @@ class Options
         return (bool) $options['auto_redirect'];
     }
 
+    /** Dashboard-controlled disclosure on translated pages; defaults off. */
+    public function shouldDisplayAiNotice(): bool
+    {
+        $options = $this->all();
+
+        return ($options['display_ai_notice'] ?? false) === true;
+    }
+
+    /** Whether uncached content may be translated automatically. */
+    public function shouldAutomaticallyTranslate(): bool
+    {
+        $options = $this->all();
+
+        return ($options['automatic_translation'] ?? true) === true;
+    }
+
+    /** Monotonic version of the last authenticated SaaS project readback. */
+    public function getSaasProjectVersion(): string
+    {
+        $options = $this->all();
+
+        return $this->normalizeSaasProjectVersion($options['saas_project_version'] ?? '');
+    }
+
     public function shouldTranslateEmails(): bool
     {
         $options = $this->all();
@@ -816,6 +873,10 @@ class Options
             $settings['page_views_enabled'] = $runtimeConfig['pageViewsEnabled'] === true;
         }
 
+        if (array_key_exists('project', $runtimeConfig)) {
+            $this->applyRuntimeProjectSettings($settings, $runtimeConfig['project']);
+        }
+
         // Only overwrite sub-objects the SaaS actually sent. A partial
         // runtime payload (e.g. switcher-only) must not silently clobber
         // exclusion lists that the admin has configured.
@@ -959,6 +1020,123 @@ class Options
         $language = preg_replace('/[^a-z-]/', '', $language);
 
         return $language ?: '';
+    }
+
+    /**
+     * Applies one complete, versioned project snapshot from runtime-config.
+     * Malformed, internally inconsistent or older snapshots are ignored as a
+     * unit so a partial response can never mix two SaaS project revisions.
+     *
+     * @param array<string,mixed> $settings
+     * @param mixed               $runtimeProject
+     */
+    private function applyRuntimeProjectSettings(array &$settings, $runtimeProject): void
+    {
+        if (!is_array($runtimeProject)) {
+            return;
+        }
+
+        foreach (
+            [
+                'version',
+                'sourceLanguage',
+                'targetLanguages',
+                'autoRedirect',
+                'displayAiNotice',
+                'automaticTranslation',
+            ] as $requiredField
+        ) {
+            if (!array_key_exists($requiredField, $runtimeProject)) {
+                return;
+            }
+        }
+
+        $version = $this->normalizeSaasProjectVersion($runtimeProject['version']);
+        $storedVersion = $this->normalizeSaasProjectVersion($settings['saas_project_version'] ?? '');
+        if ($version === '' || ($storedVersion !== '' && strcmp($version, $storedVersion) < 0)) {
+            return;
+        }
+
+        $sourceLanguage = $this->normalizeRuntimeLanguage($runtimeProject['sourceLanguage']);
+        $targetLanguages = $this->normalizeRuntimeLanguages($runtimeProject['targetLanguages']);
+        if (
+            $sourceLanguage === ''
+            || $targetLanguages === null
+            || in_array($sourceLanguage, $targetLanguages, true)
+            || !is_bool($runtimeProject['autoRedirect'])
+            || !is_bool($runtimeProject['displayAiNotice'])
+            || !is_bool($runtimeProject['automaticTranslation'])
+        ) {
+            return;
+        }
+
+        $settings['source_language'] = $sourceLanguage;
+        $settings['target_languages'] = $targetLanguages;
+        $settings['auto_redirect'] = $runtimeProject['autoRedirect'];
+        $settings['display_ai_notice'] = $runtimeProject['displayAiNotice'];
+        $settings['automatic_translation'] = $runtimeProject['automaticTranslation'];
+        $settings['saas_project_version'] = $version;
+    }
+
+    /** @param mixed $value */
+    private function normalizeRuntimeLanguage($value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+
+        $language = strtolower(trim($value));
+
+        return preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/D', $language) === 1
+            ? $language
+            : '';
+    }
+
+    /**
+     * @param mixed $value
+     * @return string[]|null
+     */
+    private function normalizeRuntimeLanguages($value): ?array
+    {
+        if (!is_array($value) || count($value) > 200) {
+            return null;
+        }
+
+        $languages = [];
+        foreach ($value as $language) {
+            $normalized = $this->normalizeRuntimeLanguage($language);
+            if ($normalized === '') {
+                return null;
+            }
+            $languages[] = $normalized;
+        }
+
+        return array_values(array_unique($languages));
+    }
+
+    /** @param mixed $value */
+    private function normalizeSaasProjectVersion($value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+
+        $version = trim($value);
+        if (
+            preg_match(
+                '/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.(\d{3})Z$/D',
+                $version,
+                $parts
+            ) !== 1
+            || !checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1])
+            || (int) $parts[4] > 23
+            || (int) $parts[5] > 59
+            || (int) $parts[6] > 59
+        ) {
+            return '';
+        }
+
+        return $version;
     }
 
     private function sanitizeRoutingMode(string $routingMode): string

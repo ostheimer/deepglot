@@ -50,6 +50,10 @@ const apiKeyFindUnique = test.mock.fn(async (args: {
     expiresAt: null,
     project: {
       id: projectId,
+      name: "Page-view project",
+      domain: "example.test",
+      originalLang: "de",
+      updatedAt: new Date("2026-08-25T10:00:00.000Z"),
       organization: { subscription: null },
       languages: [
         { langCode: "en", isActive: true },

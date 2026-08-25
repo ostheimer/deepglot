@@ -151,6 +151,7 @@ require_once __DIR__ . '/../includes/Config/Options.php';
 require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/TranslationRules.php';
+require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
 require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Frontend/DynamicTranslationController.php';
@@ -187,6 +188,7 @@ class DynamicFakeClient extends Client
 {
     public int $callCount = 0;
     public array $lastTexts = [];
+    public int $lastBot = 0;
 
     public function __construct()
     {
@@ -196,11 +198,45 @@ class DynamicFakeClient extends Client
     {
         $this->callCount++;
         $this->lastTexts = $texts;
+        $this->lastBot = $bot;
 
         return [
             'from_words' => array_values($texts),
             'to_words'   => array_map(static fn(string $t) => '[' . $langTo . '] ' . $t, array_values($texts)),
         ];
+    }
+}
+
+class CacheOnlyDynamicFakeClient extends DynamicFakeClient
+{
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
+    {
+        $this->callCount++;
+        $this->lastTexts = $texts;
+        $this->lastBot = $bot;
+
+        return [
+            'from_words' => array_values($texts),
+            'to_words' => array_map(
+                static fn(string $text): string => $text === 'SaaS cache hit'
+                    ? 'Real cached translation'
+                    : $text,
+                array_values($texts)
+            ),
+            'cache_only' => true,
+        ];
+    }
+}
+
+class FlippingAutomaticTranslationOptions extends Options
+{
+    private int $automaticTranslationReads = 0;
+
+    public function shouldAutomaticallyTranslate(): bool
+    {
+        $this->automaticTranslationReads++;
+
+        return $this->automaticTranslationReads > 1;
     }
 }
 
@@ -694,5 +730,124 @@ foreach ([
 }
 
 dynCheck($isBot->invoke($controller, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1') === false, 'Regular browsers must stay non-bot at the dynamic endpoint.');
+
+// 24. A server-enforced cache-only response may contain a real SaaS cache hit
+// plus identity fallbacks for misses. Return/cache only the real hit.
+configureDynamicOptions();
+$_SERVER['REMOTE_ADDR'] = '198.51.100.39';
+$client = new CacheOnlyDynamicFakeClient();
+$cache = new DynamicFakeCache([]);
+$controller = new DynamicTranslationController(new Options(), $client, $cache);
+$result = $controller->translateTexts(['SaaS cache hit', 'SaaS identity miss'], 'en', true);
+dynCheck($client->callCount === 1, 'The stale-local-state request reaches SaaS once before cache-only is known.');
+dynCheck(
+    $result === ['from_words' => ['SaaS cache hit'], 'to_words' => ['Real cached translation']],
+    'Dynamic cache-only responses must expose only genuine SaaS cache hits.'
+);
+dynCheck(
+    $cache->saved === ['SaaS cache hit' => 'Real cached translation'],
+    'Dynamic translation must never persist a cache-only identity miss.'
+);
+
+// 25. Once the runtime readback says automatic translation is disabled, the
+// SaaS remains the authoritative cache: local and SaaS cache hits still serve,
+// while an explicit cache-only response proves no provider work occurred.
+configureDynamicOptions(['automatic_translation' => false]);
+$client = new CacheOnlyDynamicFakeClient();
+$controller = new DynamicTranslationController(
+    new Options(),
+    $client,
+    new DynamicFakeCache(['Local cache hit' => 'Existing translation'])
+);
+$result = $controller->translateTexts(
+    ['Local cache hit', 'SaaS cache hit', 'SaaS identity miss'],
+    'en',
+    true
+);
+dynCheck($client->callCount === 1, 'Disabled automatic translation may still read existing SaaS cache hits.');
+dynCheck(
+    $result === [
+        'from_words' => ['Local cache hit', 'SaaS cache hit'],
+        'to_words' => ['Existing translation', 'Real cached translation'],
+    ],
+    'Disabling automatic translation must preserve local and SaaS cached translations without identity misses.'
+);
+
+// 26. Once the authenticated runtime snapshot disables provider work, a valid
+// nonce may read the SaaS cache without a fresh-translation ticket or either
+// local word budget. The plugin must force the upstream request itself into
+// cache-only mode so a stale local snapshot can never create provider spend.
+configureDynamicOptions(['automatic_translation' => false]);
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.40';
+set_transient(
+    'deepglot_dynfw_' . sha1('198.51.100.40'),
+    [
+        'spent' => DynamicTranslationController::MAX_FRESH_WORDS_PER_IP,
+        'reset' => time() + DynamicTranslationController::FRESH_BUDGET_WINDOW,
+    ],
+    DynamicTranslationController::FRESH_BUDGET_WINDOW + 5
+);
+$client = new CacheOnlyDynamicFakeClient();
+$controller = new DynamicTranslationController(new Options(), $client, new DynamicFakeCache([]));
+$response = $controller->handle(new WP_REST_Request([
+    'texts' => ['SaaS cache hit', 'SaaS identity miss'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+]));
+dynCheck(
+    $client->callCount === 1,
+    'Disabled automatic translation must allow a nonce-authenticated SaaS cache read without a quota ticket.'
+);
+dynCheck(
+    $client->lastBot === 1,
+    'A ticket-free dynamic cache read must force the upstream request into the legacy cache-only bot contract.'
+);
+dynCheck(
+    $response->get_data() === [
+        'from_words' => ['SaaS cache hit'],
+        'to_words' => ['Real cached translation'],
+    ],
+    'Ticket-free cache readback must expose only genuine SaaS hits.'
+);
+
+$clientWithoutNonce = new CacheOnlyDynamicFakeClient();
+$controllerWithoutNonce = new DynamicTranslationController(
+    new Options(),
+    $clientWithoutNonce,
+    new DynamicFakeCache([])
+);
+$controllerWithoutNonce->handle(new WP_REST_Request([
+    'texts' => ['SaaS cache hit'],
+    'lang_to' => 'en',
+], []));
+dynCheck(
+    $clientWithoutNonce->callCount === 0,
+    'Disabling automatic translation must not remove the nonce boundary from SaaS cache readback.'
+);
+
+// 27. Bind the cache-only decision to the same request snapshot that admitted
+// a ticket-free call. A concurrent dashboard re-enable must not turn that
+// already-admitted public request into an unbudgeted provider translation.
+configureDynamicOptions(['automatic_translation' => false]);
+$GLOBALS['_deepglot_transients'] = [];
+$_SERVER['REMOTE_ADDR'] = '198.51.100.41';
+$raceClient = new CacheOnlyDynamicFakeClient();
+$raceController = new DynamicTranslationController(
+    new FlippingAutomaticTranslationOptions(),
+    $raceClient,
+    new DynamicFakeCache([])
+);
+$raceController->handle(new WP_REST_Request([
+    'texts' => ['SaaS cache hit'],
+    'lang_to' => 'en',
+], [
+    'X-WP-Nonce' => 'valid-rest-nonce',
+]));
+dynCheck(
+    $raceClient->callCount === 1 && $raceClient->lastBot === 1,
+    'A ticket-free request admitted as cache-only must stay cache-only across a concurrent re-enable.'
+);
 
 fwrite(STDOUT, "DynamicTranslationControllerTest: OK\n");

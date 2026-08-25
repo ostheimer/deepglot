@@ -172,6 +172,13 @@ class OutputBuffer
             $this->injectEditorShell($doc, $editorSegments);
         }
 
+        // The disclosure is a SaaS-owned runtime setting. Add it after content
+        // translation so the notice itself is never sent through a provider,
+        // and only in the target-language pipeline (never processSource()).
+        if ($this->options->shouldDisplayAiNotice()) {
+            $this->injectAiTranslationNotice($doc, $targetLanguage);
+        }
+
         $translatedHtml = $this->saveDocument($doc);
 
         if (!function_exists('apply_filters')) {
@@ -227,6 +234,41 @@ class OutputBuffer
         );
 
         return $this->saveDocument($doc);
+    }
+
+    private function injectAiTranslationNotice(\DOMDocument $doc, string $targetLanguage): void
+    {
+        foreach ($doc->getElementsByTagName('*') as $element) {
+            if ($element instanceof \DOMElement && $element->hasAttribute('data-deepglot-ai-notice')) {
+                return;
+            }
+        }
+
+        $body = $doc->getElementsByTagName('body')->item(0);
+        if (!$body instanceof \DOMElement) {
+            return;
+        }
+
+        $notice = $doc->createElement('aside');
+        $notice->setAttribute('class', 'deepglot-ai-notice');
+        $notice->setAttribute('data-deepglot-ai-notice', 'true');
+        $notice->setAttribute('role', 'note');
+        $notice->appendChild($doc->createTextNode($this->aiTranslationNoticeText($targetLanguage)));
+        $body->appendChild($notice);
+    }
+
+    private function aiTranslationNoticeText(string $targetLanguage): string
+    {
+        $primaryLanguage = strtolower(explode('-', trim($targetLanguage), 2)[0]);
+        $notices = [
+            'de' => 'Diese Seite wurde mit KI übersetzt.',
+            'en' => 'This page was translated with AI.',
+            'es' => 'Esta página fue traducida con IA.',
+            'fr' => 'Cette page a été traduite par une IA.',
+            'it' => "Questa pagina è stata tradotta con l'IA.",
+        ];
+
+        return $notices[$primaryLanguage] ?? $notices['en'];
     }
 
     // -------------------------------------------------------------------------

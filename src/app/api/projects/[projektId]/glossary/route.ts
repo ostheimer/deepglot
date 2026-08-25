@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import { getAuthenticatedUserId, userHasProjectAccess } from "@/lib/project-access";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -87,7 +88,17 @@ export async function POST(
   }
 
   try {
-    const rule = await db.$transaction(async (tx) => {
+    const persistenceResult = await db.$transaction(async (tx) => {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
+          projectId: projektId,
+          sourceLanguages: [parsed.data.langFrom],
+          targetLanguages: [parsed.data.langTo],
+        });
+      if (!languageConfigurationIsCurrent) {
+        return { kind: "language_configuration_changed" } as const;
+      }
+
       const created = await tx.glossaryRule.create({
         data: {
           projectId: projektId,
@@ -115,10 +126,24 @@ export async function POST(
         tx
       );
 
-      return created;
+      return { kind: "created", rule: created } as const;
     });
 
-    return NextResponse.json({ rule }, { status: 201 });
+    if (persistenceResult.kind === "language_configuration_changed") {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            "Die Sprachkonfiguration des Projekts hat sich geändert. Bitte neu laden und erneut versuchen.",
+            "The project's language configuration changed. Reload and retry.",
+          ),
+          code: "project_language_configuration_changed",
+        },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ rule: persistenceResult.rule }, { status: 201 });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

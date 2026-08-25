@@ -13,6 +13,7 @@ import {
   normalizeProjectInvitationEmail,
 } from "@/lib/project-invitations";
 import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -127,26 +128,53 @@ export async function POST(
   }
 
   try {
-    const invitation = await db.projectInvitation.create({
-      data: {
-        projectId: projektId,
-        inviterId: userId,
-        email,
-        role: parsed.data.role,
-        langCode,
-        tokenHash,
-        expiresAt: getProjectInvitationExpiresAt(),
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        langCode: true,
-        expiresAt: true,
-        createdAt: true,
-        inviter: { select: { id: true, name: true, email: true } },
-      },
+    const persistenceResult = await db.$transaction(async (tx) => {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
+          projectId: projektId,
+          targetLanguages: langCode ? [langCode] : [],
+        });
+      if (!languageConfigurationIsCurrent) {
+        return { kind: "language_configuration_changed" } as const;
+      }
+
+      const invitation = await tx.projectInvitation.create({
+        data: {
+          projectId: projektId,
+          inviterId: userId,
+          email,
+          role: parsed.data.role,
+          langCode,
+          tokenHash,
+          expiresAt: getProjectInvitationExpiresAt(),
+        },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          langCode: true,
+          expiresAt: true,
+          createdAt: true,
+          inviter: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      return { kind: "created", invitation } as const;
     });
+    if (persistenceResult.kind === "language_configuration_changed") {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            "Die Sprachkonfiguration hat sich geändert. Bitte neu laden.",
+            "The language configuration changed. Reload and retry.",
+          ),
+          code: "project_language_configuration_changed",
+        },
+        { status: 409 },
+      );
+    }
+    const invitation = persistenceResult.invitation;
 
     let emailDelivery:
       | Awaited<ReturnType<typeof sendProjectInvitationEmail>>

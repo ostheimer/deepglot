@@ -59,6 +59,7 @@ type RateLimitBucketReleaseData = {
   subjectHash: string;
   now: Date;
   cost: number;
+  reservationResetAt: Date;
 };
 
 type RateLimitBucketReservation = {
@@ -142,7 +143,11 @@ export class MemoryRateLimitStore implements RateLimitStore {
     const key = this.key(data.scope, data.subjectHash);
     const existing = this.buckets.get(key);
 
-    if (!existing || existing.resetAt <= data.now) {
+    if (
+      !existing ||
+      existing.resetAt <= data.now ||
+      existing.resetAt.getTime() !== data.reservationResetAt.getTime()
+    ) {
       return null;
     }
 
@@ -298,6 +303,7 @@ export class PrismaRateLimitStore implements RateLimitStore {
       WHERE "scope" = ${data.scope}
         AND "subjectHash" = ${data.subjectHash}
         AND "resetAt" > ${data.now}
+        AND "resetAt" = ${data.reservationResetAt}
       RETURNING "scope", "subjectHash", "count", "resetAt"
     `;
 
@@ -567,11 +573,13 @@ export async function consumeTranslateWordVelocity({
 export async function releaseTranslateWordVelocity({
   organizationId,
   words,
+  reservationResetAt,
   now = new Date(),
   store,
 }: {
   organizationId: string;
   words: number;
+  reservationResetAt: Date;
   now?: Date;
   store?: RateLimitStore;
 }) {
@@ -585,6 +593,7 @@ export async function releaseTranslateWordVelocity({
     subjectHash,
     now,
     cost: safeCost,
+    reservationResetAt,
   });
 }
 

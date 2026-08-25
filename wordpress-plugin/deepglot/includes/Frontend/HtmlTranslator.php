@@ -236,6 +236,16 @@ class HtmlTranslator
             return ['html' => $html, 'segments' => []];
         }
 
+        // The most recent authenticated runtime snapshot remains authoritative
+        // until WordPress refreshes it. If it disables fresh automatic
+        // translation, every HTML entrypoint (normal render, one-shot email and
+        // visual-editor prefill) may read SaaS cache entries but must keep the
+        // request cache-only even if the SaaS project was re-enabled moments
+        // ago. Manual translations can still be entered and saved in the editor.
+        if (!$this->options->shouldAutomaticallyTranslate() && $bot < BotDetector::OTHER) {
+            $bot = BotDetector::OTHER;
+        }
+
         $sourceLang = $this->options->getSourceLanguage();
 
         $doc = $this->loadHtml($html);
@@ -286,6 +296,8 @@ class HtmlTranslator
         // is queued for background warming instead, which converges the page
         // on the next request rather than on this visitor's patience.
         $apiResults = [];
+        $cacheOnlyMisses = [];
+        $cacheOnlyResponseSeen = false;
         $batches = $this->buildTranslationBatches($missing);
         $syncLimit = $forceSynchronous ? PHP_INT_MAX : $this->maxSyncBatches();
 
@@ -296,11 +308,11 @@ class HtmlTranslator
             $batchResults = $this->client->translateBatches($syncBatches, $sourceLang, $targetLanguage, $requestUrl, $bot);
 
             foreach ($batchResults as $result) {
-                $this->mergeTranslateResult($apiResults, $result);
+                $this->mergeTranslateResult($apiResults, $cacheOnlyMisses, $cacheOnlyResponseSeen, $result);
             }
         } elseif (!empty($syncBatches)) {
             $result = $this->client->translate($syncBatches[0], $sourceLang, $targetLanguage, $requestUrl, $bot);
-            $this->mergeTranslateResult($apiResults, $result);
+            $this->mergeTranslateResult($apiResults, $cacheOnlyMisses, $cacheOnlyResponseSeen, $result);
         }
 
         // Whatever did not come back — a failed batch, a partial response —
@@ -317,7 +329,7 @@ class HtmlTranslator
 
         $deferred = array_values(array_unique(array_filter(
             $deferred,
-            static fn(string $text): bool => $text !== ''
+            static fn(string $text): bool => $text !== '' && !isset($cacheOnlyMisses[$text])
         )));
 
         // Persist new translations in cache. On bot requests the SaaS is
@@ -355,11 +367,28 @@ class HtmlTranslator
             }
         }
 
-        $this->lastPendingSegmentCount = count($deferred);
+        $this->lastPendingSegmentCount = count(array_unique(array_merge(
+            $deferred,
+            array_keys($cacheOnlyMisses)
+        )));
+
+        if ($cacheOnlyResponseSeen && $this->lastPendingSegmentCount > 0) {
+            // No warm job exists that can later purge a target-language page
+            // containing these source fallbacks. Prevent WP Rocket, LiteSpeed,
+            // WP Super Cache and compatible caches from making that fallback
+            // durable across a later automatic-translation re-enable.
+            $this->markResponseNonCacheable();
+        }
 
         // Bot traffic is served cache-only (issue #147) and must never trigger
         // quota spend, so crawlers observe but never fill the warm queue.
-        if (!empty($deferred) && $this->warmer !== null && $bot < BotDetector::OTHER) {
+        if (
+            !empty($deferred)
+            && $this->warmer !== null
+            && $bot < BotDetector::OTHER
+            && $this->options->shouldAutomaticallyTranslate()
+            && !$cacheOnlyResponseSeen
+        ) {
             if (!$this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl)) {
                 $this->markResponseNonCacheable();
             }
@@ -537,9 +566,16 @@ class HtmlTranslator
 
     /**
      * @param array<string, string> $accumulator
+     * @param array<string, true> $cacheOnlyMisses
+     * @param bool $cacheOnlyResponseSeen
      * @param mixed $result
      */
-    private function mergeTranslateResult(array &$accumulator, $result): void
+    private function mergeTranslateResult(
+        array &$accumulator,
+        array &$cacheOnlyMisses,
+        bool &$cacheOnlyResponseSeen,
+        $result
+    ): void
     {
         if (
             is_wp_error($result)
@@ -551,9 +587,21 @@ class HtmlTranslator
             return;
         }
 
+        $cacheOnly = ($result['cache_only'] ?? null) === true;
+        $cacheOnlyResponseSeen = $cacheOnlyResponseSeen || $cacheOnly;
+
         foreach ($result['from_words'] as $index => $original) {
             if (isset($result['to_words'][$index])) {
-                $accumulator[$original] = $result['to_words'][$index];
+                $translated = $result['to_words'][$index];
+
+                if ($cacheOnly && $translated === $original) {
+                    if (is_string($original) && $original !== '') {
+                        $cacheOnlyMisses[$original] = true;
+                    }
+                    continue;
+                }
+
+                $accumulator[$original] = $translated;
             }
         }
     }

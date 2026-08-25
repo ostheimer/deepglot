@@ -83,3 +83,103 @@ test("documents bounded idempotency retention for both translate endpoint locale
   assert.match(notes.de, /wiederholbare 429[^.]*begrenzten Retry-After[^.]*neu ausgeführt/i);
   assert.match(notes.de, /anderer Body[^.]*409[^.]*solange der Datensatz gespeichert ist/i);
 });
+
+test("documents the project settings source of truth and WordPress drift contract", () => {
+  const translate = PUBLIC_ENDPOINT_DOCS.find(
+    (endpoint) => endpoint.id === "translate",
+  );
+  const runtime = PUBLIC_ENDPOINT_DOCS.find(
+    (endpoint) => endpoint.id === "runtime-config",
+  );
+  const sync = PUBLIC_ENDPOINT_DOCS.find(
+    (endpoint) => endpoint.id === "settings-sync",
+  );
+  assert.ok(translate);
+  assert.ok(runtime);
+  assert.ok(sync);
+
+  const translateExample = JSON.parse(translate.responseExample ?? "null") as {
+    cache_only?: unknown;
+  };
+  assert.equal(translateExample.cache_only, false);
+  assert.match(
+    translate.notes.map((note) => note.en).join(" "),
+    /cache_only[\s\S]*must not persist source-identical cache misses/i,
+  );
+
+  const runtimeExample = JSON.parse(runtime.responseExample ?? "null") as {
+    project?: Record<string, unknown>;
+  };
+  assert.ok(runtimeExample.project);
+  for (const field of [
+    "version",
+    "name",
+    "domain",
+    "sourceLanguage",
+    "targetLanguages",
+    "autoRedirect",
+    "displayAiNotice",
+    "automaticTranslation",
+    "websiteType",
+    "industryType",
+  ]) {
+    assert.ok(
+      Object.hasOwn(runtimeExample.project, field),
+      `runtime project block omits ${field}`,
+    );
+  }
+
+  const syncExample = JSON.parse(sync.responseExample ?? "null") as {
+    mirrorConflicts?: unknown;
+  };
+  assert.ok(Array.isArray(syncExample.mirrorConflicts));
+
+  const ownership = {
+    en: [runtime.summary.en, sync.summary.en, ...sync.notes.map((note) => note.en)].join(
+      " ",
+    ),
+    de: [runtime.summary.de, sync.summary.de, ...sync.notes.map((note) => note.de)].join(
+      " ",
+    ),
+  };
+
+  for (const term of [
+    "SaaS is authoritative",
+    "project name",
+    "source and target languages",
+    "automatic redirect",
+    "AI notice",
+    "automatic translation",
+    "website type",
+    "industry context",
+    "WordPress is authoritative",
+    "routing mode",
+    "domain mappings",
+    "email, search, and AMP",
+    "dynamic translation",
+    "mirrorConflicts",
+    "not written back",
+  ]) {
+    assert.match(ownership.en, new RegExp(term, "i"), `English docs omit: ${term}`);
+  }
+
+  for (const term of [
+    "SaaS ist autoritativ",
+    "Projektname",
+    "Quell- und Zielsprachen",
+    "automatische Weiterleitung",
+    "KI-Hinweis",
+    "automatische Übersetzung",
+    "Website-Typ",
+    "Branchenkontext",
+    "WordPress ist autoritativ",
+    "Routing-Modus",
+    "Domain-Zuordnungen",
+    "E-Mail, Suche und AMP",
+    "dynamische Übersetzung",
+    "mirrorConflicts",
+    "nicht zurückgeschrieben",
+  ]) {
+    assert.match(ownership.de, new RegExp(term, "i"), `German docs omit: ${term}`);
+  }
+});

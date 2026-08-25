@@ -88,6 +88,18 @@ test("settings-area API directory resolves", () => {
   );
 });
 
+test("project settings GET includes explicit project members in its read access", () => {
+  const source = readFileSync(path.join(API_DIR, "route.ts"), "utf8");
+  const body = methodBody(source, "GET");
+
+  assert.ok(body, "route.ts should export an async GET handler");
+  assert.match(
+    body,
+    /userHasProjectAccess\(/,
+    "project admins and translators with explicit project access must be able to read the settings snapshot",
+  );
+});
+
 for (const route of MANAGEMENT_ROUTES) {
   test(`settings API ${route.file} gates ${route.methods.join(
     "/"

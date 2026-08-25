@@ -229,7 +229,8 @@ class Plugin
         $this->container->singleton(SettingsSync::class, function (Container $c) {
             return new SettingsSync(
                 $c->get(Options::class),
-                $c->get(Client::class)
+                $c->get(Client::class),
+                $c->get(TranslationWarmer::class)
             );
         });
 

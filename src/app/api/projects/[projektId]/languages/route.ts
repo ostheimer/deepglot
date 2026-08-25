@@ -6,6 +6,10 @@ import {
   getAuthenticatedUserId,
   userCanManageProject,
 } from "@/lib/project-access";
+import {
+  addProjectTargetLanguages,
+  deleteProjectTargetLanguage,
+} from "@/lib/project-language-mutations";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -61,14 +65,30 @@ export async function POST(
   }
 
   try {
-    await db.projectLanguage.createMany({
-      data: parsed.data.languages.map((langCode) => ({
-        projectId: projektId,
-        langCode,
-        isActive: true,
-      })),
-      skipDuplicates: true,
+    const result = await addProjectTargetLanguages(db, {
+      projectId: projektId,
+      languages: parsed.data.languages,
     });
+
+    if (result.kind === "not_found") {
+      return NextResponse.json(
+        { error: t(locale, "Projekt nicht gefunden", "Project not found") },
+        { status: 404 }
+      );
+    }
+    if (result.kind === "source_language_cannot_be_target") {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            "Die Originalsprache kann nicht als Zielsprache hinzugefügt werden.",
+            "The original language cannot be added as a target language."
+          ),
+          code: "source_language_cannot_be_target",
+        },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -109,9 +129,17 @@ export async function DELETE(
     );
   }
 
-  await db.projectLanguage.deleteMany({
-    where: { projectId: projektId, langCode: parsed.data.langCode },
+  const projectFound = await deleteProjectTargetLanguage(db, {
+    projectId: projektId,
+    langCode: parsed.data.langCode,
   });
+
+  if (!projectFound) {
+    return NextResponse.json(
+      { error: t(locale, "Projekt nicht gefunden", "Project not found") },
+      { status: 404 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

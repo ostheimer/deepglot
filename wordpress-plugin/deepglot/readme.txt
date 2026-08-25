@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.6
+Stable tag: 0.12.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,14 +28,18 @@ Development source and release build instructions are available at https://githu
 
 1. Upload the release ZIP under `Plugins -> Add New -> Upload Plugin`.
 2. Activate Deepglot.
-3. Open `Settings -> Deepglot` and enter the API base URL and API key.
-4. Choose the source language, target languages, routing, switcher, and exclusions.
+3. Create the project and its source and target languages in the Deepglot dashboard.
+4. Open `Settings -> Deepglot`, enter the API base URL and API key, then configure WordPress-owned routing, switcher, and exclusion settings.
 
 == Frequently Asked Questions ==
 
 = Do I need a Deepglot account? =
 
 Yes. Use an account at https://deepglot.ai or configure a compatible self-hosted Deepglot service.
+
+= Where do I change the source language, target languages, and automatic redirect? =
+
+Change these project-wide values in the Deepglot dashboard. After the plugin receives an authenticated, versioned runtime snapshot, WordPress displays them as read-only mirrors. Entering a different API key or backend temporarily unlocks the mirror values for a valid bootstrap request; the new project's runtime snapshot then replaces them.
 
 = Does the plugin duplicate posts? =
 
@@ -59,11 +63,11 @@ Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII
 
 Since version 0.12.4, translated cache values also use a separate versioned, checksummed ASCII-safe key space. Existing plain-string cache entries remain readable. A cache write counts as complete only after an exact readback; failed writes stay queued, their page cache is not purged, and inline responses remain non-cacheable until the translation is durable.
 
-Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable.
+Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable. Version 0.12.7 reads project-wide language, redirect, disclosure, and automatic-translation settings from one authenticated, versioned SaaS snapshot. WordPress keeps valid cached translations available when automatic generation is off, prunes obsolete warm-up work after a language change, and prevents source-language cache-only fallbacks from entering full-page caches under a target URL.
 
 When every attempted SaaS provider returns only a count mismatch for the same multi-text root chunk, Deepglot starts direct singleton isolation. It skips redundant binary intermediate shapes and retries each original text through the configured provider chain in input order. The provider-call ceiling is chain length × (chunk size + 1) for a multi-text root, while an original singleton gets one chain; a default eight-text chunk with two providers therefore allows at most 18 provider calls. All root chunks and isolated singletons share the request-wide provider-call concurrency cap (default 12) and a 100-second provider-work deadline. A failing parallel chunk stops new sibling provider calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain terminal; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra isolation path.
 
-Deepglot finishes all bounded root-chunk attempts before starting singleton work. It collects only roots whose complete provider chains produced count mismatches; any other terminal error still aborts siblings immediately. Before calibration, Deepglot compares the remaining deadline with a conservative one-wave reserve: the fastest elapsed duration among the completed full count-mismatch root chains. If that reserve cannot fit, no singleton provider call starts. This root-derived reserve is used only for calibration admission and is never extrapolated across later work. It then runs one global calibration wave containing the first `min(request-wide concurrency, total mismatched texts)` real singletons through their full provider fallback chains and retains its results. If the shared deadline expires during any admitted singleton wave despite the admission checks, Deepglot returns the same typed deadline error instead of a generic timeout. The remaining work is split into request-wide bounded waves. Before each later wave, Deepglot compares `waves still pending × duration of the immediately preceding observed singleton wave` with the remaining shared deadline and remeasures after every completed wave. That deadline is the earlier of the local provider-work ceiling and the caller's monotonic absolute deadline; the PDF route passes its route-entry 40-second deadline so authentication, upload handling, and preparation consume the same budget. If the pending work cannot fit, Deepglot stops after the last retained wave and before any further singleton call. `/api/translate` and PDF return the stable 503 code `translation_count_mismatch_deadline`; the API refunds its velocity reservation and retains an idempotent same-key 503 for at most 60 seconds. Otherwise, the remaining affected texts continue through the same globally bounded singleton queue, preserving result order and each text's full provider fallback chain.
+Deepglot finishes all bounded root-chunk attempts before starting singleton work. It collects only roots whose complete provider chains produced count mismatches; any other terminal error still aborts siblings immediately. Before calibration, Deepglot compares the remaining deadline with a conservative one-wave reserve: the fastest elapsed duration among the completed full count-mismatch root chains. If that reserve cannot fit, no singleton provider call starts. This root-derived reserve is used only for calibration admission and is never extrapolated across later work. It then runs one global calibration wave containing the first `min(request-wide concurrency, total mismatched texts)` real singletons through their full provider fallback chains and retains its results. If the shared deadline expires during any admitted singleton wave despite the admission checks, Deepglot returns the same typed deadline error instead of a generic timeout. The remaining work is split into request-wide bounded waves. Before each later wave, Deepglot compares `waves still pending × duration of the immediately preceding observed singleton wave` with the remaining shared deadline and remeasures after every completed wave. That deadline is the earlier of the local provider-work ceiling and the caller's monotonic absolute deadline; the PDF route passes its route-entry 40-second deadline so authentication, upload handling, and preparation consume the same budget. If the pending work cannot fit, Deepglot stops after the last retained wave and before any further singleton call. `/api/translate` and PDF return the stable 503 code `translation_count_mismatch_deadline`; once provider work has started, the API conservatively keeps the velocity reservation and retains an idempotent same-key 503 for at most 60 seconds. Otherwise, the remaining affected texts continue through the same globally bounded singleton queue, preserving result order and each text's full provider fallback chain.
 
 = How do I translate existing pages without opening every URL? =
 
@@ -75,9 +79,9 @@ By default, this plugin connects to the Deepglot service at `https://deepglot.ai
 
 For translation requests, the plugin sends the configured API key, text fragments from rendered pages, source and target language codes, the requested page URL, and a bot-classification code. It sends these requests when uncached content needs translation, when an administrator starts URL synchronization, or when an administrator tests the connection. URL synchronization first requests safe internal target pages on the same WordPress site; those pages feed missing segments into the normal translation queue. Dynamic translation requests first pass through the site's same-origin WordPress REST endpoint, so the API key is not exposed to browsers.
 
-Settings synchronization sends the configured API key, site URL, routing mode, source and target languages, domain mappings, and the feature flags for automatic redirect, email translation, search translation, AMP translation, and dynamic translation.
+Settings synchronization sends the configured API key, site URL, WordPress-owned routing mode and domain mappings, and the feature flags for email translation, search translation, AMP translation, and dynamic translation. It also sends bootstrap mirrors for source language, target languages, and automatic redirect; the authenticated SaaS project remains authoritative for those three project-wide values.
 
-Runtime refresh sends the configured API key and receives URL and selector exclusions, regular-expression exclusions, and translated URL-slug mappings. The plugin can also request the public supported-languages list without an API key.
+Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, and translated URL-slug mappings. The plugin can also request the public supported-languages list without an API key.
 
 Starting the Visual Editor verifies its token through the project-scoped `editor-sessions/verify` endpoint. Saving a manual translation sends the token, original and translated text, source and target language codes, and the request URL to the project-scoped `manual-translations` endpoint.
 
@@ -87,6 +91,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.7 =
+* Made the authenticated Deepglot project authoritative for source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy through one versioned runtime snapshot.
+* Displayed SaaS-owned project settings as explicit read-only mirrors in wp-admin and rejected WordPress REST writes to source language, target languages, and automatic redirect.
+* Preserved key-switch bootstrap values until the new project snapshot arrives, reconciled obsolete language warm-up state, kept cache hits available when fresh generation is disabled, and prevented target-URL caching of source-language fallbacks.
 
 = 0.12.6 =
 * Restored built-in public pages to the multilingual sitemap and URL synchronization inventory by following WordPress core post-type viewability.
@@ -172,6 +181,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.7 =
+Moves project-wide language and automatic-translation ownership to the authenticated Deepglot project while preserving safe WordPress bootstrap, cached delivery, and background-queue reconciliation.
 
 = 0.12.6 =
 Keeps ordinary WordPress pages discoverable for multilingual synchronization while builder-only archives remain excluded.

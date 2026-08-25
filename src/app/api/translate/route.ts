@@ -50,6 +50,11 @@ import {
   inspectPostgresText,
   reportPostgresTextRejection,
 } from "@/lib/postgres-text";
+import { shouldCreateFreshTranslations } from "@/lib/automatic-translation";
+import {
+  lockAndValidateProjectLanguageWrite,
+  lockProjectRuntimeConfiguration,
+} from "@/lib/project-runtime-configuration-lock";
 
 export const runtime = "nodejs";
 
@@ -118,6 +123,7 @@ export const BotType = {
  *   request_url: string,
  *   title: string,
  *   bot: number,
+ *   cache_only: boolean,       // true when uncached identities must not be persisted
  *   from_words: string[],
  *   to_words: string[],
  * }
@@ -254,10 +260,29 @@ async function executeAuthenticatedTranslateRequest(
 
     // 4. Validate target language
     const project = apiKeyRecord.project;
-    const providerName = isBot
+    let canCreateFreshTranslations = shouldCreateFreshTranslations({
+      isBot,
+      automaticTranslation: project.settings?.automaticTranslation,
+    });
+    let providerSettings = project.settings;
+    let providerName = isBot
       ? "bot"
-      : resolveTranslationProvider(undefined, project.settings);
-    const allowedLangs = project.languages.map((l) => l.langCode.toLowerCase());
+      : canCreateFreshTranslations
+        ? "cache"
+        : "disabled";
+    const allowedLangs = project.languages
+      .filter((language) => language.isActive)
+      .map((language) => language.langCode.toLowerCase());
+
+    if (l_from.toLowerCase() !== project.originalLang.toLowerCase()) {
+      return validationProblem({
+        detail: `Source language '${l_from}' must match the project's original language.`,
+        instance: "/api/translate",
+        errors: {
+          l_from: ["Source language must match the project's original language."],
+        },
+      });
+    }
 
     if (!allowedLangs.includes(l_to.toLowerCase())) {
       return validationProblem({
@@ -368,6 +393,51 @@ async function executeAuthenticatedTranslateRequest(
       });
     }
 
+    // API-key validation returns a useful project snapshot, but settings can
+    // change while cache/glossary work runs. Re-read immediately before any
+    // quota reservation or provider call. Disabling automatic translation now
+    // downgrades the request to cache-only without incurring fresh spend.
+    if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
+      const currentRuntimeConfiguration = await db.project.findUnique({
+        where: { id: project.id },
+        select: {
+          originalLang: true,
+          languages: {
+            where: { isActive: true },
+            select: { langCode: true },
+          },
+          settings: true,
+        },
+      });
+      const sourceLanguageStillMatches =
+        currentRuntimeConfiguration?.originalLang.toLowerCase() ===
+        l_from.toLowerCase();
+      const targetLanguageStillActive =
+        currentRuntimeConfiguration?.languages.some(
+          (language) =>
+            language.langCode.toLowerCase() === l_to.toLowerCase(),
+        ) ?? false;
+      if (!sourceLanguageStillMatches || !targetLanguageStillActive) {
+        return apiProblem({
+          status: 409,
+          title: "Project language configuration changed",
+          detail:
+            "The project's source or target language changed while this request was prepared. Retry with the current runtime configuration.",
+          code: "project_language_configuration_changed",
+          instance: "/api/translate",
+        });
+      }
+
+      providerSettings = currentRuntimeConfiguration?.settings ?? null;
+      canCreateFreshTranslations = shouldCreateFreshTranslations({
+        isBot,
+        automaticTranslation: providerSettings?.automaticTranslation,
+      });
+      providerName = canCreateFreshTranslations
+        ? "cache"
+        : "disabled";
+    }
+
     // 6. Check usage limits after cache/manual/glossary short-circuiting.
     // Cache hits bypass the pending-word check so an expired or past-due
     // subscription still serves already-translated content; only fresh
@@ -375,10 +445,9 @@ async function executeAuthenticatedTranslateRequest(
     // must fail when the monthly quota is exhausted even if the probe text is
     // already cached (meinhaushalt.at 2026-06-10). PAST_DUE/INACTIVE/CANCELED
     // are soft-capped at the FREE-tier ceiling by getEffectiveWordsLimit.
-    const translatedWords = pendingTranslations.reduce(
-      (sum, item) => sum + item.wordCount,
-      0,
-    );
+    let translatedWords = canCreateFreshTranslations
+      ? pendingTranslations.reduce((sum, item) => sum + item.wordCount, 0)
+      : 0;
     const subscription = project.organization.subscription;
     const wordsLimit = getEffectiveWordsLimit(subscription);
     const currentMonth = getUsageMonthKey();
@@ -386,7 +455,7 @@ async function executeAuthenticatedTranslateRequest(
     // Hoisted so the post-translation block can detect a threshold crossing
     // for the owner quota alert (#148).
     let wordsUsedThisMonth = 0;
-    if (!isBot && (translatedWords > 0 || quotaProbe)) {
+    if (canCreateFreshTranslations && (translatedWords > 0 || quotaProbe)) {
       const usageAggregate = await db.usageRecord.aggregate({
         where: { organizationId: project.organizationId, month: currentMonth },
         _sum: { words: true },
@@ -445,9 +514,12 @@ async function executeAuthenticatedTranslateRequest(
     // exempt — it is an attacker-settable body flag and the spend/usage block
     // below does not honor it, so exempting velocity here would let
     // `quota_probe: true` bypass the limit at full spend.
-    let velocityReservation: { organizationId: string; words: number } | null =
-      null;
-    if (!isBot && translatedWords > 0) {
+    let velocityReservation: {
+      organizationId: string;
+      words: number;
+      reservationResetAt: Date;
+    } | null = null;
+    if (canCreateFreshTranslations && translatedWords > 0) {
       const velocityPolicy = getTranslateWordVelocityPolicy(wordsLimit);
       const velocity = await consumeTranslateWordVelocity({
         organizationId: project.organizationId,
@@ -503,36 +575,100 @@ async function executeAuthenticatedTranslateRequest(
       velocityReservation = {
         organizationId: project.organizationId,
         words: translatedWords,
+        reservationResetAt: velocity.resetAt,
       };
     }
 
-    // 7. Translate uncached strings via the configured provider.
-    if (pendingTranslations.length > 0 && !isBot) {
-      let results: Awaited<ReturnType<typeof translateTexts>>;
+    // Establish the final dispatch boundary after quota/velocity work and
+    // immediately before the provider starts. A configuration change before
+    // this lock is still pre-spend and can safely refund the exact reservation;
+    // once translateTexts starts, the reservation is never refunded.
+    if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
+      const refundBeforeProvider = async () => {
+        if (!velocityReservation) return;
+        const reservation = velocityReservation;
+        velocityReservation = null;
+        try {
+          await releaseTranslateWordVelocity(reservation);
+        } catch (error) {
+          // A failed pre-provider refund is conservative: no provider work is
+          // dispatched, and retaining the reservation cannot weaken the cap.
+          console.error(
+            "[/api/translate] Velocity reservation refund failed:",
+            error,
+          );
+        }
+      };
+
       try {
-        results = await translateTexts(
+        const dispatchConfiguration = await db.$transaction(async (tx) => {
+          const languageConfigurationIsCurrent =
+            await lockAndValidateProjectLanguageWrite(tx, {
+              projectId: project.id,
+              sourceLanguages: [l_from],
+              targetLanguages: [l_to],
+            });
+          if (!languageConfigurationIsCurrent) {
+            return { kind: "language_configuration_changed" } as const;
+          }
+
+          const settings = await tx.projectSettings.findUnique({
+            where: { projectId: project.id },
+          });
+          return settings?.automaticTranslation === false
+            ? ({ kind: "automatic_translation_disabled", settings } as const)
+            : ({ kind: "ready", settings } as const);
+        });
+
+        if (dispatchConfiguration.kind === "language_configuration_changed") {
+          await refundBeforeProvider();
+          return apiProblem({
+            status: 409,
+            title: "Project language configuration changed",
+            detail:
+              "The project's source or target language changed before provider dispatch. Retry with the current runtime configuration.",
+            code: "project_language_configuration_changed",
+            instance: "/api/translate",
+          });
+        }
+
+        providerSettings = dispatchConfiguration.settings;
+        if (dispatchConfiguration.kind === "automatic_translation_disabled") {
+          await refundBeforeProvider();
+          canCreateFreshTranslations = false;
+          providerName = "disabled";
+          translatedWords = 0;
+        } else {
+          providerName = resolveTranslationProvider(undefined, providerSettings);
+        }
+      } catch (error) {
+        await refundBeforeProvider();
+        throw error;
+      }
+    }
+
+    // 7. Translate uncached strings via the configured provider.
+    if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
+      // From this statement onward provider cost may have been incurred. Clear
+      // the only refund handle before dispatch so no later error path can undo
+      // the conservative velocity charge.
+      velocityReservation = null;
+      const results: Awaited<ReturnType<typeof translateTexts>> =
+        await translateTexts(
           {
             texts: pendingTranslations.map((item) => item.protectedText),
             sourceLang: l_from,
             targetLang: l_to,
+            ...(providerSettings?.websiteType
+              ? { websiteType: providerSettings.websiteType }
+              : {}),
+            ...(providerSettings?.industryType
+              ? { industryType: providerSettings.industryType }
+              : {}),
           },
           undefined,
-          project.settings,
+          providerSettings,
         );
-      } catch (error) {
-        if (velocityReservation) {
-          try {
-            await releaseTranslateWordVelocity(velocityReservation);
-          } catch (refundError) {
-            console.error(
-              "[/api/translate] Velocity refund failed:",
-              refundError,
-            );
-          }
-        }
-
-        throw error;
-      }
 
       const enabledTranslationWebhookEvents = await db.webhookEndpoint.findMany(
         {
@@ -554,8 +690,43 @@ async function executeAuthenticatedTranslateRequest(
       const hashesWrittenInTransaction = new Set<string>();
 
       try {
-        await db.$transaction(
+        const persistenceResult = await db.$transaction(
           async (tx) => {
+            if (!(await lockProjectRuntimeConfiguration(tx, project.id))) {
+              return { kind: "language_configuration_changed" } as const;
+            }
+
+            const currentLanguageConfiguration = await tx.project.findUnique({
+              where: { id: project.id },
+              select: {
+                originalLang: true,
+                languages: {
+                  where: { isActive: true },
+                  select: { langCode: true },
+                },
+                settings: {
+                  select: { automaticTranslation: true },
+                },
+              },
+            });
+            const sourceLanguageStillMatches =
+              currentLanguageConfiguration?.originalLang.toLowerCase() ===
+              l_from.toLowerCase();
+            const targetLanguageStillActive =
+              currentLanguageConfiguration?.languages.some(
+                (language) =>
+                  language.langCode.toLowerCase() === l_to.toLowerCase(),
+              ) ?? false;
+            if (!sourceLanguageStillMatches || !targetLanguageStillActive) {
+              return { kind: "language_configuration_changed" } as const;
+            }
+            if (
+              currentLanguageConfiguration.settings?.automaticTranslation ===
+              false
+            ) {
+              return { kind: "automatic_translation_disabled" } as const;
+            }
+
             for (const [resultIndex, item] of pendingTranslations.entries()) {
               const translated = restoreGlossaryTerms(
                 results[resultIndex].text,
@@ -680,24 +851,40 @@ async function executeAuthenticatedTranslateRequest(
               wordCount: totalWords,
               tx,
             });
+
+            return { kind: "persisted" } as const;
           },
           {
             maxWait: 5_000,
             timeout: 30_000,
           },
         );
-      } catch (error) {
-        if (velocityReservation) {
-          try {
-            await releaseTranslateWordVelocity(velocityReservation);
-          } catch (refundError) {
-            console.error(
-              "[/api/translate] Velocity refund failed after persistence error:",
-              refundError,
-            );
-          }
-        }
 
+        if (persistenceResult.kind === "language_configuration_changed") {
+          return apiProblem({
+            status: 409,
+            title: "Project language configuration changed",
+            detail:
+              "The project's source or target language changed while translation was in progress. Retry with the current runtime configuration.",
+            code: "project_language_configuration_changed",
+            instance: "/api/translate",
+          });
+        }
+        if (persistenceResult.kind === "automatic_translation_disabled") {
+          return apiProblem({
+            status: 409,
+            title: "Automatic translation disabled",
+            detail:
+              "Automatic translation was disabled while provider work was in progress. No translation data was stored.",
+            code: "automatic_translation_disabled_during_request",
+            instance: "/api/translate",
+          });
+        }
+      } catch (error) {
+        // The provider completed successfully before persistence began. Keep
+        // the velocity charge even when persistence fails: the paid upstream
+        // work is real, and refunding it would make retry loops bypass the
+        // spend guard.
         throw error;
       }
 
@@ -726,28 +913,47 @@ async function executeAuthenticatedTranslateRequest(
       }
     });
 
-    if (!isBot && pendingTranslations.length === 0) {
-      await Promise.all([
-        recordTranslationBatch({
-          organizationId: project.organizationId,
-          projectId: project.id,
-          langFrom: l_from,
-          langTo: l_to,
-          requestUrl: request_url || null,
-          provider: providerName,
-          totalWords,
-          cachedWords,
-          manualWords,
-          glossaryWords,
-          translatedWords,
-        }),
-        upsertTranslatedUrlHit({
+    if (
+      !isBot &&
+      (pendingTranslations.length === 0 || !canCreateFreshTranslations)
+    ) {
+      await db.$transaction(async (tx) => {
+        const languageConfigurationIsCurrent =
+          await lockAndValidateProjectLanguageWrite(tx, {
+            projectId: project.id,
+            sourceLanguages: [l_from],
+            targetLanguages: [l_to],
+          });
+        if (!languageConfigurationIsCurrent) {
+          // Cached translations are still safe to serve. Skip only analytics
+          // whose language identity became stale while this request ran.
+          return;
+        }
+
+        await recordTranslationBatch(
+          {
+            organizationId: project.organizationId,
+            projectId: project.id,
+            langFrom: l_from,
+            langTo: l_to,
+            requestUrl: request_url || null,
+            provider: providerName,
+            totalWords,
+            cachedWords,
+            manualWords,
+            glossaryWords,
+            translatedWords,
+          },
+          tx,
+        );
+        await upsertTranslatedUrlHit({
           projectId: project.id,
           langTo: l_to,
           requestUrl: request_url || null,
           wordCount: totalWords,
-        }),
-      ]);
+          tx,
+        });
+      });
     }
 
     // 9. Return the drop-in-compatible response format.
@@ -757,6 +963,7 @@ async function executeAuthenticatedTranslateRequest(
       request_url,
       title,
       bot,
+      cache_only: !canCreateFreshTranslations,
       from_words: texts,
       to_words: translatedTexts,
     });

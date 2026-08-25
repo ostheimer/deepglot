@@ -65,6 +65,23 @@ test("repository and public developer docs distinguish retryable 429 from perman
   assert.match(developerDocs, /split[^\n]*PDF/i);
 });
 
+test("operator docs retain velocity spend after provider dispatch", () => {
+  const docs = [read("README.md"), read("OPERATIONS.md")];
+
+  for (const source of docs) {
+    assert.match(
+      source,
+      /Only the final pre-provider configuration gate may release an exact API reservation/i,
+    );
+    assert.match(
+      source,
+      /Once a provider call starts, both API and PDF translation retain the reservation conservatively/i,
+    );
+    assert.doesNotMatch(source, /the API refunds its velocity reservation/i);
+    assert.doesNotMatch(source, /for (?:velocity )?refunds, persistence/i);
+  }
+});
+
 test("bilingual help and its visual explain the bounded queue backoff", () => {
   const help = read("src/components/marketing/help-page.tsx");
 

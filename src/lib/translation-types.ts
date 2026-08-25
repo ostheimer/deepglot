@@ -39,6 +39,8 @@ export type TranslateTextsInput = {
   texts: string[];
   sourceLang: string;
   targetLang: string;
+  websiteType?: string;
+  industryType?: string;
 };
 
 export type TranslationProviderName =

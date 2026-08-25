@@ -53,7 +53,7 @@ test("one idempotency owner encloses provider, usage, cache analytics, webhooks,
   assert.match(pipeline, /const isBot = bot >= BotType\.OTHER/);
   assert.match(
     pipeline,
-    /pendingTranslations\.length > 0 && !isBot/,
+    /pendingTranslations\.length > 0 && canCreateFreshTranslations/,
     "bots must remain cache-only after idempotency wrapping",
   );
 

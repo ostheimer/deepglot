@@ -42,6 +42,7 @@ async function exerciseReservationSequence(store: RateLimitStore, scope: string)
     subjectHash,
     cost: 300,
     now: new Date("2026-07-13T10:15:00.000Z"),
+    reservationResetAt: resetAt,
   });
   const oversizedExpired = await store.reserveBucket({
     scope,
@@ -207,6 +208,53 @@ test("PrismaRateLimitStore atomically prevents concurrent reservations from exce
     select: { count: true },
   });
   assert.deepEqual(persisted, { count: 100 });
+});
+
+test("PrismaRateLimitStore never releases an old reservation from the next window", { skip: skipWithoutDatabase }, async () => {
+  const scope = uniqueScope("release-window-identity");
+  const subjectHash = "release-window-subject";
+  const store = new PrismaRateLimitStore();
+  const oldResetAt = new Date("2026-07-13T11:00:00.000Z");
+  const nextResetAt = new Date("2026-07-13T12:00:00.000Z");
+
+  const oldReservation = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 400,
+    limit: 1_000,
+    now: new Date("2026-07-13T10:00:00.000Z"),
+    resetAt: oldResetAt,
+  });
+  assert.equal(oldReservation.reserved, true);
+
+  const nextReservation = await store.reserveBucket({
+    scope,
+    subjectHash,
+    cost: 700,
+    limit: 1_000,
+    now: new Date("2026-07-13T11:01:00.000Z"),
+    resetAt: nextResetAt,
+  });
+  assert.equal(nextReservation.reserved, true);
+  assert.equal(nextReservation.bucket.count, 700);
+
+  const staleRelease = await store.releaseBucket({
+    scope,
+    subjectHash,
+    cost: 400,
+    now: new Date("2026-07-13T11:02:00.000Z"),
+    reservationResetAt: oldResetAt,
+  });
+  assert.equal(staleRelease, null);
+
+  const { db } = await import("@/lib/db");
+  assert.deepEqual(
+    await db.rateLimitBucket.findUnique({
+      where: { scope_subjectHash: { scope, subjectHash } },
+      select: { count: true, resetAt: true },
+    }),
+    { count: 700, resetAt: nextResetAt },
+  );
 });
 
 after(async () => {

@@ -605,6 +605,54 @@ class DeepglotWarmFakeClient extends Client
     }
 }
 
+class DeepglotWarmCacheOnlyClient extends DeepglotWarmFakeClient
+{
+    /** @var array<string,string> */
+    public array $saasCache = [];
+
+    public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
+    {
+        $this->singleCalls++;
+        $this->batchCalls[] = $texts;
+
+        return [
+            'from_words' => array_values($texts),
+            'to_words' => array_map(
+                fn(string $text): string => $this->saasCache[$text] ?? $text,
+                array_values($texts)
+            ),
+            'cache_only' => true,
+        ];
+    }
+
+    public function translateBatchesForExpectedIdentity(
+        string $expectedIdentity,
+        array $batches,
+        string $langFrom,
+        string $langTo,
+        string $requestUrl = '',
+        int $bot = 0,
+        ?int $timeout = null
+    ): array {
+        $this->translateBatchesCalls++;
+        $results = [];
+
+        foreach ($batches as $index => $batch) {
+            $this->batchCalls[] = $batch;
+            $results[$index] = [
+                'from_words' => array_values($batch),
+                'to_words' => array_map(
+                    fn(string $text): string => $this->saasCache[$text] ?? $text,
+                    array_values($batch)
+                ),
+                'cache_only' => true,
+            ];
+        }
+
+        return $results;
+    }
+}
+
 /** Existing integrations may customize only the original public batch API. */
 class DeepglotWarmLegacyBatchOverrideClient extends Client
 {
@@ -675,6 +723,9 @@ class DeepglotWarmLegacyDelegatingBatchClient extends Client
 
 class DeepglotWarmSettingsClient extends DeepglotWarmFakeClient
 {
+    /** @var array<string,mixed> */
+    public array $runtimeConfig = [];
+
     public function syncSettings(?array $settings = null, ?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
     {
         return ['ok' => true];
@@ -682,7 +733,7 @@ class DeepglotWarmSettingsClient extends DeepglotWarmFakeClient
 
     public function fetchRuntimeConfig(?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
     {
-        return [];
+        return $this->runtimeConfig;
     }
 
     public function clearInvalidApiKeyForConfiguration(string $apiKey, string $baseUrl): void
@@ -2252,6 +2303,9 @@ warmAssert(
 //     pair; untouched work stays queued for the delayed retry.
 // -----------------------------------------------------------------------------
 warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge($options->all(), [
+    'target_languages' => ['en', 'fr'],
+]));
 $client = new DeepglotWarmFakeClient();
 $client->rateLimitedBatchIndexes = [0];
 $warmer = new TranslationWarmer($client, $options, new DeepglotWarmArrayCache());
@@ -2276,6 +2330,9 @@ warmAssert(
         && warmBackoffRetryAt() === $scheduledAfterCrossLanguageRateLimit,
     'A cross-language 429 must persist and schedule the bounded Retry-After delay.'
 );
+update_option(Options::OPTION_KEY, array_merge($options->all(), [
+    'target_languages' => ['en'],
+]));
 
 // -----------------------------------------------------------------------------
 // 12. The SaaS velocity limiter uses a fixed one-hour window. A known reset
@@ -2477,8 +2534,13 @@ $warmer->register();
 
 $manyTargetLanguages = [];
 for ($index = 0; $index < 80; $index++) {
-    $targetLanguage = 'target-' . $index;
+    $targetLanguage = chr(97 + intdiv($index, 26)) . chr(97 + ($index % 26));
     $manyTargetLanguages[] = $targetLanguage;
+}
+update_option(Options::OPTION_KEY, array_merge($options->all(), [
+    'target_languages' => $manyTargetLanguages,
+]));
+foreach ($manyTargetLanguages as $targetLanguage) {
     $warmer->enqueue([$targetLanguage . ' permanent segment'], 'de', $targetLanguage);
 }
 
@@ -2507,6 +2569,9 @@ foreach ($manyTargetLanguages as $targetLanguage) {
         'Every singleton 422 must remain queued for an explicit input or configuration change.'
     );
 }
+update_option(Options::OPTION_KEY, array_merge($options->all(), [
+    'target_languages' => ['en'],
+]));
 
 // -----------------------------------------------------------------------------
 // 19. Appending normal work to a short, fingerprinted oversized batch must not
@@ -3924,6 +3989,256 @@ warmCollectAssert(
 warmCollectAssert(
     count($legacyRaceEventsForB) === 1,
     'A legacy override entry switch must plan exactly one immediate additive B event.'
+);
+
+// -----------------------------------------------------------------------------
+// 40. SaaS-disabled automatic translation keeps existing local cache entries
+// visible but must neither create nor run background provider work. If stale
+// local state reaches a server-enforced cache-only response, persist genuine
+// SaaS cache hits and retire explicit identity misses without poisoning cache.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_cache_only_disabled',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'automatic_translation' => false,
+]));
+$disabledWarmerClient = new DeepglotWarmFakeClient();
+$disabledWarmerCache = new DeepglotWarmArrayCache();
+$disabledWarmerCache->setMany(['Bestehend' => 'Existing'], 'de', 'en');
+$disabledWarmer = new TranslationWarmer($disabledWarmerClient, $options, $disabledWarmerCache);
+warmCollectAssert(
+    $disabledWarmer->enqueue(['Neuer Miss'], 'de', 'en') === false
+        && $disabledWarmer->pending() === []
+        && $disabledWarmerCache->getMany(['Bestehend'], 'de', 'en') === ['Bestehend' => 'Existing'],
+    'Disabled automatic translation must reject new warm jobs without hiding existing local translations.'
+);
+
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_cache_only_disabled',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'automatic_translation' => true,
+]));
+$disabledWarmer->enqueue(['Bereits geplant'], 'de', 'en');
+update_option(Options::OPTION_KEY, array_merge($options->all(), [
+    'automatic_translation' => false,
+]));
+$disabledWarmer->runForIdentity(warmRateIdentity($options));
+warmCollectAssert(
+    $disabledWarmerClient->translateBatchesCalls === 0
+        && ($disabledWarmer->pending()['de|en'] ?? []) === ['Bereits geplant'],
+    'A queued warm job must stay dormant and perform no provider work while automatic translation is disabled.'
+);
+
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_cache_only_response',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'automatic_translation' => true,
+]));
+$cacheOnlyWarmerClient = new DeepglotWarmCacheOnlyClient();
+$cacheOnlyWarmerClient->saasCache['Warmer Cache-Hit'] = 'Warmer cache hit';
+$cacheOnlyWarmerCache = new DeepglotWarmArrayCache();
+$cacheOnlyWarmer = new TranslationWarmer($cacheOnlyWarmerClient, $options, $cacheOnlyWarmerCache);
+$cacheOnlyWarmer->enqueue(['Warmer Cache-Hit', 'Warmer Identity-Miss'], 'de', 'en');
+$cacheOnlyWarmer->runForIdentity(warmRateIdentity($options));
+warmCollectAssert(
+    $cacheOnlyWarmerCache->getMany(['Warmer Cache-Hit'], 'de', 'en') === [
+        'Warmer Cache-Hit' => 'Warmer cache hit',
+    ]
+        && $cacheOnlyWarmerCache->getMany(['Warmer Identity-Miss'], 'de', 'en') === []
+        && $cacheOnlyWarmer->pending() === [],
+    'A cache-only warm result must store the genuine hit, discard the identity miss and create no retry job.'
+);
+
+// A stale local runtime may still allow one synchronous request before the
+// authenticated response reveals cache-only mode. That signal must suppress
+// every remaining page batch, not merely the explicit identity in batch one.
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_cache_only_render',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'automatic_translation' => true,
+]));
+add_filter('deepglot_max_sync_batches', static fn($limit): int => 1);
+$renderCacheOnlyClient = new DeepglotWarmCacheOnlyClient();
+$renderCacheOnlyCache = new DeepglotWarmArrayCache();
+$renderCacheOnlyWarmer = new TranslationWarmer(
+    $renderCacheOnlyClient,
+    $options,
+    $renderCacheOnlyCache
+);
+$renderCacheOnlyTranslator = new HtmlTranslator(
+    $renderCacheOnlyClient,
+    $options,
+    $renderCacheOnlyCache,
+    null,
+    $renderCacheOnlyWarmer
+);
+$firstCacheOnlyBatch = 'Erster Cache-only Absatz ' . str_repeat('a', 2100);
+$deferredAfterSignal = 'Zweiter noch nicht übersetzter Absatz ' . str_repeat('b', 2100);
+$renderCacheOnlyTranslator->translate(
+    '<!DOCTYPE html><html><head></head><body><p>'
+        . $firstCacheOnlyBatch
+        . '</p><p>'
+        . $deferredAfterSignal
+        . '</p></body></html>',
+    'en'
+);
+warmCollectAssert(
+    $renderCacheOnlyClient->singleCalls === 1
+        && $renderCacheOnlyWarmer->pending() === [],
+    'One cache-only response must suppress fresh warm jobs for every deferred batch in the same render.'
+);
+
+// A bounded cron run may leave untouched batches in the queue. Once any SaaS
+// response proves this project is cache-only, those leftovers may stay dormant
+// but must not cause an automatic follow-up cron/provider attempt.
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_cache_only_bounded_run',
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'automatic_translation' => true,
+]));
+$boundedCacheOnlyClient = new DeepglotWarmCacheOnlyClient();
+$boundedCacheOnlyWarmer = new TranslationWarmer(
+    $boundedCacheOnlyClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$boundedCacheOnlyTexts = array_map(
+    static fn(int $index): string => 'Cache-only Queue ' . $index,
+    range(1, TranslationWarmer::BATCH_SIZE * TranslationWarmer::MAX_BATCHES_PER_RUN + 1)
+);
+$boundedCacheOnlyWarmer->enqueue($boundedCacheOnlyTexts, 'de', 'en');
+unset(
+    $GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK],
+    $GLOBALS['_deepglot_scheduled_args'][TranslationWarmer::HOOK]
+);
+$boundedCacheOnlyWarmer->runForIdentity(warmRateIdentity($options));
+warmCollectAssert(
+    count($boundedCacheOnlyWarmer->pending()['de|en'] ?? []) === 1
+        && !isset($GLOBALS['_deepglot_scheduled'][TranslationWarmer::HOOK]),
+    'A bounded cache-only warm run may retain untouched work but must not schedule a fresh follow-up job.'
+);
+
+// -----------------------------------------------------------------------------
+// 41. An authenticated runtime language delta must atomically prune queue/URL/
+// oversize state for removed pairs while retaining work and markers that are
+// still valid. A later source-language change invalidates every old-source pair.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_runtime_language_reconcile',
+    'source_language' => 'de',
+    'target_languages' => ['en', 'fr'],
+    'automatic_translation' => true,
+]));
+$languageDeltaClient = new DeepglotWarmSettingsClient();
+$languageDeltaWarmer = new TranslationWarmer(
+    $languageDeltaClient,
+    $options,
+    new DeepglotWarmArrayCache()
+);
+$languageDeltaWarmer->enqueue(
+    ['Removed English work'],
+    'de',
+    'en',
+    'https://example.test/en/removed/'
+);
+$languageDeltaWarmer->enqueue(
+    ['Retained French work'],
+    'de',
+    'fr',
+    'https://example.test/fr/retained/'
+);
+$removedMarker = warmOversizeFingerprint(
+    $options,
+    'de',
+    'en',
+    ['Removed English work']
+);
+$retainedMarker = warmOversizeFingerprint(
+    $options,
+    'de',
+    'fr',
+    ['Retained French work']
+);
+set_transient('deepglot_warm_oversize_batches', [
+    $removedMarker => [
+        'expires_at' => time() + 3600,
+        'length' => 1,
+        'action' => 'block',
+    ],
+    $retainedMarker => [
+        'expires_at' => time() + 3600,
+        'length' => 1,
+        'action' => 'block',
+    ],
+], 3600);
+
+$languageDeltaClient->runtimeConfig = [
+    'project' => [
+        'version' => '2026-08-25T13:00:00.000Z',
+        'sourceLanguage' => 'de',
+        'targetLanguages' => ['fr'],
+        'autoRedirect' => false,
+        'displayAiNotice' => false,
+        'automaticTranslation' => true,
+    ],
+];
+$languageDeltaSync = new SettingsSync(
+    $options,
+    $languageDeltaClient,
+    $languageDeltaWarmer
+);
+$languageDeltaSync->refreshRuntimeConfig(null, null, true);
+$languageDeltaUrls = $readUrlQueue->invoke($languageDeltaWarmer);
+$languageDeltaMarkers = get_transient('deepglot_warm_oversize_batches');
+warmCollectAssert(
+    $languageDeltaWarmer->pending() === ['de|fr' => ['Retained French work']],
+    'Removing a target language must prune only its warm queue and retain valid target work.'
+);
+warmCollectAssert(
+    $languageDeltaUrls === [
+        'de|fr' => [
+            'https://example.test/fr/retained/' => ['Retained French work'],
+        ],
+    ],
+    'Runtime target removal must prune only obsolete URL queue entries.'
+);
+warmCollectAssert(
+    is_array($languageDeltaMarkers)
+        && !isset($languageDeltaMarkers[$removedMarker])
+        && isset($languageDeltaMarkers[$retainedMarker]),
+    'Runtime target removal must discard obsolete oversize markers and retain valid ones.'
+);
+
+$languageDeltaClient->runtimeConfig['project'] = [
+    'version' => '2026-08-25T13:00:00.001Z',
+    'sourceLanguage' => 'en',
+    'targetLanguages' => ['fr'],
+    'autoRedirect' => false,
+    'displayAiNotice' => false,
+    'automaticTranslation' => true,
+];
+$languageDeltaSync->refreshRuntimeConfig(null, null, true);
+warmCollectAssert(
+    $languageDeltaWarmer->pending() === []
+        && $readUrlQueue->invoke($languageDeltaWarmer) === []
+        && get_transient('deepglot_warm_oversize_batches') === false,
+    'Changing the source language must remove every queue, URL and marker bound to the old source.'
 );
 
 if ($GLOBALS['_deepglot_collected_failures'] !== []) {

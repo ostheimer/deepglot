@@ -238,8 +238,9 @@ function countMismatchIsolationLimits(
 
 /**
  * `/api/translate` has a 120-second route duration. Provider work gets at most
- * 100 seconds of that budget so timeout handling, velocity refunds and the
- * persistence/response path retain a 20-second margin. Operators may lower the
+ * 100 seconds of that budget so timeout handling, conservative velocity
+ * accounting, and the persistence/response path retain a 20-second margin.
+ * Operators may lower the
  * deadline for stricter environments, but cannot raise it past the route-safe
  * ceiling.
  */

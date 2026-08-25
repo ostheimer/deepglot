@@ -176,4 +176,25 @@ switcherAssert($options->getSwitcherFlagStyle() === 'circle_mat', 'runtime confi
 switcherAssert($options->getSwitcherLanguageOrder() === ['fr', 'en'], 'runtime config overrides languageOrder');
 switcherAssert($options->getSwitcherCustomCss() === '.from-saas{color:green}', 'runtime config overrides customCss');
 
+// 6. General project settings are SaaS-authoritative and travel through the
+// same authenticated runtime-config readback. Applying them must update the
+// local runtime without firing a settings-sync loop.
+$options->applyRuntimeConfig([
+    'project' => [
+        'version' => '2026-08-25T12:00:00.000Z',
+        'sourceLanguage' => 'en',
+        'targetLanguages' => ['de', 'fr'],
+        'autoRedirect' => true,
+        'displayAiNotice' => true,
+        'automaticTranslation' => false,
+    ],
+]);
+
+switcherAssert($options->getSourceLanguage() === 'en', 'runtime config applies the SaaS source language');
+switcherAssert($options->getTargetLanguages() === ['de', 'fr'], 'runtime config applies SaaS target languages');
+switcherAssert($options->shouldAutoRedirect() === true, 'runtime config applies SaaS automatic redirect');
+switcherAssert($options->shouldDisplayAiNotice() === true, 'runtime config applies the SaaS AI notice');
+switcherAssert($options->shouldAutomaticallyTranslate() === false, 'runtime config applies the automatic-translation gate');
+switcherAssert($options->getSaasProjectVersion() === '2026-08-25T12:00:00.000Z', 'runtime config stores its independently read-back version');
+
 fwrite(STDOUT, "SwitcherSettingsTest: OK\n");

@@ -5,10 +5,12 @@ import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
 import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
+  buildPluginOwnedSettingsUpdate,
+  findPluginMirrorConflicts,
   pluginSettingsSyncSchema,
-  type PluginSettingsSyncPayload,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
+import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import {
   PLUGIN_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
@@ -27,18 +29,6 @@ function getRawApiKey(request: NextRequest) {
     : null;
 
   return queryApiKey ?? bearerKey;
-}
-
-function getSourceHost(payload: PluginSettingsSyncPayload) {
-  if (!payload.siteUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(payload.siteUrl).host.toLowerCase();
-  } catch {
-    return null;
-  }
 }
 
 async function syncPluginSettings(request: NextRequest) {
@@ -116,80 +106,61 @@ async function syncPluginSettings(request: NextRequest) {
   }
 
   const body = payload.data;
-  const domainMappingsValidation = validatePluginDomainMappings(body);
-
-  if (domainMappingsValidation) {
-    return validationProblem({
-      instance: "/api/plugin/settings-sync",
-      ...domainMappingsValidation,
-    });
-  }
 
   try {
-    const sourceHost = getSourceHost(body);
     const projectId = apiKey.project.id;
-    const synced = await db.$transaction(
+    const result = await db.$transaction(
       async (tx) => {
-        const project = await tx.project.update({
+        if (!(await lockProjectRuntimeConfiguration(tx, projectId))) {
+          return { kind: "not_found" } as const;
+        }
+
+        const authoritativeProject = await tx.project.findUnique({
           where: { id: projectId },
-          data: {
-            originalLang: body.sourceLanguage,
-            ...(sourceHost ? { domain: sourceHost } : {}),
+          select: {
+            domain: true,
+            originalLang: true,
+            settings: {
+              select: { autoSwitch: true },
+            },
+            languages: {
+              select: { langCode: true, isActive: true },
+            },
           },
         });
+        if (!authoritativeProject) {
+          return { kind: "not_found" } as const;
+        }
 
-        const existingLanguages = await tx.projectLanguage.findMany({
-          where: { projectId },
-          select: { id: true, langCode: true },
-        });
-
-        const existingLanguageCodes = new Set(
-          existingLanguages.map((language) => language.langCode)
+        const activeTargetLanguages = authoritativeProject.languages
+          .filter((language) => language.isActive)
+          .map((language) => language.langCode.toLowerCase());
+        const domainMappingsValidation = validatePluginDomainMappings(
+          body,
+          activeTargetLanguages,
         );
-
-        if (body.targetLanguages.length > 0) {
-          await tx.projectLanguage.updateMany({
-            where: { projectId },
-            data: { isActive: false },
-          });
+        if (domainMappingsValidation) {
+          return {
+            kind: "invalid_domain_mappings",
+            validation: domainMappingsValidation,
+          } as const;
         }
 
-        for (const language of body.targetLanguages) {
-          if (existingLanguageCodes.has(language)) {
-            await tx.projectLanguage.updateMany({
-              where: { projectId, langCode: language },
-              data: { isActive: true },
-            });
-          } else {
-            await tx.projectLanguage.create({
-              data: {
-                projectId,
-                langCode: language,
-                isActive: true,
-              },
-            });
-          }
-        }
+        const mirrorConflicts = findPluginMirrorConflicts(body, {
+          domain: authoritativeProject.domain,
+          sourceLanguage: authoritativeProject.originalLang,
+          targetLanguages: activeTargetLanguages,
+          autoRedirect: authoritativeProject.settings?.autoSwitch ?? false,
+        });
+        const settingsUpdate = buildPluginOwnedSettingsUpdate(body);
 
         await tx.projectSettings.upsert({
           where: { projectId },
           create: {
             projectId,
-            autoSwitch: body.autoRedirect,
-            translateEmails: body.translateEmails,
-            translateSearch: body.translateSearch,
-            translateAmp: body.translateAmp,
-            routingMode: body.routingMode,
-            runtimeSyncedAt: new Date(),
+            ...settingsUpdate,
           },
-          update: {
-            autoSwitch: body.autoRedirect,
-            translateEmails: body.translateEmails,
-            translateSearch: body.translateSearch,
-            translateAmp: body.translateAmp,
-            routingMode: body.routingMode,
-            runtimeSyncedAt: new Date(),
-          },
+          update: settingsUpdate,
         });
 
         await tx.projectDomainMapping.deleteMany({
@@ -206,24 +177,64 @@ async function syncPluginSettings(request: NextRequest) {
           });
         }
 
-        return tx.project.findUnique({
-          where: { id: project.id },
-          include: {
-            settings: true,
+        const project = await tx.project.findUnique({
+          where: { id: projectId },
+          select: {
+            id: true,
+            name: true,
+            domain: true,
+            originalLang: true,
+            updatedAt: true,
+            settings: {
+              select: {
+                autoSwitch: true,
+                displayAiNotice: true,
+                automaticTranslation: true,
+                websiteType: true,
+                industryType: true,
+                translateEmails: true,
+                translateSearch: true,
+                translateAmp: true,
+                routingMode: true,
+                runtimeSyncedAt: true,
+              },
+            },
             domainMappings: {
               orderBy: { langCode: "asc" },
+              select: { langCode: true, host: true },
             },
             languages: {
               orderBy: { langCode: "asc" },
+              select: { langCode: true, isActive: true },
             },
           },
         });
+
+        return { kind: "synced", project, mirrorConflicts } as const;
       }
     );
 
+    if (result.kind === "not_found") {
+      return apiProblem({
+        status: 404,
+        title: "Project not found",
+        detail: "The API key's project no longer exists.",
+        code: "project_not_found",
+        instance: "/api/plugin/settings-sync",
+      });
+    }
+
+    if (result.kind === "invalid_domain_mappings") {
+      return validationProblem({
+        instance: "/api/plugin/settings-sync",
+        ...result.validation,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
-      project: synced,
+      project: result.project,
+      mirrorConflicts: result.mirrorConflicts,
     });
   } catch (error) {
     if (

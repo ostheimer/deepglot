@@ -125,6 +125,13 @@ class TranslationWarmer
         string $requestUrl = ''
     ): bool
     {
+        // The authenticated SaaS project owns this gate. Keep any already
+        // cached translations readable, but never create fresh provider work
+        // after runtime-config disabled automatic translation.
+        if (!$this->options->shouldAutomaticallyTranslate()) {
+            return false;
+        }
+
         $texts = array_values(array_filter(
             array_unique(array_map('strval', $texts)),
             static fn(string $text): bool => $text !== ''
@@ -298,6 +305,109 @@ class TranslationWarmer
     }
 
     /**
+     * Removes work bound to a previous SaaS language configuration while
+     * preserving every queue, URL and oversize marker that is still valid.
+     *
+     * @param string[] $targetLanguages
+     */
+    public function reconcileLanguageConfiguration(
+        string $sourceLanguage,
+        array $targetLanguages
+    ): bool {
+        $sourceLanguage = strtolower(trim($sourceLanguage));
+        $targetLanguages = array_values(array_unique(array_filter(
+            array_map(
+                static fn($language): string => strtolower(trim((string) $language)),
+                $targetLanguages
+            ),
+            static fn(string $language): bool => $language !== ''
+                && $language !== $sourceLanguage
+        )));
+
+        if ($sourceLanguage === '') {
+            return false;
+        }
+
+        $allowedTargets = array_fill_keys($targetLanguages, true);
+        $keepPair = function (string $key) use ($sourceLanguage, $allowedTargets): bool {
+            [$queuedSource, $queuedTarget] = $this->parseQueueKey($key);
+
+            return $key === $this->queueKey($queuedSource, $queuedTarget)
+                && $queuedSource === $sourceLanguage
+                && isset($allowedTargets[$queuedTarget]);
+        };
+
+        $mutationLockOwner = $this->acquireMutationLock();
+        if ($mutationLockOwner === null) {
+            return false;
+        }
+
+        $reconciledQueue = [];
+        $reconciled = false;
+
+        try {
+            if (
+                !$this->queueOptionIsValid(self::QUEUE_OPTION)
+                || !$this->queueOptionIsValid(self::URL_QUEUE_OPTION)
+            ) {
+                return false;
+            }
+
+            $queueApplied = false;
+            $reconciledQueue = $this->updateQueue(
+                static function (array $queue) use ($keepPair): array {
+                    return array_filter(
+                        $queue,
+                        static fn(array $_texts, string $key): bool => $keepPair($key),
+                        ARRAY_FILTER_USE_BOTH
+                    );
+                },
+                $queueApplied,
+                $mutationLockOwner
+            );
+            if (!$queueApplied) {
+                return false;
+            }
+
+            $activeKeys = array_fill_keys(array_keys($reconciledQueue), true);
+            $urlQueueApplied = false;
+            $this->updateUrlQueue(
+                static function (array $queue) use ($activeKeys): array {
+                    return array_filter(
+                        $queue,
+                        static fn(array $_urls, string $key): bool => isset($activeKeys[$key]),
+                        ARRAY_FILTER_USE_BOTH
+                    );
+                },
+                $urlQueueApplied
+            );
+            if (!$urlQueueApplied) {
+                return false;
+            }
+
+            $this->reconcileOversizeBatchMarkers(
+                $reconciledQueue,
+                $this->configurationIdentity()
+            );
+            $reconciled = true;
+        } finally {
+            $this->releaseMutationLock($mutationLockOwner);
+        }
+
+        if (
+            $reconciled
+            && !empty($reconciledQueue)
+            && $this->options->isEnabled()
+            && $this->options->isConfigured()
+            && $this->options->shouldAutomaticallyTranslate()
+        ) {
+            $this->schedule();
+        }
+
+        return $reconciled;
+    }
+
+    /**
      * Cron callback: translates a bounded slice of the queue and caches it.
      */
     public function run(): void
@@ -337,6 +447,13 @@ class TranslationWarmer
                 $this->releaseMutationLock($mutationLockOwner);
             }
 
+            return;
+        }
+
+        // Leave an existing queue dormant rather than deleting it. Re-enabling
+        // automatic translation and the next legitimate enqueue can schedule it
+        // again, while this cron invocation performs no provider work.
+        if (!$this->options->shouldAutomaticallyTranslate()) {
             return;
         }
 
@@ -426,6 +543,7 @@ class TranslationWarmer
         $remainingByKey = [];
         $rateLimitBackoff = 0;
         $rateLimitIdentity = null;
+        $cacheOnlyResponseSeen = false;
         $oversizeMarkers = $this->readOversizeBatchMarkers($queue, $runIdentity);
 
         foreach ($queue as $key => $texts) {
@@ -440,6 +558,14 @@ class TranslationWarmer
                 $completedByKey[$key] = $texts;
                 $remainingByKey[$key] = [];
                 continue;
+            }
+
+            if (!$this->languagePairIsCurrent($sourceLang, $targetLang)) {
+                $this->reconcileLanguageConfiguration(
+                    $this->options->getSourceLanguage(),
+                    $this->options->getTargetLanguages()
+                );
+                return;
             }
 
             // Another render may have translated some of these in the meantime;
@@ -486,6 +612,19 @@ class TranslationWarmer
                 return;
             }
 
+            if (
+                !$this->options->shouldAutomaticallyTranslate()
+                || !$this->languagePairIsCurrent($sourceLang, $targetLang)
+            ) {
+                if ($this->options->shouldAutomaticallyTranslate()) {
+                    $this->reconcileLanguageConfiguration(
+                        $this->options->getSourceLanguage(),
+                        $this->options->getTargetLanguages()
+                    );
+                }
+                return;
+            }
+
             $dispatchIdentity = $runIdentity;
             $results = empty($processed)
                 ? []
@@ -501,6 +640,14 @@ class TranslationWarmer
 
             if (!$this->identityIsCurrent($runIdentity)) {
                 $this->schedule();
+                return;
+            }
+
+            if (!$this->languagePairIsCurrent($sourceLang, $targetLang)) {
+                $this->reconcileLanguageConfiguration(
+                    $this->options->getSourceLanguage(),
+                    $this->options->getTargetLanguages()
+                );
                 return;
             }
 
@@ -548,13 +695,19 @@ class TranslationWarmer
                     continue;
                 }
 
+                $cacheOnlyResponseSeen = $cacheOnlyResponseSeen
+                    || (($result['cache_only'] ?? false) === true);
                 $pairs = $this->pairResult($result);
+                $cacheOnlyIdentitySources = $this->cacheOnlyIdentitySources($result);
                 $translations += $pairs;
 
                 // A 2xx response is not necessarily complete. Keep every
                 // omitted source text queued instead of silently dropping it.
                 foreach ($batch as $text) {
-                    if (!array_key_exists($text, $pairs)) {
+                    if (
+                        !array_key_exists($text, $pairs)
+                        && !isset($cacheOnlyIdentitySources[$text])
+                    ) {
                         $failed[] = $text;
                     }
                 }
@@ -599,6 +752,14 @@ class TranslationWarmer
 
             $remainingByKey[$key] = $remaining;
             $completedByKey[$key] = array_values(array_diff($texts, $remaining));
+
+            if ($cacheOnlyResponseSeen) {
+                // The server-authoritative project gate applies to every
+                // language pair. Preserve untouched queue entries for a later
+                // explicit re-enable, but do not dispatch or schedule more work.
+                $untouched = true;
+                break;
+            }
 
             if ($rateLimitBackoff > 0) {
                 // The SaaS velocity window is organization-wide. Reconcile
@@ -662,6 +823,10 @@ class TranslationWarmer
         // outage) would re-fire the event forever. Failed texts stay queued and
         // are retried the next time a visitor enqueues something — which is
         // exactly when translating them is worth attempting again.
+        if ($cacheOnlyResponseSeen) {
+            return;
+        }
+
         if ($rateLimitBackoff > 0) {
             $backoffUntil = time() + $rateLimitBackoff;
             if (
@@ -703,16 +868,57 @@ class TranslationWarmer
         $from = array_values($from);
         $to   = array_values($to);
         $pairs = [];
+        $cacheOnly = ($result['cache_only'] ?? false) === true;
 
         foreach ($from as $index => $original) {
             if (!is_string($original) || !isset($to[$index]) || !is_string($to[$index])) {
                 continue;
             }
 
-            $pairs[$original] = $to[$index];
+            $translated = $to[$index];
+            if ($cacheOnly && $translated === $original) {
+                continue;
+            }
+
+            $pairs[$original] = $translated;
         }
 
         return $pairs;
+    }
+
+    /**
+     * Explicit identities in a cache-only response are unresolved misses, not
+     * translations. They are complete for this disabled-auto run (so no retry
+     * job is created), but deliberately absent from the durable cache.
+     *
+     * @param array<string,mixed> $result
+     * @return array<string,true>
+     */
+    private function cacheOnlyIdentitySources(array $result): array
+    {
+        if (($result['cache_only'] ?? false) !== true) {
+            return [];
+        }
+
+        $from = $result['from_words'] ?? [];
+        $to = $result['to_words'] ?? [];
+        if (!is_array($from) || !is_array($to)) {
+            return [];
+        }
+
+        $identities = [];
+        foreach (array_values($from) as $index => $original) {
+            if (
+                is_string($original)
+                && isset($to[$index])
+                && is_string($to[$index])
+                && $to[$index] === $original
+            ) {
+                $identities[$original] = true;
+            }
+        }
+
+        return $identities;
     }
 
     /**
@@ -743,6 +949,23 @@ class TranslationWarmer
     private function configurationIdentity(): string
     {
         return Client::configurationIdentityForOptions($this->options);
+    }
+
+    private function languagePairIsCurrent(string $sourceLanguage, string $targetLanguage): bool
+    {
+        $sourceLanguage = strtolower(trim($sourceLanguage));
+        $targetLanguage = strtolower(trim($targetLanguage));
+        $currentSource = strtolower(trim($this->options->getSourceLanguage()));
+        $currentTargets = array_map(
+            static fn(string $language): string => strtolower(trim($language)),
+            $this->options->getTargetLanguages()
+        );
+
+        return $sourceLanguage !== ''
+            && $targetLanguage !== ''
+            && $sourceLanguage === $currentSource
+            && $targetLanguage !== $currentSource
+            && in_array($targetLanguage, $currentTargets, true);
     }
 
     private function identityIsCurrent(string $identity): bool
@@ -893,6 +1116,36 @@ class TranslationWarmer
         }
 
         return $active;
+    }
+
+    /**
+     * Rewrites the marker set to the exact active queue snapshot without
+     * extending any existing marker's own bounded expiry.
+     *
+     * @param array<string, string[]> $queue
+     */
+    private function reconcileOversizeBatchMarkers(
+        array $queue,
+        string $configurationIdentity
+    ): void {
+        if (!function_exists('get_transient')) {
+            return;
+        }
+
+        $active = $this->readOversizeBatchMarkers($queue, $configurationIdentity);
+        if (empty($active)) {
+            if (function_exists('delete_transient')) {
+                delete_transient(self::OVERSIZE_BATCH_TRANSIENT);
+            }
+            return;
+        }
+
+        if (!function_exists('set_transient')) {
+            return;
+        }
+
+        $ttl = max(1, max(array_column($active, 'expires_at')) - time());
+        set_transient(self::OVERSIZE_BATCH_TRANSIENT, $active, $ttl);
     }
 
     /**

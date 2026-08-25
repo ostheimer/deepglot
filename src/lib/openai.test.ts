@@ -88,4 +88,48 @@ describe("translateWithOpenAICompatible response validation", () => {
       assertProviderResponseError
     );
   });
+
+  it("passes bounded website type and industry context to the translation request", async () => {
+    let requestBody: Record<string, unknown> = {};
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({ translations: [{ text: "Welcome" }] }),
+              },
+            },
+          ],
+        }),
+      );
+    }) as typeof fetch;
+
+    await translateWithOpenAICompatible(
+      {
+        texts: ["Willkommen"],
+        sourceLang: "de",
+        targetLang: "en",
+        websiteType: "Hotel website",
+        industryType: "Hospitality & tourism",
+      },
+      config,
+    );
+
+    const messages = requestBody.messages as Array<{ content: string }>;
+    assert.match(messages[0].content, /websiteType and industryType/);
+    assert.match(messages[0].content, /terminology and tone/);
+    assert.match(
+      messages[0].content,
+      /Do not translate or return those context fields/,
+    );
+    assert.deepEqual(JSON.parse(messages[1].content), {
+      sourceLang: "de",
+      targetLang: "en",
+      websiteType: "Hotel website",
+      industryType: "Hospitality & tourism",
+      texts: ["Willkommen"],
+    });
+  });
 });

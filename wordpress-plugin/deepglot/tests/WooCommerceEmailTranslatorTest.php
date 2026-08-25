@@ -85,7 +85,7 @@ class DeepglotWooFakeClient extends Client
 
     public function translate(array $texts, string $langFrom, string $langTo, string $requestUrl = '', int $bot = 0, ?int $timeout = null)
     {
-        $this->calls[] = compact('texts', 'langFrom', 'langTo', 'requestUrl');
+        $this->calls[] = compact('texts', 'langFrom', 'langTo', 'requestUrl', 'bot');
 
         return [
             'from_words' => $texts,
@@ -118,6 +118,7 @@ class DeepglotWooFakeHtmlTranslator extends HtmlTranslator
         $this->inlineCalls[] = [
             'html' => $html,
             'targetLanguage' => $targetLanguage,
+            'bot' => $bot,
         ];
 
         return '<translated lang="' . $targetLanguage . '">' . $html . '</translated>';
@@ -165,7 +166,10 @@ function deepglotWooTranslator(
     return new WooCommerceEmailTranslator($options, $routing, $client, $htmlTranslator);
 }
 
-function deepglotWooEnableOptions(bool $translateEmails = true): Options
+function deepglotWooEnableOptions(
+    bool $translateEmails = true,
+    bool $automaticTranslation = true
+): Options
 {
     $options = new Options();
 
@@ -175,6 +179,7 @@ function deepglotWooEnableOptions(bool $translateEmails = true): Options
         'source_language' => 'de',
         'target_languages' => ['en', 'fr'],
         'translate_emails' => $translateEmails,
+        'automatic_translation' => $automaticTranslation,
     ]));
 
     return $options;
@@ -257,5 +262,34 @@ $disabledTranslator->storeCheckoutLanguage($disabledOrder, []);
 
 assertSameWoo('', $disabledOrder->get_meta('_deepglot_checkout_language'), 'Disabled email translation should not persist checkout language metadata.');
 assertSameWoo('Betreff', $disabledTranslator->translateEmailSubject('Betreff', $order), 'Disabled email translation should leave subjects unchanged.');
+
+$cacheOnlyClient = new DeepglotWooFakeClient();
+$cacheOnlyHtmlTranslator = new DeepglotWooFakeHtmlTranslator();
+$cacheOnlyTranslator = deepglotWooTranslator(
+    deepglotWooEnableOptions(true, false),
+    $routing,
+    $cacheOnlyClient,
+    $cacheOnlyHtmlTranslator
+);
+$cacheOnlyOrder = new DeepglotWooFakeOrder([
+    '_deepglot_checkout_language' => 'en',
+]);
+$cacheOnlyTranslator->captureEmailContext(
+    'Ihre Bestellung',
+    new DeepglotWooFakeEmail($cacheOnlyOrder, false)
+);
+$cacheOnlyTranslator->translateMailContent('<p>Cache-Inhalt</p>');
+$cacheOnlyTranslator->translateEmailSubject('Cache-Betreff', $cacheOnlyOrder);
+
+assertSameWoo(
+    \Deepglot\Support\BotDetector::OTHER,
+    $cacheOnlyHtmlTranslator->inlineCalls[0]['bot'] ?? null,
+    'Automatic HTML email translation must force SaaS cache-only while the local project snapshot disables fresh translation.'
+);
+assertSameWoo(
+    \Deepglot\Support\BotDetector::OTHER,
+    $cacheOnlyClient->calls[0]['bot'] ?? null,
+    'Automatic plain-text email translation must force SaaS cache-only while the local project snapshot disables fresh translation.'
+);
 
 fwrite(STDOUT, "WooCommerceEmailTranslatorTest: OK\n");

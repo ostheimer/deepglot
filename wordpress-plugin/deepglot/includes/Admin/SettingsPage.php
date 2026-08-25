@@ -280,6 +280,7 @@ class SettingsPage
         .dg-field input[type="url"],
         .dg-field input[type="password"] { width: 100%; max-width: 460px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: monospace; color: #111827; }
         .dg-field input:focus { outline: none; border-color: #f03b22; box-shadow: 0 0 0 2px rgba(240,59,34,.15); }
+        .dg-field input[readonly] { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
         .dg-field .description { margin: 5px 0 0; font-size: 12px; color: #9ca3af; }
         .dg-lang-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
         .dg-lang-row .dg-field { flex: 1; min-width: 140px; }
@@ -301,6 +302,7 @@ class SettingsPage
         .dg-toggle-row label { font-size: 13px; color: #374151; cursor: pointer; }
         input[type="checkbox"].dg-toggle { width: 36px; height: 20px; appearance: none; background: #d1d5db; border-radius: 10px; cursor: pointer; position: relative; transition: background .2s; }
         input[type="checkbox"].dg-toggle:checked { background: #f03b22; }
+        input[type="checkbox"].dg-toggle:disabled { opacity: .65; cursor: not-allowed; }
         input[type="checkbox"].dg-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
         input[type="checkbox"].dg-toggle:checked::after { left: 18px; }
 
@@ -374,6 +376,7 @@ class SettingsPage
         $keyInvalid = Client::hasInvalidApiKeyMarkerFor($this->options);
         $isSetup    = !empty($settings['api_key']);
         $isEnabled  = !empty($settings['enabled']);
+        $hasSaasProjectSnapshot = $isSetup && $this->options->getSaasProjectVersion() !== '';
         $optKey     = Options::OPTION_KEY;
         $dashUrl    = self::DASHBOARD_URL;
 
@@ -490,6 +493,14 @@ class SettingsPage
                                 <?php if (!$isSetup) : ?>
                                 <p><?php esc_html_e('Lege die Originalsprache und die gewünschten Übersetzungssprachen fest.', 'deepglot'); ?></p>
                                 <?php endif; ?>
+                                <?php if ($hasSaasProjectSnapshot) : ?>
+                                <p id="dg_saas_project_ownership" class="description">
+                                    <?php esc_html_e('Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und hier nur angezeigt.', 'deepglot'); ?>
+                                    <a href="<?php echo esc_url($dashUrl . '/projekte'); ?>" target="_blank" rel="noopener">
+                                        <?php esc_html_e('Projekteinstellungen öffnen', 'deepglot'); ?>
+                                    </a>
+                                </p>
+                                <?php endif; ?>
                                 <div class="dg-lang-row">
                                     <div class="dg-field">
                                         <label for="dg_source_lang"><?php esc_html_e('Originalsprache', 'deepglot'); ?></label>
@@ -500,6 +511,7 @@ class SettingsPage
                                             value="<?php echo esc_attr($settings['source_language']); ?>"
                                             placeholder="de"
                                             style="max-width:90px;"
+                                            <?php if ($hasSaasProjectSnapshot) : ?>readonly aria-readonly="true"<?php endif; ?>
                                         />
                                     </div>
                                     <div class="dg-field" style="flex:2;">
@@ -510,6 +522,7 @@ class SettingsPage
                                             name="<?php echo esc_attr($optKey); ?>[target_languages]"
                                             value="<?php echo esc_attr(implode(', ', (array) $settings['target_languages'])); ?>"
                                             placeholder="en, fr, es"
+                                            <?php if ($hasSaasProjectSnapshot) : ?>readonly aria-readonly="true"<?php endif; ?>
                                         />
                                         <p class="description"><?php esc_html_e('Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it', 'deepglot'); ?></p>
                                     </div>
@@ -568,7 +581,16 @@ class SettingsPage
                                         value="1"
                                         class="dg-toggle"
                                         <?php checked(!empty($settings['auto_redirect'])); ?>
+                                        <?php if ($hasSaasProjectSnapshot) : ?>disabled aria-disabled="true"<?php endif; ?>
                                     />
+                                    <?php if ($hasSaasProjectSnapshot) : ?>
+                                    <input
+                                        type="hidden"
+                                        id="dg_auto_redirect_mirror"
+                                        name="<?php echo esc_attr($optKey); ?>[auto_redirect]"
+                                        value="<?php echo !empty($settings['auto_redirect']) ? '1' : '0'; ?>"
+                                    />
+                                    <?php endif; ?>
                                     <label for="dg_auto_redirect">
                                         <?php esc_html_e('Besucher anhand der Browsersprache automatisch weiterleiten (optional)', 'deepglot'); ?>
                                     </label>
@@ -985,6 +1007,59 @@ class SettingsPage
             <?php $this->renderUrlSyncCard(); ?>
 
             <script>
+            <?php if ($hasSaasProjectSnapshot) : ?>
+            (function () {
+                var apiKey = document.getElementById('dg_api_key');
+                var baseUrl = document.getElementById('dg_api_base_url');
+                var sourceLanguage = document.getElementById('dg_source_lang');
+                var targetLanguages = document.getElementById('dg_target_langs');
+                var autoRedirect = document.getElementById('dg_auto_redirect');
+                var autoRedirectMirror = document.getElementById('dg_auto_redirect_mirror');
+                var ownershipNotice = document.getElementById('dg_saas_project_ownership');
+                if (!apiKey || !baseUrl || !sourceLanguage || !targetLanguages || !autoRedirect || !autoRedirectMirror) return;
+
+                var runtimeApiKey = <?php echo wp_json_encode(trim((string) $settings['api_key'])); ?>;
+                var runtimeBaseUrl = <?php echo wp_json_encode(untrailingslashit(trim((string) $settings['api_base_url']))); ?>;
+                var runtimeSourceLanguage = <?php echo wp_json_encode((string) $settings['source_language']); ?>;
+                var runtimeTargetLanguages = <?php echo wp_json_encode(implode(', ', (array) $settings['target_languages'])); ?>;
+                var runtimeAutoRedirect = <?php echo wp_json_encode(!empty($settings['auto_redirect'])); ?>;
+                var normalizeBaseUrl = function (value) {
+                    return String(value || '').trim().replace(/\/+$/, '');
+                };
+                var updateSaasOwnedControls = function () {
+                    var sameRuntimeIdentity = apiKey.value.trim() === runtimeApiKey
+                        && normalizeBaseUrl(baseUrl.value) === runtimeBaseUrl;
+
+                    sourceLanguage.readOnly = sameRuntimeIdentity;
+                    targetLanguages.readOnly = sameRuntimeIdentity;
+                    autoRedirect.disabled = sameRuntimeIdentity;
+                    autoRedirectMirror.disabled = !sameRuntimeIdentity;
+
+                    if (sameRuntimeIdentity) {
+                        sourceLanguage.value = runtimeSourceLanguage;
+                        targetLanguages.value = runtimeTargetLanguages;
+                        autoRedirect.checked = runtimeAutoRedirect;
+                        sourceLanguage.setAttribute('aria-readonly', 'true');
+                        targetLanguages.setAttribute('aria-readonly', 'true');
+                        autoRedirect.setAttribute('aria-disabled', 'true');
+                    } else {
+                        sourceLanguage.removeAttribute('aria-readonly');
+                        targetLanguages.removeAttribute('aria-readonly');
+                        autoRedirect.removeAttribute('aria-disabled');
+                    }
+
+                    if (ownershipNotice) {
+                        ownershipNotice.hidden = !sameRuntimeIdentity;
+                    }
+                };
+
+                apiKey.addEventListener('input', updateSaasOwnedControls);
+                apiKey.addEventListener('change', updateSaasOwnedControls);
+                baseUrl.addEventListener('input', updateSaasOwnedControls);
+                baseUrl.addEventListener('change', updateSaasOwnedControls);
+                updateSaasOwnedControls();
+            })();
+            <?php endif; ?>
             (function () {
                 var list = document.getElementById('dg-switcher-order');
                 if (!list) return;
