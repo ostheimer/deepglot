@@ -145,22 +145,30 @@ replacement for each target language or independent project.
 Validation and conflict responses include stable machine-readable `code` values
 such as `invalid_media_image_url`, `inactive_target_language`, and
 `media_replacement_already_exists` alongside their localized error message.
+Configurations exceeding the runtime payload limit return
+`media_replacements_payload_too_large`.
 
 Both image URLs must be root-relative paths or HTTPS URLs on the exact project
 hostname. Accepted image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF.
-Absolute same-site URLs are stored in canonical root-relative form. Foreign
-origins, IP hosts, embedded credentials, fragments, unsafe path encodings, SVG,
-and executable formats are rejected. Project managers are responsible for
-owning or obtaining the necessary usage and redistribution rights for every
-original and localized image; Deepglot does not verify media licenses.
+Absolute same-site URLs are stored in canonical root-relative form, with a
+maximum length of 2,048 characters after percent encoding. Foreign origins,
+IP hosts, embedded credentials, fragments, unsafe path encodings, SVG, and
+executable formats are rejected. Project managers are responsible for owning
+or obtaining the necessary usage and redistribution rights for every original
+and localized image; Deepglot does not verify media licenses.
 
 A project can contain at most **500 image replacements**. Concurrent creation
-uses a serializable project-scoped capacity check; an exhausted limit or a
-duplicate mapping returns HTTP 409. The authenticated plugin runtime includes
-only mappings belonging to its API key's project and currently active target
-languages. Its JSON image payload is limited to **224 KiB**; WordPress applies
-a separate **256 KiB** serialized-option limit and keeps the mappings in a
-dedicated, non-autoloaded `deepglot_media_replacements` option.
+and partial updates use serializable project-scoped checks; a duplicate,
+exhausted item limit, or active-language JSON payload exceeding **224 KiB**
+returns HTTP 409 before its transaction commits. Activating a language through
+the dashboard or WordPress settings synchronization applies the same payload
+limit before exposing existing mappings. Independent simultaneous updates
+preserve omitted fields, and existing oversized configurations can still be
+reduced or deleted. The authenticated plugin runtime includes only mappings
+belonging to its API key's project and currently active target languages.
+WordPress applies a separate **256 KiB** serialized-option limit and keeps the
+mappings in a dedicated, non-autoloaded
+`deepglot_media_replacements` option.
 
 During server-side target-language rendering, the plugin replaces matching
 `img[src]`, `img[srcset]`, `img[data-src]`, and `img[data-srcset]` values, plus

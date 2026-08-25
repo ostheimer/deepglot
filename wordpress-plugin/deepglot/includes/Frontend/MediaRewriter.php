@@ -170,35 +170,99 @@ class MediaRewriter
         }
 
         $original = $element->getAttribute($attribute);
-        $candidates = explode(',', $original);
-        $rewritten = [];
+        $candidates = $this->srcsetCandidates($original);
+
+        if ($candidates === null) {
+            // A partially rewritten malformed srcset changes browser candidate
+            // selection unpredictably; leave the complete attribute untouched.
+            return;
+        }
+
+        $rewritten = '';
+        $offset = 0;
         $changed = false;
 
         foreach ($candidates as $candidate) {
-            if (
-                preg_match('/^([\x09\x0a\x0c\x0d\x20]*)([^\x09\x0a\x0c\x0d\x20]+)([\s\S]*)$/D', $candidate, $parts) !== 1
-                || !$this->isValidSrcsetDescriptor($parts[3])
-                || $this->parseSameOriginUrl($parts[2]) === null
-            ) {
-                // A partially rewritten malformed srcset changes browser candidate
-                // selection unpredictably; leave the complete attribute untouched.
-                return;
-            }
-
-            $replacement = $this->replacementForUrl($parts[2], $replacements);
+            $replacement = $this->replacementForUrl($candidate['url'], $replacements);
 
             if ($replacement !== null) {
-                $rewritten[] = $parts[1] . $replacement . $parts[3];
+                $rewritten .= substr($original, $offset, $candidate['offset'] - $offset) . $replacement;
+                $offset = $candidate['offset'] + strlen($candidate['url']);
                 $changed = true;
-                continue;
             }
-
-            $rewritten[] = $candidate;
         }
 
         if ($changed) {
-            $element->setAttribute($attribute, implode(',', $rewritten));
+            $element->setAttribute($attribute, $rewritten . substr($original, $offset));
         }
+    }
+
+    /**
+     * @return list<array{url: string, offset: int}>|null
+     */
+    private function srcsetCandidates(string $value): ?array
+    {
+        $length = strlen($value);
+        $offset = 0;
+        $candidates = [];
+        $whitespace = "\x09\x0a\x0c\x0d\x20";
+
+        while ($offset < $length) {
+            $offset += strspn($value, $whitespace, $offset);
+
+            if ($offset >= $length || $value[$offset] === ',') {
+                return null;
+            }
+
+            $urlOffset = $offset;
+            $offset += strcspn($value, $whitespace, $offset);
+            $token = substr($value, $urlOffset, $offset - $urlOffset);
+            $url = rtrim($token, ',');
+            $trailingCommas = strlen($token) - strlen($url);
+
+            if (
+                $trailingCommas > 1
+                || $url === ''
+                || $this->parseSameOriginUrl($url) === null
+            ) {
+                return null;
+            }
+
+            $candidates[] = [
+                'url' => $url,
+                'offset' => $urlOffset,
+            ];
+
+            if ($trailingCommas === 1) {
+                // HTML's srcset algorithm treats only a trailing comma on the
+                // whitespace-delimited URL token as a candidate separator.
+                if ($offset >= $length) {
+                    return null;
+                }
+
+                continue;
+            }
+
+            $separator = strpos($value, ',', $offset);
+            $descriptorEnd = $separator === false ? $length : $separator;
+            $descriptor = substr($value, $offset, $descriptorEnd - $offset);
+
+            if (!$this->isValidSrcsetDescriptor($descriptor)) {
+                return null;
+            }
+
+            if ($separator === false) {
+                return $candidates;
+            }
+
+            $offset = $separator + 1;
+
+            if ($offset >= $length) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     private function isValidSrcsetDescriptor(string $suffix): bool

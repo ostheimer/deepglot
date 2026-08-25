@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MAX_MEDIA_IMAGE_URL_LENGTH,
   MAX_RUNTIME_MEDIA_REPLACEMENTS,
+  MediaReplacementError,
   assertMediaReplacementCapacity,
   buildRuntimeMediaReplacements,
   normalizeMediaImageUrl,
@@ -27,6 +29,75 @@ test("same-project HTTPS and root-relative image URLs share one canonical path",
       `/uploads/image.${extension}`
     );
   }
+});
+
+test("canonical image paths enforce the URL limit after Unicode percent encoding", () => {
+  const pathPrefix = "/uploads/";
+  const extension = ".png";
+  const unicodeCharacters = Math.floor(
+    (MAX_MEDIA_IMAGE_URL_LENGTH - pathPrefix.length - extension.length) / 6
+  );
+  const remainingAsciiCharacters =
+    MAX_MEDIA_IMAGE_URL_LENGTH -
+    pathPrefix.length -
+    extension.length -
+    unicodeCharacters * 6;
+  const exactlyAtLimit =
+    pathPrefix +
+    "é".repeat(unicodeCharacters) +
+    "a".repeat(remainingAsciiCharacters) +
+    extension;
+
+  assert.ok(exactlyAtLimit.length < MAX_MEDIA_IMAGE_URL_LENGTH);
+  assert.equal(
+    normalizeMediaImageUrl(exactlyAtLimit, "example.com").length,
+    MAX_MEDIA_IMAGE_URL_LENGTH
+  );
+
+  const aboveLimit =
+    pathPrefix +
+    "é".repeat(unicodeCharacters) +
+    "a".repeat(remainingAsciiCharacters + 1) +
+    extension;
+
+  for (const imageUrl of [aboveLimit, `https://example.com${aboveLimit}`]) {
+    assert.ok(imageUrl.length < MAX_MEDIA_IMAGE_URL_LENGTH);
+    assert.throws(
+      () => normalizeMediaImageUrl(imageUrl, "example.com"),
+      (error: unknown) =>
+        error instanceof MediaReplacementError &&
+        error.code === "INVALID_IMAGE_URL",
+      "Canonical paths beyond 2,048 characters must be rejected before persistence"
+    );
+  }
+});
+
+test("canonical image queries enforce the URL limit after Unicode percent encoding", () => {
+  const queryPrefix = "/uploads/image.webp?caption=";
+  const unicodeCharacters = Math.floor(
+    (MAX_MEDIA_IMAGE_URL_LENGTH - queryPrefix.length) / 6
+  );
+  const remainingAsciiCharacters =
+    MAX_MEDIA_IMAGE_URL_LENGTH - queryPrefix.length - unicodeCharacters * 6;
+  const exactlyAtLimit =
+    queryPrefix +
+    "é".repeat(unicodeCharacters) +
+    "a".repeat(remainingAsciiCharacters);
+
+  assert.equal(
+    normalizeMediaImageUrl(exactlyAtLimit, "example.com").length,
+    MAX_MEDIA_IMAGE_URL_LENGTH
+  );
+
+  const aboveLimit = exactlyAtLimit + "a";
+  assert.ok(aboveLimit.length < MAX_MEDIA_IMAGE_URL_LENGTH);
+  assert.throws(
+    () => normalizeMediaImageUrl(aboveLimit, "example.com"),
+    (error: unknown) =>
+      error instanceof MediaReplacementError &&
+      error.code === "INVALID_IMAGE_URL",
+    "Canonical query strings beyond 2,048 characters must be rejected before persistence"
+  );
 });
 
 test("media images reject foreign origins, userinfo, insecure schemes and IP hosts", () => {

@@ -17,6 +17,22 @@ const itemRoute = readFileSync(
   path.join(apiDirectory, "[mediaId]", "route.ts"),
   "utf8"
 );
+const runtimeRoute = readFileSync(
+  path.join(
+    process.cwd(),
+    "src",
+    "app",
+    "api",
+    "plugin",
+    "runtime-config",
+    "route.ts"
+  ),
+  "utf8"
+);
+const languageRoute = readFileSync(
+  path.join(apiDirectory, "..", "languages", "route.ts"),
+  "utf8"
+);
 const prismaSchema = readFileSync(
   path.join(process.cwd(), "prisma", "schema.prisma"),
   "utf8"
@@ -109,4 +125,60 @@ test("image management errors expose stable machine-readable causes", () => {
   ]) {
     assert.match(itemRoute, new RegExp(`code:\\s*"${code}"`));
   }
+});
+
+test("POST and PATCH reject oversized active runtime mappings before their transaction commits", () => {
+  assert.match(
+    collectionRoute,
+    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/
+  );
+  assert.match(itemRoute, /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/);
+  assert.match(collectionRoute, /media_replacements_payload_too_large/);
+  assert.match(itemRoute, /media_replacements_payload_too_large/);
+  assert.match(runtimeRoute, /from "@\/lib\/media-runtime-limits"/);
+  assert.doesNotMatch(
+    runtimeRoute,
+    /MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES\s*=\s*229_376/
+  );
+});
+
+test("concurrent partial image updates serialize, retry write conflicts and never overwrite omitted fields", () => {
+  assert.match(itemRoute, /TransactionIsolationLevel\.Serializable/);
+  assert.match(itemRoute, /P2034/);
+  assert.match(itemRoute, /parsed\.data\.originalUrl\s*!==\s*undefined/);
+  assert.match(itemRoute, /parsed\.data\.localizedUrl\s*!==\s*undefined/);
+  assert.match(itemRoute, /parsed\.data\.langTo\s*!==\s*undefined/);
+  assert.doesNotMatch(
+    itemRoute,
+    /originalUrl:\s*normalizeMediaImageUrl\(\s*parsed\.data\.originalUrl\s*\?\?\s*existing\.originalUrl/
+  );
+  assert.doesNotMatch(
+    itemRoute,
+    /localizedUrl:\s*normalizeMediaImageUrl\(\s*parsed\.data\.localizedUrl\s*\?\?\s*existing\.localizedUrl/
+  );
+});
+
+test("language reactivation preserves manager access and duplicate handling while enforcing the project-wide image runtime ceiling", () => {
+  assert.match(languageRoute, /userCanManageProject\(userId,\s*projektId\)/);
+  assert.match(
+    languageRoute,
+    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/
+  );
+  assert.match(languageRoute, /projectLanguage\.createMany\(/);
+  assert.match(languageRoute, /skipDuplicates:\s*true/);
+  assert.match(languageRoute, /TransactionIsolationLevel\.Serializable/);
+  assert.match(languageRoute, /P2034/);
+  assert.match(languageRoute, /media_replacements_payload_too_large/);
+  assert.match(languageRoute, /status:\s*409/);
+  assert.match(languageRoute, /projectLanguage\.deleteMany\(/);
+});
+
+test("dashboard language activation revives existing inactive rows and rejects the 501-image sentinel with a stable conflict", () => {
+  assert.match(
+    languageRoute,
+    /projectLanguage\.updateMany\(\{[\s\S]*?projectId:\s*projektId[\s\S]*?langCode:\s*\{\s*in:\s*parsed\.data\.languages[\s\S]*?isActive:\s*false[\s\S]*?data:\s*\{\s*isActive:\s*true/
+  );
+  assert.match(languageRoute, /error\.code\s*===\s*"MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"/);
+  assert.match(languageRoute, /code:\s*"media_replacements_limit_exceeded"/);
+  assert.match(languageRoute, /limit:\s*MAX_RUNTIME_MEDIA_REPLACEMENTS/);
 });

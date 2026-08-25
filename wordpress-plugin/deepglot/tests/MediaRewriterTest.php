@@ -77,6 +77,8 @@ $options = new MediaRewriterTestOptions([
         '/wp-content/uploads/cover.jpg' => '/wp-content/uploads/cover-en.jpg',
         '/wp-content/uploads/cover-400.jpg' => '/wp-content/uploads/cover-en-400.jpg',
         '/wp-content/uploads/wide.jpg?size=800' => '/wp-content/uploads/wide-en.jpg?size=800',
+        '/wp-content/uploads/crop.jpg?rect=10,20' => '/wp-content/uploads/crop-en.jpg?rect=30,40',
+        '/wp-content/uploads/crop-large.jpg?rect=10,20,30,40' => '/wp-content/uploads/crop-large-en.jpg?rect=50,60,70,80',
         '/wp-content/uploads/unsafe.jpg' => 'javascript:alert(1)',
         '/wp-content/uploads/foreign-destination.jpg' => 'https://outside.example/replacement.jpg',
         '/wp-content/uploads/wrong-port.jpg' => 'https://example.com:8443/replacement.jpg',
@@ -123,26 +125,43 @@ $english = makeMediaDocument(<<<'HTML'
 <img id="fragment-original" src="/wp-content/uploads/fragment-original.jpg#view">
 <img id="responsive" srcset="  /wp-content/uploads/cover.jpg 1x,   /wp-content/uploads/cover-400.jpg 2x  ">
 <img id="lazy-responsive" data-srcset="/wp-content/uploads/cover.jpg 400w, https://example.com/wp-content/uploads/wide.jpg?size=800 800w">
+<img id="comma-responsive" srcset="  /wp-content/uploads/crop.jpg?rect=10,20 1x,   /wp-content/uploads/cover-400.jpg 2x  ">
+<img id="comma-lazy-responsive" data-srcset="https://example.com/wp-content/uploads/crop.jpg?rect=10,20 400w, /wp-content/uploads/crop-large.jpg?rect=10,20,30,40 800w">
+<img id="comma-descriptorless" srcset=" /wp-content/uploads/crop.jpg?rect=10,20,  /wp-content/uploads/cover-400.jpg ">
 <img id="malformed-empty" srcset="/wp-content/uploads/cover.jpg 1x,, /wp-content/uploads/cover-400.jpg 2x">
 <img id="malformed-descriptor" srcset="/wp-content/uploads/cover.jpg 1x 2x, /wp-content/uploads/cover-400.jpg 2x">
 <img id="malformed-density" srcset="/wp-content/uploads/cover.jpg 0x, /wp-content/uploads/cover-400.jpg 2x">
 <img id="malformed-data" srcset="data:image/svg+xml,unsafe 1x, /wp-content/uploads/cover-400.jpg 2x">
+<img id="malformed-comma-empty" srcset="/wp-content/uploads/crop.jpg?rect=10,20 1x,, /wp-content/uploads/cover-400.jpg 2x">
+<img id="malformed-comma-descriptor" srcset="/wp-content/uploads/crop.jpg?rect=10,20 1x 2x, /wp-content/uploads/cover-400.jpg 2x">
+<img id="malformed-comma-trailing" srcset="/wp-content/uploads/crop.jpg?rect=10,20 1x,  ">
 <picture>
     <source id="picture-source" srcset="/wp-content/uploads/cover.jpg 400w, /wp-content/uploads/cover-400.jpg 800w" data-srcset="/wp-content/uploads/cover.jpg 1x">
     <img id="picture-image" src="/wp-content/uploads/cover.jpg">
+</picture>
+<picture>
+    <source id="comma-picture-source" srcset="  /wp-content/uploads/crop.jpg?rect=10,20 1x, /wp-content/uploads/crop-large.jpg?rect=10,20,30,40 2x " data-srcset="/wp-content/uploads/crop.jpg?rect=10,20 400w, /wp-content/uploads/cover-400.jpg 800w">
+    <img id="comma-picture-image" src="/wp-content/uploads/crop.jpg?rect=10,20">
 </picture>
 <video id="video" poster="/wp-content/uploads/cover.jpg"><source id="video-source" src="/wp-content/uploads/cover.jpg" srcset="/wp-content/uploads/cover.jpg 1x"></video>
 <a id="link" href="/wp-content/uploads/cover.jpg">Download</a>
 <iframe id="frame" src="/wp-content/uploads/cover.jpg"></iframe>
 <div translate="no"><img id="excluded" src="/wp-content/uploads/cover.jpg"></div>
 <div data-deepglot-no-translate><img id="deepglot-excluded" src="/wp-content/uploads/cover.jpg"></div>
+<div translate="no"><img id="comma-excluded" srcset="/wp-content/uploads/crop.jpg?rect=10,20 1x, /wp-content/uploads/cover-400.jpg 2x"></div>
 HTML);
 
 $responsiveBefore = mediaAttribute($english, 'responsive', 'srcset');
+$commaResponsiveBefore = mediaAttribute($english, 'comma-responsive', 'srcset');
+$commaPictureBefore = mediaAttribute($english, 'comma-picture-source', 'srcset');
 $malformedEmptyBefore = mediaAttribute($english, 'malformed-empty', 'srcset');
 $malformedDescriptorBefore = mediaAttribute($english, 'malformed-descriptor', 'srcset');
 $malformedDensityBefore = mediaAttribute($english, 'malformed-density', 'srcset');
 $malformedDataBefore = mediaAttribute($english, 'malformed-data', 'srcset');
+$malformedCommaEmptyBefore = mediaAttribute($english, 'malformed-comma-empty', 'srcset');
+$malformedCommaDescriptorBefore = mediaAttribute($english, 'malformed-comma-descriptor', 'srcset');
+$malformedCommaTrailingBefore = mediaAttribute($english, 'malformed-comma-trailing', 'srcset');
+$commaExcludedBefore = mediaAttribute($english, 'comma-excluded', 'srcset');
 
 $rewriter->rewrite($english, 'en');
 
@@ -167,13 +186,22 @@ assertMediaRewrite(mediaAttribute($english, 'fragment-destination', 'src') === '
 assertMediaRewrite(mediaAttribute($english, 'fragment-original', 'src') === '/wp-content/uploads/fragment-original.jpg#view', 'Original image URL fragments are rejected');
 assertMediaRewrite(mediaAttribute($english, 'responsive', 'srcset') === str_replace(['/cover.jpg', '/cover-400.jpg'], ['/cover-en.jpg', '/cover-en-400.jpg'], $responsiveBefore), 'Responsive descriptors and all surrounding whitespace are preserved');
 assertMediaRewrite(mediaAttribute($english, 'lazy-responsive', 'data-srcset') === '/wp-content/uploads/cover-en.jpg 400w, https://example.com/wp-content/uploads/wide-en.jpg?size=800 800w', 'Lazy responsive images preserve absolute candidates and width descriptors');
+assertMediaRewrite(mediaAttribute($english, 'comma-responsive', 'srcset') === str_replace(['/crop.jpg?rect=10,20', '/cover-400.jpg'], ['/crop-en.jpg?rect=30,40', '/cover-en-400.jpg'], $commaResponsiveBefore), 'Responsive image query commas remain URL content while descriptors and whitespace stay exact');
+assertMediaRewrite(mediaAttribute($english, 'comma-lazy-responsive', 'data-srcset') === 'https://example.com/wp-content/uploads/crop-en.jpg?rect=30,40 400w, /wp-content/uploads/crop-large-en.jpg?rect=50,60,70,80 800w', 'Lazy responsive candidates preserve absolute origins and multiple embedded query commas');
+assertMediaRewrite(mediaAttribute($english, 'comma-descriptorless', 'srcset') === ' /wp-content/uploads/crop-en.jpg?rect=30,40,  /wp-content/uploads/cover-en-400.jpg ', 'Trailing token commas delimit descriptorless candidates without splitting query commas');
 assertMediaRewrite(mediaAttribute($english, 'malformed-empty', 'srcset') === $malformedEmptyBefore, 'An empty srcset candidate fails closed');
 assertMediaRewrite(mediaAttribute($english, 'malformed-descriptor', 'srcset') === $malformedDescriptorBefore, 'Multiple srcset descriptors fail closed');
 assertMediaRewrite(mediaAttribute($english, 'malformed-density', 'srcset') === $malformedDensityBefore, 'A zero-density srcset descriptor fails closed');
 assertMediaRewrite(mediaAttribute($english, 'malformed-data', 'srcset') === $malformedDataBefore, 'A data URL srcset fails closed');
+assertMediaRewrite(mediaAttribute($english, 'malformed-comma-empty', 'srcset') === $malformedCommaEmptyBefore, 'Embedded query commas do not permit empty responsive candidates');
+assertMediaRewrite(mediaAttribute($english, 'malformed-comma-descriptor', 'srcset') === $malformedCommaDescriptorBefore, 'Embedded query commas do not permit multiple descriptors');
+assertMediaRewrite(mediaAttribute($english, 'malformed-comma-trailing', 'srcset') === $malformedCommaTrailingBefore, 'Embedded query commas do not permit an incomplete trailing candidate');
 assertMediaRewrite(mediaAttribute($english, 'picture-source', 'srcset') === '/wp-content/uploads/cover-en.jpg 400w, /wp-content/uploads/cover-en-400.jpg 800w', 'Direct picture source srcsets are replaced');
 assertMediaRewrite(mediaAttribute($english, 'picture-source', 'data-srcset') === '/wp-content/uploads/cover-en.jpg 1x', 'Direct picture source lazy srcsets are replaced');
 assertMediaRewrite(mediaAttribute($english, 'picture-image', 'src') === '/wp-content/uploads/cover-en.jpg', 'Picture fallback images are replaced');
+assertMediaRewrite(mediaAttribute($english, 'comma-picture-source', 'srcset') === str_replace(['/crop.jpg?rect=10,20', '/crop-large.jpg?rect=10,20,30,40'], ['/crop-en.jpg?rect=30,40', '/crop-large-en.jpg?rect=50,60,70,80'], $commaPictureBefore), 'Picture responsive candidates preserve embedded query commas and exact surrounding whitespace');
+assertMediaRewrite(mediaAttribute($english, 'comma-picture-source', 'data-srcset') === '/wp-content/uploads/crop-en.jpg?rect=30,40 400w, /wp-content/uploads/cover-en-400.jpg 800w', 'Picture lazy candidates preserve embedded query commas');
+assertMediaRewrite(mediaAttribute($english, 'comma-picture-image', 'src') === '/wp-content/uploads/crop-en.jpg?rect=30,40', 'Picture fallback queries containing commas remain exact');
 assertMediaRewrite(mediaAttribute($english, 'video-source', 'src') === '/wp-content/uploads/cover.jpg', 'Video source URLs are untouched');
 assertMediaRewrite(mediaAttribute($english, 'video-source', 'srcset') === '/wp-content/uploads/cover.jpg 1x', 'Video source srcsets are untouched');
 assertMediaRewrite(mediaAttribute($english, 'video', 'poster') === '/wp-content/uploads/cover.jpg', 'Video poster URLs are untouched');
@@ -181,6 +209,7 @@ assertMediaRewrite(mediaAttribute($english, 'link', 'href') === '/wp-content/upl
 assertMediaRewrite(mediaAttribute($english, 'frame', 'src') === '/wp-content/uploads/cover.jpg', 'Iframe URLs are untouched');
 assertMediaRewrite(mediaAttribute($english, 'excluded', 'src') === '/wp-content/uploads/cover.jpg', 'translate=no subtrees are untouched');
 assertMediaRewrite(mediaAttribute($english, 'deepglot-excluded', 'src') === '/wp-content/uploads/cover.jpg', 'Deepglot no-translate subtrees are untouched');
+assertMediaRewrite(mediaAttribute($english, 'comma-excluded', 'srcset') === $commaExcludedBefore, 'translate=no responsive image candidates containing commas are untouched');
 assertMediaRewrite(mediaAttribute($english, 'relative', 'alt') === 'Übersetzte Beschreibung', 'Accessible alternative text is preserved');
 assertMediaRewrite(mediaAttribute($english, 'relative', 'width') === '640' && mediaAttribute($english, 'relative', 'height') === '480', 'Image dimensions are preserved');
 

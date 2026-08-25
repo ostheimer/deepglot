@@ -105,6 +105,7 @@ update_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [
     'en' => [
         '/wp-content/uploads/cover.png' => '/wp-content/uploads/cover-en.png',
         '/wp-content/uploads/cover-800.png' => '/wp-content/uploads/cover-en-800.png',
+        '/wp-content/uploads/cover.png?crop=10,20' => '/wp-content/uploads/cover-en.png?crop=30,40',
     ],
     'fr' => [
         '/wp-content/uploads/cover.png' => '/wp-content/uploads/cover-fr.png',
@@ -140,7 +141,8 @@ $html = '<!DOCTYPE html><html lang="de"><head><title>Hallo</title></head><body>'
     . '<a id="media-link" href="/wp-content/uploads/cover.png">Download</a>'
     . '<img id="cover" src="/wp-content/uploads/cover.png" alt="Bildbeschreibung" width="640" height="480">'
     . '<img id="absolute" src="https://example.com/wp-content/uploads/cover.png">'
-    . '<picture><source id="responsive" srcset="/wp-content/uploads/cover.png 400w, /wp-content/uploads/cover-800.png 800w">'
+    . '<img id="comma-lazy" data-srcset="  /wp-content/uploads/cover.png?crop=10,20 1x,  /wp-content/uploads/cover-800.png 2x ">'
+    . '<picture><source id="responsive" srcset="/wp-content/uploads/cover.png 400w, /wp-content/uploads/cover-800.png 800w" data-srcset="/wp-content/uploads/cover.png?crop=10,20 400w, /wp-content/uploads/cover-800.png 800w">'
     . '<img id="fallback" src="/wp-content/uploads/cover.png"></picture>'
     . '</body></html>';
 
@@ -149,6 +151,8 @@ $translated = mediaPipelineDocument($buffer->process($html, 'en'));
 assertMediaPipeline(mediaPipelineAttribute($translated, 'cover', 'src') === '/wp-content/uploads/cover-en.png', 'Translated response rewrites the mapped image');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'absolute', 'src') === 'https://example.com/wp-content/uploads/cover-en.png', 'Translated response preserves absolute same-origin URLs');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'responsive', 'srcset') === '/wp-content/uploads/cover-en.png 400w, /wp-content/uploads/cover-en-800.png 800w', 'Translated response rewrites responsive picture candidates');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'comma-lazy', 'data-srcset') === '  /wp-content/uploads/cover-en.png?crop=30,40 1x,  /wp-content/uploads/cover-en-800.png 2x ', 'Translated response preserves lazy query commas and exact candidate spacing');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'responsive', 'data-srcset') === '/wp-content/uploads/cover-en.png?crop=30,40 400w, /wp-content/uploads/cover-en-800.png 800w', 'Translated picture sources preserve lazy responsive query commas');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'fallback', 'src') === '/wp-content/uploads/cover-en.png', 'Translated response rewrites picture fallback images');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'cover', 'alt') === 'Bildbeschreibung', 'Existing image alternative text remains intact');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'cover', 'width') === '640' && mediaPipelineAttribute($translated, 'cover', 'height') === '480', 'Existing image dimensions remain intact');
@@ -163,6 +167,7 @@ assertMediaPipeline($xpath->query('//link[@rel="alternate" and @hreflang="fr"]')
 $_SERVER['REQUEST_URI'] = '/blog/';
 $source = mediaPipelineDocument($buffer->processSource($html));
 assertMediaPipeline(mediaPipelineAttribute($source, 'cover', 'src') === '/wp-content/uploads/cover.png', 'Source-language response does not rewrite mapped images');
+assertMediaPipeline(mediaPipelineAttribute($source, 'comma-lazy', 'data-srcset') === '  /wp-content/uploads/cover.png?crop=10,20 1x,  /wp-content/uploads/cover-800.png 2x ', 'Source-language response does not rewrite responsive image queries containing commas');
 assertMediaPipeline(mediaPipelineAttribute($source, 'page-link', 'href') === '/angebote/', 'Source-language response does not localize page links');
 
 fwrite(STDOUT, "MediaRewriterPipelineTest: OK\n");

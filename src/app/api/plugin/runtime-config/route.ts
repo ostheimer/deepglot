@@ -4,9 +4,10 @@ import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
 import { buildRuntimeExclusions } from "@/lib/exclusions";
 import {
-  MAX_RUNTIME_MEDIA_REPLACEMENTS,
-  buildRuntimeMediaReplacements,
-} from "@/lib/media-replacements";
+  MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+  inspectMediaRuntimePayload,
+} from "@/lib/media-runtime-limits";
+import { MAX_RUNTIME_MEDIA_REPLACEMENTS } from "@/lib/media-replacements";
 import { apiProblem } from "@/lib/problem-details";
 import { buildProjectRuntimeSettings } from "@/lib/project-general-settings";
 import {
@@ -22,11 +23,7 @@ import {
 
 export { MAX_RUNTIME_URL_SLUGS } from "@/lib/runtime-url-slugs";
 export { MAX_RUNTIME_MEDIA_REPLACEMENTS } from "@/lib/media-replacements";
-
-// PHP's serialized associative arrays contain more structural overhead than
-// JSON. Reserve 32 KiB so every accepted <=500-row payload still fits the
-// plugin's separate 256 KiB, non-autoloaded WordPress option.
-export const MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES = 229_376;
+export { MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES } from "@/lib/media-runtime-limits";
 
 function getRawApiKey(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -149,10 +146,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const mediaReplacements = buildRuntimeMediaReplacements(mediaReplacementRows);
-    const mediaReplacementBytes = new TextEncoder().encode(
-      JSON.stringify(mediaReplacements),
-    ).byteLength;
+    const { mediaReplacements, byteLength: mediaReplacementBytes } =
+      inspectMediaRuntimePayload(mediaReplacementRows);
 
     if (mediaReplacementBytes > MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES) {
       return apiProblem({

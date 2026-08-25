@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { db } from "../../src/lib/db";
 import { e2eId, signInAndGetProjectId } from "./helpers";
 
 test("project managers safely manage locale-specific image mappings end to end", async ({
@@ -26,6 +27,26 @@ test("project managers safely manage locale-specific image mappings end to end",
     expect(domainResponse.status()).toBe(200);
 
     expect((await request.get(collectionPath)).status()).toBe(401);
+
+    const expandedOriginalUnicodeResponse = await page.request.post(collectionPath, {
+      data: {
+        langTo: "en",
+        originalUrl: `/wp-content/uploads/${"é".repeat(350)}.jpg`,
+        localizedUrl: englishUrl,
+      },
+    });
+    if (expandedOriginalUnicodeResponse.status() === 201) {
+      const unexpectedlyCreated = (await expandedOriginalUnicodeResponse.json()) as {
+        mediaReplacement: { id: string };
+      };
+      await page.request.delete(
+        `${collectionPath}/${unexpectedlyCreated.mediaReplacement.id}`,
+      );
+    }
+    expect(expandedOriginalUnicodeResponse.status()).toBe(400);
+    expect(await expandedOriginalUnicodeResponse.json()).toMatchObject({
+      code: "invalid_media_image_url",
+    });
 
     const createResponse = await page.request.post(collectionPath, {
       data: {
@@ -71,6 +92,18 @@ test("project managers safely manage locale-specific image mappings end to end",
       code: "invalid_media_image_url",
     });
 
+    const expandedLocalizedUnicodeResponse = await page.request.post(collectionPath, {
+      data: {
+        langTo: "fr",
+        originalUrl,
+        localizedUrl: `/wp-content/uploads/${"é".repeat(400)}.webp`,
+      },
+    });
+    expect(expandedLocalizedUnicodeResponse.status()).toBe(400);
+    expect(await expandedLocalizedUnicodeResponse.json()).toMatchObject({
+      code: "invalid_media_image_url",
+    });
+
     const inactiveLanguageResponse = await page.request.post(collectionPath, {
       data: { langTo: "es", originalUrl, localizedUrl: frenchUrl },
     });
@@ -112,11 +145,16 @@ test("project managers safely manage locale-specific image mappings end to end",
 
     expect((await runtimeConfig()).mediaReplacements.en?.[originalUrl]).toBe(englishUrl);
 
-    const updateResponse = await page.request.patch(
-      `${collectionPath}/${mappingId}`,
-      { data: { langTo: "fr", localizedUrl: frenchUrl } },
-    );
-    expect(updateResponse.status()).toBe(200);
+    const [languageUpdate, imageUpdate] = await Promise.all([
+      page.request.patch(`${collectionPath}/${mappingId}`, {
+        data: { langTo: "fr" },
+      }),
+      page.request.patch(`${collectionPath}/${mappingId}`, {
+        data: { localizedUrl: frenchUrl },
+      }),
+    ]);
+    expect(languageUpdate.status()).toBe(200);
+    expect(imageUpdate.status()).toBe(200);
 
     const updatedRuntime = await runtimeConfig();
     expect(updatedRuntime.mediaReplacements.en?.[originalUrl]).toBeUndefined();
@@ -131,6 +169,240 @@ test("project managers safely manage locale-specific image mappings end to end",
   } finally {
     if (mappingId) {
       await page.request.delete(`${collectionPath}/${mappingId}`);
+    }
+    if (apiKeyId) {
+      await page.request.delete(`/api/projects/${projectId}/api-keys/${apiKeyId}`);
+    }
+
+    const restoreResponse = await page.request.patch(`/api/projects/${projectId}`, {
+      data: { domain: originalProject.domain },
+    });
+    expect(restoreResponse.status()).toBe(200);
+  }
+});
+
+test("image management rejects oversized configurations without interrupting plugin refresh", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+
+  const projectId = await signInAndGetProjectId(page);
+  const collectionPath = `/api/projects/${projectId}/media`;
+  const projectResponse = await page.request.get(`/api/projects/${projectId}`);
+  expect(projectResponse.status()).toBe(200);
+
+  const originalProject = (await projectResponse.json()) as { domain: string };
+  const prefix = e2eId("media-payload");
+  const domain = `${prefix}.example.test`;
+  const payloadLimit = 224 * 1024;
+  const seededUrls: string[] = [];
+  const inactiveLanguageCode = "it";
+  let apiKeyId: string | undefined;
+  let inactiveLanguageWasSeeded = false;
+
+  try {
+    const domainResponse = await page.request.patch(`/api/projects/${projectId}`, {
+      data: { domain },
+    });
+    expect(domainResponse.status()).toBe(200);
+
+    const existing = await db.projectMediaReplacement.findMany({
+      where: { projectId, langTo: { in: ["en", "fr"] } },
+      select: { langTo: true, originalUrl: true, localizedUrl: true },
+    });
+    const payload = Object.create(null) as Record<string, Record<string, string>>;
+    for (const row of existing) {
+      (payload[row.langTo] ??= Object.create(null))[row.originalUrl] =
+        row.localizedUrl;
+    }
+    const english = (payload.en ??= Object.create(null));
+    const payloadBytes = () => new TextEncoder().encode(JSON.stringify(payload)).byteLength;
+    const rows: Array<{
+      projectId: string;
+      langTo: string;
+      originalUrl: string;
+      localizedUrl: string;
+    }> = [];
+
+    let overflow: { originalUrl: string; localizedUrl: string } | undefined;
+    for (let index = 0; index < 500; index += 1) {
+      const suffix = `${prefix}-${String(index).padStart(3, "0")}`;
+      const originalUrl = `/wp-content/uploads/${suffix}-${"o".repeat(1_600)}.jpg`;
+      const localizedUrl = `/wp-content/uploads/${suffix}-${"l".repeat(1_600)}.webp`;
+
+      english[originalUrl] = localizedUrl;
+      if (payloadBytes() > payloadLimit) {
+        delete english[originalUrl];
+        overflow = { originalUrl, localizedUrl };
+        break;
+      }
+
+      rows.push({ projectId, langTo: "en", originalUrl, localizedUrl });
+    }
+
+    expect(overflow).toBeDefined();
+
+    const paddingOriginalBase = `/wp-content/uploads/${prefix}-padding.jpg?fill=`;
+    const paddingLocalizedBase = `/wp-content/uploads/${prefix}-padding.webp?fill=`;
+    english[paddingOriginalBase] = paddingLocalizedBase;
+    const paddingBaseBytes = payloadBytes();
+    delete english[paddingOriginalBase];
+
+    if (paddingBaseBytes + 32 <= payloadLimit) {
+      let availablePadding = payloadLimit - paddingBaseBytes - 32;
+      const originalPadding = Math.min(
+        availablePadding,
+        2_048 - paddingOriginalBase.length,
+      );
+      availablePadding -= originalPadding;
+      const localizedPadding = Math.min(
+        availablePadding,
+        2_048 - paddingLocalizedBase.length,
+      );
+      const originalUrl = paddingOriginalBase + "p".repeat(originalPadding);
+      const localizedUrl = paddingLocalizedBase + "q".repeat(localizedPadding);
+      english[originalUrl] = localizedUrl;
+      rows.push({ projectId, langTo: "en", originalUrl, localizedUrl });
+    }
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(payloadBytes()).toBeLessThanOrEqual(payloadLimit);
+    expect(payloadLimit - payloadBytes()).toBeLessThan(250);
+
+    await db.projectMediaReplacement.createMany({ data: rows });
+    seededUrls.push(...rows.map((row) => row.originalUrl));
+
+    const keyResponse = await page.request.post(
+      `/api/projects/${projectId}/api-keys`,
+      { data: { name: e2eId("Media payload guard") } },
+    );
+    expect(keyResponse.status()).toBe(200);
+    const { rawKey, apiKey } = (await keyResponse.json()) as {
+      rawKey: string;
+      apiKey: { id: string };
+    };
+    apiKeyId = apiKey.id;
+
+    const readRuntime = () =>
+      request.get("/api/plugin/runtime-config", {
+        headers: { authorization: `Bearer ${rawKey}` },
+      });
+
+    expect((await readRuntime()).status()).toBe(200);
+
+    const rejectedCreate = await page.request.post(collectionPath, {
+      data: { langTo: "en", ...overflow! },
+    });
+    if (rejectedCreate.status() === 201) {
+      const unexpectedlyCreated = (await rejectedCreate.json()) as {
+        mediaReplacement: { id: string };
+      };
+      await page.request.delete(
+        `${collectionPath}/${unexpectedlyCreated.mediaReplacement.id}`,
+      );
+    }
+    expect(rejectedCreate.status()).toBe(409);
+    expect(await rejectedCreate.json()).toMatchObject({
+      code: "media_replacements_payload_too_large",
+    });
+    expect((await readRuntime()).status()).toBe(200);
+
+    const firstRow = rows[0];
+    const persistedRow = await db.projectMediaReplacement.findUniqueOrThrow({
+      where: {
+        projectId_langTo_originalUrl: {
+          projectId,
+          langTo: "en",
+          originalUrl: firstRow.originalUrl,
+        },
+      },
+      select: { id: true },
+    });
+    const oversizeLocalizedUrl =
+      firstRow.localizedUrl +
+      `?oversize=${"x".repeat(payloadLimit - payloadBytes() + 5)}`;
+    expect(oversizeLocalizedUrl.length).toBeLessThanOrEqual(2_048);
+
+    const rejectedUpdate = await page.request.patch(
+      `${collectionPath}/${persistedRow.id}`,
+      { data: { localizedUrl: oversizeLocalizedUrl } },
+    );
+    expect(rejectedUpdate.status()).toBe(409);
+    expect(await rejectedUpdate.json()).toMatchObject({
+      code: "media_replacements_payload_too_large",
+    });
+    expect((await readRuntime()).status()).toBe(200);
+
+    expect(
+      await db.projectLanguage.findFirst({
+        where: { projectId, langCode: inactiveLanguageCode },
+      }),
+    ).toBeNull();
+
+    const inactiveOriginalUrl =
+      `/wp-content/uploads/${prefix}-inactive-${"i".repeat(300)}.jpg`;
+    await db.projectMediaReplacement.create({
+      data: {
+        projectId,
+        langTo: inactiveLanguageCode,
+        originalUrl: inactiveOriginalUrl,
+        localizedUrl:
+          `/wp-content/uploads/${prefix}-localized-${"i".repeat(300)}.webp`,
+      },
+    });
+    seededUrls.push(inactiveOriginalUrl);
+    inactiveLanguageWasSeeded = true;
+
+    const rejectedActivation = await page.request.post(
+      `/api/projects/${projectId}/languages`,
+      { data: { languages: [inactiveLanguageCode] } },
+    );
+    expect(rejectedActivation.status()).toBe(409);
+    expect(await rejectedActivation.json()).toMatchObject({
+      code: "media_replacements_payload_too_large",
+    });
+    expect(
+      await db.projectLanguage.findFirst({
+        where: { projectId, langCode: inactiveLanguageCode },
+      }),
+    ).toBeNull();
+    expect((await readRuntime()).status()).toBe(200);
+
+    const rejectedSettingsSync = await request.post("/api/plugin/settings-sync", {
+      headers: { authorization: `Bearer ${rawKey}` },
+      data: {
+        routingMode: "PATH_PREFIX",
+        siteUrl: `https://${domain}`,
+        sourceLanguage: "de",
+        targetLanguages: ["en", "fr", inactiveLanguageCode],
+        autoRedirect: false,
+        translateEmails: false,
+        translateSearch: false,
+        translateAmp: false,
+        domainMappings: [],
+      },
+    });
+    expect(rejectedSettingsSync.status()).toBe(409);
+    expect(await rejectedSettingsSync.json()).toMatchObject({
+      code: "media_replacements_payload_too_large",
+    });
+    expect(
+      await db.projectLanguage.findFirst({
+        where: { projectId, langCode: inactiveLanguageCode },
+      }),
+    ).toBeNull();
+    expect((await readRuntime()).status()).toBe(200);
+  } finally {
+    if (inactiveLanguageWasSeeded) {
+      await db.projectLanguage.deleteMany({
+        where: { projectId, langCode: inactiveLanguageCode },
+      });
+    }
+    if (seededUrls.length > 0) {
+      await db.projectMediaReplacement.deleteMany({
+        where: { projectId, originalUrl: { in: seededUrls } },
+      });
     }
     if (apiKeyId) {
       await page.request.delete(`/api/projects/${projectId}/api-keys/${apiKeyId}`);

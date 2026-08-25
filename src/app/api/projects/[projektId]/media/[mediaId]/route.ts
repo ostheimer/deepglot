@@ -4,6 +4,11 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import {
+  MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+  MediaRuntimePayloadLimitError,
+  withBoundedMediaRuntimeMutation,
+} from "@/lib/media-runtime-limits";
+import {
   MAX_MEDIA_IMAGE_URL_LENGTH,
   MediaReplacementError,
   normalizeMediaImageUrl,
@@ -22,6 +27,7 @@ function t(locale: SiteLocale, deText: string, enText: string) {
 
 const NOT_FOUND_ERROR = "DEEPGLOT_MEDIA_REPLACEMENT_NOT_FOUND";
 const INACTIVE_LANGUAGE_ERROR = "DEEPGLOT_MEDIA_REPLACEMENT_INACTIVE_LANGUAGE";
+const MAX_SERIALIZATION_RETRIES = 3;
 
 const mediaReplacementSelect = {
   id: true,
@@ -93,119 +99,169 @@ export async function PATCH(
     );
   }
 
-  try {
-    const mediaReplacement = await db.$transaction(async (tx) => {
-      const existing = await tx.projectMediaReplacement.findFirst({
-        where: { id: mediaId, projectId: projektId },
-        select: {
-          originalUrl: true,
-          localizedUrl: true,
-          langTo: true,
-          project: { select: { domain: true } },
-        },
-      });
+  for (let attempt = 0; attempt < MAX_SERIALIZATION_RETRIES; attempt += 1) {
+    try {
+      const mediaReplacement = await db.$transaction(
+        async (tx) => {
+          const existing = await tx.projectMediaReplacement.findFirst({
+            where: { id: mediaId, projectId: projektId },
+            select: {
+              originalUrl: true,
+              localizedUrl: true,
+              langTo: true,
+              project: { select: { domain: true } },
+            },
+          });
 
-      if (!existing) {
-        throw new Error(NOT_FOUND_ERROR);
-      }
+          if (!existing) {
+            throw new Error(NOT_FOUND_ERROR);
+          }
 
-      const langTo = parsed.data.langTo ?? existing.langTo;
-      const activeLanguage = await tx.projectLanguage.findFirst({
-        where: { projectId: projektId, langCode: langTo, isActive: true },
-        select: { id: true },
-      });
+          const langTo = parsed.data.langTo ?? existing.langTo;
+          const activeLanguage = await tx.projectLanguage.findFirst({
+            where: { projectId: projektId, langCode: langTo, isActive: true },
+            select: { id: true },
+          });
 
-      if (!activeLanguage) {
-        throw new Error(INACTIVE_LANGUAGE_ERROR);
-      }
+          if (!activeLanguage) {
+            throw new Error(INACTIVE_LANGUAGE_ERROR);
+          }
 
-      return tx.projectMediaReplacement.update({
-        where: { id: mediaId, projectId: projektId },
-        data: {
-          langTo,
-          originalUrl: normalizeMediaImageUrl(
+          const originalUrl = normalizeMediaImageUrl(
             parsed.data.originalUrl ?? existing.originalUrl,
             existing.project.domain
-          ),
-          localizedUrl: normalizeMediaImageUrl(
+          );
+          const localizedUrl = normalizeMediaImageUrl(
             parsed.data.localizedUrl ?? existing.localizedUrl,
             existing.project.domain
-          ),
-        },
-        select: mediaReplacementSelect,
-      });
-    });
+          );
+          const changes: Prisma.ProjectMediaReplacementUpdateInput = {};
 
-    return NextResponse.json({ mediaReplacement });
-  } catch (error) {
-    if (error instanceof Error && error.message === NOT_FOUND_ERROR) {
-      return NextResponse.json(
-        {
-          error: t(locale, "Bildersetzung nicht gefunden", "Invalid input"),
-          code: "media_replacement_not_found",
+          if (parsed.data.originalUrl !== undefined) {
+            changes.originalUrl = originalUrl;
+          }
+          if (parsed.data.localizedUrl !== undefined) {
+            changes.localizedUrl = localizedUrl;
+          }
+          if (parsed.data.langTo !== undefined) {
+            changes.langTo = langTo;
+          }
+
+          return withBoundedMediaRuntimeMutation(tx, projektId, () =>
+            tx.projectMediaReplacement.update({
+              where: { id: mediaId, projectId: projektId },
+              data: changes,
+              select: mediaReplacementSelect,
+            })
+          );
         },
-        { status: 404 }
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
-    }
 
-    if (error instanceof Error && error.message === INACTIVE_LANGUAGE_ERROR) {
+      return NextResponse.json({ mediaReplacement });
+    } catch (error) {
+      if (error instanceof Error && error.message === NOT_FOUND_ERROR) {
+        return NextResponse.json(
+          {
+            error: t(locale, "Bildersetzung nicht gefunden", "Invalid input"),
+            code: "media_replacement_not_found",
+          },
+          { status: 404 }
+        );
+      }
+
+      if (error instanceof Error && error.message === INACTIVE_LANGUAGE_ERROR) {
+        return NextResponse.json(
+          {
+            error: t(
+              locale,
+              "Die Zielsprache ist für dieses Projekt nicht aktiviert",
+              "This language is not active"
+            ),
+            code: "inactive_target_language",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (error instanceof MediaRuntimePayloadLimitError) {
+        return NextResponse.json(
+          {
+            error: t(
+              locale,
+              "Die Bildersetzungen überschreiten die zulässige Laufzeitgröße",
+              "Invalid input"
+            ),
+            code: "media_replacements_payload_too_large",
+            limit: MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+          },
+          { status: 409 }
+        );
+      }
+
+      if (error instanceof MediaReplacementError) {
+        return NextResponse.json(
+          {
+            error: t(
+              locale,
+              "Ungültige Bild-URL: Nur sichere Bilder derselben Website sind zulässig",
+              "Invalid input"
+            ),
+            code: "invalid_media_image_url",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2034" && attempt < MAX_SERIALIZATION_RETRIES - 1) {
+          continue;
+        }
+
+        if (error.code === "P2002") {
+          return NextResponse.json(
+            {
+              error: t(
+                locale,
+                "Für dieses Bild und diese Zielsprache existiert bereits eine Ersetzung",
+                "Invalid input"
+              ),
+              code: "media_replacement_already_exists",
+            },
+            { status: 409 }
+          );
+        }
+      }
+
+      console.error(
+        "[PATCH /api/projects/:projektId/media/:mediaId] Failed:",
+        error
+      );
       return NextResponse.json(
         {
           error: t(
             locale,
-            "Die Zielsprache ist für dieses Projekt nicht aktiviert",
-            "This language is not active"
+            "Bildersetzung konnte nicht aktualisiert werden",
+            "Something went wrong."
           ),
-          code: "inactive_target_language",
+          code: "media_replacement_update_failed",
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
-
-    if (error instanceof MediaReplacementError) {
-      return NextResponse.json(
-        {
-          error: t(
-            locale,
-            "Ungültige Bild-URL: Nur sichere Bilder derselben Website sind zulässig",
-            "Invalid input"
-          ),
-          code: "invalid_media_image_url",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return NextResponse.json(
-        {
-          error: t(
-            locale,
-            "Für dieses Bild und diese Zielsprache existiert bereits eine Ersetzung",
-            "Invalid input"
-          ),
-          code: "media_replacement_already_exists",
-        },
-        { status: 409 }
-      );
-    }
-
-    console.error("[PATCH /api/projects/:projektId/media/:mediaId] Failed:", error);
-    return NextResponse.json(
-      {
-        error: t(
-          locale,
-          "Bildersetzung konnte nicht aktualisiert werden",
-          "Something went wrong."
-        ),
-        code: "media_replacement_update_failed",
-      },
-      { status: 500 }
-    );
   }
+
+  return NextResponse.json(
+    {
+      error: t(
+        locale,
+        "Bildersetzung konnte nicht aktualisiert werden",
+        "Something went wrong."
+      ),
+      code: "media_replacement_update_failed",
+    },
+    { status: 500 }
+  );
 }
 
 export async function DELETE(

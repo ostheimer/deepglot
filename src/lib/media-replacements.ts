@@ -170,7 +170,13 @@ export function normalizeMediaImageUrl(
     );
   }
 
-  return `${parsedImageUrl.pathname}${parsedImageUrl.search}`;
+  const canonicalImageUrl = `${parsedImageUrl.pathname}${parsedImageUrl.search}`;
+
+  if (canonicalImageUrl.length > MAX_MEDIA_IMAGE_URL_LENGTH) {
+    invalidImageUrl("The canonical image URL exceeds the maximum supported length.");
+  }
+
+  return canonicalImageUrl;
 }
 
 /** Build the compact, language-scoped contract consumed by the WordPress plugin. */

@@ -4,6 +4,11 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import {
+  MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+  MediaRuntimePayloadLimitError,
+  withBoundedMediaRuntimeMutation,
+} from "@/lib/media-runtime-limits";
+import {
   MAX_MEDIA_IMAGE_URL_LENGTH,
   MAX_RUNTIME_MEDIA_REPLACEMENTS,
   MediaReplacementError,
@@ -138,27 +143,44 @@ export async function POST(
           assertMediaReplacementCapacity(currentCount);
 
           const projectDomain = targetLanguage.project.domain;
-          return tx.projectMediaReplacement.create({
-            data: {
-              projectId: projektId,
-              langTo: parsed.data.langTo,
-              originalUrl: normalizeMediaImageUrl(
-                parsed.data.originalUrl,
-                projectDomain
-              ),
-              localizedUrl: normalizeMediaImageUrl(
-                parsed.data.localizedUrl,
-                projectDomain
-              ),
-            },
-            select: mediaReplacementSelect,
-          });
+          return withBoundedMediaRuntimeMutation(tx, projektId, () =>
+            tx.projectMediaReplacement.create({
+              data: {
+                projectId: projektId,
+                langTo: parsed.data.langTo,
+                originalUrl: normalizeMediaImageUrl(
+                  parsed.data.originalUrl,
+                  projectDomain
+                ),
+                localizedUrl: normalizeMediaImageUrl(
+                  parsed.data.localizedUrl,
+                  projectDomain
+                ),
+              },
+              select: mediaReplacementSelect,
+            })
+          );
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
 
       return NextResponse.json({ mediaReplacement }, { status: 201 });
     } catch (error) {
+      if (error instanceof MediaRuntimePayloadLimitError) {
+        return NextResponse.json(
+          {
+            error: t(
+              locale,
+              "Die Bildersetzungen überschreiten die zulässige Laufzeitgröße",
+              "Invalid input"
+            ),
+            code: "media_replacements_payload_too_large",
+            limit: MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+          },
+          { status: 409 }
+        );
+      }
+
       if (error instanceof MediaReplacementError) {
         if (error.code === "INVALID_TARGET_LANGUAGE") {
           return NextResponse.json(
