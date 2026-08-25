@@ -39,13 +39,11 @@ const PLAN_FEATURES: Record<
   STARTER: {
     en: [
       "Everything in Free",
-      "Media translation",
       "Auto-redirect for visitors",
       "Email support",
     ],
     de: [
       "Alles aus Free",
-      "Medien-Übersetzung",
       "Auto-Weiterleitung für Besucher",
       "E-Mail-Support",
     ],
