@@ -95,6 +95,8 @@ The plugin ships a complete translation pipeline:
   still purge unsupported full-page caches and verify a query-free public
   target-language response.
 - An opt-in client-side translator for content loaded after page render (see below).
+- Independent, dashboard-controlled page-view analytics for translated pages;
+  collection is disabled by default and never relies on translation cache misses.
 - WP Rocket compatibility: `switcher.css` and the switcher's inline `<style>`
   blocks are excluded from "Remove Unused CSS" and minification
   (`WpRocketCompat`), because WP Rocket's used-CSS pipeline re-encodes the
@@ -147,6 +149,35 @@ The legacy global switcher is migrated to the `default` instance without changin
 - Automatic placement: enable auto placement and either enter a conservative DOM selector or select an element in the same-origin, script-free preview iframe.
 
 If a saved selector is invalid or no longer exists after a theme change, the switcher remains at its safe WordPress footer fallback. Every render retains a unique checkbox/label ID for independent dropdown and ARIA state.
+
+## Anonymous page-view analytics (explicit opt-in)
+
+Page views and translation requests are different measurements. A translated
+page served entirely from a full-page cache can still receive a genuine visitor
+without generating a new translation request. The independent
+`assets/js/page-view-tracker.js` asset therefore measures rendered visits even
+when dynamic content translation is disabled.
+
+- **Consent and default:** tracking remains disabled until a project manager
+  explicitly enables page-view analytics in the Deepglot dashboard. The
+  authenticated runtime configuration propagates that project-specific choice
+  to WordPress; changing the project API key or backend immediately clears stale
+  consent. Existing cached trackers also stop working once consent is withdrawn.
+- **Collected fields:** a cryptographically random one-time UUID, the current
+  query-free URL path, the target language, and a server-generated timestamp.
+  No cookies, visitor identifiers, raw IP addresses, user-agent strings,
+  referrer URLs, query parameters, fragments, or API keys are included in the
+  event. Deepglot deletes page-view events after **90 days**.
+- **Transport and security:** the browser sends one event to the same-origin
+  `POST /wp-json/deepglot/v1/page-views` endpoint with a path- and
+  language-bound, cache-compatible signed capability. The WordPress backend
+  forwards only the anonymous fields to Deepglot using an `Authorization`
+  header; the project API key never reaches browser JavaScript.
+- **Bots and duplicates:** known crawlers are excluded before collection.
+  Session-local storage suppresses repeat events for the same language and path
+  for 30 seconds, event UUIDs are independently deduplicated by Deepglot, and
+  a short-lived site/project-wide rate-limit bucket bounds endpoint abuse
+  without inspecting, hashing, storing, or forwarding visitor IP addresses.
 
 ## Dynamic content translation (opt-in)
 

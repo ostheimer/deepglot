@@ -199,6 +199,7 @@ model Project {
   urlSlugs       UrlSlug[]
   exclusions     TranslationExclusion[]
   translatedUrls TranslatedUrl[]
+  pageViews      PageView[]
   settings       ProjectSettings?
   members        ProjectMember[]
   invitations    ProjectInvitation[]
@@ -340,6 +341,9 @@ model ProjectSettings {
 
   // Page views tracking
   pageViewsEnabled        Boolean  @default(false)
+  // Set only after explicit consent to real, privacy-minimized collection.
+  // Legacy pageViewsEnabled flags without this timestamp remain disabled.
+  pageViewsConsentGrantedAt DateTime?
 
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -487,6 +491,25 @@ model TranslatedUrl {
   @@unique([projectId, urlPath, langTo])
   @@index([projectId, langTo])
   @@index([projectId, requestCount(sort: Desc)])
+}
+
+// Opt-in visitor events. Query strings, fragments, IP addresses, user agents,
+// referrers, cookies and visitor identifiers are deliberately never stored.
+// Events are deleted automatically after the documented 90-day retention.
+model PageView {
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  urlPath   String
+  langTo    String
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, langTo, createdAt])
+  @@index([projectId, urlPath, langTo, createdAt])
+  @@index([createdAt])
 }
 
 model TranslationBatchLog {

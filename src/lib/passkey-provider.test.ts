@@ -51,6 +51,28 @@ test("allows an existing account to authenticate by email", async () => {
   assert.deepEqual(result, { user: existingUser, exists: true });
 });
 
+test("rejects unauthenticated explicit passkey registration before account lookup", async () => {
+  const lookedUpEmails: string[] = [];
+  const provider = createPasskeyProvider();
+  const result = await provider.getUserInfo(
+    {
+      adapter: {
+        getUserByEmail: async (email: string) => {
+          lookedUpEmails.push(email);
+          return existingUser;
+        },
+      },
+    } as never,
+    {
+      method: "GET",
+      query: { action: "register", email: existingUser.email },
+    } as never
+  );
+
+  assert.equal(result, null);
+  assert.deepEqual(lookedUpEmails, []);
+});
+
 test("never turns an unknown email into an unauthenticated passkey signup", async () => {
   const provider = createPasskeyProvider();
   const result = await provider.getUserInfo(

@@ -575,13 +575,49 @@ class Client
         );
     }
 
+    /**
+     * Forward one anonymous view without ever placing the project key in the
+     * URL, browser configuration, or visitor-controlled JSON payload.
+     *
+     * @return array|\WP_Error
+     */
+    public function recordPageView(string $eventId, string $urlPath, string $langTo)
+    {
+        if (
+            !$this->options->isEnabled()
+            || !$this->options->isConfigured()
+            || !$this->options->shouldTrackPageViews()
+        ) {
+            return new \WP_Error(
+                'deepglot_page_views_disabled',
+                __('Nicht verfügbar.', 'deepglot'),
+                ['status' => 403]
+            );
+        }
+
+        return $this->request(
+            'POST',
+            '/plugin/page-views',
+            [
+                'eventId' => $eventId,
+                'urlPath' => $urlPath,
+                'langTo' => $langTo,
+            ],
+            null,
+            10,
+            null,
+            ['Authorization' => 'Bearer ' . trim($this->options->getApiKey())]
+        );
+    }
+
     private function request(
         string $method,
         string $path,
         ?array $payload = null,
         ?string $baseUrl = null,
         int $timeoutSeconds = 15,
-        ?string $translationIdentity = null
+        ?string $translationIdentity = null,
+        array $additionalHeaders = []
     )
     {
         $url = untrailingslashit((string) ($baseUrl ?? $this->options->getApiBaseUrl())) . $path;
@@ -589,10 +625,10 @@ class Client
         $args = [
             'method' => $method,
             'timeout' => $timeoutSeconds,
-            'headers' => [
+            'headers' => array_merge([
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-            ],
+            ], $additionalHeaders),
         ];
 
         if ($payload !== null) {

@@ -19,6 +19,8 @@ use Deepglot\Frontend\LinkRewriter;
 use Deepglot\Frontend\MultilingualSitemap;
 use Deepglot\Frontend\NavMenuSwitcher;
 use Deepglot\Frontend\OutputBuffer;
+use Deepglot\Frontend\PageViewAssets;
+use Deepglot\Frontend\PageViewController;
 use Deepglot\Frontend\SwitcherBlock;
 use Deepglot\Frontend\SwitcherWidget;
 use Deepglot\Frontend\RequestRouter;
@@ -67,6 +69,8 @@ class Plugin
         $this->container->get(OutputBuffer::class)->register();
         $this->container->get(DynamicTranslationController::class)->register();
         $this->container->get(DynamicAssets::class)->register();
+        $this->container->get(PageViewController::class)->register();
+        $this->container->get(PageViewAssets::class)->register();
         $this->container->get(WpRocketCompat::class)->register();
         $this->container->get(LanguageSwitcher::class)->register();
         $this->container->get(NavMenuSwitcher::class)->register();
@@ -328,6 +332,22 @@ class Plugin
             return new DynamicAssets(
                 $c->get(Options::class),
                 $c->get(SiteRouting::class),
+                $c->get(RequestRouter::class)
+            );
+        });
+
+        $this->container->singleton(PageViewController::class, function (Container $c) {
+            return new PageViewController(
+                $c->get(Options::class),
+                $c->get(Client::class)
+            );
+        });
+
+        $this->container->singleton(PageViewAssets::class, function (Container $c) {
+            return new PageViewAssets(
+                $c->get(Options::class),
+                $c->get(SiteRouting::class),
+                $c->get(PageViewController::class),
                 $c->get(RequestRouter::class)
             );
         });

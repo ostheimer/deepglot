@@ -58,6 +58,9 @@ const MANAGEMENT_ROUTES: ReadonlyArray<{
     methods: ["POST"],
   },
   { file: "language-model/route.ts", methods: ["GET", "PATCH"] },
+  // Visitor analytics changes the collection of project data and must never
+  // be activated or disabled by a translator or ordinary organization member.
+  { file: "page-views/activate/route.ts", methods: ["POST", "DELETE"] },
   // Activating/removing a target language changes what gets translated (word
   // usage / billing), so both writes are management-gated even though the
   // Languages page itself is in the (translator-visible) translations area.

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SimpleMarketingPage } from "@/components/marketing/simple-marketing-page";
 import { buildMarketingMetadata } from "@/lib/marketing-metadata";
+import { pageViewPrivacyDisclosure } from "@/lib/page-view-copy";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -99,11 +100,14 @@ export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
         },
         {
           title: uiText(locale, "7. Logs, analytics, and security", "7. Protokolle, Statistiken und Sicherheit"),
-          body: uiText(
-            locale,
-            "We process request times, route and error information, hashed rate-limit subjects, usage counters, translation batch metadata, webhook delivery history, and security events to operate, secure, debug, and protect the service. Optional project page-view analytics records translated URLs and aggregate use only after the feature is enabled. Deepglot does not currently use its own advertising or cross-site marketing-tracking cookies. The legal basis is contract performance and our legitimate interests in service security, fraud prevention, troubleshooting, and product reliability.",
-            "Wir verarbeiten Anfragezeiten, Routen- und Fehlerinformationen, gehashte Rate-Limit-Kennungen, Nutzungszähler, Metadaten zu Übersetzungsbatches, Webhook-Zustellverläufe und Sicherheitsereignisse, um den Dienst zu betreiben, abzusichern, zu analysieren und vor Missbrauch zu schützen. Optionale projektbezogene Seitenaufruf-Statistiken erfassen übersetzte URLs und aggregierte Nutzung erst nach Aktivierung der Funktion. Deepglot verwendet derzeit keine eigenen Werbe- oder websiteübergreifenden Marketing-Tracking-Cookies. Rechtsgrundlage sind die Vertragserfüllung und unsere berechtigten Interessen an Dienstsicherheit, Betrugsprävention, Fehleranalyse und Produktzuverlässigkeit."
-          ),
+          body: [
+            uiText(
+              locale,
+              "We process request times, route and error information, hashed rate-limit subjects, usage counters, translation batch metadata, webhook delivery history, and security events to operate, secure, debug, and protect the service. Optional project page-view analytics records translated URLs and aggregate use only after the feature is enabled. Deepglot does not currently use its own advertising or cross-site marketing-tracking cookies. The legal basis is contract performance and our legitimate interests in service security, fraud prevention, troubleshooting, and product reliability.",
+              "Wir verarbeiten Anfragezeiten, Routen- und Fehlerinformationen, gehashte Rate-Limit-Kennungen, Nutzungszähler, Metadaten zu Übersetzungsbatches, Webhook-Zustellverläufe und Sicherheitsereignisse, um den Dienst zu betreiben, abzusichern, zu analysieren und vor Missbrauch zu schützen. Optionale projektbezogene Seitenaufruf-Statistiken erfassen übersetzte URLs und aggregierte Nutzung erst nach Aktivierung der Funktion. Deepglot verwendet derzeit keine eigenen Werbe- oder websiteübergreifenden Marketing-Tracking-Cookies. Rechtsgrundlage sind die Vertragserfüllung und unsere berechtigten Interessen an Dienstsicherheit, Betrugsprävention, Fehleranalyse und Produktzuverlässigkeit."
+            ),
+            pageViewPrivacyDisclosure(locale),
+          ].join(" "),
         },
         {
           title: uiText(locale, "8. Cookies and local storage", "8. Cookies und lokaler Speicher"),

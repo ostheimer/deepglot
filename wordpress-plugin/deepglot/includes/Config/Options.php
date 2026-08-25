@@ -87,6 +87,10 @@ class Options
             // infinite scroll, SPA widgets). Opt-in: the server-side pass keeps
             // handling the initial, crawlable HTML on its own.
             'enable_dynamic_translation' => false,
+            // Dashboard-controlled and deliberately separate from translation
+            // generation. Existing and newly connected sites never track until
+            // their authenticated runtime configuration explicitly opts in.
+            'page_views_enabled' => false,
             'exclude_urls' => '',
             'exclude_regexes' => '',
             'exclude_selectors' => '',
@@ -174,6 +178,18 @@ class Options
         $targetLanguages = $this->normalizeLanguageList($input['target_languages'] ?? []);
         $incomingApiKey = sanitize_text_field((string) ($input['api_key'] ?? ''));
         $incomingBaseUrl = untrailingslashit(esc_url_raw((string) ($input['api_base_url'] ?? self::defaults()['api_base_url'])));
+        $storedSettings = get_option(self::OPTION_KEY, []);
+        $storedSettings = is_array($storedSettings) ? $storedSettings : [];
+        $storedApiKey = trim((string) ($storedSettings['api_key'] ?? ''));
+        $storedBaseUrl = untrailingslashit((string) ($storedSettings['api_base_url'] ?? self::defaults()['api_base_url']));
+        // The wp-admin form intentionally has no tracking toggle: consent lives
+        // on the SaaS project. Preserve that authoritative runtime value across
+        // ordinary saves, but fail closed immediately when project/backend changes.
+        $preservePageViewOptIn = $incomingApiKey !== ''
+            && $storedApiKey !== ''
+            && hash_equals($storedApiKey, $incomingApiKey)
+            && $incomingBaseUrl === $storedBaseUrl
+            && !empty($storedSettings['page_views_enabled']);
 
         $sanitized = [
             'enabled' => !empty($input['enabled']),
@@ -188,6 +204,7 @@ class Options
             'translate_search' => !empty($input['translate_search']),
             'translate_amp' => !empty($input['translate_amp']),
             'enable_dynamic_translation' => !empty($input['enable_dynamic_translation']),
+            'page_views_enabled' => $preservePageViewOptIn,
             'exclude_urls' => sanitize_textarea_field((string) ($input['exclude_urls'] ?? '')),
             'exclude_regexes' => sanitize_textarea_field((string) ($input['exclude_regexes'] ?? '')),
             'exclude_selectors' => sanitize_textarea_field((string) ($input['exclude_selectors'] ?? '')),
@@ -621,6 +638,14 @@ class Options
         return (bool) ($options['enable_dynamic_translation'] ?? false);
     }
 
+    /** Dashboard opt-in for anonymous translated-page views; defaults off. */
+    public function shouldTrackPageViews(): bool
+    {
+        $options = $this->all();
+
+        return ($options['page_views_enabled'] ?? false) === true;
+    }
+
     /**
      * @return string[]
      */
@@ -783,6 +808,12 @@ class Options
             && untrailingslashit($fetchedFromBaseUrl) !== untrailingslashit((string) ($settings['api_base_url'] ?? ''))
         ) {
             return false;
+        }
+
+        if (array_key_exists('pageViewsEnabled', $runtimeConfig)) {
+            // Only the JSON boolean true is consent; malformed or loosely
+            // truthy backend values must never accidentally activate tracking.
+            $settings['page_views_enabled'] = $runtimeConfig['pageViewsEnabled'] === true;
         }
 
         // Only overwrite sub-objects the SaaS actually sent. A partial

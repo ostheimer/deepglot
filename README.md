@@ -114,6 +114,38 @@ The `POST /api/translate` route is designed for drop-in compatibility:
   - `GET /api/public/languages`
   - `GET /api/public/languages/is-supported`
 
+## Optional page-view analytics
+
+Real page-view analytics is disabled by default for every project and can only
+be enabled or disabled by a project administrator. When enabled, the WordPress
+plugin reports visits to translated pages independently of translation requests,
+provider calls, dynamic-content translation, and full-page-cache misses. The
+browser talks only to a same-origin WordPress endpoint; the plugin API key never
+appears in frontend JavaScript.
+
+Older `pageViewsEnabled` settings do not count as informed consent: existing
+projects must explicitly enable the new feature after reviewing its data and
+retention disclosure. A nullable `pageViewsConsentGrantedAt` timestamp records
+that decision and is never backfilled from historical settings. Revoking the
+feature clears the consent timestamp immediately.
+
+Each event contains a normalized URL path without query parameters or fragments,
+the target language, its collection timestamp, and a random one-time event ID.
+Visitor IP addresses, user agents, referrers, cookies, fingerprints, and
+persistent visitor identifiers are not stored in page-view analytics. Obvious
+bots and duplicate event deliveries are ignored. A short-lived, page-specific
+session-storage entry prevents immediate duplicate reports in the same tab.
+
+Page-view events are retained for **90 days** and removed by the authenticated
+daily retention job. Existing translation-request counters are never backfilled
+or relabeled as visitor page views; they remain visible separately under
+translation requests. Before deploying this feature to an existing environment,
+review that exact environment's schema drift and apply only the additive
+`ProjectSettings.pageViewsConsentGrantedAt` column and independent `PageView`
+table/indexes before traffic reaches the new dashboard or ingestion route. Do
+not use a broad schema push to apply unrelated existing drift merely to enable
+page-view analytics.
+
 ## WordPress plugin
 
 The plugin lives in `wordpress-plugin/deepglot`. Repository version: **v0.12.6**. v0.12.6 follows WordPress core post-type viewability so built-in public pages remain in the multilingual sitemap and URL-sync inventory while non-viewable builder content types, attachments, and non-queryable taxonomies stay excluded. v0.12.5 translates explicitly configured cookie-consent roots that render before the dynamic footer observer starts and localizes their internal links through the server-side routing rules without sending URLs to a translation provider. v0.12.4 preserves translated transient values containing emoji or other four-byte Unicode on legacy WordPress option tables through a separate versioned ASCII-safe key space, canonical Base64URL, and key-bound integrity checks. Existing plain-string cache entries remain readable. A provider result is complete only after exact cache readback; failed writes stay in the text and URL queues, do not purge the affected page, and keep inline responses out of full-page caches. v0.12.3 preserves background text and URL queues with the same Unicode constraint through a versioned, checksummed ASCII-safe storage envelope. Existing array queues migrate automatically, while damaged queue persistence fails closed, including during disabled cleanup. A separate short atomic lock couples text and purge-target mutations without surrounding provider calls; lease fencing prevents a stale owner from committing only one side. If a cold render cannot durably acquire that coupled queue state, its source-language response is marked non-cacheable so a later request can retry. v0.12.2 explicitly verifies one safe canonical redirect on the exact same origin and in the requested target language during URL synchronization, while automatic redirect following stays disabled. Publishing the GitHub release does not automatically update customer WordPress sites. The currently documented live deployment on `meinhaushalt.at` is **v0.12.1** from commit `3b914007`, deployed on 2026-08-10; the exact package/tree comparison, semantic configuration, 39-file PHP lint, canonical `?ver=0.12.1` browser asset, same-host HTTPS URL sync, public route smoke, WP Rocket purge, and cleanup all passed. This customer deployment is not evidence of a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel.

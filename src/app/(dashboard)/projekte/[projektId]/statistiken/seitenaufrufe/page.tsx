@@ -1,104 +1,146 @@
-import { db } from "@/lib/db";
+import { subDays } from "date-fns";
 import { notFound } from "next/navigation";
-import { getRequestLocale } from "@/lib/request-locale";
+
 import { EnablePageViewsButton } from "@/components/projekte/enable-page-views-button";
+import { AnalyticsRangeSelector } from "@/components/statistiken/analytics-range-selector";
+import { normalizeAnalyticsParams } from "@/lib/dashboard-query";
+import { db } from "@/lib/db";
+import { formatNumber } from "@/lib/locale-formatting";
+import { pageViewText } from "@/lib/page-view-copy";
 import { requireProjectAreaAccess } from "@/lib/project-page-access";
+import { getRequestLocale } from "@/lib/request-locale";
 import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
+  searchParams: Promise<{ zeitraum?: string; ansicht?: string }>;
 }
 
-export default async function SeitenaufrufeStatistikPage({ params }: PageProps) {
+export default async function SeitenaufrufeStatistikPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { projektId } = await params;
+  const rawSearchParams = await searchParams;
   const locale = await getRequestLocale();
   await requireProjectAreaAccess(projektId, "analytics");
 
+  const { granularity, range } = normalizeAnalyticsParams(rawSearchParams);
   const project = await db.project.findUnique({
     where: { id: projektId },
-    include: {
-      settings: true,
-      translatedUrls: {
-        orderBy: [{ requestCount: "desc" }, { lastSeenAt: "desc" }],
-        take: 8,
+    select: {
+      settings: {
+        select: { pageViewsEnabled: true, pageViewsConsentGrantedAt: true },
       },
     },
   });
   if (!project) notFound();
 
-  // Page views tracking is opt-in (requires JS snippet activation)
-  const isActivated = project.settings?.pageViewsEnabled ?? false;
-  const aggregate = isActivated
-    ? await db.translatedUrl.aggregate({
-        where: { projectId: projektId },
+  const isActivated =
+    project.settings?.pageViewsEnabled === true &&
+    project.settings.pageViewsConsentGrantedAt !== null;
+  const since = subDays(new Date(), Number(range));
+  const pageViewGroups = isActivated
+    ? await db.pageView.groupBy({
+        by: ["urlPath", "langTo"],
+        where: { projectId: projektId, createdAt: { gte: since } },
         _count: { _all: true },
-        _sum: { requestCount: true, wordCount: true },
+        _max: { createdAt: true },
+        orderBy: [
+          { _count: { urlPath: "desc" } },
+          { urlPath: "asc" },
+          { langTo: "asc" },
+        ],
       })
-    : null;
-  const totalTrackedUrls = aggregate?._count._all ?? 0;
-  const totalRequests = aggregate?._sum.requestCount ?? 0;
-  const totalWords = aggregate?._sum.wordCount ?? 0;
-  const latestSeenAt = project.translatedUrls.reduce<Date | null>(
-    (latest, entry) =>
-      !latest || entry.lastSeenAt > latest ? entry.lastSeenAt : latest,
-    null
+    : [];
+
+  const totalViews = pageViewGroups.reduce(
+    (total, group) => total + group._count._all,
+    0
   );
+  const latestSeenAt = pageViewGroups.reduce<Date | null>((latest, group) => {
+    const seenAt = group._max.createdAt;
+    return seenAt && (!latest || seenAt > latest) ? seenAt : latest;
+  }, null);
+  const languageCounts = Array.from(
+    pageViewGroups.reduce((counts, group) => {
+      counts.set(group.langTo, (counts.get(group.langTo) ?? 0) + group._count._all);
+      return counts;
+    }, new Map<string, number>())
+  ).sort((left, right) => right[1] - left[1]);
+
+  const rangeOptions = [
+    { value: "7", label: uiText(locale, "Last 7 days", "Letzte 7 Tage") },
+    { value: "30", label: uiText(locale, "Last 30 days", "Letzte 30 Tage") },
+    { value: "90", label: uiText(locale, "Last 90 days", "Letzte 90 Tage") },
+  ];
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 mb-6">
-        {uiText(locale, "Page views", "Seitenaufrufe")}
-      </h2>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-gray-900">
+          {uiText(locale, "Page views", "Seitenaufrufe")}
+        </h2>
+
+        {isActivated ? (
+          <AnalyticsRangeSelector
+            ansicht={granularity}
+            zeitraum={range}
+            options={rangeOptions}
+          />
+        ) : null}
+      </div>
 
       {!isActivated ? (
-        <div className="bg-white border border-gray-200 rounded-xl py-24 flex flex-col items-center justify-center text-center px-8">
-          {/* Reference-style icon */}
-          <div className="relative mb-6">
-            <div className="h-20 w-20 rounded-2xl bg-gray-100 flex items-center justify-center">
-              <svg
-                className="h-10 w-10 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-            </div>
-            <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
-              <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
+        <div className="rounded-xl border border-gray-200 bg-white px-8 py-20 text-center">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100">
+            <svg
+              className="h-10 w-10 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
           </div>
 
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            {uiText(locale, "Page views are not enabled yet.", "Seitenaufrufe noch nicht aktiviert.")}
+          <h3 className="mb-2 text-lg font-semibold text-gray-900">
+            {uiText(
+              locale,
+              "Page views are not enabled yet.",
+              "Seitenaufrufe noch nicht aktiviert."
+            )}
           </h3>
-          <p className="text-gray-500 text-sm mb-8 max-w-sm">
-            {uiText(locale, "Enable page-view analytics to see which translated pages are visited most often.", "Aktiviere die Seitenaufruf-Statistiken um erweiterte Daten darüber zu erhalten, welche übersetzten Seiten am häufigsten besucht werden.")}
+          <p className="mx-auto mb-8 max-w-lg text-sm text-gray-500">
+            {uiText(
+              locale,
+              "Enable page-view analytics to see which translated pages are visited most often.",
+              "Aktiviere die Seitenaufruf-Statistiken, um zu sehen, welche übersetzten Seiten am häufigsten besucht werden."
+            )}
           </p>
 
           <EnablePageViewsButton projectId={projektId} />
 
-          <div className="mt-8 border border-gray-100 rounded-xl p-5 text-left max-w-sm w-full">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              {uiText(locale, "What you get with page views:", "Was du mit Seitenaufrufen erhältst:")}
+          <div className="mx-auto mt-8 max-w-lg rounded-xl border border-gray-100 p-5 text-left">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+              {uiText(locale, "Privacy", "Datenschutz")}
             </p>
             <ul className="space-y-2 text-sm text-gray-600">
               {[
-                uiText(locale, "View count per translated page", "Anzahl der Aufrufe pro übersetzter Seite"),
-                uiText(locale, "Compare original vs translated versions", "Vergleich Original vs. übersetzte Versionen"),
-                uiText(locale, "Trend over day/week/month", "Zeitlicher Verlauf nach Tag/Woche/Monat"),
-                uiText(locale, "Most visited translated URLs", "Meistbesuchte übersetzte URLs"),
-              ].map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-brand-400 flex-shrink-0" />
-                  {f}
+                pageViewText(locale, "consent"),
+                pageViewText(locale, "fields"),
+                pageViewText(locale, "excluded"),
+                pageViewText(locale, "retention"),
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-400" />
+                  {item}
                 </li>
               ))}
             </ul>
@@ -112,7 +154,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                 {uiText(locale, "Tracked URLs", "Erfasste URLs")}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900">
-                {totalTrackedUrls}
+                {formatNumber(pageViewGroups.length, locale)}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-5">
@@ -120,7 +162,7 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                 {uiText(locale, "Total views", "Gesamte Aufrufe")}
               </p>
               <p className="mt-2 text-2xl font-bold text-gray-900">
-                {totalRequests}
+                {formatNumber(totalViews, locale)}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-5">
@@ -138,30 +180,42 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">
-                  {uiText(locale, "Top translated pages", "Top übersetzte Seiten")}
-                </h3>
-                <p className="mt-1 text-xs text-gray-500">
-                  {uiText(
-                    locale,
-                    "Currently tracking {words} words across {urls} URLs",
-                    "Aktuell {words} Wörter über {urls} URLs erfasst"
-                  )
-                    .replace("{words}", String(totalWords))
-                    .replace("{urls}", String(totalTrackedUrls))}
-                </p>
+          {languageCounts.length > 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                {uiText(locale, "Language", "Sprache")}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {languageCounts.map(([language, count]) => (
+                  <div
+                    key={language}
+                    className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-700"
+                  >
+                    <span className="font-semibold uppercase">{language}</span>
+                    {" · "}
+                    {formatNumber(count, locale)}
+                  </div>
+                ))}
               </div>
             </div>
+          ) : null}
 
-            {project.translatedUrls.length > 0 ? (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h3 className="text-sm font-semibold text-gray-900">
+                {uiText(locale, "Top translated pages", "Top übersetzte Seiten")}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                {uiText(locale, "View count per translated page", "Anzahl der Aufrufe pro übersetzter Seite")}
+              </p>
+            </div>
+
+            {pageViewGroups.length > 0 ? (
               <div className="divide-y divide-gray-100">
-                {project.translatedUrls.map((entry) => (
+                {pageViewGroups.slice(0, 8).map((entry) => (
                   <div
-                    key={entry.id}
-                    className="grid grid-cols-[1fr_auto_auto] gap-4 px-5 py-4 items-center"
+                    key={`${entry.langTo}:${entry.urlPath}`}
+                    className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-gray-900">
@@ -176,18 +230,10 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">
-                        {entry.requestCount}
+                        {formatNumber(entry._count._all, locale)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {uiText(locale, "Views", "Aufrufe")}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {entry.wordCount}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {uiText(locale, "Words", "Wörter")}
                       </p>
                     </div>
                   </div>
@@ -196,13 +242,29 @@ export default async function SeitenaufrufeStatistikPage({ params }: PageProps) 
             ) : (
               <div className="px-5 py-12 text-center">
                 <p className="text-sm font-medium text-gray-600">
-                  {uiText(locale, "Page views are enabled, but no data has been collected yet.", "Seitenaufrufe sind aktiviert, aber es wurden noch keine Daten gesammelt.")}
+                  {uiText(
+                    locale,
+                    "Page views are enabled, but no data has been collected yet.",
+                    "Seitenaufrufe sind aktiviert, aber es wurden noch keine Daten gesammelt."
+                  )}
                 </p>
                 <p className="mt-2 text-xs text-gray-400">
-                  {uiText(locale, "Translated URLs will appear here as soon as your plugin starts reporting them.", "Sobald dein Plugin übersetzte URLs meldet, erscheinen sie hier.")}
+                  {pageViewText(locale, "history")}
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {uiText(locale, "Privacy", "Datenschutz")}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {pageViewText(locale, "fields")} {pageViewText(locale, "retention")}
+              </p>
+            </div>
+            <EnablePageViewsButton projectId={projektId} enabled />
           </div>
         </div>
       )}
