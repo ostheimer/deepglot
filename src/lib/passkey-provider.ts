@@ -2,6 +2,13 @@ import Passkey from "next-auth/providers/passkey";
 import type { GetUserInfo } from "next-auth/providers/webauthn";
 
 const getExistingUserInfo: GetUserInfo = async (options, request) => {
+  // Auth.js only calls getUserInfo when no authenticated session exists;
+  // signed-in account-settings registration uses its session user directly.
+  // Reject public registration before any account lookup or credential setup.
+  if (request.query?.action === "register") {
+    return null;
+  }
+
   const adapter = options.adapter;
   if (!adapter) {
     throw new Error("Passkeys require a database adapter.");

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { createHash } from "node:crypto";
 
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { db } from "@/lib/db";
@@ -28,10 +29,12 @@ async function ensureTestProjectSeed(
       automaticTranslation: true,
       displayAiNotice: true,
       pageViewsEnabled: true,
+      pageViewsConsentGrantedAt: new Date(),
       translationMemory: false,
     },
     update: {
       pageViewsEnabled: true,
+      pageViewsConsentGrantedAt: new Date(),
       translationMemory: false,
     },
   });
@@ -154,6 +157,36 @@ async function ensureTestProjectSeed(
         requestCount: item.requestCount,
         lastSeenAt: now,
       },
+    });
+  }
+
+  // Demo visitor events are seeded independently from translation requests.
+  // Deterministic, project-scoped UUIDs keep repeated test logins idempotent
+  // without ever relabeling or backfilling historical translation counters.
+  for (const [index, item] of [
+    { urlPath: "/en/preise", langTo: "en", daysAgo: 2 },
+    { urlPath: "/en/preise", langTo: "en", daysAgo: 1 },
+    { urlPath: "/en/preise", langTo: "en", daysAgo: 0 },
+    { urlPath: "/en/kontakt", langTo: "en", daysAgo: 1 },
+    { urlPath: "/fr/leistungen", langTo: "fr", daysAgo: 0 },
+    { urlPath: "/fr/leistungen", langTo: "fr", daysAgo: 45 },
+  ].entries()) {
+    const digest = createHash("sha256")
+      .update(`${projectId}:page-view-demo:${index}`)
+      .digest("hex");
+    const eventId = [
+      digest.slice(0, 8),
+      digest.slice(8, 12),
+      `4${digest.slice(13, 16)}`,
+      `8${digest.slice(17, 20)}`,
+      digest.slice(20, 32),
+    ].join("-");
+    const createdAt = new Date(now.getTime() - item.daysAgo * 86_400_000);
+
+    await db.pageView.upsert({
+      where: { eventId },
+      create: { eventId, projectId, urlPath: item.urlPath, langTo: item.langTo, createdAt },
+      update: { urlPath: item.urlPath, langTo: item.langTo, createdAt },
     });
   }
 

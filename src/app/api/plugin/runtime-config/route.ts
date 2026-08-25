@@ -116,6 +116,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       exclusions,
+      pageViewsEnabled:
+        apiKey.project.settings?.pageViewsEnabled === true &&
+        apiKey.project.settings.pageViewsConsentGrantedAt instanceof Date,
       urlSlugs: buildRuntimeUrlSlugs(urlSlugs),
       syncedAt: new Date().toISOString(),
     });

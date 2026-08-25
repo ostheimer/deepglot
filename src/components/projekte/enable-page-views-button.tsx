@@ -7,39 +7,46 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
+import { pageViewText } from "@/lib/page-view-copy";
 import { uiText } from "@/lib/static-copy";
 
 type EnablePageViewsButtonProps = {
   projectId: string;
+  enabled?: boolean;
 };
 
 export function EnablePageViewsButton({
   projectId,
+  enabled = false,
 }: EnablePageViewsButtonProps) {
   const locale = useLocale();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleEnable() {
+  async function handleToggle() {
     setIsLoading(true);
 
     try {
       const response = await fetch(
         `/api/projects/${projectId}/page-views/activate`,
-        { method: "POST" }
+        { method: enabled ? "DELETE" : "POST" }
       );
       const data = await response.json();
 
       if (!response.ok) {
         toast.error(
           data.error ??
-            (uiText(locale, "Could not enable page views", "Seitenaufrufe konnten nicht aktiviert werden"))
+            (enabled
+              ? pageViewText(locale, "disableError")
+              : uiText(locale, "Could not enable page views", "Seitenaufrufe konnten nicht aktiviert werden"))
         );
         return;
       }
 
       toast.success(
-        uiText(locale, "Page views enabled", "Seitenaufrufe aktiviert")
+        enabled
+          ? pageViewText(locale, "disabledSuccess")
+          : uiText(locale, "Page views enabled", "Seitenaufrufe aktiviert")
       );
       router.refresh();
     } finally {
@@ -49,14 +56,19 @@ export function EnablePageViewsButton({
 
   return (
     <Button
-      className="bg-brand-600 hover:bg-brand-700 px-8"
-      onClick={handleEnable}
+      className={enabled ? "px-4" : "bg-brand-600 hover:bg-brand-700 px-8"}
+      variant={enabled ? "outline" : "default"}
+      onClick={handleToggle}
       disabled={isLoading}
     >
       <BarChart3 className="mr-2 h-4 w-4" />
       {isLoading
-        ? uiText(locale, "Enabling...", "Aktiviert...")
-        : uiText(locale, "Enable", "Aktivieren")}
+        ? enabled
+          ? uiText(locale, "Saving...", "Wird gespeichert...")
+          : uiText(locale, "Enabling...", "Wird aktiviert...")
+        : enabled
+          ? pageViewText(locale, "disable")
+          : uiText(locale, "Enable", "Aktivieren")}
     </Button>
   );
 }
