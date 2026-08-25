@@ -33,3 +33,38 @@ test("page views remain independent of translation-request counters and respect 
     .locator("..");
   await expect(historicalTranslationRequests).toContainText("18");
 });
+
+test("project managers can revoke and explicitly renew informed page-view consent", async ({
+  page,
+}) => {
+  const projectId = await signInAndGetProjectId(page);
+
+  await page.goto(`/projects/${projectId}/stats/page-views`);
+
+  try {
+    await page.getByRole("button", { name: "Disable tracking" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Page views are not enabled yet." }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Disabled by default; collection starts only after explicit approval by a project administrator."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Events are automatically deleted after 90 days; obvious bots and duplicate reports are excluded."),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Enable", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Disable tracking" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Total views", { exact: true }).locator(".."),
+    ).toContainText("5");
+  } finally {
+    const restoreResponse = await page.request.post(
+      `/api/projects/${projectId}/page-views/activate`,
+    );
+    expect(restoreResponse.status()).toBe(200);
+  }
+});
