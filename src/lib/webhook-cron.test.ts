@@ -129,4 +129,9 @@ test("schedules the webhook processor in vercel.json", () => {
     ).length,
     1
   );
+  assert.equal(
+    WEBHOOK_PROCESS_CRON_SCHEDULE,
+    "*/15 * * * *",
+    "the fallback processor must leave enough inactivity for Neon scale-to-zero"
+  );
 });
