@@ -5,7 +5,7 @@ import {
 } from "@/lib/cron-auth";
 
 export const WEBHOOK_PROCESS_CRON_PATH = "/api/webhooks/process";
-export const WEBHOOK_PROCESS_CRON_SCHEDULE = "*/5 * * * *";
+export const WEBHOOK_PROCESS_CRON_SCHEDULE = "*/15 * * * *";
 
 export function isWebhookProcessRequestAuthorized(
   request: CronRequest,
