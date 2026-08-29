@@ -107,13 +107,11 @@ const PLAN_FEATURES: Record<
   ENTERPRISE: {
     en: [
       "Everything in Extended",
-      "SAML SSO",
       "Dedicated contract (DPA)",
       "Custom integrations & SLA",
     ],
     de: [
       "Alles aus Extended",
-      "SAML SSO",
       "Dedizierter Vertrag (DPA)",
       "Custom Integrationen & SLA",
     ],

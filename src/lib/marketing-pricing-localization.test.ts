@@ -56,3 +56,29 @@ test("does not advertise media translation before the feature exists (#259)", as
     );
   }
 });
+
+test("does not advertise SAML SSO before enterprise identity is implemented (#318)", () => {
+  const pricingSource = readFileSync(
+    path.join(
+      process.cwd(),
+      "src",
+      "components",
+      "marketing",
+      "pricing-grid.tsx"
+    ),
+    "utf8"
+  );
+
+  assert.equal(
+    /["']SAML SSO["']/.test(pricingSource),
+    false,
+    "Enterprise pricing must not advertise unimplemented SAML SSO"
+  );
+  for (const [locale, messages] of Object.entries(STATIC_MESSAGES)) {
+    assert.equal(
+      Object.hasOwn(messages, "SAML SSO"),
+      false,
+      `${locale} must not retain the unsupported enterprise SSO claim`
+    );
+  }
+});
