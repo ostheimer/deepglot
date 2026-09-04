@@ -58,13 +58,12 @@ class TranslationRules
      * TranslationRulesTest.
      */
     public const TRANSLATABLE_BODY_ATTRIBUTES = [
-        'img' => ['alt'],
-        'a' => ['title', 'aria-label'],
-        'button' => ['title', 'aria-label'],
-        'input' => ['placeholder', 'aria-label'],
-        'textarea' => ['placeholder', 'aria-label'],
-        'select' => ['aria-label'],
-        'label' => ['aria-label'],
+        '*' => ['aria-label'],
+        'img' => ['alt', 'title'],
+        'a' => ['title'],
+        'button' => ['title'],
+        'input' => ['placeholder'],
+        'textarea' => ['placeholder'],
         'optgroup' => ['label'],
         'option' => ['label'],
     ];

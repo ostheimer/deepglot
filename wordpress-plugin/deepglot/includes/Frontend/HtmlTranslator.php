@@ -63,13 +63,12 @@ class HtmlTranslator
      * intentionally left out.
      */
     private const TRANSLATABLE_BODY_ATTRIBUTES = [
-        'img' => ['alt'],
-        'a' => ['title', 'aria-label'],
-        'button' => ['title', 'aria-label'],
-        'input' => ['placeholder', 'aria-label'],
-        'textarea' => ['placeholder', 'aria-label'],
-        'select' => ['aria-label'],
-        'label' => ['aria-label'],
+        '*' => ['aria-label'],
+        'img' => ['alt', 'title'],
+        'a' => ['title'],
+        'button' => ['title'],
+        'input' => ['placeholder'],
+        'textarea' => ['placeholder'],
         'optgroup' => ['label'],
         'option' => ['label'],
     ];
@@ -669,6 +668,34 @@ class HtmlTranslator
             $result[] = $contentAttr;
         }
 
+        // WordPress feed-discovery titles are human-readable metadata. Keep
+        // ordinary <link> titles untouched: only RSS/Atom alternates qualify.
+        $links = $head->getElementsByTagName('link');
+
+        foreach ($links as $link) {
+            if (!$link instanceof \DOMElement) {
+                continue;
+            }
+
+            $relations = preg_split('/\s+/', strtolower(trim($link->getAttribute('rel')))) ?: [];
+            if (!in_array('alternate', $relations, true)) {
+                continue;
+            }
+
+            $typeParts = explode(';', strtolower(trim($link->getAttribute('type'))), 2);
+            $type = trim($typeParts[0]);
+            if (!in_array($type, ['application/rss+xml', 'application/atom+xml'], true)) {
+                continue;
+            }
+
+            $titleAttr = $link->getAttributeNode('title');
+            if (!$titleAttr instanceof \DOMAttr || !$this->isTranslatableAttributeValue($titleAttr->value)) {
+                continue;
+            }
+
+            $result[] = $titleAttr;
+        }
+
         return $result;
     }
 
@@ -691,7 +718,8 @@ class HtmlTranslator
         $result = [];
 
         foreach (self::TRANSLATABLE_BODY_ATTRIBUTES as $tagName => $attributeNames) {
-            $elements = $xpath->query('.//' . $tagName, $body);
+            $query = $tagName === '*' ? 'descendant-or-self::*[@aria-label]' : './/' . $tagName;
+            $elements = $xpath->query($query, $body);
             if ($elements === false) {
                 continue;
             }

@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepglot 0.12.7\n"
+"Project-Id-Version: Deepglot 0.12.8\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
 "POT-Creation-Date: 2026-05-17 00:00+0000\n"
 "PO-Revision-Date: 2026-05-17 00:00+0000\n"
@@ -745,11 +745,11 @@ msgstr "Previše zahtjeva. Molimo pričekajte %d sekundi."
 msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden."
 msgstr "Izvornim jezikom, ciljnim jezicima i automatskim preusmjeravanjem upravlja se na nadzornoj ploči Deepglot i mogu se samo čitati putem WordPress REST API-ja."
 
-#: includes/Api/RestApi.php:659
+#: includes/Api/RestApi.php:665
 msgid "Monatliches Wortlimit ausgeschöpft."
 msgstr "Mjesečno ograničenje riječi iscrpljeno."
 
-#: includes/Api/RestApi.php:667
+#: includes/Api/RestApi.php:673
 msgid "API-Key ungültig oder widerrufen."
 msgstr "API-Key nije valjan ili opozvan."
 
