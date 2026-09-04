@@ -10,6 +10,7 @@ const ENCODED_UNSAFE_CHARACTER = /%(?:0[0-9a-f]|1[0-9a-f]|2f|5c|7f)/i;
 const RECURSIVELY_ENCODED_PATH_DELIMITER = /%(?:2e|2f|5c)/i;
 const MALFORMED_PERCENT_ESCAPE = /%(?![0-9a-f]{2})/i;
 const DOT_PATH_SEGMENT = /(?:^|\/)(?:\.|%2e){1,2}(?=\/|$)/i;
+const RFC3986_UNRESERVED_ASCII = /^[a-z0-9._~-]$/i;
 
 export type RuntimeMediaReplacementRow = {
   originalUrl: string;
@@ -38,6 +39,21 @@ export function assertMediaReplacementCapacity(currentCount: number): void {
     throw new MediaReplacementError(
       `A project can contain at most ${MAX_RUNTIME_MEDIA_REPLACEMENTS} image replacements.`,
       "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
+    );
+  }
+}
+
+export function assertMediaTargetLanguage(
+  targetLanguage: string,
+  sourceLanguage: string
+): void {
+  if (
+    targetLanguage.trim().toLowerCase() ===
+    sourceLanguage.trim().toLowerCase()
+  ) {
+    throw new MediaReplacementError(
+      "The project source language cannot be used as a media replacement target.",
+      "INVALID_TARGET_LANGUAGE"
     );
   }
 }
@@ -85,9 +101,20 @@ function getProjectOrigin(projectDomain: string): URL {
     );
   }
 
+  const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(normalizedDomain)
+    ? normalizedDomain
+    : `https://${normalizedDomain}`;
+
+  if (!/^https:\/\/[^/]+\/?$/i.test(candidate)) {
+    throw new MediaReplacementError(
+      "The project domain must contain only its public HTTPS hostname and optional port.",
+      "INVALID_PROJECT_DOMAIN"
+    );
+  }
+
   let projectOrigin: URL;
   try {
-    projectOrigin = new URL(`https://${normalizedDomain}`);
+    projectOrigin = new URL(candidate);
   } catch {
     throw new MediaReplacementError(
       "The project domain is not a valid public hostname.",
@@ -96,8 +123,11 @@ function getProjectOrigin(projectDomain: string): URL {
   }
 
   if (
+    projectOrigin.protocol !== "https:" ||
     projectOrigin.username ||
     projectOrigin.password ||
+    projectOrigin.search ||
+    projectOrigin.hash ||
     projectOrigin.pathname !== "/"
   ) {
     throw new MediaReplacementError(
@@ -109,6 +139,21 @@ function getProjectOrigin(projectDomain: string): URL {
   normalizedPublicHostname(projectOrigin.hostname);
 
   return projectOrigin;
+}
+
+function canonicalizePercentEscapes(value: string): string {
+  return value.replace(
+    /%([0-9a-f]{2})/gi,
+    (escape, hexadecimalByte: string) => {
+      const character = String.fromCharCode(
+        Number.parseInt(hexadecimalByte, 16)
+      );
+
+      return RFC3986_UNRESERVED_ASCII.test(character)
+        ? character
+        : escape.toUpperCase();
+    }
+  );
 }
 
 /**
@@ -175,17 +220,17 @@ export function normalizeMediaImageUrl(
     invalidImageUrl("The image URL contains recursively encoded path delimiters.");
   }
 
-  if (!SAFE_IMAGE_EXTENSION.test(parsedImageUrl.pathname)) {
+  const canonicalPath = canonicalizePercentEscapes(parsedImageUrl.pathname);
+  const canonicalSearch = canonicalizePercentEscapes(parsedImageUrl.search);
+
+  if (!SAFE_IMAGE_EXTENSION.test(canonicalPath)) {
     throw new MediaReplacementError(
       "Only PNG, JPG, JPEG, WebP, AVIF, and GIF images are supported.",
       "INVALID_IMAGE_FORMAT"
     );
   }
 
-  const canonicalImageUrl = `${parsedImageUrl.pathname}${parsedImageUrl.search}`.replace(
-    /%[0-9a-f]{2}/gi,
-    (escape) => escape.toUpperCase()
-  );
+  const canonicalImageUrl = `${canonicalPath}${canonicalSearch}`;
 
   if (canonicalImageUrl.length > MAX_MEDIA_IMAGE_URL_LENGTH) {
     invalidImageUrl("The canonical image URL exceeds the maximum supported length.");

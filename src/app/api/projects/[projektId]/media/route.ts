@@ -13,6 +13,7 @@ import {
   MAX_RUNTIME_MEDIA_REPLACEMENTS,
   MediaReplacementError,
   assertMediaReplacementCapacity,
+  assertMediaTargetLanguage,
   normalizeMediaImageUrl,
 } from "@/lib/media-replacements";
 import {
@@ -141,7 +142,9 @@ export async function POST(
               },
               isActive: true,
             },
-            select: { project: { select: { domain: true } } },
+            select: {
+              project: { select: { domain: true, originalLang: true } },
+            },
           });
 
           if (!targetLanguage) {
@@ -150,6 +153,11 @@ export async function POST(
               "INVALID_TARGET_LANGUAGE"
             );
           }
+
+          assertMediaTargetLanguage(
+            parsed.data.langTo,
+            targetLanguage.project.originalLang
+          );
 
           const currentCount = await tx.projectMediaReplacement.count({
             where: { projectId: projektId },

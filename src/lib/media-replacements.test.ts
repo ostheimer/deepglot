@@ -5,6 +5,7 @@ import {
   MAX_MEDIA_IMAGE_URL_LENGTH,
   MAX_RUNTIME_MEDIA_REPLACEMENTS,
   MediaReplacementError,
+  assertMediaTargetLanguage,
   assertMediaReplacementCapacity,
   buildRuntimeMediaReplacements,
   normalizeMediaImageUrl,
@@ -52,6 +53,23 @@ test("project domains with explicit ports accept only their exact media origin",
     (error: unknown) =>
       error instanceof MediaReplacementError &&
       error.code === "INVALID_IMAGE_URL"
+  );
+});
+
+test("legacy scheme-bearing project domains retain their canonical HTTPS media origin", () => {
+  assert.equal(
+    normalizeMediaImageUrl(
+      "/uploads/image.png",
+      "https://EXAMPLE.com:8443/"
+    ),
+    "/uploads/image.png"
+  );
+  assert.equal(
+    normalizeMediaImageUrl(
+      "https://example.com:8443/uploads/image.png",
+      "https://EXAMPLE.com:8443/"
+    ),
+    "/uploads/image.png"
   );
 });
 
@@ -257,6 +275,33 @@ test("canonical image URLs normalize percent-escape casing before persistence", 
       "example.com"
     ),
     "/uploads/caf%C3%A9.png?currency=%E2%82%AC"
+  );
+});
+
+test("canonical image URLs decode percent-encoded unreserved characters", () => {
+  assert.equal(
+    normalizeMediaImageUrl(
+      "/uploads/hero%2Dwide.png?variant=%7efull%5Fsize",
+      "example.com"
+    ),
+    "/uploads/hero-wide.png?variant=~full_size"
+  );
+  assert.equal(
+    normalizeMediaImageUrl(
+      "https://example.com/uploads/hero%2dwide.png",
+      "example.com"
+    ),
+    "/uploads/hero-wide.png"
+  );
+});
+
+test("media replacements reject a project's source language as a target", () => {
+  assert.doesNotThrow(() => assertMediaTargetLanguage("en", "de"));
+  assert.throws(
+    () => assertMediaTargetLanguage("DE", "de"),
+    (error: unknown) =>
+      error instanceof MediaReplacementError &&
+      error.code === "INVALID_TARGET_LANGUAGE"
   );
 });
 

@@ -649,8 +649,16 @@ class MediaRewriter
         }
 
         $canonical = preg_replace_callback(
-            '/%[a-f0-9]{2}/i',
-            static fn (array $matches): string => strtoupper($matches[0]),
+            '/%([a-f0-9]{2})/i',
+            static function (array $matches): string {
+                $byte = chr((int) hexdec($matches[1]));
+
+                if (preg_match('/^[A-Za-z0-9._~-]$/D', $byte) === 1) {
+                    return $byte;
+                }
+
+                return '%' . strtoupper($matches[1]);
+            },
             $canonical
         );
 

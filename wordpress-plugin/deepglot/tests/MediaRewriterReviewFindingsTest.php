@@ -38,6 +38,7 @@ final class MediaRewriterReviewFindingsOptions extends Options
             '/uploads/a.png' => '/uploads/a-en.avif',
             '/uploads/b.png' => '/uploads/b-en.avif',
             '/uploads/trailing-dot.png' => '/uploads/trailing-dot-en.webp',
+            '/uploads/hero-wide.png' => '/uploads/hero-en.webp',
         ];
     }
 
@@ -81,6 +82,7 @@ $document->loadHTML(<<<'HTML'
 <div id="blocked-media"><img id="id-excluded" src="/uploads/cover.jpg"></div>
 <picture><source id="typed-source" type="image/png" srcset="/uploads/a.png 1x, /uploads/b.png 2x"><img src="/uploads/a.png"></picture>
 <img id="trailing-dot-host" src="https://example.com./uploads/trailing-dot.png">
+<img id="encoded-unreserved" src="/uploads/hero%2Dwide.png">
 </body></html>
 HTML);
 libxml_clear_errors();
@@ -115,6 +117,10 @@ assertMediaReviewFinding(
 assertMediaReviewFinding(
     mediaReviewFindingAttribute($document, 'trailing-dot-host', 'src') === 'https://example.com./uploads/trailing-dot-en.webp',
     'A valid absolute same-origin host with a trailing dot matches the canonical site host'
+);
+assertMediaReviewFinding(
+    mediaReviewFindingAttribute($document, 'encoded-unreserved', 'src') === '/uploads/hero-en.webp',
+    'Percent-encoded unreserved bytes share one lookup identity with their literal form'
 );
 
 if ($failures !== []) {

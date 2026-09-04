@@ -11,6 +11,7 @@ import {
 import {
   MAX_MEDIA_IMAGE_URL_LENGTH,
   MediaReplacementError,
+  assertMediaTargetLanguage,
   normalizeMediaImageUrl,
 } from "@/lib/media-replacements";
 import {
@@ -117,7 +118,7 @@ export async function PATCH(
               originalUrl: true,
               localizedUrl: true,
               langTo: true,
-              project: { select: { domain: true } },
+              project: { select: { domain: true, originalLang: true } },
             },
           });
 
@@ -138,6 +139,8 @@ export async function PATCH(
           if (!activeLanguage) {
             throw new Error(INACTIVE_LANGUAGE_ERROR);
           }
+
+          assertMediaTargetLanguage(langTo, existing.project.originalLang);
 
           const originalUrl = normalizeMediaImageUrl(
             parsed.data.originalUrl ?? existing.originalUrl,

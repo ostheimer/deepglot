@@ -68,7 +68,7 @@ test("project image creation validates active tenant languages and same-project 
   );
   assert.match(
     collectionRoute,
-    /project:\s*\{\s*select:\s*\{\s*domain:\s*true/,
+    /project:\s*\{\s*select:\s*\{[\s\S]*?domain:\s*true[\s\S]*?originalLang:\s*true/,
   );
   assert.match(
     collectionRoute,
@@ -79,6 +79,21 @@ test("project image creation validates active tenant languages and same-project 
     /localizedUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/,
   );
   assert.doesNotMatch(collectionRoute, /\b(?:fetch|axios|undici)\s*\(/);
+});
+
+test("media POST and PATCH reject a legacy active row for the project source language", () => {
+  for (const route of [collectionRoute, itemRoute]) {
+    assert.match(
+      route,
+      /assertMediaTargetLanguage\([\s\S]*?originalLang/,
+      "both mutation routes must compare the requested target with the project source language"
+    );
+  }
+
+  assert.match(
+    itemRoute,
+    /project:\s*\{\s*select:\s*\{[\s\S]*?domain:\s*true[\s\S]*?originalLang:\s*true/,
+  );
 });
 
 test("project image creation enforces the runtime cap in a retryable serializable transaction", () => {
