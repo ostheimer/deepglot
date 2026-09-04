@@ -19,6 +19,10 @@ import {
   getAuthenticatedUserId,
   userCanManageProject,
 } from "@/lib/project-access";
+import {
+  isProjectRuntimeSerializationConflict,
+  lockProjectRuntimeConfiguration,
+} from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -121,6 +125,13 @@ export async function POST(
     try {
       const mediaReplacement = await db.$transaction(
         async (tx) => {
+          if (!(await lockProjectRuntimeConfiguration(tx, projektId))) {
+            throw new MediaReplacementError(
+              "The target language is not active for this project.",
+              "INVALID_TARGET_LANGUAGE"
+            );
+          }
+
           const targetLanguage = await tx.projectLanguage.findFirst({
             where: {
               projectId: projektId,
@@ -166,6 +177,15 @@ export async function POST(
 
       return NextResponse.json({ mediaReplacement }, { status: 201 });
     } catch (error) {
+      if (
+        attempt < MAX_SERIALIZATION_RETRIES - 1 &&
+        ((error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2034") ||
+          isProjectRuntimeSerializationConflict(error))
+      ) {
+        continue;
+      }
+
       if (error instanceof MediaRuntimePayloadLimitError) {
         return NextResponse.json(
           {
@@ -225,10 +245,6 @@ export async function POST(
       }
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === "P2034" && attempt < MAX_SERIALIZATION_RETRIES - 1) {
-          continue;
-        }
-
         if (error.code === "P2002") {
           return NextResponse.json(
             {

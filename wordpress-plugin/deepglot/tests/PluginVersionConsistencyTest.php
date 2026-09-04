@@ -39,7 +39,7 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
-versionAssert($headerVersion === '0.12.7', 'Prepared WordPress.org release must be version 0.12.7');
+versionAssert($headerVersion === '0.12.8', 'Prepared WordPress.org release must be version 0.12.8');
 versionAssert(
     !str_contains($dynamicTranslator, 'var rateLimitedUntil = 0;')
         || version_compare($headerVersion, '0.12.1', '>='),
@@ -65,6 +65,10 @@ versionAssert(
 versionAssert(
     ($stableTagMatch[1] ?? '') === $headerVersion,
     'WordPress.org stable tag must match the plugin bootstrap'
+);
+versionAssert(
+    str_contains($wordpressReadme, '= ' . $headerVersion . ' ='),
+    'WordPress.org readme must contain a changelog entry for the prepared release'
 );
 versionAssert(
     str_contains($rootReadme, 'Repository version: **v' . $headerVersion . '**'),

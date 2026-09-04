@@ -17,6 +17,10 @@ import {
   getAuthenticatedUserId,
   userCanManageProject,
 } from "@/lib/project-access";
+import {
+  isProjectRuntimeSerializationConflict,
+  lockProjectRuntimeConfiguration,
+} from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -103,6 +107,10 @@ export async function PATCH(
     try {
       const mediaReplacement = await db.$transaction(
         async (tx) => {
+          if (!(await lockProjectRuntimeConfiguration(tx, projektId))) {
+            throw new Error(NOT_FOUND_ERROR);
+          }
+
           const existing = await tx.projectMediaReplacement.findFirst({
             where: { id: mediaId, projectId: projektId },
             select: {
@@ -160,6 +168,15 @@ export async function PATCH(
 
       return NextResponse.json({ mediaReplacement });
     } catch (error) {
+      if (
+        attempt < MAX_SERIALIZATION_RETRIES - 1 &&
+        ((error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2034") ||
+          isProjectRuntimeSerializationConflict(error))
+      ) {
+        continue;
+      }
+
       if (error instanceof Error && error.message === NOT_FOUND_ERROR) {
         return NextResponse.json(
           {
@@ -214,10 +231,6 @@ export async function PATCH(
       }
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === "P2034" && attempt < MAX_SERIALIZATION_RETRIES - 1) {
-          continue;
-        }
-
         if (error.code === "P2002") {
           return NextResponse.json(
             {

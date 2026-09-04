@@ -219,6 +219,23 @@ test("media images retain WordPress-compatible literal percent encodings and que
   }
 });
 
+test("canonical image URLs normalize percent-escape casing before persistence", () => {
+  assert.equal(
+    normalizeMediaImageUrl(
+      "/uploads/caf%c3%a9.png?currency=%e2%82%ac",
+      "example.com"
+    ),
+    "/uploads/caf%C3%A9.png?currency=%E2%82%AC"
+  );
+  assert.equal(
+    normalizeMediaImageUrl(
+      "https://example.com/uploads/caf%C3%a9.png?currency=%E2%82%ac",
+      "example.com"
+    ),
+    "/uploads/caf%C3%A9.png?currency=%E2%82%AC"
+  );
+});
+
 test("runtime media mappings are grouped by active target-language shape", () => {
   assert.deepEqual(
     buildRuntimeMediaReplacements([

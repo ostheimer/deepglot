@@ -163,6 +163,24 @@ test("POST and PATCH reject oversized active runtime mappings before their trans
   );
 });
 
+test("media creates and patches share the project lock with language activation before runtime validation", () => {
+  for (const route of [collectionRoute, itemRoute]) {
+    assert.match(
+      route,
+      /from "@\/lib\/project-runtime-configuration-lock"/,
+    );
+    assert.match(
+      route,
+      /await lockProjectRuntimeConfiguration\(tx,\s*projektId\)/,
+    );
+    assert.ok(
+      route.indexOf("lockProjectRuntimeConfiguration(tx, projektId)") <
+        route.indexOf("withBoundedMediaRuntimeMutation(tx, projektId"),
+      "the shared project lock must be acquired before the bounded runtime snapshot",
+    );
+  }
+});
+
 test("concurrent partial image updates serialize, retry write conflicts and never overwrite omitted fields", () => {
   assert.match(itemRoute, /TransactionIsolationLevel\.Serializable/);
   assert.match(itemRoute, /P2034/);

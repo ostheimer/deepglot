@@ -1,6 +1,8 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.7**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.8**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+
+v0.12.8 adds project- and target-language-specific same-site media replacements. It safely rewrites server-rendered regular, responsive, and lazy-loaded image URLs, keeps picture-source MIME hints aligned with uniform replacement formats, and preserves no-translate subtrees plus configured class and ID exclusions. Publishing this package does not automatically install or update the plugin on customer sites.
 
 v0.12.7 consumes project-wide source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy as one authenticated, versioned SaaS snapshot. The WordPress admin displays source, targets, and redirect as explicit read-only mirrors after that snapshot, while a key or backend change keeps valid bootstrap values until the new project readback arrives. The settings REST API exposes those mirrors for reads but rejects writes. Disabling fresh automatic translation still permits local and SaaS cache hits, including dynamic content; identity fallbacks under target URLs are non-cacheable, and runtime language changes prune only obsolete warm-up state.
 
@@ -125,8 +127,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.7 this creates `deepglot-0.12.7.zip` and
-`deepglot-0.12.7.zip.sha256`. Build the same commit into two empty output
+For v0.12.8 this creates `deepglot-0.12.8.zip` and
+`deepglot-0.12.8.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test

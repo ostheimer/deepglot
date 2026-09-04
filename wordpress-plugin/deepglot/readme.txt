@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 0.12.7
+Stable tag: 0.12.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -72,7 +72,7 @@ Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII
 
 Since version 0.12.4, translated cache values also use a separate versioned, checksummed ASCII-safe key space. Existing plain-string cache entries remain readable. A cache write counts as complete only after an exact readback; failed writes stay queued, their page cache is not purged, and inline responses remain non-cacheable until the translation is durable.
 
-Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable. Version 0.12.7 reads project-wide language, redirect, disclosure, and automatic-translation settings from one authenticated, versioned SaaS snapshot. WordPress keeps valid cached translations available when automatic generation is off, prunes obsolete warm-up work after a language change, and prevents source-language cache-only fallbacks from entering full-page caches under a target URL.
+Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable. Version 0.12.7 reads project-wide language, redirect, disclosure, and automatic-translation settings from one authenticated, versioned SaaS snapshot. WordPress keeps valid cached translations available when automatic generation is off, prunes obsolete warm-up work after a language change, and prevents source-language cache-only fallbacks from entering full-page caches under a target URL. Version 0.12.8 adds locale-specific, same-site media replacements for server-rendered responsive and lazy-loaded images while preserving excluded and unsafe content.
 
 When every attempted SaaS provider returns only a count mismatch for the same multi-text root chunk, Deepglot starts direct singleton isolation. It skips redundant binary intermediate shapes and retries each original text through the configured provider chain in input order. The provider-call ceiling is chain length × (chunk size + 1) for a multi-text root, while an original singleton gets one chain; a default eight-text chunk with two providers therefore allows at most 18 provider calls. All root chunks and isolated singletons share the request-wide provider-call concurrency cap (default 12) and a 100-second provider-work deadline. A failing parallel chunk stops new sibling provider calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain terminal; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra isolation path.
 
@@ -100,6 +100,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.8 =
+* Added project- and target-language-specific same-site image replacements for server-rendered media.
+* Safely rewrote regular, responsive, and lazy-loaded image URLs while preserving malformed or unsafe values and keeping picture-source MIME hints consistent.
+* Honored no-translate subtrees and configured class or ID exclusions for media replacements.
 
 = 0.12.7 =
 * Made the authenticated Deepglot project authoritative for source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy through one versioned runtime snapshot.
@@ -190,6 +195,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.8 =
+Adds locale-specific media replacements with safe responsive and lazy rewriting plus configured exclusions. Publishing the package does not automatically update customer sites.
 
 = 0.12.7 =
 Moves project-wide language and automatic-translation ownership to the authenticated Deepglot project while preserving safe WordPress bootstrap, cached delivery, and background-queue reconciliation.

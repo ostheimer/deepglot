@@ -35,10 +35,11 @@ test(
   "PostgreSQL isolates locale-specific image mappings, enforces uniqueness, authenticates runtime configuration and cascades project deletion",
   { skip: skipWithoutDatabase },
   async () => {
-    const [{ db }, { generateApiKey }, runtime] = await Promise.all([
+    const [{ db }, { generateApiKey }, runtime, media] = await Promise.all([
       import("@/lib/db"),
       import("@/lib/api-keys"),
       import("@/app/api/plugin/runtime-config/route"),
+      import("@/lib/media-replacements"),
     ]);
     const suffix = crypto.randomUUID();
     const organization = await db.organization.create({
@@ -101,6 +102,41 @@ test(
         error.code === "P2002",
       "One project and target language must not own two replacements for the same original image",
     );
+
+    const lowercaseEscapes = media.normalizeMediaImageUrl(
+      "/wp-content/uploads/caf%c3%a9.png",
+      project.domain,
+    );
+    const uppercaseEscapes = media.normalizeMediaImageUrl(
+      "/wp-content/uploads/caf%C3%A9.png",
+      project.domain,
+    );
+    assert.equal(lowercaseEscapes, uppercaseEscapes);
+    const canonicalReplacement = await db.projectMediaReplacement.create({
+      data: {
+        projectId: project.id,
+        langTo: "en",
+        originalUrl: lowercaseEscapes,
+        localizedUrl: "/wp-content/uploads/cafe-en.webp",
+      },
+    });
+    await assert.rejects(
+      db.projectMediaReplacement.create({
+        data: {
+          projectId: project.id,
+          langTo: "en",
+          originalUrl: uppercaseEscapes,
+          localizedUrl: "/wp-content/uploads/cafe-alt-en.webp",
+        },
+      }),
+      (error: unknown) =>
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002",
+      "Percent-escape casing must normalize before the database uniqueness check",
+    );
+    await db.projectMediaReplacement.delete({
+      where: { id: canonicalReplacement.id },
+    });
 
     const foreignOrganization = await db.organization.create({
       data: {

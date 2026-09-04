@@ -183,7 +183,10 @@ export function normalizeMediaImageUrl(
     );
   }
 
-  const canonicalImageUrl = `${parsedImageUrl.pathname}${parsedImageUrl.search}`;
+  const canonicalImageUrl = `${parsedImageUrl.pathname}${parsedImageUrl.search}`.replace(
+    /%[0-9a-f]{2}/gi,
+    (escape) => escape.toUpperCase()
+  );
 
   if (canonicalImageUrl.length > MAX_MEDIA_IMAGE_URL_LENGTH) {
     invalidImageUrl("The canonical image URL exceeds the maximum supported length.");
