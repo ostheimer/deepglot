@@ -184,7 +184,9 @@ projects and inactive languages never enter the plugin runtime response.
   the JSON runtime payload to 224 KiB; WordPress independently bounds the
   serialized `deepglot_media_replacements` option to 256 KiB. The dedicated
   option is not autoloaded, and changing the configured API key or backend
-  clears stale project mappings.
+  clears stale project mappings. Existing mappings lock a source-language
+  migration until they are removed; adding or reactivating a target language
+  is rejected if its preserved mappings would exceed the SaaS runtime bound.
 - **Synchronization and caches:** runtime configuration refreshes at most once
   every 300 seconds on a frontend request that reaches WordPress. Mapping
   changes do not automatically invalidate full-page caches. After the new
@@ -196,10 +198,12 @@ projects and inactive languages never enter the plugin runtime response.
 
 There is currently no dashboard editing UI, media upload/storage, external CDN
 support, SVG/PDF/document/video localization, AI-generated media, or AJAX image
-replacement. Before deploying the matching SaaS code to production, apply only
-the additive `ProjectMediaReplacement` table, project foreign key, unique
-constraint, and index to the verified target database; do not use a broad
-production schema push to apply unrelated drift.
+replacement. The production schema gate was completed on 2026-09-04 against the
+verified Deepglot Neon `prod` branch: only the additive
+`ProjectMediaReplacement` table, project foreign key with update/delete cascade,
+unique `(projectId, langTo, originalUrl)` constraint, and `(projectId, langTo)`
+index were applied and independently verified. No broad production schema push
+was used.
 
 ## Anonymous page-view analytics (explicit opt-in)
 

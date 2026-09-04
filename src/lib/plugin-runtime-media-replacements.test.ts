@@ -32,29 +32,33 @@ type MediaQuery = {
 
 let runtimeMediaRows: MediaRow[] = [];
 
-const apiKeyFindUnique = test.mock.fn(async (args: {
-  where: { key: string };
-}) => {
-  if (args.where.key !== currentKeyHash) {
-    return null;
-  }
+const apiKeyFindUnique = test.mock.fn(
+  async (args: { where: { key: string } }) => {
+    if (args.where.key !== currentKeyHash) {
+      return null;
+    }
 
-  return {
-    id: "api_key_runtime_media_current",
-    projectId: currentProjectId,
-    isActive: true,
-    expiresAt: null,
-    project: {
-      organization: { subscription: null },
-      languages: [
-        { langCode: "en", isActive: true },
-        { langCode: "fr", isActive: true },
-        { langCode: "it", isActive: false },
-      ],
-      settings: null,
-    },
-  };
-});
+    return {
+      id: "api_key_runtime_media_current",
+      projectId: currentProjectId,
+      isActive: true,
+      expiresAt: null,
+      project: {
+        name: "Runtime media project",
+        domain: "runtime-media.example.test",
+        originalLang: "de",
+        updatedAt: new Date("2026-09-04T12:00:00.000Z"),
+        organization: { subscription: null },
+        languages: [
+          { langCode: "en", isActive: true },
+          { langCode: "fr", isActive: true },
+          { langCode: "it", isActive: false },
+        ],
+        settings: null,
+      },
+    };
+  },
+);
 const apiKeyUpdate = test.mock.fn(async () => ({}));
 const exclusionFindMany = test.mock.fn(async () => []);
 const slugFindMany = test.mock.fn(async () => []);
@@ -113,11 +117,14 @@ function runtimeRequest(apiKey: string | null = currentApiKey): NextRequest {
   return new Request(url) as NextRequest;
 }
 
-function mediaRow(index: number, options: {
-  language?: string;
-  projectId?: string;
-  fillerLength?: number;
-} = {}): MediaRow {
+function mediaRow(
+  index: number,
+  options: {
+    language?: string;
+    projectId?: string;
+    fillerLength?: number;
+  } = {},
+): MediaRow {
   const suffix = String(index).padStart(3, "0");
   const originalFiller = "a".repeat(options.fillerLength ?? 0);
   const localizedFiller = "b".repeat(options.fillerLength ?? 0);
@@ -155,7 +162,9 @@ test("rejects missing and invalid runtime API keys before querying project image
   assert.equal(apiKeyFindUnique.mock.callCount(), 0);
   assert.equal(mediaFindMany.mock.callCount(), 0);
 
-  const invalidResponse = await GET(runtimeRequest("dg_live_runtime_media_invalid"));
+  const invalidResponse = await GET(
+    runtimeRequest("dg_live_runtime_media_invalid"),
+  );
   const invalidBody = await invalidResponse.json();
   assert.equal(invalidResponse.status, 401);
   assert.equal(invalidBody.code, "invalid_api_key");
@@ -164,9 +173,8 @@ test("rejects missing and invalid runtime API keys before querying project image
 });
 
 test("returns compact image mappings only for the authenticated project and active languages", async () => {
-  const { GET, MAX_RUNTIME_MEDIA_REPLACEMENTS } = await import(
-    "@/app/api/plugin/runtime-config/route"
-  );
+  const { GET, MAX_RUNTIME_MEDIA_REPLACEMENTS } =
+    await import("@/app/api/plugin/runtime-config/route");
 
   runtimeMediaRows = [
     {
@@ -232,9 +240,8 @@ test("returns compact image mappings only for the authenticated project and acti
 });
 
 test("does not count inactive-language or foreign-project images toward the 500-image limit", async () => {
-  const { GET, MAX_RUNTIME_MEDIA_REPLACEMENTS } = await import(
-    "@/app/api/plugin/runtime-config/route"
-  );
+  const { GET, MAX_RUNTIME_MEDIA_REPLACEMENTS } =
+    await import("@/app/api/plugin/runtime-config/route");
 
   runtimeMediaRows = [
     mediaRow(1),
@@ -258,9 +265,8 @@ test("does not count inactive-language or foreign-project images toward the 500-
 });
 
 test("rejects 501 active project images instead of returning a truncated mapping set", async () => {
-  const { GET, MAX_RUNTIME_MEDIA_REPLACEMENTS } = await import(
-    "@/app/api/plugin/runtime-config/route"
-  );
+  const { GET, MAX_RUNTIME_MEDIA_REPLACEMENTS } =
+    await import("@/app/api/plugin/runtime-config/route");
 
   runtimeMediaRows = Array.from(
     { length: MAX_RUNTIME_MEDIA_REPLACEMENTS + 1 },
@@ -289,7 +295,9 @@ test("accepts a 500-image payload immediately below the reserved 224-KiB JSON ce
     (_, index) => mediaRow(index, { fillerLength: 198 }),
   );
   const expected = buildRuntimeMediaReplacements(runtimeMediaRows);
-  const payloadBytes = new TextEncoder().encode(JSON.stringify(expected)).length;
+  const payloadBytes = new TextEncoder().encode(
+    JSON.stringify(expected),
+  ).length;
 
   assert.equal(MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES, 229_376);
   assert.ok(payloadBytes <= MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES);
@@ -315,7 +323,9 @@ test("rejects a 500-image payload above the reserved 224-KiB JSON ceiling", asyn
     (_, index) => mediaRow(index, { fillerLength: 199 }),
   );
   const expected = buildRuntimeMediaReplacements(runtimeMediaRows);
-  const payloadBytes = new TextEncoder().encode(JSON.stringify(expected)).length;
+  const payloadBytes = new TextEncoder().encode(
+    JSON.stringify(expected),
+  ).length;
 
   assert.ok(payloadBytes > MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES);
 

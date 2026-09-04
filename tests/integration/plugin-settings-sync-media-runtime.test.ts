@@ -4,7 +4,10 @@ import { after, test } from "node:test";
 import type { NextRequest } from "next/server";
 
 import { resolveDatabaseUrl } from "@/lib/database-url";
-import { PLUGIN_RATE_LIMIT_SCOPE, hashRateLimitSubject } from "@/lib/rate-limit";
+import {
+  PLUGIN_RATE_LIMIT_SCOPE,
+  hashRateLimitSubject,
+} from "@/lib/rate-limit";
 
 const databaseUrl = resolveDatabaseUrl();
 const skipWithoutDatabase = databaseUrl
@@ -14,15 +17,18 @@ const cleanupOrganizationIds = new Set<string>();
 const cleanupApiKeyIds = new Set<string>();
 
 function runtimeRequest(apiKey: string): NextRequest {
-  return new Request("https://deepglot.example.test/api/plugin/runtime-config", {
-    headers: { authorization: `Bearer ${apiKey}` },
-  }) as NextRequest;
+  return new Request(
+    "https://deepglot.example.test/api/plugin/runtime-config",
+    {
+      headers: { authorization: `Bearer ${apiKey}` },
+    },
+  ) as NextRequest;
 }
 
 function settingsSyncRequest(
   apiKey: string,
   targetLanguages: string[],
-  changedHost: string
+  changedHost: string,
 ): NextRequest {
   return new Request("https://deepglot.example.test/api/plugin/settings-sync", {
     method: "POST",
@@ -50,7 +56,7 @@ function settingsSyncRequest(
 }
 
 test(
-  "WordPress settings sync rolls back oversized language activation without interrupting existing runtime refresh",
+  "WordPress settings sync preserves SaaS-owned languages even when dormant mappings would overflow runtime",
   { skip: skipWithoutDatabase, timeout: 30_000 },
   async () => {
     const [{ db }, { generateApiKey }, settingsSync, runtime, limits] =
@@ -115,22 +121,14 @@ test(
     assert.equal(initialRuntime.status, 200);
     assert.ok(
       new TextEncoder().encode(
-        JSON.stringify((await initialRuntime.json()).mediaReplacements)
-      ).byteLength < limits.MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES
+        JSON.stringify((await initialRuntime.json()).mediaReplacements),
+      ).byteLength < limits.MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
     );
 
-    const rejected = await settingsSync.POST(
-      settingsSyncRequest(rawKey, ["en", "fr"], changedDomain)
+    const synced = await settingsSync.POST(
+      settingsSyncRequest(rawKey, ["en", "fr"], changedDomain),
     );
-    const rejectedBody = await rejected.json();
-    assert.equal(rejected.status, 409);
-    assert.match(
-      rejected.headers.get("content-type") ?? "",
-      /^application\/problem\+json/
-    );
-    assert.equal(rejectedBody.code, "media_replacements_payload_too_large");
-    assert.equal(rejectedBody.limit, limits.MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES);
-    assert.equal(rejectedBody.instance, "/api/plugin/settings-sync");
+    assert.equal(synced.status, 200);
 
     const preserved = await db.project.findUniqueOrThrow({
       where: { id: project.id },
@@ -143,69 +141,43 @@ test(
     assert.equal(preserved.domain, originalDomain);
     assert.equal(preserved.originalLang, "de");
     assert.deepEqual(
-      preserved.languages.map(({ langCode, isActive }) => ({ langCode, isActive })),
+      preserved.languages.map(({ langCode, isActive }) => ({
+        langCode,
+        isActive,
+      })),
       [
         { langCode: "en", isActive: true },
         { langCode: "fr", isActive: false },
-      ]
+      ],
     );
     assert.equal(preserved.settings?.autoSwitch, false);
-    assert.equal(preserved.settings?.routingMode, "PATH_PREFIX");
-    assert.equal(preserved.settings?.runtimeSyncedAt, null);
+    assert.equal(preserved.settings?.routingMode, "SUBDOMAIN");
+    assert.ok(preserved.settings?.runtimeSyncedAt instanceof Date);
     assert.deepEqual(
       preserved.domainMappings.map(({ host }) => host),
-      [originalMappedHost]
+      [`translated.${changedDomain}`],
     );
 
     const preservedRuntime = await runtime.GET(runtimeRequest(rawKey));
     assert.equal(preservedRuntime.status, 200);
     assert.deepEqual(
       Object.keys((await preservedRuntime.json()).mediaReplacements),
-      ["en"]
+      ["en"],
     );
-
-    const recovered = await settingsSync.POST(
-      settingsSyncRequest(rawKey, ["fr"], changedDomain)
-    );
-    assert.equal(recovered.status, 200);
-    const updated = await db.project.findUniqueOrThrow({
-      where: { id: project.id },
-      include: { languages: true, settings: true, domainMappings: true },
-    });
-    assert.equal(updated.domain, changedDomain);
-    assert.equal(updated.originalLang, "it");
-    assert.equal(updated.settings?.autoSwitch, true);
-    assert.equal(updated.settings?.routingMode, "SUBDOMAIN");
-    assert.deepEqual(
-      updated.languages
-        .filter(({ isActive }) => isActive)
-        .map(({ langCode }) => langCode),
-      ["fr"]
-    );
-    assert.deepEqual(
-      updated.domainMappings.map(({ host }) => host),
-      [`translated.${changedDomain}`]
-    );
-
-    const recoveredRuntime = await runtime.GET(runtimeRequest(rawKey));
-    assert.equal(recoveredRuntime.status, 200);
-    assert.deepEqual(
-      Object.keys((await recoveredRuntime.json()).mediaReplacements),
-      ["fr"]
-    );
-  }
+  },
 );
 
 test(
-  "WordPress settings sync rejects the 501st active image and can repair legacy count overflow",
+  "WordPress settings sync cannot activate or repair a SaaS-owned legacy image-count overflow",
   { skip: skipWithoutDatabase, timeout: 30_000 },
   async () => {
-    const [{ db }, { generateApiKey }, settingsSync, runtime] = await Promise.all([
-      import("@/lib/db"),
-      import("@/lib/api-keys"),
-      import("@/app/api/plugin/settings-sync/route"),
-      import("@/app/api/plugin/runtime-config/route"),
-    ]);
+    const [{ db }, { generateApiKey }, settingsSync, runtime] =
+      await Promise.all([
+        import("@/lib/db"),
+        import("@/lib/api-keys"),
+        import("@/app/api/plugin/settings-sync/route"),
+        import("@/app/api/plugin/runtime-config/route"),
+      ]);
     const suffix = crypto.randomUUID();
     const domain = `count-${suffix}.example.test`;
     const organization = await db.organization.create({
@@ -252,14 +224,10 @@ test(
     cleanupApiKeyIds.add(apiKey.id);
 
     assert.equal((await runtime.GET(runtimeRequest(rawKey))).status, 200);
-    const rejected = await settingsSync.POST(
-      settingsSyncRequest(rawKey, ["en", "fr"], domain)
+    const synced = await settingsSync.POST(
+      settingsSyncRequest(rawKey, ["en", "fr"], domain),
     );
-    assert.equal(rejected.status, 409);
-    assert.deepEqual(
-      { code: (await rejected.clone().json()).code, limit: (await rejected.json()).limit },
-      { code: "media_replacements_limit_exceeded", limit: 500 }
-    );
+    assert.equal(synced.status, 200);
     const dormant = await db.projectLanguage.findUniqueOrThrow({
       where: { projectId_langCode: { projectId: project.id, langCode: "fr" } },
     });
@@ -272,17 +240,22 @@ test(
     });
     assert.equal((await runtime.GET(runtimeRequest(rawKey))).status, 413);
 
-    const recovered = await settingsSync.POST(
-      settingsSyncRequest(rawKey, ["fr"], domain)
+    const unchanged = await settingsSync.POST(
+      settingsSyncRequest(rawKey, ["fr"], domain),
     );
-    assert.equal(recovered.status, 200);
-    const recoveredRuntime = await runtime.GET(runtimeRequest(rawKey));
-    assert.equal(recoveredRuntime.status, 200);
-    assert.deepEqual(
-      (await recoveredRuntime.json()).mediaReplacements,
-      { fr: { "/uploads/fr.png": "/uploads/fr.webp" } }
+    assert.equal(unchanged.status, 200);
+    assert.equal(
+      (
+        await db.projectLanguage.findUniqueOrThrow({
+          where: {
+            projectId_langCode: { projectId: project.id, langCode: "en" },
+          },
+        })
+      ).isActive,
+      true,
     );
-  }
+    assert.equal((await runtime.GET(runtimeRequest(rawKey))).status, 413);
+  },
 );
 
 after(async () => {
@@ -296,7 +269,7 @@ after(async () => {
       scope: PLUGIN_RATE_LIMIT_SCOPE,
       subjectHash: {
         in: [...cleanupApiKeyIds].map((apiKeyId) =>
-          hashRateLimitSubject(PLUGIN_RATE_LIMIT_SCOPE, apiKeyId)
+          hashRateLimitSubject(PLUGIN_RATE_LIMIT_SCOPE, apiKeyId),
         ),
       },
     },

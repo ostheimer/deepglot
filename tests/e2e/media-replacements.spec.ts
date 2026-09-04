@@ -12,7 +12,10 @@ test("project managers safely manage locale-specific image mappings end to end",
   const projectResponse = await page.request.get(`/api/projects/${projectId}`);
   expect(projectResponse.status()).toBe(200);
 
-  const originalProject = (await projectResponse.json()) as { domain: string };
+  const originalProject = (await projectResponse.json()) as {
+    domain: string;
+    version: string;
+  };
   const projectDomain = `${e2eId("media")}.example.test`;
   const originalUrl = "/wp-content/uploads/deepglot-e2e-image.jpg?revision=1";
   const englishUrl = "/wp-content/uploads/deepglot-e2e-image-en.webp";
@@ -21,24 +24,34 @@ test("project managers safely manage locale-specific image mappings end to end",
   let apiKeyId: string | undefined;
 
   try {
-    const domainResponse = await page.request.patch(`/api/projects/${projectId}`, {
-      data: { domain: projectDomain },
-    });
+    const domainResponse = await page.request.patch(
+      `/api/projects/${projectId}`,
+      {
+        data: {
+          expectedVersion: originalProject.version,
+          domain: projectDomain,
+        },
+      },
+    );
     expect(domainResponse.status()).toBe(200);
 
     expect((await request.get(collectionPath)).status()).toBe(401);
 
-    const expandedOriginalUnicodeResponse = await page.request.post(collectionPath, {
-      data: {
-        langTo: "en",
-        originalUrl: `/wp-content/uploads/${"é".repeat(350)}.jpg`,
-        localizedUrl: englishUrl,
+    const expandedOriginalUnicodeResponse = await page.request.post(
+      collectionPath,
+      {
+        data: {
+          langTo: "en",
+          originalUrl: `/wp-content/uploads/${"é".repeat(350)}.jpg`,
+          localizedUrl: englishUrl,
+        },
       },
-    });
+    );
     if (expandedOriginalUnicodeResponse.status() === 201) {
-      const unexpectedlyCreated = (await expandedOriginalUnicodeResponse.json()) as {
-        mediaReplacement: { id: string };
-      };
+      const unexpectedlyCreated =
+        (await expandedOriginalUnicodeResponse.json()) as {
+          mediaReplacement: { id: string };
+        };
       await page.request.delete(
         `${collectionPath}/${unexpectedlyCreated.mediaReplacement.id}`,
       );
@@ -134,13 +147,16 @@ test("project managers safely manage locale-specific image mappings end to end",
       code: "invalid_media_image_url",
     });
 
-    const expandedLocalizedUnicodeResponse = await page.request.post(collectionPath, {
-      data: {
-        langTo: "fr",
-        originalUrl,
-        localizedUrl: `/wp-content/uploads/${"é".repeat(400)}.webp`,
+    const expandedLocalizedUnicodeResponse = await page.request.post(
+      collectionPath,
+      {
+        data: {
+          langTo: "fr",
+          originalUrl,
+          localizedUrl: `/wp-content/uploads/${"é".repeat(400)}.webp`,
+        },
       },
-    });
+    );
     expect(expandedLocalizedUnicodeResponse.status()).toBe(400);
     expect(await expandedLocalizedUnicodeResponse.json()).toMatchObject({
       code: "invalid_media_image_url",
@@ -161,7 +177,9 @@ test("project managers safely manage locale-specific image mappings end to end",
       limitExceeded: boolean;
     };
     expect(listing.limitExceeded).toBe(false);
-    expect(listing.mediaReplacements.some((entry) => entry.id === mappingId)).toBe(true);
+    expect(
+      listing.mediaReplacements.some((entry) => entry.id === mappingId),
+    ).toBe(true);
 
     const keyResponse = await page.request.post(
       `/api/projects/${projectId}/api-keys`,
@@ -185,7 +203,9 @@ test("project managers safely manage locale-specific image mappings end to end",
       };
     };
 
-    expect((await runtimeConfig()).mediaReplacements.en?.[originalUrl]).toBe(englishUrl);
+    expect((await runtimeConfig()).mediaReplacements.en?.[originalUrl]).toBe(
+      englishUrl,
+    );
 
     const [languageUpdate, imageUpdate] = await Promise.all([
       page.request.patch(`${collectionPath}/${mappingId}`, {
@@ -207,18 +227,35 @@ test("project managers safely manage locale-specific image mappings end to end",
     );
     expect(deleteResponse.status()).toBe(200);
     mappingId = undefined;
-    expect((await runtimeConfig()).mediaReplacements.fr?.[originalUrl]).toBeUndefined();
+    expect(
+      (await runtimeConfig()).mediaReplacements.fr?.[originalUrl],
+    ).toBeUndefined();
   } finally {
     if (mappingId) {
       await page.request.delete(`${collectionPath}/${mappingId}`);
     }
     if (apiKeyId) {
-      await page.request.delete(`/api/projects/${projectId}/api-keys/${apiKeyId}`);
+      await page.request.delete(
+        `/api/projects/${projectId}/api-keys/${apiKeyId}`,
+      );
     }
 
-    const restoreResponse = await page.request.patch(`/api/projects/${projectId}`, {
-      data: { domain: originalProject.domain },
-    });
+    const currentProjectResponse = await page.request.get(
+      `/api/projects/${projectId}`,
+    );
+    expect(currentProjectResponse.status()).toBe(200);
+    const currentProject = (await currentProjectResponse.json()) as {
+      version: string;
+    };
+    const restoreResponse = await page.request.patch(
+      `/api/projects/${projectId}`,
+      {
+        data: {
+          expectedVersion: currentProject.version,
+          domain: originalProject.domain,
+        },
+      },
+    );
     expect(restoreResponse.status()).toBe(200);
   }
 });
@@ -234,7 +271,10 @@ test("image management rejects oversized configurations without interrupting plu
   const projectResponse = await page.request.get(`/api/projects/${projectId}`);
   expect(projectResponse.status()).toBe(200);
 
-  const originalProject = (await projectResponse.json()) as { domain: string };
+  const originalProject = (await projectResponse.json()) as {
+    domain: string;
+    version: string;
+  };
   const prefix = e2eId("media-payload");
   const domain = `${prefix}.example.test`;
   const payloadLimit = 224 * 1024;
@@ -244,22 +284,32 @@ test("image management rejects oversized configurations without interrupting plu
   let inactiveLanguageWasSeeded = false;
 
   try {
-    const domainResponse = await page.request.patch(`/api/projects/${projectId}`, {
-      data: { domain },
-    });
+    const domainResponse = await page.request.patch(
+      `/api/projects/${projectId}`,
+      {
+        data: {
+          expectedVersion: originalProject.version,
+          domain,
+        },
+      },
+    );
     expect(domainResponse.status()).toBe(200);
 
     const existing = await db.projectMediaReplacement.findMany({
       where: { projectId, langTo: { in: ["en", "fr"] } },
       select: { langTo: true, originalUrl: true, localizedUrl: true },
     });
-    const payload = Object.create(null) as Record<string, Record<string, string>>;
+    const payload = Object.create(null) as Record<
+      string,
+      Record<string, string>
+    >;
     for (const row of existing) {
       (payload[row.langTo] ??= Object.create(null))[row.originalUrl] =
         row.localizedUrl;
     }
     const english = (payload.en ??= Object.create(null));
-    const payloadBytes = () => new TextEncoder().encode(JSON.stringify(payload)).byteLength;
+    const payloadBytes = () =>
+      new TextEncoder().encode(JSON.stringify(payload)).byteLength;
     const rows: Array<{
       projectId: string;
       langTo: string;
@@ -382,15 +432,13 @@ test("image management rejects oversized configurations without interrupting plu
       }),
     ).toBeNull();
 
-    const inactiveOriginalUrl =
-      `/wp-content/uploads/${prefix}-inactive-${"i".repeat(300)}.jpg`;
+    const inactiveOriginalUrl = `/wp-content/uploads/${prefix}-inactive-${"i".repeat(300)}.jpg`;
     await db.projectMediaReplacement.create({
       data: {
         projectId,
         langTo: inactiveLanguageCode,
         originalUrl: inactiveOriginalUrl,
-        localizedUrl:
-          `/wp-content/uploads/${prefix}-localized-${"i".repeat(300)}.webp`,
+        localizedUrl: `/wp-content/uploads/${prefix}-localized-${"i".repeat(300)}.webp`,
       },
     });
     seededUrls.push(inactiveOriginalUrl);
@@ -411,7 +459,7 @@ test("image management rejects oversized configurations without interrupting plu
     ).toBeNull();
     expect((await readRuntime()).status()).toBe(200);
 
-    const rejectedSettingsSync = await request.post("/api/plugin/settings-sync", {
+    const settingsSync = await request.post("/api/plugin/settings-sync", {
       headers: { authorization: `Bearer ${rawKey}` },
       data: {
         routingMode: "PATH_PREFIX",
@@ -425,10 +473,7 @@ test("image management rejects oversized configurations without interrupting plu
         domainMappings: [],
       },
     });
-    expect(rejectedSettingsSync.status()).toBe(409);
-    expect(await rejectedSettingsSync.json()).toMatchObject({
-      code: "media_replacements_payload_too_large",
-    });
+    expect(settingsSync.status()).toBe(200);
     expect(
       await db.projectLanguage.findFirst({
         where: { projectId, langCode: inactiveLanguageCode },
@@ -447,12 +492,27 @@ test("image management rejects oversized configurations without interrupting plu
       });
     }
     if (apiKeyId) {
-      await page.request.delete(`/api/projects/${projectId}/api-keys/${apiKeyId}`);
+      await page.request.delete(
+        `/api/projects/${projectId}/api-keys/${apiKeyId}`,
+      );
     }
 
-    const restoreResponse = await page.request.patch(`/api/projects/${projectId}`, {
-      data: { domain: originalProject.domain },
-    });
+    const currentProjectResponse = await page.request.get(
+      `/api/projects/${projectId}`,
+    );
+    expect(currentProjectResponse.status()).toBe(200);
+    const currentProject = (await currentProjectResponse.json()) as {
+      version: string;
+    };
+    const restoreResponse = await page.request.patch(
+      `/api/projects/${projectId}`,
+      {
+        data: {
+          expectedVersion: currentProject.version,
+          domain: originalProject.domain,
+        },
+      },
+    );
     expect(restoreResponse.status()).toBe(200);
   }
 });

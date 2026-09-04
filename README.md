@@ -162,10 +162,13 @@ A project can contain at most **500 image replacements**. Concurrent creation
 and partial updates use serializable project-scoped checks; a duplicate,
 exhausted item limit, or active-language JSON payload exceeding **224 KiB**
 returns HTTP 409 before its transaction commits. Activating a language through
-the dashboard or WordPress settings synchronization applies the same payload
-limit before exposing existing mappings. Independent simultaneous updates
-preserve omitted fields, and existing oversized configurations can still be
-reduced or deleted. The authenticated plugin runtime includes only mappings
+the dashboard applies the same payload limit before exposing existing mappings;
+WordPress settings synchronization cannot mutate the SaaS-owned language set.
+Because mappings depend on the source/target language relationship, any existing
+mapping also locks source-language migration until the mapping is removed.
+Independent simultaneous updates preserve omitted fields, and existing
+oversized configurations can still be reduced or deleted. The authenticated
+plugin runtime includes only mappings
 belonging to its API key's project and currently active target languages.
 WordPress applies a separate **256 KiB** serialized-option limit and keeps the
 mappings in a dedicated, non-autoloaded
@@ -187,15 +190,14 @@ This initial slice does not provide a dashboard interface, uploads, file
 storage, external CDN images, SVG/PDF/document/video localization, AI-generated
 media, or image replacement in dynamically inserted AJAX content.
 
-**Production rollout gate:** before production traffic can reach a build with
-image replacements, inspect the exact target database and apply only the
-additive `ProjectMediaReplacement` table, its project foreign key with cascade,
-its unique `(projectId, langTo, originalUrl)` constraint, and its
-`(projectId, langTo)` index. The existing plugin runtime endpoint reads this
-table for every configured project, so deploying code before this additive
-schema change can break runtime synchronization for all current WordPress
-sites. Do not run a broad production `prisma db push` that would also apply
-unrelated schema drift.
+**Production schema gate completed on 2026-09-04:** the exact Deepglot Neon
+production branch (`prod`, database `neondb`) was inspected first. Only the
+additive `ProjectMediaReplacement` table, its `Project(id)` foreign key with
+update/delete cascade, its unique `(projectId, langTo, originalUrl)` constraint,
+and its `(projectId, langTo)` index were applied in one transaction. A separate
+catalogue read verified the seven expected columns, primary key, both indexes,
+foreign key, cascade actions, and an empty table. No broad production
+`prisma db push` was used.
 
 ## Optional page-view analytics
 

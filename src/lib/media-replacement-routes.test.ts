@@ -10,12 +10,15 @@ const apiDirectory = path.join(
   "api",
   "projects",
   "[projektId]",
-  "media"
+  "media",
 );
-const collectionRoute = readFileSync(path.join(apiDirectory, "route.ts"), "utf8");
+const collectionRoute = readFileSync(
+  path.join(apiDirectory, "route.ts"),
+  "utf8",
+);
 const itemRoute = readFileSync(
   path.join(apiDirectory, "[mediaId]", "route.ts"),
-  "utf8"
+  "utf8",
 );
 const runtimeRoute = readFileSync(
   path.join(
@@ -25,40 +28,55 @@ const runtimeRoute = readFileSync(
     "api",
     "plugin",
     "runtime-config",
-    "route.ts"
+    "route.ts",
   ),
-  "utf8"
+  "utf8",
 );
 const languageRoute = readFileSync(
   path.join(apiDirectory, "..", "languages", "route.ts"),
-  "utf8"
+  "utf8",
+);
+const languageMutations = readFileSync(
+  path.join(process.cwd(), "src", "lib", "project-language-mutations.ts"),
+  "utf8",
+);
+const generalSettings = readFileSync(
+  path.join(process.cwd(), "src", "lib", "project-general-settings.ts"),
+  "utf8",
+);
+const projectRoute = readFileSync(
+  path.join(apiDirectory, "..", "route.ts"),
+  "utf8",
 );
 const prismaSchema = readFileSync(
   path.join(process.cwd(), "prisma", "schema.prisma"),
-  "utf8"
+  "utf8",
 );
 
 test("project media persistence has tenant-local uniqueness and cascading ownership", () => {
   assert.match(prismaSchema, /mediaReplacements\s+ProjectMediaReplacement\[\]/);
   assert.match(
     prismaSchema,
-    /model ProjectMediaReplacement\s*\{[\s\S]*?onDelete:\s*Cascade[\s\S]*?@@unique\(\[projectId, langTo, originalUrl\]\)[\s\S]*?@@index\(\[projectId, langTo\]\)/
+    /model ProjectMediaReplacement\s*\{[\s\S]*?onDelete:\s*Cascade[\s\S]*?@@unique\(\[projectId, langTo, originalUrl\]\)[\s\S]*?@@index\(\[projectId, langTo\]\)/,
   );
 });
 
 test("project image creation validates active tenant languages and same-project paths", () => {
   assert.match(
     collectionRoute,
-    /projectLanguage\.findFirst\(\{[\s\S]*?projectId:\s*projektId[\s\S]*?langCode:\s*parsed\.data\.langTo[\s\S]*?isActive:\s*true/
-  );
-  assert.match(collectionRoute, /project:\s*\{\s*select:\s*\{\s*domain:\s*true/);
-  assert.match(
-    collectionRoute,
-    /originalUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/
+    /projectLanguage\.findFirst\(\{[\s\S]*?projectId:\s*projektId[\s\S]*?langCode:\s*parsed\.data\.langTo[\s\S]*?isActive:\s*true/,
   );
   assert.match(
     collectionRoute,
-    /localizedUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/
+    /project:\s*\{\s*select:\s*\{\s*domain:\s*true/,
+  );
+  assert.match(
+    collectionRoute,
+    /originalUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/,
+  );
+  assert.match(
+    collectionRoute,
+    /localizedUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/,
   );
   assert.doesNotMatch(collectionRoute, /\b(?:fetch|axios|undici)\s*\(/);
 });
@@ -67,7 +85,7 @@ test("project image creation enforces the runtime cap in a retryable serializabl
   assert.match(collectionRoute, /\$transaction\(/);
   assert.match(
     collectionRoute,
-    /projectMediaReplacement\.count\(\{\s*where:\s*\{\s*projectId:\s*projektId/
+    /projectMediaReplacement\.count\(\{\s*where:\s*\{\s*projectId:\s*projektId/,
   );
   assert.match(collectionRoute, /assertMediaReplacementCapacity\(/);
   assert.match(collectionRoute, /TransactionIsolationLevel\.Serializable/);
@@ -79,7 +97,7 @@ test("project image creation enforces the runtime cap in a retryable serializabl
 test("manager image listing remains bounded while legacy overflow stays recoverable", () => {
   assert.match(
     collectionRoute,
-    /take:\s*MAX_RUNTIME_MEDIA_REPLACEMENTS\s*\+\s*1/
+    /take:\s*MAX_RUNTIME_MEDIA_REPLACEMENTS\s*\+\s*1/,
   );
   assert.match(collectionRoute, /limitExceeded/);
 });
@@ -87,19 +105,19 @@ test("manager image listing remains bounded while legacy overflow stays recovera
 test("image updates and deletion retain tenant ownership on every resource lookup", () => {
   assert.match(
     itemRoute,
-    /projectMediaReplacement\.findFirst\(\{\s*where:\s*\{\s*id:\s*mediaId,\s*projectId:\s*projektId/
+    /projectMediaReplacement\.findFirst\(\{\s*where:\s*\{\s*id:\s*mediaId,\s*projectId:\s*projektId/,
   );
   assert.match(
     itemRoute,
-    /projectMediaReplacement\.update\(\{\s*where:\s*\{\s*id:\s*mediaId,\s*projectId:\s*projektId/
+    /projectMediaReplacement\.update\(\{\s*where:\s*\{\s*id:\s*mediaId,\s*projectId:\s*projektId/,
   );
   assert.match(
     itemRoute,
-    /projectMediaReplacement\.deleteMany\(\{\s*where:\s*\{\s*id:\s*mediaId,\s*projectId:\s*projektId/
+    /projectMediaReplacement\.deleteMany\(\{\s*where:\s*\{\s*id:\s*mediaId,\s*projectId:\s*projektId/,
   );
   assert.match(
     itemRoute,
-    /projectLanguage\.findFirst\(\{\s*where:\s*\{\s*projectId:\s*projektId,\s*langCode:\s*langTo,\s*isActive:\s*true/
+    /projectLanguage\.findFirst\(\{\s*where:\s*\{\s*projectId:\s*projektId,\s*langCode:\s*langTo,\s*isActive:\s*true/,
   );
   assert.match(itemRoute, /status:\s*404/);
   assert.match(itemRoute, /error\.code === "P2002"/);
@@ -130,15 +148,18 @@ test("image management errors expose stable machine-readable causes", () => {
 test("POST and PATCH reject oversized active runtime mappings before their transaction commits", () => {
   assert.match(
     collectionRoute,
-    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/
+    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/,
   );
-  assert.match(itemRoute, /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/);
+  assert.match(
+    itemRoute,
+    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/,
+  );
   assert.match(collectionRoute, /media_replacements_payload_too_large/);
   assert.match(itemRoute, /media_replacements_payload_too_large/);
   assert.match(runtimeRoute, /from "@\/lib\/media-runtime-limits"/);
   assert.doesNotMatch(
     runtimeRoute,
-    /MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES\s*=\s*229_376/
+    /MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES\s*=\s*229_376/,
   );
 });
 
@@ -150,35 +171,48 @@ test("concurrent partial image updates serialize, retry write conflicts and neve
   assert.match(itemRoute, /parsed\.data\.langTo\s*!==\s*undefined/);
   assert.doesNotMatch(
     itemRoute,
-    /originalUrl:\s*normalizeMediaImageUrl\(\s*parsed\.data\.originalUrl\s*\?\?\s*existing\.originalUrl/
+    /originalUrl:\s*normalizeMediaImageUrl\(\s*parsed\.data\.originalUrl\s*\?\?\s*existing\.originalUrl/,
   );
   assert.doesNotMatch(
     itemRoute,
-    /localizedUrl:\s*normalizeMediaImageUrl\(\s*parsed\.data\.localizedUrl\s*\?\?\s*existing\.localizedUrl/
+    /localizedUrl:\s*normalizeMediaImageUrl\(\s*parsed\.data\.localizedUrl\s*\?\?\s*existing\.localizedUrl/,
   );
 });
 
 test("language reactivation preserves manager access and duplicate handling while enforcing the project-wide image runtime ceiling", () => {
   assert.match(languageRoute, /userCanManageProject\(userId,\s*projektId\)/);
+  assert.match(languageRoute, /addProjectTargetLanguages\(db,/);
   assert.match(
-    languageRoute,
-    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projektId/
+    languageMutations,
+    /withBoundedMediaRuntimeMutation\(\s*tx,\s*projectId/,
   );
-  assert.match(languageRoute, /projectLanguage\.createMany\(/);
-  assert.match(languageRoute, /skipDuplicates:\s*true/);
-  assert.match(languageRoute, /TransactionIsolationLevel\.Serializable/);
-  assert.match(languageRoute, /P2034/);
+  assert.match(languageMutations, /projectLanguage\.createMany\(/);
+  assert.match(languageMutations, /skipDuplicates:\s*true/);
+  assert.match(languageMutations, /TransactionIsolationLevel\.ReadCommitted/);
+  assert.match(languageMutations, /isProjectRuntimeSerializationConflict/);
   assert.match(languageRoute, /media_replacements_payload_too_large/);
   assert.match(languageRoute, /status:\s*409/);
-  assert.match(languageRoute, /projectLanguage\.deleteMany\(/);
+  assert.match(languageMutations, /projectLanguage\.deleteMany\(/);
 });
 
 test("dashboard language activation revives existing inactive rows and rejects the 501-image sentinel with a stable conflict", () => {
   assert.match(
-    languageRoute,
-    /projectLanguage\.updateMany\(\{[\s\S]*?projectId:\s*projektId[\s\S]*?langCode:\s*\{\s*in:\s*parsed\.data\.languages[\s\S]*?isActive:\s*false[\s\S]*?data:\s*\{\s*isActive:\s*true/
+    languageMutations,
+    /projectLanguage\.updateMany\(\{[\s\S]*?projectId[\s\S]*?langCode:\s*\{\s*in:\s*languages[\s\S]*?data:\s*\{\s*isActive:\s*true/,
   );
-  assert.match(languageRoute, /error\.code\s*===\s*"MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"/);
+  assert.match(
+    languageRoute,
+    /error\.code\s*===\s*"MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"/,
+  );
   assert.match(languageRoute, /code:\s*"media_replacements_limit_exceeded"/);
   assert.match(languageRoute, /limit:\s*MAX_RUNTIME_MEDIA_REPLACEMENTS/);
+});
+
+test("source-language migration remains locked once locale-specific media mappings exist", () => {
+  assert.match(
+    generalSettings,
+    /database\.projectMediaReplacement\.count\(\{\s*where:\s*\{\s*projectId\s*\}\s*\}\)/,
+  );
+  assert.match(generalSettings, /mediaReplacements:\s*number/);
+  assert.match(projectRoute, /code:\s*"original_language_locked"/);
 });

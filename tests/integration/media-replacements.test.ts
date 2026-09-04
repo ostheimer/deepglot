@@ -5,7 +5,10 @@ import { Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 
 import { resolveDatabaseUrl } from "@/lib/database-url";
-import { PLUGIN_RATE_LIMIT_SCOPE, hashRateLimitSubject } from "@/lib/rate-limit";
+import {
+  PLUGIN_RATE_LIMIT_SCOPE,
+  hashRateLimitSubject,
+} from "@/lib/rate-limit";
 
 const databaseUrl = resolveDatabaseUrl();
 const skipWithoutDatabase = databaseUrl
@@ -20,9 +23,12 @@ function runtimeRequest(apiKey?: string): NextRequest {
     headers.set("authorization", `Bearer ${apiKey}`);
   }
 
-  return new Request("https://deepglot.example.test/api/plugin/runtime-config", {
-    headers,
-  }) as NextRequest;
+  return new Request(
+    "https://deepglot.example.test/api/plugin/runtime-config",
+    {
+      headers,
+    },
+  ) as NextRequest;
 }
 
 test(
@@ -36,7 +42,10 @@ test(
     ]);
     const suffix = crypto.randomUUID();
     const organization = await db.organization.create({
-      data: { name: `Media mappings ${suffix}`, slug: `media-mappings-${suffix}` },
+      data: {
+        name: `Media mappings ${suffix}`,
+        slug: `media-mappings-${suffix}`,
+      },
     });
     cleanupOrganizationIds.add(organization.id);
 
@@ -90,7 +99,7 @@ test(
       (error: unknown) =>
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002",
-      "One project and target language must not own two replacements for the same original image"
+      "One project and target language must not own two replacements for the same original image",
     );
 
     const foreignOrganization = await db.organization.create({
@@ -125,10 +134,13 @@ test(
 
     const unauthenticatedResponse = await runtime.GET(runtimeRequest());
     assert.equal(unauthenticatedResponse.status, 401);
-    assert.equal((await unauthenticatedResponse.json()).code, "missing_api_key");
+    assert.equal(
+      (await unauthenticatedResponse.json()).code,
+      "missing_api_key",
+    );
 
     const invalidApiKeyResponse = await runtime.GET(
-      runtimeRequest("dg_live_invalid_media_key")
+      runtimeRequest("dg_live_invalid_media_key"),
     );
     assert.equal(invalidApiKeyResponse.status, 401);
     assert.equal((await invalidApiKeyResponse.json()).code, "invalid_api_key");
@@ -145,19 +157,19 @@ test(
     assert.equal("fr" in englishBody.mediaReplacements, false);
     assert.equal(
       JSON.stringify(englishBody.mediaReplacements).includes(
-        foreignReplacement.localizedUrl
+        foreignReplacement.localizedUrl,
       ),
       false,
-      "A valid API key must never expose another project's image mappings"
+      "A valid API key must never expose another project's image mappings",
     );
     assert.equal(
       JSON.stringify(englishBody.mediaReplacements).includes(project.id),
       false,
-      "Plugin runtime mappings contain only public image paths, never tenant identifiers"
+      "Plugin runtime mappings contain only public image paths, never tenant identifiers",
     );
 
     const foreignResponse = await runtime.GET(
-      runtimeRequest(foreignApiKey.rawKey)
+      runtimeRequest(foreignApiKey.rawKey),
     );
     assert.equal(foreignResponse.status, 200);
     assert.deepEqual((await foreignResponse.json()).mediaReplacements, {
@@ -204,23 +216,25 @@ test(
     await db.project.delete({ where: { id: project.id } });
     assert.equal(
       await db.projectMediaReplacement.count({
-        where: { id: { in: [englishReplacement.id, inactiveFrenchReplacement.id] } },
+        where: {
+          id: { in: [englishReplacement.id, inactiveFrenchReplacement.id] },
+        },
       }),
       0,
-      "Deleting a project must cascade to every target-language image replacement"
+      "Deleting a project must cascade to every target-language image replacement",
     );
     assert.equal(
       await db.projectMediaReplacement.count({
         where: { id: foreignReplacement.id },
       }),
       1,
-      "Deleting one tenant project must not remove a foreign tenant's image mapping"
+      "Deleting one tenant project must not remove a foreign tenant's image mapping",
     );
 
     const deletedProjectResponse = await runtime.GET(runtimeRequest(rawKey));
     assert.equal(deletedProjectResponse.status, 401);
     assert.equal((await deletedProjectResponse.json()).code, "invalid_api_key");
-  }
+  },
 );
 
 test(
@@ -286,8 +300,8 @@ test(
     assert.equal("es" in safeConfiguration.mediaReplacements, false);
     assert.ok(
       new TextEncoder().encode(
-        JSON.stringify(safeConfiguration.mediaReplacements)
-      ).byteLength < limits.MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES
+        JSON.stringify(safeConfiguration.mediaReplacements),
+      ).byteLength < limits.MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
     );
 
     const assertRuntimeStillAvailable = async () => {
@@ -303,27 +317,28 @@ test(
       db.$transaction(
         (tx) =>
           limits.withBoundedMediaRuntimeMutation(tx, project.id, () =>
-            tx.projectMediaReplacement.create({ data: longMapping(113) })
+            tx.projectMediaReplacement.create({ data: longMapping(113) }),
           ),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       ),
       (error: unknown) =>
         error instanceof limits.MediaRuntimePayloadLimitError &&
         error.limit === limits.MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
-      "A newly created mapping must be fully rolled back when all active languages exceed 224 KiB"
+      "A newly created mapping must be fully rolled back when all active languages exceed 224 KiB",
     );
     assert.equal(
       await db.projectMediaReplacement.count({
         where: { projectId: project.id, langTo: { in: ["en", "fr"] } },
       }),
-      113
+      113,
     );
     await assertRuntimeStillAvailable();
 
-    const initialReplacement = await db.projectMediaReplacement.findFirstOrThrow({
-      where: { projectId: project.id, langTo: "en" },
-      orderBy: { originalUrl: "asc" },
-    });
+    const initialReplacement =
+      await db.projectMediaReplacement.findFirstOrThrow({
+        where: { projectId: project.id, langTo: "en" },
+        orderBy: { originalUrl: "asc" },
+      });
     await assert.rejects(
       db.$transaction(
         (tx) =>
@@ -334,20 +349,24 @@ test(
                 originalUrl: `/uploads/${"x".repeat(2020)}.png`,
                 localizedUrl: `/uploads/${"y".repeat(2020)}.webp`,
               },
-            })
+            }),
           ),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       ),
       limits.MediaRuntimePayloadLimitError,
-      "An expanded mapping must be fully rolled back before existing plugin settings become unavailable"
+      "An expanded mapping must be fully rolled back before existing plugin settings become unavailable",
     );
-    const unchangedReplacement = await db.projectMediaReplacement.findUniqueOrThrow({
-      where: { id: initialReplacement.id },
-    });
-    assert.equal(unchangedReplacement.originalUrl, initialReplacement.originalUrl);
+    const unchangedReplacement =
+      await db.projectMediaReplacement.findUniqueOrThrow({
+        where: { id: initialReplacement.id },
+      });
+    assert.equal(
+      unchangedReplacement.originalUrl,
+      initialReplacement.originalUrl,
+    );
     assert.equal(
       unchangedReplacement.localizedUrl,
-      initialReplacement.localizedUrl
+      initialReplacement.localizedUrl,
     );
     await assertRuntimeStillAvailable();
 
@@ -363,14 +382,14 @@ test(
           tx.projectMediaReplacement.update({
             where: { id: initialReplacement.id, projectId: project.id },
             data: { localizedUrl: "/uploads/smaller.webp" },
-          })
+          }),
         ),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
     assert.equal(
       (await runtime.GET(runtimeRequest(rawKey))).status,
       413,
-      "A legacy oversized project may shrink progressively even before it is fully below the limit"
+      "A legacy oversized project may shrink progressively even before it is fully below the limit",
     );
 
     await db.projectMediaReplacement.deleteMany({
@@ -380,7 +399,7 @@ test(
       },
     });
     await assertRuntimeStillAvailable();
-  }
+  },
 );
 
 test(
@@ -425,7 +444,7 @@ test(
     let serializationConflicts = 0;
 
     const updateOnlySuppliedFields = async (
-      changes: Prisma.ProjectMediaReplacementUpdateInput
+      changes: Prisma.ProjectMediaReplacementUpdateInput,
     ) => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -443,18 +462,21 @@ test(
                 await firstSnapshotsReady;
               }
 
-              return limits.withBoundedMediaRuntimeMutation(tx, project.id, () =>
-                tx.projectMediaReplacement.update({
-                  where: { id: replacement.id, projectId: project.id },
-                  data: changes,
-                })
+              return limits.withBoundedMediaRuntimeMutation(
+                tx,
+                project.id,
+                () =>
+                  tx.projectMediaReplacement.update({
+                    where: { id: replacement.id, projectId: project.id },
+                    data: changes,
+                  }),
               );
             },
             {
               isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
               maxWait: 5_000,
               timeout: 10_000,
-            }
+            },
           );
         } catch (error) {
           if (
@@ -474,7 +496,9 @@ test(
     };
 
     await Promise.all([
-      updateOnlySuppliedFields({ originalUrl: "/uploads/concurrent-source.png" }),
+      updateOnlySuppliedFields({
+        originalUrl: "/uploads/concurrent-source.png",
+      }),
       updateOnlySuppliedFields({
         localizedUrl: "/uploads/concurrent-localized.webp",
       }),
@@ -482,7 +506,7 @@ test(
 
     assert.ok(
       serializationConflicts >= 1,
-      "Both transactions must first observe the same row and exercise a real PostgreSQL P2034 retry"
+      "Both transactions must first observe the same row and exercise a real PostgreSQL P2034 retry",
     );
     const mergedUpdate = await db.projectMediaReplacement.findUniqueOrThrow({
       where: { id: replacement.id },
@@ -490,21 +514,23 @@ test(
     assert.equal(mergedUpdate.originalUrl, "/uploads/concurrent-source.png");
     assert.equal(
       mergedUpdate.localizedUrl,
-      "/uploads/concurrent-localized.webp"
+      "/uploads/concurrent-localized.webp",
     );
-  }
+  },
 );
 
 test(
   "PostgreSQL rolls back language reactivation when preserved image mappings would disable plugin runtime",
   { skip: skipWithoutDatabase, timeout: 30_000 },
   async () => {
-    const [{ db }, { generateApiKey }, runtime, limits] = await Promise.all([
-      import("@/lib/db"),
-      import("@/lib/api-keys"),
-      import("@/app/api/plugin/runtime-config/route"),
-      import("@/lib/media-runtime-limits"),
-    ]);
+    const [{ db }, { generateApiKey }, runtime, limits, languageMutations] =
+      await Promise.all([
+        import("@/lib/db"),
+        import("@/lib/api-keys"),
+        import("@/app/api/plugin/runtime-config/route"),
+        import("@/lib/media-runtime-limits"),
+        import("@/lib/project-language-mutations"),
+      ]);
     const suffix = crypto.randomUUID();
     const organization = await db.organization.create({
       data: {
@@ -552,45 +578,37 @@ test(
         where: { projectId: project.id, langTo: "fr" },
       }),
       54,
-      "Removing a project language must preserve its image mappings for possible later reuse"
+      "Removing a project language must preserve its image mappings for possible later reuse",
     );
 
     const previousRuntime = await runtime.GET(runtimeRequest(rawKey));
     assert.equal(previousRuntime.status, 200);
-    assert.deepEqual(Object.keys((await previousRuntime.json()).mediaReplacements), [
-      "en",
-    ]);
+    assert.deepEqual(
+      Object.keys((await previousRuntime.json()).mediaReplacements),
+      ["en"],
+    );
 
     await assert.rejects(
-      db.$transaction(
-        (tx) =>
-          limits.withBoundedMediaRuntimeMutation(tx, project.id, () =>
-            tx.projectLanguage.createMany({
-              data: [
-                { projectId: project.id, langCode: "en", isActive: true },
-                { projectId: project.id, langCode: "fr", isActive: true },
-              ],
-              skipDuplicates: true,
-            })
-          ),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-      ),
+      languageMutations.addProjectTargetLanguages(db, {
+        projectId: project.id,
+        languages: ["en", "fr"],
+      }),
       limits.MediaRuntimePayloadLimitError,
-      "Reactivating a deleted language must roll back when its preserved mappings overflow the real runtime JSON"
+      "The real dashboard language mutation must roll back when preserved mappings overflow the runtime JSON",
     );
     assert.equal(
       await db.projectLanguage.count({
         where: { projectId: project.id, langCode: "fr" },
       }),
       0,
-      "An oversized language activation must not persist any partial language creation"
+      "An oversized language activation must not persist any partial language creation",
     );
     assert.equal(
       await db.projectMediaReplacement.count({
         where: { projectId: project.id, langTo: "fr" },
       }),
       54,
-      "Rejecting reactivation must never delete customer-owned localized media mappings"
+      "Rejecting reactivation must never delete customer-owned localized media mappings",
     );
 
     const unaffectedRuntime = await runtime.GET(runtimeRequest(rawKey));
@@ -604,34 +622,25 @@ test(
       where: { projectId: project.id, langTo: "fr" },
       data: { localizedUrl: "/uploads/short.webp" },
     });
-    const activated = await db.$transaction(
-      (tx) =>
-        limits.withBoundedMediaRuntimeMutation(tx, project.id, () =>
-          tx.projectLanguage.createMany({
-            data: [
-              { projectId: project.id, langCode: "en", isActive: true },
-              { projectId: project.id, langCode: "fr", isActive: true },
-            ],
-            skipDuplicates: true,
-          })
-        ),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-    );
-    assert.equal(activated.count, 1);
+    const activated = await languageMutations.addProjectTargetLanguages(db, {
+      projectId: project.id,
+      languages: ["en", "fr"],
+    });
+    assert.deepEqual(activated, { kind: "updated" });
     assert.equal(
       await db.projectMediaReplacement.count({
         where: { projectId: project.id },
       }),
       114,
-      "A safe reactivation restores all preserved image mappings without deleting or recreating them"
+      "A safe reactivation restores all preserved image mappings without deleting or recreating them",
     );
 
     const restoredRuntime = await runtime.GET(runtimeRequest(rawKey));
     assert.equal(restoredRuntime.status, 200);
-    assert.deepEqual(Object.keys((await restoredRuntime.json()).mediaReplacements), [
-      "en",
-      "fr",
-    ]);
+    assert.deepEqual(
+      Object.keys((await restoredRuntime.json()).mediaReplacements),
+      ["en", "fr"],
+    );
 
     await db.projectLanguage.update({
       where: {
@@ -641,38 +650,20 @@ test(
     });
     const inactiveRuntime = await runtime.GET(runtimeRequest(rawKey));
     assert.equal(inactiveRuntime.status, 200);
-    assert.deepEqual(Object.keys((await inactiveRuntime.json()).mediaReplacements), [
-      "en",
-    ]);
-
-    const requestedLanguages = ["en", "fr"];
-    const reactivatedExisting = await db.$transaction(
-      (tx) =>
-        limits.withBoundedMediaRuntimeMutation(tx, project.id, async () => {
-          await tx.projectLanguage.updateMany({
-            where: {
-              projectId: project.id,
-              langCode: { in: requestedLanguages },
-              isActive: false,
-            },
-            data: { isActive: true },
-          });
-
-          return tx.projectLanguage.createMany({
-            data: requestedLanguages.map((langCode) => ({
-              projectId: project.id,
-              langCode,
-              isActive: true,
-            })),
-            skipDuplicates: true,
-          });
-        }),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    assert.deepEqual(
+      Object.keys((await inactiveRuntime.json()).mediaReplacements),
+      ["en"],
     );
-    assert.equal(
-      reactivatedExisting.count,
-      0,
-      "Existing project-language rows remain unique while inactive rows are explicitly reactivated"
+
+    const reactivatedExisting =
+      await languageMutations.addProjectTargetLanguages(db, {
+        projectId: project.id,
+        languages: ["en", "fr"],
+      });
+    assert.deepEqual(
+      reactivatedExisting,
+      { kind: "updated" },
+      "Existing project-language rows remain unique while inactive rows are explicitly reactivated",
     );
     assert.equal(
       (
@@ -682,21 +673,21 @@ test(
           },
         })
       ).isActive,
-      true
+      true,
     );
     assert.equal(
       await db.projectMediaReplacement.count({
         where: { projectId: project.id, langTo: "fr" },
       }),
-      54
+      54,
     );
     const reactivatedRuntime = await runtime.GET(runtimeRequest(rawKey));
     assert.equal(reactivatedRuntime.status, 200);
     assert.deepEqual(
       Object.keys((await reactivatedRuntime.json()).mediaReplacements),
-      ["en", "fr"]
+      ["en", "fr"],
     );
-  }
+  },
 );
 
 after(async () => {
@@ -710,7 +701,7 @@ after(async () => {
       scope: PLUGIN_RATE_LIMIT_SCOPE,
       subjectHash: {
         in: [...cleanupApiKeyIds].map((apiKeyId) =>
-          hashRateLimitSubject(PLUGIN_RATE_LIMIT_SCOPE, apiKeyId)
+          hashRateLimitSubject(PLUGIN_RATE_LIMIT_SCOPE, apiKeyId),
         ),
       },
     },

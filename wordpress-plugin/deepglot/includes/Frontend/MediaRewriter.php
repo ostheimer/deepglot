@@ -47,7 +47,7 @@ class MediaRewriter
         }
 
         foreach ($this->elements($document, 'img') as $image) {
-            if ($this->insideNoTranslateSubtree($image)) {
+            if ($this->insideNoTranslateSubtree($image) || $this->matchesExcludedSelector($image)) {
                 continue;
             }
 
@@ -64,12 +64,27 @@ class MediaRewriter
                 !$parent instanceof \DOMElement
                 || strtolower($parent->tagName) !== 'picture'
                 || $this->insideNoTranslateSubtree($source)
+                || $this->matchesExcludedSelector($source)
             ) {
+                continue;
+            }
+
+            $replacementMime = $this->replacementMimeForSource($source, $replacements);
+
+            if ($source->hasAttribute('type') && $replacementMime === null) {
+                // A typed picture source is selected by its MIME hint before
+                // the browser fetches a candidate. Keep the complete source
+                // untouched when its rewritten candidate set cannot retain one
+                // truthful, supported MIME type.
                 continue;
             }
 
             $this->rewriteSrcsetAttribute($source, 'srcset', $replacements);
             $this->rewriteSrcsetAttribute($source, 'data-srcset', $replacements);
+
+            if ($replacementMime !== null) {
+                $source->setAttribute('type', $replacementMime);
+            }
         }
     }
 
@@ -198,6 +213,71 @@ class MediaRewriter
     }
 
     /**
+     * Returns the MIME type of the complete candidate set after replacements,
+     * but only when at least one replacement is available and every resulting
+     * candidate across eager and lazy srcsets has the same supported format.
+     * Callers leave typed sources entirely untouched on any ambiguity.
+     *
+     * @param array<string, string> $replacements
+     */
+    private function replacementMimeForSource(\DOMElement $source, array $replacements): ?string
+    {
+        if (!$source->hasAttribute('type')) {
+            return null;
+        }
+
+        $replacementMime = null;
+        $replacementSeen = false;
+
+        foreach (['srcset', 'data-srcset'] as $attribute) {
+            if (!$source->hasAttribute($attribute)) {
+                continue;
+            }
+
+            $candidates = $this->srcsetCandidates($source->getAttribute($attribute));
+
+            if ($candidates === null || $candidates === []) {
+                return null;
+            }
+
+            foreach ($candidates as $candidate) {
+                $replacement = $this->replacementForUrl($candidate['url'], $replacements);
+                $mime = $this->imageMimeTypeForUrl($replacement ?? $candidate['url']);
+
+                if ($mime === null || ($replacementMime !== null && $replacementMime !== $mime)) {
+                    return null;
+                }
+
+                $replacementMime = $mime;
+                $replacementSeen = $replacementSeen || $replacement !== null;
+            }
+        }
+
+        return $replacementSeen ? $replacementMime : null;
+    }
+
+    private function imageMimeTypeForUrl(string $url): ?string
+    {
+        $parts = wp_parse_url($url);
+
+        if (!is_array($parts) || !isset($parts['path'])) {
+            return null;
+        }
+
+        $extension = strtolower(pathinfo((string) $parts['path'], PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'avif' => 'image/avif',
+            'gif' => 'image/gif',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'svg' => 'image/svg+xml',
+            'webp' => 'image/webp',
+            default => null,
+        };
+    }
+
+    /**
      * @return list<array{url: string, offset: int}>|null
      */
     private function srcsetCandidates(string $value): ?array
@@ -273,23 +353,58 @@ class MediaRewriter
             return true;
         }
 
-        if (preg_match('/^([0-9]+)w$/D', $descriptor, $matches) === 1) {
-            return ltrim($matches[1], '0') !== '';
-        }
+        $tokens = preg_split('/[ \t\n\r\f]+/', $descriptor);
 
-        if (
-            preg_match(
-                '/^((?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)x$/D',
-                $descriptor,
-                $matches
-            ) !== 1
-        ) {
+        if (!is_array($tokens) || count($tokens) > 2) {
             return false;
         }
 
-        $density = (float) $matches[1];
+        $width = false;
+        $height = false;
 
-        return is_finite($density) && $density > 0;
+        foreach ($tokens as $token) {
+            if (preg_match('/^([0-9]+)([wh])$/D', $token, $matches) === 1) {
+                if (ltrim($matches[1], '0') === '') {
+                    return false;
+                }
+
+                if ($matches[2] === 'w') {
+                    if ($width) {
+                        return false;
+                    }
+
+                    $width = true;
+                    continue;
+                }
+
+                if ($height) {
+                    return false;
+                }
+
+                $height = true;
+                continue;
+            }
+
+            if (count($tokens) !== 1) {
+                return false;
+            }
+
+            if (
+                preg_match(
+                    '/^((?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)x$/D',
+                    $token,
+                    $matches
+                ) !== 1
+            ) {
+                return false;
+            }
+
+            $density = (float) $matches[1];
+
+            return is_finite($density) && $density > 0;
+        }
+
+        return $width && (!$height || count($tokens) === 2);
     }
 
     /**
@@ -320,6 +435,50 @@ class MediaRewriter
                 || strtolower(trim($cursor->getAttribute('translate'))) === 'no'
             ) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function matchesExcludedSelector(\DOMElement $element): bool
+    {
+        $classSelectors = [];
+        $idSelectors = [];
+
+        foreach ($this->options->getExcludedSelectors() as $selector) {
+            if (str_starts_with($selector, '.') && strlen($selector) > 1) {
+                $classSelectors[] = substr($selector, 1);
+            } elseif (str_starts_with($selector, '#') && strlen($selector) > 1) {
+                $idSelectors[] = substr($selector, 1);
+            }
+        }
+
+        for ($cursor = $element; $cursor !== null; $cursor = $cursor->parentNode) {
+            if (!$cursor instanceof \DOMElement) {
+                continue;
+            }
+
+            foreach ($idSelectors as $id) {
+                if ($cursor->getAttribute('id') === $id) {
+                    return true;
+                }
+            }
+
+            if ($classSelectors === []) {
+                continue;
+            }
+
+            $classAttribute = $cursor->getAttribute('class');
+            if ($classAttribute === '') {
+                continue;
+            }
+
+            $classes = preg_split('/\s+/', $classAttribute) ?: [];
+            foreach ($classSelectors as $className) {
+                if (in_array($className, $classes, true)) {
+                    return true;
+                }
             }
         }
 
@@ -470,6 +629,16 @@ class MediaRewriter
             $pattern,
             static fn (array $matches): string => rawurlencode($matches[0]),
             $value
+        );
+
+        if (!is_string($canonical)) {
+            return null;
+        }
+
+        $canonical = preg_replace_callback(
+            '/%[a-f0-9]{2}/i',
+            static fn (array $matches): string => strtoupper($matches[0]),
+            $canonical
         );
 
         return is_string($canonical) ? $canonical : null;

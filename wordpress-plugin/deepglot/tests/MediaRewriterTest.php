@@ -41,6 +41,14 @@ final class MediaRewriterTestOptions extends Options
     {
         return $this->replacements[$targetLanguage] ?? [];
     }
+
+    /**
+     * @return list<string>
+     */
+    public function getExcludedSelectors(): array
+    {
+        return [];
+    }
 }
 
 function assertMediaRewrite(bool $condition, string $message): void
