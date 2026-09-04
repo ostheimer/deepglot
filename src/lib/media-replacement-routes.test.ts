@@ -40,6 +40,10 @@ const languageMutations = readFileSync(
   path.join(process.cwd(), "src", "lib", "project-language-mutations.ts"),
   "utf8",
 );
+const testLogin = readFileSync(
+  path.join(process.cwd(), "src", "lib", "test-login.ts"),
+  "utf8",
+);
 const generalSettings = readFileSync(
   path.join(process.cwd(), "src", "lib", "project-general-settings.ts"),
   "utf8",
@@ -239,6 +243,14 @@ test("dashboard language activation revives existing inactive rows and rejects t
   );
   assert.match(languageRoute, /code:\s*"media_replacements_limit_exceeded"/);
   assert.match(languageRoute, /limit:\s*MAX_RUNTIME_MEDIA_REPLACEMENTS/);
+});
+
+test("test-login language reactivation cannot exceed the shared runtime image payload ceiling", () => {
+  assert.match(testLogin, /withBoundedMediaRuntimeMutation\(\s*tx,\s*projectId/);
+  assert.match(
+    testLogin,
+    /withBoundedMediaRuntimeMutation\([\s\S]*?projectLanguage\.updateMany\([\s\S]*?projectLanguage\.createMany\(/,
+  );
 });
 
 test("source-language migration remains locked once locale-specific media mappings exist", () => {

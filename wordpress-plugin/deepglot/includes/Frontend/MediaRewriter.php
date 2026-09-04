@@ -540,18 +540,27 @@ class MediaRewriter
             return null;
         }
 
-        // PHP parse_url replaces some valid UTF-8 continuation bytes with
-        // underscores. Encode rendered Unicode and spaces before parsing so
-        // its path/query identity matches the SaaS WHATWG URL canonicalizer.
-        $parseableUrl = preg_replace_callback(
+        // PHP parse_url replaces some valid UTF-8 continuation bytes in paths
+        // and queries with underscores. Keep the authority untouched so a
+        // literal Unicode host can still match the configured site origin.
+        $componentOffset = 0;
+        $schemeSeparator = strpos($url, '://');
+        if (!str_starts_with($url, '/') && $schemeSeparator !== false) {
+            $authorityOffset = $schemeSeparator + 3;
+            $componentOffset = $authorityOffset + strcspn($url, '/?#', $authorityOffset);
+        }
+
+        $encodedComponents = preg_replace_callback(
             '/[^\x21-\x7e]/',
             static fn (array $matches): string => rawurlencode($matches[0]),
-            $url
+            substr($url, $componentOffset)
         );
 
-        if (!is_string($parseableUrl)) {
+        if (!is_string($encodedComponents)) {
             return null;
         }
+
+        $parseableUrl = substr($url, 0, $componentOffset) . $encodedComponents;
 
         $parts = wp_parse_url($parseableUrl);
 

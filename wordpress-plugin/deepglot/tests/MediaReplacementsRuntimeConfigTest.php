@@ -122,7 +122,7 @@ function mediaRuntimeSettings(array $overrides = []): array
         'api_key' => 'dg_media_project_a',
         'api_base_url' => 'https://deepglot.ai/api',
         'source_language' => 'de',
-        'target_languages' => ['en', 'fr'],
+        'target_languages' => ['en', 'fr', 'es-419', 'es-013'],
         'switcher_instances' => [['id' => 'default']],
     ], $overrides);
 }
@@ -168,6 +168,12 @@ $runtimeMappings = [
     'fr' => [
         '/wp-content/uploads/relative.png' => '/wp-content/uploads/relative-fr.png',
     ],
+    'es-419' => [
+        '/wp-content/uploads/latin-america.png' => '/wp-content/uploads/latin-america-es-419.png',
+    ],
+    'es-013' => [
+        '/wp-content/uploads/central-america.png' => '/wp-content/uploads/central-america-es-013.png',
+    ],
     'it' => [
         '/wp-content/uploads/relative.png' => '/wp-content/uploads/relative-it.png',
     ],
@@ -185,12 +191,16 @@ $english = [
     '/wp-content/uploads/uppercase.PNG' => '/wp-content/uploads/uppercase-en.JPG',
 ];
 $french = ['/wp-content/uploads/relative.png' => '/wp-content/uploads/relative-fr.png'];
+$latinAmericanSpanish = ['/wp-content/uploads/latin-america.png' => '/wp-content/uploads/latin-america-es-419.png'];
+$centralAmericanSpanish = ['/wp-content/uploads/central-america.png' => '/wp-content/uploads/central-america-es-013.png'];
 
 assertMediaRuntime($english, $options->getMediaReplacements('en'), 'Only safe same-origin image mappings survive and canonicalize to exact relative paths plus query.');
 assertMediaRuntime($french, $options->getMediaReplacements('fr'), 'French image mappings stay isolated from English mappings.');
+assertMediaRuntime($latinAmericanSpanish, $options->getMediaReplacements('es-419'), 'Numeric-region locale es-419 retains its own image mappings.');
+assertMediaRuntime($centralAmericanSpanish, $options->getMediaReplacements('es-013'), 'Numeric-region locale es-013 stays isolated from es-419.');
 assertMediaRuntime([], $options->getMediaReplacements('it'), 'Inactive languages cannot expose persisted image mappings.');
 assertMediaRuntime([], $options->getMediaReplacements('de'), 'Source-language image mappings are excluded.');
-assertMediaRuntime(['en' => $english, 'fr' => $french], get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []), 'Normalized image mappings persist only in the dedicated runtime option.');
+assertMediaRuntime(['en' => $english, 'fr' => $french, 'es-419' => $latinAmericanSpanish, 'es-013' => $centralAmericanSpanish], get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []), 'Normalized image mappings persist only in the dedicated runtime option without collapsing numeric-region locales.');
 assertMediaRuntime(false, $GLOBALS['_deepglot_media_runtime_autoload'][Options::MEDIA_REPLACEMENTS_OPTION_KEY] ?? null, 'The dedicated image mapping option is created with autoload disabled.');
 assertMediaRuntime(false, array_key_exists('media_replacements', get_option(Options::OPTION_KEY, [])), 'Runtime image mappings never enter the autoloaded main settings option.');
 

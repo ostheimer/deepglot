@@ -1054,9 +1054,10 @@ class Options
     private function sanitizeLanguage(string $language): string
     {
         $language = strtolower(trim($language));
-        $language = preg_replace('/[^a-z-]/', '', $language);
 
-        return $language ?: '';
+        return preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/D', $language) === 1
+            ? $language
+            : '';
     }
 
     /**

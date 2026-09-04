@@ -39,6 +39,7 @@ final class MediaRewriterReviewFindingsOptions extends Options
             '/uploads/b.png' => '/uploads/b-en.avif',
             '/uploads/trailing-dot.png' => '/uploads/trailing-dot-en.webp',
             '/uploads/hero-wide.png' => '/uploads/hero-en.webp',
+            '/uploads/unicode-host.png' => '/uploads/unicode-host-en.webp',
         ];
     }
 
@@ -121,6 +122,19 @@ assertMediaReviewFinding(
 assertMediaReviewFinding(
     mediaReviewFindingAttribute($document, 'encoded-unreserved', 'src') === '/uploads/hero-en.webp',
     'Percent-encoded unreserved bytes share one lookup identity with their literal form'
+);
+
+$unicodeHostDocument = new DOMDocument('1.0', 'UTF-8');
+$previous = libxml_use_internal_errors(true);
+$unicodeHostDocument->loadHTML('<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><img id="unicode-host" src="https://münich.de/uploads/unicode-host.png"></body></html>');
+libxml_clear_errors();
+libxml_use_internal_errors($previous);
+
+(new MediaRewriter(new MediaRewriterReviewFindingsOptions(), 'https://münich.de'))->rewrite($unicodeHostDocument, 'en');
+
+assertMediaReviewFinding(
+    mediaReviewFindingAttribute($unicodeHostDocument, 'unicode-host', 'src') === 'https://münich.de/uploads/unicode-host-en.webp',
+    'Literal Unicode hostnames remain outside path pre-encoding and match the configured site origin'
 );
 
 if ($failures !== []) {
