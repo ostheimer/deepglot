@@ -68,6 +68,54 @@ describe("translateWithGemini", () => {
     ]);
   });
 
+  it("passes website type and industry context in the structured user payload", async () => {
+    const recorded = installFetchMock(() =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({ translations: [{ text: "Welcome" }] }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ),
+    );
+
+    await translateWithGemini(
+      {
+        texts: ["Willkommen"],
+        sourceLang: "de",
+        targetLang: "en",
+        websiteType: "Hotel website",
+        industryType: "Hospitality & tourism",
+      },
+      { provider: "gemini", model: "gemini-2.5-flash-lite", apiKey: "test-key" },
+    );
+
+    const body = JSON.parse(recorded[0].body);
+    const systemPrompt = body.systemInstruction.parts[0].text;
+    assert.match(systemPrompt, /websiteType and industryType/);
+    assert.match(systemPrompt, /terminology and tone/);
+    assert.match(
+      systemPrompt,
+      /Do not translate or return those context fields/,
+    );
+    const payload = JSON.parse(body.contents[0].parts[0].text);
+    assert.deepEqual(payload, {
+      sourceLang: "de",
+      targetLang: "en",
+      websiteType: "Hotel website",
+      industryType: "Hospitality & tourism",
+      texts: ["Willkommen"],
+    });
+  });
+
   it("uses the configured base URL when provided", async () => {
     const recorded = installFetchMock(() => {
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ translations: [{ text: "Hi" }] }) }] } }] }));

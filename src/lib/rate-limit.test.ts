@@ -425,6 +425,7 @@ test("releaseTranslateWordVelocity refunds a successful reservation", async () =
   await releaseTranslateWordVelocity({
     organizationId: "org_refund",
     words: 700,
+    reservationResetAt: reservation.resetAt,
     now: new Date("2026-04-30T10:01:00.000Z"),
     store,
   });
@@ -438,4 +439,45 @@ test("releaseTranslateWordVelocity refunds a successful reservation", async () =
   });
   assert.equal(afterRefund.allowed, true);
   assert.equal(afterRefund.remaining, 0);
+});
+
+test("a late refund cannot reduce the next velocity window", async () => {
+  const store = new MemoryRateLimitStore();
+  const oldReservation = await consumeTranslateWordVelocity({
+    organizationId: "org_rollover_refund",
+    words: 700,
+    limit: 1_000,
+    now: new Date("2026-04-30T10:00:00.000Z"),
+    store,
+  });
+  assert.equal(oldReservation.allowed, true);
+
+  const newWindowReservation = await consumeTranslateWordVelocity({
+    organizationId: "org_rollover_refund",
+    words: 600,
+    limit: 1_000,
+    now: new Date("2026-04-30T11:00:01.000Z"),
+    store,
+  });
+  assert.equal(newWindowReservation.allowed, true);
+  assert.equal(newWindowReservation.remaining, 400);
+
+  await releaseTranslateWordVelocity({
+    organizationId: "org_rollover_refund",
+    words: 700,
+    reservationResetAt: oldReservation.resetAt,
+    now: new Date("2026-04-30T11:00:02.000Z"),
+    store,
+  });
+
+  const afterLateRefund = await consumeTranslateWordVelocity({
+    organizationId: "org_rollover_refund",
+    words: 500,
+    limit: 1_000,
+    now: new Date("2026-04-30T11:00:03.000Z"),
+    store,
+  });
+  assert.equal(afterLateRefund.allowed, false);
+  assert.equal(afterLateRefund.outcome, "blocked");
+  assert.equal(afterLateRefund.remaining, 400);
 });

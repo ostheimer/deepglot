@@ -307,4 +307,23 @@ dgstatusCheck(
     'Connection checks must prefer Problem Details detail over the legacy error alias.'
 );
 
+// A project can swap its original language through the SaaS settings. The
+// connection probe must use that authoritative pair instead of an old de/en
+// constant, otherwise every non-German project fails its health check.
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true,
+    'api_key' => 'dg_live_language_pair',
+    'api_base_url' => 'https://deepglot.test/api',
+    'source_language' => 'en',
+    'target_languages' => ['fr'],
+]));
+$GLOBALS['_dgstatus_remote_mode'] = 'ok';
+$languagePairApi = new RestApi(new Options(), new RestApiQuotaFakeSettingsSync());
+$languagePairApi->getStatus(new WP_REST_Request());
+dgstatusCheck(
+    ($GLOBALS['_dgstatus_last_post']['payload']['l_from'] ?? null) === 'en'
+        && ($GLOBALS['_dgstatus_last_post']['payload']['l_to'] ?? null) === 'fr',
+    'Connection probes must derive their language pair from the authenticated project settings.'
+);
+
 fwrite(STDOUT, "RestApiQuotaStatusTest: OK\n");

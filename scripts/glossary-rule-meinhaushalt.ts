@@ -72,65 +72,103 @@ async function main() {
   // "Meinhaushalt" / "MeinHaushalt" (and lowercase "meinhaushalt.at").
   // Each rule maps the term to itself so it survives translation untouched.
   const rules = [
-    { originalTerm: "Mein Haushalt", translatedTerm: "Mein Haushalt", caseSensitive: true },
-    { originalTerm: "Meinhaushalt", translatedTerm: "Meinhaushalt", caseSensitive: true },
-    { originalTerm: "MeinHaushalt", translatedTerm: "MeinHaushalt", caseSensitive: true },
-    { originalTerm: "meinhaushalt.at", translatedTerm: "meinhaushalt.at", caseSensitive: false },
+    {
+      originalTerm: "Mein Haushalt",
+      translatedTerm: "Mein Haushalt",
+      caseSensitive: true,
+    },
+    {
+      originalTerm: "Meinhaushalt",
+      translatedTerm: "Meinhaushalt",
+      caseSensitive: true,
+    },
+    {
+      originalTerm: "MeinHaushalt",
+      translatedTerm: "MeinHaushalt",
+      caseSensitive: true,
+    },
+    {
+      originalTerm: "meinhaushalt.at",
+      translatedTerm: "meinhaushalt.at",
+      caseSensitive: false,
+    },
   ];
 
-  for (const rule of rules) {
-    const existing = await db.glossaryRule.findUnique({
-      where: {
-        projectId_originalTerm_langFrom_langTo: {
-          projectId: project.id,
-          originalTerm: rule.originalTerm,
-          langFrom: "de",
-          langTo: "en",
+  const { lockAndValidateProjectLanguageWrite } = await import(
+    "@/lib/project-runtime-configuration-lock"
+  );
+  const committedLogs = await db.$transaction(async (tx) => {
+    const logs: string[] = [];
+    const languageConfigurationIsCurrent =
+      await lockAndValidateProjectLanguageWrite(tx, {
+        projectId: project.id,
+        sourceLanguages: ["de"],
+        targetLanguages: ["en"],
+      });
+    if (!languageConfigurationIsCurrent) {
+      throw new Error(
+        "Project source/target languages changed; refusing to write stale glossary rules."
+      );
+    }
+
+    for (const rule of rules) {
+      const existing = await tx.glossaryRule.findUnique({
+        where: {
+          projectId_originalTerm_langFrom_langTo: {
+            projectId: project.id,
+            originalTerm: rule.originalTerm,
+            langFrom: "de",
+            langTo: "en",
+          },
         },
-      },
-    });
+      });
 
-    if (existing) {
-      const translatedDiffers = existing.translatedTerm !== rule.translatedTerm;
-      const caseSensitivityDiffers =
-        existing.caseSensitive !== rule.caseSensitive;
+      if (existing) {
+        const translatedDiffers =
+          existing.translatedTerm !== rule.translatedTerm;
+        const caseSensitivityDiffers =
+          existing.caseSensitive !== rule.caseSensitive;
 
-      if (!translatedDiffers && !caseSensitivityDiffers) {
-        console.log(
-          `[glossary] kept "${rule.originalTerm}" → "${existing.translatedTerm}" (id=${existing.id})`
+        if (!translatedDiffers && !caseSensitivityDiffers) {
+          logs.push(
+            `[glossary] kept "${rule.originalTerm}" → "${existing.translatedTerm}" (id=${existing.id})`,
+          );
+          continue;
+        }
+
+        const updated = await tx.glossaryRule.update({
+          where: { id: existing.id },
+          data: {
+            translatedTerm: rule.translatedTerm,
+            caseSensitive: rule.caseSensitive,
+          },
+        });
+
+        logs.push(
+          `[glossary] updated "${rule.originalTerm}" (id=${existing.id}): "${existing.translatedTerm}" -> "${updated.translatedTerm}", caseSensitive ${String(existing.caseSensitive)} -> ${String(updated.caseSensitive)}`,
         );
         continue;
       }
 
-      const updated = await db.glossaryRule.update({
-        where: { id: existing.id },
+      const created = await tx.glossaryRule.create({
         data: {
+          projectId: project.id,
+          originalTerm: rule.originalTerm,
           translatedTerm: rule.translatedTerm,
+          langFrom: "de",
+          langTo: "en",
           caseSensitive: rule.caseSensitive,
         },
       });
 
-      console.log(
-        `[glossary] updated "${rule.originalTerm}" (id=${existing.id}): "${existing.translatedTerm}" -> "${updated.translatedTerm}", caseSensitive ${String(existing.caseSensitive)} -> ${String(updated.caseSensitive)}`
+      logs.push(
+        `[glossary] created "${rule.originalTerm}" → "${rule.translatedTerm}" (id=${created.id})`,
       );
-      continue;
     }
 
-    const created = await db.glossaryRule.create({
-      data: {
-        projectId: project.id,
-        originalTerm: rule.originalTerm,
-        translatedTerm: rule.translatedTerm,
-        langFrom: "de",
-        langTo: "en",
-        caseSensitive: rule.caseSensitive,
-      },
-    });
-
-    console.log(
-      `[glossary] created "${rule.originalTerm}" → "${rule.translatedTerm}" (id=${created.id})`
-    );
-  }
+    return logs;
+  });
+  committedLogs.forEach((message) => console.log(message));
 
   await db.$disconnect();
   console.log("[glossary] done");

@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { db } from "@/lib/db";
+import {
+  lockAndValidateProjectLanguageWrite,
+  lockProjectRuntimeConfiguration,
+} from "@/lib/project-runtime-configuration-lock";
 import { computeTranslationHash } from "@/lib/translation-hash";
 import {
   getTestLoginConfig,
@@ -14,7 +18,25 @@ async function ensureTestProjectSeed(
   projectId: string,
   organizationId: string
 ): Promise<void> {
-  await db.projectLanguage.createMany({
+  await db.$transaction(async (tx) => {
+    if (!(await lockProjectRuntimeConfiguration(tx, projectId))) {
+      throw new Error("Test-login project disappeared before seeding.");
+    }
+    const currentProject = await tx.project.findUnique({
+      where: { id: projectId },
+      select: { originalLang: true },
+    });
+    if (currentProject?.originalLang.toLowerCase() !== "de") {
+      throw new Error(
+        "Test-login project source language changed; refusing to write the fixed de seed.",
+      );
+    }
+
+    await tx.projectLanguage.updateMany({
+      where: { projectId, langCode: { in: ["en", "fr"] } },
+      data: { isActive: true },
+    });
+    await tx.projectLanguage.createMany({
     data: [
       { projectId, langCode: "en", isActive: true },
       { projectId, langCode: "fr", isActive: true },
@@ -22,7 +44,19 @@ async function ensureTestProjectSeed(
     skipDuplicates: true,
   });
 
-  await db.projectSettings.upsert({
+    if (
+      !(await lockAndValidateProjectLanguageWrite(tx, {
+        projectId,
+        sourceLanguages: ["de"],
+        targetLanguages: ["en", "fr"],
+      }))
+    ) {
+      throw new Error(
+        "Test-login project languages changed; refusing to write a stale seed.",
+      );
+    }
+
+  await tx.projectSettings.upsert({
     where: { projectId },
     create: {
       projectId,
@@ -39,7 +73,7 @@ async function ensureTestProjectSeed(
     },
   });
 
-  await db.projectMember.upsert({
+  await tx.projectMember.upsert({
     where: {
       projectId_email: {
         projectId,
@@ -58,7 +92,7 @@ async function ensureTestProjectSeed(
     },
   });
 
-  await db.glossaryRule.upsert({
+  await tx.glossaryRule.upsert({
     where: {
       projectId_originalTerm_langFrom_langTo: {
         projectId,
@@ -81,7 +115,7 @@ async function ensureTestProjectSeed(
     },
   });
 
-  await db.translationExclusion.upsert({
+  await tx.translationExclusion.upsert({
     where: {
       projectId_type_value: {
         projectId,
@@ -93,7 +127,7 @@ async function ensureTestProjectSeed(
     update: {},
   });
 
-  await db.urlSlug.upsert({
+  await tx.urlSlug.upsert({
     where: {
       projectId_originalSlug_langTo: {
         projectId,
@@ -136,7 +170,7 @@ async function ensureTestProjectSeed(
       requestCount: 7,
     },
   ]) {
-    await db.translatedUrl.upsert({
+    await tx.translatedUrl.upsert({
       where: {
         projectId_urlPath_langTo: {
           projectId,
@@ -183,7 +217,7 @@ async function ensureTestProjectSeed(
     ].join("-");
     const createdAt = new Date(now.getTime() - item.daysAgo * 86_400_000);
 
-    await db.pageView.upsert({
+    await tx.pageView.upsert({
       where: { eventId },
       create: { eventId, projectId, urlPath: item.urlPath, langTo: item.langTo, createdAt },
       update: { urlPath: item.urlPath, langTo: item.langTo, createdAt },
@@ -216,7 +250,7 @@ async function ensureTestProjectSeed(
       isManual: true,
     },
   ]) {
-    await db.translation.upsert({
+    await tx.translation.upsert({
       where: {
         projectId_originalHash: {
           projectId,
@@ -251,7 +285,7 @@ async function ensureTestProjectSeed(
     });
   }
 
-  await db.translationBatchLog.deleteMany({
+  await tx.translationBatchLog.deleteMany({
     where: {
       projectId,
       requestUrl: {
@@ -260,7 +294,7 @@ async function ensureTestProjectSeed(
     },
   });
 
-  await db.translationBatchLog.createMany({
+  await tx.translationBatchLog.createMany({
     data: [
       {
         organizationId,
@@ -310,7 +344,7 @@ async function ensureTestProjectSeed(
   const currentMonth = parseInt(
     new Date().toISOString().slice(0, 7).replace("-", "")
   );
-  await db.usageRecord.upsert({
+  await tx.usageRecord.upsert({
     where: {
       organizationId_projectId_month: {
         organizationId,
@@ -320,6 +354,7 @@ async function ensureTestProjectSeed(
     },
     create: { organizationId, projectId, month: currentMonth, words: 420 },
     update: {},
+  });
   });
 }
 

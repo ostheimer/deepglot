@@ -4,6 +4,7 @@ import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
 import { buildRuntimeExclusions } from "@/lib/exclusions";
 import { apiProblem } from "@/lib/problem-details";
+import { buildProjectRuntimeSettings } from "@/lib/project-general-settings";
 import {
   PLUGIN_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
@@ -119,6 +120,7 @@ export async function GET(request: NextRequest) {
       pageViewsEnabled:
         apiKey.project.settings?.pageViewsEnabled === true &&
         apiKey.project.settings.pageViewsConsentGrantedAt instanceof Date,
+      project: buildProjectRuntimeSettings(apiKey.project),
       urlSlugs: buildRuntimeUrlSlugs(urlSlugs),
       syncedAt: new Date().toISOString(),
     });

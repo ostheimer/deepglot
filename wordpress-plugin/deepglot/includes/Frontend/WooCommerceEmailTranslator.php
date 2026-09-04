@@ -4,6 +4,7 @@ namespace Deepglot\Frontend;
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
+use Deepglot\Support\BotDetector;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
@@ -102,7 +103,12 @@ class WooCommerceEmailTranslator
 
         // Email output is sent once and cannot benefit from a background
         // translation warm-up after the response has completed.
-        return $this->htmlTranslator->translateInline($content, $language);
+        return $this->htmlTranslator->translateInline(
+            $content,
+            $language,
+            '',
+            $this->automaticTranslationBot()
+        );
     }
 
     public function translateEmailSubject(string $subject, $order): string
@@ -121,7 +127,13 @@ class WooCommerceEmailTranslator
             return $text;
         }
 
-        $result = $this->client->translate([$text], $this->options->getSourceLanguage(), $language);
+        $result = $this->client->translate(
+            [$text],
+            $this->options->getSourceLanguage(),
+            $language,
+            '',
+            $this->automaticTranslationBot()
+        );
 
         if (is_wp_error($result) || empty($result['to_words'][0])) {
             return $text;
@@ -165,5 +177,12 @@ class WooCommerceEmailTranslator
     private function isEnabled(): bool
     {
         return $this->options->isEnabled() && $this->options->isConfigured() && $this->options->shouldTranslateEmails();
+    }
+
+    private function automaticTranslationBot(): int
+    {
+        return $this->options->shouldAutomaticallyTranslate()
+            ? BotDetector::HUMAN
+            : BotDetector::OTHER;
     }
 }

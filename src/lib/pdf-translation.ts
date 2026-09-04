@@ -12,7 +12,6 @@ import {
   consumeTranslateWordVelocity,
   getTranslateWordVelocityPolicy,
   reportTranslateVelocityOutcome,
-  releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 import {
@@ -342,14 +341,6 @@ function buildOutputFilename(sourceFilename: string, langTo: string) {
   return `${safeBase}-deepglot-${safeLanguage}.pdf`;
 }
 
-async function releaseVelocityReservation(organizationId: string, words: number) {
-  try {
-    await releaseTranslateWordVelocity({ organizationId, words });
-  } catch (error) {
-    console.error("[pdf-translation] Failed to release velocity reservation:", error);
-  }
-}
-
 export async function translateProjectPdf(
   input: TranslateProjectPdfInput,
   dependencies: PdfTranslationDependencies = {}
@@ -517,7 +508,6 @@ export async function translateProjectPdf(
     }
     translatedPages = results.map((result) => result.text.trim());
   } catch (error) {
-    await releaseVelocityReservation(project.organizationId, parsed.wordCount);
     if (error instanceof TranslationCountMismatchDeadlineError) {
       throw new PdfTranslationError(
         error.message,

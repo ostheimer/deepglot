@@ -44,8 +44,98 @@ export type PluginDomainMappingsValidationError = {
   errors: { domainMappings: string[] };
 };
 
+export type PluginOwnedSettingsUpdate = {
+  translateEmails: boolean;
+  translateSearch: boolean;
+  translateAmp: boolean;
+  routingMode: (typeof ROUTING_MODE_VALUES)[number];
+  runtimeSyncedAt: Date;
+};
+
+export type PluginMirrorState = {
+  domain: string;
+  sourceLanguage: string;
+  targetLanguages: string[];
+  autoRedirect: boolean;
+};
+
+export type PluginMirrorConflict =
+  | "domain"
+  | "sourceLanguage"
+  | "targetLanguages"
+  | "autoRedirect";
+
+/**
+ * Keep the WordPress-owned runtime options separate from the general project
+ * settings managed in the SaaS dashboard. In particular, mirrored values such
+ * as the source language and automatic redirect must never be written back by
+ * this payload.
+ */
+export function buildPluginOwnedSettingsUpdate(
+  payload: PluginSettingsSyncPayload,
+  syncedAt = new Date(),
+): PluginOwnedSettingsUpdate {
+  return {
+    translateEmails: payload.translateEmails,
+    translateSearch: payload.translateSearch,
+    translateAmp: payload.translateAmp,
+    routingMode: payload.routingMode,
+    runtimeSyncedAt: syncedAt,
+  };
+}
+
+function normalizeLanguageSet(languages: readonly string[]): string[] {
+  return Array.from(
+    new Set(languages.map((language) => language.trim().toLowerCase())),
+  ).sort();
+}
+
+function pluginSiteHost(siteUrl: string | undefined): string | null {
+  if (!siteUrl) return null;
+
+  try {
+    return new URL(siteUrl).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Report WordPress values that differ from the authoritative SaaS mirror. The
+ * caller can surface this drift without accepting the stale values as writes.
+ */
+export function findPluginMirrorConflicts(
+  payload: PluginSettingsSyncPayload,
+  authoritative: PluginMirrorState,
+): PluginMirrorConflict[] {
+  const conflicts: PluginMirrorConflict[] = [];
+  const siteHost = pluginSiteHost(payload.siteUrl);
+
+  if (siteHost !== null && siteHost !== authoritative.domain.toLowerCase()) {
+    conflicts.push("domain");
+  }
+  if (
+    payload.sourceLanguage.toLowerCase() !==
+    authoritative.sourceLanguage.toLowerCase()
+  ) {
+    conflicts.push("sourceLanguage");
+  }
+  if (
+    JSON.stringify(normalizeLanguageSet(payload.targetLanguages)) !==
+    JSON.stringify(normalizeLanguageSet(authoritative.targetLanguages))
+  ) {
+    conflicts.push("targetLanguages");
+  }
+  if (payload.autoRedirect !== authoritative.autoRedirect) {
+    conflicts.push("autoRedirect");
+  }
+
+  return conflicts;
+}
+
 export function validatePluginDomainMappings(
   payload: PluginSettingsSyncPayload,
+  activeTargetLanguages: readonly string[] = payload.targetLanguages,
 ): PluginDomainMappingsValidationError | null {
   const duplicateHosts = new Set<string>();
   const seenHosts = new Set<string>();
@@ -66,8 +156,9 @@ export function validatePluginDomainMappings(
     };
   }
 
+  const activeLanguages = new Set(normalizeLanguageSet(activeTargetLanguages));
   const invalidMapping = payload.domainMappings.find(
-    (mapping) => !payload.targetLanguages.includes(mapping.langCode),
+    (mapping) => !activeLanguages.has(mapping.langCode),
   );
 
   if (invalidMapping) {

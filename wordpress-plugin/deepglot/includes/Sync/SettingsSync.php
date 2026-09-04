@@ -15,11 +15,17 @@ class SettingsSync
 
     private Options $options;
     private Client $client;
+    private ?TranslationWarmer $warmer;
 
-    public function __construct(Options $options, Client $client)
+    public function __construct(
+        Options $options,
+        Client $client,
+        ?TranslationWarmer $warmer = null
+    )
     {
         $this->options = $options;
         $this->client = $client;
+        $this->warmer = $warmer;
     }
 
     public function register(): void
@@ -213,10 +219,31 @@ class SettingsSync
             return $runtimeConfig;
         }
 
+        $previousSourceLanguage = $this->warmer !== null
+            ? $this->options->getSourceLanguage()
+            : null;
+        $previousTargetLanguages = $this->warmer !== null
+            ? $this->options->getTargetLanguages()
+            : [];
         $applied = $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
 
         if ($applied) {
             delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
+
+            if ($this->warmer !== null) {
+                $currentSourceLanguage = $this->options->getSourceLanguage();
+                $currentTargetLanguages = $this->options->getTargetLanguages();
+                if (
+                    $previousSourceLanguage !== $currentSourceLanguage
+                    || array_diff($previousTargetLanguages, $currentTargetLanguages) !== []
+                    || array_diff($currentTargetLanguages, $previousTargetLanguages) !== []
+                ) {
+                    $this->warmer->reconcileLanguageConfiguration(
+                        $currentSourceLanguage,
+                        $currentTargetLanguages
+                    );
+                }
+            }
         }
 
         return $runtimeConfig;

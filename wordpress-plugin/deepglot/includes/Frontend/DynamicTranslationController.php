@@ -5,6 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Api\Client;
 use Deepglot\Api\RestApi;
 use Deepglot\Config\Options;
+use Deepglot\Support\BotDetector;
 use Deepglot\Support\RequestInput;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\TranslationRules;
@@ -169,15 +170,21 @@ class DynamicTranslationController
         $urls   = is_array($rawUrls) ? $rawUrls : [];
         $langTo = (string) $request->get_param('lang_to');
 
-        // A valid REST nonce plus a server-issued quota ticket unlock the
-        // (quota-spending) API path. The nonce alone is public in page source
-        // and Origin/Referer are spoofable outside browsers, so the ticket
-        // caps fresh-word spend per page load.
+        // A valid REST nonce plus a server-issued quota ticket unlocks the
+        // quota-spending API path. When the authenticated runtime snapshot has
+        // already disabled automatic translation, the call is forced into the
+        // SaaS cache-only contract below and therefore needs no spend ticket;
+        // the nonce and public-endpoint rate limit remain mandatory.
         $nonceValid = (bool) wp_verify_nonce((string) $request->get_header('X-WP-Nonce'), 'wp_rest');
         $quotaTicket = trim((string) $request->get_header(self::QUOTA_TICKET_HEADER));
-        $allowApi   = $nonceValid && $this->hasValidQuotaTicket($quotaTicket);
+        $forceCacheOnly = !$this->options->shouldAutomaticallyTranslate();
+        $allowApi = $nonceValid
+            && (
+                $forceCacheOnly
+                || $this->hasValidQuotaTicket($quotaTicket)
+            );
 
-        $result = $this->translateTexts($texts, $langTo, $allowApi, $quotaTicket);
+        $result = $this->translateTexts($texts, $langTo, $allowApi, $quotaTicket, $forceCacheOnly);
 
         // Preserve the exact established text-only response shape. Browsers
         // that opt into URL localization always send an array (including an
@@ -197,9 +204,17 @@ class DynamicTranslationController
      * @param  bool              $allowApi  When false (no valid nonce/ticket) only
      *                                      cached translations are returned.
      * @param  string            $quotaTicket  Per-page ticket for fresh-word budget.
+     * @param  bool|null         $forceCacheOnly  Request-bound runtime decision. Null keeps
+     *                                           direct callers backward-compatible.
      * @return array{from_words: string[], to_words: string[], quota_exhausted?: bool, retry_after?: int}
      */
-    public function translateTexts(array $texts, string $langTo, bool $allowApi, string $quotaTicket = ''): array
+    public function translateTexts(
+        array $texts,
+        string $langTo,
+        bool $allowApi,
+        string $quotaTicket = '',
+        ?bool $forceCacheOnly = null
+    ): array
     {
         $empty = ['from_words' => [], 'to_words' => []];
 
@@ -233,6 +248,7 @@ class DynamicTranslationController
         $fresh = [];
         $quotaExhausted = false;
         $retryAfter = 0;
+        $forceCacheOnly = $forceCacheOnly ?? !$this->options->shouldAutomaticallyTranslate();
 
         if ($allowApi && !empty($missing)) {
             // Budgets are denominated in words (what the SaaS bills), not
@@ -248,15 +264,31 @@ class DynamicTranslationController
             //  2. the per-page ticket budget (provenance + per-render cap).
             // Reserve the per-IP budget first so a failed ticket check does not
             // debit the ticket while dropping the batch (shared-NAT breakage).
-            if (!$this->reserveFreshWordsForIp($freshWords)) {
-                $missing = [];
-            } elseif ($quotaTicket !== '' && !$this->reserveFreshWordBudget($quotaTicket, $freshWords)) {
-                $this->releaseFreshWordsForIp($freshWords);
-                $missing = [];
+            if (!$forceCacheOnly) {
+                if (!$this->reserveFreshWordsForIp($freshWords)) {
+                    $missing = [];
+                } elseif ($quotaTicket !== '' && !$this->reserveFreshWordBudget($quotaTicket, $freshWords)) {
+                    $this->releaseFreshWordsForIp($freshWords);
+                    $missing = [];
+                }
             }
 
             if (!empty($missing)) {
-                $response = $this->client->translate($missing, $langFrom, $langTo);
+                // BotType::OTHER is the established wire-level cache-only
+                // request. It keeps this ticket-free read safe even if the
+                // local false snapshot lags behind a dashboard re-enable.
+                $response = $this->client->translate(
+                    $missing,
+                    $langFrom,
+                    $langTo,
+                    '',
+                    $forceCacheOnly ? BotDetector::OTHER : BotDetector::HUMAN
+                );
+                $cacheOnlyResponse = $forceCacheOnly
+                    || (
+                        is_array($response)
+                        && ($response['cache_only'] ?? null) === true
+                    );
 
                 if (is_wp_error($response)) {
                     $errorData = $response->get_error_data();
@@ -282,18 +314,30 @@ class DynamicTranslationController
                 ) {
                     foreach ($response['from_words'] as $index => $original) {
                         if (isset($response['to_words'][$index]) && is_string($original)) {
-                            $fresh[$original] = (string) $response['to_words'][$index];
+                            $translated = (string) $response['to_words'][$index];
+
+                            if ($cacheOnlyResponse && $translated === $original) {
+                                continue;
+                            }
+
+                            $fresh[$original] = $translated;
                         }
                     }
                 }
 
                 if (!empty($fresh)) {
                     $this->cache->setMany($fresh, $langFrom, $langTo);
-                } elseif ($freshWords > 0) {
+                }
+
+                if (
+                    !$forceCacheOnly
+                    && $freshWords > 0
+                    && ($cacheOnlyResponse || empty($fresh))
+                ) {
                     // SaaS did not deliver any fresh translations (5xx, 429, network,
-                    // malformed body, or 402) — undo the local budgets so transient
-                    // failures and velocity limits do not poison the ticket/IP window
-                    // without a successful spend (shared-NAT breakage, same class as #210).
+                    // malformed body, 402, or an explicit cache-only response) — undo
+                    // the local budgets so non-spending responses do not poison the
+                    // ticket/IP window (shared-NAT breakage, same class as #210).
                     $this->releaseFreshWordsForIp($freshWords);
                     if ($quotaTicket !== '') {
                         $this->releaseFreshWordBudget($quotaTicket, $freshWords);

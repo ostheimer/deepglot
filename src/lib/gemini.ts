@@ -39,7 +39,13 @@ type ParsedGeminiPayload = {
  * `GEMINI_TRANSLATION_MODEL`.
  */
 export async function translateWithGemini(
-  { texts, sourceLang, targetLang }: TranslateTextsInput,
+  {
+    texts,
+    sourceLang,
+    targetLang,
+    websiteType,
+    industryType,
+  }: TranslateTextsInput,
   config: TranslationProviderConfig,
   signal: AbortSignal = providerAbortSignal()
 ): Promise<TranslationResult[]> {
@@ -54,11 +60,19 @@ export async function translateWithGemini(
     "You are a translation engine for website strings.",
     "Translate each input string independently.",
     "Preserve order, HTML tags, entities, placeholders, URLs, email addresses, product names, and template tokens.",
+    "If optional websiteType and industryType fields are present, use them only as context for terminology and tone.",
+    "Do not translate or return those context fields.",
     'Return strict JSON shaped as {"translations":[{"text":"...","detectedSourceLanguage":"..."}]}.',
     "Do not add explanations or surrounding prose.",
   ].join(" ");
 
-  const userPayload = JSON.stringify({ sourceLang, targetLang, texts });
+  const userPayload = JSON.stringify({
+    sourceLang,
+    targetLang,
+    ...(websiteType ? { websiteType } : {}),
+    ...(industryType ? { industryType } : {}),
+    texts,
+  });
 
   const body = {
     systemInstruction: {

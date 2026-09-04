@@ -59,6 +59,34 @@ describe("translateWithDeepL response contract", () => {
     ]);
   });
 
+  it("passes website type and industry as non-translated DeepL context", async () => {
+    let requestBody = "";
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = String(init?.body ?? "");
+      return new Response(
+        JSON.stringify({ translations: [{ text: "Welcome" }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    await translateWithDeepL(
+      {
+        texts: ["Willkommen"],
+        sourceLang: "de",
+        targetLang: "en",
+        websiteType: "Hotel website",
+        industryType: "Hospitality & tourism",
+      },
+      { DEEPL_API_KEY: "test-key" },
+    );
+
+    const params = new URLSearchParams(requestBody);
+    assert.equal(
+      params.get("context"),
+      "Website type: Hotel website. Industry: Hospitality & tourism.",
+    );
+  });
+
   it("rejects an unparseable JSON envelope with the typed provider response error", async () => {
     globalThis.fetch = (async () =>
       new Response("not-json", {

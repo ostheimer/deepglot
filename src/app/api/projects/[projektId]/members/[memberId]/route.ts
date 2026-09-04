@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import { resetProjectMemberWorkflowAssignments } from "@/lib/translation-workflow";
@@ -76,7 +77,18 @@ export async function PATCH(
     parsed.data,
     "langCode"
   );
-  const updated = await db.$transaction(async (tx) => {
+  const persistenceResult = await db.$transaction(async (tx) => {
+    if (changesLanguage && langCode) {
+      const languageConfigurationIsCurrent =
+        await lockAndValidateProjectLanguageWrite(tx, {
+          projectId: projektId,
+          targetLanguages: [langCode],
+        });
+      if (!languageConfigurationIsCurrent) {
+        return { kind: "language_configuration_changed" } as const;
+      }
+    }
+
     // A language-scoped member must not retain assignments outside their new
     // scope. Reset those segments atomically before updating the membership.
     if (changesLanguage && langCode) {
@@ -87,7 +99,7 @@ export async function PATCH(
       });
     }
 
-    return tx.projectMember.update({
+    const updatedMember = await tx.projectMember.update({
       where: { id: member.id },
       data: {
         ...(parsed.data.role ? { role: parsed.data.role } : {}),
@@ -97,9 +109,24 @@ export async function PATCH(
         user: { select: { id: true, name: true, email: true, image: true } },
       },
     });
+    return { kind: "updated", member: updatedMember } as const;
   });
 
-  return NextResponse.json({ member: updated });
+  if (persistenceResult.kind === "language_configuration_changed") {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Die Sprachkonfiguration hat sich geändert. Bitte neu laden.",
+          "The language configuration changed. Reload and retry.",
+        ),
+        code: "project_language_configuration_changed",
+      },
+      { status: 409 },
+    );
+  }
+
+  return NextResponse.json({ member: persistenceResult.member });
 }
 
 export async function DELETE(

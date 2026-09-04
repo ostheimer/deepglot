@@ -60,6 +60,34 @@ assertSameRouting('https://en.example.com/offers/?coupon=1#details', $subdomainR
 assertSameRouting('https://partner.example.net/offers/', $subdomainRouting->rewriteUrl('https://partner.example.net/offers/', 'en'), 'External hosts should not be rewritten in subdomain mode.');
 assertSameRouting('//cdn.example.com/image.jpg', $subdomainRouting->rewriteUrl('//cdn.example.com/image.jpg', 'en'), 'Protocol-relative URLs should not be rewritten.');
 
+// Runtime target removal must deactivate, not destroy, WordPress-owned domain
+// mappings. A stale mapping may become active again if the target is re-added,
+// but it must not route requests or extend the internal-host allow-list now.
+$routingWithStaleMapping = new SiteRouting(
+    new UrlLanguageResolver('de', ['fr']),
+    'https://example.com',
+    'SUBDOMAIN',
+    [
+        'en' => 'en.example.com',
+        'fr' => 'fr.example.com',
+    ]
+);
+assertSameRouting(
+    null,
+    $routingWithStaleMapping->detectLanguage('/about/', 'en.example.com'),
+    'A domain mapping for a removed target language must no longer detect that language.'
+);
+assertSameRouting(
+    false,
+    $routingWithStaleMapping->isInternalHost('en.example.com'),
+    'A removed target language mapping must not remain in the internal-host allow-list.'
+);
+assertSameRouting(
+    'fr',
+    $routingWithStaleMapping->detectLanguage('/about/', 'fr.example.com'),
+    'Removing one target must preserve routing for mappings of still-active targets.'
+);
+
 $subdomainWithoutMappings = new SiteRouting(
     $resolver,
     'https://example.com',

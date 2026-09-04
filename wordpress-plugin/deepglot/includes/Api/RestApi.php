@@ -41,6 +41,13 @@ class RestApi
     /** Rate-limit window in seconds. */
     private const RATE_WINDOW    = 60;
 
+    /** Project-wide mirrors owned by the authenticated Deepglot project. */
+    private const SAAS_MANAGED_SETTINGS = [
+        'source_language',
+        'target_languages',
+        'auto_redirect',
+    ];
+
     private Options $options;
     private SettingsSync $settingsSync;
     private ?UrlTranslationSync $urlSync;
@@ -223,6 +230,11 @@ class RestApi
             return $this->errorResponse($rateLimitError);
         }
 
+        $managedSettingsError = $this->saasManagedSettingsWriteError($request);
+        if ($managedSettingsError !== null) {
+            return $this->errorResponse($managedSettingsError);
+        }
+
         $current = $this->options->all();
         $merged  = $this->mergeInput($request, $current, replace: true);
         $this->saveSettings($merged);
@@ -236,6 +248,11 @@ class RestApi
         $rateLimitError = $this->checkRateLimit($request);
         if (is_wp_error($rateLimitError)) {
             return $this->errorResponse($rateLimitError);
+        }
+
+        $managedSettingsError = $this->saasManagedSettingsWriteError($request);
+        if ($managedSettingsError !== null) {
+            return $this->errorResponse($managedSettingsError);
         }
 
         $current = $this->options->all();
@@ -529,9 +546,6 @@ class RestApi
             'enabled'            => 'enabled',
             'api_key'            => 'api_key',
             'api_base_url'       => 'api_base_url',
-            'source_language'    => 'source_language',
-            'target_languages'   => 'target_languages',
-            'auto_redirect'      => 'auto_redirect',
             'routing_mode'       => 'routing_mode',
             'domain_mappings'    => 'domain_mappings',
             'translate_emails'   => 'translate_emails',
@@ -550,6 +564,34 @@ class RestApi
 
         // Run through the sanitizer for consistency.
         return $this->options->sanitize($base);
+    }
+
+    private function saasManagedSettingsWriteError(WP_REST_Request $request): ?WP_Error
+    {
+        $params = $request->get_params();
+        if (!is_array($params)) {
+            return null;
+        }
+
+        $requestedFields = array_values(array_filter(
+            self::SAAS_MANAGED_SETTINGS,
+            static fn(string $field): bool => array_key_exists($field, $params)
+        ));
+        if ($requestedFields === []) {
+            return null;
+        }
+
+        return new WP_Error(
+            'deepglot_saas_managed_settings',
+            __(
+                'Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden.',
+                'deepglot'
+            ),
+            [
+                'status' => 409,
+                'fields' => $requestedFields,
+            ]
+        );
     }
 
     private function saveSettings(array $settings): void
@@ -580,14 +622,20 @@ class RestApi
     private function pingBackend(string $baseUrl, string $apiKey): array
     {
         $url = rtrim($baseUrl, '/') . '/translate?api_key=' . rawurlencode($apiKey);
+        $sourceLanguage = $this->options->getSourceLanguage();
+        $targetLanguages = array_values(array_filter(
+            $this->options->getTargetLanguages(),
+            static fn(string $language): bool => $language !== $sourceLanguage
+        ));
+        $targetLanguage = $targetLanguages[0] ?? ($sourceLanguage === 'en' ? 'de' : 'en');
 
         $response = wp_remote_post($url, [
             'timeout'     => 8,
             'redirection' => 2,
             'headers'     => ['Content-Type' => 'application/json'],
             'body'        => wp_json_encode([
-                'l_from'      => 'de',
-                'l_to'        => 'en',
+                'l_from'      => $sourceLanguage,
+                'l_to'        => $targetLanguage,
                 'quota_probe' => true,
                 'words'       => [['w' => 'Verbindung jetzt testen', 't' => 1]],
             ]),
@@ -660,23 +708,6 @@ class RestApi
                 'required'          => $req,
                 'sanitize_callback' => 'esc_url_raw',
                 'description'       => 'Backend URL, e.g. https://deepglot.ai/api',
-            ],
-            'source_language' => [
-                'type'              => 'string',
-                'required'          => $req,
-                'sanitize_callback' => 'sanitize_text_field',
-                'description'       => 'ISO 639-1 source language code.',
-            ],
-            'target_languages' => [
-                'type'        => 'array',
-                'required'    => $req,
-                'items'       => ['type' => 'string'],
-                'description' => 'Array of ISO 639-1 target language codes.',
-            ],
-            'auto_redirect' => [
-                'type'     => 'boolean',
-                'required' => $req,
-                'description' => 'Redirect visitors based on browser language.',
             ],
             'routing_mode' => [
                 'type'     => 'string',

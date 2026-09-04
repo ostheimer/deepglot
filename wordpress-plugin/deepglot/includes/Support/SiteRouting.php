@@ -667,7 +667,12 @@ class SiteRouting
             return null;
         }
 
-        $host = $this->domainMappings[strtolower(trim($language))] ?? null;
+        $language = strtolower(trim($language));
+        if (!in_array($language, $this->resolver->getTargetLanguages(), true)) {
+            return null;
+        }
+
+        $host = $this->domainMappings[$language] ?? null;
 
         return $host ? $host : null;
     }

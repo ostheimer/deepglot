@@ -21,7 +21,13 @@ export type DeepLLanguage = {
  * Sends a single batch request to minimize latency (same batching strategy as the compatibility layer).
  */
 export async function translateWithDeepL(
-  { texts, sourceLang, targetLang }: TranslateTextsInput,
+  {
+    texts,
+    sourceLang,
+    targetLang,
+    websiteType,
+    industryType,
+  }: TranslateTextsInput,
   env: TranslationEnv = process.env,
   signal: AbortSignal = providerAbortSignal(env)
 ): Promise<TranslationResult[]> {
@@ -32,6 +38,15 @@ export async function translateWithDeepL(
   params.append("source_lang", sourceLang.toUpperCase());
   params.append("target_lang", targetLang.toUpperCase());
   params.append("preserve_formatting", "1");
+  const context = [
+    websiteType ? `Website type: ${websiteType}.` : "",
+    industryType ? `Industry: ${industryType}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (context) {
+    params.append("context", context);
+  }
 
   for (const text of texts) {
     params.append("text", text);

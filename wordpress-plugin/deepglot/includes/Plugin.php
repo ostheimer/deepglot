@@ -110,6 +110,10 @@ class Plugin
         }
 
         $this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();
+        $this->container->get(UrlLanguageResolver::class)->replaceLanguages(
+            $options->getSourceLanguage(),
+            $options->getTargetLanguages()
+        );
         $this->container->get(SiteRouting::class)->replaceUrlSlugMappings(
             $options->getUrlSlugMappings()
         );
@@ -229,7 +233,8 @@ class Plugin
         $this->container->singleton(SettingsSync::class, function (Container $c) {
             return new SettingsSync(
                 $c->get(Options::class),
-                $c->get(Client::class)
+                $c->get(Client::class),
+                $c->get(TranslationWarmer::class)
             );
         });
 

@@ -305,6 +305,26 @@ if (!function_exists('get_option')) {
 
     class WP_REST_Request
     {
+        public function __construct(
+            private array $params = [],
+            private ?array $jsonParams = null
+        ) {
+        }
+
+        public function get_param($key)
+        {
+            return $this->params[$key] ?? null;
+        }
+
+        public function get_json_params(): array
+        {
+            return $this->jsonParams ?? $this->params;
+        }
+
+        public function get_params(): array
+        {
+            return $this->params;
+        }
     }
 
     class WP_REST_Response
@@ -396,6 +416,13 @@ function dgkeyRender(callable $callback): string
     $callback();
 
     return (string) ob_get_clean();
+}
+
+function dgkeyInputMarkup(string $html, string $id): string
+{
+    $pattern = '/<input\b[^>]*\bid="' . preg_quote($id, '/') . '"[^>]*>/s';
+
+    return preg_match($pattern, $html, $matches) === 1 ? (string) $matches[0] : '';
 }
 
 function dgkeyArmStoredBreaker(Client $client): void
@@ -1319,6 +1346,132 @@ dgkeyAssert(
 dgkeyAssert(
     str_contains($broken, 'API-Key ungültig'),
     'The settings page must state that the API key is invalid.'
+);
+
+// -----------------------------------------------------------------------------
+// 12. Once an authenticated SaaS project snapshot exists, its project-wide
+//     settings are mirrors in WordPress. They must look read-only, remain part
+//     of a key-switch form submission, and become editable only when the key or
+//     backend identity actually changes.
+// -----------------------------------------------------------------------------
+dgkeyReset();
+dgkeyStoreSettings([
+    'saas_project_version' => '2026-08-25T12:00:00.000Z',
+    'auto_redirect' => true,
+]);
+$managed = dgkeyRender([$settingsPage, 'render']);
+$managedSource = dgkeyInputMarkup($managed, 'dg_source_lang');
+$managedTargets = dgkeyInputMarkup($managed, 'dg_target_langs');
+$managedRedirect = dgkeyInputMarkup($managed, 'dg_auto_redirect');
+$managedRedirectMirror = dgkeyInputMarkup($managed, 'dg_auto_redirect_mirror');
+
+dgkeyAssert(
+    str_contains($managed, 'Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet'),
+    'A runtime-backed project must clearly name the dashboard as owner of source, targets and auto redirect.'
+);
+dgkeyAssert(
+    str_contains($managedSource, 'readonly') && str_contains($managedSource, 'aria-readonly="true"'),
+    'The runtime-backed source language must render read-only while remaining submittable.'
+);
+dgkeyAssert(
+    str_contains($managedTargets, 'readonly') && str_contains($managedTargets, 'aria-readonly="true"'),
+    'Runtime-backed target languages must render read-only while remaining submittable.'
+);
+dgkeyAssert(
+    str_contains($managedRedirect, 'disabled') && str_contains($managedRedirect, 'aria-disabled="true"'),
+    'The runtime-backed auto-redirect checkbox must render disabled.'
+);
+dgkeyAssert(
+    str_contains($managedRedirectMirror, 'name="deepglot_settings[auto_redirect]"')
+        && str_contains($managedRedirectMirror, 'value="1"'),
+    'A disabled checked redirect must have a submitted hidden mirror for key-switch bootstrap.'
+);
+dgkeyAssert(
+    str_contains($managed, "apiKey.addEventListener('input', updateSaasOwnedControls)")
+        && str_contains($managed, "baseUrl.addEventListener('input', updateSaasOwnedControls)")
+        && str_contains($managed, 'sourceLanguage.readOnly = sameRuntimeIdentity')
+        && str_contains($managed, 'autoRedirectMirror.disabled = !sameRuntimeIdentity')
+        && str_contains($managed, 'sourceLanguage.value = runtimeSourceLanguage')
+        && str_contains($managed, 'targetLanguages.value = runtimeTargetLanguages')
+        && str_contains($managed, 'autoRedirect.checked = runtimeAutoRedirect'),
+    'Changing the API key or backend must unlock bootstrap fields and disable the hidden redirect mirror.'
+);
+
+dgkeyStoreSettings([
+    'saas_project_version' => '',
+    'auto_redirect' => true,
+]);
+$bootstrap = dgkeyRender([$settingsPage, 'render']);
+dgkeyAssert(
+    !str_contains(dgkeyInputMarkup($bootstrap, 'dg_source_lang'), 'readonly')
+        && !str_contains(dgkeyInputMarkup($bootstrap, 'dg_target_langs'), 'readonly')
+        && !str_contains(dgkeyInputMarkup($bootstrap, 'dg_auto_redirect'), 'disabled'),
+    'Before the first authenticated runtime snapshot, setup language and redirect controls must remain editable.'
+);
+
+// -----------------------------------------------------------------------------
+// 13. The WordPress REST settings endpoint exposes SaaS values only as readback
+//     mirrors: its schema must not advertise writes and callbacks must reject
+//     explicit write attempts rather than silently accepting ignored values.
+// -----------------------------------------------------------------------------
+dgkeyReset();
+dgkeyStoreSettings([
+    'source_language' => 'de',
+    'target_languages' => ['en'],
+    'auto_redirect' => true,
+    'saas_project_version' => '2026-08-25T12:00:00.000Z',
+]);
+$api = new RestApi($options, $sync);
+$settingsSchema = new ReflectionMethod($api, 'settingsSchema');
+foreach ([true, false] as $required) {
+    $schema = $settingsSchema->invoke($api, $required);
+    dgkeyAssert(
+        !array_key_exists('source_language', $schema)
+            && !array_key_exists('target_languages', $schema)
+            && !array_key_exists('auto_redirect', $schema),
+        'PUT/PATCH REST schemas must not advertise SaaS-owned project fields as writable.'
+    );
+}
+
+$managedWrite = $api->patchSettings(new WP_REST_Request([
+    'source_language' => 'fr',
+    'target_languages' => ['it'],
+    'auto_redirect' => false,
+]));
+$managedWriteData = $managedWrite->get_data();
+dgkeyAssert($managedWrite->get_status() === 409, 'REST writes to SaaS-owned project fields must return HTTP 409.');
+dgkeyAssert(
+    ($managedWriteData['code'] ?? '') === 'deepglot_saas_managed_settings',
+    'REST rejection must expose a stable SaaS-ownership error code.'
+);
+dgkeyAssert(
+    ($GLOBALS['_dgkey_options']['deepglot_settings']['source_language'] ?? null) === 'de'
+        && ($GLOBALS['_dgkey_options']['deepglot_settings']['target_languages'] ?? null) === ['en']
+        && ($GLOBALS['_dgkey_options']['deepglot_settings']['auto_redirect'] ?? null) === true,
+    'A rejected REST write must leave every SaaS-owned mirror unchanged.'
+);
+
+$managedPut = $api->putSettings(new WP_REST_Request(['auto_redirect' => false]));
+dgkeyAssert(
+    $managedPut->get_status() === 409
+        && (($managedPut->get_data()['code'] ?? '') === 'deepglot_saas_managed_settings'),
+    'PUT must enforce the same explicit SaaS-ownership rejection as PATCH.'
+);
+
+$formEncodedManagedWrite = $api->patchSettings(new WP_REST_Request(
+    ['source_language' => 'fr'],
+    []
+));
+dgkeyAssert(
+    $formEncodedManagedWrite->get_status() === 409,
+    'Non-JSON REST parameters must receive the same SaaS-ownership conflict instead of being silently ignored.'
+);
+
+$localWrite = $api->patchSettings(new WP_REST_Request(['routing_mode' => 'SUBDOMAIN']));
+dgkeyAssert($localWrite->get_status() === 200, 'A WordPress-owned REST setting must remain writable.');
+dgkeyAssert(
+    ($GLOBALS['_dgkey_options']['deepglot_settings']['routing_mode'] ?? null) === 'SUBDOMAIN',
+    'Accepted local REST writes must still be persisted.'
 );
 
 if ($GLOBALS['_dgkey_failures'] !== []) {

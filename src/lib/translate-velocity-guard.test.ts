@@ -112,7 +112,16 @@ test("the velocity gate charges every fresh spend but exempts bots — NOT healt
   assert.ok(gate, "consumeTranslateWordVelocity must sit behind a translatedWords gate");
 
   const condition = gate[1];
-  assert.match(condition, /!isBot/, "bots must be exempt from the velocity limit");
+  assert.match(
+    condition,
+    /canCreateFreshTranslations/,
+    "bots and projects with automatic translation disabled must be exempt from the velocity limit",
+  );
+  assert.match(
+    source,
+    /shouldCreateFreshTranslations\(\{\s*isBot,/,
+    "the fresh-translation gate must retain the bot exemption",
+  );
   assert.match(condition, /translatedWords > 0/, "only real fresh spend is charged");
   // quota_probe must NOT gate velocity: it is an attacker-settable body flag
   // and the spend/usage block does not honor it, so exempting velocity would
@@ -177,32 +186,36 @@ test("translate idempotency deduplicates retryable 429 only until its Retry-Afte
   );
 });
 
-test("provider failures refund the reserved velocity words before returning an API error", () => {
+test("velocity refunds stop at the final pre-provider dispatch boundary", () => {
   const source = routeSource();
+  const pdf = pdfTranslationSource();
 
-  assert.match(
-    source,
-    /releaseTranslateWordVelocity/,
-    "the translate route must import and call releaseTranslateWordVelocity"
+  const providerStart = source.indexOf("await translateTexts(");
+  const lastRefund = source.lastIndexOf("releaseTranslateWordVelocity(");
+  assert.notEqual(providerStart, -1);
+  assert.notEqual(lastRefund, -1);
+  assert.ok(
+    lastRefund < providerStart,
+    "only configuration drift before provider dispatch may refund",
   );
-  assert.match(
-    source,
-    /catch\s*\([^)]*\)\s*\{[\s\S]{0,600}releaseTranslateWordVelocity[\s\S]{0,600}throw\s+error/,
-    "provider errors must refund the velocity reservation before the route rethrows to its typed 5xx handler"
+  assert.doesNotMatch(source.slice(providerStart), /releaseTranslateWordVelocity/);
+  assert.doesNotMatch(
+    pdf,
+    /releaseTranslateWordVelocity/,
+    "PDF provider work may already have incurred cost before throwing",
   );
 });
 
-test("persistence failures refund the reserved velocity words before returning 500", () => {
+test("post-provider drift and persistence failures retain the velocity spend", () => {
   const source = routeSource();
 
-  assert.match(
-    source,
-    /catch\s*\([^)]*\)\s*\{[\s\S]{0,800}releaseTranslateWordVelocity[\s\S]{0,800}throw\s+error/,
-    "persistence errors must refund the velocity reservation before the route rethrows to its 500 handler"
+  const persistenceStart = source.indexOf(
+    "const enabledTranslationWebhookEvents",
   );
-  assert.match(
-    source,
-    /Velocity refund failed after persistence error/,
-    "persistence refund failures must be logged distinctly from provider refund failures"
+  assert.notEqual(persistenceStart, -1);
+  assert.doesNotMatch(
+    source.slice(persistenceStart, source.indexOf("// 8. Fallback")),
+    /releaseTranslateWordVelocity/,
+    "provider spend must not be refunded after a successful provider result",
   );
 });

@@ -11,16 +11,16 @@ type RuntimeSyncBannerProps = {
   locale: SiteLocale;
   domain: string;
   runtimeSyncedAt?: Date | null;
+  source?: "wordpress-runtime" | "saas-general";
 };
 
 export function RuntimeSyncBanner({
   locale,
   domain,
   runtimeSyncedAt,
+  source = "wordpress-runtime",
 }: RuntimeSyncBannerProps) {
-  const wpSettingsUrl = `${getProjectUrl(
-    domain
-  )}/wp-admin/options-general.php?page=deepglot`;
+  const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
 
   const syncedLabel = runtimeSyncedAt
     ? formatDistanceToNow(runtimeSyncedAt, {
@@ -28,27 +28,58 @@ export function RuntimeSyncBanner({
         locale: getDateFnsLocale(locale),
       })
     : null;
+  const saasGeneral = source === "saas-general";
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="text-sm font-semibold text-blue-900">
-          {uiText(locale, "WordPress is the source of truth for runtime settings", "WordPress ist die Quelle für Runtime-Einstellungen")}
-        </p>
-        <p className="mt-1 text-sm text-blue-700">
-          {runtimeSyncedAt
+          {saasGeneral
             ? uiText(
                 locale,
-                "Last synced {time}. Changes are saved in the plugin and mirrored here.",
-                "Zuletzt synchronisiert {time}. Änderungen werden im Plugin gespeichert und hier gespiegelt."
-              ).replace("{time}", syncedLabel ?? "")
-            : uiText(locale, "No plugin sync received yet. Save the settings in the WordPress plugin to update the mirrored state.", "Noch keine Plugin-Synchronisierung empfangen. Speichere die Einstellungen im WordPress-Plugin, um den Spiegelstand zu aktualisieren.")}
+                "Deepglot is the source of truth for general settings",
+                "Deepglot ist die Quelle für allgemeine Einstellungen",
+              )
+            : uiText(
+                locale,
+                "WordPress is the source of truth for runtime settings",
+                "WordPress ist die Quelle für Runtime-Einstellungen",
+              )}
+        </p>
+        <p className="mt-1 text-sm text-blue-700">
+          {saasGeneral
+            ? runtimeSyncedAt
+              ? uiText(
+                  locale,
+                  "Last WordPress sync {time}. General settings are saved here and delivered to the plugin through runtime configuration.",
+                  "Letzte WordPress-Synchronisierung {time}. Allgemeine Einstellungen werden hier gespeichert und über die Runtime-Konfiguration an das Plugin übertragen.",
+                ).replace("{time}", syncedLabel ?? "")
+              : uiText(
+                  locale,
+                  "No WordPress sync received yet. General settings are saved here and will be delivered when the plugin connects.",
+                  "Noch keine WordPress-Synchronisierung empfangen. Allgemeine Einstellungen werden hier gespeichert und übertragen, sobald sich das Plugin verbindet.",
+                )
+            : runtimeSyncedAt
+              ? uiText(
+                  locale,
+                  "Last synced {time}. Changes are saved in the plugin and mirrored here.",
+                  "Zuletzt synchronisiert {time}. Änderungen werden im Plugin gespeichert und hier gespiegelt.",
+                ).replace("{time}", syncedLabel ?? "")
+              : uiText(
+                  locale,
+                  "No plugin sync received yet. Save the settings in the WordPress plugin to update the mirrored state.",
+                  "Noch keine Plugin-Synchronisierung empfangen. Speichere die Einstellungen im WordPress-Plugin, um den Spiegelstand zu aktualisieren.",
+                )}
         </p>
       </div>
       <Button asChild className="bg-brand-600 hover:bg-brand-700">
         <a href={wpSettingsUrl} target="_blank" rel="noreferrer">
-          <ExternalLink className="mr-2 h-4 w-4" />
-          {uiText(locale, "Open WordPress settings", "WordPress-Einstellungen öffnen")}
+          <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+          {uiText(
+            locale,
+            "Open WordPress settings",
+            "WordPress-Einstellungen öffnen",
+          )}
         </a>
       </Button>
     </div>

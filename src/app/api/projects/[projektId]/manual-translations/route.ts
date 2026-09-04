@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { verifyEditorSessionToken } from "@/lib/editor-session";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { recordTranslationBatch, upsertTranslatedUrlHit } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
@@ -178,7 +179,17 @@ export async function POST(
     parsed.data.langTo
   );
 
-  const translation = await db.$transaction(async (tx) => {
+  const persistenceResult = await db.$transaction(async (tx) => {
+    const languageConfigurationIsCurrent =
+      await lockAndValidateProjectLanguageWrite(tx, {
+        projectId: projektId,
+        sourceLanguages: [parsed.data.langFrom],
+        targetLanguages: [parsed.data.langTo],
+      });
+    if (!languageConfigurationIsCurrent) {
+      return { kind: "language_configuration_changed" } as const;
+    }
+
     const existing = await tx.translation.findUnique({
       where: {
         projectId_originalHash: {
@@ -282,11 +293,22 @@ export async function POST(
       tx
     );
 
-    return saved;
+    return { kind: "saved", translation: saved } as const;
   });
 
+  if (persistenceResult.kind === "language_configuration_changed") {
+    return NextResponse.json(
+      {
+        error:
+          "The project's source or target language changed. Reload the editor and retry.",
+        code: "project_language_configuration_changed",
+      },
+      { status: 409, headers: corsHeaders(request) },
+    );
+  }
+
   return NextResponse.json(
-    { ok: true, translation },
+    { ok: true, translation: persistenceResult.translation },
     {
       headers: corsHeaders(request),
     }

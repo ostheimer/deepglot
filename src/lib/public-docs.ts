@@ -54,6 +54,7 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
   "request_url": "https://example.com/",
   "title": "",
   "bot": 0,
+  "cache_only": false,
   "from_words": ["Hallo Welt"],
   "to_words": ["Hello world"]
 }`,
@@ -61,6 +62,10 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
       {
         en: "Word type t follows the plugin contract. Human traffic uses bot=0; every bot value >=1 is cache-only and never invokes a provider.",
         de: "Der Worttyp t folgt dem Plugin-Vertrag. Menschlicher Traffic verwendet bot=0; jeder Bot-Wert ab 1 ist ausschließlich cachebasiert und ruft keinen Anbieter auf.",
+      },
+      {
+        en: "cache_only is true for bots and when automatic translation is disabled. Clients may serve returned cache hits but must not persist source-identical cache misses as translations.",
+        de: "cache_only ist für Bots sowie bei deaktivierter automatischer Übersetzung true. Clients dürfen gelieferte Cache-Treffer ausgeben, aber quelltextgleiche Cache-Fehlschläge nicht als Übersetzungen speichern.",
       },
       {
         en: "Only fresh provider-billed words consume monthly quota. A 402 means quota exhaustion; a 429 includes Retry-After for request or fresh-word velocity limits.",
@@ -139,17 +144,34 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
       de: "Projekt-API-Key über Bearer-Header oder Query-Parameter.",
     },
     summary: {
-      en: "Returns normalized translation exclusions, collision-safe translated URL slugs, and the synchronization timestamp used by the WordPress runtime.",
-      de: "Liefert normalisierte Übersetzungsausschlüsse, kollisionssichere übersetzte URL-Slugs und den Synchronisationszeitpunkt für die WordPress-Laufzeit.",
+      en: "Returns the authoritative SaaS project settings together with normalized translation exclusions, collision-safe translated URL slugs, and the synchronization timestamp used by the WordPress runtime.",
+      de: "Liefert die autoritativen SaaS-Projekteinstellungen zusammen mit normalisierten Übersetzungsausschlüssen, kollisionssicheren übersetzten URL-Slugs und dem Synchronisationszeitpunkt für die WordPress-Laufzeit.",
     },
     responseExample: `{
   "exclusions": { "urls": [], "regexes": [], "selectors": [] },
+  "pageViewsEnabled": false,
+  "project": {
+    "version": "2026-08-25T10:00:00.000Z",
+    "name": "Example website",
+    "domain": "example.com",
+    "sourceLanguage": "de",
+    "targetLanguages": ["en"],
+    "autoRedirect": false,
+    "displayAiNotice": true,
+    "automaticTranslation": true,
+    "websiteType": "Corporate website",
+    "industryType": "Software & technology"
+  },
   "urlSlugs": [
     { "originalSlug": "ueber-uns", "translatedSlug": "about-us", "langTo": "en" }
   ],
   "syncedAt": "2026-07-13T10:00:00.000Z"
 }`,
     notes: [
+      {
+        en: "The project block is the authoritative runtime readback for SaaS-managed project settings and includes their current version.",
+        de: "Der project-Block ist die autoritative Laufzeitansicht der im SaaS verwalteten Projekteinstellungen und enthält deren aktuelle Version.",
+      },
       {
         en: "Mappings that would shadow another source slug or have an ambiguous reverse mapping are omitted. Projects above the bounded 10,000-record runtime contract receive a 413 error instead of a silently truncated map.",
         de: "Zuordnungen, die einen anderen Quell-Slug verdecken oder keine eindeutige Rückwärtszuordnung besitzen, werden ausgelassen. Projekte oberhalb des begrenzten Runtime-Vertrags mit 10.000 Zeilen erhalten einen 413-Fehler statt einer unbemerkt abgeschnittenen Zuordnung.",
@@ -167,8 +189,8 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
       de: "Projekt-API-Key über Bearer-Header oder Query-Parameter.",
     },
     summary: {
-      en: "Synchronizes WordPress routing, languages, runtime options, source host, and optional subdomain mappings into the project.",
-      de: "Synchronisiert WordPress-Routing, Sprachen, Laufzeitoptionen, Quellhost und optionale Subdomain-Zuordnungen in das Projekt.",
+      en: "Stores WordPress-owned routing and runtime options while comparing mirrored project values with the authoritative SaaS configuration.",
+      de: "Speichert WordPress-eigene Routing- und Laufzeitoptionen und vergleicht dabei gespiegelte Projektwerte mit der autoritativen SaaS-Konfiguration.",
     },
     requestExample: `{
   "routingMode": "PATH_PREFIX",
@@ -185,11 +207,22 @@ export const PUBLIC_ENDPOINT_DOCS: readonly PublicEndpointDoc[] = [
   "ok": true,
   "project": {
     "id": "project-id",
+    "name": "Example website",
+    "domain": "example.com",
     "originalLang": "de",
     "languages": [{ "langCode": "en", "isActive": true }]
-  }
+  },
+  "mirrorConflicts": ["domain", "autoRedirect"]
 }`,
     notes: [
+      {
+        en: "SaaS is authoritative for the project name, domain, source and target languages, automatic redirect, AI notice, automatic translation, website type, and industry context. Incoming mirrored differences are listed in mirrorConflicts and are not written back.",
+        de: "Das SaaS ist autoritativ für Projektname, Domain, Quell- und Zielsprachen, automatische Weiterleitung, KI-Hinweis, automatische Übersetzung, Website-Typ und Branchenkontext. Eingehende gespiegelte Abweichungen werden in mirrorConflicts aufgeführt und nicht zurückgeschrieben.",
+      },
+      {
+        en: "WordPress is authoritative for routing mode, domain mappings, and email, search, and AMP translation. Client-side dynamic translation remains plugin-local and is not written into the SaaS project.",
+        de: "WordPress ist autoritativ für Routing-Modus, Domain-Zuordnungen sowie E-Mail, Suche und AMP. Die clientseitige dynamische Übersetzung bleibt plugin-lokal und wird nicht in das SaaS-Projekt geschrieben.",
+      },
       {
         en: "In SUBDOMAIN mode, mapped target languages use their unique host; unmapped target languages fall back to path prefixes on the source host.",
         de: "Im Modus SUBDOMAIN verwenden zugeordnete Zielsprachen ihren eindeutigen Host; nicht zugeordnete Zielsprachen werden über Pfad-Präfixe auf dem Quellhost ausgeliefert.",

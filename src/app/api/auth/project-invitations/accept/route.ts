@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hashProjectInvitationToken } from "@/lib/project-invitations";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -181,6 +182,15 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await db.$transaction(async (tx) => {
+    const languageConfigurationIsCurrent =
+      await lockAndValidateProjectLanguageWrite(tx, {
+        projectId: invitation.project.id,
+        targetLanguages: invitation.langCode ? [invitation.langCode] : [],
+      });
+    if (!languageConfigurationIsCurrent) {
+      return { kind: "language_configuration_changed" } as const;
+    }
+
     const user =
       existingUser ??
       (await tx.user.create({
@@ -237,8 +247,22 @@ export async function POST(request: NextRequest) {
       data: { acceptedAt: new Date() },
     });
 
-    return { user, member };
+    return { kind: "accepted", user, member } as const;
   });
+
+  if (result.kind === "language_configuration_changed") {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Die Sprachkonfiguration hat sich geändert. Bitte fordere eine neue Einladung an.",
+          "The language configuration changed. Ask for a new invitation.",
+        ),
+        code: "project_language_configuration_changed",
+      },
+      { status: 409 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
