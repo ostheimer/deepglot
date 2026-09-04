@@ -108,7 +108,7 @@ test("language reactivation reevaluates active languages after mutation and reje
     originalUrl: `/uploads/dormant-${"a".repeat(990)}.png`,
   };
   const allRows = [...englishRows, dormantFrenchRow];
-  let activeLanguages = ["en"];
+  let activeLanguages = ["EN"];
   let languageSnapshotReads = 0;
 
   const transaction = {
@@ -128,7 +128,7 @@ test("language reactivation reevaluates active languages after mutation and reje
 
   await assert.rejects(
     withBoundedMediaRuntimeMutation(transaction, "project-under-test", async () => {
-      activeLanguages = ["en", "fr"];
+      activeLanguages = ["EN", "FR"];
       return { count: 1 };
     }),
     MediaRuntimePayloadLimitError

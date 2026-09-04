@@ -50,8 +50,8 @@ const apiKeyFindUnique = test.mock.fn(
         updatedAt: new Date("2026-09-04T12:00:00.000Z"),
         organization: { subscription: null },
         languages: [
-          { langCode: "en", isActive: true },
-          { langCode: "fr", isActive: true },
+          { langCode: "EN", isActive: true },
+          { langCode: "FR", isActive: true },
           { langCode: "it", isActive: false },
         ],
         settings: null,

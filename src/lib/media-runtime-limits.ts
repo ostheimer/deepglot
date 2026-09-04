@@ -22,6 +22,22 @@ export class MediaRuntimePayloadLimitError extends Error {
   }
 }
 
+export function normalizeActiveProjectLanguageCodes(
+  languageCodes: Iterable<string>
+): string[] {
+  const normalizedCodes = new Set<string>();
+
+  for (const languageCode of languageCodes) {
+    const normalizedCode = languageCode.trim().toLowerCase();
+
+    if (normalizedCode !== "") {
+      normalizedCodes.add(normalizedCode);
+    }
+  }
+
+  return [...normalizedCodes];
+}
+
 export function inspectMediaRuntimePayload(rows: RuntimeMediaReplacementRow[]) {
   const mediaReplacements = buildRuntimeMediaReplacements(rows);
 
@@ -73,7 +89,9 @@ async function getActiveProjectRuntimeRows(
     where: { projectId, isActive: true },
     select: { langCode: true },
   });
-  const activeLanguageCodes = activeLanguages.map(({ langCode }) => langCode);
+  const activeLanguageCodes = normalizeActiveProjectLanguageCodes(
+    activeLanguages.map(({ langCode }) => langCode)
+  );
   const runtimeMediaQuery = {
     where: { projectId, langTo: { in: activeLanguageCodes } },
     orderBy: [{ langTo: "asc" }, { originalUrl: "asc" }],

@@ -6,6 +6,7 @@ import { buildRuntimeExclusions } from "@/lib/exclusions";
 import {
   MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
   inspectMediaRuntimePayload,
+  normalizeActiveProjectLanguageCodes,
 } from "@/lib/media-runtime-limits";
 import { MAX_RUNTIME_MEDIA_REPLACEMENTS } from "@/lib/media-replacements";
 import { apiProblem } from "@/lib/problem-details";
@@ -79,9 +80,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const activeTargetLanguages = apiKey.project.languages
-      .filter((language) => language.isActive)
-      .map((language) => language.langCode);
+    const activeTargetLanguages = normalizeActiveProjectLanguageCodes(
+      apiKey.project.languages
+        .filter((language) => language.isActive)
+        .map((language) => language.langCode)
+    );
 
     const [rules, urlSlugs, mediaReplacementRows] = await Promise.all([
       db.translationExclusion.findMany({
