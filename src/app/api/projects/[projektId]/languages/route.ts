@@ -3,6 +3,14 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import {
+  MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+  MediaRuntimePayloadLimitError,
+} from "@/lib/media-runtime-limits";
+import {
+  MAX_RUNTIME_MEDIA_REPLACEMENTS,
+  MediaReplacementError,
+} from "@/lib/media-replacements";
+import {
   getAuthenticatedUserId,
   userCanManageProject,
 } from "@/lib/project-access";
@@ -35,7 +43,7 @@ const deleteSchema = z.object({
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ projektId: string }> }
+  { params }: { params: Promise<{ projektId: string }> },
 ) {
   const { projektId } = await params;
   const locale = await getCookieLocale();
@@ -43,7 +51,7 @@ export async function POST(
   if (!userId) {
     return NextResponse.json(
       { error: t(locale, "Nicht authentifiziert", "Not authenticated") },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -52,7 +60,7 @@ export async function POST(
   if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -60,7 +68,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json(
       { error: t(locale, "Ungültige Sprachen", "Invalid languages") },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -73,7 +81,7 @@ export async function POST(
     if (result.kind === "not_found") {
       return NextResponse.json(
         { error: t(locale, "Projekt nicht gefunden", "Project not found") },
-        { status: 404 }
+        { status: 404 },
       );
     }
     if (result.kind === "source_language_cannot_be_target") {
@@ -82,27 +90,60 @@ export async function POST(
           error: t(
             locale,
             "Die Originalsprache kann nicht als Zielsprache hinzugefügt werden.",
-            "The original language cannot be added as a target language."
+            "The original language cannot be added as a target language.",
           ),
           code: "source_language_cannot_be_target",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof MediaRuntimePayloadLimitError) {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            "Die Bildersetzungen überschreiten die zulässige Laufzeitgröße.",
+            "Could not add languages",
+          ),
+          code: "media_replacements_payload_too_large",
+          limit: MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
+        },
+        { status: 409 },
+      );
+    }
+
+    if (
+      error instanceof MediaReplacementError &&
+      error.code === "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
+    ) {
+      return NextResponse.json(
+        {
+          error: t(
+            locale,
+            `Pro Projekt sind höchstens ${MAX_RUNTIME_MEDIA_REPLACEMENTS} Bildersetzungen möglich.`,
+            "Could not add languages",
+          ),
+          code: "media_replacements_limit_exceeded",
+          limit: MAX_RUNTIME_MEDIA_REPLACEMENTS,
+        },
+        { status: 409 },
+      );
+    }
+
     console.error("[POST /api/projects/[id]/languages] Fehler:", error);
     return NextResponse.json(
       { error: t(locale, "Fehler beim Hinzufügen", "Could not add languages") },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ projektId: string }> }
+  { params }: { params: Promise<{ projektId: string }> },
 ) {
   const { projektId } = await params;
   const locale = await getCookieLocale();
@@ -110,14 +151,14 @@ export async function DELETE(
   if (!userId) {
     return NextResponse.json(
       { error: t(locale, "Nicht authentifiziert", "Not authenticated") },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
   if (!(await userCanManageProject(userId, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -125,7 +166,7 @@ export async function DELETE(
   if (!parsed.success) {
     return NextResponse.json(
       { error: t(locale, "Ungültige Sprache", "Invalid language") },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -137,7 +178,7 @@ export async function DELETE(
   if (!projectFound) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
-      { status: 404 }
+      { status: 404 },
     );
   }
 

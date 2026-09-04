@@ -13,6 +13,9 @@ class SettingsSync
     private const RUNTIME_REFRESH_LOCK_TTL = 60;
     private const RUNTIME_REFRESH_FAILURE_BACKOFF = 60;
 
+    /** In-process fallback for isolated callers without WordPress option storage. */
+    private static ?string $runtimeRefreshProcessLock = null;
+
     private Options $options;
     private Client $client;
     private ?TranslationWarmer $warmer;
@@ -45,6 +48,7 @@ class SettingsSync
 
         if ($this->runtimeSourceChanged($oldValue, $newValue)) {
             $this->options->clearUrlSlugMappings();
+            $this->options->clearMediaReplacements();
             // A new key or backend invalidates the cached 401 verdict. Without
             // this reset a corrected key would only take effect once the
             // circuit breaker's TTL expired (#245).
@@ -179,7 +183,7 @@ class SettingsSync
                 return;
             }
 
-            $result = $this->refreshRuntimeConfig();
+            $result = $this->refreshRuntimeConfigWhileLocked();
 
             if (is_wp_error($result)) {
                 set_transient(
@@ -201,6 +205,32 @@ class SettingsSync
             return ['ok' => true, 'skipped' => true];
         }
 
+        $lockToken = $this->createRuntimeRefreshLockToken();
+        if (!$this->acquireRuntimeRefreshLock($lockToken)) {
+            return ['ok' => true, 'skipped' => true];
+        }
+
+        try {
+            // A non-forced caller can lose the initial freshness race before
+            // acquiring the shared lock. Recheck while owning it so a refresh
+            // completed by the preceding owner is not immediately repeated.
+            if (!$force && !$this->options->shouldRefreshRuntimeConfig()) {
+                return ['ok' => true, 'skipped' => true];
+            }
+
+            return $this->refreshRuntimeConfigWhileLocked($apiKeyOverride, $baseUrlOverride);
+        } finally {
+            $this->releaseRuntimeRefreshLock($lockToken);
+        }
+    }
+
+    /**
+     * Fetch and apply one runtime snapshot while the caller owns the shared
+     * refresh lock. Keeping acquisition outside this method lets scheduled and
+     * forced refreshes share the lock without recursively acquiring it.
+     */
+    private function refreshRuntimeConfigWhileLocked(?string $apiKeyOverride = null, ?string $baseUrlOverride = null)
+    {
         // Capture key and base URL the fetch will use (the Client falls back
         // to the currently cached option) so applyRuntimeConfig can discard
         // the payload if the stored configuration changed in the meantime —
@@ -251,6 +281,15 @@ class SettingsSync
 
     private function acquireRuntimeRefreshLock(string $lockToken): bool
     {
+        if (!$this->hasPersistentRuntimeRefreshLockStorage()) {
+            if (self::$runtimeRefreshProcessLock !== null) {
+                return false;
+            }
+
+            self::$runtimeRefreshProcessLock = $lockToken;
+            return true;
+        }
+
         $currentLock = get_option(self::RUNTIME_REFRESH_LOCK_OPTION, false);
 
         if ($currentLock !== false) {
@@ -270,7 +309,27 @@ class SettingsSync
 
     private function releaseRuntimeRefreshLock(string $lockToken): void
     {
+        if (
+            self::$runtimeRefreshProcessLock !== null
+            && hash_equals(self::$runtimeRefreshProcessLock, $lockToken)
+        ) {
+            self::$runtimeRefreshProcessLock = null;
+            return;
+        }
+
         $this->compareAndDeleteRuntimeRefreshLock($lockToken);
+    }
+
+    private function hasPersistentRuntimeRefreshLockStorage(): bool
+    {
+        global $wpdb;
+
+        return function_exists('get_option')
+            && function_exists('add_option')
+            && isset($wpdb)
+            && is_object($wpdb)
+            && isset($wpdb->options)
+            && method_exists($wpdb, 'delete');
     }
 
     private function createRuntimeRefreshLockToken(): string

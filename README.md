@@ -114,6 +114,91 @@ The `POST /api/translate` route is designed for drop-in compatibility:
   - `GET /api/public/languages`
   - `GET /api/public/languages/is-supported`
 
+## Locale-specific image replacements
+
+Project managers can explicitly map an original image to a localized image for
+one active target language. Configuration currently uses authenticated project
+management endpoints; there is no dashboard editing interface yet:
+
+- `GET /api/projects/{projectId}/media` lists project-owned image mappings.
+- `POST /api/projects/{projectId}/media` creates one mapping.
+- `PATCH /api/projects/{projectId}/media/{mediaId}` updates selected fields.
+- `DELETE /api/projects/{projectId}/media/{mediaId}` removes one mapping.
+
+For example, the create endpoint accepts:
+
+```json
+{
+  "langTo": "en",
+  "originalUrl": "https://example.com/wp-content/uploads/product.png",
+  "localizedUrl": "/wp-content/uploads/product-en.webp"
+}
+```
+
+Returned records contain `id`, `langTo`, `originalUrl`, `localizedUrl`,
+`createdAt`, and `updatedAt`. The collection response includes
+`mediaReplacements` and `limitExceeded`; listing remains bounded while allowing
+managers to inspect and remove historical overflow. Every read and write
+requires project-management access. Image ownership is project-scoped, target
+languages must be active, and the same original image can have a different
+replacement for each target language or independent project.
+Validation and conflict responses include stable machine-readable `code` values
+such as `invalid_media_image_url`, `inactive_target_language`, and
+`media_replacement_already_exists` alongside their localized error message.
+Configurations exceeding the runtime payload limit return
+`media_replacements_payload_too_large`.
+
+Both image URLs must be root-relative paths or HTTPS URLs on the exact project
+hostname. Accepted image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF.
+Absolute same-site URLs are stored in canonical root-relative form, with a
+maximum length of 2,048 characters after percent encoding. Foreign origins,
+IP hosts, embedded credentials, fragments, unsafe or recursively encoded path
+separators, SVG, and executable formats are rejected. Project managers are
+responsible for owning or obtaining the necessary usage and redistribution
+rights for every original and localized image; Deepglot does not verify media
+licenses.
+
+A project can contain at most **500 image replacements**. Concurrent creation
+and partial updates use serializable project-scoped checks; a duplicate,
+exhausted item limit, or active-language JSON payload exceeding **224 KiB**
+returns HTTP 409 before its transaction commits. Activating a language through
+the dashboard applies the same payload limit before exposing existing mappings;
+WordPress settings synchronization cannot mutate the SaaS-owned language set.
+Because mappings depend on the source/target language relationship, any existing
+mapping also locks source-language migration until the mapping is removed.
+Independent simultaneous updates preserve omitted fields, and existing
+oversized configurations can still be reduced or deleted. The authenticated
+plugin runtime includes only mappings
+belonging to its API key's project and currently active target languages.
+WordPress applies a separate **256 KiB** serialized-option limit and keeps the
+mappings in a dedicated, non-autoloaded
+`deepglot_media_replacements` option.
+
+During server-side target-language rendering, the plugin replaces matching
+`img[src]`, `img[srcset]`, `img[data-src]`, and `img[data-srcset]` values, plus
+`srcset` and `data-srcset` on `picture > source`. Literal Unicode and spaces in
+rendered image paths are normalized to the same canonical representation as the
+saved mapping. Valid responsive width and density descriptors are preserved,
+including leading zeros and scientific notation; excluded subtrees are not
+modified, and source-language pages remain unchanged. Runtime settings refresh
+at most every **300 seconds** on a request that reaches WordPress. Existing
+full-page caches are not automatically purged when image mappings change;
+operators must manually purge affected translated page URLs after
+synchronization and verify the public response.
+
+This initial slice does not provide a dashboard interface, uploads, file
+storage, external CDN images, SVG/PDF/document/video localization, AI-generated
+media, or image replacement in dynamically inserted AJAX content.
+
+**Production schema gate completed on 2026-09-04:** the exact Deepglot Neon
+production branch (`prod`, database `neondb`) was inspected first. Only the
+additive `ProjectMediaReplacement` table, its `Project(id)` foreign key with
+update/delete cascade, its unique `(projectId, langTo, originalUrl)` constraint,
+and its `(projectId, langTo)` index were applied in one transaction. A separate
+catalogue read verified the seven expected columns, primary key, both indexes,
+foreign key, cascade actions, and an empty table. No broad production
+`prisma db push` was used.
+
 ## Optional page-view analytics
 
 Real page-view analytics is disabled by default for every project and can only
@@ -148,7 +233,7 @@ page-view analytics.
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Repository version: **v0.12.7**. v0.12.7 makes the authenticated SaaS project authoritative for source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy through one versioned runtime snapshot. WordPress shows source, targets, and redirect as read-only mirrors after sync, rejects REST writes to them, preserves valid bootstrap mirrors across a key change, continues serving existing cache hits when fresh generation is off, prevents target-URL caching of source-language fallbacks, and reconciles obsolete warm-up work after runtime language changes. v0.12.6 follows WordPress core post-type viewability so built-in public pages remain in the multilingual sitemap and URL-sync inventory while non-viewable builder content types, attachments, and non-queryable taxonomies stay excluded. v0.12.5 translates explicitly configured cookie-consent roots that render before the dynamic footer observer starts and localizes their internal links through the server-side routing rules without sending URLs to a translation provider. v0.12.4 preserves translated transient values containing emoji or other four-byte Unicode on legacy WordPress option tables through a separate versioned ASCII-safe key space, canonical Base64URL, and key-bound integrity checks. Existing plain-string cache entries remain readable. A provider result is complete only after exact cache readback; failed writes stay in the text and URL queues, do not purge the affected page, and keep inline responses out of full-page caches. v0.12.3 preserves background text and URL queues with the same Unicode constraint through a versioned, checksummed ASCII-safe storage envelope. Existing array queues migrate automatically, while damaged queue persistence fails closed, including during disabled cleanup. A separate short atomic lock couples text and purge-target mutations without surrounding provider calls; lease fencing prevents a stale owner from committing only one side. If a cold render cannot durably acquire that coupled queue state, its source-language response is marked non-cacheable so a later request can retry. v0.12.2 explicitly verifies one safe canonical redirect on the exact same origin and in the requested target language during URL synchronization, while automatic redirect following stays disabled. Publishing the GitHub release does not automatically update customer WordPress sites. The currently documented live deployment on `meinhaushalt.at` is **v0.12.1** from commit `3b914007`, deployed on 2026-08-10; the exact package/tree comparison, semantic configuration, 39-file PHP lint, canonical `?ver=0.12.1` browser asset, same-host HTTPS URL sync, public route smoke, WP Rocket purge, and cleanup all passed. This customer deployment is not evidence of a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel.
+The plugin lives in `wordpress-plugin/deepglot`. Repository version: **v0.12.8**. v0.12.8 adds project- and target-language-specific same-site media replacements with safe rewriting for server-rendered responsive and lazy-loaded images, consistent picture-source MIME hints, and no-translate plus configured class and ID exclusions. v0.12.7 makes the authenticated SaaS project authoritative for source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy through one versioned runtime snapshot. WordPress shows source, targets, and redirect as read-only mirrors after sync, rejects REST writes to them, preserves valid bootstrap mirrors across a key change, continues serving existing cache hits when fresh generation is off, prevents target-URL caching of source-language fallbacks, and reconciles obsolete warm-up work after runtime language changes. v0.12.6 follows WordPress core post-type viewability so built-in public pages remain in the multilingual sitemap and URL-sync inventory while non-viewable builder content types, attachments, and non-queryable taxonomies stay excluded. v0.12.5 translates explicitly configured cookie-consent roots that render before the dynamic footer observer starts and localizes their internal links through the server-side routing rules without sending URLs to a translation provider. v0.12.4 preserves translated transient values containing emoji or other four-byte Unicode on legacy WordPress option tables through a separate versioned ASCII-safe key space, canonical Base64URL, and key-bound integrity checks. Existing plain-string cache entries remain readable. A provider result is complete only after exact cache readback; failed writes stay in the text and URL queues, do not purge the affected page, and keep inline responses out of full-page caches. v0.12.3 preserves background text and URL queues with the same Unicode constraint through a versioned, checksummed ASCII-safe storage envelope. Existing array queues migrate automatically, while damaged queue persistence fails closed, including during disabled cleanup. A separate short atomic lock couples text and purge-target mutations without surrounding provider calls; lease fencing prevents a stale owner from committing only one side. If a cold render cannot durably acquire that coupled queue state, its source-language response is marked non-cacheable so a later request can retry. v0.12.2 explicitly verifies one safe canonical redirect on the exact same origin and in the requested target language during URL synchronization, while automatic redirect following stays disabled. Publishing the GitHub release does not automatically update customer WordPress sites. The currently documented live deployment on `meinhaushalt.at` is **v0.12.1** from commit `3b914007`, deployed on 2026-08-10; the exact package/tree comparison, semantic configuration, 39-file PHP lint, canonical `?ver=0.12.1` browser asset, same-host HTTPS URL sync, public route smoke, WP Rocket purge, and cleanup all passed. This customer deployment is not evidence of a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel.
 
 v0.12.0 stops cold pages from blocking the visitor. Measured from the jobspot.at webserver on 2026-08-03, a translate request's own work is only ~1.4 s while the provider needs ~9 s before it returns anything, plus ~0.9 s per segment (50 segments = 40.5 s) — so no batch size is both worth sending and fast enough for a page load. The render path is now cache-only by default: uncached segments, plus anything that failed, are translated by a background WP-Cron job (`deepglot_max_sync_batches` restores inline translation on fast providers). Once the queue and its immediately due event are durable, Deepglot makes one non-blocking WP-Cron nudge in that request; it respects `DISABLE_WP_CRON` and never recurses from a cron run. On the SaaS side each request is split into concurrent provider calls, so response time tracks the slowest chunk instead of the whole page. Chunking reduces provider payload size and exposure, but it does not eliminate provider count mismatches; when every attempted provider returns a count mismatch for the same multi-text root chunk, Deepglot starts direct singleton isolation. It skips redundant binary intermediate shapes and retries each original text through the configured provider chain in input order. The provider-call ceiling is chain length × (chunk size + 1) for a multi-text root, while an original singleton gets one chain; a default eight-text chunk with two providers therefore allows at most 18 provider HTTP calls. All root chunks and isolated singletons share the request-wide provider-call concurrency cap (default 12) and a 100-second provider-work deadline below the 120-second route limit. PDF translation uses a route-specific 40-second provider-work ceiling measured from handler entry, so authentication, multipart parsing, and PDF preparation reduce the time left for providers and the 60-second route retains a nominal 20-second completion margin. Singleton, call-budget, and deadline failures remain terminal. Timeouts, authentication, rate limits, NUL output, and other malformed responses are never amplified by this isolation path. A failing parallel chunk also aborts sibling provider work before it can start new provider calls. Post-deploy acceptance must still inspect response completeness and provider logs rather than treating HTTP 200 as sufficient. Individual provider HTTP calls retain their own deadline (`TRANSLATION_PROVIDER_TIMEOUT_MS`, default 45 s).
 
@@ -173,6 +258,8 @@ Features:
 - Deepglot API client (HTTP requests to the Next.js backend)
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
+- Explicit, project- and target-language-scoped same-site image replacement
+  for server-rendered responsive and lazy-loaded image attributes
 - hreflang SEO tags and `<html lang>` switching
 - Independent language switchers: named shortcode/block/widget/automatic instances, safe legacy migration, 5 flag styles, list/dropdown mode, fixed/floating or validated selector placement, per-language custom flags, responsive hide, three versioned templates, and a same-origin visual placement preview
 - Gutenberg block for language switcher

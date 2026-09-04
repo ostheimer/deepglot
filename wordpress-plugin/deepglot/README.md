@@ -1,6 +1,8 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.7**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.8**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+
+v0.12.8 adds project- and target-language-specific same-site media replacements. It safely rewrites server-rendered regular, responsive, and lazy-loaded image URLs, keeps picture-source MIME hints aligned with uniform replacement formats, and preserves no-translate subtrees plus configured class and ID exclusions. Publishing this package does not automatically install or update the plugin on customer sites.
 
 v0.12.7 consumes project-wide source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy as one authenticated, versioned SaaS snapshot. The WordPress admin displays source, targets, and redirect as explicit read-only mirrors after that snapshot, while a key or backend change keeps valid bootstrap values until the new project readback arrives. The settings REST API exposes those mirrors for reads but rejects writes. Disabling fresh automatic translation still permits local and SaaS cache hits, including dynamic content; identity fallbacks under target URLs are non-cacheable, and runtime language changes prune only obsolete warm-up state.
 
@@ -65,6 +67,8 @@ The plugin ships a complete translation pipeline:
 - Admin configuration under `Settings → Deepglot` (API identity plus WordPress-owned routing, switcher, and exclusions); SaaS-owned project languages and automatic redirect appear as read-only runtime mirrors after authenticated sync.
 - `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
 - `LinkRewriter` rewrites internal links; SaaS-managed translated URL-slug mappings are applied and reversed for path-prefix and subdomain routing; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
+- `MediaRewriter` applies explicit project- and target-language-scoped same-site
+  image replacements to server-rendered, responsive, and lazy-loaded images.
 - A WordPress-transient translation cache, bounded background cache warming, batched + parallel API requests, and path-prefix / subdomain routing. Queue claims are atomic, partial responses stay queued, and supported full-page caches are purged after a page finishes warming.
 - Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
 - WooCommerce email translation and SaaS-controlled browser-language redirect.
@@ -123,8 +127,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.7 this creates `deepglot-0.12.7.zip` and
-`deepglot-0.12.7.zip.sha256`. Build the same commit into two empty output
+For v0.12.8 this creates `deepglot-0.12.8.zip` and
+`deepglot-0.12.8.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test
@@ -151,6 +155,57 @@ The legacy global switcher is migrated to the `default` instance without changin
 - Automatic placement: enable auto placement and either enter a conservative DOM selector or select an element in the same-origin, script-free preview iframe.
 
 If a saved selector is invalid or no longer exists after a theme change, the switcher remains at its safe WordPress footer fallback. Every render retains a unique checkbox/label ID for independent dropdown and ARIA state.
+
+## Locale-specific image replacements
+
+Project managers can explicitly configure original-to-localized image mappings
+for active target languages through the authenticated SaaS management API:
+
+- `GET /api/projects/{projectId}/media`
+- `POST /api/projects/{projectId}/media`
+- `PATCH /api/projects/{projectId}/media/{mediaId}`
+- `DELETE /api/projects/{projectId}/media/{mediaId}`
+
+A create request contains `langTo`, `originalUrl`, and `localizedUrl`; returned
+records also include `id`, `createdAt`, and `updatedAt`. The collection returns
+`mediaReplacements` and a `limitExceeded` recovery indicator. Only organization
+owners/administrators or project administrators can manage mappings; other
+projects and inactive languages never enter the plugin runtime response.
+
+- **Permitted images:** PNG, JPG, JPEG, WebP, AVIF, and GIF on the exact project
+  hostname. Use a root-relative path or same-site HTTPS URL. Safe same-site
+  absolute URLs are normalized to root-relative storage. External domains, IP
+  hosts, credentials, fragments, traversal, SVG, and unsupported file types are
+  rejected.
+- **Rendered attributes:** `img[src]`, `img[srcset]`, `img[data-src]`, and
+  `img[data-srcset]`, plus `srcset` and `data-srcset` on `picture > source`.
+  Responsive width/density descriptors and the original URL's absolute or
+  root-relative style are preserved. Source-language pages, excluded subtrees,
+  unrelated images, and dynamically inserted AJAX content are unchanged.
+- **Capacity and storage:** at most 500 mappings per project. The SaaS limits
+  the JSON runtime payload to 224 KiB; WordPress independently bounds the
+  serialized `deepglot_media_replacements` option to 256 KiB. The dedicated
+  option is not autoloaded, and changing the configured API key or backend
+  clears stale project mappings. Existing mappings lock a source-language
+  migration until they are removed; adding or reactivating a target language
+  is rejected if its preserved mappings would exceed the SaaS runtime bound.
+- **Synchronization and caches:** runtime configuration refreshes at most once
+  every 300 seconds on a frontend request that reaches WordPress. Mapping
+  changes do not automatically invalidate full-page caches. After the new
+  mapping arrives, manually purge only the affected translated page URLs and
+  verify their public HTML.
+- **Rights:** managers must own or otherwise hold the rights to use and
+  redistribute both original and localized images. Deepglot does not fetch,
+  upload, host, generate, or license media on their behalf.
+
+There is currently no dashboard editing UI, media upload/storage, external CDN
+support, SVG/PDF/document/video localization, AI-generated media, or AJAX image
+replacement. The production schema gate was completed on 2026-09-04 against the
+verified Deepglot Neon `prod` branch: only the additive
+`ProjectMediaReplacement` table, project foreign key with update/delete cascade,
+unique `(projectId, langTo, originalUrl)` constraint, and `(projectId, langTo)`
+index were applied and independently verified. No broad production schema push
+was used.
 
 ## Anonymous page-view analytics (explicit opt-in)
 

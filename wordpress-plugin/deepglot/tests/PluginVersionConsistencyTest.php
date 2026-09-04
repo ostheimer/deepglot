@@ -39,7 +39,7 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
-versionAssert($headerVersion === '0.12.7', 'Prepared WordPress.org release must be version 0.12.7');
+versionAssert($headerVersion === '0.12.8', 'Prepared WordPress.org release must be version 0.12.8');
 versionAssert(
     !str_contains($dynamicTranslator, 'var rateLimitedUntil = 0;')
         || version_compare($headerVersion, '0.12.1', '>='),
@@ -65,6 +65,10 @@ versionAssert(
 versionAssert(
     ($stableTagMatch[1] ?? '') === $headerVersion,
     'WordPress.org stable tag must match the plugin bootstrap'
+);
+versionAssert(
+    str_contains($wordpressReadme, '= ' . $headerVersion . ' ='),
+    'WordPress.org readme must contain a changelog entry for the prepared release'
 );
 versionAssert(
     str_contains($rootReadme, 'Repository version: **v' . $headerVersion . '**'),
@@ -154,7 +158,7 @@ versionAssert(
         && str_contains($wordpressReadme, 'https://deepglot.ai/api/')
         && str_contains($wordpressReadme, 'Settings synchronization sends the configured API key, site URL, WordPress-owned routing mode and domain mappings, and the feature flags for email translation, search translation, AMP translation, and dynamic translation.')
         && str_contains($wordpressReadme, 'It also sends bootstrap mirrors for source language, target languages, and automatic redirect; the authenticated SaaS project remains authoritative for those three project-wide values.')
-        && str_contains($wordpressReadme, 'Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, and translated URL-slug mappings.')
+        && str_contains($wordpressReadme, 'Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, translated URL-slug mappings, and active-language image replacements scoped to that API key\'s project.')
         && str_contains($wordpressReadme, 'The plugin can also request the public supported-languages list without an API key.')
         && str_contains($wordpressReadme, 'Starting the Visual Editor verifies its token through the project-scoped `editor-sessions/verify` endpoint. Saving a manual translation sends the token, original and translated text, source and target language codes, and the request URL to the project-scoped `manual-translations` endpoint.')
         && str_contains($wordpressReadme, 'https://deepglot.ai/privacy')
