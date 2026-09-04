@@ -632,9 +632,46 @@ class MediaRewriter
     /** Match the SaaS URL admission rule while preserving the rendered host. */
     private function canonicalHost(string $host): string
     {
-        $host = strtolower($host);
+        if (preg_match('//u', $host) !== 1) {
+            return '';
+        }
 
-        return str_ends_with($host, '.') ? substr($host, 0, -1) : $host;
+        $host = str_ends_with($host, '.') ? substr($host, 0, -1) : $host;
+        if ($host === '') {
+            return '';
+        }
+
+        if (preg_match('/[^\x00-\x7f]/', $host) === 1) {
+            if (
+                !function_exists('idn_to_ascii')
+                || !defined('IDNA_DEFAULT')
+                || !defined('INTL_IDNA_VARIANT_UTS46')
+            ) {
+                return '';
+            }
+
+            $flags = IDNA_DEFAULT;
+            foreach (['IDNA_USE_STD3_RULES', 'IDNA_CHECK_BIDI', 'IDNA_CHECK_CONTEXTJ', 'IDNA_NONTRANSITIONAL_TO_ASCII'] as $flag) {
+                if (defined($flag)) {
+                    $flags |= constant($flag);
+                }
+            }
+
+            $info = [];
+            try {
+                $asciiHost = idn_to_ascii($host, $flags, INTL_IDNA_VARIANT_UTS46, $info);
+            } catch (\ValueError) {
+                return '';
+            }
+
+            if (!is_string($asciiHost) || $asciiHost === '' || ($info['errors'] ?? 0) !== 0) {
+                return '';
+            }
+
+            $host = $asciiHost;
+        }
+
+        return strtolower($host);
     }
 
     private function canonicalizeUrlComponent(string $value, bool $query): ?string

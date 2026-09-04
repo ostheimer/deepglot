@@ -130,11 +130,11 @@ $unicodeHostDocument->loadHTML('<!DOCTYPE html><html><head><meta charset="UTF-8"
 libxml_clear_errors();
 libxml_use_internal_errors($previous);
 
-(new MediaRewriter(new MediaRewriterReviewFindingsOptions(), 'https://münich.de'))->rewrite($unicodeHostDocument, 'en');
+(new MediaRewriter(new MediaRewriterReviewFindingsOptions(), 'https://xn--mnich-kva.de'))->rewrite($unicodeHostDocument, 'en');
 
 assertMediaReviewFinding(
     mediaReviewFindingAttribute($unicodeHostDocument, 'unicode-host', 'src') === 'https://münich.de/uploads/unicode-host-en.webp',
-    'Literal Unicode hostnames remain outside path pre-encoding and match the configured site origin'
+    'Literal Unicode hostnames match the equivalent IDNA-configured site origin without changing the rendered authority'
 );
 
 if ($failures !== []) {
