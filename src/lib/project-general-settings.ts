@@ -234,7 +234,12 @@ async function getLanguageDependentContentCounts(
       where: { projectId, langCode: { not: null } },
     }),
     database.projectInvitation.count({
-      where: { projectId, langCode: { not: null }, acceptedAt: null },
+      where: {
+        projectId,
+        langCode: { not: null },
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
     }),
   ]);
 

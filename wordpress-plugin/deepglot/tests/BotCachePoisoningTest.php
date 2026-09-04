@@ -26,6 +26,10 @@
  * Run standalone: php tests/BotCachePoisoningTest.php
  */
 
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__ . '/');
+}
+
 if (!function_exists('__')) {
     function __($text, $domain = null) {
         return $text;
@@ -102,6 +106,7 @@ if (!function_exists('get_option')) {
 require_once __DIR__ . '/../includes/Config/Options.php';
 require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
+require_once __DIR__ . '/../includes/Support/TranslationWarmer.php';
 require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
 require_once __DIR__ . '/../includes/Support/HtmlDocument.php';
@@ -112,6 +117,7 @@ use Deepglot\Config\Options;
 use Deepglot\Frontend\HtmlTranslator;
 use Deepglot\Support\BotDetector;
 use Deepglot\Support\TranslationCache;
+use Deepglot\Support\TranslationWarmer;
 
 /**
  * Mimics the SaaS /api/translate contract per bot code:
@@ -341,17 +347,27 @@ update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
     'automatic_translation' => false,
 ]));
 $localPolicyClient = new DeepglotPoisoningFakeClient();
+$localPolicyCache = new TranslationCache();
+$localPolicyWarmer = new TranslationWarmer($localPolicyClient, $options, $localPolicyCache);
 $localPolicyTranslator = new HtmlTranslator(
     $localPolicyClient,
     $options,
-    new TranslationCache()
+    $localPolicyCache,
+    null,
+    $localPolicyWarmer
 );
 
+$GLOBALS['_deepglot_nocache_header_calls'] = 0;
 $normalPolicyResult = $localPolicyTranslator->translate(
     '<!DOCTYPE html><html><head></head><body><p>Normaler Cache-Miss</p></body></html>',
     'en',
     '',
     BotDetector::HUMAN
+);
+poisoningCheck(
+    $localPolicyTranslator->getLastPendingSegmentCount() > 0
+        && $GLOBALS['_deepglot_nocache_header_calls'] === 1,
+    'A cold target page with locally disabled automatic translation must be marked non-cacheable even when no SaaS request runs.'
 );
 $inlinePolicyResult = $localPolicyTranslator->translateInline(
     '<!DOCTYPE html><html><head></head><body><p>Inline Cache-Miss</p></body></html>',
@@ -366,9 +382,8 @@ poisoningCheck(
     array_column($localPolicyClient->calls, 'bot') === [
         BotDetector::OTHER,
         BotDetector::OTHER,
-        BotDetector::OTHER,
     ],
-    'Normal, synchronous inline and editor HTML paths must all force cache-only while the local project snapshot disables automatic translation.'
+    'Synchronous inline and editor HTML paths must force cache-only while the local project snapshot disables automatic translation; the normal zero-budget render must make no SaaS request.'
 );
 poisoningCheck(
     !str_contains($normalPolicyResult, '[en]')

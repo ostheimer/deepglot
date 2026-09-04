@@ -622,14 +622,20 @@ class RestApi
     private function pingBackend(string $baseUrl, string $apiKey): array
     {
         $url = rtrim($baseUrl, '/') . '/translate?api_key=' . rawurlencode($apiKey);
+        $sourceLanguage = $this->options->getSourceLanguage();
+        $targetLanguages = array_values(array_filter(
+            $this->options->getTargetLanguages(),
+            static fn(string $language): bool => $language !== $sourceLanguage
+        ));
+        $targetLanguage = $targetLanguages[0] ?? ($sourceLanguage === 'en' ? 'de' : 'en');
 
         $response = wp_remote_post($url, [
             'timeout'     => 8,
             'redirection' => 2,
             'headers'     => ['Content-Type' => 'application/json'],
             'body'        => wp_json_encode([
-                'l_from'      => 'de',
-                'l_to'        => 'en',
+                'l_from'      => $sourceLanguage,
+                'l_to'        => $targetLanguage,
                 'quota_probe' => true,
                 'words'       => [['w' => 'Verbindung jetzt testen', 't' => 1]],
             ]),

@@ -11,6 +11,11 @@ class UrlLanguageResolver
 
     public function __construct(string $sourceLanguage, array $targetLanguages)
     {
+        $this->replaceLanguages($sourceLanguage, $targetLanguages);
+    }
+
+    public function replaceLanguages(string $sourceLanguage, array $targetLanguages): void
+    {
         $this->sourceLanguage = strtolower($sourceLanguage);
         $this->targetLanguages = array_values(array_unique(array_map('strtolower', $targetLanguages)));
     }

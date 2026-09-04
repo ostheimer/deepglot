@@ -300,6 +300,15 @@ dgLangAssert(
     'The source-language page must never receive an AI translation notice.'
 );
 
+$fallbackNoticeProcessed = $buffer->process($html, 'ja');
+dgLangAssert(
+    preg_match(
+        '/<aside[^>]*data-deepglot-ai-notice="true"[^>]*lang="en"[^>]*>This page was translated with AI\.<\/aside>/',
+        $fallbackNoticeProcessed
+    ) === 1,
+    'An English AI-notice fallback on an otherwise non-English target page must declare lang="en" for assistive technology.'
+);
+
 $GLOBALS['_deepglot_translated_html_filter_invalid_result'] = true;
 $fallbackProcessed = $buffer->process($html, 'en');
 dgLangAssert(

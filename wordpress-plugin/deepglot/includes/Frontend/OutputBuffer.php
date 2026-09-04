@@ -253,11 +253,16 @@ class OutputBuffer
         $notice->setAttribute('class', 'deepglot-ai-notice');
         $notice->setAttribute('data-deepglot-ai-notice', 'true');
         $notice->setAttribute('role', 'note');
-        $notice->appendChild($doc->createTextNode($this->aiTranslationNoticeText($targetLanguage)));
+        $noticeContent = $this->aiTranslationNotice($targetLanguage);
+        if ($noticeContent['fallback']) {
+            $notice->setAttribute('lang', $noticeContent['language']);
+        }
+        $notice->appendChild($doc->createTextNode($noticeContent['text']));
         $body->appendChild($notice);
     }
 
-    private function aiTranslationNoticeText(string $targetLanguage): string
+    /** @return array{language: string, text: string, fallback: bool} */
+    private function aiTranslationNotice(string $targetLanguage): array
     {
         $primaryLanguage = strtolower(explode('-', trim($targetLanguage), 2)[0]);
         $notices = [
@@ -268,7 +273,13 @@ class OutputBuffer
             'it' => "Questa pagina è stata tradotta con l'IA.",
         ];
 
-        return $notices[$primaryLanguage] ?? $notices['en'];
+        $noticeLanguage = isset($notices[$primaryLanguage]) ? $primaryLanguage : 'en';
+
+        return [
+            'language' => $noticeLanguage,
+            'text' => $notices[$noticeLanguage],
+            'fallback' => $noticeLanguage !== $primaryLanguage,
+        ];
     }
 
     // -------------------------------------------------------------------------

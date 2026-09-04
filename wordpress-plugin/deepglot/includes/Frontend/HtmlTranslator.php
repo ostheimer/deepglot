@@ -242,7 +242,9 @@ class HtmlTranslator
         // visual-editor prefill) may read SaaS cache entries but must keep the
         // request cache-only even if the SaaS project was re-enabled moments
         // ago. Manual translations can still be entered and saved in the editor.
-        if (!$this->options->shouldAutomaticallyTranslate() && $bot < BotDetector::OTHER) {
+        $automaticTranslationEnabled = $this->options->shouldAutomaticallyTranslate();
+
+        if (!$automaticTranslationEnabled && $bot < BotDetector::OTHER) {
             $bot = BotDetector::OTHER;
         }
 
@@ -372,7 +374,15 @@ class HtmlTranslator
             array_keys($cacheOnlyMisses)
         )));
 
-        if ($cacheOnlyResponseSeen && $this->lastPendingSegmentCount > 0) {
+        if (
+            $this->lastPendingSegmentCount > 0
+            && (
+                $cacheOnlyResponseSeen
+                || !$automaticTranslationEnabled
+                || $bot >= BotDetector::OTHER
+                || $this->warmer === null
+            )
+        ) {
             // No warm job exists that can later purge a target-language page
             // containing these source fallbacks. Prevent WP Rocket, LiteSpeed,
             // WP Super Cache and compatible caches from making that fallback
@@ -386,7 +396,7 @@ class HtmlTranslator
             !empty($deferred)
             && $this->warmer !== null
             && $bot < BotDetector::OTHER
-            && $this->options->shouldAutomaticallyTranslate()
+            && $automaticTranslationEnabled
             && !$cacheOnlyResponseSeen
         ) {
             if (!$this->warmer->enqueue($deferred, $sourceLang, $targetLanguage, $requestUrl)) {

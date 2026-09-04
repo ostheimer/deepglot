@@ -110,6 +110,10 @@ class Plugin
         }
 
         $this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();
+        $this->container->get(UrlLanguageResolver::class)->replaceLanguages(
+            $options->getSourceLanguage(),
+            $options->getTargetLanguages()
+        );
         $this->container->get(SiteRouting::class)->replaceUrlSlugMappings(
             $options->getUrlSlugMappings()
         );

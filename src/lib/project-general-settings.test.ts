@@ -7,6 +7,7 @@ import {
   SOURCE_LANGUAGE_MIGRATION_COPY,
   WEBSITE_TYPES,
   buildProjectRuntimeSettings,
+  getProjectGeneralSettings,
   normalizeProjectDomain,
   planOriginalLanguageChange,
   projectGeneralSettingsPatchSchema,
@@ -144,6 +145,33 @@ test("plans a safe source-language swap only before dependent content exists", (
       hasLanguageDependentContent: true,
     }),
     { kind: "unchanged" },
+  );
+});
+
+test("expired language invitations do not lock a source-language change", async () => {
+  let invitationWhere: Record<string, unknown> | undefined;
+  const zeroCount = async () => 0;
+  const database = {
+    project: { findUnique: async () => null },
+    translation: { count: zeroCount },
+    glossaryRule: { count: zeroCount },
+    urlSlug: { count: zeroCount },
+    translatedUrl: { count: zeroCount },
+    projectMember: { count: zeroCount },
+    projectInvitation: {
+      count: async ({ where }: { where: Record<string, unknown> }) => {
+        invitationWhere = where;
+        return 0;
+      },
+    },
+  };
+
+  await getProjectGeneralSettings(database as never, "project-1");
+
+  const expiry = invitationWhere?.expiresAt as { gt?: unknown } | undefined;
+  assert.ok(
+    expiry?.gt instanceof Date,
+    "only unexpired pending invitations may be included in the language lock",
   );
 });
 
