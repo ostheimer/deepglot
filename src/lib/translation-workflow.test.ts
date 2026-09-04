@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertTranslationContentMutationAllowed,
+  assertValidTranslationContent,
   TranslationWorkflowError,
   planTranslationWorkflowUpdate,
   resetTranslationWorkflowAfterContentEdit,
@@ -258,4 +260,75 @@ test("unchanged translated text keeps workflow approval on import-style writes",
     workflowResetFieldsIfTranslatedTextChanged(approved, "Hi"),
     { workflowStatus: "ASSIGNED" },
   );
+});
+
+test("content editing is limited to managers or the assigned language translator", () => {
+  assert.doesNotThrow(() =>
+    assertTranslationContentMutationAllowed({
+      actor: manager,
+      langTo: "fr",
+      assignedToId: null,
+      operation: "edit",
+    }),
+  );
+  assert.doesNotThrow(() =>
+    assertTranslationContentMutationAllowed({
+      actor: englishTranslator,
+      langTo: "en",
+      assignedToId: "member-en",
+      operation: "edit",
+    }),
+  );
+
+  expectWorkflowError(
+    () =>
+      assertTranslationContentMutationAllowed({
+        actor: englishTranslator,
+        langTo: "en",
+        assignedToId: "someone-else",
+        operation: "edit",
+      }),
+    "FORBIDDEN",
+  );
+  expectWorkflowError(
+    () =>
+      assertTranslationContentMutationAllowed({
+        actor: englishTranslator,
+        langTo: "fr",
+        assignedToId: "member-en",
+        operation: "edit",
+      }),
+    "FORBIDDEN",
+  );
+});
+
+test("translation deletion remains a manager-only workspace operation", () => {
+  assert.doesNotThrow(() =>
+    assertTranslationContentMutationAllowed({
+      actor: manager,
+      langTo: "en",
+      assignedToId: "member-en",
+      operation: "delete",
+    }),
+  );
+  expectWorkflowError(
+    () =>
+      assertTranslationContentMutationAllowed({
+        actor: englishTranslator,
+        langTo: "en",
+        assignedToId: "member-en",
+        operation: "delete",
+      }),
+    "FORBIDDEN",
+  );
+});
+
+test("workspace edits reject empty, oversized, and PostgreSQL-incompatible text", () => {
+  assert.doesNotThrow(() => assertValidTranslationContent("A valid translation"));
+  for (const invalid of ["   ", "unsafe\u0000text", "x".repeat(100_001)]) {
+    expectWorkflowError(
+      () => assertValidTranslationContent(invalid),
+      "INVALID_PAYLOAD",
+    );
+  }
 });

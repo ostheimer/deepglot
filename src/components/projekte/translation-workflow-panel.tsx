@@ -7,10 +7,14 @@ import {
   Download,
   Loader2,
   Paintbrush,
+  Pencil,
   RotateCcw,
+  Save,
   Search,
   Send,
+  Trash2,
   UserCheck,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +102,8 @@ export function TranslationWorkflowPanel({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -137,7 +143,9 @@ export function TranslationWorkflowPanel({
 
   async function updateTranslation(
     translationId: string,
-    patch: { status?: WorkflowStatus; assignedToId?: string | null },
+    patch:
+      | { status?: WorkflowStatus; assignedToId?: string | null }
+      | { translatedText: string; expectedUpdatedAt: string },
   ) {
     setSavingId(translationId);
     setError(null);
@@ -164,6 +172,52 @@ export function TranslationWorkflowPanel({
               items: current.items.map((item) =>
                 item.id === translationId ? body.translation! : item,
               ),
+            }
+          : current,
+      );
+      setEditingId(null);
+    } catch {
+      setError(
+        uiText(
+          locale,
+          "The workflow change could not be saved. Reload and try again.",
+          "Die Workflow-Änderung konnte nicht gespeichert werden. Lade neu und versuche es erneut.",
+        ),
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function deleteTranslation(translation: WorkflowTranslation) {
+    const confirmed = window.confirm(
+      `${uiText(locale, "Delete", "Löschen")}?`,
+    );
+    if (!confirmed) return;
+
+    setSavingId(translation.id);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/translations/${translation.id}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expectedUpdatedAt: translation.updatedAt }),
+        },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error || "Request failed");
+      }
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.filter((item) => item.id !== translation.id),
+              total: Math.max(0, current.total - 1),
             }
           : current,
       );
@@ -356,6 +410,11 @@ export function TranslationWorkflowPanel({
               const canSubmit =
                 translation.status === "assigned" &&
                 translation.assignedToId === currentMemberId;
+              const canEdit =
+                canManage ||
+                (currentMemberId !== null &&
+                  translation.assignedToId === currentMemberId);
+              const editing = editingId === translation.id;
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
@@ -367,10 +426,68 @@ export function TranslationWorkflowPanel({
                       <p className="text-sm text-gray-800">{translation.originalText}</p>
                     </div>
                     <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        {translation.langTo.toUpperCase()} · {uiText(locale, "Translation", "Übersetzung")}
-                      </p>
-                      <p className="text-sm text-gray-800">{translation.translatedText}</p>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          {translation.langTo.toUpperCase()} · {uiText(locale, "Translation", "Übersetzung")}
+                        </p>
+                        {canEdit && !editing && (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            disabled={saving}
+                            onClick={() => {
+                              setEditingId(translation.id);
+                              setEditingText(translation.translatedText);
+                            }}
+                          >
+                            <Pencil />
+                            {uiText(locale, "Edit", "Bearbeiten")}
+                          </Button>
+                        )}
+                      </div>
+                      {editing ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editingText}
+                            onChange={(event) => setEditingText(event.target.value)}
+                            rows={4}
+                            maxLength={100_000}
+                            className="w-full resize-y rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                            aria-label={uiText(locale, "Translation", "Übersetzung")}
+                          />
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="outline"
+                              disabled={saving}
+                              onClick={() => setEditingId(null)}
+                            >
+                              <X />
+                              {uiText(locale, "Cancel", "Abbrechen")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="xs"
+                              disabled={saving || editingText.trim().length === 0}
+                              onClick={() =>
+                                void updateTranslation(translation.id, {
+                                  translatedText: editingText,
+                                  expectedUpdatedAt: translation.updatedAt,
+                                })
+                              }
+                            >
+                              <Save />
+                              {uiText(locale, "Save", "Speichern")}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-800">
+                          {translation.translatedText}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -468,6 +585,19 @@ export function TranslationWorkflowPanel({
                         >
                           <RotateCcw />
                           {uiText(locale, "Reopen", "Erneut bearbeiten")}
+                        </Button>
+                      )}
+                      {canManage && (
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          disabled={saving}
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => void deleteTranslation(translation)}
+                        >
+                          <Trash2 />
+                          {uiText(locale, "Delete", "Löschen")}
                         </Button>
                       )}
                       {saving && <Loader2 className="h-4 w-4 animate-spin text-brand-600" />}

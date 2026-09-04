@@ -27,8 +27,23 @@ test("project APIs expose list/filter and tenant-scoped workflow updates", () =>
   assert.match(collection, /getProjectAccess/);
   assert.match(collection, /listProjectTranslationWorkflow/);
   assert.match(item, /export async function PATCH/);
+  assert.match(item, /translatedText/);
+  assert.match(item, /expectedUpdatedAt/);
+  assert.match(item, /export async function DELETE/);
   assert.match(item, /getProjectAccess/);
   assert.match(item, /updateProjectTranslationWorkflow/);
+});
+
+test("the central workspace exposes direct editing and manager-only deletion", () => {
+  const panel = source(
+    "src/components/projekte/translation-workflow-panel.tsx",
+  );
+
+  assert.match(panel, /uiText\(locale, "Edit"/);
+  assert.match(panel, /uiText\(locale, "Save"/);
+  assert.match(panel, /uiText\(locale, "Delete"/);
+  assert.match(panel, /expectedUpdatedAt/);
+  assert.match(panel, /method:\s*"DELETE"/);
 });
 
 test("dashboard replaces the redirect with filters, assignment, review, and existing handoff links", () => {

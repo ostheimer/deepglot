@@ -5,7 +5,9 @@ import { resolveDatabaseUrl } from "@/lib/database-url";
 import {
   TranslationWorkflowError,
   listProjectTranslationWorkflow,
+  deleteProjectTranslation,
   resetProjectMemberWorkflowAssignments,
+  updateProjectTranslationContent,
   updateProjectTranslationWorkflow,
   type TranslationWorkflowActor,
 } from "@/lib/translation-workflow";
@@ -75,6 +77,14 @@ test(
         langCode: "en",
       },
     });
+    await db.webhookEndpoint.create({
+      data: {
+        projectId: project.id,
+        url: "https://example.test/deepglot-webhook",
+        secret: `secret-${suffix}`,
+        eventTypes: ["translation.manual_updated", "translation.deleted"],
+      },
+    });
     const translation = await db.translation.create({
       data: {
         projectId: project.id,
@@ -87,6 +97,43 @@ test(
         wordCount: 5,
       },
     });
+
+    const manuallyEdited = await updateProjectTranslationContent({
+      projectId: project.id,
+      translationId: translation.id,
+      actor: manager,
+      translatedText: "An authoritative manual translation.",
+      expectedUpdatedAt: translation.updatedAt,
+    });
+    assert.equal(
+      manuallyEdited.translatedText,
+      "An authoritative manual translation.",
+    );
+    assert.equal(manuallyEdited.isManual, true);
+    assert.equal(manuallyEdited.source, "MANUAL");
+    assert.equal(manuallyEdited.workflowStatus, "MACHINE");
+    assert.equal(
+      await db.webhookDelivery.count({
+        where: {
+          projectId: project.id,
+          eventType: "translation.manual_updated",
+        },
+      }),
+      1,
+    );
+
+    await assert.rejects(
+      updateProjectTranslationContent({
+        projectId: project.id,
+        translationId: translation.id,
+        actor: manager,
+        translatedText: "A stale overwrite.",
+        expectedUpdatedAt: translation.updatedAt,
+      }),
+      (error) =>
+        error instanceof TranslationWorkflowError &&
+        error.code === "STALE_UPDATE",
+    );
 
     const assigned = await updateProjectTranslationWorkflow({
       projectId: project.id,
@@ -102,6 +149,15 @@ test(
       projectMemberId: reviewer.id,
       langCode: "en",
     };
+    const editedByTranslator = await updateProjectTranslationContent({
+      projectId: project.id,
+      translationId: translation.id,
+      actor: translator,
+      translatedText: "The assigned translator's manual translation.",
+      expectedUpdatedAt: assigned.updatedAt,
+    });
+    assert.equal(editedByTranslator.workflowStatus, "ASSIGNED");
+    assert.equal(editedByTranslator.assignedToId, reviewer.id);
     const inReview = await updateProjectTranslationWorkflow({
       projectId: project.id,
       translationId: translation.id,
@@ -137,6 +193,49 @@ test(
       (error) =>
         error instanceof TranslationWorkflowError &&
         error.code === "INVALID_ASSIGNEE",
+    );
+
+    const deleteCandidate = await db.translation.create({
+      data: {
+        projectId: project.id,
+        originalHash: `delete-${suffix}`,
+        originalText: "Diesen Satz entfernen.",
+        translatedText: "Remove this sentence.",
+        langFrom: "de",
+        langTo: "en",
+        source: "OPENAI",
+        wordCount: 3,
+      },
+    });
+    await assert.rejects(
+      deleteProjectTranslation({
+        projectId: project.id,
+        translationId: deleteCandidate.id,
+        actor: {
+          canManage: false,
+          projectMemberId: reviewer.id,
+          langCode: "en",
+        },
+        expectedUpdatedAt: deleteCandidate.updatedAt,
+      }),
+      (error) =>
+        error instanceof TranslationWorkflowError && error.code === "FORBIDDEN",
+    );
+    await deleteProjectTranslation({
+      projectId: project.id,
+      translationId: deleteCandidate.id,
+      actor: manager,
+      expectedUpdatedAt: deleteCandidate.updatedAt,
+    });
+    assert.equal(
+      await db.translation.count({ where: { id: deleteCandidate.id } }),
+      0,
+    );
+    assert.equal(
+      await db.webhookDelivery.count({
+        where: { projectId: project.id, eventType: "translation.deleted" },
+      }),
+      1,
     );
 
     await assert.rejects(

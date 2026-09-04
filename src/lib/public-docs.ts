@@ -282,7 +282,7 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     path: "/api/projects/[projektId]/translations/[translationId]",
     sourceFile:
       "src/app/api/projects/[projektId]/translations/[translationId]/route.ts",
-    access: "manager or assigned translator",
+    access: "edit: manager or assigned translator; delete: manager",
   },
   {
     path: "/api/projects/[projektId]/pdf-translations",
@@ -328,6 +328,7 @@ export const PROJECT_WEBHOOK_DOC_EVENTS = [
   "translation.created",
   "translation.updated",
   "translation.manual_updated",
+  "translation.deleted",
   "glossary.upserted",
   "glossary.deleted",
   "slug.upserted",
