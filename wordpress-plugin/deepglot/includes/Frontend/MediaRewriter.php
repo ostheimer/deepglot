@@ -509,9 +509,14 @@ class MediaRewriter
             return null;
         }
 
+        $host = $this->canonicalHost((string) $parts['host']);
+        if ($host === '') {
+            return null;
+        }
+
         return [
             'scheme' => $scheme,
-            'host' => strtolower((string) $parts['host']),
+            'host' => $host,
             'port' => isset($parts['port']) ? (int) $parts['port'] : $this->defaultPort($scheme),
         ];
     }
@@ -565,7 +570,7 @@ class MediaRewriter
 
         if ($absolute) {
             $scheme = strtolower((string) ($parts['scheme'] ?? ''));
-            $host = strtolower((string) ($parts['host'] ?? ''));
+            $host = $this->canonicalHost((string) ($parts['host'] ?? ''));
             $port = isset($parts['port']) ? (int) $parts['port'] : $this->defaultPort($scheme);
 
             if (
@@ -613,6 +618,14 @@ class MediaRewriter
             'absolute' => $absolute,
             'origin' => $origin,
         ];
+    }
+
+    /** Match the SaaS URL admission rule while preserving the rendered host. */
+    private function canonicalHost(string $host): string
+    {
+        $host = strtolower($host);
+
+        return str_ends_with($host, '.') ? substr($host, 0, -1) : $host;
     }
 
     private function canonicalizeUrlComponent(string $value, bool $query): ?string

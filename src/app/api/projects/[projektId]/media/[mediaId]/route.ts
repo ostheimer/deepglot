@@ -127,7 +127,11 @@ export async function PATCH(
 
           const langTo = parsed.data.langTo ?? existing.langTo;
           const activeLanguage = await tx.projectLanguage.findFirst({
-            where: { projectId: projektId, langCode: langTo, isActive: true },
+            where: {
+              projectId: projektId,
+              langCode: { equals: langTo, mode: "insensitive" },
+              isActive: true,
+            },
             select: { id: true },
           });
 

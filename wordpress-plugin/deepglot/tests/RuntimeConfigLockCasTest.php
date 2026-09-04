@@ -161,6 +161,25 @@ runtimeLockCasAssert(
     'Stale takeover must preserve the fresh lock installed by another request.'
 );
 
+// A forced settings sync must participate in the same lock as the scheduled
+// frontend refresh. Otherwise both network requests can overlap and an older
+// media snapshot can be applied after the newer response.
+$forcedRefreshOwner = sprintf('%.6F:forced-refresh-owner', microtime(true));
+$GLOBALS['_dgcas_options'] = [
+    'deepglot_runtime_refresh_lock' => $forcedRefreshOwner,
+];
+$GLOBALS['_dgcas_transients'] = [];
+$GLOBALS['_dgcas_interleaving'] = null;
+$GLOBALS['_dgcas_interleaving_injected'] = false;
+$sync = runtimeLockCasSync($client);
+$sync->refreshRuntimeConfig(null, null, true);
+
+runtimeLockCasAssert($client->runtimeCalls === 0, 'A forced runtime refresh must not bypass another request\'s fresh shared lock.');
+runtimeLockCasAssert(
+    ($GLOBALS['_dgcas_options']['deepglot_runtime_refresh_lock'] ?? null) === $forcedRefreshOwner,
+    'A blocked forced refresh must preserve the active shared refresh lock.'
+);
+
 // Request B owns a lock and completes its fetch. Between B's ownership read and
 // deletion, request A replaces the option. B's release must preserve A's lock.
 $GLOBALS['_dgcas_options'] = [];

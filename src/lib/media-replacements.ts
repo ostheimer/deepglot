@@ -98,11 +98,10 @@ function getProjectOrigin(projectDomain: string): URL {
   if (
     projectOrigin.username ||
     projectOrigin.password ||
-    projectOrigin.port ||
     projectOrigin.pathname !== "/"
   ) {
     throw new MediaReplacementError(
-      "The project domain must contain only its public hostname.",
+      "The project domain must contain only its public hostname and optional port.",
       "INVALID_PROJECT_DOMAIN"
     );
   }
@@ -157,7 +156,7 @@ export function normalizeMediaImageUrl(
     parsedImageUrl.protocol !== "https:" ||
     parsedImageUrl.username ||
     parsedImageUrl.password ||
-    parsedImageUrl.port ||
+    parsedImageUrl.port !== projectOrigin.port ||
     normalizedPublicHostname(parsedImageUrl.hostname) !==
       normalizedPublicHostname(projectOrigin.hostname)
   ) {

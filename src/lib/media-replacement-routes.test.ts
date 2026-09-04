@@ -64,7 +64,7 @@ test("project media persistence has tenant-local uniqueness and cascading owners
 test("project image creation validates active tenant languages and same-project paths", () => {
   assert.match(
     collectionRoute,
-    /projectLanguage\.findFirst\(\{[\s\S]*?projectId:\s*projektId[\s\S]*?langCode:\s*parsed\.data\.langTo[\s\S]*?isActive:\s*true/,
+    /projectLanguage\.findFirst\(\{[\s\S]*?projectId:\s*projektId[\s\S]*?langCode:\s*\{\s*equals:\s*parsed\.data\.langTo,?\s*mode:\s*"insensitive",?\s*\}[\s\S]*?isActive:\s*true/,
   );
   assert.match(
     collectionRoute,
@@ -117,7 +117,7 @@ test("image updates and deletion retain tenant ownership on every resource looku
   );
   assert.match(
     itemRoute,
-    /projectLanguage\.findFirst\(\{\s*where:\s*\{\s*projectId:\s*projektId,\s*langCode:\s*langTo,\s*isActive:\s*true/,
+    /projectLanguage\.findFirst\(\{\s*where:\s*\{\s*projectId:\s*projektId,\s*langCode:\s*\{\s*equals:\s*langTo,?\s*mode:\s*"insensitive",?\s*\},\s*isActive:\s*true/,
   );
   assert.match(itemRoute, /status:\s*404/);
   assert.match(itemRoute, /error\.code === "P2002"/);

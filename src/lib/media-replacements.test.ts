@@ -31,6 +31,30 @@ test("same-project HTTPS and root-relative image URLs share one canonical path",
   }
 });
 
+test("project domains with explicit ports accept only their exact media origin", () => {
+  assert.equal(
+    normalizeMediaImageUrl("/uploads/image.png", "example.com:8080"),
+    "/uploads/image.png"
+  );
+  assert.equal(
+    normalizeMediaImageUrl(
+      "https://example.com:8080/uploads/image.png",
+      "example.com:8080"
+    ),
+    "/uploads/image.png"
+  );
+  assert.throws(
+    () =>
+      normalizeMediaImageUrl(
+        "https://example.com:8443/uploads/image.png",
+        "example.com:8080"
+      ),
+    (error: unknown) =>
+      error instanceof MediaReplacementError &&
+      error.code === "INVALID_IMAGE_URL"
+  );
+});
+
 test("canonical image paths enforce the URL limit after Unicode percent encoding", () => {
   const pathPrefix = "/uploads/";
   const extension = ".png";

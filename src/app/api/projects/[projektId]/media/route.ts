@@ -135,7 +135,10 @@ export async function POST(
           const targetLanguage = await tx.projectLanguage.findFirst({
             where: {
               projectId: projektId,
-              langCode: parsed.data.langTo,
+              langCode: {
+                equals: parsed.data.langTo,
+                mode: "insensitive",
+              },
               isActive: true,
             },
             select: { project: { select: { domain: true } } },
