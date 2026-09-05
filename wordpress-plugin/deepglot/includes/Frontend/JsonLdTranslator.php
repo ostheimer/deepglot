@@ -45,9 +45,9 @@ class JsonLdTranslator
     /**
      * Schema entities whose own @id and url identify the localized page (or
      * a page-scoped fragment), rather than a shared person, organization or
-     * media asset. Breadcrumb items and mainEntityOfPage references are
-     * handled separately because their target may be expressed as a string
-     * or a minimally typed object.
+     * media asset. Direct breadcrumb items and mainEntityOfPage strings are
+     * handled separately; untyped reference objects are matched against the
+     * collected graph identities instead of relationship-property names.
      */
     private const PAGE_RELATED_TYPES = [
         'Article',
@@ -129,7 +129,9 @@ class JsonLdTranslator
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
             $this->applyTranslations($data, $translations, $targetLanguage);
-            $this->localizePageUrls($data, $targetLanguage);
+            $pageNodeIds = [];
+            $this->collectPageNodeIds($data, $pageNodeIds);
+            $this->localizePageUrls($data, $targetLanguage, $pageNodeIds);
 
             // JSON_HEX_TAG escapes "<" and ">" as < / > so a
             // translated value that happens to contain "</script>" cannot
@@ -225,15 +227,46 @@ class JsonLdTranslator
     }
 
     /**
+     * Collects the original identities of internal page-like graph nodes before
+     * any URL is rewritten. Untyped reference objects can then be localized by
+     * exact graph identity without relying on a potentially incomplete list of
+     * relationship property names.
+     *
+     * @param array<mixed> $data
+     * @param array<string, true> $pageNodeIds
+     */
+    private function collectPageNodeIds(array $data, array &$pageNodeIds): void
+    {
+        $types = $this->schemaTypes($data['@type'] ?? null);
+        $id = $data['@id'] ?? null;
+
+        if (
+            $this->hasPageRelatedType($types)
+            && is_string($id)
+            && $this->isInternalUrlReference($id)
+        ) {
+            $pageNodeIds[$id] = true;
+        }
+
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                $this->collectPageNodeIds($value, $pageNodeIds);
+            }
+        }
+    }
+
+    /**
      * Localizes only page identities and page references. Restricting this to
      * page-like schema types keeps shared Person/Organization/Publisher IDs,
      * ImageObject URLs and other media or external resources untouched.
      *
      * @param array<mixed> $data
+     * @param array<string, true> $pageNodeIds
      */
     private function localizePageUrls(
         array &$data,
         string $targetLanguage,
+        array $pageNodeIds,
         bool $isPageReference = false
     ): void {
         if ($this->routing === null) {
@@ -242,7 +275,9 @@ class JsonLdTranslator
 
         $types = $this->schemaTypes($data['@type'] ?? null);
         $isListItem = in_array('ListItem', $types, true);
-        $isPageEntity = $isPageReference || $this->hasPageRelatedType($types);
+        $isPageEntity = $isPageReference
+            || $this->hasPageRelatedType($types)
+            || $this->isExactPageNodeReference($data, $pageNodeIds);
 
         foreach ($data as $key => &$value) {
             $key = is_string($key) ? $key : '';
@@ -250,7 +285,7 @@ class JsonLdTranslator
                 || $key === 'mainEntityOfPage';
 
             if (is_array($value)) {
-                $this->localizePageUrls($value, $targetLanguage, $childIsPageReference);
+                $this->localizePageUrls($value, $targetLanguage, $pageNodeIds, $childIsPageReference);
                 continue;
             }
 
@@ -266,6 +301,34 @@ class JsonLdTranslator
             }
         }
         unset($value);
+    }
+
+    /**
+     * @param array<mixed> $data
+     * @param array<string, true> $pageNodeIds
+     */
+    private function isExactPageNodeReference(array $data, array $pageNodeIds): bool
+    {
+        if (count($data) !== 1 || !array_key_exists('@id', $data) || !is_string($data['@id'])) {
+            return false;
+        }
+
+        return isset($pageNodeIds[$data['@id']]);
+    }
+
+    private function isInternalUrlReference(string $value): bool
+    {
+        if ($this->routing === null || !$this->isUrlReference($value) || str_starts_with($value, '//')) {
+            return false;
+        }
+
+        if (preg_match('#^https?://#i', $value) !== 1) {
+            return true;
+        }
+
+        $host = (string) wp_parse_url($value, PHP_URL_HOST);
+
+        return $host !== '' && $this->routing->isInternalHost($host);
     }
 
     /** @return string[] */

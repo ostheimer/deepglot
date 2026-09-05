@@ -190,6 +190,38 @@ $jsonLd = json_encode([
             'inLanguage' => 'de',
         ],
         [
+            '@type' => 'WebPage',
+            '@id' => 'https://www.meinhaushalt.at/tag/familie/#webpage',
+            'url' => 'https://www.meinhaushalt.at/tag/familie/',
+            'breadcrumb' => [
+                '@id' => 'https://www.meinhaushalt.at/tag/familie/#breadcrumb',
+            ],
+        ],
+        [
+            '@type' => 'Article',
+            '@id' => 'https://www.meinhaushalt.at/tag/familie/beitrag/#article',
+            'url' => 'https://www.meinhaushalt.at/tag/familie/beitrag/',
+            'isPartOf' => [
+                '@id' => 'https://www.meinhaushalt.at/tag/familie/#webpage',
+            ],
+            'mainEntityOfPage' => [
+                '@id' => 'https://www.meinhaushalt.at/standalone/#webpage',
+                'url' => 'https://www.meinhaushalt.at/standalone/',
+            ],
+            'author' => [
+                '@id' => 'https://www.meinhaushalt.at/#/schema/person/redaktion',
+            ],
+            'publisher' => [
+                '@id' => 'https://www.meinhaushalt.at/#organization',
+            ],
+            'image' => [
+                '@id' => 'https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg',
+            ],
+            'citation' => [
+                '@id' => 'https://example.com/reference',
+            ],
+        ],
+        [
             '@type' => 'Recipe',
             '@id' => 'https://www.meinhaushalt.at/rezepte/rezept-polenta-grundrezept/#recipe',
             'url' => 'https://www.meinhaushalt.at/rezepte/rezept-polenta-grundrezept/',
@@ -297,6 +329,18 @@ jsonLdAssert(
     'Breadcrumb ListItem URLs must point to the target-language route'
 );
 jsonLdAssert(
+    str_contains($localized, '"breadcrumb":{"@id":"https://www.meinhaushalt.at/en/tag/familie/#breadcrumb"}'),
+    'WebPage breadcrumb references must match the localized BreadcrumbList identity'
+);
+jsonLdAssert(
+    str_contains($localized, '"isPartOf":{"@id":"https://www.meinhaushalt.at/en/tag/familie/#webpage"}'),
+    'Article isPartOf references must match the localized WebPage identity'
+);
+jsonLdAssert(
+    str_contains($localized, '"mainEntityOfPage":{"@id":"https://www.meinhaushalt.at/en/standalone/#webpage","url":"https://www.meinhaushalt.at/en/standalone/"}'),
+    'Explicit mainEntityOfPage objects must remain localized without a separate graph node'
+);
+jsonLdAssert(
     str_contains($localized, '"@id":"https://www.meinhaushalt.at/en/recipes/rezept-polenta-grundrezept/#recipe"')
     && str_contains($localized, '"url":"https://www.meinhaushalt.at/en/recipes/rezept-polenta-grundrezept/"'),
     'Recipe identity and URL must point to the target-language route and configured slug'
@@ -311,6 +355,13 @@ jsonLdAssert(
     && str_contains($localized, '"url":"https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg"')
     && str_contains($localized, '"sameAs":"https://example.com/polenta"'),
     'Media and external URLs must remain unchanged'
+);
+jsonLdAssert(
+    str_contains($localized, '"author":{"@id":"https://www.meinhaushalt.at/#/schema/person/redaktion"}')
+    && str_contains($localized, '"publisher":{"@id":"https://www.meinhaushalt.at/#organization"}')
+    && str_contains($localized, '"image":{"@id":"https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg"}')
+    && str_contains($localized, '"citation":{"@id":"https://example.com/reference"}'),
+    'Untyped Person, Organization, media and external reference objects must remain unchanged'
 );
 
 // 7. The malformed JSON-LD block stays intact rather than getting deleted.
