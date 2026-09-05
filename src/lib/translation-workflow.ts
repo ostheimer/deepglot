@@ -1,6 +1,7 @@
 import type {
   Prisma,
   ProjectMember,
+  TranslationSource,
   TranslationWorkflowStatus,
 } from "@prisma/client";
 
@@ -179,10 +180,7 @@ export function resetProjectMemberWorkflowAssignments(
   });
 }
 
-function assertLanguageAccess(
-  actor: TranslationWorkflowActor,
-  langTo: string,
-) {
+function assertLanguageAccess(actor: TranslationWorkflowActor, langTo: string) {
   resolveTranslationWorkflowLanguage(actor, langTo);
 }
 
@@ -296,6 +294,11 @@ export function planTranslationWorkflowUpdate({
 }
 
 export type TranslationWorkflowFilters = {
+  source?: TranslationSource;
+  mode?: "manual" | "automatic";
+  context?: "known" | "unknown";
+  urlPath?: string;
+  sort?: "updated_desc" | "created_desc" | "created_asc" | "original_asc";
   langTo?: string;
   status?: TranslationWorkflowStatus;
   assignedToId?: string | null;
@@ -305,6 +308,8 @@ export type TranslationWorkflowFilters = {
 };
 
 const workflowInclude = {
+  contexts: { orderBy: { urlPath: "asc" }, take: 100 },
+  _count: { select: { contexts: true } },
   assignedTo: {
     select: {
       id: true,
@@ -328,7 +333,10 @@ export async function listProjectTranslationWorkflow({
   const { db } = await import("@/lib/db");
   const langTo = resolveTranslationWorkflowLanguage(actor, filters.langTo);
   const page = Math.max(1, Math.trunc(filters.page ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Math.trunc(filters.pageSize ?? 25)));
+  const pageSize = Math.min(
+    100,
+    Math.max(1, Math.trunc(filters.pageSize ?? 25)),
+  );
 
   if (langTo) {
     const activeLanguage = await db.projectLanguage.findFirst({
@@ -345,6 +353,18 @@ export async function listProjectTranslationWorkflow({
 
   const where: Prisma.TranslationWhereInput = {
     projectId,
+    ...(filters.source ? { source: filters.source } : {}),
+    ...(filters.mode ? { isManual: filters.mode === "manual" } : {}),
+    AND: [
+      ...(filters.context === "unknown"
+        ? [{ contexts: { none: {} } }]
+        : filters.context === "known"
+          ? [{ contexts: { some: {} } }]
+          : []),
+      ...(filters.urlPath
+        ? [{ contexts: { some: { urlPath: filters.urlPath } } }]
+        : []),
+    ],
     ...(langTo ? { langTo } : {}),
     ...(filters.status ? { workflowStatus: filters.status } : {}),
     ...(filters.assignedToId !== undefined
@@ -374,7 +394,16 @@ export async function listProjectTranslationWorkflow({
     db.translation.findMany({
       where,
       include: workflowInclude,
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      orderBy: [
+        filters.sort === "created_asc"
+          ? { createdAt: "asc" }
+          : filters.sort === "created_desc"
+            ? { createdAt: "desc" }
+            : filters.sort === "original_asc"
+              ? { originalText: "asc" }
+              : { updatedAt: "desc" },
+        { id: "asc" },
+      ],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -383,6 +412,12 @@ export async function listProjectTranslationWorkflow({
 
   return {
     items,
+    contextPaths: await db.translationContext.groupBy({
+      where: { translation: { projectId, ...(langTo ? { langTo } : {}) } },
+      by: ["urlPath"],
+      orderBy: { urlPath: "asc" },
+      take: 500,
+    }),
     total,
     page,
     pageSize,
@@ -478,9 +513,8 @@ export async function updateProjectTranslationContent({
 }) {
   assertValidTranslationContent(translatedText);
   const { db } = await import("@/lib/db");
-  const { queueProjectWebhookEvent } = await import(
-    "@/lib/project-webhook-delivery"
-  );
+  const { queueProjectWebhookEvent } =
+    await import("@/lib/project-webhook-delivery");
   const { recordTranslationBatch } = await import("@/lib/translation-batches");
   return db.$transaction(async (tx) => {
     const current = await tx.translation.findFirst({
@@ -618,9 +652,8 @@ export async function deleteProjectTranslation({
   expectedUpdatedAt: Date;
 }) {
   const { db } = await import("@/lib/db");
-  const { queueProjectWebhookEvent } = await import(
-    "@/lib/project-webhook-delivery"
-  );
+  const { queueProjectWebhookEvent } =
+    await import("@/lib/project-webhook-delivery");
   return db.$transaction(async (tx) => {
     const current = await tx.translation.findFirst({
       where: { id: translationId, projectId },

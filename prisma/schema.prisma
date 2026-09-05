@@ -241,11 +241,24 @@ model Translation {
   assignedToId String?
   project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignedTo  ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
+  contexts    TranslationContext[]
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
   @@index([projectId, langTo, workflowStatus])
   @@index([assignedToId])
+}
+
+// Observed segment/page associations. Never store URL queries or fragments.
+model TranslationContext {
+  translationId String
+  urlPath       String
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@id([translationId, urlPath])
+  @@index([urlPath])
 }
 
 enum TranslationSource {

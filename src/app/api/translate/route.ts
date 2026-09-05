@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { recordTranslationContexts } from "@/lib/translation-context";
 import { validateApiKey } from "@/lib/api-keys";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { crossedQuotaThresholds } from "@/lib/quota-usage";
@@ -852,6 +853,14 @@ async function executeAuthenticatedTranslateRequest(
               tx,
             });
 
+            await recordTranslationContexts(tx, {
+              projectId: project.id,
+              domain: project.domain,
+              requestUrl: request_url,
+              langFrom: l_from,
+              langTo: l_to,
+              hashes,
+            });
             return { kind: "persisted" } as const;
           },
           {
@@ -946,6 +955,14 @@ async function executeAuthenticatedTranslateRequest(
           },
           tx,
         );
+        await recordTranslationContexts(tx, {
+          projectId: project.id,
+          domain: project.domain,
+          requestUrl: request_url,
+          langFrom: l_from,
+          langTo: l_to,
+          hashes,
+        });
         await upsertTranslatedUrlHit({
           projectId: project.id,
           langTo: l_to,

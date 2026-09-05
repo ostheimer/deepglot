@@ -52,10 +52,7 @@ export function completeTranslationWorkspaceEdit(
     mutation: "content" | "workflow";
   },
 ) {
-  if (
-    draft?.id === result.translationId &&
-    result.mutation === "content"
-  ) {
+  if (draft?.id === result.translationId && result.mutation === "content") {
     return null;
   }
 
@@ -63,6 +60,11 @@ export function completeTranslationWorkspaceEdit(
 }
 
 export type TranslationWorkspaceQuery = {
+  source?: string;
+  mode?: string;
+  context?: string;
+  urlPath?: string;
+  sort?: string;
   status: string;
   langTo: string;
   assignee: string;
@@ -70,10 +72,13 @@ export type TranslationWorkspaceQuery = {
   page: number;
 };
 
-export function translationWorkspaceQueryKey(
-  query: TranslationWorkspaceQuery,
-) {
+export function translationWorkspaceQueryKey(query: TranslationWorkspaceQuery) {
   return JSON.stringify([
+    query.source ?? "",
+    query.mode ?? "",
+    query.context ?? "",
+    query.urlPath ?? "",
+    query.sort ?? "",
     query.status,
     query.langTo,
     query.assignee,
