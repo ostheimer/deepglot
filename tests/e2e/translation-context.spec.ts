@@ -35,6 +35,22 @@ test("navigates segment context and combines advanced filters", async ({
     await expect(row).toHaveCount(1);
     await row.locator("summary").click();
     await expect(row.getByRole("link", { name: "Open page" })).toHaveCount(2);
+    const filtersFit = () =>
+      page.locator("form").evaluate((form) => {
+        const bounds = form.getBoundingClientRect();
+        return Array.from(form.querySelectorAll("input,select,button")).every(
+          (element) => {
+            const rect = element.getBoundingClientRect();
+            return (
+              rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1
+            );
+          },
+        );
+      });
+    expect(await filtersFit()).toBe(true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await filtersFit()).toBe(true);
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.screenshot({
       path: "output/playwright/translation-context-workspace.png",
       fullPage: true,

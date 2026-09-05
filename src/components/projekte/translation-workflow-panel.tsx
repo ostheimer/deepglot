@@ -380,7 +380,7 @@ export function TranslationWorkflowPanel({
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <form
-          className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_170px_180px_auto]"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0"
           onSubmit={(event) => {
             event.preventDefault();
             setPage(1);
@@ -565,9 +565,10 @@ export function TranslationWorkflowPanel({
                 "Alle Seiten (bis zu 500 angezeigt)",
               )}
             </option>
-            {urlPath && !data?.contextPaths?.some((entry) => entry.urlPath === urlPath) && (
-              <option value={urlPath}>{urlPath}</option>
-            )}
+            {urlPath &&
+              !data?.contextPaths?.some(
+                (entry) => entry.urlPath === urlPath,
+              ) && <option value={urlPath}>{urlPath}</option>}
             {data?.contextPaths?.map(({ urlPath: path }) => (
               <option key={path} value={path}>
                 {path}
