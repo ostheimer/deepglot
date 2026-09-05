@@ -93,6 +93,14 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.8 =
+* Canonicalized equivalent internal graph identities, propagated page reachability with a work queue, and preserved IRI-coerced language values.
+* Collected relationship-established page IDs, recognized the official Schema.org context URL locally, and expanded internal compact page IRIs before routing.
+* Resolved supported Schema.org property aliases, matched scalar page references, and translated simple language-tagged value objects through the shared local context.
+* Supported local JSON-LD type/id keyword aliases and restricted relationship and graph-ID inference to untyped or exclusively generic Thing references.
+* Resolved ordinary JSON-LD class aliases and localized Article subtypes and generic typed breadcrumb targets while preserving shared/media entities.
+* Preserved JSON-LD context definitions while resolving local Schema.org aliases, enriched page references, and URL/reference arrays with consistent context-aware traversal.
+* Supported plain-text Recipe instructions, cross-script page references, padded page URLs, and compact schema type IRIs in JSON-LD localization.
+* Translated Recipe ingredients and instruction text in JSON-LD, and localized internal page and breadcrumb identities plus their exact graph references without changing shared entity, media, or external identifiers.
 * Translated generic ARIA labels in page content and image title tooltips on both the server and the bounded dynamic-content pass.
 * Translated human-readable RSS and Atom feed titles without sending ordinary link metadata to the translation provider.
 * Rejected empty and whitespace-only translations on cache writes and reads, including legacy plain-string values.

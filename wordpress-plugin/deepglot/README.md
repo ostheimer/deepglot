@@ -53,6 +53,61 @@ wordpress-plugin/deepglot/
 └── tests/
 ```
 
+## Structured data
+
+JSON-LD localization supports Recipe instructions as strings, arrays of strings,
+or typed HowToStep objects. Page identities and matching references, including
+references with extra metadata, are collected across all JSON-LD blocks in one
+document before rewriting. Safe page relationships also seed these identities;
+one graph-discovery pass builds adjacency links, then a work queue propagates
+reachable identities without rescanning the document. Chained generic definitions
+stay linked regardless of script order. Scalar and array page URLs retain their property
+semantics and are trimmed before routing; external values remain unchanged.
+
+Compact type prefixes, ordinary class aliases, supported Schema.org property
+aliases and local keyword aliases are resolved from the active `@context`, including
+inherited aliases, overrides, context arrays and null resets. Context scope stays
+within its script block and subtree; page identity matching spans script blocks.
+Full Schema.org IRIs remain supported. Context definitions are never sent for
+translation or rewritten, and no remote context fetch is performed. The known
+Schema.org context is handled locally, including the exact HTTP/HTTPS
+`schema.org/docs/jsonldcontext.jsonld` and `.json` URLs; unknown remote contexts leave unresolved
+types unchanged. Context-free bare type names retain the legacy Schema.org
+default, which explicit null contexts or foreign vocabularies remove. Generic
+`text` outside HowToStep and shared person, organization and media IDs remain
+outside the new translation/routing scope.
+
+Schema.org types ending in `Article` follow page routing, including specific
+news and scholarly subtypes. For objects without an explicit page-related type,
+relationships and exact collected page-ID matches only supply page semantics to
+untyped objects or exclusively Schema.org `Thing` types. Other specific, mixed
+or unresolved reference types remain unchanged, including organization, person
+and media subtypes. Aliases retain their original JSON keys and share the same
+scope for text selection, ID collection and routing. Scalar `isPartOf` and
+`breadcrumb` references, including aliases with `@id` coercion, only route when
+they exactly match a collected page ID; `sameAs`, `citation` and unrelated
+strings do not acquire routing semantics from a matching value.
+
+Canonical identity keys equate root-relative and same-site absolute IDs, including
+configured internal language hosts, paths and slug mappings. Query and fragment
+distinctions remain intact. Keys are separate from URL output: each actual rewrite
+still uses SiteRouting and preserves its relative/absolute routing behavior.
+
+Local prefix definitions also expand compact page IDs and supported page URL
+values before internal-host checks, identity matching and routing. Only internal
+targets are rewritten; absolute prefixes produce absolute localized URLs. External or unresolved compact
+IRIs remain byte-for-byte unchanged. This does not add `@base` resolution or a
+general JSON-LD processor.
+
+Simple string value objects (`@value`, optional string `@language` and local
+`@context`) retain their enclosing supported text property's meaning, including inside
+arrays. Local `@value`/`@language` aliases are supported. An existing language
+tag changes only when a translated value is available. Typed, identified,
+direction/index-bearing or otherwise unsupported value-object shapes remain
+untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
+Literal `inLanguage` codes, including aliases and simple value objects, use the
+target code; `@id`/`@vocab`-coerced language IRIs remain unchanged.
+
 ## Installation in WordPress
 
 1. Build the versioned ZIP from an explicit commit using the release command below.
@@ -65,7 +120,7 @@ wordpress-plugin/deepglot/
 The plugin ships a complete translation pipeline:
 
 - Admin configuration under `Settings → Deepglot` (API identity plus WordPress-owned routing, switcher, and exclusions); SaaS-owned project languages and automatic redirect appear as read-only runtime mirrors after authenticated sync.
-- `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
+- `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD. Recipe ingredients and instruction text use the same cache/warm-up pipeline; internal page and breadcrumb identities and their exact graph references follow target-language routing while shared person, organization, media, and external identifiers remain stable.
 - `LinkRewriter` rewrites internal links; SaaS-managed translated URL-slug mappings are applied and reversed for path-prefix and subdomain routing; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
 - A WordPress-transient translation cache, bounded background cache warming, batched + parallel API requests, and path-prefix / subdomain routing. Queue claims are atomic, partial responses stay queued, and supported full-page caches are purged after a page finishes warming.
 - Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
