@@ -138,18 +138,9 @@ class JsonLdTranslator
      */
     public function apply(array $mutations, array $translations, string $targetLanguage): void
     {
-        // Separate script blocks are part of the same document graph. Resolve
-        // safe relationship identities to a fixed point before rewriting: a
-        // newly identified generic definition can establish another page URL.
-        // The set only grows from the finite original graph, so cycles without
-        // a page seed stay inert and traversal order cannot affect the result.
-        $pageNodeIds = [];
-        do {
-            $previousCount = count($pageNodeIds);
-            foreach ($mutations as $mutation) {
-                $this->collectPageNodeIds($mutation['data'], $pageNodeIds);
-            }
-        } while (count($pageNodeIds) !== $previousCount);
+        // Separate script blocks share one graph. Discover its safe edges once,
+        // then propagate seeds before rewriting any of the original values.
+        $pageNodeIds = $this->collectPageNodeIds($mutations);
 
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
@@ -203,24 +194,28 @@ class JsonLdTranslator
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage): array {
             if (isset($node['valueKey'])) {
                 $key = $node['valueKey'];
-                if (
-                    $property !== null
-                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
-                    && isset($translations[$value[$key]])
-                ) {
-                    $value[$key] = $translations[$value[$key]];
+                if ($property !== null && !($node['isIriCoerced'] ?? false)) {
+                    if (in_array($property, self::LANGUAGE_KEYS, true)) {
+                        $value[$key] = $targetLanguage;
+                    } elseif (
+                        $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                        && isset($translations[$value[$key]])
+                    ) {
+                        $value[$key] = $translations[$value[$key]];
+                    } else {
+                        return [];
+                    }
                     if (isset($node['languageKey'])) {
                         $value[$node['languageKey']] = $targetLanguage;
                     }
                 }
                 return [];
             }
-            if (is_string($value) && $property !== null) {
+            if (is_string($value) && $property !== null && !($node['isIriCoerced'] ?? false)) {
                 if (in_array($property, self::LANGUAGE_KEYS, true)) {
                     $value = $targetLanguage;
                 } elseif (
-                    !($node['isIriCoerced'] ?? false)
-                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
                     && isset($translations[$value])
                 ) {
                     $value = $translations[$value];
@@ -238,28 +233,83 @@ class JsonLdTranslator
     }
 
     /**
-     * Collects the original internal page identities from explicit page types
-     * and safe relationships using exactly the same semantics as URL routing.
-     * Untyped or exclusively generic Thing definitions can then inherit those
-     * identities, including across script blocks and relationship chains.
+     * Build a graph of eligible object states and canonical identity states.
+     * Object -> identity edges publish page IDs/URLs; identity -> object edges
+     * promote only untyped/Thing-only definitions. Conditional url children use
+     * object -> object edges. Explicit page types and direct safe relationships
+     * are the only seeds, so unseeded cycles remain inert in either script order.
      *
-     * @param array<mixed> $data
-     * @param array<string, true> $pageNodeIds
+     * Each document node is visited once, and the queue visits each reachable
+     * state/edge at most once: no repeated full-graph fixed-point scans.
+     *
+     * @param array<int, array{data: array<mixed>}> $mutations
+     * @return array<string, true>
      */
-    private function collectPageNodeIds(array $data, array &$pageNodeIds): void
+    private function collectPageNodeIds(array $mutations): array
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$pageNodeIds): array {
-            $state = $this->pageSemantics($property, $parent, $types, $node, $pageNodeIds);
-            $id = $node['id'] ?? null;
-            if ($state['isPageEntity'] && is_string($id)) {
-                $pageNodeIds[$id] = true;
+        $edges = [];
+        $reachable = [];
+        $queue = [];
+        $objectCount = 0;
+        $seed = static function (string $vertex) use (&$reachable, &$queue): void {
+            if (!isset($reachable[$vertex])) {
+                $reachable[$vertex] = true;
+                $queue[] = $vertex;
             }
-            if ($state['isPageUrlValue'] && isset($node['urlReference'])) {
-                $pageNodeIds[$node['urlReference']] = true;
-            }
+        };
 
-            return $state;
-        });
+        foreach ($mutations as $mutation) {
+            $data = $mutation['data'];
+            $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$edges, &$objectCount, $seed): array {
+                $isExplicitPage = $this->hasPageRelatedType($types);
+                $isGeneric = $node['canBePageReference'] ?? false;
+                $directReference = $this->isDirectPageReference($property, $parent);
+                $parentVertex = $parent['pageVertex'] ?? null;
+                $vertex = null;
+
+                if ($isExplicitPage || $isGeneric) {
+                    $vertex = 'node:' . $objectCount++;
+                    if ($isExplicitPage || $directReference) {
+                        $seed($vertex);
+                    }
+                    if ($isGeneric && $property === 'url' && $parentVertex !== null) {
+                        $edges[$parentVertex][] = $vertex;
+                    }
+                    if (isset($node['idKey'])) {
+                        $identity = 'id:' . $node['idKey'];
+                        $edges[$vertex][] = $identity;
+                        if ($isGeneric) {
+                            $edges[$identity][] = $vertex;
+                        }
+                    }
+                }
+                if (isset($node['referenceKey'])) {
+                    $identity = 'id:' . $node['referenceKey'];
+                    if ($directReference) {
+                        $seed($identity);
+                    }
+                    if ($parentVertex !== null && in_array($property, ['@id', 'url'], true)) {
+                        $edges[$parentVertex][] = $identity;
+                    }
+                }
+
+                return ['isListItem' => in_array('ListItem', $types, true), 'pageVertex' => $vertex];
+            });
+        }
+
+        for ($cursor = 0; $cursor < count($queue); $cursor++) {
+            foreach ($edges[$queue[$cursor]] ?? [] as $destination) {
+                $seed($destination);
+            }
+        }
+
+        $pageNodeIds = [];
+        foreach ($reachable as $vertex => $_) {
+            if (str_starts_with($vertex, 'id:')) {
+                $pageNodeIds[substr($vertex, 3)] = true;
+            }
+        }
+        return $pageNodeIds;
     }
 
     /**
@@ -301,15 +351,14 @@ class JsonLdTranslator
     private function pageSemantics(?string $property, array $parent, array $types, array $node, array $pageNodeIds): array
     {
         $isPageUrl = ($parent['isPageEntity'] ?? false) && in_array($property, ['@id', 'url'], true);
-        $isPageReference = $property === 'mainEntityOfPage'
-            || ($property === 'item' && ($parent['isListItem'] ?? false))
+        $isPageReference = $this->isDirectPageReference($property, $parent)
             || ($property === 'url' && ($parent['isPageEntity'] ?? false));
-        $reference = $node['urlReference'] ?? null;
+        $reference = $node['referenceKey'] ?? null;
         $isCollectedScalarReference = is_string($reference)
             && in_array($property, ['isPartOf', 'breadcrumb'], true)
             && ($node['allowsIdReference'] ?? true)
             && isset($pageNodeIds[$reference]);
-        $id = $node['id'] ?? null;
+        $id = $node['idKey'] ?? null;
 
         return [
             'isListItem' => in_array('ListItem', $types, true),
@@ -319,6 +368,23 @@ class JsonLdTranslator
                 )),
             'isPageUrlValue' => $isPageUrl || $isPageReference || $isCollectedScalarReference,
         ];
+    }
+
+    /** Relationships that establish a page target without a collected ID. */
+    private function isDirectPageReference(?string $property, array $parent): bool
+    {
+        return $property === 'mainEntityOfPage'
+            || ($property === 'item' && ($parent['isListItem'] ?? false));
+    }
+
+    /**
+     * Canonical graph identity only; never use this key as the output URL.
+     * The already-validated internal reference is normalized to the source
+     * site by SiteRouting, including language hosts/slugs and site subpaths.
+     */
+    private function pageIdentityKey(string $reference): string
+    {
+        return $this->routing->buildUrlForLanguage($reference, $this->routing->getSourceLanguage());
     }
 
     /** Expand only local prefixes, never @base, terms or remote contexts. */
@@ -391,7 +457,7 @@ class JsonLdTranslator
             $valueObject = $this->valueObjectMetadata($value, $context);
             if ($valueObject !== null) {
                 if ($valueObject !== []) {
-                    $visitor($value, $property, $parent, [], $valueObject);
+                    $visitor($value, $property, $parent, [], array_merge($propertyMetadata, $valueObject));
                 }
                 return;
             }
@@ -405,11 +471,15 @@ class JsonLdTranslator
                     $node['canBePageReference'] = $node['canBePageReference']
                         && $this->isExclusivelyGenericType($child, $resolvedTypes);
                 } elseif ($keyword === '@id') {
-                    $node['id'] = $this->internalUrlReference($child, $context);
+                    $reference = $this->internalUrlReference($child, $context);
+                    $node['idKey'] = $reference !== null ? $this->pageIdentityKey($reference) : null;
                 }
             }
         } elseif (is_string($value)) {
             $node['urlReference'] = $this->internalUrlReference($value, $context);
+            if ($node['urlReference'] !== null) {
+                $node['referenceKey'] = $this->pageIdentityKey($node['urlReference']);
+            }
         }
 
         $state = $visitor($value, $property, $parent, $types, $node);

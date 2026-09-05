@@ -59,8 +59,9 @@ JSON-LD localization supports Recipe instructions as strings, arrays of strings,
 or typed HowToStep objects. Page identities and matching references, including
 references with extra metadata, are collected across all JSON-LD blocks in one
 document before rewriting. Safe page relationships also seed these identities;
-collection converges before rewriting so chained generic definitions stay linked
-regardless of script order. Scalar and array page URLs retain their property
+one graph-discovery pass builds adjacency links, then a work queue propagates
+reachable identities without rescanning the document. Chained generic definitions
+stay linked regardless of script order. Scalar and array page URLs retain their property
 semantics and are trimmed before routing; external values remain unchanged.
 
 Compact type prefixes, ordinary class aliases, supported Schema.org property
@@ -87,6 +88,11 @@ scope for text selection, ID collection and routing. Scalar `isPartOf` and
 they exactly match a collected page ID; `sameAs`, `citation` and unrelated
 strings do not acquire routing semantics from a matching value.
 
+Canonical identity keys equate root-relative and same-site absolute IDs, including
+configured internal language hosts, paths and slug mappings. Query and fragment
+distinctions remain intact. Keys are separate from URL output: each actual rewrite
+still uses SiteRouting and preserves its relative/absolute routing behavior.
+
 Local prefix definitions also expand compact page IDs and supported page URL
 values before internal-host checks, identity matching and routing. Only internal
 targets are rewritten; absolute prefixes produce absolute localized URLs. External or unresolved compact
@@ -99,6 +105,8 @@ arrays. Local `@value`/`@language` aliases are supported. An existing language
 tag changes only when a translated value is available. Typed, identified,
 direction/index-bearing or otherwise unsupported value-object shapes remain
 untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
+Literal `inLanguage` codes, including aliases and simple value objects, use the
+target code; `@id`/`@vocab`-coerced language IRIs remain unchanged.
 
 ## Installation in WordPress
 

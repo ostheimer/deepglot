@@ -14,7 +14,7 @@
  *     caption, articleBody, alternativeHeadline, disambiguatingDescription,
  *     about, recipeIngredient and HowToStep text) and feed them into the same
  *     translate batch the rest of the page uses.
- *   - Switch every `inLanguage` value to the target locale.
+ *   - Switch literal `inLanguage` codes to the target locale, preserving IRI coercion.
  *   - Localize internal page identities/references while leaving shared
  *     Person/Organization identifiers, media/external URLs, control
  *     attributes (`@context`, `@type`), timestamps and keywords untouched.
@@ -1212,6 +1212,142 @@ $compactBoundaryNodes = [
 ];
 $compactBoundaryOutput = jsonLdReviewRender(array_merge([$compactGraph], $compactBoundaryNodes), $routing);
 $reviewCheck(array_slice($compactBoundaryOutput, 1) === $compactBoundaryNodes, 'Compact IRIs never leak scripts, infer term prefixes, expand external values or implement @base');
+
+// Identity keys are canonical, but output shape remains SiteRouting's choice.
+$identityPathRouting = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://www.meinhaushalt.at', 'PATH_PREFIX', [], [
+    'en' => ['rezept' => 'recipe'], 'fr' => ['rezept' => 'recette'],
+]);
+$identityHostRouting = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://www.meinhaushalt.at', 'SUBDOMAIN', [
+    'en' => 'en.meinhaushalt.at', 'fr' => 'fr.meinhaushalt.at',
+], ['en' => ['rezept' => 'recipe'], 'fr' => ['rezept' => 'recette']]);
+$identitySubdirRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), 'https://www.meinhaushalt.at/cms', 'PATH_PREFIX', []);
+$identityCases = [
+    [$routing, '/review/?q=a%20b#webpage', 'https://www.meinhaushalt.at/review/?q=a%20b#webpage'],
+    [$identityPathRouting, '/rezept/?v=1#webpage', 'https://www.meinhaushalt.at/fr/recette/?v=1#webpage'],
+    [$identityPathRouting, 'https://www.meinhaushalt.at/rezept/#webpage', '/en/recipe/#webpage'],
+    [$identityHostRouting, '/rezept/?v=1#webpage', 'https://fr.meinhaushalt.at/recette/?v=1#webpage'],
+    [$identitySubdirRouting, '/cms/review/#webpage', 'https://www.meinhaushalt.at/cms/en/review/#webpage'],
+];
+foreach ($identityCases as $identityCaseIndex => [$identityRouting, $leftIdentity, $rightIdentity]) {
+    foreach ([false, true] as $swapIdentities) {
+        $definitionIdentity = $swapIdentities ? $rightIdentity : $leftIdentity;
+        $referenceIdentity = $swapIdentities ? $leftIdentity : $rightIdentity;
+        foreach ([false, true] as $reverseScripts) {
+            $identityDefinition = ['@type' => 'WebPage', '@id' => $definitionIdentity];
+            $identityReferences = ['isPartOf' => ['@type' => 'Thing', '@id' => $referenceIdentity], 'breadcrumb' => $referenceIdentity];
+            $identityBlocks = $reverseScripts ? [$identityDefinition, $identityReferences] : [$identityReferences, $identityDefinition];
+            $identityOutput = jsonLdReviewRender($identityBlocks, $identityRouting);
+            $identityDefinitionOutput = $identityOutput[$reverseScripts ? 0 : 1];
+            $identityReferenceOutput = $identityOutput[$reverseScripts ? 1 : 0];
+            $reviewCheck(
+                $identityDefinitionOutput['@id'] === $identityRouting->rewriteUrl($definitionIdentity, 'en')
+                && $identityReferenceOutput['isPartOf']['@id'] === $identityRouting->rewriteUrl($referenceIdentity, 'en')
+                && $identityReferenceOutput['breadcrumb'] === $identityRouting->rewriteUrl($referenceIdentity, 'en'),
+                'P2 3942310467: canonical identity with independent URL output forms: ' . $identityCaseIndex . '/' . (int) $swapIdentities . '/' . (int) $reverseScripts
+            );
+        }
+    }
+}
+$identityEdges = jsonLdReviewRender([
+    ['@graph' => [
+        ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/mixed/#1'],
+        ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/mixed/#0', 'url' => ['@id' => '/mixed/#1']],
+    ]],
+    ['mainEntityOfPage' => '/mixed/#0'],
+], $routing);
+$reviewCheck(
+    $identityEdges[0]['@graph'][0]['@id'] === 'https://www.meinhaushalt.at/en/mixed/#1'
+    && $identityEdges[0]['@graph'][1]['@id'] === 'https://www.meinhaushalt.at/en/mixed/#0'
+    && $identityEdges[0]['@graph'][1]['url']['@id'] === '/en/mixed/#1'
+    && $identityEdges[1]['mainEntityOfPage'] === '/en/mixed/#0',
+    'P2 3942310467: canonical keys connect relative seeds and edges with absolute generic definitions'
+);
+$identityNegativeRefs = ['@graph' => []];
+foreach (['/review/?q=other#webpage', '/review/?q=a%20b#other', 'https://example.org/review/?q=a%20b#webpage', '//example.org/review/?q=a%20b#webpage'] as $differentIdentity) {
+    $identityNegativeRefs['@graph'][] = ['isPartOf' => ['@id' => $differentIdentity], 'breadcrumb' => $differentIdentity];
+}
+$identityNegativeOutput = jsonLdReviewRender([
+    ['@type' => 'WebPage', '@id' => '/review/?q=a%20b#webpage'], $identityNegativeRefs,
+], $routing);
+$reviewCheck($identityNegativeOutput[1] === $identityNegativeRefs, 'Canonical identities preserve query/fragment differences and never merge external hosts');
+
+// Count deterministic URL-resolution operations, not elapsed time. Full-graph
+// fixed-point scans grow quadratically on this reverse chain; a graph build plus
+// adjacency work queue stays within a constant budget per node/edge.
+class DeepglotJsonLdCountingRouting extends SiteRouting
+{
+    public int $internalHostChecks = 0;
+
+    public function isInternalHost(string $host): bool
+    {
+        $this->internalHostChecks++;
+        return parent::isInternalHost($host);
+    }
+}
+$queueRouting = new DeepglotJsonLdCountingRouting(new UrlLanguageResolver('de', ['en']), 'https://www.meinhaushalt.at', 'PATH_PREFIX', []);
+$queueNodeCount = 200;
+$queueGraph = ['@graph' => []];
+for ($queueIndex = $queueNodeCount - 1; $queueIndex >= 0; $queueIndex--) {
+    $queueNode = ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/queue/#' . $queueIndex];
+    if ($queueIndex + 1 < $queueNodeCount) {
+        $queueNode['url'] = ['@id' => 'https://www.meinhaushalt.at/queue/#' . ($queueIndex + 1)];
+    }
+    $queueGraph['@graph'][] = $queueNode;
+}
+$queueGraph['@graph'][] = ['@id' => 'https://www.meinhaushalt.at/queue/#cycle-a', 'url' => ['@id' => 'https://www.meinhaushalt.at/queue/#cycle-b']];
+$queueGraph['@graph'][] = ['@id' => 'https://www.meinhaushalt.at/queue/#cycle-b', 'url' => ['@id' => 'https://www.meinhaushalt.at/queue/#cycle-a']];
+$queueOutput = jsonLdReviewRender([$queueGraph, ['mainEntityOfPage' => ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/queue/#0']]], $queueRouting);
+$queueAllLocalized = true;
+for ($queueIndex = 0; $queueIndex < $queueNodeCount; $queueIndex++) {
+    $queueAllLocalized = $queueAllLocalized && $queueOutput[0]['@graph'][$queueIndex]['@id'] === 'https://www.meinhaushalt.at/en/queue/#' . ($queueNodeCount - 1 - $queueIndex);
+}
+$reviewCheck(
+    $queueAllLocalized && array_slice($queueOutput[0]['@graph'], $queueNodeCount) === array_slice($queueGraph['@graph'], $queueNodeCount),
+    'Long reverse chain reaches all safe definitions while unseeded cycles remain inert'
+);
+$reviewCheck(
+    $queueRouting->internalHostChecks <= 80 * $queueNodeCount,
+    'P2 3942310468: graph discovery/propagation has a linear URL-resolution budget; host checks=' . $queueRouting->internalHostChecks
+);
+fwrite(STDOUT, 'JSON-LD queue regression: ' . $queueNodeCount . ' nodes, ' . $queueRouting->internalHostChecks . " host checks\n");
+
+$languageIri = 'https://id.loc.gov/vocabulary/iso639-1/de';
+foreach (['@id', '@vocab'] as $languageCoercion) {
+    $languageCoercionContext = ['s' => 'https://schema.org/', 'language' => ['@id' => 's:inLanguage', '@type' => $languageCoercion], 'inLanguage' => ['@type' => $languageCoercion]];
+    $languageCoercionNodes = ['@context' => $languageCoercionContext, '@graph' => [
+        ['language' => $languageIri, 'inLanguage' => [$languageIri, 'iso:de']],
+        ['@context' => ['language' => 's:inLanguage'], 'language' => 'de'],
+        ['language' => $languageIri],
+        ['language' => ['@value' => $languageIri]],
+    ]];
+    $languageCoercionOutput = jsonLdReviewRender([$languageCoercionNodes, ['inLanguage' => 'de']], $routing);
+    $reviewCheck(
+        $languageCoercionOutput[0]['@graph'][0] === $languageCoercionNodes['@graph'][0]
+        && $languageCoercionOutput[0]['@graph'][1]['language'] === 'en'
+        && $languageCoercionOutput[0]['@graph'][2] === $languageCoercionNodes['@graph'][2]
+        && $languageCoercionOutput[0]['@graph'][3] === $languageCoercionNodes['@graph'][3]
+        && $languageCoercionOutput[1]['inLanguage'] === 'en'
+        && $languageCoercionOutput[0]['@context'] === $languageCoercionContext,
+        'P2 3942310470: IRI-coerced language values stay intact with scoped literal overrides: ' . $languageCoercion
+    );
+}
+$literalLanguageOutput = jsonLdReviewRender([
+    ['@context' => ['language' => 'https://schema.org/inLanguage'], 'inLanguage' => 'de', 'language' => ['de', 'fr']],
+    ['@context' => ['language' => 'https://schema.org/inLanguage', 'literal' => '@value'], 'language' => ['literal' => 'de']],
+    ['inLanguage' => ['@value' => 'de']],
+], $routing);
+$reviewCheck(
+    $literalLanguageOutput[0]['inLanguage'] === 'en' && $literalLanguageOutput[0]['language'] === ['en', 'en']
+    && $literalLanguageOutput[1]['language'] === ['literal' => 'en']
+    && $literalLanguageOutput[2]['inLanguage'] === ['@value' => 'en'],
+    'P2 3942310470: non-coerced literal, aliased and simple value-object language codes use the target'
+);
+$foreignLanguageNodes = [
+    ['@context' => ['inLanguage' => null], 'inLanguage' => 'de'],
+    ['@context' => ['inLanguage' => 'https://example.org/inLanguage'], 'inLanguage' => ['@value' => 'de']],
+    ['@context' => null, 'inLanguage' => 'de'],
+];
+$reviewCheck(jsonLdReviewRender($foreignLanguageNodes, $routing) === $foreignLanguageNodes, 'Foreign/null language properties retain their values and scopes');
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
