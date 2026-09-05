@@ -124,6 +124,8 @@ export function TranslationWorkflowPanel({
   const [label, setLabel] = useState("");
   const [submittedLabel, setSubmittedLabel] = useState("");
   const [variables, setVariables] = useState("");
+  const [quality, setQuality] = useState("");
+  const [activity, setActivity] = useState("");
   const [mode, setMode] = useState("");
   const [context, setContext] = useState("");
   const [urlPath, setUrlPath] = useState("");
@@ -139,6 +141,8 @@ export function TranslationWorkflowPanel({
   const loadRequestIdRef = useRef(0);
   const activeLanguageCodes = languages.map((language) => language.langCode);
   const currentQueryKey = translationWorkspaceQueryKey({
+    quality,
+    activity,
     label: submittedLabel,
     variables,
     source,
@@ -160,6 +164,8 @@ export function TranslationWorkflowPanel({
     setError(null);
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries({
+      quality,
+      activity,
       label: submittedLabel,
       variables,
       source,
@@ -206,6 +212,8 @@ export function TranslationWorkflowPanel({
       }
     }
   }, [
+    quality,
+    activity,
     submittedLabel,
     variables,
     assignee,
@@ -617,6 +625,8 @@ export function TranslationWorkflowPanel({
               setLabel("");
               setSubmittedLabel("");
               setVariables("");
+              setQuality("");
+              setActivity("");
               setSource("");
               setMode("");
               setContext("");
@@ -670,7 +680,92 @@ export function TranslationWorkflowPanel({
               )}
             </option>
           </select>
+          <select
+            aria-label={uiText(
+              locale,
+              "Saved variable check",
+              "Prüfung gespeicherter Variablen",
+            )}
+            value={quality}
+            onChange={(event) => {
+              setQuality(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All check states", "Alle Prüfzustände")}
+            </option>
+            <option value="mismatch">
+              {uiText(locale, "Variable mismatch", "Variablenabweichung")}
+            </option>
+            <option value="match">
+              {uiText(
+                locale,
+                "Selected variables preserved",
+                "Ausgewählte Variablen erhalten",
+              )}
+            </option>
+            <option value="unchecked">
+              {uiText(
+                locale,
+                "No variables selected",
+                "Keine Variablen ausgewählt",
+              )}
+            </option>
+          </select>
+          <select
+            aria-label={uiText(
+              locale,
+              "Observed activity",
+              "Beobachtete Aktivität",
+            )}
+            value={activity}
+            onChange={(event) => {
+              setActivity(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(
+                locale,
+                "All observation states",
+                "Alle Beobachtungszustände",
+              )}
+            </option>
+            <option value="recent">
+              {uiText(
+                locale,
+                "Seen in the last 30 days",
+                "In den letzten 30 Tagen gesehen",
+              )}
+            </option>
+            <option value="older">
+              {uiText(
+                locale,
+                "Last seen over 30 days ago",
+                "Zuletzt vor mehr als 30 Tagen gesehen",
+              )}
+            </option>
+            <option value="unknown">
+              {uiText(
+                locale,
+                "Never observed by SaaS",
+                "Noch nicht von SaaS beobachtet",
+              )}
+            </option>
+          </select>
         </form>
+        {(quality || activity) && (
+          <p className="mt-3 text-xs text-gray-600">
+            {uiText(
+              locale,
+              "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity.",
+              "Geprüft werden nur ausgewählte Variablen. Beobachtungen erfassen keine lokalen Cache-Treffer und beweisen keine Inaktivität.",
+            )}
+          </p>
+        )}
       </div>
 
       {error && (

@@ -133,6 +133,12 @@ test("metadata filters participate in query identity", () => {
     { label: "qa" },
     { variables: "saved" },
     { variables: "none" },
+    { quality: "mismatch" },
+    { quality: "match" },
+    { quality: "unchecked" },
+    { activity: "recent" },
+    { activity: "older" },
+    { activity: "unknown" },
   ]) {
     assert.notEqual(
       translationWorkspaceQueryKey(base),

@@ -6,7 +6,16 @@ import type {
 } from "@prisma/client";
 
 import { inspectPostgresText } from "@/lib/postgres-text";
-import { normalizeTranslationLabel } from "./translation-metadata";
+import { Prisma as PrismaSql } from "@prisma/client";
+import {
+  observationCutoff,
+  type ObservedActivity,
+  type VariableQuality,
+} from "./translation-quality";
+import {
+  workspaceSqlWhere,
+  workspaceSqlOrder,
+} from "./translation-workspace-query";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 
 export type TranslationWorkflowActor = {
@@ -295,6 +304,8 @@ export function planTranslationWorkflowUpdate({
 }
 
 export type TranslationWorkflowFilters = {
+  quality?: VariableQuality;
+  activity?: ObservedActivity;
   label?: string;
   variables?: "saved" | "none";
   source?: TranslationSource;
@@ -355,90 +366,43 @@ export async function listProjectTranslationWorkflow({
     }
   }
 
-  const where: Prisma.TranslationWhereInput = {
-    projectId,
-    ...(filters.source ? { source: filters.source } : {}),
-    ...(filters.mode ? { isManual: filters.mode === "manual" } : {}),
-    AND: [
-      ...(filters.label
-        ? [
-            {
-              metadata: {
-                is: {
-                  labels: { has: normalizeTranslationLabel(filters.label) },
-                },
-              },
+  const observedAt = new Date();
+  const cutoff = observationCutoff(observedAt);
+  const where = workspaceSqlWhere(projectId, langTo, filters, cutoff);
+  // Count, page IDs and hydration see one snapshot even if a reviewer edits
+  // content/metadata during the request. Only the bounded page leaves the DB.
+  const { items, total } = await db.$transaction(
+    async (tx) => {
+      const totals = await tx.$queryRaw<Array<{ total: bigint }>>(PrismaSql.sql`
+      SELECT count(*) AS total FROM "Translation" t WHERE ${where}
+    `);
+      const ids = await tx.$queryRaw<Array<{ id: string }>>(PrismaSql.sql`
+      SELECT t.id FROM "Translation" t WHERE ${where}
+      ORDER BY ${workspaceSqlOrder(filters.sort)}
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+    `);
+      const rows = ids.length
+        ? await tx.translation.findMany({
+            where: {
+              projectId,
+              ...(langTo ? { langTo } : {}),
+              id: { in: ids.map(({ id }) => id) },
             },
-          ]
-        : []),
-      ...(filters.variables === "saved"
-        ? [{ metadata: { is: { variables: { isEmpty: false } } } }]
-        : filters.variables === "none"
-          ? [
-              {
-                OR: [
-                  { metadata: { is: null } },
-                  { metadata: { is: { variables: { isEmpty: true } } } },
-                ],
-              },
-            ]
-          : []),
-      ...(filters.context === "unknown"
-        ? [{ contexts: { none: {} } }]
-        : filters.context === "known"
-          ? [{ contexts: { some: {} } }]
-          : []),
-      ...(filters.urlPath
-        ? [{ contexts: { some: { urlPath: filters.urlPath } } }]
-        : []),
-    ],
-    ...(langTo ? { langTo } : {}),
-    ...(filters.status ? { workflowStatus: filters.status } : {}),
-    ...(filters.assignedToId !== undefined
-      ? { assignedToId: filters.assignedToId }
-      : {}),
-    ...(filters.query?.trim()
-      ? {
-          OR: [
-            {
-              originalText: {
-                contains: filters.query.trim(),
-                mode: "insensitive",
-              },
-            },
-            {
-              translatedText: {
-                contains: filters.query.trim(),
-                mode: "insensitive",
-              },
-            },
-          ],
-        }
-      : {}),
-  };
-
-  const [items, total] = await Promise.all([
-    db.translation.findMany({
-      where,
-      include: workflowInclude,
-      orderBy: [
-        filters.sort === "created_asc"
-          ? { createdAt: "asc" }
-          : filters.sort === "created_desc"
-            ? { createdAt: "desc" }
-            : filters.sort === "original_asc"
-              ? { originalText: "asc" }
-              : { updatedAt: "desc" },
-        { id: "asc" },
-      ],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.translation.count({ where }),
-  ]);
+            include: workflowInclude,
+          })
+        : [];
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return {
+        items: ids.map(({ id }) => byId.get(id)!),
+        total: Number(totals[0].total),
+      };
+    },
+    { isolationLevel: "RepeatableRead", timeout: 15_000 },
+  );
 
   return {
     items,
+    observation: { evaluatedAt: observedAt, cutoff },
     contextPaths: await db.translationContext.groupBy({
       where: { translation: { projectId, ...(langTo ? { langTo } : {}) } },
       by: ["urlPath"],

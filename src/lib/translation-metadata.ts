@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translationTokenCounts } from "./translation-quality";
 
 export const normalizeTranslationLabel = (value: string) =>
   value.normalize("NFKC").trim().toLowerCase();
@@ -49,15 +50,5 @@ export type TranslationMetadataValue = TranslationMetadataInput & {
  * Not an ICU/HTML parser, and never a command to rewrite source content.
  */
 export function detectTranslationVariables(text: string): string[] {
-  const pattern =
-    /\{\{\s*[A-Za-z_][\w.-]*\s*\}\}|\$?\{[A-Za-z_][\w.-]*\}|%%|%(?:[1-9]\d*\$)?[sdif]/g;
-  return [
-    ...new Set(
-      Array.from(text.matchAll(pattern), (match) => match[0]).filter(
-        (token) => token !== "%%",
-      ),
-    ),
-  ]
-    .sort()
-    .slice(0, 50);
+  return [...translationTokenCounts(text).keys()].sort().slice(0, 50);
 }
