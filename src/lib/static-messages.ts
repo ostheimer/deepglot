@@ -3,6 +3,13 @@ import type { SiteLocale } from "@/lib/site-locale";
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {
   "en": {},
   "de": {
+    "Reported content type": "Gemeldeter Inhaltstyp",
+    "Text": "Text",
+    "Media / documents": "Medien / Dokumente",
+    "External links": "Externe Links",
+    "Other": "Sonstige",
+    "Unknown": "Unbekannt",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typen werden von Clients gemeldet, nicht abgeleitet. Mehrere Typen sind möglich; ältere Einträge können unbekannt sein.",
     "Saved variable check": "Prüfung gespeicherter Variablen",
     "All check states": "Alle Prüfzustände",
     "Variable mismatch": "Variablenabweichung",
@@ -750,6 +757,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Reported content type": "Докладван тип съдържание",
+    "Text": "Текст",
+    "Media / documents": "Медии / документи",
+    "External links": "Външни връзки",
+    "Other": "Други",
+    "Unknown": "Неизвестен",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Типовете се съобщават от клиентите, не се извеждат автоматично. Възможни са няколко типа; по-старите записи може да са с неизвестен тип.",
     "Saved variable check": "Проверка на запазените променливи",
     "All check states": "Всички състояния на проверка",
     "Variable mismatch": "Несъответствие на променливи",
@@ -1803,6 +1817,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Reported content type": "Prijavljena vrsta sadržaja",
+    "Text": "Tekst",
+    "Media / documents": "Mediji / dokumenti",
+    "External links": "Vanjske poveznice",
+    "Other": "Ostalo",
+    "Unknown": "Nepoznato",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Vrste prijavljuju klijenti, ne zaključuju se automatski. Moguće je više vrsta; stariji zapisi mogu biti nepoznati.",
     "Saved variable check": "Provjera spremljenih varijabli",
     "All check states": "Sva stanja provjere",
     "Variable mismatch": "Nepodudaranje varijabli",
@@ -2856,6 +2877,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Reported content type": "Nahlášený typ obsahu",
+    "Text": "Text",
+    "Media / documents": "Média / dokumenty",
+    "External links": "Externí odkazy",
+    "Other": "Ostatní",
+    "Unknown": "Neznámý",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typy hlásí klienti, nejsou odvozovány. Platit může více typů; starší záznamy mohou mít neznámý typ.",
     "Saved variable check": "Kontrola uložených proměnných",
     "All check states": "Všechny stavy kontroly",
     "Variable mismatch": "Neshoda proměnných",
@@ -3909,6 +3937,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Reported content type": "Rapporteret indholdstype",
+    "Text": "Tekst",
+    "Media / documents": "Medier / dokumenter",
+    "External links": "Eksterne links",
+    "Other": "Andet",
+    "Unknown": "Ukendt",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typer rapporteres af klienter og udledes ikke. Flere typer kan gælde; ældre poster kan være ukendte.",
     "Saved variable check": "Kontrol af gemte variabler",
     "All check states": "Alle kontroltilstande",
     "Variable mismatch": "Variabelafvigelse",
@@ -4962,6 +4997,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Reported content type": "Gemeld inhoudstype",
+    "Text": "Tekst",
+    "Media / documents": "Media / documenten",
+    "External links": "Externe links",
+    "Other": "Overige",
+    "Unknown": "Onbekend",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typen worden door clients gemeld, niet afgeleid. Meerdere typen zijn mogelijk; oudere items kunnen onbekend zijn.",
     "Saved variable check": "Controle van opgeslagen variabelen",
     "All check states": "Alle controlestatussen",
     "Variable mismatch": "Variabelen komen niet overeen",
@@ -6015,6 +6057,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Reported content type": "Teatatud sisutüüp",
+    "Text": "Tekst",
+    "Media / documents": "Meedia / dokumendid",
+    "External links": "Välislingid",
+    "Other": "Muu",
+    "Unknown": "Teadmata",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Tüübid teatavad kliendid, neid ei tuletata. Võimalikud on mitu tüüpi; vanemate kirjete tüüp võib olla teadmata.",
     "Saved variable check": "Salvestatud muutujate kontroll",
     "All check states": "Kõik kontrolliolekud",
     "Variable mismatch": "Muutujate lahknevus",
@@ -7068,6 +7117,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Reported content type": "Ilmoitettu sisältötyyppi",
+    "Text": "Teksti",
+    "Media / documents": "Media / asiakirjat",
+    "External links": "Ulkoiset linkit",
+    "Other": "Muut",
+    "Unknown": "Tuntematon",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Asiakasohjelmat ilmoittavat tyypit; niitä ei päätellä. Tyyppejä voi olla useita, ja vanhempien merkintöjen tyyppi voi olla tuntematon.",
     "Saved variable check": "Tallennettujen muuttujien tarkistus",
     "All check states": "Kaikki tarkistustilat",
     "Variable mismatch": "Muuttujien ristiriita",
@@ -8121,6 +8177,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Reported content type": "Type de contenu signalé",
+    "Text": "Texte",
+    "Media / documents": "Médias / documents",
+    "External links": "Liens externes",
+    "Other": "Autres",
+    "Unknown": "Inconnu",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Les types sont signalés par les clients, pas déduits. Plusieurs types sont possibles ; les anciennes entrées peuvent être de type inconnu.",
     "Saved variable check": "Vérification des variables enregistrées",
     "All check states": "Tous les états de vérification",
     "Variable mismatch": "Écart de variables",
@@ -9174,6 +9237,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Reported content type": "Αναφερόμενος τύπος περιεχομένου",
+    "Text": "Κείμενο",
+    "Media / documents": "Πολυμέσα / έγγραφα",
+    "External links": "Εξωτερικοί σύνδεσμοι",
+    "Other": "Άλλο",
+    "Unknown": "Άγνωστο",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Οι τύποι αναφέρονται από τους πελάτες, δεν συνάγονται. Μπορούν να ισχύουν πολλοί τύποι· παλαιότερες εγγραφές μπορεί να έχουν άγνωστο τύπο.",
     "Saved variable check": "Έλεγχος αποθηκευμένων μεταβλητών",
     "All check states": "Όλες οι καταστάσεις ελέγχου",
     "Variable mismatch": "Ασυμφωνία μεταβλητών",
@@ -10227,6 +10297,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Reported content type": "Jelentett tartalomtípus",
+    "Text": "Szöveg",
+    "Media / documents": "Média / dokumentumok",
+    "External links": "Külső hivatkozások",
+    "Other": "Egyéb",
+    "Unknown": "Ismeretlen",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "A típusokat a kliensek jelentik, nem következtetjük ki. Több típus is lehetséges; a régebbi bejegyzések típusa ismeretlen lehet.",
     "Saved variable check": "Mentett változók ellenőrzése",
     "All check states": "Minden ellenőrzési állapot",
     "Variable mismatch": "Változóeltérés",
@@ -11280,6 +11357,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Reported content type": "Cineál ábhair tuairiscithe",
+    "Text": "Téacs",
+    "Media / documents": "Meáin / doiciméid",
+    "External links": "Naisc sheachtracha",
+    "Other": "Eile",
+    "Unknown": "Anaithnid",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Tuairiscíonn cliaint na cineálacha; ní dhéantar iad a thátal. D’fhéadfadh roinnt cineálacha a bheith i gceist; d’fhéadfadh seaniontrálacha a bheith anaithnid.",
     "Saved variable check": "Seiceáil athróg sábháilte",
     "All check states": "Gach staid seiceála",
     "Variable mismatch": "Neamhréir athróg",
@@ -12333,6 +12417,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Reported content type": "Tipo di contenuto segnalato",
+    "Text": "Testo",
+    "Media / documents": "Media / documenti",
+    "External links": "Link esterni",
+    "Other": "Altro",
+    "Unknown": "Sconosciuto",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "I tipi sono segnalati dai client, non dedotti. Sono possibili più tipi; le voci meno recenti possono avere un tipo sconosciuto.",
     "Saved variable check": "Verifica delle variabili salvate",
     "All check states": "Tutti gli stati di verifica",
     "Variable mismatch": "Mancata corrispondenza delle variabili",
@@ -13386,6 +13477,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Reported content type": "Ziņotais satura tips",
+    "Text": "Teksts",
+    "Media / documents": "Multivide / dokumenti",
+    "External links": "Ārējās saites",
+    "Other": "Cits",
+    "Unknown": "Nezināms",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Tipus ziņo klienti, tie netiek izsecināti. Iespējami vairāki tipi; vecākiem ierakstiem tips var būt nezināms.",
     "Saved variable check": "Saglabāto mainīgo pārbaude",
     "All check states": "Visi pārbaudes stāvokļi",
     "Variable mismatch": "Mainīgo neatbilstība",
@@ -14439,6 +14537,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Reported content type": "Praneštas turinio tipas",
+    "Text": "Tekstas",
+    "Media / documents": "Medija / dokumentai",
+    "External links": "Išorinės nuorodos",
+    "Other": "Kita",
+    "Unknown": "Nežinomas",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Tipus praneša klientai, jie nėra nustatomi automatiškai. Gali būti keli tipai; senesnių įrašų tipas gali būti nežinomas.",
     "Saved variable check": "Išsaugotų kintamųjų patikra",
     "All check states": "Visos patikros būsenos",
     "Variable mismatch": "Kintamųjų neatitiktis",
@@ -15492,6 +15597,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Reported content type": "Tip ta’ kontenut irrappurtat",
+    "Text": "Test",
+    "Media / documents": "Midja / dokumenti",
+    "External links": "Links esterni",
+    "Other": "Oħrajn",
+    "Unknown": "Mhux magħruf",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "It-tipi jiġu rrappurtati mill-klijenti, mhux dedotti. Jistgħu japplikaw diversi tipi; entrati eqdem jistgħu jkunu ta’ tip mhux magħruf.",
     "Saved variable check": "Verifika tal-varjabbli ssejvjati",
     "All check states": "L-istati kollha tal-verifika",
     "Variable mismatch": "Nuqqas ta’ qbil fil-varjabbli",
@@ -16545,6 +16657,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Reported content type": "Zgłoszony typ treści",
+    "Text": "Tekst",
+    "Media / documents": "Media / dokumenty",
+    "External links": "Linki zewnętrzne",
+    "Other": "Inne",
+    "Unknown": "Nieznany",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typy są zgłaszane przez klientów, nie są wywnioskowane. Możliwych jest kilka typów; starsze wpisy mogą mieć nieznany typ.",
     "Saved variable check": "Sprawdzanie zapisanych zmiennych",
     "All check states": "Wszystkie stany sprawdzania",
     "Variable mismatch": "Niezgodność zmiennych",
@@ -17598,6 +17717,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Reported content type": "Tipo de conteúdo comunicado",
+    "Text": "Texto",
+    "Media / documents": "Multimédia / documentos",
+    "External links": "Ligações externas",
+    "Other": "Outros",
+    "Unknown": "Desconhecido",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Os tipos são comunicados pelos clientes, não inferidos. Podem aplicar-se vários tipos; as entradas antigas podem ter um tipo desconhecido.",
     "Saved variable check": "Verificação de variáveis guardadas",
     "All check states": "Todos os estados de verificação",
     "Variable mismatch": "Divergência de variáveis",
@@ -18651,6 +18777,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Reported content type": "Tip de conținut raportat",
+    "Text": "Text",
+    "Media / documents": "Media / documente",
+    "External links": "Linkuri externe",
+    "Other": "Altele",
+    "Unknown": "Necunoscut",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Tipurile sunt raportate de clienți, nu deduse. Se pot aplica mai multe tipuri; intrările mai vechi pot avea un tip necunoscut.",
     "Saved variable check": "Verificarea variabilelor salvate",
     "All check states": "Toate stările verificării",
     "Variable mismatch": "Nepotrivire de variabile",
@@ -19704,6 +19837,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Reported content type": "Nahlásený typ obsahu",
+    "Text": "Text",
+    "Media / documents": "Médiá / dokumenty",
+    "External links": "Externé odkazy",
+    "Other": "Ostatné",
+    "Unknown": "Neznámy",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typy hlásia klienti, neodvodzujú sa. Platných môže byť viac typov; staršie záznamy môžu mať neznámy typ.",
     "Saved variable check": "Kontrola uložených premenných",
     "All check states": "Všetky stavy kontroly",
     "Variable mismatch": "Nezhoda premenných",
@@ -20757,6 +20897,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Reported content type": "Sporočena vrsta vsebine",
+    "Text": "Besedilo",
+    "Media / documents": "Mediji / dokumenti",
+    "External links": "Zunanje povezave",
+    "Other": "Drugo",
+    "Unknown": "Neznano",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Vrste sporočajo odjemalci in niso sklepane. Možnih je več vrst; starejši vnosi imajo lahko neznano vrsto.",
     "Saved variable check": "Preverjanje shranjenih spremenljivk",
     "All check states": "Vsa stanja preverjanja",
     "Variable mismatch": "Neskladje spremenljivk",
@@ -21810,6 +21957,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Reported content type": "Tipo de contenido comunicado",
+    "Text": "Texto",
+    "Media / documents": "Medios / documentos",
+    "External links": "Enlaces externos",
+    "Other": "Otros",
+    "Unknown": "Desconocido",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Los clientes comunican los tipos; no se deducen. Pueden aplicarse varios tipos; las entradas antiguas pueden tener un tipo desconocido.",
     "Saved variable check": "Comprobación de variables guardadas",
     "All check states": "Todos los estados de comprobación",
     "Variable mismatch": "Discrepancia de variables",
@@ -22863,6 +23017,13 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Reported content type": "Rapporterad innehållstyp",
+    "Text": "Text",
+    "Media / documents": "Medier / dokument",
+    "External links": "Externa länkar",
+    "Other": "Övrigt",
+    "Unknown": "Okänd",
+    "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.": "Typer rapporteras av klienter och härleds inte. Flera typer kan gälla; äldre poster kan ha okänd typ.",
     "Saved variable check": "Kontroll av sparade variabler",
     "All check states": "Alla kontrollstatusar",
     "Variable mismatch": "Variabelavvikelse",

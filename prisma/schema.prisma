@@ -243,11 +243,23 @@ model Translation {
   assignedTo  ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
   contexts    TranslationContext[]
   metadata    TranslationMetadata?
+  typeObservations TranslationTypeObservation[]
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
   @@index([projectId, langTo, workflowStatus])
   @@index([assignedToId])
+}
+
+// Client-reported provenance, not inferred content classification.
+model TranslationTypeObservation {
+  translationId String
+  wordType Int
+  firstSeenAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  translation Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@id([translationId, wordType])
 }
 
 // Editorial annotations; independent of translation content concurrency tokens.

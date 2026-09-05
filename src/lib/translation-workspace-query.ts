@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import type { TranslationWorkflowFilters } from "./translation-workflow";
 import { normalizeTranslationLabel } from "./translation-metadata";
 import { TRANSLATION_TOKEN_PATTERN } from "./translation-quality";
+import { REPORTED_TYPE_GROUPS } from "./translation-reported-types";
 
 /** One parameterized predicate for both count and page selection. Alias: t. */
 export function workspaceSqlWhere(
@@ -12,6 +13,13 @@ export function workspaceSqlWhere(
 ) {
   const clauses: Prisma.Sql[] = [Prisma.sql`t."projectId" = ${projectId}`];
   if (langTo) clauses.push(Prisma.sql`t."langTo" = ${langTo}`);
+  if (filters.reportedType) {
+    clauses.push(
+      filters.reportedType === "unknown"
+        ? Prisma.sql`NOT EXISTS (SELECT 1 FROM "TranslationTypeObservation" o WHERE o."translationId" = t.id)`
+        : Prisma.sql`EXISTS (SELECT 1 FROM "TranslationTypeObservation" o WHERE o."translationId" = t.id AND o."wordType" IN (${Prisma.join([...REPORTED_TYPE_GROUPS[filters.reportedType]])}))`,
+    );
+  }
   if (filters.source)
     clauses.push(Prisma.sql`t.source::text = ${filters.source}`);
   if (filters.mode)

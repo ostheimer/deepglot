@@ -60,6 +60,7 @@ export function completeTranslationWorkspaceEdit(
 }
 
 export type TranslationWorkspaceQuery = {
+  reportedType?: string;
   quality?: string;
   activity?: string;
   label?: string;
@@ -78,6 +79,7 @@ export type TranslationWorkspaceQuery = {
 
 export function translationWorkspaceQueryKey(query: TranslationWorkspaceQuery) {
   return JSON.stringify([
+    query.reportedType ?? "",
     query.quality ?? "",
     query.activity ?? "",
     query.label ?? "",

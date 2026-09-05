@@ -304,6 +304,7 @@ export function planTranslationWorkflowUpdate({
 }
 
 export type TranslationWorkflowFilters = {
+  reportedType?: import("./translation-reported-types").ReportedTypeFilter;
   quality?: VariableQuality;
   activity?: ObservedActivity;
   label?: string;
@@ -322,6 +323,7 @@ export type TranslationWorkflowFilters = {
 };
 
 const workflowInclude = {
+  typeObservations: { orderBy: { wordType: "asc" }, take: 11 },
   metadata: true,
   contexts: { orderBy: { urlPath: "asc" }, take: 100 },
   _count: { select: { contexts: true } },

@@ -18,7 +18,7 @@ test("every advanced filter changes the response identity", () => {
     page: 1,
   };
   const key = translationWorkspaceQueryKey(base);
-  for (const filter of ["source", "mode", "context", "urlPath", "sort"]) {
+  for (const filter of ["source", "mode", "context", "urlPath", "sort", "reportedType"]) {
     assert.notEqual(
       translationWorkspaceQueryKey({ ...base, [filter]: "changed" }),
       key,

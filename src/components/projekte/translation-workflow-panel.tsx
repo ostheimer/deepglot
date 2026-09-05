@@ -35,6 +35,15 @@ import { planTranslationPaginationAfterDeletion } from "@/lib/translation-worksp
 import { translationContextLink } from "@/lib/translation-context";
 import { TranslationMetadataPanel } from "./translation-metadata-panel";
 import type { TranslationMetadataValue } from "@/lib/translation-metadata";
+import { REPORTED_TYPE_GROUPS } from "@/lib/translation-reported-types";
+
+const reportedTypeLabels = {
+  text: ["Text", "Text"],
+  media: ["Media / documents", "Medien / Dokumente"],
+  link: ["External links", "Externe Links"],
+  other: ["Other", "Sonstige"],
+  unknown: ["Unknown", "Unbekannt"],
+} as const;
 
 type WorkflowStatus = "machine" | "assigned" | "in_review" | "approved";
 
@@ -47,6 +56,7 @@ type WorkflowMember = {
 };
 
 type WorkflowTranslation = {
+  typeObservations?: Array<{ wordType: number }>;
   metadata?: TranslationMetadataValue | null;
   id: string;
   originalText: string;
@@ -126,6 +136,7 @@ export function TranslationWorkflowPanel({
   const [variables, setVariables] = useState("");
   const [quality, setQuality] = useState("");
   const [activity, setActivity] = useState("");
+  const [reportedType, setReportedType] = useState("");
   const [mode, setMode] = useState("");
   const [context, setContext] = useState("");
   const [urlPath, setUrlPath] = useState("");
@@ -141,6 +152,7 @@ export function TranslationWorkflowPanel({
   const loadRequestIdRef = useRef(0);
   const activeLanguageCodes = languages.map((language) => language.langCode);
   const currentQueryKey = translationWorkspaceQueryKey({
+    reportedType,
     quality,
     activity,
     label: submittedLabel,
@@ -164,6 +176,7 @@ export function TranslationWorkflowPanel({
     setError(null);
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries({
+      reportedType,
       quality,
       activity,
       label: submittedLabel,
@@ -212,6 +225,7 @@ export function TranslationWorkflowPanel({
       }
     }
   }, [
+    reportedType,
     quality,
     activity,
     submittedLabel,
@@ -627,6 +641,7 @@ export function TranslationWorkflowPanel({
               setVariables("");
               setQuality("");
               setActivity("");
+              setReportedType("");
               setSource("");
               setMode("");
               setContext("");
@@ -756,7 +771,36 @@ export function TranslationWorkflowPanel({
               )}
             </option>
           </select>
+          <select
+            aria-label={uiText(
+              locale,
+              "Reported content type",
+              "Gemeldeter Inhaltstyp",
+            )}
+            value={reportedType}
+            onChange={(event) => {
+              setReportedType(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All types", "Alle Typen")}
+            </option>
+            {Object.entries(reportedTypeLabels).map(([value, labels]) => (
+              <option key={value} value={value}>
+                {uiText(locale, labels[0], labels[1])}
+              </option>
+            ))}
+          </select>
         </form>
+        <p className="mt-3 text-xs text-gray-600">
+          {uiText(
+            locale,
+            "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.",
+            "Typen werden von Clients gemeldet, nicht abgeleitet. Mehrere Typen sind möglich; ältere Einträge können unbekannt sein.",
+          )}
+        </p>
         {(quality || activity) && (
           <p className="mt-3 text-xs text-gray-600">
             {uiText(
@@ -838,6 +882,32 @@ export function TranslationWorkflowPanel({
                         : ""}{" "}
                       {uiText(locale, "Pages", "Seiten")}
                     </summary>
+                    <p className="mt-2">
+                      {uiText(
+                        locale,
+                        "Reported content type",
+                        "Gemeldeter Inhaltstyp",
+                      )}
+                      :{" "}
+                      {translation.typeObservations?.length
+                        ? Object.entries(REPORTED_TYPE_GROUPS)
+                            .filter(([, values]) =>
+                              translation.typeObservations!.some((o) =>
+                                (values as readonly number[]).includes(
+                                  o.wordType,
+                                ),
+                              ),
+                            )
+                            .map(([group]) => {
+                              const labels =
+                                reportedTypeLabels[
+                                  group as keyof typeof REPORTED_TYPE_GROUPS
+                                ];
+                              return uiText(locale, labels[0], labels[1]);
+                            })
+                            .join(", ")
+                        : uiText(locale, "Unknown", "Unbekannt")}
+                    </p>
                     <p className="mt-2">
                       {uiText(locale, "Created", "Erstellt")}:{" "}
                       {translation.createdAt
