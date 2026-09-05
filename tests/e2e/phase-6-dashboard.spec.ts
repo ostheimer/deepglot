@@ -248,7 +248,7 @@ test.describe("Phase 6 dashboard flows", () => {
     expect(invalidBody.ok).toBe(false);
   });
 
-  test("assigns, reviews, approves, and reopens a translation segment", async ({
+  test("edits, reviews, and deletes translation segments in the workspace", async ({
     page,
   }) => {
     const projectId = await signInAndGetProjectId(page);
@@ -264,6 +264,17 @@ test.describe("Phase 6 dashboard flows", () => {
       .first();
     await expect(segment).toBeVisible();
 
+    await segment.getByRole("button", { name: "Edit" }).click();
+    await segment
+      .getByLabel("Translation")
+      .fill("Welcome to the central Deepglot workspace");
+    await segment.getByRole("button", { name: "Save" }).click();
+    await expect(
+      segment.getByText("Welcome to the central Deepglot workspace", {
+        exact: true,
+      }),
+    ).toBeVisible();
+
     const assignee = segment.getByLabel("Assign segment");
     await assignee.selectOption({ label: "translator@deepglot.local" });
     await expect(segment.getByText("Assigned", { exact: true })).toBeVisible();
@@ -278,6 +289,17 @@ test.describe("Phase 6 dashboard flows", () => {
     await expect(segment.getByText("Assigned", { exact: true })).toBeVisible();
     await assignee.selectOption("");
     await expect(segment.getByText("Machine", { exact: true })).toBeVisible();
+
+    const deleteCandidate = page
+      .locator("article")
+      .filter({ hasText: "Preise und Plaene" })
+      .first();
+    await expect(deleteCandidate).toBeVisible();
+    page.once("dialog", (dialog) => dialog.accept());
+    await deleteCandidate
+      .getByRole("button", { name: "Delete" })
+      .click();
+    await expect(deleteCandidate).toHaveCount(0);
   });
 
   test("translates a text PDF and downloads a bounded reflow output", async ({

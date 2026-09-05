@@ -4,6 +4,7 @@ export const PROJECT_WEBHOOK_EVENT_TYPES = [
   "translation.created",
   "translation.updated",
   "translation.manual_updated",
+  "translation.deleted",
   "glossary.upserted",
   "glossary.deleted",
   "slug.upserted",

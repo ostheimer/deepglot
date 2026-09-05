@@ -27,8 +27,39 @@ test("project APIs expose list/filter and tenant-scoped workflow updates", () =>
   assert.match(collection, /getProjectAccess/);
   assert.match(collection, /listProjectTranslationWorkflow/);
   assert.match(item, /export async function PATCH/);
+  assert.match(item, /translatedText/);
+  assert.match(item, /expectedUpdatedAt/);
+  assert.match(item, /export async function DELETE/);
   assert.match(item, /getProjectAccess/);
   assert.match(item, /updateProjectTranslationWorkflow/);
+});
+
+test("the central workspace exposes direct editing and manager-only deletion", () => {
+  const panel = source(
+    "src/components/projekte/translation-workflow-panel.tsx",
+  );
+
+  assert.match(panel, /uiText\(locale, "Edit"/);
+  assert.match(panel, /uiText\(locale, "Save"/);
+  assert.match(panel, /uiText\(locale, "Delete"/);
+  assert.match(panel, /expectedUpdatedAt/);
+  assert.match(panel, /method:\s*"DELETE"/);
+});
+
+test("workspace editing wires active languages, stable drafts, and current-query deletion recovery", () => {
+  const panel = source(
+    "src/components/projekte/translation-workflow-panel.tsx",
+  );
+
+  assert.match(panel, /canEditWorkspaceTranslation\(\{/);
+  assert.match(panel, /activeLanguageCodes/);
+  assert.match(panel, /beginTranslationWorkspaceEdit\(translation\)/);
+  assert.match(panel, /editingDraft\.expectedUpdatedAt/);
+  assert.match(panel, /completeTranslationWorkspaceEdit/);
+  assert.match(panel, /deletionResponseMatchesWorkspaceQuery/);
+  assert.match(panel, /latestLoadRef\.current\(\)/);
+  assert.match(panel, /const requestId = \+\+loadRequestIdRef\.current/);
+  assert.match(panel, /requestId !== loadRequestIdRef\.current/);
 });
 
 test("dashboard replaces the redirect with filters, assignment, review, and existing handoff links", () => {
@@ -60,6 +91,11 @@ test("dashboard pagination reaches every filtered segment and resets on filter c
   assert.match(panel, /setPage\(1\)/);
   assert.match(panel, /data\.page > 1/);
   assert.match(panel, /data\.page < data\.totalPages/);
+  assert.match(panel, /planTranslationPaginationAfterDeletion\(data\)/);
+  assert.match(
+    panel,
+    /if \(pagination\.page !== data\.page\)[\s\S]*setPage\(pagination\.page\);[\s\S]*} else {\s*await load\(\);/,
+  );
 });
 
 test("member removal and language changes reset assignments before they become invalid", () => {
