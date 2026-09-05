@@ -146,6 +146,9 @@ $html = '<!DOCTYPE html>'
     . '<meta name="twitter:title" content="Gesundheit – Mein Haushalt">'
     . '<meta name="twitter:description" content="Ratgeber">'
     . '<meta name="robots" content="index, follow">'
+    . '<link rel="alternate" type="application/rss+xml" title="Mein Haushalt – Feed" href="/feed/">'
+    . '<link rel="alternate" type="application/atom+xml" title="Mein Haushalt – Kommentar-Feed" href="/comments/feed/">'
+    . '<link rel="alternate" type="text/html" title="Machine alternate title" href="/en/">'
     . '<link rel="stylesheet" href="/style.css">'
     . '<script>console.log("Mein Haushalt");</script>'
     . '<style>body{color:red}</style>'
@@ -180,6 +183,14 @@ dgAssert(in_array('Mein Haushalt', $client->sentTexts, true), 'og:site_name must
 
 // 5. twitter:title and twitter:description get translated.
 dgAssert(str_contains($decoded, '"[en] Gesundheit – Mein Haushalt"'), 'twitter:title should be translated (deduped with og:title)');
+
+// 5a. WordPress feed discovery titles are human-readable metadata. Translate
+// only RSS/Atom alternates; ordinary <link> titles remain machine metadata.
+dgAssert(in_array('Mein Haushalt – Feed', $client->sentTexts, true), 'RSS feed title must be sent for translation');
+dgAssert(in_array('Mein Haushalt – Kommentar-Feed', $client->sentTexts, true), 'Atom feed title must be sent for translation');
+dgAssert(str_contains($decoded, 'title="[en] Mein Haushalt – Feed"'), 'RSS feed title should contain translated text');
+dgAssert(str_contains($decoded, 'title="[en] Mein Haushalt – Kommentar-Feed"'), 'Atom feed title should contain translated text');
+dgAssert(!in_array('Machine alternate title', $client->sentTexts, true), 'Non-feed link title must not be translated');
 
 // 6. robots/keywords meta content must NOT be translated.
 dgAssert(!in_array('index, follow', $client->sentTexts, true), 'robots meta content must not be translated');

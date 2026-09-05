@@ -34,7 +34,7 @@ test("help, developer docs, and product copy describe every requested release", 
   const home = source("src/components/marketing/marketing-home.tsx");
   const readme = source("wordpress-plugin/deepglot/readme.txt");
 
-  for (const version of ["v0.11.4", "v0.11.5", "v0.11.6", "v0.11.7", "v0.12.1", "v0.12.2", "v0.12.3", "v0.12.4", "v0.12.5", "v0.12.6"]) {
+  for (const version of ["v0.11.4", "v0.11.5", "v0.11.6", "v0.11.7", "v0.12.1", "v0.12.2", "v0.12.3", "v0.12.4", "v0.12.5", "v0.12.6", "v0.12.7", "v0.12.8"]) {
     const escapedVersion = version.replaceAll(".", "\\.");
     assert.match(help, new RegExp(escapedVersion));
     assert.match(docs, new RegExp(escapedVersion));
