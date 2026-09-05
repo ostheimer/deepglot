@@ -27,7 +27,7 @@ const manager: TranslationWorkflowActor = {
 test(
   "PostgreSQL persists tenant-safe assignment and review transitions",
   { skip: skipWithoutDatabase },
-  async () => {
+  async (testContext) => {
     const { db } = await import("@/lib/db");
     const suffix = crypto.randomUUID();
     const user = await db.user.create({
@@ -48,7 +48,13 @@ test(
         domain: `${suffix}.example.test`,
         originalLang: "de",
         organizationId: organization.id,
-        languages: { create: [{ langCode: "en" }, { langCode: "fr" }] },
+        languages: {
+          create: [
+            { langCode: "en" },
+            { langCode: "fr" },
+            { langCode: "it" },
+          ],
+        },
       },
     });
     const foreignProject = await db.project.create({
@@ -112,6 +118,29 @@ test(
     assert.equal(manuallyEdited.isManual, true);
     assert.equal(manuallyEdited.source, "MANUAL");
     assert.equal(manuallyEdited.workflowStatus, "MACHINE");
+    await testContext.test("records workspace edits for activity digests", async () => {
+      assert.deepEqual(
+        await db.translationBatchLog.findFirst({
+          where: { projectId: project.id, provider: "manual" },
+          select: {
+            organizationId: true,
+            langFrom: true,
+            langTo: true,
+            totalWords: true,
+            manualWords: true,
+            translatedWords: true,
+          },
+        }),
+        {
+          organizationId: organization.id,
+          langFrom: "de",
+          langTo: "en",
+          totalWords: 5,
+          manualWords: 5,
+          translatedWords: 0,
+        },
+      );
+    });
     assert.equal(
       await db.webhookDelivery.count({
         where: {
@@ -133,6 +162,64 @@ test(
       (error) =>
         error instanceof TranslationWorkflowError &&
         error.code === "STALE_UPDATE",
+    );
+
+    const inactiveLanguageTranslation = await db.translation.create({
+      data: {
+        projectId: project.id,
+        originalHash: `inactive-it-${suffix}`,
+        originalText: "Eine inzwischen inaktive Sprache.",
+        translatedText: "Una lingua ora inattiva.",
+        langFrom: "de",
+        langTo: "it",
+        source: "OPENAI",
+        wordCount: 4,
+      },
+    });
+    await db.projectLanguage.updateMany({
+      where: { projectId: project.id, langCode: "it" },
+      data: { isActive: false },
+    });
+    await testContext.test(
+      "rejects workspace edits after the target language is deactivated",
+      async () => {
+        await assert.rejects(
+          updateProjectTranslationContent({
+            projectId: project.id,
+            translationId: inactiveLanguageTranslation.id,
+            actor: manager,
+            translatedText: "Questa modifica deve essere rifiutata.",
+            expectedUpdatedAt: inactiveLanguageTranslation.updatedAt,
+          }),
+          (error) =>
+            error instanceof TranslationWorkflowError &&
+            error.code === "INVALID_LANGUAGE",
+        );
+        assert.equal(
+          (
+            await db.translation.findUniqueOrThrow({
+              where: { id: inactiveLanguageTranslation.id },
+              select: { translatedText: true },
+            })
+          ).translatedText,
+          "Una lingua ora inattiva.",
+        );
+        assert.equal(
+          await db.translationBatchLog.count({
+            where: { projectId: project.id, provider: "manual" },
+          }),
+          1,
+        );
+        assert.equal(
+          await db.webhookDelivery.count({
+            where: {
+              projectId: project.id,
+              eventType: "translation.manual_updated",
+            },
+          }),
+          1,
+        );
+      },
     );
 
     const assigned = await updateProjectTranslationWorkflow({

@@ -5,6 +5,7 @@ import type {
 } from "@prisma/client";
 
 import { inspectPostgresText } from "@/lib/postgres-text";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 
 export type TranslationWorkflowActor = {
   canManage: boolean;
@@ -480,6 +481,7 @@ export async function updateProjectTranslationContent({
   const { queueProjectWebhookEvent } = await import(
     "@/lib/project-webhook-delivery"
   );
+  const { recordTranslationBatch } = await import("@/lib/translation-batches");
   return db.$transaction(async (tx) => {
     const current = await tx.translation.findFirst({
       where: { id: translationId, projectId },
@@ -489,9 +491,11 @@ export async function updateProjectTranslationContent({
         translatedText: true,
         langFrom: true,
         langTo: true,
+        wordCount: true,
         workflowStatus: true,
         assignedToId: true,
         updatedAt: true,
+        project: { select: { organizationId: true } },
       },
     });
     if (!current) {
@@ -506,6 +510,19 @@ export async function updateProjectTranslationContent({
       assignedToId: current.assignedToId,
       operation: "edit",
     });
+
+    const languageConfigurationIsCurrent =
+      await lockAndValidateProjectLanguageWrite(tx, {
+        projectId,
+        sourceLanguages: [current.langFrom],
+        targetLanguages: [current.langTo],
+      });
+    if (!languageConfigurationIsCurrent) {
+      throw new TranslationWorkflowError(
+        "INVALID_LANGUAGE",
+        "The translation language pair is no longer active for this project.",
+      );
+    }
 
     const changed = await tx.translation.updateMany({
       where: {
@@ -531,6 +548,21 @@ export async function updateProjectTranslationContent({
       where: { id: current.id },
       include: workflowInclude,
     });
+    await recordTranslationBatch(
+      {
+        organizationId: current.project.organizationId,
+        projectId,
+        langFrom: current.langFrom,
+        langTo: current.langTo,
+        provider: "manual",
+        totalWords: current.wordCount,
+        cachedWords: 0,
+        manualWords: current.wordCount,
+        glossaryWords: 0,
+        translatedWords: 0,
+      },
+      tx,
+    );
     await queueProjectWebhookEvent(
       {
         projectId,

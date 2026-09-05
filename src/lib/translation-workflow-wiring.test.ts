@@ -75,6 +75,11 @@ test("dashboard pagination reaches every filtered segment and resets on filter c
   assert.match(panel, /setPage\(1\)/);
   assert.match(panel, /data\.page > 1/);
   assert.match(panel, /data\.page < data\.totalPages/);
+  assert.match(panel, /planTranslationPaginationAfterDeletion\(data\)/);
+  assert.match(
+    panel,
+    /if \(pagination\.page !== data\.page\)[\s\S]*setPage\(pagination\.page\);[\s\S]*} else {\s*await load\(\);/,
+  );
 });
 
 test("member removal and language changes reset assignments before they become invalid", () => {

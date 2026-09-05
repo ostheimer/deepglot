@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import type { SiteLocale } from "@/lib/site-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { planTranslationPaginationAfterDeletion } from "@/lib/translation-workspace-pagination";
 
 type WorkflowStatus = "machine" | "assigned" | "in_review" | "approved";
 
@@ -212,15 +213,23 @@ export function TranslationWorkflowPanel({
         } | null;
         throw new Error(body?.error || "Request failed");
       }
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              items: current.items.filter((item) => item.id !== translation.id),
-              total: Math.max(0, current.total - 1),
-            }
-          : current,
-      );
+      if (!data) {
+        await load();
+        return;
+      }
+
+      const pagination = planTranslationPaginationAfterDeletion(data);
+      setData({
+        ...data,
+        ...pagination,
+        items: data.items.filter((item) => item.id !== translation.id),
+      });
+      if (pagination.page !== data.page) {
+        setLoading(true);
+        setPage(pagination.page);
+      } else {
+        await load();
+      }
     } catch {
       setError(
         uiText(
