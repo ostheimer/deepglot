@@ -12,12 +12,12 @@
  *   - Walk every JSON-LD <script> in the head/body.
  *   - Extract human-readable string values (name, description, headline,
  *     caption, articleBody, alternativeHeadline, disambiguatingDescription,
- *     about) and feed them into the same translate batch the rest of the
- *     page uses.
+ *     about, recipeIngredient and HowToStep text) and feed them into the same
+ *     translate batch the rest of the page uses.
  *   - Switch every `inLanguage` value to the target locale.
- *   - Leave URLs (`@id`, `url`, `image`, `logo`, `sameAs`, `target`,
- *     `mainEntityOfPage`), control attributes (`@context`, `@type`),
- *     timestamps and keyword strings untouched.
+ *   - Localize internal page identities/references while leaving shared
+ *     Person/Organization identifiers, media/external URLs, control
+ *     attributes (`@context`, `@type`), timestamps and keywords untouched.
  *   - Recurse through arrays and the @graph nodes Yoast uses.
  *   - Keep the document intact when the JSON is malformed instead of
  *     erasing the script body or crashing.
@@ -87,6 +87,9 @@ if (!function_exists('get_option')) {
 require_once __DIR__ . '/../includes/Config/Options.php';
 require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
+require_once __DIR__ . '/../includes/Support/WordPressInfrastructure.php';
+require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
+require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
 require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Support/HtmlDocument.php';
@@ -95,7 +98,10 @@ require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Frontend\HtmlTranslator;
+use Deepglot\Frontend\JsonLdTranslator;
+use Deepglot\Support\SiteRouting;
 use Deepglot\Support\TranslationCache;
+use Deepglot\Support\UrlLanguageResolver;
 
 class DeepglotJsonLdFakeClient extends Client
 {
@@ -183,6 +189,39 @@ $jsonLd = json_encode([
             'description' => 'Onlinemagazin rund um Haushalt, Gesundheit und Familie',
             'inLanguage' => 'de',
         ],
+        [
+            '@type' => 'Recipe',
+            '@id' => 'https://www.meinhaushalt.at/rezepte/rezept-polenta-grundrezept/#recipe',
+            'url' => 'https://www.meinhaushalt.at/rezepte/rezept-polenta-grundrezept/',
+            'name' => 'Rezept Polenta Grundrezept',
+            'recipeIngredient' => [
+                '800 ml Wasser',
+                '250 g Maisgrieß',
+            ],
+            'recipeInstructions' => [
+                ['@type' => 'HowToStep', 'text' => 'Das Wasser aufkochen lassen.'],
+            ],
+            'author' => [
+                '@type' => 'Person',
+                '@id' => 'https://www.meinhaushalt.at/#/schema/person/redaktion',
+                'name' => 'Redaktion',
+            ],
+            'publisher' => [
+                '@type' => 'Organization',
+                '@id' => 'https://www.meinhaushalt.at/#organization',
+                'name' => 'Mein Haushalt',
+            ],
+            'image' => [
+                '@type' => 'ImageObject',
+                '@id' => 'https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg',
+                'url' => 'https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg',
+            ],
+            'sameAs' => 'https://example.com/polenta',
+        ],
+        [
+            '@type' => 'Thing',
+            'text' => 'Technischer Kontrollwert',
+        ],
     ],
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -203,11 +242,18 @@ jsonLdAssert(in_array('Onlinemagazin rund um Haushalt, Gesundheit und Familie', 
 jsonLdAssert(in_array('Wie Sie Stress im Alltag reduzieren', $client->sentTexts, true), 'JSON-LD Article headline must be sent for translation');
 jsonLdAssert(in_array('Probieren Sie diese Tipps.', $client->sentTexts, true), 'JSON-LD Article articleBody must be sent for translation');
 jsonLdAssert(in_array('Familie', $client->sentTexts, true), 'JSON-LD breadcrumb itemListElement.name must be sent for translation');
+jsonLdAssert(in_array('800 ml Wasser', $client->sentTexts, true), 'Recipe ingredient text must be sent for translation');
+jsonLdAssert(in_array('250 g Maisgrieß', $client->sentTexts, true), 'Every Recipe ingredient must be sent for translation');
+jsonLdAssert(in_array('Das Wasser aufkochen lassen.', $client->sentTexts, true), 'HowToStep text must be sent for translation');
 
 // 2. Non-translatable JSON-LD fields stay out of the batch.
 foreach (['https://schema.org', 'CollectionPage', 'BreadcrumbList', 'WebSite', 'https://www.meinhaushalt.at/tag/familie/', 'https://www.meinhaushalt.at/tag/familie/#breadcrumb', 'de'] as $forbidden) {
     jsonLdAssert(!in_array($forbidden, $client->sentTexts, true), '"' . $forbidden . '" must NOT be sent for translation');
 }
+jsonLdAssert(
+    !in_array('Technischer Kontrollwert', $client->sentTexts, true),
+    'A generic schema text field outside HowToStep must not be translated'
+);
 
 // 3. Other script content is still skipped.
 jsonLdAssert(!in_array('console.log("ignore me");', $client->sentTexts, true), 'Generic script content must not be translated');
@@ -217,6 +263,9 @@ $decoded = html_entity_decode($translated, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 jsonLdAssert(str_contains($decoded, '[en] Beiträge zum Schlagwort Familie'), 'Translated JSON-LD CollectionPage name should appear in output');
 jsonLdAssert(str_contains($decoded, '[en] Entdecken Sie alle Beiträge zum Schlagwort Familie.'), 'Translated JSON-LD CollectionPage description should appear in output');
 jsonLdAssert(str_contains($decoded, '[en] Wie Sie Stress im Alltag reduzieren'), 'Translated JSON-LD Article headline should appear in output');
+jsonLdAssert(str_contains($decoded, '"recipeIngredient":["[en] 800 ml Wasser","[en] 250 g Maisgrieß"]'), 'Recipe ingredients should be translated in output');
+jsonLdAssert(str_contains($decoded, '"text":"[en] Das Wasser aufkochen lassen."'), 'HowToStep text should be translated in output');
+jsonLdAssert(str_contains($decoded, '"text":"Technischer Kontrollwert"'), 'Generic schema text must remain unchanged');
 
 // 5. inLanguage is rewritten to the target locale.
 jsonLdAssert(str_contains($decoded, '"inLanguage":"en"'), 'inLanguage should be switched to the target locale');
@@ -225,6 +274,44 @@ jsonLdAssert(!str_contains($decoded, '"inLanguage":"de"'), 'inLanguage must not 
 // 6. URLs and IDs survive intact.
 jsonLdAssert(str_contains($decoded, '"https://www.meinhaushalt.at/tag/familie/"') || str_contains($decoded, '"https:\/\/www.meinhaushalt.at\/tag\/familie\/"'), 'URLs in @id/url must be preserved');
 jsonLdAssert(str_contains($decoded, '"@type":"CollectionPage"'), '@type fields must be preserved');
+
+// 6a. Page and breadcrumb URLs must follow the target route while shared
+// publisher/person identifiers deliberately remain language-neutral.
+$routing = new SiteRouting(
+    new UrlLanguageResolver('de', ['en']),
+    'https://www.meinhaushalt.at',
+    'PATH_PREFIX',
+    [],
+    ['en' => ['rezepte' => 'recipes']]
+);
+$localizedClient = new DeepglotJsonLdFakeClient();
+$localizedTranslator = new HtmlTranslator(
+    $localizedClient,
+    $options,
+    new DeepglotJsonLdNullCache(),
+    new JsonLdTranslator($routing)
+);
+$localized = html_entity_decode($localizedTranslator->translate($html, 'en'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+jsonLdAssert(
+    str_contains($localized, '"item":"https://www.meinhaushalt.at/en/"'),
+    'Breadcrumb ListItem URLs must point to the target-language route'
+);
+jsonLdAssert(
+    str_contains($localized, '"@id":"https://www.meinhaushalt.at/en/recipes/rezept-polenta-grundrezept/#recipe"')
+    && str_contains($localized, '"url":"https://www.meinhaushalt.at/en/recipes/rezept-polenta-grundrezept/"'),
+    'Recipe identity and URL must point to the target-language route and configured slug'
+);
+jsonLdAssert(
+    str_contains($localized, '"@id":"https://www.meinhaushalt.at/#/schema/person/redaktion"')
+    && str_contains($localized, '"@id":"https://www.meinhaushalt.at/#organization"'),
+    'Shared Person and Organization identifiers must remain language-neutral'
+);
+jsonLdAssert(
+    str_contains($localized, '"@id":"https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg"')
+    && str_contains($localized, '"url":"https://www.meinhaushalt.at/wp-content/uploads/polenta.jpg"')
+    && str_contains($localized, '"sameAs":"https://example.com/polenta"'),
+    'Media and external URLs must remain unchanged'
+);
 
 // 7. The malformed JSON-LD block stays intact rather than getting deleted.
 jsonLdAssert(str_contains($translated, 'not-valid-json{{'), 'Malformed JSON-LD content must be preserved as-is, got: ' . substr($translated, 0, 400));

@@ -2,6 +2,8 @@
 
 namespace Deepglot\Frontend;
 
+use Deepglot\Support\SiteRouting;
+
 /**
  * Walks every <script type="application/ld+json"> element in a document,
  * extracts the user-facing string fields the translation pipeline can
@@ -30,6 +32,7 @@ class JsonLdTranslator
         'disambiguatingDescription',
         'about',
         'abstract',
+        'recipeIngredient',
     ];
 
     /**
@@ -38,6 +41,35 @@ class JsonLdTranslator
      * sent through the translation engine.
      */
     private const LANGUAGE_KEYS = ['inLanguage'];
+
+    /**
+     * Schema entities whose own @id and url identify the localized page (or
+     * a page-scoped fragment), rather than a shared person, organization or
+     * media asset. Breadcrumb items and mainEntityOfPage references are
+     * handled separately because their target may be expressed as a string
+     * or a minimally typed object.
+     */
+    private const PAGE_RELATED_TYPES = [
+        'Article',
+        'BlogPosting',
+        'BreadcrumbList',
+        'DiscussionForumPosting',
+        'LiveBlogPosting',
+        'NewsArticle',
+        'Recipe',
+        'Report',
+        'ScholarlyArticle',
+        'SocialMediaPosting',
+        'TechArticle',
+        'WebSite',
+    ];
+
+    private ?SiteRouting $routing;
+
+    public function __construct(?SiteRouting $routing = null)
+    {
+        $this->routing = $routing;
+    }
 
     /**
      * @return array<int, array{node: \DOMText, data: array<mixed>, strings: string[]}>
@@ -97,6 +129,7 @@ class JsonLdTranslator
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
             $this->applyTranslations($data, $translations, $targetLanguage);
+            $this->localizePageUrls($data, $targetLanguage);
 
             // JSON_HEX_TAG escapes "<" and ">" as < / > so a
             // translated value that happens to contain "</script>" cannot
@@ -118,12 +151,18 @@ class JsonLdTranslator
      * @param array<mixed> $data
      * @param string[] $accumulator
      */
-    private function collectStrings($data, array &$accumulator, ?string $parentKey = null): void
+    private function collectStrings(
+        $data,
+        array &$accumulator,
+        ?string $parentKey = null,
+        bool $parentIsHowToStep = false
+    ): void
     {
         if (is_array($data)) {
+            $isHowToStep = in_array('HowToStep', $this->schemaTypes($data['@type'] ?? null), true);
             foreach ($data as $key => $value) {
                 $childKey = is_string($key) ? $key : $parentKey;
-                $this->collectStrings($value, $accumulator, $childKey);
+                $this->collectStrings($value, $accumulator, $childKey, $isHowToStep);
             }
 
             return;
@@ -133,7 +172,7 @@ class JsonLdTranslator
             return;
         }
 
-        if (!in_array($parentKey, self::TRANSLATABLE_KEYS, true)) {
+        if (!$this->isTranslatableField($parentKey, $parentIsHowToStep)) {
             return;
         }
 
@@ -152,6 +191,7 @@ class JsonLdTranslator
      */
     private function applyTranslations(array &$data, array $translations, string $targetLanguage, ?string $parentKey = null): void
     {
+        $isHowToStep = in_array('HowToStep', $this->schemaTypes($data['@type'] ?? null), true);
         foreach ($data as $key => &$value) {
             $childKey = is_string($key) ? $key : $parentKey;
 
@@ -170,12 +210,99 @@ class JsonLdTranslator
             }
 
             if (
-                in_array($childKey, self::TRANSLATABLE_KEYS, true)
+                $this->isTranslatableField($childKey, $isHowToStep)
                 && isset($translations[$value])
             ) {
                 $value = $translations[$value];
             }
         }
+    }
+
+    private function isTranslatableField(string $key, bool $isHowToStep): bool
+    {
+        return in_array($key, self::TRANSLATABLE_KEYS, true)
+            || ($key === 'text' && $isHowToStep);
+    }
+
+    /**
+     * Localizes only page identities and page references. Restricting this to
+     * page-like schema types keeps shared Person/Organization/Publisher IDs,
+     * ImageObject URLs and other media or external resources untouched.
+     *
+     * @param array<mixed> $data
+     */
+    private function localizePageUrls(
+        array &$data,
+        string $targetLanguage,
+        bool $isPageReference = false
+    ): void {
+        if ($this->routing === null) {
+            return;
+        }
+
+        $types = $this->schemaTypes($data['@type'] ?? null);
+        $isListItem = in_array('ListItem', $types, true);
+        $isPageEntity = $isPageReference || $this->hasPageRelatedType($types);
+
+        foreach ($data as $key => &$value) {
+            $key = is_string($key) ? $key : '';
+            $childIsPageReference = ($isListItem && $key === 'item')
+                || $key === 'mainEntityOfPage';
+
+            if (is_array($value)) {
+                $this->localizePageUrls($value, $targetLanguage, $childIsPageReference);
+                continue;
+            }
+
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $isOwnPageUrl = $isPageEntity && ($key === '@id' || $key === 'url');
+            $isDirectPageReference = $childIsPageReference;
+
+            if (($isOwnPageUrl || $isDirectPageReference) && $this->isUrlReference($value)) {
+                $value = $this->routing->rewriteUrl($value, $targetLanguage);
+            }
+        }
+        unset($value);
+    }
+
+    /** @return string[] */
+    private function schemaTypes($value): array
+    {
+        $values = is_array($value) ? $value : [$value];
+        $types = [];
+
+        foreach ($values as $type) {
+            if (!is_string($type) || trim($type) === '') {
+                continue;
+            }
+
+            $normalized = preg_replace('~^.*[/#]~', '', trim($type));
+            if (is_string($normalized) && $normalized !== '') {
+                $types[] = $normalized;
+            }
+        }
+
+        return $types;
+    }
+
+    /** @param string[] $types */
+    private function hasPageRelatedType(array $types): bool
+    {
+        foreach ($types as $type) {
+            if (in_array($type, self::PAGE_RELATED_TYPES, true) || str_ends_with($type, 'Page')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isUrlReference(string $value): bool
+    {
+        return preg_match('#^(?:https?://|/)#i', trim($value)) === 1;
     }
 
     private function firstTextChild(\DOMElement $element): ?\DOMText

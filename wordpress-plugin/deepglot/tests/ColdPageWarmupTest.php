@@ -1046,7 +1046,71 @@ warmAssert(
 );
 
 // -----------------------------------------------------------------------------
-// 3. Bot traffic never enqueues warm work (issue #147 boundary).
+// 3. Recipe JSON-LD converges from a cold render through the same warm cache.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$recipeTexts = [
+    '800 ml Wasser',
+    '250 g Maisgrieß',
+    'Das Wasser aufkochen lassen.',
+];
+$recipeJson = wp_json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'Recipe',
+    'name' => 'Polenta Grundrezept',
+    'recipeIngredient' => array_slice($recipeTexts, 0, 2),
+    'recipeInstructions' => [
+        ['@type' => 'HowToStep', 'text' => $recipeTexts[2]],
+    ],
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$recipeHtml = '<!DOCTYPE html><html><head><title>Polenta</title>'
+    . '<script type="application/ld+json">' . $recipeJson . '</script>'
+    . '</head><body><p>Rezeptseite</p></body></html>';
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$translator = new HtmlTranslator($client, $options, $cache, null, $warmer);
+$coldRecipe = html_entity_decode(
+    $translator->translate($recipeHtml, 'en', 'https://jobspot.at/en/polenta/', BotDetector::HUMAN),
+    ENT_QUOTES | ENT_HTML5,
+    'UTF-8'
+);
+$queuedRecipeTexts = $warmer->pending()['de|en'] ?? [];
+
+foreach ($recipeTexts as $text) {
+    $serializedText = str_replace('ß', '\\u00df', $text);
+    warmAssert(
+        in_array($text, $queuedRecipeTexts, true),
+        sprintf('A cold Recipe render must enqueue JSON-LD text, "%s" was dropped.', $text)
+    );
+    warmAssert(
+        (str_contains($coldRecipe, $text) || str_contains($coldRecipe, $serializedText))
+        && !str_contains($coldRecipe, '[en] ' . $text)
+        && !str_contains($coldRecipe, '[en] ' . $serializedText),
+        sprintf('A cold Recipe render must keep source JSON-LD intact, "%s" was mangled.', $text)
+    );
+}
+
+$warmer->run();
+$client->reset();
+$warmRecipe = html_entity_decode(
+    $translator->translate($recipeHtml, 'en', 'https://jobspot.at/en/polenta/', BotDetector::HUMAN),
+    ENT_QUOTES | ENT_HTML5,
+    'UTF-8'
+);
+
+warmAssert(empty($client->batchCalls), 'A warmed Recipe render must use the cache without an API request.');
+foreach ($recipeTexts as $text) {
+    $serializedText = str_replace('ß', '\\u00df', $text);
+    warmAssert(
+        str_contains($warmRecipe, '[en] ' . $text)
+        || str_contains($warmRecipe, '[en] ' . $serializedText),
+        sprintf('A warmed Recipe render must translate JSON-LD text, "%s" was not translated.', $text)
+    );
+}
+
+// -----------------------------------------------------------------------------
+// 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();
 add_filter('deepglot_max_sync_batches', static fn() => WARM_TEST_SYNC_LIMIT);

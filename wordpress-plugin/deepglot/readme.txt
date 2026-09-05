@@ -93,6 +93,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.8 =
+* Translated Recipe ingredients and instruction text in JSON-LD, and localized internal page and breadcrumb identities without changing shared entity, media, or external identifiers.
 * Translated generic ARIA labels in page content and image title tooltips on both the server and the bounded dynamic-content pass.
 * Translated human-readable RSS and Atom feed titles without sending ordinary link metadata to the translation provider.
 * Rejected empty and whitespace-only translations on cache writes and reads, including legacy plain-string values.

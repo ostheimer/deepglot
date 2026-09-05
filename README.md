@@ -184,7 +184,7 @@ Features:
 - URL language resolver and request router (path-prefix and subdomain routing)
 - OutputBuffer + HTML translator using DOMDocument — no external PHP dependencies
 - Optional client-side dynamic-content translator: a MutationObserver re-translates AJAX / infinite-scroll / SPA content added after page load through a same-origin REST proxy (`POST /wp-json/deepglot/v1/translate-dynamic`); opt-in via `enable_dynamic_translation`, cache-first (a missing nonce never spends quota), and SEO-safe because the server pass still renders the initial crawlable HTML
-- JSON-LD and accessibility attribute translation
+- JSON-LD and accessibility attribute translation, including cached Recipe ingredients/instructions and target-language page/breadcrumb identities while shared entity and media IDs stay stable
 - Deepglot API client (HTTP requests to the Next.js backend)
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
@@ -506,7 +506,7 @@ The plugin test suite (`wordpress-plugin/deepglot/tests/`) contains 28 PHP unit 
 | `DynamicTranslationControllerTest.php` | REST endpoint for client-side dynamic-content translation |
 | `ExclusionsTest.php` | CSS-selector and URL exclusion rules |
 | `HtmlLangSwitchTest.php` | `<html lang>` attribute switching per active language |
-| `JsonLdTranslationTest.php` | JSON-LD structured-data string translation |
+| `JsonLdTranslationTest.php` | JSON-LD string translation plus target-language page/breadcrumb identities and stable shared/media IDs |
 | `LanguageSwitcherAriaTest.php` | ARIA attributes on the language switcher widget |
 | `LanguageSwitcherRenderingTest.php` | HTML output of the language switcher (all modes and styles) |
 | `LinkRewriterTest.php` | Link rewriting for `<a>`, `<form>`, and `<link rel=canonical>` |
