@@ -120,7 +120,9 @@ The project's **Human Review** workspace supports direct manual editing and dele
 
 Context is recorded on successful fresh and cached SaaS translation requests, not inferred from page-view analytics. Existing translations gain context when observed again; missing context does not mean inactive content. Apply the additive `scripts/sql/translation-context.sql` migration before deploying this feature to an existing database. See [context semantics and deployment verification](docs/product-decisions/translation-workspace-context.md).
 
-Issue #257 remains open for richer metadata and filters (type, quality, variables, labels and inactivity), followed by bulk actions and AI/search-and-replace tools.
+Issue #257 remains open for type/quality/inactivity filters, history and complete variable management, followed by bulk actions and AI/search-and-replace tools.
+
+Segment metadata now supports persistent labels, plain-text notes and explicitly selected placeholder variables, with exact-label and saved-variable filters. Annotations have independent concurrency versions and do not alter translation text or approval status. Apply `scripts/sql/translation-metadata.sql` before deploying. See [metadata semantics and limits](docs/product-decisions/translation-workspace-metadata.md); automatic placeholder preservation, quality/type/inactivity rules, history and bulk operations remain follow-ups.
 
 ## Optional page-view analytics
 

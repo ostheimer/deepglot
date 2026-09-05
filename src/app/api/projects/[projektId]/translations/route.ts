@@ -1,6 +1,7 @@
 import type { TranslationWorkflowStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { translationLabelSchema } from "@/lib/translation-metadata";
 
 import { db } from "@/lib/db";
 import {
@@ -22,6 +23,8 @@ const statusMap = {
 } as const satisfies Record<string, TranslationWorkflowStatus>;
 
 const querySchema = z.object({
+  label: translationLabelSchema.optional(),
+  variables: z.enum(["saved", "none"]).optional(),
   source: z
     .enum(["DEEPL", "OPENAI", "GOOGLE", "MANUAL", "MOCK", "IMPORT"])
     .optional(),
@@ -105,6 +108,8 @@ export async function GET(
         langCode: access.langCode ?? null,
       },
       filters: {
+        label: parsed.data.label,
+        variables: parsed.data.variables,
         source: parsed.data.source,
         mode: parsed.data.mode,
         context: parsed.data.context,

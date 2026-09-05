@@ -33,7 +33,10 @@ test("navigates segment context and combines advanced filters", async ({
       .selectOption("known");
     const row = page.locator("article").filter({ hasText: originalText });
     await expect(row).toHaveCount(1);
-    await row.locator("summary").click();
+    await row
+      .locator("summary")
+      .filter({ hasText: "Context and metadata" })
+      .click();
     await expect(row.getByRole("link", { name: "Open page" })).toHaveCount(2);
     const filtersFit = () =>
       page.locator("form").evaluate((form) => {
@@ -131,9 +134,14 @@ test("real translation requests record fresh and cached page context without pri
       expect(response.status(), await response.text()).toBe(200);
       if (path.startsWith("/cache-only-human")) {
         expect((await response.json()).cache_only).toBe(true);
-        expect(await db.translationBatchLog.count({ where: {
-          projectId, requestUrl: `http://${project.domain}${path}`,
-        } })).toBe(0);
+        expect(
+          await db.translationBatchLog.count({
+            where: {
+              projectId,
+              requestUrl: `http://${project.domain}${path}`,
+            },
+          }),
+        ).toBe(0);
       }
     }
     const segment = await db.translation.findFirstOrThrow({

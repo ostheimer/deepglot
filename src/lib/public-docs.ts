@@ -282,7 +282,7 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     path: "/api/projects/[projektId]/translations/[translationId]",
     sourceFile:
       "src/app/api/projects/[projektId]/translations/[translationId]/route.ts",
-    access: "edit: manager or assigned translator; delete: manager",
+    access: "edit / metadata: manager or assigned translator; delete: manager",
   },
   {
     path: "/api/projects/[projektId]/pdf-translations",

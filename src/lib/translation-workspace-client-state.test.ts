@@ -120,3 +120,23 @@ test("a deletion response cannot reconcile data captured under stale filters", (
     true,
   );
 });
+
+test("metadata filters participate in query identity", () => {
+  const base = {
+    status: "",
+    langTo: "en",
+    assignee: "",
+    submittedQuery: "",
+    page: 1,
+  };
+  for (const filters of [
+    { label: "qa" },
+    { variables: "saved" },
+    { variables: "none" },
+  ]) {
+    assert.notEqual(
+      translationWorkspaceQueryKey(base),
+      translationWorkspaceQueryKey({ ...base, ...filters }),
+    );
+  }
+});
