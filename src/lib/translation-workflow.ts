@@ -6,6 +6,7 @@ import type {
 } from "@prisma/client";
 
 import { inspectPostgresText } from "@/lib/postgres-text";
+import { normalizeTranslationLabel } from "./translation-metadata";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 
 export type TranslationWorkflowActor = {
@@ -294,6 +295,8 @@ export function planTranslationWorkflowUpdate({
 }
 
 export type TranslationWorkflowFilters = {
+  label?: string;
+  variables?: "saved" | "none";
   source?: TranslationSource;
   mode?: "manual" | "automatic";
   context?: "known" | "unknown";
@@ -308,6 +311,7 @@ export type TranslationWorkflowFilters = {
 };
 
 const workflowInclude = {
+  metadata: true,
   contexts: { orderBy: { urlPath: "asc" }, take: 100 },
   _count: { select: { contexts: true } },
   assignedTo: {
@@ -356,6 +360,29 @@ export async function listProjectTranslationWorkflow({
     ...(filters.source ? { source: filters.source } : {}),
     ...(filters.mode ? { isManual: filters.mode === "manual" } : {}),
     AND: [
+      ...(filters.label
+        ? [
+            {
+              metadata: {
+                is: {
+                  labels: { has: normalizeTranslationLabel(filters.label) },
+                },
+              },
+            },
+          ]
+        : []),
+      ...(filters.variables === "saved"
+        ? [{ metadata: { is: { variables: { isEmpty: false } } } }]
+        : filters.variables === "none"
+          ? [
+              {
+                OR: [
+                  { metadata: { is: null } },
+                  { metadata: { is: { variables: { isEmpty: true } } } },
+                ],
+              },
+            ]
+          : []),
       ...(filters.context === "unknown"
         ? [{ contexts: { none: {} } }]
         : filters.context === "known"

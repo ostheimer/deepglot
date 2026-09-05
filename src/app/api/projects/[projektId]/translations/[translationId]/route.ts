@@ -1,6 +1,8 @@
 import type { TranslationWorkflowStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { translationMetadataSchema } from "@/lib/translation-metadata";
+import { updateProjectTranslationMetadata } from "@/lib/translation-metadata-workflow";
 
 import { db } from "@/lib/db";
 import {
@@ -50,7 +52,17 @@ const contentPatchSchema = z
   })
   .strict();
 
-const patchSchema = z.union([contentPatchSchema, workflowPatchSchema]);
+const metadataPatchSchema = z
+  .object({
+    metadata: translationMetadataSchema,
+    expectedVersion: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+const patchSchema = z.union([
+  contentPatchSchema,
+  workflowPatchSchema,
+  metadataPatchSchema,
+]);
 const deleteSchema = z
   .object({
     expectedUpdatedAt: z.string().datetime({ offset: true }),
@@ -60,7 +72,10 @@ const deleteSchema = z
 function errorResponse(error: unknown) {
   if (!(error instanceof TranslationWorkflowError)) {
     console.error("[translation-workflow] update failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 
   const status =
@@ -71,14 +86,15 @@ function errorResponse(error: unknown) {
         : error.code === "INVALID_TRANSITION" || error.code === "STALE_UPDATE"
           ? 409
           : 400;
-  return NextResponse.json({ error: error.message, code: error.code }, { status });
+  return NextResponse.json(
+    { error: error.message, code: error.code },
+    { status },
+  );
 }
 
 export async function PATCH(
   request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ projektId: string; translationId: string }> },
+  { params }: { params: Promise<{ projektId: string; translationId: string }> },
 ) {
   const userId = await getAuthenticatedUserId();
   const { projektId, translationId } = await params;
@@ -110,6 +126,16 @@ export async function PATCH(
       projectMemberId: membership?.id ?? null,
       langCode: access.langCode ?? null,
     };
+    if ("metadata" in parsed.data) {
+      const metadata = await updateProjectTranslationMetadata({
+        projectId: projektId,
+        translationId,
+        actor,
+        metadata: parsed.data.metadata,
+        expectedVersion: parsed.data.expectedVersion,
+      });
+      return NextResponse.json({ metadata });
+    }
     const translation =
       "translatedText" in parsed.data
         ? await updateProjectTranslationContent({
@@ -147,9 +173,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ projektId: string; translationId: string }> },
+  { params }: { params: Promise<{ projektId: string; translationId: string }> },
 ) {
   const userId = await getAuthenticatedUserId();
   const { projektId, translationId } = await params;

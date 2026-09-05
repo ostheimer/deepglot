@@ -242,11 +242,25 @@ model Translation {
   project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignedTo  ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
   contexts    TranslationContext[]
+  metadata    TranslationMetadata?
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
   @@index([projectId, langTo, workflowStatus])
   @@index([assignedToId])
+}
+
+// Editorial annotations; independent of translation content concurrency tokens.
+model TranslationMetadata {
+  translationId String @id
+  labels String[] @default([])
+  variables String[] @default([])
+  note String @default("")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  translation Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@index([labels], type: Gin)
 }
 
 // Observed segment/page associations. Never store URL queries or fragments.

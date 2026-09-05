@@ -33,6 +33,8 @@ import {
 } from "@/lib/translation-workspace-client-state";
 import { planTranslationPaginationAfterDeletion } from "@/lib/translation-workspace-pagination";
 import { translationContextLink } from "@/lib/translation-context";
+import { TranslationMetadataPanel } from "./translation-metadata-panel";
+import type { TranslationMetadataValue } from "@/lib/translation-metadata";
 
 type WorkflowStatus = "machine" | "assigned" | "in_review" | "approved";
 
@@ -45,6 +47,7 @@ type WorkflowMember = {
 };
 
 type WorkflowTranslation = {
+  metadata?: TranslationMetadataValue | null;
   id: string;
   originalText: string;
   translatedText: string;
@@ -118,6 +121,9 @@ export function TranslationWorkflowPanel({
   const [langTo, setLangTo] = useState("");
   const [assignee, setAssignee] = useState("");
   const [source, setSource] = useState("");
+  const [label, setLabel] = useState("");
+  const [submittedLabel, setSubmittedLabel] = useState("");
+  const [variables, setVariables] = useState("");
   const [mode, setMode] = useState("");
   const [context, setContext] = useState("");
   const [urlPath, setUrlPath] = useState("");
@@ -133,6 +139,8 @@ export function TranslationWorkflowPanel({
   const loadRequestIdRef = useRef(0);
   const activeLanguageCodes = languages.map((language) => language.langCode);
   const currentQueryKey = translationWorkspaceQueryKey({
+    label: submittedLabel,
+    variables,
     source,
     mode,
     context,
@@ -152,6 +160,8 @@ export function TranslationWorkflowPanel({
     setError(null);
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries({
+      label: submittedLabel,
+      variables,
       source,
       mode,
       context,
@@ -196,6 +206,8 @@ export function TranslationWorkflowPanel({
       }
     }
   }, [
+    submittedLabel,
+    variables,
     assignee,
     langTo,
     locale,
@@ -385,6 +397,7 @@ export function TranslationWorkflowPanel({
             event.preventDefault();
             setPage(1);
             setSubmittedQuery(query.trim());
+            setSubmittedLabel(label.trim());
           }}
         >
           <div className="relative">
@@ -601,6 +614,9 @@ export function TranslationWorkflowPanel({
             type="button"
             variant="ghost"
             onClick={() => {
+              setLabel("");
+              setSubmittedLabel("");
+              setVariables("");
               setSource("");
               setMode("");
               setContext("");
@@ -616,6 +632,44 @@ export function TranslationWorkflowPanel({
           >
             {uiText(locale, "Reset filters", "Filter zurücksetzen")}
           </Button>
+          <Input
+            value={label}
+            maxLength={40}
+            onChange={(event) => setLabel(event.target.value)}
+            aria-label={uiText(locale, "Label filter", "Label-Filter")}
+            placeholder={uiText(locale, "Label filter", "Label-Filter")}
+          />
+          <select
+            value={variables}
+            onChange={(event) => {
+              setVariables(event.target.value);
+              setPage(1);
+            }}
+            aria-label={uiText(
+              locale,
+              "Saved variables",
+              "Gespeicherte Variablen",
+            )}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All variable states", "Alle Variablenzustände")}
+            </option>
+            <option value="saved">
+              {uiText(
+                locale,
+                "With saved variables",
+                "Mit gespeicherten Variablen",
+              )}
+            </option>
+            <option value="none">
+              {uiText(
+                locale,
+                "No saved variables",
+                "Ohne gespeicherte Variablen",
+              )}
+            </option>
+          </select>
         </form>
       </div>
 
@@ -666,6 +720,15 @@ export function TranslationWorkflowPanel({
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
+                  <TranslationMetadataPanel
+                    projectId={projectId}
+                    translationId={translation.id}
+                    originalText={translation.originalText}
+                    metadata={translation.metadata}
+                    canEdit={canEdit}
+                    locale={locale}
+                    onSaved={() => latestLoadRef.current()}
+                  />
                   <details className="rounded-md bg-gray-50 p-3 text-xs text-gray-600">
                     <summary className="cursor-pointer font-medium">
                       {uiText(
