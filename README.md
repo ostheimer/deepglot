@@ -122,6 +122,8 @@ Context is recorded on successful fresh and cached SaaS translation requests, no
 
 Selected-variable checks now distinguish exact token-count matches, mismatches and unconfigured annotations. Observed-activity filters distinguish SaaS observations within 30 days, older observations and unknown context; they do not claim that content is inactive. Counts and pagination use the same database snapshot. See [quality and observation semantics](docs/product-decisions/translation-workspace-quality.md).
 
+Explicit client-reported types are retained for text, media/documents, external links and other content, with an unknown filter for entries without observations. Multiple types per segment are supported; types are never guessed from content. The native WordPress client currently reports all outbound text as text, so this is not a complete media inventory. Apply `scripts/sql/translation-types.sql` before deployment. See [reported-type semantics and release gate](docs/product-decisions/translation-workspace-types.md).
+
 Segment metadata supports persistent labels, plain-text notes and explicitly selected placeholder variables, with exact-label and saved-variable filters. Annotations have independent concurrency versions and do not alter translation text or approval status. Apply `scripts/sql/translation-metadata.sql` before deploying. See [metadata semantics and limits](docs/product-decisions/translation-workspace-metadata.md). Issue #257 remains open for authoritative content types/inactivity, wider quality checks, automatic placeholder preservation and history, followed by bulk actions and AI/search-and-replace tools.
 
 ## Optional page-view analytics

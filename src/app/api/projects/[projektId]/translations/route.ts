@@ -24,6 +24,7 @@ const statusMap = {
 
 const querySchema = z.object({
   quality: z.enum(["mismatch", "match", "unchecked"]).optional(),
+  reportedType: z.enum(["text", "media", "link", "other", "unknown"]).optional(),
   activity: z.enum(["recent", "older", "unknown"]).optional(),
   label: translationLabelSchema.optional(),
   variables: z.enum(["saved", "none"]).optional(),
@@ -111,6 +112,7 @@ export async function GET(
       },
       filters: {
         quality: parsed.data.quality,
+        reportedType: parsed.data.reportedType,
         activity: parsed.data.activity,
         label: parsed.data.label,
         variables: parsed.data.variables,
