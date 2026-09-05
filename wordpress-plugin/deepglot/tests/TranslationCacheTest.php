@@ -83,6 +83,13 @@ use Deepglot\Support\TranslationCache;
 
 // ---------------------------------------------------------------------------
 
+function assertCache(bool $condition, string $message = 'Cache assertion failed'): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
 function test_cache_miss_returns_null(): void
 {
     $cache = new TranslationCache();
@@ -131,6 +138,69 @@ function test_set_many_stores_all(): void
     assert($results === ['Hallo' => true, 'Welt' => true], 'Batch writes must report durable status per entry');
     assert($cache->get('Hallo', 'de', 'en') === 'Hello');
     assert($cache->get('Welt', 'de', 'en') === 'World');
+}
+
+function test_empty_translations_never_become_cache_hits(): void
+{
+    $GLOBALS['_transient_store'] = [];
+    $cache = new TranslationCache();
+
+    assertCache(
+        $cache->set('Meta Beschreibung', 'de', 'en', '') === false,
+        'An empty provider result must not become a durable cache hit'
+    );
+    assertCache(
+        $cache->set('Zweite Beschreibung', 'de', 'en', " \t\n") === false,
+        'A whitespace-only provider result must not become a durable cache hit'
+    );
+    assertCache($cache->get('Meta Beschreibung', 'de', 'en') === null, 'Empty translations must be cache misses');
+    assertCache($cache->get('Zweite Beschreibung', 'de', 'en') === null, 'Whitespace-only translations must be cache misses');
+}
+
+function test_unicode_whitespace_translations_never_become_cache_hits(): void
+{
+    $GLOBALS['_transient_store'] = [];
+    $source = 'Unicode Leerraum';
+    $translated = "\u{00A0}\u{2003}";
+    $cache = new TranslationCache();
+
+    assertCache(
+        $cache->set($source, 'de', 'en', $translated) === false,
+        'Unicode whitespace-only provider results must not be cached'
+    );
+
+    $versionedKey = 'dgv1_' . sha1('de|en|' . $source);
+    $payload = rtrim(strtr(base64_encode($translated), '+/', '-_'), '=');
+    $GLOBALS['_transient_store'][$versionedKey] = 'deepglot-cache:v1:'
+        . $payload
+        . ':'
+        . hash('sha256', $versionedKey . "\0" . $translated);
+
+    assertCache(
+        $cache->get($source, 'de', 'en') === null,
+        'Existing versioned Unicode whitespace-only translations must be cache misses'
+    );
+
+    $GLOBALS['_transient_store'] = [
+        'dg_' . sha1('de|en|' . $source) => $translated,
+    ];
+
+    assertCache(
+        $cache->get($source, 'de', 'en') === null,
+        'Legacy Unicode whitespace-only translations must be cache misses'
+    );
+}
+
+function test_legacy_empty_translation_is_treated_as_a_cache_miss(): void
+{
+    $GLOBALS['_transient_store'] = [];
+    $source = 'Bestehende Meta Beschreibung';
+    $GLOBALS['_transient_store']['dg_' . sha1('de|en|' . $source)] = '';
+
+    assertCache(
+        (new TranslationCache())->get($source, 'de', 'en') === null,
+        'A legacy empty translation must be retried instead of blanking frontend metadata'
+    );
 }
 
 function test_legacy_plain_string_transient_remains_readable(): void
@@ -293,6 +363,9 @@ $tests = [
     'test_different_languages_do_not_collide',
     'test_get_many_returns_only_cached',
     'test_set_many_stores_all',
+    'test_empty_translations_never_become_cache_hits',
+    'test_unicode_whitespace_translations_never_become_cache_hits',
+    'test_legacy_empty_translation_is_treated_as_a_cache_miss',
     'test_legacy_plain_string_transient_remains_readable',
     'test_corrupted_envelope_fails_closed',
     'test_unknown_envelope_version_fails_closed',

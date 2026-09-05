@@ -404,6 +404,8 @@ Since WordPress plugin v0.12.7, the authenticated SaaS project owns source langu
 
 Since WordPress plugin v0.12.8, generic body `aria-label` attributes, image `title` tooltips, and human-readable RSS or Atom `<link>` titles enter the same translation pipeline as visible text. Ordinary link metadata remains excluded. After replacement, purge page caches and optimized JavaScript caches, then verify the canonical target-language page rather than accepting the direct plugin asset alone.
 
+The same v0.12.8 package treats empty or whitespace-only versioned and legacy translation-cache values as misses and refuses to store new blank translations. Production acceptance must confirm that target-language meta descriptions remain non-empty after page and optimized-asset caches are purged.
+
 Deepglot normally advertises that sitemap through WordPress's `robots_txt` filter. A physical `robots.txt` in the WordPress document root bypasses the WordPress `robots_txt` filter completely, so plugin tests and the virtual route cannot prove the public result. Back up any physical file before editing it, preserve its existing directives, and add exactly one `Sitemap:` line using the canonical production host. Acceptance must read the query-free public `robots.txt` after all host caches are purged. Managed staging environments may intentionally replace it with `Disallow: /`; do not weaken that host-level protection merely to expose a staging sitemap.
 
 ### Raising the quota
