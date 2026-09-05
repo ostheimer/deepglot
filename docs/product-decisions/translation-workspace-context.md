@@ -23,7 +23,11 @@ This is the first advanced-filter slice, not completion of #257. Content type, q
 
 `scripts/sql/translation-context.sql` creates only `TranslationContext`, its composite primary key, cascading translation foreign key and path index. Apply and verify this additive change in each target database **before** deploying the new application code. Do not use a broad production `prisma db push` to resolve unrelated drift.
 
-The change is tested with isolated PostgreSQL 16. Preview/production database application remains a release gate, not an implied outcome of local tests or a successful build. Keep the follow-up PR draft until target schema verification and PR review are complete.
+The change is tested with isolated PostgreSQL 16. On 2026-09-05 the exact additive SQL was also applied and verified on an expiring Neon production clone, the actual Vercel preview database, and the production database. Column types/nullability, the composite key, cascading foreign key and path index passed. Translation row counts before/after each migration were unchanged (227,582 in production). This schema gate is separate from application deployment and review acceptance.
+
+The preview database also lacked older workflow and activity-digest membership columns. The narrowly scoped `scripts/sql/translation-workflow.sql` restores the workflow prerequisite. The two membership columns were added with the schema's existing defaults (`activityDigestEnabled=false`, `activityDigestLocale='en'`); no subscriptions or notifications were enabled. Production already had these older columns. No broad schema push was used.
+
+The deployed preview was checked through the shared synthetic test account: workspace loading, observed-context filtering, timestamps and safe page links, and exact-path combined filters. Saving a manual edit while filtering for non-manual translations correctly removed the row and displayed zero matches. A single `/preise` association was seeded only for the synthetic preview project for this UI check; fresh/cache request ingestion is separately covered by the PostgreSQL integration and Playwright tests. This is not a claim of authenticated production UI acceptance.
 
 ## Verification
 
