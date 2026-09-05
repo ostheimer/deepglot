@@ -1,9 +1,25 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { STATIC_MESSAGES } from "./static-messages";
+import { SITE_LOCALES } from "./site-locale";
 import {
   translationContextPath,
   translationContextLink,
 } from "./translation-context";
+
+test("context links use HTTP for normalized local project domains", () => {
+  for (const domain of ["localhost:3100", "127.0.0.1:8787", "localhost:80"]) {
+    const expected = new URL('/prices', `http://${domain}`).href;
+    assert.equal(translationContextLink(domain, "/prices"), expected);
+    assert.equal(translationContextPath(expected, domain), "/prices");
+  }
+});
+
+test("context page-count label exists in every non-English catalogue", () => {
+  for (const locale of SITE_LOCALES.filter(locale => locale !== "en")) {
+    assert.ok(STATIC_MESSAGES[locale]?.Pages, `Missing Pages label: ${locale}`);
+  }
+});
 
 test("page context removes query strings and fragments", () => {
   assert.equal(

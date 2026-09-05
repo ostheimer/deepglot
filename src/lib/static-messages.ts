@@ -3,6 +3,7 @@ import type { SiteLocale } from "@/lib/site-locale";
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {
   "en": {},
   "de": {
+    "Pages": "Seiten",
     "'Wk' w": "'KW' w",
     "(Monthly)": "(Monatlich)",
     "{count} manual edit": "{count} manuelle Bearbeitung",
@@ -727,6 +728,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Pages": "Страници",
     "Translation source": "Източник на превода",
     "All sources": "Всички източници",
     "Editing mode": "Режим на редактиране",
@@ -1757,6 +1759,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Pages": "Stranice",
     "Translation source": "Izvor prijevoda",
     "All sources": "Svi izvori",
     "Editing mode": "Način uređivanja",
@@ -2787,6 +2790,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Pages": "Stránky",
     "Translation source": "Zdroj překladu",
     "All sources": "Všechny zdroje",
     "Editing mode": "Způsob úpravy",
@@ -3817,6 +3821,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Pages": "Sider",
     "Translation source": "Oversættelseskilde",
     "All sources": "Alle kilder",
     "Editing mode": "Redigeringstilstand",
@@ -4847,6 +4852,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Pages": "Pagina’s",
     "Translation source": "Vertaalbron",
     "All sources": "Alle bronnen",
     "Editing mode": "Bewerkingsmodus",
@@ -5877,6 +5883,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Pages": "Lehed",
     "Translation source": "Tõlke allikas",
     "All sources": "Kõik allikad",
     "Editing mode": "Muutmisviis",
@@ -6907,6 +6914,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Pages": "Sivut",
     "Translation source": "Käännöksen lähde",
     "All sources": "Kaikki lähteet",
     "Editing mode": "Muokkaustapa",
@@ -7937,6 +7945,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Pages": "Pages",
     "Translation source": "Source de traduction",
     "All sources": "Toutes les sources",
     "Editing mode": "Mode de modification",
@@ -8967,6 +8976,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Pages": "Σελίδες",
     "Translation source": "Πηγή μετάφρασης",
     "All sources": "Όλες οι πηγές",
     "Editing mode": "Τρόπος επεξεργασίας",
@@ -9997,6 +10007,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Pages": "Oldalak",
     "Translation source": "Fordítási forrás",
     "All sources": "Minden forrás",
     "Editing mode": "Szerkesztési mód",
@@ -11027,6 +11038,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Pages": "Leathanaigh",
     "Translation source": "Foinse an aistriúcháin",
     "All sources": "Gach foinse",
     "Editing mode": "Modh eagarthóireachta",
@@ -12057,6 +12069,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Pages": "Pagine",
     "Translation source": "Fonte della traduzione",
     "All sources": "Tutte le fonti",
     "Editing mode": "Modalità di modifica",
@@ -13087,6 +13100,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Pages": "Lapas",
     "Translation source": "Tulkojuma avots",
     "All sources": "Visi avoti",
     "Editing mode": "Rediģēšanas veids",
@@ -14117,6 +14131,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Pages": "Puslapiai",
     "Translation source": "Vertimo šaltinis",
     "All sources": "Visi šaltiniai",
     "Editing mode": "Redagavimo būdas",
@@ -15147,6 +15162,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Pages": "Paġni",
     "Translation source": "Sors tat-traduzzjoni",
     "All sources": "Is-sorsi kollha",
     "Editing mode": "Mod ta’ editjar",
@@ -16177,6 +16193,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Pages": "Strony",
     "Translation source": "Źródło tłumaczenia",
     "All sources": "Wszystkie źródła",
     "Editing mode": "Tryb edycji",
@@ -17207,6 +17224,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Pages": "Páginas",
     "Translation source": "Origem da tradução",
     "All sources": "Todas as origens",
     "Editing mode": "Modo de edição",
@@ -18237,6 +18255,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Pages": "Pagini",
     "Translation source": "Sursa traducerii",
     "All sources": "Toate sursele",
     "Editing mode": "Mod de editare",
@@ -19267,6 +19286,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Pages": "Stránky",
     "Translation source": "Zdroj prekladu",
     "All sources": "Všetky zdroje",
     "Editing mode": "Spôsob úpravy",
@@ -20297,6 +20317,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Pages": "Strani",
     "Translation source": "Vir prevoda",
     "All sources": "Vsi viri",
     "Editing mode": "Način urejanja",
@@ -21327,6 +21348,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Pages": "Páginas",
     "Translation source": "Origen de la traducción",
     "All sources": "Todos los orígenes",
     "Editing mode": "Modo de edición",
@@ -22357,6 +22379,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Pages": "Sidor",
     "Translation source": "Översättningskälla",
     "All sources": "Alla källor",
     "Editing mode": "Redigeringsläge",

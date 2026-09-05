@@ -678,7 +678,7 @@ export function TranslationWorkflowPanel({
                       (translation.contexts?.length ?? 0)
                         ? ` / ${translation._count?.contexts}`
                         : ""}{" "}
-                      {uiText(locale, "pages", "Seiten")}
+                      {uiText(locale, "Pages", "Seiten")}
                     </summary>
                     <p className="mt-2">
                       {uiText(locale, "Created", "Erstellt")}:{" "}

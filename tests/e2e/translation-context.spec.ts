@@ -114,6 +114,7 @@ test("real translation requests record fresh and cached page context without pri
     for (const path of [
       "/fresh-context?private=secret#fragment",
       "/cached-context?private=secret#fragment",
+      "/cache-only-human-context?private=secret#fragment",
     ]) {
       const response = await page.request.post("/api/translate", {
         headers: { Authorization: `Bearer ${rawKey}` },
@@ -122,15 +123,25 @@ test("real translation requests record fresh and cached page context without pri
           l_to: "en",
           words: [{ t: 1, w: text }],
           request_url: `http://${project.domain}${path}`,
+          // WordPress uses OTHER (1) to keep automatic-translation-disabled
+          // human page loads cache-only as well as actual crawler requests.
+          bot: path.startsWith("/cache-only-human") ? 1 : 0,
         },
       });
       expect(response.status(), await response.text()).toBe(200);
+      if (path.startsWith("/cache-only-human")) {
+        expect((await response.json()).cache_only).toBe(true);
+        expect(await db.translationBatchLog.count({ where: {
+          projectId, requestUrl: `http://${project.domain}${path}`,
+        } })).toBe(0);
+      }
     }
     const segment = await db.translation.findFirstOrThrow({
       where: { projectId, originalText: text },
       include: { contexts: { orderBy: { urlPath: "asc" } } },
     });
-    expect(segment.contexts.map((context) => context.urlPath)).toEqual([
+    expect(segment.contexts.map((context) => context.urlPath).sort()).toEqual([
+      "/cache-only-human-context",
       "/cached-context",
       "/fresh-context",
     ]);

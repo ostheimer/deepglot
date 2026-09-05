@@ -922,10 +922,7 @@ async function executeAuthenticatedTranslateRequest(
       }
     });
 
-    if (
-      !isBot &&
-      (pendingTranslations.length === 0 || !canCreateFreshTranslations)
-    ) {
+    if (pendingTranslations.length === 0 || !canCreateFreshTranslations) {
       await db.$transaction(async (tx) => {
         const languageConfigurationIsCurrent =
           await lockAndValidateProjectLanguageWrite(tx, {
@@ -934,10 +931,22 @@ async function executeAuthenticatedTranslateRequest(
             targetLanguages: [l_to],
           });
         if (!languageConfigurationIsCurrent) {
-          // Cached translations are still safe to serve. Skip only analytics
-          // whose language identity became stale while this request ran.
+          // Cached translations are still safe to serve. Skip context and
+          // analytics whose language identity became stale during this request.
           return;
         }
+
+        // WordPress also marks human cache-only loads as OTHER. Context is an
+        // observed segment/path association, independent of human analytics.
+        await recordTranslationContexts(tx, {
+          projectId: project.id,
+          domain: project.domain,
+          requestUrl: request_url,
+          langFrom: l_from,
+          langTo: l_to,
+          hashes,
+        });
+        if (isBot) return;
 
         await recordTranslationBatch(
           {
@@ -955,14 +964,6 @@ async function executeAuthenticatedTranslateRequest(
           },
           tx,
         );
-        await recordTranslationContexts(tx, {
-          projectId: project.id,
-          domain: project.domain,
-          requestUrl: request_url,
-          langFrom: l_from,
-          langTo: l_to,
-          hashes,
-        });
         await upsertTranslatedUrlHit({
           projectId: project.id,
           langTo: l_to,

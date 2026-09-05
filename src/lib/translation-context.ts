@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { getProjectUrl } from "./project-url";
 
 /** Only same-origin HTTP page paths are suitable as workspace navigation. */
 export function translationContextPath(
@@ -7,7 +8,7 @@ export function translationContextPath(
 ) {
   if (!requestUrl) return null;
   try {
-    const site = new URL(domain.includes("://") ? domain : `https://${domain}`);
+    const site = new URL(getProjectUrl(domain));
     const url = new URL(requestUrl);
     if (
       !["http:", "https:"].includes(url.protocol) ||
@@ -32,7 +33,7 @@ export function translationContextPath(
 
 export function translationContextLink(domain: string, path: string) {
   try {
-    const site = new URL(domain.includes("://") ? domain : `https://${domain}`);
+    const site = new URL(getProjectUrl(domain));
     if (
       !["http:", "https:"].includes(site.protocol) ||
       site.username ||
