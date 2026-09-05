@@ -874,6 +874,213 @@ $reviewCheck(
     'Keyword aliases retain original keys and never become translated prose'
 );
 
+// A scalar is a page reference only under supported relationship semantics,
+// never just because its string happens to equal a known graph identity.
+$propertyContext = [
+    's' => 'https://schema.org/',
+    'instructions' => 's:recipeInstructions', 'pageUrl' => ['@id' => 's:url'],
+    'stepText' => 's:text',
+    'pageRelation' => ['@id' => 's:isPartOf', '@type' => '@id'],
+    'trail' => ['@id' => 's:breadcrumb', '@type' => '@id'],
+    'sameAs' => ['@id' => 's:sameAs', '@type' => '@id'],
+    'citation' => ['@id' => 's:citation', '@type' => '@id'],
+];
+foreach ([false, true] as $reverse) {
+    $scalarReferences = [
+        '@context' => $propertyContext, '@type' => 's:Article',
+        'isPartOf' => $sourcePageId, 'breadcrumb' => $sourceBreadcrumbId,
+        's:isPartOf' => $sourcePageId,
+        'pageRelation' => [$sourcePageId, 'https://example.org/#webpage', 'https://www.meinhaushalt.at/unknown/#webpage'],
+        'trail' => $sourceBreadcrumbId,
+        'sameAs' => $sourcePageId, 'citation' => $sourcePageId, 'unrelated' => $sourcePageId,
+    ];
+    $scalarBlocks = $reverse ? [$definitions, $scalarReferences] : [$scalarReferences, $definitions];
+    $scalarResult = jsonLdReviewRender($scalarBlocks, $routing);
+    $scalarOutput = $scalarResult[$reverse ? 1 : 0];
+    $scalarDefinitions = $scalarResult[$reverse ? 0 : 1]['@graph'];
+    $reviewCheck(
+        $scalarOutput['isPartOf'] === $scalarDefinitions[0]['@id']
+        && $scalarOutput['breadcrumb'] === $scalarDefinitions[1]['@id']
+        && $scalarOutput['s:isPartOf'] === $scalarDefinitions[0]['@id']
+        && $scalarOutput['pageRelation'][0] === $scalarDefinitions[0]['@id']
+        && $scalarOutput['trail'] === $scalarDefinitions[1]['@id'],
+        'P2 3942237560: scalar known page IDs route through literal, compact and coerced aliases in order ' . (int) $reverse
+    );
+    $reviewCheck(
+        array_slice($scalarOutput['pageRelation'], 1) === array_slice($scalarReferences['pageRelation'], 1)
+        && $scalarOutput['sameAs'] === $sourcePageId && $scalarOutput['citation'] === $sourcePageId
+        && $scalarOutput['unrelated'] === $sourcePageId,
+        'Scalar routing preserves unrelated, sameAs/citation, unknown and external values'
+    );
+}
+foreach ([
+    ['pageRelation' => ['@id' => 'https://example.org/isPartOf', '@type' => '@id']],
+    ['pageRelation' => null],
+    ['pageRelation' => ['@id' => 's:isPartOf', '@type' => 'https://www.w3.org/2001/XMLSchema#string']],
+    ['isPartOf' => ['@id' => 'https://example.org/isPartOf', '@type' => '@id']],
+] as $relationOverride) {
+    $relationNode = ['@context' => [$propertyContext, $relationOverride], 'pageRelation' => $sourcePageId, 'isPartOf' => $sourcePageId];
+    $relationOutput = jsonLdReviewRender([$relationNode, $definitions], $routing);
+    $overriddenKey = array_key_first($relationOverride);
+    $reviewCheck(
+        $relationOutput[0][$overriddenKey] === $sourcePageId && $relationOutput[0]['@context'] === $relationNode['@context'],
+        'Scalar reference context overrides fail closed: ' . json_encode($relationOverride)
+    );
+}
+
+$implicitCoercion = jsonLdReviewRender([
+    ['@context' => ['@vocab' => 'https://schema.org/', 'isPartOf' => ['@type' => '@id']], 'isPartOf' => $sourcePageId],
+    $definitions,
+], $routing);
+$reviewCheck(
+    $implicitCoercion[0]['isPartOf'] === $implicitCoercion[1]['@graph'][0]['@id'],
+    'P2 3942237560: ID coercion with implicit Schema property mapping retains its semantics'
+);
+
+$scalarScopes = jsonLdReviewRender([
+    ['@context' => $propertyContext, 'pageRelation' => $sourcePageId],
+    ['pageRelation' => $sourcePageId],
+    ['@context' => null, 'isPartOf' => $sourcePageId],
+    ['@context' => ['@vocab' => 'https://example.org/'], 'isPartOf' => $sourcePageId],
+    $definitions,
+], $routing);
+$reviewCheck(
+    $scalarScopes[0]['pageRelation'] === $scalarScopes[4]['@graph'][0]['@id']
+    && $scalarScopes[1]['pageRelation'] === $sourcePageId
+    && $scalarScopes[2]['isPartOf'] === $sourcePageId
+    && $scalarScopes[3]['isPartOf'] === $sourcePageId,
+    'Scalar reference aliases and coercion preserve null/foreign vocabulary and script isolation'
+);
+
+$propertyGraph = ['@context' => $propertyContext, '@graph' => [
+    ['@type' => 's:Recipe', 'instructions' => ['Wasser aufkochen.', 'Grieß einrühren.']],
+    ['@type' => 's:HowToStep', 'stepText' => 'Kurz köcheln.'],
+    ['@type' => 's:WebPage', '@id' => $sourcePageId, 'pageUrl' => ['https://www.meinhaushalt.at/review/', 'https://example.org/page/']],
+    ['@context' => ['instructions' => 'https://example.org/recipeInstructions', 'pageUrl' => null, 'stepText' => null], '@type' => 's:HowToStep', 'instructions' => 'Fremde Anleitung unverändert.', 'stepText' => 'Nulltext unverändert.', 'pageUrl' => $sourcePageId],
+    ['@context' => null, 'instructions' => 'Reset-Anleitung unverändert.', 'pageUrl' => $sourcePageId],
+    ['@type' => 's:HowToStep', 'stepText' => 'Geschwistertext übersetzen.'],
+    ['@context' => ['recipeInstructions' => 'https://example.org/recipeInstructions', 'url' => 'https://example.org/url'], '@type' => 's:WebPage', 'recipeInstructions' => 'Fremder Originalname unverändert.', 'url' => $sourcePageId],
+    ['@type' => 's:Recipe', 'https://schema.org/recipeInstructions' => 'Volle Property-IRI übersetzen.'],
+    ['@context' => ['instructions' => 's:sameAs'], 'instructions' => 'Unbekannte Semantik unverändert.'],
+    ['@context' => ['instructions' => ['@id' => 's:recipeInstructions', '@type' => '@id']], 'instructions' => $sourcePageId],
+]];
+$propertyOutput = jsonLdReviewRender([
+    $propertyGraph,
+    ['instructions' => 'Separater Property-Alias unverändert.', 'pageUrl' => $sourcePageId],
+], $routing);
+$propertyNodes = $propertyOutput[0]['@graph'];
+$reviewCheck(
+    $propertyNodes[0]['instructions'] === ['[en] Wasser aufkochen.', '[en] Grieß einrühren.']
+    && $propertyNodes[1]['stepText'] === '[en] Kurz köcheln.'
+    && $propertyNodes[2]['pageUrl'] === ['https://www.meinhaushalt.at/en/review/', 'https://example.org/page/']
+    && $propertyNodes[5]['stepText'] === '[en] Geschwistertext übersetzen.'
+    && $propertyNodes[7]['https://schema.org/recipeInstructions'] === '[en] Volle Property-IRI übersetzen.',
+    'P2 3942237563: supported Schema property aliases share translation and routing semantics'
+);
+$reviewCheck(
+    $propertyOutput[0]['@context'] === $propertyContext
+    && $propertyNodes[3] === $propertyGraph['@graph'][3]
+    && $propertyNodes[4] === $propertyGraph['@graph'][4]
+    && $propertyNodes[6] === $propertyGraph['@graph'][6]
+    && $propertyNodes[8] === $propertyGraph['@graph'][8]
+    && $propertyNodes[9] === $propertyGraph['@graph'][9]
+    && $propertyOutput[1]['instructions'] === 'Separater Property-Alias unverändert.'
+    && $propertyOutput[1]['pageUrl'] === $sourcePageId,
+    'Property aliases preserve keys, contexts, foreign/null overrides and script scopes'
+);
+
+$valueContext = array_merge($propertyContext, ['literal' => '@value', 'lang' => ['@id' => '@language']]);
+$valueGraph = ['@context' => $valueContext, '@graph' => [
+    ['@type' => 's:HowToStep', 'text' => ['@value' => 'Wasser aufkochen.', '@language' => 'de']],
+    ['@type' => 's:Recipe', 'recipeInstructions' => [
+        ['@value' => 'Grieß einrühren.', '@language' => 'de'],
+        ['@value' => 'Ohne Sprachmarke umrühren.'],
+        ['literal' => 'Aliaswert abkühlen.', 'lang' => 'de'],
+    ]],
+    ['@type' => 's:HowToStep', 'stepText' => ['literal' => 'Property und Wert gemeinsam.', 'lang' => 'de']],
+    ['@type' => 's:Recipe', 'instructions' => ['@context' => ['v' => '@value', 'l' => '@language'], 'v' => 'Lokaler Wertkontext.', 'l' => 'de']],
+    ['@type' => 's:Thing', 'text' => ['@value' => 'Generischer Wert unverändert.', '@language' => 'de']],
+    ['@type' => 's:Recipe', 'sameAs' => ['@value' => 'Nichttext-Wert unverändert.', '@language' => 'de']],
+    ['@context' => ['instructions' => 'https://example.org/recipeInstructions'], 'instructions' => ['literal' => 'Fremder Property-Wert unverändert.', 'lang' => 'de']],
+    ['@context' => ['literal' => null], 'instructions' => ['literal' => 'Nullwertalias unverändert.', 'lang' => 'de']],
+    ['@context' => ['literal' => 'https://example.org/value'], 'instructions' => ['literal' => 'Fremder Wertalias unverändert.', 'lang' => 'de']],
+    ['@type' => 's:HowToStep', 'stepText' => ['literal' => 'Geschwisterwert übersetzen.', 'lang' => 'de']],
+    ['isPartOf' => ['@value' => $sourcePageId]],
+]];
+$valueTexts = [];
+$valueOutput = jsonLdReviewRender([
+    $valueGraph,
+    ['recipeInstructions' => ['literal' => 'Separater Wertalias unverändert.', 'lang' => 'de']],
+    $definitions,
+], $routing, $valueTexts);
+$valueNodes = $valueOutput[0]['@graph'];
+$reviewCheck(
+    $valueNodes[0]['text'] === ['@value' => '[en] Wasser aufkochen.', '@language' => 'en']
+    && $valueNodes[1]['recipeInstructions'] === [
+        ['@value' => '[en] Grieß einrühren.', '@language' => 'en'],
+        ['@value' => '[en] Ohne Sprachmarke umrühren.'],
+        ['literal' => '[en] Aliaswert abkühlen.', 'lang' => 'en'],
+    ]
+    && $valueNodes[2]['stepText'] === ['literal' => '[en] Property und Wert gemeinsam.', 'lang' => 'en']
+    && $valueNodes[3]['instructions']['v'] === '[en] Lokaler Wertkontext.'
+    && $valueNodes[3]['instructions']['l'] === 'en'
+    && $valueNodes[9]['stepText'] === ['literal' => '[en] Geschwisterwert übersetzen.', 'lang' => 'en']
+    && in_array('Property und Wert gemeinsam.', $valueTexts, true),
+    'P2 3942237567: language-tagged value objects retain enclosing property semantics through arrays and aliases'
+);
+foreach ([4, 5, 6, 7, 8, 10] as $valueIndex) {
+    $reviewCheck($valueNodes[$valueIndex] === $valueGraph['@graph'][$valueIndex], 'Non-translatable/foreign value object unchanged: ' . $valueIndex);
+}
+$reviewCheck(
+    $valueOutput[0]['@context'] === $valueContext
+    && $valueNodes[3]['instructions']['@context'] === $valueGraph['@graph'][3]['instructions']['@context']
+    && $valueOutput[1]['recipeInstructions'] === ['literal' => 'Separater Wertalias unverändert.', 'lang' => 'de']
+    && !in_array('Generischer Wert unverändert.', $valueTexts, true)
+    && !in_array('Fremder Property-Wert unverändert.', $valueTexts, true),
+    'Value-object contexts and script scopes remain isolated and excluded from collection'
+);
+
+foreach ([
+    ['@value' => 'Typisierter Wert unverändert.', '@type' => 's:HowToStep'],
+    ['@value' => 'Identifizierter Wert unverändert.', '@id' => $sourcePageId],
+    ['@value' => ['text' => 'Verschachtelter Wert unverändert.']],
+    ['@value' => 'Zusatzfeld unverändert.', 'name' => 'Nicht sammeln.'],
+    ['@value' => 'Falsche Sprachstruktur unverändert.', '@language' => ['de']],
+    ['@value' => 42, '@language' => 'de'],
+    ['@value' => null, '@language' => 'de'],
+    ['@value' => 'Wert mit Richtung unverändert.', '@language' => 'de', '@direction' => 'ltr'],
+    ['@value' => 'Wert mit Index unverändert.', '@index' => '0'],
+    ['literal' => 'Aliasiert typisiert unverändert.', 'kind' => 's:HowToStep'],
+] as $invalidValue) {
+    $invalidTexts = [];
+    $invalidOutput = jsonLdReviewRender([
+        ['@context' => array_merge($valueContext, ['kind' => '@type']), '@type' => 's:Recipe', 'instructions' => $invalidValue],
+    ], $routing, $invalidTexts);
+    $reviewCheck(
+        $invalidOutput[0]['instructions'] === $invalidValue && $invalidTexts === [],
+        'Value objects with types, IDs or unsupported structure fail closed: ' . json_encode($invalidValue)
+    );
+}
+foreach ([null, 'https://example.org/language'] as $languageOverride) {
+    $languageValue = ['@context' => ['lang' => $languageOverride], 'literal' => 'Fremde Sprachmarke unverändert.', 'lang' => 'de'];
+    $languageTexts = [];
+    $languageOutput = jsonLdReviewRender([
+        ['@context' => $valueContext, 'instructions' => $languageValue],
+    ], $routing, $languageTexts);
+    $reviewCheck(
+        $languageOutput[0]['instructions'] === $languageValue && $languageTexts === [],
+        'Value-object language alias overrides fail closed: ' . json_encode($languageOverride)
+    );
+}
+// A cache miss must not claim the source-language literal has been translated.
+$missingValueOutput = jsonLdReviewRender([
+    ['recipeInstructions' => ['@value' => 'Ungecachter Wert.', '@language' => 'de']],
+], $routing, $valueTexts, ['Ungecachter Wert.' => null]);
+$reviewCheck(
+    $missingValueOutput[0]['recipeInstructions'] === ['@value' => 'Ungecachter Wert.', '@language' => 'de'],
+    'Value-object language stays at source when no translated value is available'
+);
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

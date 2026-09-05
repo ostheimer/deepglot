@@ -172,14 +172,16 @@ class JsonLdTranslator
      */
     private function collectStrings(array $data, array &$accumulator): void
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use (&$accumulator): array {
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator): array {
+            $text = isset($node['valueKey']) ? $value[$node['valueKey']] : $value;
             if (
-                is_string($value)
+                is_string($text)
                 && $property !== null
+                && !($node['isIriCoerced'] ?? false)
                 && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
-                && mb_strlen(trim($value)) >= 2
+                && mb_strlen(trim($text)) >= 2
             ) {
-                $accumulator[] = $value;
+                $accumulator[] = $text;
             }
 
             return ['isHowToStep' => in_array('HowToStep', $types, true)];
@@ -192,12 +194,27 @@ class JsonLdTranslator
      */
     private function applyTranslations(array &$data, array $translations, string $targetLanguage): void
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use ($translations, $targetLanguage): array {
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage): array {
+            if (isset($node['valueKey'])) {
+                $key = $node['valueKey'];
+                if (
+                    $property !== null
+                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    && isset($translations[$value[$key]])
+                ) {
+                    $value[$key] = $translations[$value[$key]];
+                    if (isset($node['languageKey'])) {
+                        $value[$node['languageKey']] = $targetLanguage;
+                    }
+                }
+                return [];
+            }
             if (is_string($value) && $property !== null) {
                 if (in_array($property, self::LANGUAGE_KEYS, true)) {
                     $value = $targetLanguage;
                 } elseif (
-                    $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    !($node['isIriCoerced'] ?? false)
+                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
                     && isset($translations[$value])
                 ) {
                     $value = $translations[$value];
@@ -258,7 +275,12 @@ class JsonLdTranslator
                 || ($property === 'item' && ($parent['isListItem'] ?? false))
                 || ($property === 'url' && ($parent['isPageEntity'] ?? false));
 
-            if (is_string($value) && ($isPageUrl || $isPageReference) && $this->isInternalUrlReference($value)) {
+            $isCollectedScalarReference = is_string($value)
+                && in_array($property, ['isPartOf', 'breadcrumb'], true)
+                && ($node['allowsIdReference'] ?? true)
+                && isset($pageNodeIds[trim($value)]);
+
+            if (is_string($value) && ($isPageUrl || $isPageReference || $isCollectedScalarReference) && $this->isInternalUrlReference($value)) {
                 $value = $this->routing->rewriteUrl(trim($value), $targetLanguage);
             }
 
@@ -304,33 +326,45 @@ class JsonLdTranslator
      *
      * @param mixed $value
      * @param callable $visitor Receives value, semantic property, parent state, resolved types and node metadata; returns child state.
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string}|null $context
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string}|null $context
      * @param array<string, mixed> $parent
+     * @param array<string, mixed> $propertyMetadata
      */
     private function walk(
         &$value,
         callable $visitor,
         ?array $context = null,
         ?string $property = null,
-        array $parent = []
+        array $parent = [],
+        array $propertyMetadata = []
     ): void {
-        $context = $context ?? ['prefixes' => [], 'terms' => [], 'vocab' => 'https://schema.org/'];
+        $context = $context ?? ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => 'https://schema.org/'];
 
         if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
             foreach ($value as &$item) {
-                $this->walk($item, $visitor, $context, $property, $parent);
+                $this->walk($item, $visitor, $context, $property, $parent, $propertyMetadata);
             }
             unset($item);
             return;
         }
 
         $types = [];
-        $node = [];
+        $node = $propertyMetadata;
         if (is_array($value)) {
             if (array_key_exists('@context', $value)) {
                 $context = $this->resolveContext($value['@context'], $context);
             }
-            $node = ['canBePageReference' => true];
+            // A value object is a terminal literal, not a graph node. Validate
+            // its complete envelope before any visitor can collect prose or IDs.
+            $valueObject = $this->valueObjectMetadata($value, $context);
+            if ($valueObject !== null) {
+                if ($valueObject !== []) {
+                    $visitor($value, $property, $parent, [], $valueObject);
+                }
+                return;
+            }
+
+            $node['canBePageReference'] = true;
             foreach ($value as $key => $child) {
                 $keyword = is_string($key) ? $this->semanticProperty($key, $context) : null;
                 if ($keyword === '@type') {
@@ -351,22 +385,90 @@ class JsonLdTranslator
 
         foreach ($value as $key => &$child) {
             if ($key !== '@context') {
-                $this->walk($child, $visitor, $context, is_string($key) ? $this->semanticProperty($key, $context) : $property, $state);
+                $semanticProperty = is_string($key) ? $this->semanticProperty($key, $context) : $property;
+                $metadata = is_string($key) ? $this->propertyMetadata($key, $context) : $propertyMetadata;
+                $this->walk($child, $visitor, $context, $semanticProperty, $state, $metadata);
             }
         }
         unset($child);
     }
 
     /**
-     * Keyword meaning takes precedence over prose field names without changing
-     * the original object keys. Context definitions always use literal keywords.
+     * Resolve only the keywords and Schema.org properties used by this helper.
+     * Explicit foreign, disabled or unsupported mappings never fall back to a
+     * familiar original key. The original document keys remain unchanged.
      *
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string} $context
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string} $context
      */
-    private function semanticProperty(string $key, array $context): string
+    private function semanticProperty(string $key, array $context): ?string
     {
-        $term = $context['terms'][$key] ?? null;
-        return in_array($term, ['@type', '@id'], true) ? $term : $key;
+        $iri = $this->termIri($key, $context);
+        if (in_array($iri, ['@type', '@id', '@value', '@language'], true)) {
+            return $iri;
+        }
+        if (!is_string($iri) || preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) !== 1) {
+            return null;
+        }
+        $property = $match[1];
+        return in_array($property, self::TRANSLATABLE_KEYS, true)
+            || in_array($property, self::LANGUAGE_KEYS, true)
+            || in_array($property, ['text', 'url', 'item', 'mainEntityOfPage', 'isPartOf', 'breadcrumb'], true)
+            ? $property
+            : null;
+    }
+
+    /** @return array{allowsIdReference: bool, isIriCoerced: bool} */
+    private function propertyMetadata(string $key, array $context): array
+    {
+        $coercion = $context['coercions'][$key] ?? null;
+        return [
+            'allowsIdReference' => !array_key_exists($key, $context['coercions']) || $coercion === '@id',
+            'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
+        ];
+    }
+
+    /**
+     * null means an ordinary node; [] means an unsupported value object that
+     * must stay entirely untouched. Only one string value and an optional string
+     * language tag (plus the literal local @context) form the supported envelope.
+     *
+     * @return array{valueKey?: string, languageKey?: string}|null
+     */
+    private function valueObjectMetadata(array $value, array $context): ?array
+    {
+        $metadata = [];
+        $hasValue = false;
+        $valid = true;
+        foreach ($value as $key => $child) {
+            if ($key === '@context') {
+                continue;
+            }
+            $property = is_string($key) ? $this->semanticProperty($key, $context) : null;
+            if ($property === '@value') {
+                $hasValue = true;
+                $valid = $valid && !isset($metadata['valueKey']) && is_string($child);
+                $metadata['valueKey'] = $key;
+            } elseif ($property === '@language') {
+                $valid = $valid && !isset($metadata['languageKey']) && is_string($child);
+                $metadata['languageKey'] = $key;
+            } else {
+                $valid = false;
+            }
+        }
+        return $hasValue ? ($valid ? $metadata : []) : null;
+    }
+
+    private function termIri(string $term, array $context): ?string
+    {
+        if (str_starts_with($term, '@')) {
+            return $term;
+        }
+        if (array_key_exists($term, $context['terms'])) {
+            return $context['terms'][$term];
+        }
+        return str_contains($term, ':')
+            ? $this->expandContextIri($term, $context['prefixes'])
+            : (($context['vocab'] ?? '') . $term);
     }
 
     /** @param string[] $types */
@@ -391,20 +493,20 @@ class JsonLdTranslator
      * the relevant vocabulary or prefix.
      *
      * @param mixed $definition
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string} $context
-     * @return array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string}
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string} $context
+     * @return array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string}
      */
     private function resolveContext($definition, array $context): array
     {
         if ($definition === null) {
-            return ['prefixes' => [], 'terms' => [], 'vocab' => null];
+            return ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => null];
         }
         if (is_string($definition)) {
             if (preg_match('~^https?://schema\.org/?$~i', trim($definition)) === 1) {
                 $context['vocab'] = 'https://schema.org/';
                 return $context;
             }
-            return ['prefixes' => [], 'terms' => [], 'vocab' => null];
+            return ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => null];
         }
         if (!is_array($definition)) {
             return $context;
@@ -446,7 +548,9 @@ class JsonLdTranslator
             if (!is_string($term) || str_starts_with($term, '@')) {
                 continue;
             }
-            $id = is_array($mapping) ? ($mapping['@id'] ?? null) : $mapping;
+            $id = is_array($mapping)
+                ? (array_key_exists('@id', $mapping) ? $mapping['@id'] : $term)
+                : $mapping;
             $context['terms'][$term] = is_string($id)
                 ? (str_starts_with($id, '@')
                     ? $id
@@ -454,6 +558,13 @@ class JsonLdTranslator
                         ? $this->expandContextIri($id, $context['prefixes'])
                         : ($context['vocab'] ?? '') . $id))
                 : null;
+            // Keep coercion independent of the resolved property IRI. An
+            // override without @type removes inherited coercion in this scope.
+            if (is_array($mapping) && array_key_exists('@type', $mapping)) {
+                $context['coercions'][$term] = $mapping['@type'];
+            } else {
+                unset($context['coercions'][$term]);
+            }
         }
         return $context;
     }
@@ -474,7 +585,7 @@ class JsonLdTranslator
     }
 
     /**
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string} $context
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string} $context
      * @return string[]
      */
     private function schemaTypes($value, array $context): array
@@ -488,11 +599,7 @@ class JsonLdTranslator
             }
 
             $type = trim($type);
-            $iri = array_key_exists($type, $context['terms'])
-                ? $context['terms'][$type]
-                : (str_contains($type, ':')
-                    ? $this->expandContextIri($type, $context['prefixes'])
-                    : ($context['vocab'] ?? '') . $type);
+            $iri = $this->termIri($type, $context);
             if (is_string($iri) && preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
                 $types[] = $match[1];
             }

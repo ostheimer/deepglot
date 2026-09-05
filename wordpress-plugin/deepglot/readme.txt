@@ -93,6 +93,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.8 =
+* Resolved supported Schema.org property aliases, matched scalar page references, and translated simple language-tagged value objects through the shared local context.
 * Supported local JSON-LD type/id keyword aliases and restricted relationship and graph-ID inference to untyped or exclusively generic Thing references.
 * Resolved ordinary JSON-LD class aliases and localized Article subtypes and generic typed breadcrumb targets while preserving shared/media entities.
 * Preserved JSON-LD context definitions while resolving local Schema.org aliases, enriched page references, and URL/reference arrays with consistent context-aware traversal.

@@ -61,8 +61,8 @@ references with extra metadata, are collected across all JSON-LD blocks in one
 document before rewriting. Scalar and array page URLs retain their property
 semantics and are trimmed before routing; external values remain unchanged.
 
-Compact type prefixes, ordinary class aliases and local `@type`/`@id` keyword
-aliases are resolved from the active local `@context`, including
+Compact type prefixes, ordinary class aliases, supported Schema.org property
+aliases and local keyword aliases are resolved from the active `@context`, including
 inherited aliases, overrides, context arrays and null resets. Context scope stays
 within its script block and subtree; page identity matching spans script blocks.
 Full Schema.org IRIs remain supported. Context definitions are never sent for
@@ -78,8 +78,18 @@ news and scholarly subtypes. For objects without an explicit page-related type,
 relationships and exact collected page-ID matches only supply page semantics to
 untyped objects or exclusively Schema.org `Thing` types. Other specific, mixed
 or unresolved reference types remain unchanged, including organization, person
-and media subtypes. Keyword aliases retain their original
-JSON keys and share the same scope for text selection, ID collection and routing.
+and media subtypes. Aliases retain their original JSON keys and share the same
+scope for text selection, ID collection and routing. Scalar `isPartOf` and
+`breadcrumb` references, including aliases with `@id` coercion, only route when
+they exactly match a collected page ID; `sameAs`, `citation` and unrelated
+strings do not acquire routing semantics from a matching value.
+
+Simple string value objects (`@value`, optional string `@language` and local
+`@context`) retain their enclosing supported text property's meaning, including inside
+arrays. Local `@value`/`@language` aliases are supported. An existing language
+tag changes only when a translated value is available. Typed, identified,
+direction/index-bearing or otherwise unsupported value-object shapes remain
+untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
 
 ## Installation in WordPress
 
