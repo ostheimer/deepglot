@@ -190,8 +190,8 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               </p>
               <p className="mt-4 text-sm leading-7 text-[#58636d]">
                 {de
-                  ? "Seit v0.12.8 übersetzt Deepglot ARIA-Beschriftungen auf allen Elementen im Seiteninhalt sowie Bild-Tooltips und die sichtbaren Titel von RSS- und Atom-Feeds. Normale Link-Metadaten bleiben von Anbieteranfragen ausgeschlossen."
-                  : "Since v0.12.8, Deepglot translates ARIA labels on every body element, image tooltips, and the human-readable titles of RSS and Atom feeds. Ordinary link metadata remains excluded from provider requests."}
+                  ? "Seit v0.12.8 übersetzt Deepglot ARIA-Beschriftungen auf allen Elementen im Seiteninhalt sowie Bild-Tooltips und die sichtbaren Titel von RSS- und Atom-Feeds. Normale Link-Metadaten bleiben von Anbieteranfragen ausgeschlossen. Leere oder ausschließlich aus Leerraum bestehende Übersetzungen werden nicht gespeichert und gelten auch in bestehenden, älteren Cacheeinträgen als Fehltreffer, damit Metabeschreibungen nicht verschwinden."
+                  : "Since v0.12.8, Deepglot translates ARIA labels on every body element, image tooltips, and the human-readable titles of RSS and Atom feeds. Ordinary link metadata remains excluded from provider requests. Empty or whitespace-only translations are not stored and count as misses in existing legacy cache entries too, so meta descriptions do not disappear."}
               </p>
               <p className="mt-4 text-sm leading-7 text-[#58636d]">
                 {de
