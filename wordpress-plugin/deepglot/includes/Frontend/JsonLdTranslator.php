@@ -138,12 +138,18 @@ class JsonLdTranslator
      */
     public function apply(array $mutations, array $translations, string $targetLanguage): void
     {
-        // Separate script blocks are part of the same document graph. Collect
-        // every original identity before rewriting any definitions or references.
+        // Separate script blocks are part of the same document graph. Resolve
+        // safe relationship identities to a fixed point before rewriting: a
+        // newly identified generic definition can establish another page URL.
+        // The set only grows from the finite original graph, so cycles without
+        // a page seed stay inert and traversal order cannot affect the result.
         $pageNodeIds = [];
-        foreach ($mutations as $mutation) {
-            $this->collectPageNodeIds($mutation['data'], $pageNodeIds);
-        }
+        do {
+            $previousCount = count($pageNodeIds);
+            foreach ($mutations as $mutation) {
+                $this->collectPageNodeIds($mutation['data'], $pageNodeIds);
+            }
+        } while (count($pageNodeIds) !== $previousCount);
 
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
@@ -232,10 +238,10 @@ class JsonLdTranslator
     }
 
     /**
-     * Collects the original identities of internal page-like graph nodes before
-     * any URL is rewritten. Untyped or exclusively generic Thing references can
-     * then be localized by exact graph identity without relying on a potentially
-     * incomplete list of relationship property names.
+     * Collects the original internal page identities from explicit page types
+     * and safe relationships using exactly the same semantics as URL routing.
+     * Untyped or exclusively generic Thing definitions can then inherit those
+     * identities, including across script blocks and relationship chains.
      *
      * @param array<mixed> $data
      * @param array<string, true> $pageNodeIds
@@ -243,12 +249,16 @@ class JsonLdTranslator
     private function collectPageNodeIds(array $data, array &$pageNodeIds): void
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$pageNodeIds): array {
+            $state = $this->pageSemantics($property, $parent, $types, $node, $pageNodeIds);
             $id = $node['id'] ?? null;
-            if ($this->hasPageRelatedType($types) && is_string($id) && $this->isInternalUrlReference($id)) {
-                $pageNodeIds[trim($id)] = true;
+            if ($state['isPageEntity'] && is_string($id)) {
+                $pageNodeIds[$id] = true;
+            }
+            if ($state['isPageUrlValue'] && isset($node['urlReference'])) {
+                $pageNodeIds[$node['urlReference']] = true;
             }
 
-            return [];
+            return $state;
         });
     }
 
@@ -270,33 +280,55 @@ class JsonLdTranslator
         }
 
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($targetLanguage, $pageNodeIds): array {
-            $isPageUrl = ($parent['isPageEntity'] ?? false) && in_array($property, ['@id', 'url'], true);
-            $isPageReference = $property === 'mainEntityOfPage'
-                || ($property === 'item' && ($parent['isListItem'] ?? false))
-                || ($property === 'url' && ($parent['isPageEntity'] ?? false));
-
-            $isCollectedScalarReference = is_string($value)
-                && in_array($property, ['isPartOf', 'breadcrumb'], true)
-                && ($node['allowsIdReference'] ?? true)
-                && isset($pageNodeIds[trim($value)]);
-
-            if (is_string($value) && ($isPageUrl || $isPageReference || $isCollectedScalarReference) && $this->isInternalUrlReference($value)) {
-                $value = $this->routing->rewriteUrl(trim($value), $targetLanguage);
+            $state = $this->pageSemantics($property, $parent, $types, $node, $pageNodeIds);
+            if ($state['isPageUrlValue'] && isset($node['urlReference'])) {
+                $value = $this->routing->rewriteUrl($node['urlReference'], $targetLanguage);
             }
 
-            // Relationships and collected identities supply page semantics only
-            // to untyped nodes or exclusively generic Thing types. A specific,
-            // unresolved or invalid type must not disappear during normalization.
-            $canBePageReference = $node['canBePageReference'] ?? false;
-            $id = $node['id'] ?? null;
-            return [
-                'isListItem' => in_array('ListItem', $types, true),
-                'isPageEntity' => $this->hasPageRelatedType($types)
-                    || ($canBePageReference && (
-                        $isPageReference || (is_string($id) && isset($pageNodeIds[trim($id)]))
-                    )),
-            ];
+            return $state;
         });
+    }
+
+    /**
+     * One positive page-semantics model for identity discovery and routing.
+     * Relationships or collected IDs can only promote untyped/Thing-only nodes;
+     * specific, unresolved or invalid types never gain inferred page semantics.
+     * isPartOf/breadcrumb scalars require an existing identity and cannot seed it.
+     *
+     * @param array<string, true> $pageNodeIds
+     * @return array{isListItem: bool, isPageEntity: bool, isPageUrlValue: bool}
+     */
+    private function pageSemantics(?string $property, array $parent, array $types, array $node, array $pageNodeIds): array
+    {
+        $isPageUrl = ($parent['isPageEntity'] ?? false) && in_array($property, ['@id', 'url'], true);
+        $isPageReference = $property === 'mainEntityOfPage'
+            || ($property === 'item' && ($parent['isListItem'] ?? false))
+            || ($property === 'url' && ($parent['isPageEntity'] ?? false));
+        $reference = $node['urlReference'] ?? null;
+        $isCollectedScalarReference = is_string($reference)
+            && in_array($property, ['isPartOf', 'breadcrumb'], true)
+            && ($node['allowsIdReference'] ?? true)
+            && isset($pageNodeIds[$reference]);
+        $id = $node['id'] ?? null;
+
+        return [
+            'isListItem' => in_array('ListItem', $types, true),
+            'isPageEntity' => $this->hasPageRelatedType($types)
+                || (($node['canBePageReference'] ?? false) && (
+                    $isPageReference || (is_string($id) && isset($pageNodeIds[$id]))
+                )),
+            'isPageUrlValue' => $isPageUrl || $isPageReference || $isCollectedScalarReference,
+        ];
+    }
+
+    /** Expand only local prefixes, never @base, terms or remote contexts. */
+    private function internalUrlReference($value, array $context): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+        $expanded = $this->expandContextIri(trim($value), $context['prefixes']);
+        return $this->isInternalUrlReference($expanded) ? trim($expanded) : null;
     }
 
     private function isInternalUrlReference(string $value): bool
@@ -373,9 +405,11 @@ class JsonLdTranslator
                     $node['canBePageReference'] = $node['canBePageReference']
                         && $this->isExclusivelyGenericType($child, $resolvedTypes);
                 } elseif ($keyword === '@id') {
-                    $node['id'] = $child;
+                    $node['id'] = $this->internalUrlReference($child, $context);
                 }
             }
+        } elseif (is_string($value)) {
+            $node['urlReference'] = $this->internalUrlReference($value, $context);
         }
 
         $state = $visitor($value, $property, $parent, $types, $node);
@@ -502,7 +536,7 @@ class JsonLdTranslator
             return ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => null];
         }
         if (is_string($definition)) {
-            if (preg_match('~^https?://schema\.org/?$~i', trim($definition)) === 1) {
+            if (preg_match('~^(?i:https?://schema\.org)(?:/?|/docs/jsonldcontext\.json(?:ld)?)$~D', trim($definition)) === 1) {
                 $context['vocab'] = 'https://schema.org/';
                 return $context;
             }

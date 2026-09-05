@@ -1081,6 +1081,138 @@ $reviewCheck(
     'Value-object language stays at source when no translated value is available'
 );
 
+// Relationship-established page IDs must connect all safe definitions too.
+$seedBase = 'https://www.meinhaushalt.at/seed/';
+$seedRelations = ['@graph' => [
+    ['@type' => 'Article', 'mainEntityOfPage' => ['@type' => 'Thing', '@id' => $seedBase . '#main']],
+    ['@type' => 'Article', 'mainEntityOfPage' => $seedBase . '#scalar'],
+    ['@type' => 'ListItem', 'item' => [['@id' => $seedBase . '#item'], $seedBase . '#scalar-item']],
+    ['isPartOf' => $seedBase . '#main', 'breadcrumb' => ['@type' => 'Thing', '@id' => $seedBase . '#item']],
+]];
+$seedDefinitions = ['@graph' => [
+    ['@type' => 'Thing', '@id' => $seedBase . '#main', 'url' => ['@id' => $seedBase . '#second']],
+    ['@id' => $seedBase . '#scalar'], ['@type' => 'Thing', '@id' => $seedBase . '#item'],
+    ['@id' => $seedBase . '#scalar-item'],
+]];
+// Deliberately put chained definitions before their source in some script orders.
+$seedChain = ['@graph' => [
+    ['@id' => $seedBase . '#third'],
+    ['@type' => 'Thing', '@id' => $seedBase . '#second', 'url' => ['@id' => $seedBase . '#third']],
+]];
+foreach ([false, true] as $reverse) {
+    $seedBlocks = $reverse ? [$seedChain, $seedDefinitions, $seedRelations] : [$seedRelations, $seedDefinitions, $seedChain];
+    $seedResult = jsonLdReviewRender($seedBlocks, $routing);
+    $seedRelationOutput = $seedResult[$reverse ? 2 : 0]['@graph'];
+    $seedDefinitionOutput = $seedResult[1]['@graph'];
+    $seedChainOutput = $seedResult[$reverse ? 0 : 2]['@graph'];
+    $reviewCheck(
+        $seedDefinitionOutput[0]['@id'] === 'https://www.meinhaushalt.at/en/seed/#main'
+        && $seedDefinitionOutput[0]['@id'] === $seedRelationOutput[0]['mainEntityOfPage']['@id']
+        && $seedDefinitionOutput[1]['@id'] === $seedRelationOutput[1]['mainEntityOfPage']
+        && $seedDefinitionOutput[2]['@id'] === $seedRelationOutput[2]['item'][0]['@id']
+        && $seedDefinitionOutput[3]['@id'] === $seedRelationOutput[2]['item'][1]
+        && $seedRelationOutput[3]['isPartOf'] === $seedDefinitionOutput[0]['@id']
+        && $seedRelationOutput[3]['breadcrumb']['@id'] === $seedDefinitionOutput[2]['@id']
+        && $seedDefinitionOutput[0]['url']['@id'] === $seedChainOutput[1]['@id']
+        && $seedChainOutput[1]['url']['@id'] === $seedChainOutput[0]['@id']
+        && $seedChainOutput[0]['@id'] === 'https://www.meinhaushalt.at/en/seed/#third',
+        'P2 3942273679: relationship seeds and chained safe definitions converge in script order ' . (int) $reverse
+    );
+}
+foreach (['Person', 'LocalBusiness', 'ImageObject', ['Thing', 'LocalBusiness'], 'https://example.org/Thing'] as $unsafeSeedType) {
+    $unsafeSeedId = $seedBase . '#unsafe';
+    $unsafeSeedTarget = ['@type' => $unsafeSeedType, '@id' => $unsafeSeedId];
+    $unsafeSeeds = jsonLdReviewRender([
+        ['@type' => 'Article', 'mainEntityOfPage' => $unsafeSeedTarget],
+        ['@type' => 'ListItem', 'item' => $unsafeSeedTarget],
+        ['@type' => 'Thing', '@id' => $unsafeSeedId],
+    ], $routing);
+    $reviewCheck(
+        $unsafeSeeds[0]['mainEntityOfPage'] === $unsafeSeedTarget
+        && $unsafeSeeds[1]['item'] === $unsafeSeedTarget && $unsafeSeeds[2]['@id'] === $unsafeSeedId,
+        'Specific/shared/foreign relationship targets never seed generic page definitions: ' . json_encode($unsafeSeedType)
+    );
+}
+$unseededGraph = ['@graph' => [
+    ['sameAs' => $seedBase . '#same', 'citation' => $seedBase . '#citation', 'isPartOf' => $seedBase . '#unknown', 'breadcrumb' => $seedBase . '#unknown'],
+    ['@type' => 'Thing', '@id' => $seedBase . '#same'], ['@id' => $seedBase . '#citation'],
+    ['@id' => $seedBase . '#unknown'],
+    ['@type' => 'Thing', '@id' => $seedBase . '#cycle-a', 'url' => ['@id' => $seedBase . '#cycle-b']],
+    ['@type' => 'Thing', '@id' => $seedBase . '#cycle-b', 'url' => ['@id' => $seedBase . '#cycle-a']],
+    ['mainEntityOfPage' => 'https://example.org/#external'], ['@id' => 'https://example.org/#external'],
+]];
+$unseededOutput = jsonLdReviewRender([$unseededGraph], $routing);
+$reviewCheck($unseededOutput[0] === $unseededGraph, 'Unknown, sameAs/citation, unseeded cycles and external IDs do not seed pages');
+
+foreach (['https://schema.org/docs/jsonldcontext.jsonld', 'http://schema.org/docs/jsonldcontext.jsonld', 'https://schema.org/docs/jsonldcontext.json', 'http://schema.org/docs/jsonldcontext.json'] as $officialContext) {
+    $officialOutput = jsonLdReviewRender([
+        ['@context' => $officialContext, '@graph' => [
+            ['@type' => 'Recipe', 'recipeInstructions' => 'Offiziellen Kontext übersetzen.'],
+            ['@type' => 'WebPage', '@id' => $sourcePageId, 'url' => 'https://www.meinhaushalt.at/review/'],
+        ]],
+    ], $routing);
+    $reviewCheck(
+        $officialOutput[0]['@context'] === $officialContext
+        && $officialOutput[0]['@graph'][0]['recipeInstructions'] === '[en] Offiziellen Kontext übersetzen.'
+        && $officialOutput[0]['@graph'][1]['@id'] === 'https://www.meinhaushalt.at/en/review/#webpage'
+        && $officialOutput[0]['@graph'][1]['url'] === 'https://www.meinhaushalt.at/en/review/',
+        'P2 3942273681: official published Schema.org context is recognized locally: ' . $officialContext
+    );
+}
+foreach ([
+    'https://schema.org.evil.example/docs/jsonldcontext.jsonld',
+    'https://example.org/docs/jsonldcontext.jsonld', 'https://schema.org/docs/other.jsonld',
+    'https://schema.org/docs/jsonldcontext.jsonld?other=1',
+    'https://schema.org/docs/jsonldcontext.jsonld#other',
+] as $unknownContext) {
+    $unknownContextNode = ['@context' => $unknownContext, '@type' => 'WebPage', '@id' => $sourcePageId, 'recipeInstructions' => 'Fremder Kontext unverändert.'];
+    $unknownContextOutput = jsonLdReviewRender([$unknownContextNode], $routing);
+    $reviewCheck($unknownContextOutput[0] === $unknownContextNode, 'Similar or foreign context URL stays unresolved: ' . $unknownContext);
+}
+
+$compactContext = ['site' => 'https://www.meinhaushalt.at/', 's' => 'https://schema.org/', 'identifier' => '@id', 'pageUrl' => 's:url', 'part' => ['@id' => 's:isPartOf', '@type' => '@id']];
+$compactGraph = ['@context' => $compactContext, '@graph' => [
+    ['@type' => 's:WebPage', 'identifier' => 'site:compact/#webpage', 'pageUrl' => ['site:compact/', 'https://example.org/compact/']],
+    ['@type' => 's:Article', 'mainEntityOfPage' => 'site:compact/#webpage', 'part' => 'site:compact/#webpage'],
+    ['@type' => 's:ListItem', 'item' => ['@type' => 's:Thing', '@id' => 'site:compact-item/']],
+    ['@context' => ['site' => 'https://example.org/'], '@type' => 's:WebPage', '@id' => 'site:compact/#webpage', 'url' => 'site:compact/'],
+    ['@context' => ['site' => null], '@type' => 's:WebPage', '@id' => 'site:compact/#webpage'],
+    ['@type' => 's:WebPage', '@id' => 'site:compact-sibling/'],
+    ['@type' => 's:Person', '@id' => 'site:person/'],
+    ['@type' => 's:WebPage', '@id' => 'missing:compact/'],
+    ['@context' => null, '@type' => 'https://schema.org/WebPage', '@id' => 'site:compact/'],
+]];
+foreach ([false, true] as $reverse) {
+    $compactRefs = ['isPartOf' => ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/compact/#webpage'], 'breadcrumb' => ['@id' => 'https://www.meinhaushalt.at/compact-item/']];
+    $compactBlocks = $reverse ? [$compactGraph, $compactRefs] : [$compactRefs, $compactGraph];
+    $compactOutput = jsonLdReviewRender($compactBlocks, $routing);
+    $compactNodes = $compactOutput[$reverse ? 0 : 1]['@graph'];
+    $compactReferenceOutput = $compactOutput[$reverse ? 1 : 0];
+    $reviewCheck(
+        $compactNodes[0]['identifier'] === 'https://www.meinhaushalt.at/en/compact/#webpage'
+        && $compactNodes[0]['pageUrl'] === ['https://www.meinhaushalt.at/en/compact/', 'https://example.org/compact/']
+        && $compactNodes[1]['mainEntityOfPage'] === $compactNodes[0]['identifier']
+        && $compactNodes[1]['part'] === $compactNodes[0]['identifier']
+        && $compactNodes[2]['item']['@id'] === 'https://www.meinhaushalt.at/en/compact-item/'
+        && $compactReferenceOutput['isPartOf']['@id'] === $compactNodes[0]['identifier']
+        && $compactReferenceOutput['breadcrumb']['@id'] === $compactNodes[2]['item']['@id']
+        && $compactNodes[5]['@id'] === 'https://www.meinhaushalt.at/en/compact-sibling/',
+        'P2 3942273684: scoped compact IDs and safe page values expand before matching/routing in order ' . (int) $reverse
+    );
+    foreach ([3, 4, 6, 7, 8] as $compactIndex) {
+        $reviewCheck($compactNodes[$compactIndex] === $compactGraph['@graph'][$compactIndex], 'Compact foreign/null/shared/unresolved value unchanged: ' . $compactIndex);
+    }
+    $reviewCheck($compactOutput[$reverse ? 0 : 1]['@context'] === $compactContext, 'Compact ID context and original keys remain unchanged');
+}
+$compactBoundaryNodes = [
+    ['@type' => 'WebPage', '@id' => 'site:compact/'],
+    ['@context' => ['@base' => 'https://www.meinhaushalt.at/'], '@type' => 'WebPage', '@id' => 'relative-page/'],
+    ['@context' => ['site' => ['@id' => 'https://www.meinhaushalt.at/single', '@prefix' => false]], '@type' => 'WebPage', '@id' => 'site:compact/'],
+    ['@context' => ['site' => 'https://example.org/'], '@type' => 'WebPage', '@id' => ' site:compact/ '],
+];
+$compactBoundaryOutput = jsonLdReviewRender(array_merge([$compactGraph], $compactBoundaryNodes), $routing);
+$reviewCheck(array_slice($compactBoundaryOutput, 1) === $compactBoundaryNodes, 'Compact IRIs never leak scripts, infer term prefixes, expand external values or implement @base');
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

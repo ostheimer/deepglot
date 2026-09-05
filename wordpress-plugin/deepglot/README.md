@@ -58,7 +58,9 @@ wordpress-plugin/deepglot/
 JSON-LD localization supports Recipe instructions as strings, arrays of strings,
 or typed HowToStep objects. Page identities and matching references, including
 references with extra metadata, are collected across all JSON-LD blocks in one
-document before rewriting. Scalar and array page URLs retain their property
+document before rewriting. Safe page relationships also seed these identities;
+collection converges before rewriting so chained generic definitions stay linked
+regardless of script order. Scalar and array page URLs retain their property
 semantics and are trimmed before routing; external values remain unchanged.
 
 Compact type prefixes, ordinary class aliases, supported Schema.org property
@@ -67,7 +69,8 @@ inherited aliases, overrides, context arrays and null resets. Context scope stay
 within its script block and subtree; page identity matching spans script blocks.
 Full Schema.org IRIs remain supported. Context definitions are never sent for
 translation or rewritten, and no remote context fetch is performed. The known
-Schema.org context is handled locally; unknown remote contexts leave unresolved
+Schema.org context is handled locally, including the exact HTTP/HTTPS
+`schema.org/docs/jsonldcontext.jsonld` and `.json` URLs; unknown remote contexts leave unresolved
 types unchanged. Context-free bare type names retain the legacy Schema.org
 default, which explicit null contexts or foreign vocabularies remove. Generic
 `text` outside HowToStep and shared person, organization and media IDs remain
@@ -83,6 +86,12 @@ scope for text selection, ID collection and routing. Scalar `isPartOf` and
 `breadcrumb` references, including aliases with `@id` coercion, only route when
 they exactly match a collected page ID; `sameAs`, `citation` and unrelated
 strings do not acquire routing semantics from a matching value.
+
+Local prefix definitions also expand compact page IDs and supported page URL
+values before internal-host checks, identity matching and routing. Only internal
+targets are rewritten; absolute prefixes produce absolute localized URLs. External or unresolved compact
+IRIs remain byte-for-byte unchanged. This does not add `@base` resolution or a
+general JSON-LD processor.
 
 Simple string value objects (`@value`, optional string `@language` and local
 `@context`) retain their enclosing supported text property's meaning, including inside
