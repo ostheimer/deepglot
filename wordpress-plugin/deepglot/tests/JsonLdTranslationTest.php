@@ -731,6 +731,149 @@ foreach (['Person', 'Organization', 'ImageObject', 'VideoObject', 'AudioObject']
     $reviewCheck($sharedOutput[0]['item'] === $sharedItem, 'Typed breadcrumb shared/media exclusion: ' . $sharedType);
 }
 
+// Collected graph identities may supply page semantics only to untyped nodes
+// or exclusively generic Schema.org Thing types, never other entity classes.
+foreach ([false, true] as $reverse) {
+    $genericReferences = [
+        '@context' => ['s' => 'https://schema.org/', 'Generic' => 's:Thing'],
+        'isPartOf' => ['@type' => 'Thing', '@id' => $sourcePageId, 'position' => 1],
+        'breadcrumb' => [
+            ['@type' => ['Generic', 's:Thing'], '@id' => $sourceBreadcrumbId],
+            ['@type' => 'https://schema.org/Thing', '@id' => $sourcePageId],
+            ['@type' => 'Thing', '@id' => 'https://example.org/#webpage'],
+            ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/unknown/#webpage'],
+        ],
+    ];
+    $blocks = $reverse ? [$definitions, $genericReferences] : [$genericReferences, $definitions];
+    $genericResult = jsonLdReviewRender($blocks, $routing);
+    $genericOutput = $genericResult[$reverse ? 1 : 0];
+    $pageOutput = $genericResult[$reverse ? 0 : 1]['@graph'];
+    $reviewCheck(
+        $genericOutput['isPartOf']['@id'] === $pageOutput[0]['@id']
+        && $genericOutput['isPartOf']['position'] === 1
+        && $genericOutput['breadcrumb'][0]['@id'] === $pageOutput[1]['@id']
+        && $genericOutput['breadcrumb'][1]['@id'] === $pageOutput[0]['@id']
+        && $genericOutput['breadcrumb'][2] === $genericReferences['breadcrumb'][2]
+        && $genericOutput['breadcrumb'][3] === $genericReferences['breadcrumb'][3],
+        'P2 3942202262: exclusively generic typed references match collected IDs in order ' . (int) $reverse
+    );
+}
+
+$specificReferenceTypes = [
+    'LocalBusiness', ['Thing', 'LocalBusiness'], 'Corporation', 'NGO',
+    'EducationalOrganization', 'Patient', 'NewsMediaOrganization',
+    'MusicVideoObject', 'AudioObject', '3DModel', 'ImageObjectSnapshot',
+    'Product', 'CreativeWork', 'https://example.org/Thing',
+    ['Thing', 'https://example.org/LocalBusiness'],
+    ['Thing', 'missing:Unresolved'], ['Thing', null], [], null,
+];
+foreach ($specificReferenceTypes as $specificType) {
+    $specificItem = ['@type' => $specificType, '@id' => $sourcePageId, 'url' => [
+        'https://www.meinhaushalt.at/shared/', 'https://example.org/shared/',
+    ]];
+    $specificOutput = jsonLdReviewRender([
+        ['@type' => 'ListItem', 'item' => [$specificItem]],
+        ['isPartOf' => $specificItem, 'breadcrumb' => $specificItem],
+        $definitions,
+    ], $routing);
+    $reviewCheck(
+        $specificOutput[0]['item'][0] === $specificItem
+        && $specificOutput[1]['isPartOf'] === $specificItem
+        && $specificOutput[1]['breadcrumb'] === $specificItem,
+        'P2 3942202265: specific, mixed or unresolved reference types stay unchanged: ' . json_encode($specificType)
+    );
+}
+
+// Explicit page types keep their existing behavior, including shared-type vetoes.
+foreach ([['WebPage', 'Thing'], ['WebPage', 'Person'], ['Article', 'MediaObject']] as $pageTypes) {
+    $pageTypeOutput = jsonLdReviewRender([['@type' => $pageTypes, '@id' => $sourcePageId]], $routing);
+    $reviewCheck(
+        $pageTypeOutput[0]['@id'] === ($pageTypes[1] === 'Thing' ? 'https://www.meinhaushalt.at/en/review/#webpage' : $sourcePageId),
+        'Explicit page multi-types preserve existing routing: ' . json_encode($pageTypes)
+    );
+}
+
+// Keyword aliases reuse the active local context for all traversal phases.
+$keywordContext = ['type' => '@type', 'id' => ['@id' => '@id'], 's' => 'https://schema.org/', 'Page' => 's:WebPage'];
+$keywordGraph = ['@context' => $keywordContext, '@graph' => [
+    ['type' => 's:HowToStep', 'text' => ['Schlüsselwort übersetzen.', 'Danach abkühlen.']],
+    ['type' => 'Page', 'id' => 'https://www.meinhaushalt.at/keyword/#page', 'url' => ['https://www.meinhaushalt.at/keyword/', 'https://example.org/keyword/']],
+    ['type' => 's:ListItem', 'item' => ['type' => 's:Thing', 'id' => 'https://www.meinhaushalt.at/keyword-item/']],
+    ['type' => 's:ListItem', 'item' => ['type' => ['s:Thing', 's:LocalBusiness'], 'id' => $sourcePageId, 'url' => 'https://www.meinhaushalt.at/shared/']],
+    ['@context' => ['type' => null, 'id' => null], 'type' => 's:HowToStep', 'text' => 'Null-Schlüsselwort unverändert.', 'child' => ['type' => 's:WebPage', 'id' => 'https://www.meinhaushalt.at/null-keyword/']],
+    ['@context' => ['type' => 'https://example.org/type', 'id' => 'https://example.org/id'], 'type' => 's:HowToStep', 'text' => 'Fremdes Schlüsselwort unverändert.', 'child' => ['type' => 's:WebPage', 'id' => 'https://www.meinhaushalt.at/foreign-keyword/']],
+    ['@context' => null, 'type' => 's:HowToStep', 'text' => 'Zurückgesetztes Schlüsselwort unverändert.'],
+    ['type' => 's:HowToStep', 'text' => 'Geschwister-Schlüsselwort übersetzen.'],
+    ['@context' => [['type' => null], ['kind' => ['@id' => '@type']]], 'kind' => 's:HowToStep', 'type' => 's:WebPage', 'text' => 'Neuer Schlüsselwortalias übersetzen.'],
+    ['@context' => ['s' => 'https://example.org/'], 'type' => 's:HowToStep', 'text' => 'Fremder Typ unverändert.'],
+    ['@context' => 'https://example.org/remote-context', 'type' => 'https://schema.org/HowToStep', 'text' => 'Unbekannter Remote-Kontext unverändert.'],
+    ['type' => 's:WebPage', 'id' => ' https://example.org/keyword/ ', 'url' => 'https://example.org/keyword/'],
+]];
+$keywordTexts = [];
+$keywordOutput = jsonLdReviewRender([
+    ['isPartOf' => ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/keyword/#page']],
+    $keywordGraph,
+    ['type' => 'https://schema.org/HowToStep', 'text' => 'Separates Schlüsselwort unverändert.'],
+    ['type' => 'https://schema.org/WebPage', 'id' => 'https://www.meinhaushalt.at/separate-keyword/'],
+    ['@context' => [null, ['kind' => '@type', 'identifier' => '@id', 's' => 'https://schema.org/']], 'kind' => ['s:Thing'], 'identifier' => $sourcePageId],
+    $definitions,
+], $routing, $keywordTexts);
+$keywordNodes = $keywordOutput[1]['@graph'];
+$reviewCheck(
+    $keywordNodes[0]['text'] === ['[en] Schlüsselwort übersetzen.', '[en] Danach abkühlen.']
+    && $keywordNodes[1]['id'] === 'https://www.meinhaushalt.at/en/keyword/#page'
+    && $keywordNodes[1]['url'] === ['https://www.meinhaushalt.at/en/keyword/', 'https://example.org/keyword/']
+    && $keywordNodes[2]['item']['id'] === 'https://www.meinhaushalt.at/en/keyword-item/'
+    && $keywordNodes[7]['text'] === '[en] Geschwister-Schlüsselwort übersetzen.'
+    && $keywordNodes[8]['text'] === '[en] Neuer Schlüsselwortalias übersetzen.'
+    && $keywordOutput[0]['isPartOf']['@id'] === $keywordNodes[1]['id']
+    && $keywordOutput[4]['identifier'] === $keywordOutput[5]['@graph'][0]['@id'],
+    'P2 3942202268: local type/id keyword aliases translate, collect identities and route references'
+);
+$reviewCheck(
+    $keywordOutput[1]['@context'] === $keywordContext
+    && $keywordNodes[3] === $keywordGraph['@graph'][3]
+    && $keywordNodes[4] === $keywordGraph['@graph'][4]
+    && $keywordNodes[5] === $keywordGraph['@graph'][5]
+    && $keywordNodes[6] === $keywordGraph['@graph'][6]
+    && $keywordNodes[9] === $keywordGraph['@graph'][9]
+    && $keywordNodes[10] === $keywordGraph['@graph'][10]
+    && $keywordNodes[11] === $keywordGraph['@graph'][11]
+    && $keywordOutput[2]['text'] === 'Separates Schlüsselwort unverändert.'
+    && $keywordOutput[3]['id'] === 'https://www.meinhaushalt.at/separate-keyword/'
+    && in_array('Schlüsselwort übersetzen.', $keywordTexts, true)
+    && !in_array('@type', $keywordTexts, true)
+    && !in_array('s:HowToStep', $keywordTexts, true),
+    'Keyword alias contexts, shared types, null/foreign overrides and script scopes stay isolated'
+);
+
+// An overridden id alias must neither route that property nor seed graph IDs.
+foreach ([null, 'https://example.org/id'] as $idOverride) {
+    $overriddenId = 'https://www.meinhaushalt.at/overridden-id/';
+    $idScope = jsonLdReviewRender([
+        ['@context' => $keywordContext, 'child' => ['@context' => ['id' => $idOverride], 'type' => 's:WebPage', 'id' => $overriddenId]],
+        ['isPartOf' => ['@id' => $overriddenId]],
+    ], $routing);
+    $reviewCheck(
+        $idScope[0]['child']['id'] === $overriddenId && $idScope[1]['isPartOf']['@id'] === $overriddenId,
+        'Keyword id alias overrides do not seed collected page IDs: ' . json_encode($idOverride)
+    );
+}
+
+// Original keys are retained, but keyword meanings win over prose field names.
+$keywordCollision = jsonLdReviewRender([
+    ['@context' => ['name' => '@type', 'description' => '@id'], 'name' => 'HowToStep', 'description' => 'https://www.meinhaushalt.at/step/', 'text' => 'Alias-Kollision übersetzen.'],
+    ['@context' => ['name' => '@type', 'description' => '@id'], 'name' => 'WebPage', 'description' => 'https://www.meinhaushalt.at/collision/'],
+], $routing);
+$reviewCheck(
+    $keywordCollision[0]['name'] === 'HowToStep'
+    && $keywordCollision[0]['description'] === 'https://www.meinhaushalt.at/step/'
+    && $keywordCollision[0]['text'] === '[en] Alias-Kollision übersetzen.'
+    && $keywordCollision[1]['name'] === 'WebPage'
+    && $keywordCollision[1]['description'] === 'https://www.meinhaushalt.at/en/collision/',
+    'Keyword aliases retain original keys and never become translated prose'
+);
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

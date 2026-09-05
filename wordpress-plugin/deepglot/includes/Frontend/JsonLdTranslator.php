@@ -47,8 +47,8 @@ class JsonLdTranslator
      * Schema entities whose own @id and url identify the localized page (or
      * a page-scoped fragment), rather than a shared person, organization or
      * media asset. Direct breadcrumb items and mainEntityOfPage strings are
-     * handled separately; untyped reference objects are matched against the
-     * collected graph identities instead of relationship-property names.
+     * handled separately; untyped or exclusively generic Thing references can
+     * also match the collected graph identities.
      */
     private const PAGE_RELATED_TYPES = [
         'Article',
@@ -65,6 +65,8 @@ class JsonLdTranslator
         'WebSite',
     ];
 
+    // Preserve the existing guard for explicit Page + shared/media multi-types.
+    // Reference inference instead uses the positive untyped/Thing-only model.
     private const SHARED_ENTITY_TYPES = [
         'Person',
         'Organization',
@@ -214,17 +216,17 @@ class JsonLdTranslator
 
     /**
      * Collects the original identities of internal page-like graph nodes before
-     * any URL is rewritten. Untyped reference objects can then be localized by
-     * exact graph identity without relying on a potentially incomplete list of
-     * relationship property names.
+     * any URL is rewritten. Untyped or exclusively generic Thing references can
+     * then be localized by exact graph identity without relying on a potentially
+     * incomplete list of relationship property names.
      *
      * @param array<mixed> $data
      * @param array<string, true> $pageNodeIds
      */
     private function collectPageNodeIds(array $data, array &$pageNodeIds): void
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use (&$pageNodeIds): array {
-            $id = is_array($value) ? ($value['@id'] ?? null) : null;
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$pageNodeIds): array {
+            $id = $node['id'] ?? null;
             if ($this->hasPageRelatedType($types) && is_string($id) && $this->isInternalUrlReference($id)) {
                 $pageNodeIds[trim($id)] = true;
             }
@@ -250,7 +252,7 @@ class JsonLdTranslator
             return;
         }
 
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use ($targetLanguage, $pageNodeIds): array {
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($targetLanguage, $pageNodeIds): array {
             $isPageUrl = ($parent['isPageEntity'] ?? false) && in_array($property, ['@id', 'url'], true);
             $isPageReference = $property === 'mainEntityOfPage'
                 || ($property === 'item' && ($parent['isListItem'] ?? false))
@@ -260,31 +262,19 @@ class JsonLdTranslator
                 $value = $this->routing->rewriteUrl(trim($value), $targetLanguage);
             }
 
-            // A relationship can supply page semantics even to a generic Thing.
-            // Explicit shared/media types take precedence, including multi-types;
-            // unresolved foreign types cannot acquire Schema.org page semantics.
-            $isUntyped = is_array($value) && !array_key_exists('@type', $value);
-            $canBePageReference = ($isUntyped || $types !== []) && !$this->hasSharedEntityType($types);
+            // Relationships and collected identities supply page semantics only
+            // to untyped nodes or exclusively generic Thing types. A specific,
+            // unresolved or invalid type must not disappear during normalization.
+            $canBePageReference = $node['canBePageReference'] ?? false;
+            $id = $node['id'] ?? null;
             return [
                 'isListItem' => in_array('ListItem', $types, true),
                 'isPageEntity' => $this->hasPageRelatedType($types)
-                    || ($canBePageReference && $isPageReference)
-                    || ($isUntyped && $this->isExactPageNodeReference($value, $pageNodeIds)),
+                    || ($canBePageReference && (
+                        $isPageReference || (is_string($id) && isset($pageNodeIds[trim($id)]))
+                    )),
             ];
         });
-    }
-
-    /**
-     * @param array<mixed> $data
-     * @param array<string, true> $pageNodeIds
-     */
-    private function isExactPageNodeReference(array $data, array $pageNodeIds): bool
-    {
-        if (array_key_exists('@type', $data) || !isset($data['@id']) || !is_string($data['@id'])) {
-            return false;
-        }
-
-        return isset($pageNodeIds[trim($data['@id'])]);
     }
 
     private function isInternalUrlReference(string $value): bool
@@ -313,7 +303,7 @@ class JsonLdTranslator
      * An explicit null context or foreign vocabulary removes that default.
      *
      * @param mixed $value
-     * @param callable $visitor Receives the value, property, parent state and resolved types; returns child state.
+     * @param callable $visitor Receives value, semantic property, parent state, resolved types and node metadata; returns child state.
      * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string}|null $context
      * @param array<string, mixed> $parent
      */
@@ -335,24 +325,63 @@ class JsonLdTranslator
         }
 
         $types = [];
+        $node = [];
         if (is_array($value)) {
             if (array_key_exists('@context', $value)) {
                 $context = $this->resolveContext($value['@context'], $context);
             }
-            $types = $this->schemaTypes($value['@type'] ?? null, $context);
+            $node = ['canBePageReference' => true];
+            foreach ($value as $key => $child) {
+                $keyword = is_string($key) ? $this->semanticProperty($key, $context) : null;
+                if ($keyword === '@type') {
+                    $resolvedTypes = $this->schemaTypes($child, $context);
+                    $types = array_merge($types, $resolvedTypes);
+                    $node['canBePageReference'] = $node['canBePageReference']
+                        && $this->isExclusivelyGenericType($child, $resolvedTypes);
+                } elseif ($keyword === '@id') {
+                    $node['id'] = $child;
+                }
+            }
         }
 
-        $state = $visitor($value, $property, $parent, $types);
+        $state = $visitor($value, $property, $parent, $types, $node);
         if (!is_array($value)) {
             return;
         }
 
         foreach ($value as $key => &$child) {
             if ($key !== '@context') {
-                $this->walk($child, $visitor, $context, is_string($key) ? $key : $property, $state);
+                $this->walk($child, $visitor, $context, is_string($key) ? $this->semanticProperty($key, $context) : $property, $state);
             }
         }
         unset($child);
+    }
+
+    /**
+     * Keyword meaning takes precedence over prose field names without changing
+     * the original object keys. Context definitions always use literal keywords.
+     *
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string} $context
+     */
+    private function semanticProperty(string $key, array $context): string
+    {
+        $term = $context['terms'][$key] ?? null;
+        return in_array($term, ['@type', '@id'], true) ? $term : $key;
+    }
+
+    /** @param string[] $types */
+    private function isExclusivelyGenericType($value, array $types): bool
+    {
+        if (is_array($value) && ($value === [] || array_keys($value) !== range(0, count($value) - 1))) {
+            return false;
+        }
+        $values = is_array($value) ? $value : [$value];
+
+        // Resolution deliberately drops foreign/invalid types for other uses;
+        // cardinality keeps those raw values from making a mixed type generic.
+        return $types !== []
+            && count($types) === count($values)
+            && array_diff($types, ['Thing']) === [];
     }
 
     /**
@@ -419,9 +448,11 @@ class JsonLdTranslator
             }
             $id = is_array($mapping) ? ($mapping['@id'] ?? null) : $mapping;
             $context['terms'][$term] = is_string($id)
-                ? (str_contains($id, ':')
-                    ? $this->expandContextIri($id, $context['prefixes'])
-                    : ($context['vocab'] ?? '') . $id)
+                ? (str_starts_with($id, '@')
+                    ? $id
+                    : (str_contains($id, ':')
+                        ? $this->expandContextIri($id, $context['prefixes'])
+                        : ($context['vocab'] ?? '') . $id))
                 : null;
         }
         return $context;

@@ -61,8 +61,8 @@ references with extra metadata, are collected across all JSON-LD blocks in one
 document before rewriting. Scalar and array page URLs retain their property
 semantics and are trimmed before routing; external values remain unchanged.
 
-Compact type prefixes and ordinary class aliases are resolved separately from
-the active local `@context`, including
+Compact type prefixes, ordinary class aliases and local `@type`/`@id` keyword
+aliases are resolved from the active local `@context`, including
 inherited aliases, overrides, context arrays and null resets. Context scope stays
 within its script block and subtree; page identity matching spans script blocks.
 Full Schema.org IRIs remain supported. Context definitions are never sent for
@@ -74,9 +74,12 @@ default, which explicit null contexts or foreign vocabularies remove. Generic
 outside the new translation/routing scope.
 
 Schema.org types ending in `Article` follow page routing, including specific
-news and scholarly subtypes. Breadcrumb item relationships also supply page
-semantics to generic typed objects such as `Thing`; known shared/media entity
-types take precedence and retain their identifiers and URLs.
+news and scholarly subtypes. For objects without an explicit page-related type,
+relationships and exact collected page-ID matches only supply page semantics to
+untyped objects or exclusively Schema.org `Thing` types. Other specific, mixed
+or unresolved reference types remain unchanged, including organization, person
+and media subtypes. Keyword aliases retain their original
+JSON keys and share the same scope for text selection, ID collection and routing.
 
 ## Installation in WordPress
 
