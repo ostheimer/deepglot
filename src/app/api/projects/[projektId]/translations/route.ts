@@ -23,6 +23,8 @@ const statusMap = {
 } as const satisfies Record<string, TranslationWorkflowStatus>;
 
 const querySchema = z.object({
+  quality: z.enum(["mismatch", "match", "unchecked"]).optional(),
+  activity: z.enum(["recent", "older", "unknown"]).optional(),
   label: translationLabelSchema.optional(),
   variables: z.enum(["saved", "none"]).optional(),
   source: z
@@ -108,6 +110,8 @@ export async function GET(
         langCode: access.langCode ?? null,
       },
       filters: {
+        quality: parsed.data.quality,
+        activity: parsed.data.activity,
         label: parsed.data.label,
         variables: parsed.data.variables,
         source: parsed.data.source,
