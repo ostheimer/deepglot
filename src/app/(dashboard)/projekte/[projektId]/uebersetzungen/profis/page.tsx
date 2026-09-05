@@ -25,6 +25,7 @@ export default async function ProfiUebersetzungenPage({ params }: PageProps) {
       where: { id: projektId },
       select: {
         id: true,
+        domain: true,
         originalLang: true,
         languages: {
           where: { isActive: true },
@@ -57,6 +58,7 @@ export default async function ProfiUebersetzungenPage({ params }: PageProps) {
 
   return (
     <TranslationWorkflowPanel
+      domain={project.domain}
       projectId={project.id}
       languages={project.languages.filter(
         (language) =>

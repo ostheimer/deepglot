@@ -9,6 +9,24 @@ import {
   translationWorkspaceQueryKey,
 } from "@/lib/translation-workspace-client-state";
 
+test("every advanced filter changes the response identity", () => {
+  const base = {
+    status: "",
+    langTo: "",
+    assignee: "",
+    submittedQuery: "",
+    page: 1,
+  };
+  const key = translationWorkspaceQueryKey(base);
+  for (const filter of ["source", "mode", "context", "urlPath", "sort"]) {
+    assert.notEqual(
+      translationWorkspaceQueryKey({ ...base, [filter]: "changed" }),
+      key,
+      filter,
+    );
+  }
+});
+
 test("inactive target-language segments never expose workspace editing", () => {
   assert.equal(
     canEditWorkspaceTranslation({
