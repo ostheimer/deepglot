@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -23,6 +23,14 @@ import { Input } from "@/components/ui/input";
 import type { SiteLocale } from "@/lib/site-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import {
+  beginTranslationWorkspaceEdit,
+  canEditWorkspaceTranslation,
+  completeTranslationWorkspaceEdit,
+  deletionResponseMatchesWorkspaceQuery,
+  translationWorkspaceQueryKey,
+  type TranslationWorkspaceEditDraft,
+} from "@/lib/translation-workspace-client-state";
 import { planTranslationPaginationAfterDeletion } from "@/lib/translation-workspace-pagination";
 
 type WorkflowStatus = "machine" | "assigned" | "in_review" | "approved";
@@ -103,11 +111,22 @@ export function TranslationWorkflowPanel({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState("");
+  const [editingDraft, setEditingDraft] =
+    useState<TranslationWorkspaceEditDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestIdRef = useRef(0);
+  const activeLanguageCodes = languages.map((language) => language.langCode);
+  const currentQueryKey = translationWorkspaceQueryKey({
+    status,
+    langTo,
+    assignee,
+    submittedQuery,
+    page,
+  });
+  const latestQueryKeyRef = useRef(currentQueryKey);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     setError(null);
     const search = new URLSearchParams();
@@ -124,8 +143,10 @@ export function TranslationWorkflowPanel({
       );
       const body = (await response.json()) as WorkflowResponse & { error?: string };
       if (!response.ok) throw new Error(body.error || "Request failed");
+      if (requestId !== loadRequestIdRef.current) return;
       setData(body);
     } catch {
+      if (requestId !== loadRequestIdRef.current) return;
       setError(
         uiText(
           locale,
@@ -134,19 +155,26 @@ export function TranslationWorkflowPanel({
         ),
       );
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [assignee, langTo, locale, page, projectId, status, submittedQuery]);
 
+  const latestLoadRef = useRef(load);
+
   useEffect(() => {
+    latestQueryKeyRef.current = currentQueryKey;
+    latestLoadRef.current = load;
     void load();
-  }, [load]);
+  }, [currentQueryKey, load]);
 
   async function updateTranslation(
     translationId: string,
     patch:
       | { status?: WorkflowStatus; assignedToId?: string | null }
       | { translatedText: string; expectedUpdatedAt: string },
+    mutation: "content" | "workflow" = "workflow",
   ) {
     setSavingId(translationId);
     setError(null);
@@ -176,7 +204,12 @@ export function TranslationWorkflowPanel({
             }
           : current,
       );
-      setEditingId(null);
+      setEditingDraft((current) =>
+        completeTranslationWorkspaceEdit(current, {
+          translationId,
+          mutation,
+        }),
+      );
     } catch {
       setError(
         uiText(
@@ -198,6 +231,7 @@ export function TranslationWorkflowPanel({
 
     setSavingId(translation.id);
     setError(null);
+    const requestQueryKey = currentQueryKey;
     try {
       const response = await fetch(
         `/api/projects/${projectId}/translations/${translation.id}`,
@@ -213,8 +247,17 @@ export function TranslationWorkflowPanel({
         } | null;
         throw new Error(body?.error || "Request failed");
       }
+      if (
+        !deletionResponseMatchesWorkspaceQuery(
+          requestQueryKey,
+          latestQueryKeyRef.current,
+        )
+      ) {
+        await latestLoadRef.current();
+        return;
+      }
       if (!data) {
-        await load();
+        await latestLoadRef.current();
         return;
       }
 
@@ -419,11 +462,13 @@ export function TranslationWorkflowPanel({
               const canSubmit =
                 translation.status === "assigned" &&
                 translation.assignedToId === currentMemberId;
-              const canEdit =
-                canManage ||
-                (currentMemberId !== null &&
-                  translation.assignedToId === currentMemberId);
-              const editing = editingId === translation.id;
+              const canEdit = canEditWorkspaceTranslation({
+                canManage,
+                currentMemberId,
+                assignedToId: translation.assignedToId,
+                langTo: translation.langTo,
+                activeLanguageCodes,
+              });
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
@@ -439,27 +484,34 @@ export function TranslationWorkflowPanel({
                         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                           {translation.langTo.toUpperCase()} · {uiText(locale, "Translation", "Übersetzung")}
                         </p>
-                        {canEdit && !editing && (
+                        {canEdit && editingDraft?.id !== translation.id && (
                           <Button
                             type="button"
                             size="xs"
                             variant="ghost"
                             disabled={saving}
-                            onClick={() => {
-                              setEditingId(translation.id);
-                              setEditingText(translation.translatedText);
-                            }}
+                            onClick={() =>
+                              setEditingDraft(
+                                beginTranslationWorkspaceEdit(translation),
+                              )
+                            }
                           >
                             <Pencil />
                             {uiText(locale, "Edit", "Bearbeiten")}
                           </Button>
                         )}
                       </div>
-                      {editing ? (
+                      {editingDraft?.id === translation.id ? (
                         <div className="space-y-2">
                           <textarea
-                            value={editingText}
-                            onChange={(event) => setEditingText(event.target.value)}
+                            value={editingDraft.text}
+                            onChange={(event) =>
+                              setEditingDraft((current) =>
+                                current?.id === translation.id
+                                  ? { ...current, text: event.target.value }
+                                  : current,
+                              )
+                            }
                             rows={4}
                             maxLength={100_000}
                             className="w-full resize-y rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
@@ -471,7 +523,7 @@ export function TranslationWorkflowPanel({
                               size="xs"
                               variant="outline"
                               disabled={saving}
-                              onClick={() => setEditingId(null)}
+                              onClick={() => setEditingDraft(null)}
                             >
                               <X />
                               {uiText(locale, "Cancel", "Abbrechen")}
@@ -479,12 +531,19 @@ export function TranslationWorkflowPanel({
                             <Button
                               type="button"
                               size="xs"
-                              disabled={saving || editingText.trim().length === 0}
+                              disabled={
+                                saving || editingDraft.text.trim().length === 0
+                              }
                               onClick={() =>
-                                void updateTranslation(translation.id, {
-                                  translatedText: editingText,
-                                  expectedUpdatedAt: translation.updatedAt,
-                                })
+                                void updateTranslation(
+                                  translation.id,
+                                  {
+                                    translatedText: editingDraft.text,
+                                    expectedUpdatedAt:
+                                      editingDraft.expectedUpdatedAt,
+                                  },
+                                  "content",
+                                )
                               }
                             >
                               <Save />

@@ -222,6 +222,83 @@ test(
       },
     );
 
+    await testContext.test(
+      "leaves provenance, timestamps, activity, and webhooks unchanged for a no-op save",
+      async () => {
+        const noOpCandidate = await db.translation.create({
+          data: {
+            projectId: project.id,
+            originalHash: `noop-${suffix}`,
+            originalText: "Dieser Text bleibt unverändert.",
+            translatedText: "This text remains unchanged.",
+            langFrom: "de",
+            langTo: "en",
+            source: "OPENAI",
+            wordCount: 4,
+          },
+        });
+        const batchesBefore = await db.translationBatchLog.count({
+          where: { projectId: project.id, provider: "manual" },
+        });
+        const webhooksBefore = await db.webhookDelivery.count({
+          where: {
+            projectId: project.id,
+            eventType: "translation.manual_updated",
+          },
+        });
+
+        const unchanged = await updateProjectTranslationContent({
+          projectId: project.id,
+          translationId: noOpCandidate.id,
+          actor: manager,
+          translatedText: noOpCandidate.translatedText,
+          expectedUpdatedAt: noOpCandidate.updatedAt,
+        });
+
+        assert.equal(unchanged.source, "OPENAI");
+        assert.equal(unchanged.isManual, false);
+        assert.equal(unchanged.updatedAt.getTime(), noOpCandidate.updatedAt.getTime());
+        assert.equal(
+          await db.translationBatchLog.count({
+            where: { projectId: project.id, provider: "manual" },
+          }),
+          batchesBefore,
+        );
+        assert.equal(
+          await db.webhookDelivery.count({
+            where: {
+              projectId: project.id,
+              eventType: "translation.manual_updated",
+            },
+          }),
+          webhooksBefore,
+        );
+
+        const concurrentUpdatedAt = new Date(
+          noOpCandidate.updatedAt.getTime() + 1_000,
+        );
+        const concurrentlyUpdated = await db.translation.update({
+          where: { id: noOpCandidate.id },
+          data: {
+            translatedText: "This text changed concurrently.",
+            updatedAt: concurrentUpdatedAt,
+          },
+        });
+        await assert.rejects(
+          updateProjectTranslationContent({
+            projectId: project.id,
+            translationId: noOpCandidate.id,
+            actor: manager,
+            translatedText: concurrentlyUpdated.translatedText,
+            expectedUpdatedAt: noOpCandidate.updatedAt,
+          }),
+          (error) =>
+            error instanceof TranslationWorkflowError &&
+            error.code === "STALE_UPDATE",
+        );
+      },
+    );
+
     const assigned = await updateProjectTranslationWorkflow({
       projectId: project.id,
       translationId: translation.id,

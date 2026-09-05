@@ -46,6 +46,22 @@ test("the central workspace exposes direct editing and manager-only deletion", (
   assert.match(panel, /method:\s*"DELETE"/);
 });
 
+test("workspace editing wires active languages, stable drafts, and current-query deletion recovery", () => {
+  const panel = source(
+    "src/components/projekte/translation-workflow-panel.tsx",
+  );
+
+  assert.match(panel, /canEditWorkspaceTranslation\(\{/);
+  assert.match(panel, /activeLanguageCodes/);
+  assert.match(panel, /beginTranslationWorkspaceEdit\(translation\)/);
+  assert.match(panel, /editingDraft\.expectedUpdatedAt/);
+  assert.match(panel, /completeTranslationWorkspaceEdit/);
+  assert.match(panel, /deletionResponseMatchesWorkspaceQuery/);
+  assert.match(panel, /latestLoadRef\.current\(\)/);
+  assert.match(panel, /const requestId = \+\+loadRequestIdRef\.current/);
+  assert.match(panel, /requestId !== loadRequestIdRef\.current/);
+});
+
 test("dashboard replaces the redirect with filters, assignment, review, and existing handoff links", () => {
   const page = source(
     "src/app/(dashboard)/projekte/[projektId]/uebersetzungen/profis/page.tsx",

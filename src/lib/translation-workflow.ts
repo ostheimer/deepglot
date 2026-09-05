@@ -524,6 +524,28 @@ export async function updateProjectTranslationContent({
       );
     }
 
+    const lockedCurrentVersion = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Translation"
+      WHERE "id" = ${current.id}
+        AND "projectId" = ${projectId}
+        AND "updatedAt" = ${expectedUpdatedAt}
+      FOR UPDATE
+    `;
+    if (lockedCurrentVersion.length !== 1) {
+      throw new TranslationWorkflowError(
+        "STALE_UPDATE",
+        "The segment changed while it was being edited. Reload and retry.",
+      );
+    }
+
+    if (current.translatedText === translatedText) {
+      return tx.translation.findUniqueOrThrow({
+        where: { id: current.id },
+        include: workflowInclude,
+      });
+    }
+
     const changed = await tx.translation.updateMany({
       where: {
         id: current.id,
