@@ -74,12 +74,19 @@ export function workspaceSqlWhere(
     // Tokenize in PostgreSQL before pagination; do not load the project into JS.
     // The same expression is tested against translationTokenCounts with real PG.
     const mismatch = Prisma.sql`EXISTS (
-      SELECT 1 FROM "TranslationMetadata" m, unnest(m.variables) AS v(token)
-      WHERE m."translationId" = t.id AND (
-        NOT EXISTS (SELECT 1 FROM regexp_matches(t."originalText", ${TRANSLATION_TOKEN_PATTERN}, 'g') AS s(parts) WHERE s.parts[1] = v.token AND v.token <> '%%')
-        OR (SELECT count(*) FROM regexp_matches(t."originalText", ${TRANSLATION_TOKEN_PATTERN}, 'g') AS s(parts) WHERE s.parts[1] = v.token)
-        <> (SELECT count(*) FROM regexp_matches(t."translatedText", ${TRANSLATION_TOKEN_PATTERN}, 'g') AS s(parts) WHERE s.parts[1] = v.token)
+      WITH source_tokens AS MATERIALIZED (
+        SELECT parts[1] AS token, count(*) AS n
+        FROM regexp_matches(t."originalText", ${TRANSLATION_TOKEN_PATTERN}, 'g') AS s(parts)
+        WHERE parts[1] <> '%%' GROUP BY parts[1]
+      ), target_tokens AS MATERIALIZED (
+        SELECT parts[1] AS token, count(*) AS n
+        FROM regexp_matches(t."translatedText", ${TRANSLATION_TOKEN_PATTERN}, 'g') AS s(parts)
+        WHERE parts[1] <> '%%' GROUP BY parts[1]
       )
+      SELECT 1 FROM "TranslationMetadata" m, unnest(m.variables) AS v(token)
+      LEFT JOIN source_tokens s ON s.token = v.token
+      LEFT JOIN target_tokens d ON d.token = v.token
+      WHERE m."translationId" = t.id AND (s.n IS NULL OR s.n <> COALESCE(d.n, 0))
     )`;
     clauses.push(
       hasVariables,

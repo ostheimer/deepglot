@@ -24,7 +24,9 @@ Activity is segment-wide. Selecting an old path does not classify a segment as o
 
 Existing project access and target-language checks remain in place. All old and new filters compose with AND semantics; text search still matches source OR translation. Search terms and all filter values are SQL parameters, including literal `%`, `_`, backslashes and quotes. Sorting uses only fixed expressions and an ID tie-breaker.
 
-Filtering and counts execute in PostgreSQL before pagination. Count, selected IDs and bounded Prisma hydration share a repeatable-read transaction; there is no unbounded project scan in application memory. The path selector retains its existing scope and 500-path presentation limit. No schema migration is needed beyond the metadata/context prerequisites shipped in #328 and #331.
+Filtering and counts execute in PostgreSQL before pagination. Token counts are materialized once per source/target text and reused for all selected variables. Count, selected IDs and bounded Prisma hydration share a repeatable-read transaction; there is no unbounded project scan in application memory. The path selector retains its existing scope and 500-path presentation limit. No schema migration is needed beyond the metadata/context prerequisites shipped in #328 and #331.
+
+A local synthetic PostgreSQL benchmark with 1,000 fully annotated segments and 50 selected variables per segment exposed repeated tokenization: match/mismatch listings took 11,084/10,784 ms. Materializing the two token-count sets reduced the same workload to 483/471 ms, with identical totals. These are local measurements, not a production latency guarantee. A structural regression test guards the two materialized tokenization operations without imposing flaky wall-clock assertions in CI.
 
 ## Verification and remaining scope
 
