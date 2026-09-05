@@ -33,6 +33,7 @@ class JsonLdTranslator
         'about',
         'abstract',
         'recipeIngredient',
+        'recipeInstructions',
     ];
 
     /**
@@ -126,11 +127,16 @@ class JsonLdTranslator
      */
     public function apply(array $mutations, array $translations, string $targetLanguage): void
     {
+        // Separate script blocks are part of the same document graph. Collect
+        // every original identity before rewriting any definitions or references.
+        $pageNodeIds = [];
+        foreach ($mutations as $mutation) {
+            $this->collectPageNodeIds($mutation['data'], $pageNodeIds);
+        }
+
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
             $this->applyTranslations($data, $translations, $targetLanguage);
-            $pageNodeIds = [];
-            $this->collectPageNodeIds($data, $pageNodeIds);
             $this->localizePageUrls($data, $targetLanguage, $pageNodeIds);
 
             // JSON_HEX_TAG escapes "<" and ">" as < / > so a
@@ -245,7 +251,7 @@ class JsonLdTranslator
             && is_string($id)
             && $this->isInternalUrlReference($id)
         ) {
-            $pageNodeIds[$id] = true;
+            $pageNodeIds[trim($id)] = true;
         }
 
         foreach ($data as $value) {
@@ -296,8 +302,8 @@ class JsonLdTranslator
             $isOwnPageUrl = $isPageEntity && ($key === '@id' || $key === 'url');
             $isDirectPageReference = $childIsPageReference;
 
-            if (($isOwnPageUrl || $isDirectPageReference) && $this->isUrlReference($value)) {
-                $value = $this->routing->rewriteUrl($value, $targetLanguage);
+            if (($isOwnPageUrl || $isDirectPageReference) && $this->isInternalUrlReference($value)) {
+                $value = $this->routing->rewriteUrl(trim($value), $targetLanguage);
             }
         }
         unset($value);
@@ -313,11 +319,12 @@ class JsonLdTranslator
             return false;
         }
 
-        return isset($pageNodeIds[$data['@id']]);
+        return isset($pageNodeIds[trim($data['@id'])]);
     }
 
     private function isInternalUrlReference(string $value): bool
     {
+        $value = trim($value);
         if ($this->routing === null || !$this->isUrlReference($value) || str_starts_with($value, '//')) {
             return false;
         }
@@ -343,6 +350,9 @@ class JsonLdTranslator
             }
 
             $normalized = preg_replace('~^.*[/#]~', '', trim($type));
+            if (is_string($normalized) && str_starts_with($normalized, 'schema:')) {
+                $normalized = substr($normalized, strlen('schema:'));
+            }
             if (is_string($normalized) && $normalized !== '') {
                 $types[] = $normalized;
             }

@@ -53,6 +53,15 @@ wordpress-plugin/deepglot/
 └── tests/
 ```
 
+## Structured data
+
+JSON-LD localization supports Recipe instructions as strings, arrays of strings,
+or typed HowToStep objects. Page identities and exact references are collected
+across all JSON-LD blocks in one document before rewriting. Page URLs are trimmed
+before routing, and compact schema types such as `schema:HowToStep` are recognized
+alongside full schema IRIs. Generic `text` fields outside HowToStep and shared
+person, organization, media, and external identities retain their existing scope.
+
 ## Installation in WordPress
 
 1. Build the versioned ZIP from an explicit commit using the release command below.

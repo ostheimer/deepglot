@@ -451,4 +451,124 @@ foreach (['Familie, Kinder, Erziehung', 'Comedy', 'Published'] as $controlled) {
     jsonLdAssert(!in_array($controlled, $nonProseClient->sentTexts, true), 'Controlled-vocabulary value "' . $controlled . '" must NOT be translated');
 }
 
+// Review regressions: run every case before reporting failures so each boundary
+// has independent red/green evidence. Decode JSON instead of matching output.
+function jsonLdReviewRender(array $blocks, SiteRouting $routing): array
+{
+    $doc = new DOMDocument();
+    $html = '<html><head><meta charset="utf-8">';
+    foreach ($blocks as $block) {
+        $html .= '<script type="application/ld+json">'
+            . json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            . '</script>';
+    }
+    $doc->loadHTML($html . '</head><body></body></html>');
+    $helper = new JsonLdTranslator($routing);
+    $mutations = $helper->collect($doc);
+    $translations = [];
+    foreach ($mutations as $mutation) {
+        foreach ($mutation['strings'] as $text) {
+            $translations[$text] = '[en] ' . $text;
+        }
+    }
+    $helper->apply($mutations, $translations, 'en');
+    $output = [];
+    foreach ($doc->getElementsByTagName('script') as $script) {
+        $output[] = json_decode($script->textContent, true, 512, JSON_THROW_ON_ERROR);
+    }
+    return $output;
+}
+
+$reviewFailures = [];
+$reviewCheck = static function (bool $pass, string $label) use (&$reviewFailures): void {
+    if (!$pass) {
+        $reviewFailures[] = $label;
+    }
+};
+
+$instructionOutput = jsonLdReviewRender([
+    ['@type' => 'Recipe', 'recipeInstructions' => 'Wasser aufkochen.'],
+    ['@type' => 'Recipe', 'recipeInstructions' => ['Grieß einrühren.', 'Fünf Minuten köcheln.']],
+    ['@type' => 'Thing', 'text' => 'Unveränderter Kontrolltext'],
+], $routing);
+$reviewCheck(
+    $instructionOutput[0]['recipeInstructions'] === '[en] Wasser aufkochen.'
+    && $instructionOutput[1]['recipeInstructions'] === ['[en] Grieß einrühren.', '[en] Fünf Minuten köcheln.']
+    && $instructionOutput[2]['text'] === 'Unveränderter Kontrolltext',
+    'P2 3942085469: string and string-array recipeInstructions translate; generic text stays unchanged'
+);
+
+$sourcePageId = 'https://www.meinhaushalt.at/review/#webpage';
+$sourceBreadcrumbId = 'https://www.meinhaushalt.at/review/#breadcrumb';
+$references = [
+    '@type' => 'Article',
+    'isPartOf' => ['@id' => $sourcePageId],
+    'breadcrumb' => ['@id' => $sourceBreadcrumbId],
+    'author' => ['@id' => 'https://www.meinhaushalt.at/#person'],
+    'publisher' => ['@id' => 'https://www.meinhaushalt.at/#organization'],
+    'image' => ['@id' => 'https://www.meinhaushalt.at/wp-content/uploads/image.jpg'],
+    'citation' => ['@id' => 'https://example.org/#webpage'],
+];
+$definitions = ['@graph' => [
+    ['@type' => 'WebPage', '@id' => $sourcePageId],
+    ['@type' => 'BreadcrumbList', '@id' => $sourceBreadcrumbId],
+    ['@type' => 'Person', '@id' => $references['author']['@id']],
+    ['@type' => 'Organization', '@id' => $references['publisher']['@id']],
+    ['@type' => 'ImageObject', '@id' => $references['image']['@id']],
+    ['@type' => 'WebPage', '@id' => $references['citation']['@id']],
+]];
+foreach ([false, true] as $reverse) {
+    $blocks = $reverse ? [$definitions, $references] : [$references, $definitions];
+    $result = jsonLdReviewRender($blocks, $routing);
+    $referenceOutput = $result[$reverse ? 1 : 0];
+    $definitionOutput = $result[$reverse ? 0 : 1]['@graph'];
+    $reviewCheck(
+        $referenceOutput['isPartOf']['@id'] === $definitionOutput[0]['@id']
+        && $referenceOutput['isPartOf']['@id'] === 'https://www.meinhaushalt.at/en/review/#webpage'
+        && $referenceOutput['breadcrumb']['@id'] === $definitionOutput[1]['@id'],
+        'P2 3942085474: cross-script references match definitions in order ' . (int) $reverse
+    );
+    foreach (['author', 'publisher', 'image', 'citation'] as $key) {
+        $reviewCheck($referenceOutput[$key] === $references[$key], 'Shared/external reference preserved: ' . $key);
+    }
+    $reviewCheck(array_slice($definitionOutput, 2) === array_slice($definitions['@graph'], 2), 'Shared/media/external definitions preserved');
+}
+
+$padded = jsonLdReviewRender([
+    ['@type' => 'WebPage', '@id' => " \t" . $sourcePageId . "\n", 'url' => ' https://www.meinhaushalt.at/review/ '],
+    ['@type' => 'Article', 'isPartOf' => ['@id' => $sourcePageId], 'mainEntityOfPage' => ' https://www.meinhaushalt.at/review/ '],
+    ['@type' => 'WebPage', '@id' => ' https://example.org/external/ ', 'url' => ' https://example.org/external/ '],
+    ['@type' => 'Person', '@id' => ' https://www.meinhaushalt.at/#person '],
+], $routing);
+$reviewCheck(
+    $padded[0]['@id'] === 'https://www.meinhaushalt.at/en/review/#webpage'
+    && $padded[0]['url'] === 'https://www.meinhaushalt.at/en/review/'
+    && $padded[1]['isPartOf']['@id'] === $padded[0]['@id']
+    && $padded[1]['mainEntityOfPage'] === 'https://www.meinhaushalt.at/en/review/'
+    && $padded[2]['url'] === ' https://example.org/external/ '
+    && $padded[2]['@id'] === ' https://example.org/external/ '
+    && $padded[3]['@id'] === ' https://www.meinhaushalt.at/#person ',
+    'P2 3942085476: padded page URLs normalize consistently; external URLs never become local paths'
+);
+
+foreach (['schema:', 'https://schema.org/', 'http://schema.org/'] as $prefix) {
+    $typed = jsonLdReviewRender([
+        ['@context' => ['schema' => 'https://schema.org/'], '@type' => $prefix . 'HowToStep', 'text' => 'Grieß einrühren.'],
+        ['@context' => ['schema' => 'https://schema.org/'], '@type' => $prefix . 'WebPage', '@id' => $sourcePageId, 'url' => 'https://www.meinhaushalt.at/review/'],
+        ['@type' => $prefix . 'Person', '@id' => 'https://www.meinhaushalt.at/#person', 'text' => 'Unverändert'],
+    ], $routing);
+    $reviewCheck(
+        $typed[0]['text'] === '[en] Grieß einrühren.'
+        && $typed[1]['@id'] === 'https://www.meinhaushalt.at/en/review/#webpage'
+        && $typed[1]['url'] === 'https://www.meinhaushalt.at/en/review/'
+        && $typed[2]['@id'] === 'https://www.meinhaushalt.at/#person'
+        && $typed[2]['text'] === 'Unverändert',
+        'P2 3942085479: compact/full IRI types recognized: ' . $prefix
+    );
+}
+
+foreach ($reviewFailures as $failure) {
+    fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
+}
+jsonLdAssert($reviewFailures === [], 'JSON-LD review regressions must all pass');
 fwrite(STDOUT, "JsonLdTranslationTest: OK\n");
