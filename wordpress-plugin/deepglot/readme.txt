@@ -93,6 +93,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.8 =
+* Preserved JSON-LD context definitions while resolving local Schema.org aliases, enriched page references, and URL/reference arrays with consistent context-aware traversal.
 * Supported plain-text Recipe instructions, cross-script page references, padded page URLs, and compact schema type IRIs in JSON-LD localization.
 * Translated Recipe ingredients and instruction text in JSON-LD, and localized internal page and breadcrumb identities plus their exact graph references without changing shared entity, media, or external identifiers.
 * Translated generic ARIA labels in page content and image title tooltips on both the server and the bounded dynamic-content pass.

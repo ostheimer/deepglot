@@ -159,71 +159,42 @@ class JsonLdTranslator
      * @param array<mixed> $data
      * @param string[] $accumulator
      */
-    private function collectStrings(
-        $data,
-        array &$accumulator,
-        ?string $parentKey = null,
-        bool $parentIsHowToStep = false
-    ): void
+    private function collectStrings(array $data, array &$accumulator): void
     {
-        if (is_array($data)) {
-            $isHowToStep = in_array('HowToStep', $this->schemaTypes($data['@type'] ?? null), true);
-            foreach ($data as $key => $value) {
-                $childKey = is_string($key) ? $key : $parentKey;
-                $this->collectStrings($value, $accumulator, $childKey, $isHowToStep);
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use (&$accumulator): array {
+            if (
+                is_string($value)
+                && $property !== null
+                && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                && mb_strlen(trim($value)) >= 2
+            ) {
+                $accumulator[] = $value;
             }
 
-            return;
-        }
-
-        if (!is_string($data) || $parentKey === null) {
-            return;
-        }
-
-        if (!$this->isTranslatableField($parentKey, $parentIsHowToStep)) {
-            return;
-        }
-
-        $trimmed = trim($data);
-
-        if ($trimmed === '' || mb_strlen($trimmed) < 2) {
-            return;
-        }
-
-        $accumulator[] = $data;
+            return ['isHowToStep' => in_array('HowToStep', $types, true)];
+        });
     }
 
     /**
      * @param array<mixed> $data
      * @param array<string, string> $translations
      */
-    private function applyTranslations(array &$data, array $translations, string $targetLanguage, ?string $parentKey = null): void
+    private function applyTranslations(array &$data, array $translations, string $targetLanguage): void
     {
-        $isHowToStep = in_array('HowToStep', $this->schemaTypes($data['@type'] ?? null), true);
-        foreach ($data as $key => &$value) {
-            $childKey = is_string($key) ? $key : $parentKey;
-
-            if (is_array($value)) {
-                $this->applyTranslations($value, $translations, $targetLanguage, $childKey);
-                continue;
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use ($translations, $targetLanguage): array {
+            if (is_string($value) && $property !== null) {
+                if (in_array($property, self::LANGUAGE_KEYS, true)) {
+                    $value = $targetLanguage;
+                } elseif (
+                    $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    && isset($translations[$value])
+                ) {
+                    $value = $translations[$value];
+                }
             }
 
-            if (!is_string($value) || $childKey === null) {
-                continue;
-            }
-
-            if (in_array($childKey, self::LANGUAGE_KEYS, true)) {
-                $value = $targetLanguage;
-                continue;
-            }
-
-            if (
-                $this->isTranslatableField($childKey, $isHowToStep)
-                && isset($translations[$value])
-            ) {
-                $value = $translations[$value];
-            }
-        }
+            return ['isHowToStep' => in_array('HowToStep', $types, true)];
+        });
     }
 
     private function isTranslatableField(string $key, bool $isHowToStep): bool
@@ -243,22 +214,14 @@ class JsonLdTranslator
      */
     private function collectPageNodeIds(array $data, array &$pageNodeIds): void
     {
-        $types = $this->schemaTypes($data['@type'] ?? null);
-        $id = $data['@id'] ?? null;
-
-        if (
-            $this->hasPageRelatedType($types)
-            && is_string($id)
-            && $this->isInternalUrlReference($id)
-        ) {
-            $pageNodeIds[trim($id)] = true;
-        }
-
-        foreach ($data as $value) {
-            if (is_array($value)) {
-                $this->collectPageNodeIds($value, $pageNodeIds);
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use (&$pageNodeIds): array {
+            $id = is_array($value) ? ($value['@id'] ?? null) : null;
+            if ($this->hasPageRelatedType($types) && is_string($id) && $this->isInternalUrlReference($id)) {
+                $pageNodeIds[trim($id)] = true;
             }
-        }
+
+            return [];
+        });
     }
 
     /**
@@ -272,41 +235,31 @@ class JsonLdTranslator
     private function localizePageUrls(
         array &$data,
         string $targetLanguage,
-        array $pageNodeIds,
-        bool $isPageReference = false
+        array $pageNodeIds
     ): void {
         if ($this->routing === null) {
             return;
         }
 
-        $types = $this->schemaTypes($data['@type'] ?? null);
-        $isListItem = in_array('ListItem', $types, true);
-        $isPageEntity = $isPageReference
-            || $this->hasPageRelatedType($types)
-            || $this->isExactPageNodeReference($data, $pageNodeIds);
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types) use ($targetLanguage, $pageNodeIds): array {
+            $isPageUrl = ($parent['isPageEntity'] ?? false) && in_array($property, ['@id', 'url'], true);
+            $isPageReference = $property === 'mainEntityOfPage'
+                || ($property === 'item' && ($parent['isListItem'] ?? false))
+                || ($property === 'url' && ($parent['isPageEntity'] ?? false));
 
-        foreach ($data as $key => &$value) {
-            $key = is_string($key) ? $key : '';
-            $childIsPageReference = ($isListItem && $key === 'item')
-                || $key === 'mainEntityOfPage';
-
-            if (is_array($value)) {
-                $this->localizePageUrls($value, $targetLanguage, $pageNodeIds, $childIsPageReference);
-                continue;
-            }
-
-            if (!is_string($value)) {
-                continue;
-            }
-
-            $isOwnPageUrl = $isPageEntity && ($key === '@id' || $key === 'url');
-            $isDirectPageReference = $childIsPageReference;
-
-            if (($isOwnPageUrl || $isDirectPageReference) && $this->isInternalUrlReference($value)) {
+            if (is_string($value) && ($isPageUrl || $isPageReference) && $this->isInternalUrlReference($value)) {
                 $value = $this->routing->rewriteUrl(trim($value), $targetLanguage);
             }
-        }
-        unset($value);
+
+            // A relationship can supply page semantics to an untyped reference,
+            // but must not override an explicitly typed person or media entity.
+            $isUntyped = is_array($value) && !array_key_exists('@type', $value);
+            return [
+                'isListItem' => in_array('ListItem', $types, true),
+                'isPageEntity' => $this->hasPageRelatedType($types)
+                    || ($isUntyped && ($isPageReference || $this->isExactPageNodeReference($value, $pageNodeIds))),
+            ];
+        });
     }
 
     /**
@@ -315,7 +268,7 @@ class JsonLdTranslator
      */
     private function isExactPageNodeReference(array $data, array $pageNodeIds): bool
     {
-        if (count($data) !== 1 || !array_key_exists('@id', $data) || !is_string($data['@id'])) {
+        if (array_key_exists('@type', $data) || !isset($data['@id']) || !is_string($data['@id'])) {
             return false;
         }
 
@@ -338,8 +291,134 @@ class JsonLdTranslator
         return $host !== '' && $this->routing->isInternalHost($host);
     }
 
-    /** @return string[] */
-    private function schemaTypes($value): array
+    /**
+     * One traversal contract for collection, translation and routing. Contexts
+     * belong to their object and descendants; list elements retain the parent
+     * property's semantics. Context definitions themselves are never visited.
+     * Each script starts with a fresh scope, while callers may share graph IDs.
+     *
+     * Bare types keep the existing Schema.org default for context-free output.
+     * An explicit null context or foreign vocabulary removes that default.
+     *
+     * @param mixed $value
+     * @param callable $visitor Receives the value, property, parent state and resolved types; returns child state.
+     * @param array{prefixes: array<string, string>, vocab: ?string}|null $context
+     * @param array<string, mixed> $parent
+     */
+    private function walk(
+        &$value,
+        callable $visitor,
+        ?array $context = null,
+        ?string $property = null,
+        array $parent = []
+    ): void {
+        $context = $context ?? ['prefixes' => [], 'vocab' => 'https://schema.org/'];
+
+        if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
+            foreach ($value as &$item) {
+                $this->walk($item, $visitor, $context, $property, $parent);
+            }
+            unset($item);
+            return;
+        }
+
+        $types = [];
+        if (is_array($value)) {
+            if (array_key_exists('@context', $value)) {
+                $context = $this->resolveContext($value['@context'], $context);
+            }
+            $types = $this->schemaTypes($value['@type'] ?? null, $context);
+        }
+
+        $state = $visitor($value, $property, $parent, $types);
+        if (!is_array($value)) {
+            return;
+        }
+
+        foreach ($value as $key => &$child) {
+            if ($key !== '@context') {
+                $this->walk($child, $visitor, $context, is_string($key) ? $key : $property, $state);
+            }
+        }
+        unset($child);
+    }
+
+    /**
+     * Resolves local prefix/vocabulary definitions without fetching remote
+     * contexts. Only the well-known Schema.org remote context is understood;
+     * unknown remote contexts fail closed until a local definition restores
+     * the relevant vocabulary or prefix.
+     *
+     * @param mixed $definition
+     * @param array{prefixes: array<string, string>, vocab: ?string} $context
+     * @return array{prefixes: array<string, string>, vocab: ?string}
+     */
+    private function resolveContext($definition, array $context): array
+    {
+        if ($definition === null) {
+            return ['prefixes' => [], 'vocab' => null];
+        }
+        if (is_string($definition)) {
+            if (preg_match('~^https?://schema\.org/?$~i', trim($definition)) === 1) {
+                $context['vocab'] = 'https://schema.org/';
+                return $context;
+            }
+            return ['prefixes' => [], 'vocab' => null];
+        }
+        if (!is_array($definition)) {
+            return $context;
+        }
+        if ($definition === [] || array_keys($definition) === range(0, count($definition) - 1)) {
+            foreach ($definition as $entry) {
+                $context = $this->resolveContext($entry, $context);
+            }
+            return $context;
+        }
+
+        foreach ($definition as $term => $mapping) {
+            if (!is_string($term) || str_starts_with($term, '@')) {
+                continue;
+            }
+            $id = is_array($mapping) ? ($mapping['@id'] ?? null) : $mapping;
+            $isPrefix = is_string($id) && (
+                (is_array($mapping) && ($mapping['@prefix'] ?? null) === true)
+                || (preg_match('~[/#:]$~', $id) === 1 && (!is_array($mapping) || ($mapping['@prefix'] ?? null) !== false))
+            );
+            if ($isPrefix) {
+                $context['prefixes'][$term] = $id;
+            } else {
+                unset($context['prefixes'][$term]);
+            }
+        }
+
+        if (array_key_exists('@vocab', $definition)) {
+            $context['vocab'] = is_string($definition['@vocab'])
+                ? $this->expandContextIri($definition['@vocab'], $context['prefixes'])
+                : null;
+        }
+        return $context;
+    }
+
+    /** @param array<string, string> $prefixes */
+    private function expandContextIri(string $value, array $prefixes, array $seen = []): string
+    {
+        $colon = strpos($value, ':');
+        if ($colon === false || preg_match('~^https?://~i', $value) === 1) {
+            return $value;
+        }
+        $prefix = substr($value, 0, $colon);
+        if (!isset($prefixes[$prefix]) || isset($seen[$prefix])) {
+            return $value;
+        }
+        $seen[$prefix] = true;
+        return $this->expandContextIri($prefixes[$prefix], $prefixes, $seen) . substr($value, $colon + 1);
+    }
+
+    /**
+     * @param array{prefixes: array<string, string>, vocab: ?string} $context
+     * @return string[]
+     */
+    private function schemaTypes($value, array $context): array
     {
         $values = is_array($value) ? $value : [$value];
         $types = [];
@@ -349,12 +428,12 @@ class JsonLdTranslator
                 continue;
             }
 
-            $normalized = preg_replace('~^.*[/#]~', '', trim($type));
-            if (is_string($normalized) && str_starts_with($normalized, 'schema:')) {
-                $normalized = substr($normalized, strlen('schema:'));
-            }
-            if (is_string($normalized) && $normalized !== '') {
-                $types[] = $normalized;
+            $type = trim($type);
+            $iri = str_contains($type, ':')
+                ? $this->expandContextIri($type, $context['prefixes'])
+                : ($context['vocab'] ?? '') . $type;
+            if (preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
+                $types[] = $match[1];
             }
         }
 

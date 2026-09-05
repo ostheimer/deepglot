@@ -56,11 +56,21 @@ wordpress-plugin/deepglot/
 ## Structured data
 
 JSON-LD localization supports Recipe instructions as strings, arrays of strings,
-or typed HowToStep objects. Page identities and exact references are collected
-across all JSON-LD blocks in one document before rewriting. Page URLs are trimmed
-before routing, and compact schema types such as `schema:HowToStep` are recognized
-alongside full schema IRIs. Generic `text` fields outside HowToStep and shared
-person, organization, media, and external identities retain their existing scope.
+or typed HowToStep objects. Page identities and matching references, including
+references with extra metadata, are collected across all JSON-LD blocks in one
+document before rewriting. Scalar and array page URLs retain their property
+semantics and are trimmed before routing; external values remain unchanged.
+
+Compact type prefixes are resolved from the active local `@context`, including
+inherited aliases, overrides, context arrays and null resets. Context scope stays
+within its script block and subtree; page identity matching spans script blocks.
+Full Schema.org IRIs remain supported. Context definitions are never sent for
+translation or rewritten, and no remote context fetch is performed. The known
+Schema.org context is handled locally; unknown remote contexts leave unresolved
+types unchanged. Context-free bare type names retain the legacy Schema.org
+default, which explicit null contexts or foreign vocabularies remove. Generic
+`text` outside HowToStep and shared person, organization and media IDs remain
+outside the new translation/routing scope.
 
 ## Installation in WordPress
 

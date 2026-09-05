@@ -453,7 +453,7 @@ foreach (['Familie, Kinder, Erziehung', 'Comedy', 'Published'] as $controlled) {
 
 // Review regressions: run every case before reporting failures so each boundary
 // has independent red/green evidence. Decode JSON instead of matching output.
-function jsonLdReviewRender(array $blocks, SiteRouting $routing): array
+function jsonLdReviewRender(array $blocks, SiteRouting $routing, ?array &$collected = null, array $extraTranslations = []): array
 {
     $doc = new DOMDocument();
     $html = '<html><head><meta charset="utf-8">';
@@ -471,7 +471,8 @@ function jsonLdReviewRender(array $blocks, SiteRouting $routing): array
             $translations[$text] = '[en] ' . $text;
         }
     }
-    $helper->apply($mutations, $translations, 'en');
+    $collected = array_keys($translations);
+    $helper->apply($mutations, array_merge($translations, $extraTranslations), 'en');
     $output = [];
     foreach ($doc->getElementsByTagName('script') as $script) {
         $output[] = json_decode($script->textContent, true, 512, JSON_THROW_ON_ERROR);
@@ -566,6 +567,97 @@ foreach (['schema:', 'https://schema.org/', 'http://schema.org/'] as $prefix) {
         'P2 3942085479: compact/full IRI types recognized: ' . $prefix
     );
 }
+
+$enriched = $references;
+$enriched['isPartOf']['name'] = 'Seite';
+$enriched['breadcrumb']['position'] = 1;
+$enriched['author']['name'] = 'Autor';
+$enriched['reviewedBy'] = ['@type' => 'Person', '@id' => $sourcePageId];
+$enrichedResult = jsonLdReviewRender([$enriched, $definitions], $routing);
+$reviewCheck(
+    $enrichedResult[0]['isPartOf']['@id'] === $enrichedResult[1]['@graph'][0]['@id']
+    && $enrichedResult[0]['isPartOf']['name'] === '[en] Seite'
+    && $enrichedResult[0]['breadcrumb']['@id'] === $enrichedResult[1]['@graph'][1]['@id']
+    && $enrichedResult[0]['breadcrumb']['position'] === 1
+    && $enrichedResult[0]['author']['@id'] === $references['author']['@id']
+    && $enrichedResult[0]['reviewedBy']['@id'] === $sourcePageId,
+    'P2 3942110975: enriched references match known page IDs and preserve other entities'
+);
+
+$aliasGraph = [
+    '@context' => ['s' => 'https://schema.org/'],
+    '@graph' => [
+        ['@type' => 's:HowToStep', 'text' => 'Wasser aufkochen.'],
+        ['@type' => 's:WebPage', '@id' => $sourcePageId],
+        ['@context' => ['s' => 'https://example.org/'], '@type' => 's:WebPage', '@id' => 'https://www.meinhaushalt.at/foreign/'],
+        ['@context' => ['s' => 'https://example.org/'], '@type' => 's:HowToStep', 'text' => 'Nicht übersetzen.'],
+        ['@type' => 's:HowToStep', 'text' => 'Grieß einrühren.'],
+        ['@context' => null, '@type' => 's:HowToStep', 'text' => 'Nach Reset unverändert.'],
+    ],
+];
+$aliasBlocks = jsonLdReviewRender([
+    $aliasGraph,
+    ['@context' => ['schema' => 'https://example.org/'], '@type' => 'schema:WebPage', '@id' => 'https://www.meinhaushalt.at/foreign-schema/'],
+    ['@type' => 's:HowToStep', 'text' => 'Anderer Block unverändert.'],
+    ['@type' => 'https://schema.org/HowToStep', 'text' => 'Volle IRI übersetzen.'],
+    ['@context' => ['https://schema.org', ['x' => ['@id' => 'http://schema.org/', '@prefix' => true]]], '@type' => 'x:HowToStep', 'text' => 'Objektpräfix übersetzen.'],
+    ['@context' => ['@vocab' => 'https://schema.org/'], '@type' => 'HowToStep', 'text' => 'Vokabular übersetzen.'],
+    ['@context' => ['@vocab' => 'https://example.org/'], '@type' => 'WebPage', '@id' => 'https://www.meinhaushalt.at/foreign-vocab/'],
+    ['@type' => 'https://example.org/WebPage', '@id' => 'https://www.meinhaushalt.at/foreign-full/'],
+], $routing);
+$reviewCheck(
+    $aliasBlocks[0]['@graph'][0]['text'] === '[en] Wasser aufkochen.'
+    && $aliasBlocks[0]['@graph'][1]['@id'] === 'https://www.meinhaushalt.at/en/review/#webpage'
+    && $aliasBlocks[0]['@graph'][4]['text'] === '[en] Grieß einrühren.'
+    && $aliasBlocks[3]['text'] === '[en] Volle IRI übersetzen.'
+    && $aliasBlocks[4]['text'] === '[en] Objektpräfix übersetzen.'
+    && $aliasBlocks[5]['text'] === '[en] Vokabular übersetzen.',
+    'P2 3942110982: active context aliases, object prefixes and full IRIs resolve'
+);
+$reviewCheck(
+    $aliasBlocks[0]['@graph'][2]['@id'] === 'https://www.meinhaushalt.at/foreign/'
+    && $aliasBlocks[0]['@graph'][3]['text'] === 'Nicht übersetzen.'
+    && $aliasBlocks[0]['@graph'][5]['text'] === 'Nach Reset unverändert.'
+    && $aliasBlocks[1]['@id'] === 'https://www.meinhaushalt.at/foreign-schema/'
+    && $aliasBlocks[2]['text'] === 'Anderer Block unverändert.'
+    && $aliasBlocks[6]['@id'] === 'https://www.meinhaushalt.at/foreign-vocab/'
+    && $aliasBlocks[7]['@id'] === 'https://www.meinhaushalt.at/foreign-full/',
+    'Context overrides, null resets, foreign prefixes and separate script scopes stay isolated'
+);
+
+$urlArrays = jsonLdReviewRender([
+    ['@type' => 'WebPage', 'url' => ['https://www.meinhaushalt.at/review/', 'https://example.org/page/']],
+    ['@type' => 'Article', 'mainEntityOfPage' => ['https://www.meinhaushalt.at/review/', ['@id' => $sourcePageId], 'https://example.org/page/']],
+    ['@type' => 'Person', 'url' => ['https://www.meinhaushalt.at/author/']],
+    ['@type' => 'ImageObject', 'url' => ['https://www.meinhaushalt.at/wp-content/uploads/image.jpg']],
+    ['@type' => 'WebPage', 'url' => [], 'sameAs' => ['https://www.meinhaushalt.at/unchanged/']],
+], $routing);
+$reviewCheck(
+    $urlArrays[0]['url'] === ['https://www.meinhaushalt.at/en/review/', 'https://example.org/page/']
+    && $urlArrays[1]['mainEntityOfPage'] === ['https://www.meinhaushalt.at/en/review/', ['@id' => 'https://www.meinhaushalt.at/en/review/#webpage'], 'https://example.org/page/']
+    && $urlArrays[2]['url'] === ['https://www.meinhaushalt.at/author/']
+    && $urlArrays[3]['url'] === ['https://www.meinhaushalt.at/wp-content/uploads/image.jpg']
+    && $urlArrays[4]['url'] === []
+    && $urlArrays[4]['sameAs'] === ['https://www.meinhaushalt.at/unchanged/'],
+    'P2 3942110987: URL/reference arrays retain semantics, shape and external/entity controls'
+);
+
+$vocabularyContext = [
+    'recipeInstructions' => 'https://schema.org/recipeInstructions',
+    'name' => 'https://schema.org/name',
+    'mainEntityOfPage' => ['@id' => 'https://www.meinhaushalt.at/vocabulary/'],
+    'scoped' => ['@id' => 'https://example.org/scoped', '@context' => ['description' => 'https://schema.org/description']],
+];
+$contextTexts = [];
+$vocabularyOutput = jsonLdReviewRender([
+    ['@context' => $vocabularyContext, '@type' => 'Recipe', 'recipeInstructions' => 'Wasser aufkochen.'],
+], $routing, $contextTexts, ['https://schema.org/name' => 'Must never replace a context IRI']);
+$reviewCheck(
+    $contextTexts === ['Wasser aufkochen.']
+    && $vocabularyOutput[0]['@context'] === $vocabularyContext
+    && $vocabularyOutput[0]['recipeInstructions'] === '[en] Wasser aufkochen.',
+    'P2 3942110991: contexts never enter collection, translation or URL rewriting'
+);
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
