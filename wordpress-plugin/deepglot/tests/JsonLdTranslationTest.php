@@ -659,6 +659,78 @@ $reviewCheck(
     'P2 3942110991: contexts never enter collection, translation or URL rewriting'
 );
 
+$termContext = [
+    'PageAlias' => 'https://schema.org/WebPage',
+    'StepAlias' => ['@id' => 's:HowToStep'],
+    's' => 'https://schema.org/',
+];
+$termAliases = jsonLdReviewRender([
+    ['@context' => $termContext, '@graph' => [
+        ['@type' => 'PageAlias', '@id' => $sourcePageId, 'url' => 'https://www.meinhaushalt.at/review/'],
+        ['@type' => 'StepAlias', 'text' => 'Termalias übersetzen.'],
+        ['@context' => ['PageAlias' => 'https://example.org/WebPage', 'StepAlias' => null], '@type' => 'PageAlias', '@id' => 'https://www.meinhaushalt.at/foreign-term/', 'child' => ['@type' => 'StepAlias', 'text' => 'Nullalias unverändert.']],
+        ['@type' => 'StepAlias', 'text' => 'Geschwisteralias übersetzen.'],
+        ['@type' => 'PageAlias:HowToStep', 'text' => 'Term ist kein Präfix.'],
+        ['@context' => null, '@type' => 'StepAlias', 'text' => 'Reset unverändert.'],
+    ]],
+    ['@type' => 'StepAlias', 'text' => 'Separater Block unverändert.'],
+    ['@context' => ['HowToStep' => null], '@type' => 'HowToStep', 'text' => 'Deaktivierter Term unverändert.'],
+], $routing);
+$reviewCheck(
+    $termAliases[0]['@graph'][0]['@id'] === 'https://www.meinhaushalt.at/en/review/#webpage'
+    && $termAliases[0]['@graph'][0]['url'] === 'https://www.meinhaushalt.at/en/review/'
+    && $termAliases[0]['@graph'][1]['text'] === '[en] Termalias übersetzen.'
+    && $termAliases[0]['@graph'][3]['text'] === '[en] Geschwisteralias übersetzen.',
+    'P2 3942168225: ordinary class aliases resolve independently of prefix mappings'
+);
+$reviewCheck(
+    $termAliases[0]['@context'] === $termContext
+    && $termAliases[0]['@graph'][2]['@id'] === 'https://www.meinhaushalt.at/foreign-term/'
+    && $termAliases[0]['@graph'][2]['child']['text'] === 'Nullalias unverändert.'
+    && $termAliases[0]['@graph'][4]['text'] === 'Term ist kein Präfix.'
+    && $termAliases[0]['@graph'][5]['text'] === 'Reset unverändert.'
+    && $termAliases[1]['text'] === 'Separater Block unverändert.'
+    && $termAliases[2]['text'] === 'Deaktivierter Term unverändert.',
+    'Term aliases preserve context, foreign overrides, null definitions and script scopes'
+);
+
+foreach (['OpinionNewsArticle', 'AdvertiserContentArticle', 'SatiricalArticle', 'MedicalScholarlyArticle'] as $articleType) {
+    $articleId = 'https://www.meinhaushalt.at/story/#' . $articleType;
+    $articleOutput = jsonLdReviewRender([
+        ['isPartOf' => ['@id' => $articleId, 'name' => 'Artikel']],
+        ['@context' => ['s' => 'https://schema.org/'], '@type' => 's:' . $articleType, '@id' => $articleId, 'url' => 'https://www.meinhaushalt.at/story/'],
+        ['@type' => 'https://example.org/' . $articleType, '@id' => 'https://www.meinhaushalt.at/foreign-story/'],
+        ['@type' => 'Person', '@id' => 'https://www.meinhaushalt.at/#person'],
+        ['@type' => 'ArticleSeries', '@id' => 'https://www.meinhaushalt.at/#series'],
+    ], $routing);
+    $reviewCheck(
+        $articleOutput[0]['isPartOf']['@id'] === $articleOutput[1]['@id']
+        && $articleOutput[1]['@id'] === 'https://www.meinhaushalt.at/en/story/#' . $articleType
+        && $articleOutput[1]['url'] === 'https://www.meinhaushalt.at/en/story/'
+        && $articleOutput[2]['@id'] === 'https://www.meinhaushalt.at/foreign-story/'
+        && $articleOutput[3]['@id'] === 'https://www.meinhaushalt.at/#person'
+        && $articleOutput[4]['@id'] === 'https://www.meinhaushalt.at/#series',
+        'P2 3942168229: Schema.org Article subtype routes and references: ' . $articleType
+    );
+}
+
+$genericItems = jsonLdReviewRender([
+    ['@type' => 'ListItem', 'item' => ['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/category/#item', 'url' => ['https://www.meinhaushalt.at/category/', 'https://example.org/category/']]],
+    ['@type' => 'ListItem', 'item' => [['@type' => 'Thing', '@id' => 'https://www.meinhaushalt.at/category/'], ['@type' => 'Thing', '@id' => 'https://example.org/category/']]],
+], $routing);
+$reviewCheck(
+    $genericItems[0]['item']['@id'] === 'https://www.meinhaushalt.at/en/category/#item'
+    && $genericItems[0]['item']['url'] === ['https://www.meinhaushalt.at/en/category/', 'https://example.org/category/']
+    && $genericItems[1]['item'][0]['@id'] === 'https://www.meinhaushalt.at/en/category/'
+    && $genericItems[1]['item'][1]['@id'] === 'https://example.org/category/',
+    'P2 3942168231: typed Thing breadcrumb references retain relationship and array semantics'
+);
+foreach (['Person', 'Organization', 'ImageObject', 'VideoObject', 'AudioObject'] as $sharedType) {
+    $sharedItem = ['@type' => ['Thing', $sharedType], '@id' => 'https://www.meinhaushalt.at/#shared', 'url' => ['https://www.meinhaushalt.at/shared/', 'https://example.org/shared/']];
+    $sharedOutput = jsonLdReviewRender([['@type' => 'ListItem', 'item' => $sharedItem]], $routing);
+    $reviewCheck($sharedOutput[0]['item'] === $sharedItem, 'Typed breadcrumb shared/media exclusion: ' . $sharedType);
+}
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

@@ -65,6 +65,15 @@ class JsonLdTranslator
         'WebSite',
     ];
 
+    private const SHARED_ENTITY_TYPES = [
+        'Person',
+        'Organization',
+        'MediaObject',
+        'ImageObject',
+        'VideoObject',
+        'AudioObject',
+    ];
+
     private ?SiteRouting $routing;
 
     public function __construct(?SiteRouting $routing = null)
@@ -251,13 +260,16 @@ class JsonLdTranslator
                 $value = $this->routing->rewriteUrl(trim($value), $targetLanguage);
             }
 
-            // A relationship can supply page semantics to an untyped reference,
-            // but must not override an explicitly typed person or media entity.
+            // A relationship can supply page semantics even to a generic Thing.
+            // Explicit shared/media types take precedence, including multi-types;
+            // unresolved foreign types cannot acquire Schema.org page semantics.
             $isUntyped = is_array($value) && !array_key_exists('@type', $value);
+            $canBePageReference = ($isUntyped || $types !== []) && !$this->hasSharedEntityType($types);
             return [
                 'isListItem' => in_array('ListItem', $types, true),
                 'isPageEntity' => $this->hasPageRelatedType($types)
-                    || ($isUntyped && ($isPageReference || $this->isExactPageNodeReference($value, $pageNodeIds))),
+                    || ($canBePageReference && $isPageReference)
+                    || ($isUntyped && $this->isExactPageNodeReference($value, $pageNodeIds)),
             ];
         });
     }
@@ -302,7 +314,7 @@ class JsonLdTranslator
      *
      * @param mixed $value
      * @param callable $visitor Receives the value, property, parent state and resolved types; returns child state.
-     * @param array{prefixes: array<string, string>, vocab: ?string}|null $context
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string}|null $context
      * @param array<string, mixed> $parent
      */
     private function walk(
@@ -312,7 +324,7 @@ class JsonLdTranslator
         ?string $property = null,
         array $parent = []
     ): void {
-        $context = $context ?? ['prefixes' => [], 'vocab' => 'https://schema.org/'];
+        $context = $context ?? ['prefixes' => [], 'terms' => [], 'vocab' => 'https://schema.org/'];
 
         if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
             foreach ($value as &$item) {
@@ -344,26 +356,26 @@ class JsonLdTranslator
     }
 
     /**
-     * Resolves local prefix/vocabulary definitions without fetching remote
+     * Resolves local term/prefix/vocabulary definitions without fetching remote
      * contexts. Only the well-known Schema.org remote context is understood;
      * unknown remote contexts fail closed until a local definition restores
      * the relevant vocabulary or prefix.
      *
      * @param mixed $definition
-     * @param array{prefixes: array<string, string>, vocab: ?string} $context
-     * @return array{prefixes: array<string, string>, vocab: ?string}
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string} $context
+     * @return array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string}
      */
     private function resolveContext($definition, array $context): array
     {
         if ($definition === null) {
-            return ['prefixes' => [], 'vocab' => null];
+            return ['prefixes' => [], 'terms' => [], 'vocab' => null];
         }
         if (is_string($definition)) {
             if (preg_match('~^https?://schema\.org/?$~i', trim($definition)) === 1) {
                 $context['vocab'] = 'https://schema.org/';
                 return $context;
             }
-            return ['prefixes' => [], 'vocab' => null];
+            return ['prefixes' => [], 'terms' => [], 'vocab' => null];
         }
         if (!is_array($definition)) {
             return $context;
@@ -396,6 +408,22 @@ class JsonLdTranslator
                 ? $this->expandContextIri($definition['@vocab'], $context['prefixes'])
                 : null;
         }
+
+        // Resolve ordinary term definitions after all prefixes in this scope are
+        // known. Keep them separate: a class alias must never become an IRI prefix.
+        // Storing null explicitly also prevents a disabled term falling back to
+        // the default vocabulary during type resolution.
+        foreach ($definition as $term => $mapping) {
+            if (!is_string($term) || str_starts_with($term, '@')) {
+                continue;
+            }
+            $id = is_array($mapping) ? ($mapping['@id'] ?? null) : $mapping;
+            $context['terms'][$term] = is_string($id)
+                ? (str_contains($id, ':')
+                    ? $this->expandContextIri($id, $context['prefixes'])
+                    : ($context['vocab'] ?? '') . $id)
+                : null;
+        }
         return $context;
     }
 
@@ -415,7 +443,7 @@ class JsonLdTranslator
     }
 
     /**
-     * @param array{prefixes: array<string, string>, vocab: ?string} $context
+     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, vocab: ?string} $context
      * @return string[]
      */
     private function schemaTypes($value, array $context): array
@@ -429,10 +457,12 @@ class JsonLdTranslator
             }
 
             $type = trim($type);
-            $iri = str_contains($type, ':')
-                ? $this->expandContextIri($type, $context['prefixes'])
-                : ($context['vocab'] ?? '') . $type;
-            if (preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
+            $iri = array_key_exists($type, $context['terms'])
+                ? $context['terms'][$type]
+                : (str_contains($type, ':')
+                    ? $this->expandContextIri($type, $context['prefixes'])
+                    : ($context['vocab'] ?? '') . $type);
+            if (is_string($iri) && preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
                 $types[] = $match[1];
             }
         }
@@ -443,13 +473,22 @@ class JsonLdTranslator
     /** @param string[] $types */
     private function hasPageRelatedType(array $types): bool
     {
+        if ($this->hasSharedEntityType($types)) {
+            return false;
+        }
         foreach ($types as $type) {
-            if (in_array($type, self::PAGE_RELATED_TYPES, true) || str_ends_with($type, 'Page')) {
+            if (in_array($type, self::PAGE_RELATED_TYPES, true) || str_ends_with($type, 'Page') || str_ends_with($type, 'Article')) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** @param string[] $types */
+    private function hasSharedEntityType(array $types): bool
+    {
+        return array_intersect($types, self::SHARED_ENTITY_TYPES) !== [];
     }
 
     private function isUrlReference(string $value): bool
