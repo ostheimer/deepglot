@@ -81,6 +81,7 @@ class JsonLdTranslator
         'terms' => [],
         'coercions' => [],
         'containers' => [],
+        'indexMappings' => [],
         'scopedContexts' => [],
         'languages' => [],
         'language' => null,
@@ -101,7 +102,7 @@ class JsonLdTranslator
     /**
      * @return array<int, array{node: \DOMText, data: array<mixed>, strings: string[]}>
      */
-    public function collect(\DOMDocument $doc): array
+    public function collect(\DOMDocument $doc, ?string $targetLanguage = null): array
     {
         $mutations = [];
         $scripts = $doc->getElementsByTagName('script');
@@ -135,7 +136,7 @@ class JsonLdTranslator
             }
 
             $strings = [];
-            $this->collectStrings($decoded, $strings);
+            $this->collectStrings($decoded, $strings, $targetLanguage);
 
             $mutations[] = [
                 'node' => $textNode,
@@ -182,13 +183,20 @@ class JsonLdTranslator
      * @param array<mixed> $data
      * @param string[] $accumulator
      */
-    private function collectStrings(array $data, array &$accumulator): void
+    private function collectStrings(array $data, array &$accumulator, ?string $targetLanguage): void
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator): array {
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator, $targetLanguage): array {
             $texts = isset($node['valueKey']) ? [$value[$node['valueKey']]] : [$value];
             if (isset($node['languageMapNoneKeys'])) {
+                if ($targetLanguage !== null && isset($node['languageMapNoneKeys'][$targetLanguage])) {
+                    return [];
+                }
                 $texts = [];
-                foreach ($value as $bucket) {
+                foreach ($value as $language => $bucket) {
+                    if ($targetLanguage !== null && !isset($node['languageMapNoneKeys'][$language])
+                        && strcasecmp($language, $targetLanguage) === 0) {
+                        continue;
+                    }
                     foreach (is_array($bucket) ? $bucket : [$bucket] as $text) {
                         $texts[] = $text;
                     }
@@ -199,14 +207,14 @@ class JsonLdTranslator
                     is_string($text)
                     && $property !== null
                     && !($node['isIriCoerced'] ?? false)
-                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)
                     && mb_strlen(trim($text)) >= 2
                 ) {
                     $accumulator[] = $text;
                 }
             }
 
-            return ['isHowToStep' => in_array('HowToStep', $types, true)];
+            return $this->proseState($property, $parent, $types);
         });
     }
 
@@ -218,7 +226,7 @@ class JsonLdTranslator
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage): array {
             if (isset($node['languageMapNoneKeys'])) {
-                if ($property !== null && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)) {
+                if ($property !== null && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)) {
                     $this->translateLanguageMap($value, $translations, $targetLanguage, $node['languageMapNoneKeys']);
                 }
                 return [];
@@ -229,7 +237,7 @@ class JsonLdTranslator
                     if (in_array($property, self::LANGUAGE_KEYS, true)) {
                         $value[$key] = $targetLanguage;
                     } elseif (
-                        $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                        $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)
                         && isset($translations[$value[$key]])
                     ) {
                         $value[$key] = $translations[$value[$key]];
@@ -246,7 +254,7 @@ class JsonLdTranslator
                 if (in_array($property, self::LANGUAGE_KEYS, true)) {
                     $value = $targetLanguage;
                 } elseif (
-                    $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)
                     && isset($translations[$value])
                 ) {
                     $value = $translations[$value];
@@ -258,14 +266,26 @@ class JsonLdTranslator
                 }
             }
 
-            return ['isHowToStep' => in_array('HowToStep', $types, true)];
+            return $this->proseState($property, $parent, $types);
         });
     }
 
-    private function isTranslatableField(string $key, bool $isHowToStep): bool
+    private function isTranslatableField(string $key, bool $isHowToStep, bool $isRecipeSection = false): bool
     {
         return in_array($key, self::TRANSLATABLE_KEYS, true)
-            || ($key === 'text' && $isHowToStep);
+            || ($key === 'text' && $isHowToStep)
+            || ($key === 'itemListElement' && $isRecipeSection);
+    }
+
+    /** Section list prose is limited to the recipeInstructions relationship. */
+    private function proseState(?string $property, array $parent, array $types): array
+    {
+        return [
+            'isHowToStep' => in_array('HowToStep', $types, true),
+            'isRecipeSection' => in_array('HowToSection', $types, true)
+                && ($property === 'recipeInstructions'
+                    || ($property === 'itemListElement' && ($parent['isRecipeSection'] ?? false))),
+        ];
     }
 
     /** Move only translated, tagged values; untagged values stay in their bucket. */
@@ -425,7 +445,12 @@ class JsonLdTranslator
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($targetLanguage, $pageNodeIds): array {
             $state = $this->pageSemantics($property, $parent, $types, $node, $pageNodeIds);
             if ($state['isPageUrlValue'] && isset($node['urlReference'])) {
-                $value = $this->routing->rewriteUrl($node['urlReference'], $targetLanguage);
+                $localized = $this->routing->rewriteUrl($node['urlReference'], $targetLanguage);
+                if (isset($node['valueKey'])) {
+                    $value[$node['valueKey']] = $localized;
+                } else {
+                    $value = $localized;
+                }
             }
 
             return $state;
@@ -579,6 +604,7 @@ class JsonLdTranslator
      * @param array<string, mixed> $parent
      * @param array<string, mixed> $propertyMetadata
      * @param bool $containerValue False for array/wrapper elements, which are not fresh property values.
+     * @param bool $fromMap Retain the incoming context for an index bucket's first node, not its descendants.
      */
     private function walk(
         &$value,
@@ -587,7 +613,8 @@ class JsonLdTranslator
         ?string $property = null,
         array $parent = [],
         array $propertyMetadata = [],
-        bool $containerValue = true
+        bool $containerValue = true,
+        bool $fromMap = false
     ): void {
         $context = $context ?? array_replace(self::EMPTY_CONTEXT, ['vocab' => 'https://schema.org/']);
 
@@ -608,9 +635,23 @@ class JsonLdTranslator
             return;
         }
 
+        // Plain index maps group values of the enclosing property. Their keys
+        // never become properties or nodes. Custom index/graph maps require
+        // additional semantics and remain entirely opaque in this helper.
+        if ($containerValue && ($propertyMetadata['hasIndexMap'] ?? false) && is_array($value)
+            && ($value === [] || array_keys($value) !== range(0, count($value) - 1))) {
+            if ($propertyMetadata['isPlainIndexMap']) {
+                foreach ($value as &$bucket) {
+                    $this->walk($bucket, $visitor, $context, $property, $parent, $propertyMetadata, false, true);
+                }
+                unset($bucket);
+            }
+            return;
+        }
+
         if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
             foreach ($value as &$item) {
-                $this->walk($item, $visitor, $context, $property, $parent, $propertyMetadata, false);
+                $this->walk($item, $visitor, $context, $property, $parent, $propertyMetadata, false, $fromMap);
             }
             unset($item);
             return;
@@ -624,7 +665,7 @@ class JsonLdTranslator
 
         // Capture the property scope before reverting a type/non-propagating
         // context. Scalars and value/id-only maps retain the current scope.
-        if ($isObject && isset($context['previousContext']) && !$this->retainsContext($value, $context)) {
+        if ($isObject && !$fromMap && isset($context['previousContext']) && !$this->retainsContext($value, $context)) {
             $context = $context['previousContext'];
         }
         if ($hasPropertyScope) {
@@ -650,7 +691,16 @@ class JsonLdTranslator
             $valueObject = $this->valueObjectMetadata($value, $context);
             if ($valueObject !== null) {
                 if ($valueObject !== []) {
-                    $visitor($value, $property, $parent, [], array_merge($propertyMetadata, $valueObject));
+                    $literalMetadata = array_merge($propertyMetadata, $valueObject);
+                    // These supported URL fields may use literal envelopes;
+                    // @id itself requires a string, never a value object.
+                    if (in_array($property, ['url', 'mainEntityOfPage', 'item', 'isPartOf', 'breadcrumb'], true)) {
+                        $literalMetadata['urlReference'] = $this->internalUrlReference($value[$valueObject['valueKey']], $context);
+                        if ($literalMetadata['urlReference'] !== null) {
+                            $literalMetadata['referenceKey'] = $this->pageIdentityKey($literalMetadata['urlReference']);
+                        }
+                    }
+                    $visitor($value, $property, $parent, [], $literalMetadata);
                 }
                 return;
             }
@@ -807,22 +857,27 @@ class JsonLdTranslator
         $property = $match[1];
         return in_array($property, self::TRANSLATABLE_KEYS, true)
             || in_array($property, self::LANGUAGE_KEYS, true)
-            || in_array($property, ['text', 'url', 'item', 'mainEntityOfPage', 'isPartOf', 'breadcrumb'], true)
+            || in_array($property, ['text', 'url', 'item', 'itemListElement', 'mainEntityOfPage', 'isPartOf', 'breadcrumb'], true)
             ? $property
             : null;
     }
 
-    /** @return array{termKey: string, allowsIdReference: bool, isIriCoerced: bool, isJsonCoerced: bool, hasLanguageMap: bool} */
+    /** @return array<string, mixed> */
     private function propertyMetadata(string $key, array $context): array
     {
         $coercion = $context['coercions'][$key] ?? null;
         $container = $context['containers'][$key] ?? null;
+        $containers = is_array($container) ? $container : [$container];
         return [
             'termKey' => $key,
             'allowsIdReference' => !array_key_exists($key, $context['coercions']) || $coercion === '@id',
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
             'isJsonCoerced' => $coercion === '@json',
             'hasLanguageMap' => $container === '@language' || (is_array($container) && in_array('@language', $container, true)),
+            'hasIndexMap' => in_array('@index', $containers, true),
+            'isPlainIndexMap' => in_array('@index', $containers, true)
+                && array_diff($containers, ['@index', '@set']) === []
+                && !array_key_exists($key, $context['indexMappings']),
         ];
     }
 
@@ -1043,7 +1098,7 @@ class JsonLdTranslator
                 : null;
             // Property scopes and term language mappings are replaced with the
             // term definition, never inherited after an unscoped redefinition.
-            foreach (['@context' => 'scopedContexts', '@language' => 'languages', '@container' => 'containers'] as $keyword => $field) {
+            foreach (['@context' => 'scopedContexts', '@language' => 'languages', '@container' => 'containers', '@index' => 'indexMappings'] as $keyword => $field) {
                 if (is_array($mapping) && array_key_exists($keyword, $mapping)) {
                     $context[$field][$term] = $mapping[$keyword];
                 } else {

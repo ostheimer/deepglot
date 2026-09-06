@@ -464,7 +464,7 @@ function jsonLdReviewRender(array $blocks, SiteRouting $routing, ?array &$collec
     }
     $doc->loadHTML($html . '</head><body></body></html>');
     $helper = new JsonLdTranslator($routing);
-    $mutations = $helper->collect($doc);
+    $mutations = $helper->collect($doc, 'en');
     $translations = [];
     foreach ($mutations as $mutation) {
         foreach ($mutation['strings'] as $text) {
@@ -1028,9 +1028,11 @@ $reviewCheck(
     && in_array('Property und Wert gemeinsam.', $valueTexts, true),
     'P2 3942237567: language-tagged value objects retain enclosing property semantics through arrays and aliases'
 );
-foreach ([4, 5, 6, 7, 8, 10] as $valueIndex) {
+foreach ([4, 5, 6, 7, 8] as $valueIndex) {
     $reviewCheck($valueNodes[$valueIndex] === $valueGraph['@graph'][$valueIndex], 'Non-translatable/foreign value object unchanged: ' . $valueIndex);
 }
+$reviewCheck($valueNodes[10]['isPartOf'] === ['@value' => $routing->rewriteUrl($sourcePageId, 'en')],
+    'Collected page references also localize the inner URL of an explicit value object');
 $reviewCheck(
     $valueOutput[0]['@context'] === $valueContext
     && $valueNodes[3]['instructions']['@context'] === $valueGraph['@graph'][3]['instructions']['@context']
@@ -1891,6 +1893,136 @@ $mappedPortRouting = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr'])
 $mappedPortOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => ['https://fr.meinhaushalt.at:443/mapped/', '//fr.meinhaushalt.at/mapped-network/', 'https://fr.meinhaushalt.at:8443/not-mapped/']]], $mappedPortRouting)[0]['url'];
 $reviewCheck($mappedPortOutput === ['https://en.meinhaushalt.at/mapped/', 'https://en.meinhaushalt.at/mapped-network/', 'https://fr.meinhaushalt.at:8443/not-mapped/'],
     'Language hosts use their actual configured routing origin port, not the source host custom port');
+
+$sectionInput = ['@context' => ['@vocab' => 'https://schema.org/', 'entries' => 'itemListElement', 'group' => '@nest'],
+    '@type' => 'Recipe', 'recipeInstructions' => ['@type' => 'HowToSection', 'entries' => [
+        'Wasser im Abschnitt kochen', ['@value' => 'Abschnitt rühren', '@language' => 'de'],
+        ['@type' => 'HowToSection', 'group' => ['entries' => ['@list' => ['Tief im Abschnitt salzen']]]],
+        ['@type' => 'HowToStep', 'text' => 'Normaler Abschnittsschritt'],
+    ]],
+    'other' => ['@type' => 'ItemList', 'entries' => ['Unrelated list text']],
+];
+$sectionOutput = jsonLdReviewRender([$sectionInput], $routing, $sectionStrings)[0];
+$reviewCheck($sectionOutput['recipeInstructions']['entries'] === [
+    '[en] Wasser im Abschnitt kochen', ['@value' => '[en] Abschnitt rühren', '@language' => 'en'],
+    ['@type' => 'HowToSection', 'group' => ['entries' => ['@list' => ['[en] Tief im Abschnitt salzen']]]],
+    ['@type' => 'HowToStep', 'text' => '[en] Normaler Abschnittsschritt'],
+] && $sectionOutput['other'] === $sectionInput['other'],
+    'P2 3943790894: HowToSection itemListElement aliases/nests/lists retain recipeInstructions semantics without affecting other ItemLists');
+$sectionBoundaryInput = ['@context' => ['@vocab' => 'https://schema.org/'], '@type' => 'Recipe', 'recipeInstructions' => [
+    ['@context' => ['itemListElement' => 'https://example.org/items'], '@type' => 'HowToSection', 'itemListElement' => 'Foreign items'],
+    ['@context' => ['HowToSection' => 'https://example.org/Section'], '@type' => 'HowToSection', 'itemListElement' => 'Foreign section'],
+    ['@context' => ['itemListElement' => ['@type' => '@json']], '@type' => 'HowToSection', 'itemListElement' => ['name' => 'Opaque section']],
+    ['@type' => 'Thing', 'itemListElement' => 'Not a section'],
+]];
+$reviewCheck(jsonLdReviewRender([$sectionBoundaryInput], $routing) === [$sectionBoundaryInput], 'Section prose requires resolved Schema.org type/property and respects @json');
+
+$indexContext = ['@vocab' => 'https://schema.org/',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@index'],
+    'steps' => ['@id' => 'recipeInstructions', '@container' => ['@index', '@set']],
+    'target' => ['@id' => 'mainEntityOfPage', '@container' => '@index', '@type' => '@id'],
+    'words' => ['@id' => 'name', '@container' => '@language'],
+];
+$indexInput = ['@context' => $indexContext, 'ingredients' => [
+    'first' => 'Index Wasser', 'name' => 'Index Salz', '@context' => 'Index Mehl', '@none' => ['Index Reis', null],
+], 'steps' => [
+    'name' => ['@list' => ['Index kochen', ['@type' => 'HowToStep', 'text' => 'Index Schritt']]],
+    'last' => ['@value' => 'Index Wert', '@language' => 'de'],
+    'localized' => ['words' => ['de' => 'Index Name', 'en' => 'Existing index name']],
+], 'target' => ['url' => '/index-target/']];
+$indexOutput = jsonLdReviewRender([$indexInput, ['isPartOf' => ['@id' => '/index-target/']]], $routing, $indexStrings, ['Index Salz' => null]);
+$reviewCheck($indexOutput[0]['ingredients'] === [
+    'first' => '[en] Index Wasser', 'name' => 'Index Salz', '@context' => '[en] Index Mehl', '@none' => ['[en] Index Reis', null],
+] && $indexOutput[0]['steps']['name']['@list'][0] === '[en] Index kochen'
+    && $indexOutput[0]['steps']['name']['@list'][1]['text'] === '[en] Index Schritt'
+    && $indexOutput[0]['steps']['last'] === ['@value' => '[en] Index Wert', '@language' => 'en']
+    && $indexOutput[0]['steps']['localized']['words'] === ['en' => ['Existing index name', '[en] Index Name']]
+    && $indexOutput[0]['target'] === ['url' => '/en/index-target/']
+    && $indexOutput[1]['isPartOf']['@id'] === '/en/index-target/'
+    && array_keys($indexOutput[0]['steps']) === array_keys($indexInput['steps']),
+    'P2 3943790898: index maps preserve keys and enclosing semantics for literals/lists/nodes/language maps/cache misses/page relationships');
+$indexScopeInput = ['@context' => ['@vocab' => 'https://example.org/',
+    'Scoped' => ['@id' => 'https://schema.org/Recipe', '@context' => [
+        'steps' => ['@id' => 'https://schema.org/recipeInstructions', '@container' => '@index'],
+        'name' => 'https://schema.org/name',
+    ]],
+    'child' => ['@id' => 'https://example.org/child', '@context' => $indexContext],
+], '@graph' => [
+    ['@type' => 'Scoped', 'steps' => ['first' => ['name' => 'Map retains type scope', 'deeper' => ['name' => 'Child restores foreign scope']]]],
+    ['child' => ['ingredients' => ['name' => 'Property scoped ingredient']]],
+    ['@context' => [$indexContext, ['ingredients' => 'https://schema.org/recipeIngredient']], 'ingredients' => 'No longer index map'],
+]];
+$indexScopeOutput = jsonLdReviewRender([$indexScopeInput], $routing)[0]['@graph'];
+$reviewCheck($indexScopeOutput[0]['steps']['first']['name'] === '[en] Map retains type scope'
+    && $indexScopeOutput[0]['steps']['first']['deeper'] === $indexScopeInput['@graph'][0]['steps']['first']['deeper']
+    && $indexScopeOutput[1]['child']['ingredients'] === ['name' => '[en] Property scoped ingredient']
+    && $indexScopeOutput[2]['ingredients'] === '[en] No longer index map',
+    'Index values use from-map scope retention, real child rollback, property scopes and term redefinition');
+$indexBoundaryInput = ['@context' => array_merge($indexContext, [
+    'foreign' => ['@id' => 'https://example.org/foreign', '@container' => '@index'],
+    'opaque' => ['@id' => 'name', '@container' => '@index', '@type' => '@json'],
+]), 'foreign' => ['name' => 'Foreign index literal', '@id' => '/index-not-an-id/'],
+    'opaque' => ['name' => ['@type' => 'WebPage', '@id' => '/index-opaque/', 'name' => 'Opaque index']],
+];
+$reviewCheck(jsonLdReviewRender([$indexBoundaryInput, ['isPartOf' => ['@id' => '/index-not-an-id/']]], $routing) === [$indexBoundaryInput, ['isPartOf' => ['@id' => '/index-not-an-id/']]],
+    'Index keys never act as node fields or identities; foreign literals and JSON payloads remain untouched');
+$customIndexInput = ['@context' => ['@vocab' => 'https://schema.org/',
+    'custom' => ['@id' => 'recipeInstructions', '@container' => '@index', '@index' => 'position'],
+    'graphs' => ['@id' => 'recipeInstructions', '@container' => ['@index', '@graph']],
+], 'custom' => ['first' => ['name' => 'Custom index name']], 'graphs' => ['first' => ['name' => 'Graph index name']]];
+$reviewCheck(jsonLdReviewRender([$customIndexInput], $routing, $customIndexStrings) === [$customIndexInput] && $customIndexStrings === [],
+    'Custom property-index and graph-index containers stay opaque outside plain index-map support');
+
+$targetBucketInput = ['@context' => $languageMapContext, 'ingredients' => ['en' => 'English salt', 'EN' => ['English water'], 'de' => ['Quellsalz', 'Quellwasser'], '@none' => 'Ohne Sprache']];
+$targetBucketOutput = jsonLdReviewRender([$targetBucketInput], $routing, $targetBucketStrings)[0];
+$reviewCheck($targetBucketStrings === ['Quellsalz', 'Quellwasser', 'Ohne Sprache']
+    && $targetBucketOutput['ingredients']['EN'] === ['English water']
+    && $targetBucketOutput['ingredients']['en'] === ['English salt', '[en] Quellsalz', '[en] Quellwasser'],
+    'P2 3943790902: target-language buckets are excluded before collection, case-insensitively; untagged sources remain eligible');
+$targetBatchInput = ['@context' => $languageMapContext, 'ingredients' => [
+    'en' => array_map(static fn ($n) => 'Already translated ingredient ' . $n, range(1, 120)),
+    'de' => ['Real source ingredient'],
+]];
+$targetBatchClient = new DeepglotJsonLdFakeClient();
+$targetBatchTranslator = new HtmlTranslator($targetBatchClient, $options, new DeepglotJsonLdNullCache());
+$targetBatchHtml = '<html><head><script type="application/ld+json">' . json_encode($targetBatchInput) . '</script></head><body></body></html>';
+$targetBatchTranslator->translate($targetBatchHtml, 'en');
+$reviewCheck($targetBatchClient->sentTexts === ['Real source ingredient'],
+    'HtmlTranslator supplies target language before cache/batch collection; 120 target alternatives consume no batch capacity');
+$targetNoneInput = ['@context' => array_merge($languageMapContext, ['en' => '@none']), 'ingredients' => ['de' => 'Reserved target source']];
+$reviewCheck(jsonLdReviewRender([$targetNoneInput], $routing, $targetNoneStrings) === [$targetNoneInput] && $targetNoneStrings === [],
+    'A language map that cannot express the target is excluded from collection as well as application');
+
+$valueUrlInput = ['@context' => ['@vocab' => 'https://schema.org/', 'literal' => '@value', 'pageUrl' => 'url', 'site' => 'https://www.meinhaushalt.at/'], '@graph' => [
+    ['@type' => 'WebPage', '@id' => '/value-url/#id', 'pageUrl' => ['literal' => 'site:value-url/']],
+    ['@type' => 'WebPage', 'url' => ['@set' => [['@value' => '/value-url-list/'], ['@value' => 'https://example.org/external/'], ['@value' => 'https://www.meinhaushalt.at:9443/foreign/']]]],
+    ['@type' => 'Person', 'url' => ['@value' => '/shared-value-url/']],
+    ['@type' => 'ListItem', 'item' => ['@value' => '/value-item/']],
+    ['mainEntityOfPage' => ['literal' => '/value-target/']],
+    ['@type' => 'WebPage', 'url' => ['@value' => '/typed-value/', '@type' => 'https://example.org/Datatype']],
+]];
+foreach ([false, true] as $reverseValueScripts) {
+    $valueUrlRefs = ['@graph' => [['isPartOf' => ['@id' => '/value-url/']], ['breadcrumb' => ['@value' => '/value-target/']]]];
+    $valueUrlOutputs = jsonLdReviewRender($reverseValueScripts ? [$valueUrlRefs, $valueUrlInput] : [$valueUrlInput, $valueUrlRefs], $routing, $valueUrlStrings);
+    $valueUrlNodes = $valueUrlOutputs[$reverseValueScripts ? 1 : 0]['@graph'];
+    $valueUrlRefOutput = $valueUrlOutputs[$reverseValueScripts ? 0 : 1]['@graph'];
+    $reviewCheck($valueUrlNodes[0]['pageUrl'] === ['literal' => 'https://www.meinhaushalt.at/en/value-url/']
+        && $valueUrlNodes[1]['url']['@set'][0] === ['@value' => '/en/value-url-list/']
+        && array_slice($valueUrlNodes[1]['url']['@set'], 1) === array_slice($valueUrlInput['@graph'][1]['url']['@set'], 1)
+        && $valueUrlNodes[2] === $valueUrlInput['@graph'][2]
+        && $valueUrlNodes[3]['item'] === ['@value' => '/en/value-item/']
+        && $valueUrlNodes[4]['mainEntityOfPage'] === ['literal' => '/en/value-target/']
+        && $valueUrlNodes[5] === $valueUrlInput['@graph'][5]
+        && $valueUrlRefOutput[0]['isPartOf']['@id'] === '/en/value-url/'
+        && $valueUrlRefOutput[1]['breadcrumb'] === ['@value' => '/en/value-target/']
+        && $valueUrlStrings === [],
+        'P2 3943790903: URL value-object envelopes route and share graph IDs without translation batches; shared/external/port/datatype boundaries: ' . (int) $reverseValueScripts);
+}
+
+$invalidValueId = ['@context' => ['@vocab' => 'https://schema.org/', 'identifier' => '@id'], '@type' => 'WebPage', 'identifier' => ['@value' => '/invalid-value-id/']];
+$invalidValueIdRefs = ['isPartOf' => ['@id' => '/invalid-value-id/']];
+$reviewCheck(jsonLdReviewRender([$invalidValueId, $invalidValueIdRefs], $routing) === [$invalidValueId, $invalidValueIdRefs],
+    'An invalid @id value-object envelope is not a URL field and cannot route or seed another graph reference');
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);

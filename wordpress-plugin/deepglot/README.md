@@ -56,16 +56,27 @@ wordpress-plugin/deepglot/
 ## Structured data
 
 JSON-LD localization supports Recipe instructions as strings, arrays of strings,
-or typed HowToStep objects. Page identities and matching references, including
+typed HowToStep objects and text entries inside HowToSection `itemListElement`.
+Nested recipe sections retain instruction semantics through lists and aliases;
+unrelated ItemLists and foreign type/property mappings do not acquire them.
+Page identities and matching references, including
 references with extra metadata, are collected across all JSON-LD blocks in one
 document before rewriting. Safe page relationships also seed these identities;
 one graph-discovery pass builds adjacency links, then a work queue propagates
 reachable identities without rescanning the document. Chained generic definitions
 stay linked regardless of script order. Scalar and array page URLs retain their property
 semantics and are trimmed before routing; external values remain unchanged.
+Supported simple URL value objects retain their envelope and local keyword
+aliases while their inner URL follows the same page identity and routing checks.
 Valid `@list`/`@set` wrappers, including local keyword aliases and optional string
 `@index` metadata, preserve the enclosing field and parent semantics. Unsupported
 wrapper envelopes are left untouched.
+Plain `@index` containers, optionally combined with `@set`, preserve their index
+keys and process values with the enclosing property's semantics. Index keys are
+never interpreted as properties or graph identities. Bucket nodes retain the
+active scope for their own properties; ordinary descendants still restore a
+non-propagating context.
+Custom property-index mappings and graph-index combinations remain opaque.
 
 Compact type prefixes, ordinary class aliases, supported Schema.org property
 aliases and local keyword aliases are resolved from the active `@context`, including
@@ -142,7 +153,10 @@ explicitly untagged values remain untagged.
 Language-map containers (`@language`, optionally with `@set`) retain the enclosing
 supported text property's meaning, including HowToStep text and scoped aliases.
 Translated strings move to the target-language bucket; existing target values are
-preserved and merged without overwriting them. Cache misses, short strings, nulls
+preserved and merged without overwriting them. Collection receives the active
+target language and excludes those target buckets before cache lookup, provider
+batching and background warming, including case variants of the language tag.
+Cache misses, short strings, nulls
 and empty arrays keep their source buckets. Explicit `@none` buckets and aliases
 remain untagged. Language maps are terminal literals, never graph nodes or page
 URLs; malformed maps and unsupported properties are not modified. A map also

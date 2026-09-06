@@ -1110,6 +1110,38 @@ foreach ($recipeTexts as $text) {
 }
 
 // -----------------------------------------------------------------------------
+// Language-map target alternatives must not occupy the cold-page warm queue.
+warmResetEnvironment();
+$mapWarmSource = ['Warm map source ingredient'];
+$mapWarmTarget = array_map(static fn ($i) => 'Existing English ingredient ' . $i, range(1, 120));
+$mapWarmData = ['@context' => ['@vocab' => 'https://schema.org/', 'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language']],
+    'ingredients' => ['en' => $mapWarmTarget, 'de' => $mapWarmSource],
+];
+$mapWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($mapWarmData) . '</script></head><body></body></html>';
+$mapWarmClient = new DeepglotWarmFakeClient();
+$mapWarmCache = new DeepglotWarmArrayCache();
+$mapWarmer = new TranslationWarmer($mapWarmClient, $options, $mapWarmCache);
+$mapWarmTranslator = new HtmlTranslator($mapWarmClient, $options, $mapWarmCache, null, $mapWarmer);
+$mapColdOutput = $mapWarmTranslator->translate($mapWarmHtml, 'en', 'https://jobspot.at/en/map/', BotDetector::HUMAN);
+warmCollectAssert(($mapWarmer->pending()['de|en'] ?? []) === $mapWarmSource
+    && $mapWarmTranslator->getLastPendingSegmentCount() === 1 && $mapWarmClient->batchCalls === [],
+    'P2 3943790902: cold language maps enqueue only source text; existing target alternatives consume no warm-queue or pending capacity.');
+$mapColdDoc = new DOMDocument();
+$mapColdDoc->loadHTML($mapColdOutput);
+warmCollectAssert(json_decode($mapColdDoc->getElementsByTagName('script')->item(0)->textContent, true) === $mapWarmData,
+    'A cold language-map render must preserve both source and target buckets until source translation is cached.');
+$mapWarmer->run();
+warmCollectAssert(array_merge([], ...$mapWarmClient->batchCalls) === $mapWarmSource,
+    'The background provider receives no already translated language-map alternatives.');
+$mapWarmClient->reset();
+$mapWarmOutput = $mapWarmTranslator->translate($mapWarmHtml, 'en', 'https://jobspot.at/en/map/', BotDetector::HUMAN);
+$mapWarmDoc = new DOMDocument();
+$mapWarmDoc->loadHTML($mapWarmOutput);
+$mapWarmDecoded = json_decode($mapWarmDoc->getElementsByTagName('script')->item(0)->textContent, true);
+warmCollectAssert($mapWarmDecoded['ingredients'] === ['en' => array_merge($mapWarmTarget, ['[en] ' . $mapWarmSource[0]])]
+    && $mapWarmClient->batchCalls === [] && $mapWarmTranslator->getLastPendingSegmentCount() === 0 && $mapWarmer->pending() === [],
+    'The warmed map merges the cached source into existing target values and has no outstanding work or provider calls.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();
