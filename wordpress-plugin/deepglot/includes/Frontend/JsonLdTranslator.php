@@ -80,6 +80,7 @@ class JsonLdTranslator
         'prefixes' => [],
         'terms' => [],
         'coercions' => [],
+        'containers' => [],
         'scopedContexts' => [],
         'languages' => [],
         'language' => null,
@@ -88,6 +89,9 @@ class JsonLdTranslator
     ];
 
     private ?SiteRouting $routing;
+    /** @var array<string, true>|null Host/effective-port pairs, built once per helper. */
+    private ?array $internalOrigins = null;
+    private ?string $sourceScheme = null;
 
     public function __construct(?SiteRouting $routing = null)
     {
@@ -181,15 +185,25 @@ class JsonLdTranslator
     private function collectStrings(array $data, array &$accumulator): void
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator): array {
-            $text = isset($node['valueKey']) ? $value[$node['valueKey']] : $value;
-            if (
-                is_string($text)
-                && $property !== null
-                && !($node['isIriCoerced'] ?? false)
-                && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
-                && mb_strlen(trim($text)) >= 2
-            ) {
-                $accumulator[] = $text;
+            $texts = isset($node['valueKey']) ? [$value[$node['valueKey']]] : [$value];
+            if (isset($node['languageMapNoneKeys'])) {
+                $texts = [];
+                foreach ($value as $bucket) {
+                    foreach (is_array($bucket) ? $bucket : [$bucket] as $text) {
+                        $texts[] = $text;
+                    }
+                }
+            }
+            foreach ($texts as $text) {
+                if (
+                    is_string($text)
+                    && $property !== null
+                    && !($node['isIriCoerced'] ?? false)
+                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)
+                    && mb_strlen(trim($text)) >= 2
+                ) {
+                    $accumulator[] = $text;
+                }
             }
 
             return ['isHowToStep' => in_array('HowToStep', $types, true)];
@@ -203,6 +217,12 @@ class JsonLdTranslator
     private function applyTranslations(array &$data, array $translations, string $targetLanguage): void
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage): array {
+            if (isset($node['languageMapNoneKeys'])) {
+                if ($property !== null && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false)) {
+                    $this->translateLanguageMap($value, $translations, $targetLanguage, $node['languageMapNoneKeys']);
+                }
+                return [];
+            }
             if (isset($node['valueKey'])) {
                 $key = $node['valueKey'];
                 if ($property !== null && !($node['isIriCoerced'] ?? false)) {
@@ -246,6 +266,63 @@ class JsonLdTranslator
     {
         return in_array($key, self::TRANSLATABLE_KEYS, true)
             || ($key === 'text' && $isHowToStep);
+    }
+
+    /** Move only translated, tagged values; untagged values stay in their bucket. */
+    private function translateLanguageMap(array &$value, array $translations, string $targetLanguage, array $noneKeys): void
+    {
+        // This spelling cannot express the requested language in this context.
+        // Preserve the whole map rather than silently creating untagged output.
+        if (isset($noneKeys[$targetLanguage])) {
+            return;
+        }
+        $targetKey = $targetLanguage;
+        foreach ($value as $language => $_) {
+            if (!isset($noneKeys[$language]) && strcasecmp($language, $targetLanguage) === 0) {
+                $targetKey = $language;
+                break;
+            }
+        }
+        $translated = [];
+        $preserveArray = false;
+        foreach ($value as $language => $bucket) {
+            $untagged = isset($noneKeys[$language]);
+            if (!$untagged && strcasecmp($language, $targetLanguage) === 0) {
+                continue;
+            }
+            $remaining = [];
+            $changed = false;
+            foreach (is_array($bucket) ? $bucket : [$bucket] as $text) {
+                if (is_string($text) && mb_strlen(trim($text)) >= 2 && isset($translations[$text])) {
+                    $changed = true;
+                    if ($untagged) {
+                        $remaining[] = $translations[$text];
+                    } else {
+                        $translated[] = $translations[$text];
+                        $preserveArray = $preserveArray || is_array($bucket);
+                    }
+                } else {
+                    $remaining[] = $text;
+                }
+            }
+            if (!$changed) {
+                continue;
+            }
+            if ($remaining === []) {
+                unset($value[$language]);
+            } else {
+                $value[$language] = is_array($bucket) ? $remaining : $remaining[0];
+            }
+        }
+        if ($translated === []) {
+            return;
+        }
+        if (array_key_exists($targetKey, $value)) {
+            $existing = is_array($value[$targetKey]) ? $value[$targetKey] : [$value[$targetKey]];
+            $value[$targetKey] = array_merge($existing, $translated);
+        } else {
+            $value[$targetKey] = $preserveArray || count($translated) > 1 ? $translated : $translated[0];
+        }
     }
 
     /**
@@ -420,9 +497,8 @@ class JsonLdTranslator
             // SiteRouting accepts absolute URLs, but deliberately leaves
             // network paths alone. Supply the source scheme only after the
             // network path's nonempty host has passed the internal-host guard.
-            $sourceUrl = $this->routing->buildUrlForLanguage('/', $this->routing->getSourceLanguage());
-            $scheme = (string) wp_parse_url($sourceUrl, PHP_URL_SCHEME);
-            if (!in_array(strtolower($scheme), ['http', 'https'], true)) {
+            $scheme = $this->sourceScheme;
+            if (!in_array($scheme, ['http', 'https'], true)) {
                 return null;
             }
             $expanded = $scheme . ':' . $expanded;
@@ -441,9 +517,50 @@ class JsonLdTranslator
             return true;
         }
 
-        $host = (string) wp_parse_url($value, PHP_URL_HOST);
+        $parts = wp_parse_url($value);
+        $host = is_array($parts) ? ($parts['host'] ?? '') : '';
+        if ($host === '' || !$this->routing->isInternalHost($host)) {
+            return false;
+        }
+        $origins = $this->getInternalOrigins();
+        $origin = $this->originKey($parts, $this->sourceScheme);
+        return $origin !== null && isset($origins[$origin]);
+    }
 
-        return $host !== '' && $this->routing->isInternalHost($host);
+    /** Actual language hosts may use default ports even when the source does not. */
+    private function getInternalOrigins(): array
+    {
+        if ($this->internalOrigins !== null) {
+            return $this->internalOrigins;
+        }
+        $this->internalOrigins = [];
+        $sourceLanguage = $this->routing->getSourceLanguage();
+        $languages = array_unique(array_merge([$sourceLanguage], $this->routing->getTargetLanguages()));
+        foreach ($languages as $language) {
+            $parts = wp_parse_url($this->routing->buildUrlForLanguage('/', $language));
+            if (!is_array($parts)) {
+                continue;
+            }
+            if ($language === $sourceLanguage) {
+                $this->sourceScheme = strtolower($parts['scheme'] ?? '');
+            }
+            $origin = $this->originKey($parts);
+            if ($origin !== null) {
+                $this->internalOrigins[$origin] = true;
+            }
+        }
+        return $this->internalOrigins;
+    }
+
+    /** Scheme supplies an implicit port; network paths inherit the source scheme. */
+    private function originKey(array $parts, ?string $fallbackScheme = null): ?string
+    {
+        $scheme = strtolower($parts['scheme'] ?? $fallbackScheme ?? '');
+        if (empty($parts['host']) || !in_array($scheme, ['http', 'https'], true)) {
+            return null;
+        }
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+        return strtolower($parts['host']) . ':' . $port;
     }
 
     /**
@@ -461,6 +578,7 @@ class JsonLdTranslator
      * @param array<string, mixed>|null $context
      * @param array<string, mixed> $parent
      * @param array<string, mixed> $propertyMetadata
+     * @param bool $containerValue False for array/wrapper elements, which are not fresh property values.
      */
     private function walk(
         &$value,
@@ -468,7 +586,8 @@ class JsonLdTranslator
         ?array $context = null,
         ?string $property = null,
         array $parent = [],
-        array $propertyMetadata = []
+        array $propertyMetadata = [],
+        bool $containerValue = true
     ): void {
         $context = $context ?? array_replace(self::EMPTY_CONTEXT, ['vocab' => 'https://schema.org/']);
 
@@ -478,9 +597,20 @@ class JsonLdTranslator
             return;
         }
 
+        // Language maps expand directly from the incoming property context,
+        // before node rollback or any contexts/keywords inside their payload.
+        if ($containerValue && ($propertyMetadata['hasLanguageMap'] ?? false) && is_array($value)
+            && ($value === [] || array_keys($value) !== range(0, count($value) - 1))) {
+            $mapMetadata = $this->languageMapMetadata($value, $context);
+            if ($mapMetadata !== null) {
+                $visitor($value, $property, $parent, [], array_merge($propertyMetadata, $mapMetadata, ['isIriCoerced' => false]));
+            }
+            return;
+        }
+
         if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
             foreach ($value as &$item) {
-                $this->walk($item, $visitor, $context, $property, $parent, $propertyMetadata);
+                $this->walk($item, $visitor, $context, $property, $parent, $propertyMetadata, false);
             }
             unset($item);
             return;
@@ -531,7 +661,7 @@ class JsonLdTranslator
             $wrapper = $this->wrapperMetadata($value, $context);
             if ($wrapper !== null) {
                 if ($wrapper !== []) {
-                    $this->walk($value[$wrapper['valueKey']], $visitor, $context, $property, $parent, $propertyMetadata);
+                    $this->walk($value[$wrapper['valueKey']], $visitor, $context, $property, $parent, $propertyMetadata, false);
                 }
                 return;
             }
@@ -682,16 +812,42 @@ class JsonLdTranslator
             : null;
     }
 
-    /** @return array{termKey: string, allowsIdReference: bool, isIriCoerced: bool, isJsonCoerced: bool} */
+    /** @return array{termKey: string, allowsIdReference: bool, isIriCoerced: bool, isJsonCoerced: bool, hasLanguageMap: bool} */
     private function propertyMetadata(string $key, array $context): array
     {
         $coercion = $context['coercions'][$key] ?? null;
+        $container = $context['containers'][$key] ?? null;
         return [
             'termKey' => $key,
             'allowsIdReference' => !array_key_exists($key, $context['coercions']) || $coercion === '@id',
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
             'isJsonCoerced' => $coercion === '@json',
+            'hasLanguageMap' => $container === '@language' || (is_array($container) && in_array('@language', $container, true)),
         ];
+    }
+
+    /** Validate every bucket before any visitor sees the map; keys are language tags, not properties. */
+    private function languageMapMetadata(array $value, array $context): ?array
+    {
+        // Include aliases without a bucket too: a newly created target key
+        // must not accidentally be an alias for the untagged @none bucket.
+        $noneKeys = ['@none' => true];
+        foreach ($context['terms'] as $term => $iri) {
+            if ($iri === '@none') {
+                $noneKeys[$term] = true;
+            }
+        }
+        foreach ($value as $language => $bucket) {
+            if (!is_string($language) || (is_array($bucket) && $bucket !== [] && array_keys($bucket) !== range(0, count($bucket) - 1))) {
+                return null;
+            }
+            foreach (is_array($bucket) ? $bucket : [$bucket] as $text) {
+                if ($text !== null && !is_string($text)) {
+                    return null;
+                }
+            }
+        }
+        return ['languageMapNoneKeys' => $noneKeys];
     }
 
     /** Default/term language applies only to non-datatype-coerced strings. */
@@ -887,7 +1043,7 @@ class JsonLdTranslator
                 : null;
             // Property scopes and term language mappings are replaced with the
             // term definition, never inherited after an unscoped redefinition.
-            foreach (['@context' => 'scopedContexts', '@language' => 'languages'] as $keyword => $field) {
+            foreach (['@context' => 'scopedContexts', '@language' => 'languages', '@container' => 'containers'] as $keyword => $field) {
                 if (is_array($mapping) && array_key_exists($keyword, $mapping)) {
                     $context[$field][$term] = $mapping[$keyword];
                 } else {

@@ -108,15 +108,20 @@ Explicit node references remain eligible independently of scalar coercion.
 Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
 group properties of the same node: they share type, identity and visitor state.
 Nesting itself does not trigger context rollback; actual child nodes still do.
+Nested `@type` values contribute node identity but do not activate type-scoped
+contexts: JSON-LD expansion unfolds nesting after direct type scopes are applied.
 Malformed nesting envelopes are left untouched.
 
 Canonical identity keys equate root-relative and same-site absolute IDs, including
 configured internal language hosts, paths and slug mappings. Query and fragment
 distinctions remain intact. Keys are separate from URL output: each actual rewrite
 still uses SiteRouting and preserves its relative/absolute routing behavior.
-Scheme-relative page URLs are accepted only after their host matches a configured
-internal host, then normalized to the source site's scheme for routing. External
-network-path references remain unchanged.
+Absolute and scheme-relative page URLs must match a configured routing host and
+its effective port. Explicit and implicit default HTTP/HTTPS ports are equivalent;
+other services on the same host cannot seed identities or acquire page routing.
+Scheme-relative URLs use the source site's scheme for the comparison and routing.
+Mapped language hosts use their own generated routing origin, including its port.
+External network-path references remain unchanged.
 
 Local prefix definitions also expand compact page IDs and supported page URL
 values before internal-host checks, identity matching and routing. Only internal
@@ -134,6 +139,15 @@ Default and term-specific context language mappings are overridden with explicit
 target-language value objects only for translated literals. Context definitions,
 cache misses and unrelated literals keep their original language interpretation;
 explicitly untagged values remain untagged.
+Language-map containers (`@language`, optionally with `@set`) retain the enclosing
+supported text property's meaning, including HowToStep text and scoped aliases.
+Translated strings move to the target-language bucket; existing target values are
+preserved and merged without overwriting them. Cache misses, short strings, nulls
+and empty arrays keep their source buckets. Explicit `@none` buckets and aliases
+remain untagged. Language maps are terminal literals, never graph nodes or page
+URLs; malformed maps and unsupported properties are not modified. A map also
+stays unchanged if its requested target language code is aliased to `@none`,
+because that key cannot represent the requested language.
 Values coerced with `@type: @json` are opaque JSON literals: their complete
 contents are excluded from text collection, translation, ID discovery and routing,
 even when nested payload fields resemble JSON-LD nodes or contexts.

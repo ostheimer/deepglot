@@ -1770,6 +1770,128 @@ $nestBoundaryInput = ['@context' => $nestContext, '@graph' => [
 ]];
 $reviewCheck(jsonLdReviewRender([$nestBoundaryInput], $routing) === [$nestBoundaryInput], 'Malformed/foreign nesting and JSON-coerced nesting remain untouched');
 
+// W3C expansion 14 repeats only steps 13/14 for @nest, not type-scope step 11.
+// A nested type supplies identity without activating its scoped context.
+$nestedTypeContext = ['@vocab' => 'https://example.org/', 'bundle' => '@nest', 'kind' => '@type',
+    'RecipeAlias' => ['@id' => 'https://schema.org/Recipe', '@context' => ['instructions' => 'https://schema.org/recipeInstructions']],
+];
+$nestedTypeInput = ['@context' => $nestedTypeContext, '@graph' => [
+    ['bundle' => ['kind' => 'RecipeAlias', 'instructions' => 'Nested type keeps foreign instructions'], '@id' => '/nested-type-scope/'],
+    ['kind' => 'RecipeAlias', 'bundle' => ['instructions' => 'Direct type activates instructions']],
+]];
+$nestedTypeOutput = jsonLdReviewRender([$nestedTypeInput], $routing, $nestedTypeStrings)[0];
+$reviewCheck(
+    $nestedTypeOutput['@graph'][0]['bundle'] === $nestedTypeInput['@graph'][0]['bundle']
+    && $nestedTypeOutput['@graph'][0]['@id'] === '/en/nested-type-scope/'
+    && $nestedTypeOutput['@graph'][1]['bundle']['instructions'] === '[en] Direct type activates instructions'
+    && $nestedTypeStrings === ['Direct type activates instructions'],
+    'P2 3943730929 is invalid: nested types do not activate type scopes; direct types still do'
+);
+
+$languageMapContext = ['@vocab' => 'https://schema.org/', '@language' => 'de', 'noLanguage' => '@none',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language'],
+    'steps' => ['@id' => 'recipeInstructions', '@container' => ['@language', '@set']],
+    'stepText' => ['@id' => 'text', '@container' => '@language'],
+];
+$languageMapInput = ['@context' => $languageMapContext, '@type' => 'Recipe',
+    'ingredients' => ['de' => ['Wasser', 'Salz', null], 'en' => ['Existing salt'], 'fr' => 'Farine', '@none' => 'Untagged ingredient'],
+    'steps' => ['de' => 'Alles mischen', 'noLanguage' => ['Untagged step']],
+    'recipeInstructions' => [['@type' => 'HowToStep', 'stepText' => ['de' => ['Gut rühren']]], ['@type' => 'Thing', 'stepText' => ['de' => 'Not step prose']]],
+];
+$languageMapOutput = jsonLdReviewRender([$languageMapInput], $routing, $languageMapStrings, ['Salz' => null])[0];
+$reviewCheck(
+    $languageMapOutput['ingredients'] === ['de' => ['Salz', null], 'en' => ['Existing salt', '[en] Wasser', '[en] Farine'], '@none' => '[en] Untagged ingredient']
+    && $languageMapOutput['steps'] === ['noLanguage' => ['[en] Untagged step'], 'en' => '[en] Alles mischen']
+    && $languageMapOutput['recipeInstructions'][0]['stepText'] === ['en' => ['[en] Gut rühren']]
+    && $languageMapOutput['recipeInstructions'][1] === $languageMapInput['recipeInstructions'][1]
+    && $languageMapOutput['@context'] === $languageMapContext
+    && in_array('Wasser', $languageMapStrings, true) && in_array('Salz', $languageMapStrings, true)
+    && in_array('Alles mischen', $languageMapStrings, true) && in_array('Gut rühren', $languageMapStrings, true)
+    && !in_array('Not step prose', $languageMapStrings, true),
+    'P2 3943730931: language maps translate enclosing prose, merge target values, preserve cache misses/nulls and explicit untagged buckets'
+);
+$languageMapScopeInput = ['@context' => ['@vocab' => 'https://example.org/',
+    'Scoped' => ['@id' => 'https://schema.org/Recipe', '@context' => ['words' => ['@id' => 'https://schema.org/name', '@container' => '@language']]],
+    'child' => ['@id' => 'https://example.org/child', '@context' => ['words' => ['@id' => 'https://schema.org/description', '@container' => '@language']]],
+], '@graph' => [
+    ['@type' => 'Scoped', '@nest' => ['words' => ['de' => 'Type map prose']], 'other' => ['words' => ['de' => 'Scope rolled back']]],
+    ['child' => ['words' => ['de' => 'Property map prose']]],
+    ['@context' => [$languageMapContext, ['ingredients' => 'https://schema.org/recipeIngredient']], 'ingredients' => 'Redefined plain prose'],
+]];
+$languageMapScopeOutput = jsonLdReviewRender([$languageMapScopeInput], $routing, $languageMapScopeStrings)[0]['@graph'];
+$reviewCheck(
+    $languageMapScopeOutput[0]['@nest']['words'] === ['en' => '[en] Type map prose']
+    && $languageMapScopeOutput[0]['other'] === $languageMapScopeInput['@graph'][0]['other']
+    && $languageMapScopeOutput[1]['child']['words'] === ['en' => '[en] Property map prose']
+    && $languageMapScopeOutput[2]['ingredients'] === ['@value' => '[en] Redefined plain prose', '@language' => 'en'],
+    'Language-map metadata follows type/property/nest scopes, rollback and term redefinition'
+);
+$mapOpaqueNode = ['@type' => 'WebPage', '@id' => '/map-must-not-seed/', 'name' => 'Invalid map node'];
+$languageMapBoundaryInput = ['@context' => array_merge($languageMapContext, [
+    'foreignMap' => ['@id' => 'https://example.org/foreign', '@container' => '@language'],
+    'urlMap' => ['@id' => 'mainEntityOfPage', '@container' => '@language'],
+    'jsonMap' => ['@id' => 'name', '@container' => '@language', '@type' => '@json'],
+]), '@type' => 'WebPage',
+    'ingredients' => ['de' => ['Valid but whole map invalid', $mapOpaqueNode]],
+    'foreignMap' => ['name' => 'Foreign map value', 'url' => '/map-must-not-seed/'],
+    'urlMap' => ['de' => '/map-must-not-seed/'], 'jsonMap' => ['de' => $mapOpaqueNode],
+];
+$languageMapBoundaryRefs = ['isPartOf' => ['@id' => '/map-must-not-seed/']];
+$languageMapBoundaryOutput = jsonLdReviewRender([$languageMapBoundaryInput, $languageMapBoundaryRefs], $routing, $languageMapBoundaryStrings);
+$reviewCheck($languageMapBoundaryOutput === [$languageMapBoundaryInput, $languageMapBoundaryRefs] && $languageMapBoundaryStrings === [],
+    'Language maps are terminal literals, never nodes/URLs; malformed maps and @json stay entirely opaque');
+$languageMapCollisionInput = ['@context' => $languageMapContext, 'ingredients' => ['EN' => 'Already English', 'de' => ['Neu', 'x', null], 'fr' => [], 'it' => null]];
+$languageMapCollisionOutput = jsonLdReviewRender([$languageMapCollisionInput], $routing)[0];
+$reviewCheck($languageMapCollisionOutput['ingredients'] === ['EN' => ['Already English', '[en] Neu'], 'de' => ['x', null], 'fr' => [], 'it' => null],
+    'Target language matching is case-insensitive, merging loses no values and empty/short/null originals stay exact');
+foreach ([false, true] as $hasUntaggedTargetKey) {
+    $reservedLanguageMapInput = ['@context' => array_merge($languageMapContext, ['en' => '@none']),
+        'ingredients' => $hasUntaggedTargetKey ? ['de' => 'Tagged original', 'en' => 'Explicit untagged target key'] : ['de' => 'Tagged original'],
+    ];
+    $reviewCheck(jsonLdReviewRender([$reservedLanguageMapInput], $routing) === [$reservedLanguageMapInput],
+        'A target code aliased to @none cannot represent the requested language; preserve the whole map: ' . (int) $hasUntaggedTargetKey);
+}
+$languageMapFallbackInput = ['@context' => $languageMapContext, 'ingredients' => ['Array literal', ['name' => 'Array child name']],
+    'recipeInstructions' => ['@list' => [['@type' => 'HowToStep', 'stepText' => ['de' => 'Wrapped map step']]]],
+];
+$languageMapFallbackOutput = jsonLdReviewRender([$languageMapFallbackInput], $routing)[0];
+$reviewCheck($languageMapFallbackOutput['ingredients'] === [
+        ['@value' => '[en] Array literal', '@language' => 'en'], ['name' => ['@value' => '[en] Array child name', '@language' => 'en']],
+    ] && $languageMapFallbackOutput['recipeInstructions']['@list'][0]['stepText'] === ['en' => '[en] Wrapped map step'],
+    'Language-container array fallback expands ordinary scalars/nodes; nested list nodes still support direct language maps');
+
+$portRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), 'https://www.meinhaushalt.at:8443', 'PATH_PREFIX', []);
+$portForeign = ['@type' => 'WebPage', '@id' => 'https://www.meinhaushalt.at:9443/foreign/#page',
+    'url' => '//www.meinhaushalt.at:9443/foreign/', 'mainEntityOfPage' => 'https://www.meinhaushalt.at/foreign-default/'];
+foreach ([false, true] as $reversePortScripts) {
+    $portSource = ['@graph' => [$portForeign,
+        ['@type' => 'WebPage', '@id' => 'https://www.meinhaushalt.at:8443/local/#page', 'url' => '//www.meinhaushalt.at:8443/local/'],
+        ['@context' => ['site' => 'https://www.meinhaushalt.at:9443/'], '@type' => 'WebPage', '@id' => 'site:compact-foreign/'],
+    ]];
+    $portRefs = ['@graph' => [['@id' => '/foreign/#page'], ['@id' => '/foreign-default/'], ['@id' => '/compact-foreign/'], ['isPartOf' => ['@id' => '/local/#page']]]];
+    $portOutput = jsonLdReviewRender($reversePortScripts ? [$portRefs, $portSource] : [$portSource, $portRefs], $portRouting);
+    $portNodes = $portOutput[$reversePortScripts ? 1 : 0]['@graph'];
+    $portRefOutput = $portOutput[$reversePortScripts ? 0 : 1]['@graph'];
+    $reviewCheck($portNodes[0] === $portForeign && $portNodes[2] === $portSource['@graph'][2]
+        && $portNodes[1]['@id'] === 'https://www.meinhaushalt.at:8443/en/local/#page'
+        && $portNodes[1]['url'] === 'https://www.meinhaushalt.at:8443/en/local/'
+        && array_slice($portRefOutput, 0, 3) === array_slice($portRefs['@graph'], 0, 3)
+        && $portRefOutput[3]['isPartOf']['@id'] === '/en/local/#page',
+        'P2 3943730934: foreign effective ports neither route nor seed canonical graph identities: ' . (int) $reversePortScripts);
+}
+foreach ([['https', 443], ['http', 80]] as [$portScheme, $defaultPort]) {
+    foreach ([false, true] as $explicitConfiguredPort) {
+        $defaultPortRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), $portScheme . '://www.meinhaushalt.at' . ($explicitConfiguredPort ? ':' . $defaultPort : ''), 'PATH_PREFIX', []);
+        $defaultPortOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => [$portScheme . '://www.meinhaushalt.at/default/', $portScheme . '://www.meinhaushalt.at:' . $defaultPort . '/explicit/']]], $defaultPortRouting)[0]['url'];
+        $reviewCheck($defaultPortOutput === [$defaultPortRouting->buildUrlForLanguage('/default/', 'en'), $defaultPortRouting->buildUrlForLanguage('/explicit/', 'en')],
+            'Explicit and implicit default ports are equivalent: ' . $portScheme . ' ' . (int) $explicitConfiguredPort);
+    }
+}
+$mappedPortRouting = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://www.meinhaushalt.at:8443', 'SUBDOMAIN', ['en' => 'en.meinhaushalt.at', 'fr' => 'fr.meinhaushalt.at']);
+$mappedPortOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => ['https://fr.meinhaushalt.at:443/mapped/', '//fr.meinhaushalt.at/mapped-network/', 'https://fr.meinhaushalt.at:8443/not-mapped/']]], $mappedPortRouting)[0]['url'];
+$reviewCheck($mappedPortOutput === ['https://en.meinhaushalt.at/mapped/', 'https://en.meinhaushalt.at/mapped-network/', 'https://fr.meinhaushalt.at:8443/not-mapped/'],
+    'Language hosts use their actual configured routing origin port, not the source host custom port');
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }
