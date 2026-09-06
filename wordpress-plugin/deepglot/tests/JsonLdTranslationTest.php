@@ -1536,6 +1536,150 @@ $networkHttpRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), 'ht
 $networkHttpOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => '//www.meinhaushalt.at/network/']], $networkHttpRouting);
 $reviewCheck($networkHttpOutput[0]['url'] === 'http://www.meinhaushalt.at/en/network/', 'Network-path normalization uses the configured source scheme');
 
+// Type scopes apply to this node, in lexical term order, before its properties.
+$typeScopeContext = [
+    '@vocab' => 'https://example.org/', 's' => 'https://schema.org/', 'kind' => '@type',
+    'Recipe' => ['@id' => 's:Recipe', '@context' => [
+        'instructions' => 's:recipeInstructions', 'identifier' => '@id',
+        'site' => 'https://www.meinhaushalt.at/', 'Recipe' => 'https://example.org/ShadowRecipe',
+    ]],
+    'A' => ['@id' => 's:Thing', '@context' => ['instructions' => 'https://example.org/instructions']],
+    'Z' => ['@id' => 's:Recipe', '@context' => ['instructions' => 's:recipeInstructions']],
+    'Foreign' => ['@id' => 'https://example.org/Foreign', '@context' => ['label' => 's:name']],
+];
+$typeScopeInput = ['@context' => $typeScopeContext, '@graph' => [
+    ['kind' => 'Recipe', 'instructions' => ['Type-scoped instructions'], 'identifier' => 'site:type-scope/#page', 'child' => ['instructions' => 'Unscoped descendant']],
+    ['@type' => ['Z', 'A'], 'instructions' => 'Lexical order one'],
+    ['@type' => ['A', 'Z'], 'instructions' => 'Lexical order two'],
+    ['@type' => 'Foreign', 'label' => 'Foreign class supported property', '@id' => '/foreign-class/'],
+    ['instructions' => 'Untyped sibling'],
+    ['@context' => ['Recipe' => 's:Recipe'], '@type' => 'Recipe', 'instructions' => 'Removed type scope'],
+]];
+$typeScopeOutput = jsonLdReviewRender([$typeScopeInput, ['isPartOf' => ['@id' => '/type-scope/#page']]], $routing, $typeScopeStrings);
+$reviewCheck(
+    $typeScopeOutput[0]['@graph'][0]['instructions'][0] === '[en] Type-scoped instructions'
+    && $typeScopeOutput[0]['@graph'][0]['identifier'] === 'https://www.meinhaushalt.at/en/type-scope/#page'
+    && $typeScopeOutput[1]['isPartOf']['@id'] === '/en/type-scope/#page'
+    && $typeScopeOutput[0]['@graph'][1]['instructions'] === '[en] Lexical order one'
+    && $typeScopeOutput[0]['@graph'][2]['instructions'] === '[en] Lexical order two'
+    && $typeScopeOutput[0]['@graph'][3]['label'] === '[en] Foreign class supported property',
+    'P2 3943632995: type-scoped contexts use pre-scope types and lexical ordering for text and graph routing'
+);
+$reviewCheck(
+    $typeScopeOutput[0]['@graph'][0]['child'] === $typeScopeInput['@graph'][0]['child']
+    && $typeScopeOutput[0]['@graph'][3]['@id'] === '/foreign-class/'
+    && array_slice($typeScopeOutput[0]['@graph'], 4) === array_slice($typeScopeInput['@graph'], 4)
+    && $typeScopeOutput[0]['@context'] === $typeScopeContext,
+    'Type scope does not leak to child nodes/siblings, change class identity or survive term redefinition'
+);
+
+foreach (['https://www.w3.org/2001/XMLSchema#string', '@none'] as $directLiteralType) {
+    $directLiteralInput = ['@context' => [
+        'mainEntityOfPage' => ['@id' => 'https://schema.org/mainEntityOfPage', '@type' => $directLiteralType],
+        'target' => ['@id' => 'https://schema.org/item', '@type' => $directLiteralType],
+    ], '@graph' => [
+        ['mainEntityOfPage' => ['/literal-direct/', ['@set' => '/literal-wrapped/']]],
+        ['@type' => 'ListItem', 'target' => ['/literal-item/', ['@list' => ['/literal-item-wrapped/']]]],
+        ['mainEntityOfPage' => ['@id' => '/explicit-node/']],
+    ]];
+    $directUnseededRefs = ['@graph' => [
+        ['@id' => '/literal-direct/'], ['@id' => '/literal-wrapped/'], ['@id' => '/literal-item/'], ['@id' => '/literal-item-wrapped/'],
+    ]];
+    $directLiteralOutput = jsonLdReviewRender([$directLiteralInput, $directUnseededRefs], $routing);
+    $reviewCheck(
+        array_slice($directLiteralOutput[0]['@graph'], 0, 2) === array_slice($directLiteralInput['@graph'], 0, 2)
+        && $directLiteralOutput[1] === $directUnseededRefs
+        && $directLiteralOutput[0]['@graph'][2]['mainEntityOfPage']['@id'] === '/en/explicit-node/',
+        'P2 3943632997: literal direct relationships neither route nor seed IDs; explicit node references still route: ' . $directLiteralType
+    );
+}
+$directIriOutput = jsonLdReviewRender([['@context' => ['target' => ['@id' => 'https://schema.org/mainEntityOfPage', '@type' => '@id']], 'target' => '/direct-iri/', 'mainEntityOfPage' => '/legacy-direct/']], $routing);
+$reviewCheck($directIriOutput[0]['target'] === '/en/direct-iri/' && $directIriOutput[0]['mainEntityOfPage'] === '/en/legacy-direct/', 'Explicit IRI and legacy uncoerced direct page relationships remain supported');
+
+$opaqueContext = ['blob' => ['@id' => 'https://example.org/blob', '@type' => '@json'], 'name' => ['@type' => '@json']];
+$opaquePayload = ['@context' => ['blob' => null], '@type' => 'WebPage', '@id' => '/opaque/#page', 'name' => 'Opaque name', 'description' => 'Opaque description', 'mainEntityOfPage' => '/opaque-seed/'];
+$opaqueInput = ['@context' => $opaqueContext, 'blob' => [$opaquePayload, ['@list' => [$opaquePayload]]], 'name' => 'Opaque scalar', 'description' => 'Visible sibling', '@graph' => [
+    ['@context' => ['blob' => 'https://example.org/blob', 'name' => 'https://schema.org/name'], 'blob' => ['name' => 'Restored node']],
+    ['blob' => ['@value' => 'Opaque value object', '@language' => 'de']],
+]];
+$opaqueRefs = ['isPartOf' => ['@id' => '/opaque/#page'], 'breadcrumb' => ['@id' => '/opaque-seed/']];
+$opaqueOutput = jsonLdReviewRender([$opaqueInput, $opaqueRefs], $routing, $opaqueStrings);
+$reviewCheck(
+    $opaqueOutput[0]['blob'] === $opaqueInput['blob'] && $opaqueOutput[0]['name'] === 'Opaque scalar'
+    && $opaqueOutput[0]['@graph'][1] === $opaqueInput['@graph'][1]
+    && $opaqueOutput[1] === $opaqueRefs
+    && $opaqueStrings === ['Visible sibling', 'Restored node']
+    && $opaqueOutput[0]['description'] === '[en] Visible sibling'
+    && $opaqueOutput[0]['@graph'][0]['blob']['name'] === '[en] Restored node',
+    'P2 3943632999: @json-coerced scalars/arrays/objects/wrappers are opaque to every walker consumer'
+);
+
+$nonPropagatingScope = ['@propagate' => false, '@vocab' => 'https://schema.org/', 'literal' => '@value', 'identifier' => '@id', 'site' => 'https://www.meinhaushalt.at/'];
+$nonPropagatingInput = ['@context' => ['@vocab' => 'https://example.org/'], '@graph' => [[
+    '@context' => $nonPropagatingScope, '@type' => 'WebPage', '@id' => '/nonprop/#page',
+    'name' => ['Current node', ['literal' => 'Value retains scope']],
+    'mainEntityOfPage' => ['identifier' => 'site:id-only/'],
+    'children' => [
+        ['@type' => 'WebPage', '@id' => '/nonprop-child/', 'name' => 'Foreign child', 'deep' => ['name' => 'Foreign grandchild']],
+        ['@context' => ['@vocab' => 'https://schema.org/'], 'name' => 'Local override', 'deep' => ['name' => 'Local descendant']],
+        ['@context' => null, 'name' => 'Reset child'],
+    ],
+    'recipeInstructions' => ['@list' => ['List scalar', ['name' => 'Foreign list node']]],
+    'description' => ['@set' => ['Set scalar', ['name' => 'Foreign set node']]],
+]]];
+$nonPropagatingOutput = jsonLdReviewRender([$nonPropagatingInput], $routing, $nonPropagatingStrings)[0]['@graph'][0];
+$reviewCheck(
+    $nonPropagatingOutput['name'] === ['[en] Current node', ['literal' => '[en] Value retains scope']]
+    && $nonPropagatingOutput['@id'] === '/en/nonprop/#page'
+    && $nonPropagatingOutput['mainEntityOfPage']['identifier'] === 'https://www.meinhaushalt.at/en/id-only/'
+    && $nonPropagatingOutput['children'][0] === $nonPropagatingInput['@graph'][0]['children'][0]
+    && $nonPropagatingOutput['children'][1]['name'] === '[en] Local override'
+    && $nonPropagatingOutput['children'][1]['deep']['name'] === '[en] Local descendant'
+    && $nonPropagatingOutput['children'][2] === $nonPropagatingInput['@graph'][0]['children'][2]
+    && $nonPropagatingOutput['recipeInstructions']['@list'] === ['[en] List scalar', ['name' => 'Foreign list node']]
+    && $nonPropagatingOutput['description']['@set'] === ['[en] Set scalar', ['name' => 'Foreign set node']]
+    && $nonPropagatingOutput['@context'] === $nonPropagatingScope,
+    'P2 3943633000: non-propagating context stops at child nodes while scalar/value/id-only values and local overrides retain correct scopes'
+);
+$scopeCombinationInput = ['@context' => ['@vocab' => 'https://example.org/'], '@graph' => [[
+    '@context' => [
+        ['@propagate' => false, '@vocab' => 'https://schema.org/'],
+        ['@propagate' => false, 'label' => 'https://schema.org/name', 'scopedChild' => ['@id' => 'https://example.org/child', '@context' => ['@vocab' => 'https://schema.org/']]],
+    ],
+    'label' => 'Context array label', 'child' => ['name' => 'Array scope must roll back completely'],
+    'scopedChild' => ['name' => 'Property scope after rollback', 'child' => ['name' => 'Property scope descendant']],
+]]];
+$scopeCombinationOutput = jsonLdReviewRender([$scopeCombinationInput], $routing)[0]['@graph'][0];
+$reviewCheck(
+    $scopeCombinationOutput['label'] === '[en] Context array label'
+    && $scopeCombinationOutput['child'] === $scopeCombinationInput['@graph'][0]['child']
+    && $scopeCombinationOutput['scopedChild']['name'] === '[en] Property scope after rollback'
+    && $scopeCombinationOutput['scopedChild']['child']['name'] === '[en] Property scope descendant',
+    'Non-propagating context arrays roll back to their initial scope before applying a child property scope'
+);
+$scopeOrderInput = ['@context' => [
+    '@vocab' => 'https://example.org/',
+    'payload' => ['@id' => 'https://example.org/payload', '@context' => [
+        'title' => 'https://schema.org/name',
+        'Scoped' => ['@id' => 'https://schema.org/Recipe', '@context' => ['title' => 'https://schema.org/headline', '@language' => 'de', 'blob' => ['@id' => 'https://example.org/blob', '@type' => '@json']]],
+    ]],
+    'Persistent' => ['@id' => 'https://schema.org/Recipe', '@context' => ['@propagate' => true, 'instructions' => 'https://schema.org/recipeInstructions']],
+], 'payload' => [
+    '@context' => ['title' => 'https://example.org/title'], '@type' => 'Scoped',
+    'title' => 'Type wins last', 'blob' => ['name' => 'Type-scoped opaque name'],
+    'child' => ['title' => 'Local foreign term restored'],
+], '@graph' => [['@type' => 'Persistent', 'instructions' => 'Persistent type parent', 'child' => ['instructions' => 'Persistent type child']]]];
+$scopeOrderOutput = jsonLdReviewRender([$scopeOrderInput], $routing, $scopeOrderStrings)[0];
+$reviewCheck(
+    $scopeOrderOutput['payload']['title'] === ['@value' => '[en] Type wins last', '@language' => 'en']
+    && $scopeOrderOutput['payload']['blob'] === $scopeOrderInput['payload']['blob']
+    && $scopeOrderOutput['payload']['child'] === $scopeOrderInput['payload']['child']
+    && $scopeOrderOutput['@graph'][0]['instructions'] === '[en] Persistent type parent'
+    && $scopeOrderOutput['@graph'][0]['child']['instructions'] === '[en] Persistent type child'
+    && $scopeOrderStrings === ['Type wins last', 'Persistent type parent', 'Persistent type child'],
+    'Property/local/type scopes apply in order; type language and @json stay local unless propagation is explicitly true'
+);
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

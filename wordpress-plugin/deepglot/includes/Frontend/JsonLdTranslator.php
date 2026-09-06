@@ -84,6 +84,7 @@ class JsonLdTranslator
         'languages' => [],
         'language' => null,
         'vocab' => null,
+        'previousContext' => null,
     ];
 
     private ?SiteRouting $routing;
@@ -278,7 +279,7 @@ class JsonLdTranslator
             $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$edges, &$objectCount, $seed): array {
                 $isExplicitPage = $this->hasPageRelatedType($types);
                 $isGeneric = $node['canBePageReference'] ?? false;
-                $directReference = $this->isDirectPageReference($property, $parent);
+                $directReference = $this->isDirectPageReference($property, $parent, $node);
                 $parentVertex = $parent['pageVertex'] ?? null;
                 $vertex = null;
 
@@ -366,7 +367,7 @@ class JsonLdTranslator
     private function pageSemantics(?string $property, array $parent, array $types, array $node, array $pageNodeIds): array
     {
         $isPageUrl = ($parent['isPageEntity'] ?? false) && in_array($property, ['@id', 'url'], true);
-        $isPageReference = $this->isDirectPageReference($property, $parent)
+        $isPageReference = $this->isDirectPageReference($property, $parent, $node)
             || ($property === 'url' && ($parent['isPageEntity'] ?? false));
         $reference = $node['referenceKey'] ?? null;
         $isCollectedScalarReference = is_string($reference)
@@ -386,10 +387,13 @@ class JsonLdTranslator
     }
 
     /** Relationships that establish a page target without a collected ID. */
-    private function isDirectPageReference(?string $property, array $parent): bool
+    private function isDirectPageReference(?string $property, array $parent, array $node): bool
     {
-        return $property === 'mainEntityOfPage'
-            || ($property === 'item' && ($parent['isListItem'] ?? false));
+        // Coercion controls scalar relationships, not explicit node references.
+        // Both discovery and routing use this guard so literals cannot seed IDs.
+        return (!array_key_exists('urlReference', $node) || ($node['allowsIdReference'] ?? true))
+            && ($property === 'mainEntityOfPage'
+                || ($property === 'item' && ($parent['isListItem'] ?? false)));
     }
 
     /**
@@ -444,8 +448,9 @@ class JsonLdTranslator
 
     /**
      * One traversal contract for collection, translation and routing. Contexts
-     * belong to their object and descendants; list elements retain the parent
-     * property's semantics. Context definitions themselves are never visited.
+     * follow their values, with non-propagating scopes restored at the next node
+     * boundary; list elements retain the parent property's semantics. Context
+     * definitions themselves are never visited.
      * Each script starts with a fresh scope, while callers may share graph IDs.
      *
      * Bare types keep the existing Schema.org default for context-free output.
@@ -467,6 +472,12 @@ class JsonLdTranslator
     ): void {
         $context = $context ?? array_replace(self::EMPTY_CONTEXT, ['vocab' => 'https://schema.org/']);
 
+        // An incoming JSON literal is opaque before array iteration, local
+        // contexts or graph/literal inspection. Payload keys are not JSON-LD.
+        if ($propertyMetadata['isJsonCoerced'] ?? false) {
+            return;
+        }
+
         if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
             foreach ($value as &$item) {
                 $this->walk($item, $visitor, $context, $property, $parent, $propertyMetadata);
@@ -476,16 +487,34 @@ class JsonLdTranslator
         }
 
         $types = [];
-        $node = $propertyMetadata;
         $isObject = is_array($value);
-        if (is_array($value)) {
-            if (array_key_exists('@context', $value)) {
-                $context = $this->resolveContext($value['@context'], $context);
-                if (isset($propertyMetadata['termKey'])) {
-                    $propertyMetadata = $this->propertyMetadata($propertyMetadata['termKey'], $context);
-                    $node = $propertyMetadata;
-                }
-            }
+        $termKey = $propertyMetadata['termKey'] ?? null;
+        $hasPropertyScope = $termKey !== null && array_key_exists($termKey, $context['scopedContexts']);
+        $propertyScope = $hasPropertyScope ? $context['scopedContexts'][$termKey] : null;
+
+        // Capture the property scope before reverting a type/non-propagating
+        // context. Scalars and value/id-only maps retain the current scope.
+        if ($isObject && isset($context['previousContext']) && !$this->retainsContext($value, $context)) {
+            $context = $context['previousContext'];
+        }
+        if ($hasPropertyScope) {
+            $context = $this->resolveContext($propertyScope, $context);
+        }
+        if ($termKey !== null && $this->propertyMetadata($termKey, $context)['isJsonCoerced']) {
+            return;
+        }
+        if ($isObject && array_key_exists('@context', $value)) {
+            $context = $this->resolveContext($value['@context'], $context);
+        }
+        $typeContext = $context;
+        if ($isObject) {
+            $context = $this->applyTypeScopes($value, $context);
+        }
+        if ($termKey !== null) {
+            $propertyMetadata = $this->propertyMetadata($termKey, $context);
+        }
+        $node = $propertyMetadata;
+        if ($isObject) {
             // A value object is a terminal literal, not a graph node. Validate
             // its complete envelope before any visitor can collect prose or IDs.
             $valueObject = $this->valueObjectMetadata($value, $context);
@@ -511,7 +540,9 @@ class JsonLdTranslator
             foreach ($value as $key => $child) {
                 $keyword = is_string($key) ? $this->semanticProperty($key, $context) : null;
                 if ($keyword === '@type') {
-                    $resolvedTypes = $this->schemaTypes($child, $context);
+                    // A type scope may redefine its own class term. It affects
+                    // properties, never the class identity that activated it.
+                    $resolvedTypes = $this->schemaTypes($child, $typeContext);
                     $types = array_merge($types, $resolvedTypes);
                     $node['canBePageReference'] = $node['canBePageReference']
                         && $this->isExclusivelyGenericType($child, $resolvedTypes);
@@ -538,16 +569,47 @@ class JsonLdTranslator
         foreach ($value as $key => &$child) {
             if ($key !== '@context') {
                 $semanticProperty = is_string($key) ? $this->semanticProperty($key, $context) : $property;
-                $childContext = is_string($key) && array_key_exists($key, $context['scopedContexts'])
-                    ? $this->resolveContext($context['scopedContexts'][$key], $context)
-                    : $context;
-                // The enclosing key keeps its original property IRI, while
-                // value expansion uses the scoped term's type/language mapping.
-                $metadata = is_string($key) ? $this->propertyMetadata($key, $childContext) : $propertyMetadata;
-                $this->walk($child, $visitor, $childContext, $semanticProperty, $state, $metadata);
+                $metadata = is_string($key) ? $this->propertyMetadata($key, $context) : $propertyMetadata;
+                $this->walk($child, $visitor, $context, $semanticProperty, $state, $metadata);
             }
         }
         unset($child);
+    }
+
+    /** W3C expansion exceptions to previous-context rollback, before local @context. */
+    private function retainsContext(array $value, array $context): bool
+    {
+        foreach ($value as $key => $_) {
+            $keyword = is_string($key) ? $this->semanticProperty($key, $context) : null;
+            if ($keyword === '@value' || ($keyword === '@id' && count($value) === 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Activate class-term contexts in lexical order from a fixed pre-scope snapshot. */
+    private function applyTypeScopes(array $value, array $context): array
+    {
+        $typeContext = $context;
+        $typeKeys = [];
+        foreach ($value as $key => $_) {
+            if (is_string($key) && $this->semanticProperty($key, $typeContext) === '@type') {
+                $typeKeys[] = $key;
+            }
+        }
+        sort($typeKeys, SORT_STRING);
+        foreach ($typeKeys as $key) {
+            $terms = is_array($value[$key]) ? $value[$key] : [$value[$key]];
+            $terms = array_filter($terms, 'is_string');
+            sort($terms, SORT_STRING);
+            foreach ($terms as $term) {
+                if (array_key_exists($term, $typeContext['scopedContexts'])) {
+                    $context = $this->resolveContext($typeContext['scopedContexts'][$term], $context, false);
+                }
+            }
+        }
+        return $context;
     }
 
     /**
@@ -574,7 +636,7 @@ class JsonLdTranslator
             : null;
     }
 
-    /** @return array{termKey: string, allowsIdReference: bool, isIriCoerced: bool} */
+    /** @return array{termKey: string, allowsIdReference: bool, isIriCoerced: bool, isJsonCoerced: bool} */
     private function propertyMetadata(string $key, array $context): array
     {
         $coercion = $context['coercions'][$key] ?? null;
@@ -582,6 +644,7 @@ class JsonLdTranslator
             'termKey' => $key,
             'allowsIdReference' => !array_key_exists($key, $context['coercions']) || $coercion === '@id',
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
+            'isJsonCoerced' => $coercion === '@json',
         ];
     }
 
@@ -697,26 +760,38 @@ class JsonLdTranslator
      *
      * @param mixed $definition
      * @param array<string, mixed> $context
+     * @param bool $propagate Default false for type scopes, overridable by @propagate.
+     * @param array<string, mixed>|null $scopeOrigin Shared rollback point for entries in one context array.
      * @return array<string, mixed>
      */
-    private function resolveContext($definition, array $context): array
+    private function resolveContext($definition, array $context, bool $propagate = true, ?array $scopeOrigin = null): array
     {
+        $scopeOrigin = $scopeOrigin ?? $context;
+        if (is_array($definition) && isset($definition['@propagate']) && is_bool($definition['@propagate'])) {
+            $propagate = $definition['@propagate'];
+        }
+        if (!$propagate && !isset($context['previousContext'])) {
+            $context['previousContext'] = $scopeOrigin;
+        }
         if ($definition === null) {
-            return self::EMPTY_CONTEXT;
+            return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $propagate ? null : $context]);
         }
         if (is_string($definition)) {
             if (preg_match('~^(?i:https?://schema\.org)(?:/?|/docs/jsonldcontext\.json(?:ld)?)$~D', trim($definition)) === 1) {
                 $context['vocab'] = 'https://schema.org/';
                 return $context;
             }
-            return self::EMPTY_CONTEXT;
+            return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $context['previousContext']]);
         }
         if (!is_array($definition)) {
             return $context;
         }
         if ($definition === [] || array_keys($definition) === range(0, count($definition) - 1)) {
             foreach ($definition as $entry) {
-                $context = $this->resolveContext($entry, $context);
+                // Every entry in one context array shares its initial rollback
+                // point; later non-propagating entries must not capture an
+                // intermediate scope established by an earlier entry.
+                $context = $this->resolveContext($entry, $context, $propagate, $scopeOrigin);
             }
             return $context;
         }

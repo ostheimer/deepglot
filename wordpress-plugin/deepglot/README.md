@@ -71,8 +71,14 @@ Compact type prefixes, ordinary class aliases, supported Schema.org property
 aliases and local keyword aliases are resolved from the active `@context`, including
 inherited aliases, overrides, context arrays and null resets. Property-scoped
 term contexts apply to their values before any value-local context; redefining a
-term without a scoped context removes that association. Context scope stays
-within its script block and subtree; page identity matching spans script blocks.
+term without a scoped context removes that association. Type-scoped term contexts
+apply to the node's properties in lexical type-term order; type identities use
+the pre-type-scope definitions. Type scopes do not propagate by default. Explicit
+`@propagate: false` contexts restore their previous scope at descendant nodes,
+while scalars, `@value` objects and ID-only references retain their active scope.
+Property scopes and value-local overrides are applied after that restoration.
+Context scope stays within its script block and subtree; page identity matching
+spans script blocks.
 Full Schema.org IRIs remain supported, with case-insensitive scheme/host matching
 and case-sensitive type/property names. Context definitions are never sent for
 translation or rewritten, and no remote context fetch is performed. The known
@@ -93,6 +99,9 @@ scope for text selection, ID collection and routing. Scalar `isPartOf` and
 `breadcrumb` references, including aliases with `@id` coercion, only route when
 they exactly match a collected page ID; `sameAs`, `citation` and unrelated
 strings do not acquire routing semantics from a matching value.
+Direct scalar `mainEntityOfPage` and `ListItem.item` relationships also respect
+literal datatype coercion: such literals neither route nor seed page identities.
+Explicit node references remain eligible independently of scalar coercion.
 
 Canonical identity keys equate root-relative and same-site absolute IDs, including
 configured internal language hosts, paths and slug mappings. Query and fragment
@@ -118,6 +127,9 @@ Default and term-specific context language mappings are overridden with explicit
 target-language value objects only for translated literals. Context definitions,
 cache misses and unrelated literals keep their original language interpretation;
 explicitly untagged values remain untagged.
+Values coerced with `@type: @json` are opaque JSON literals: their complete
+contents are excluded from text collection, translation, ID discovery and routing,
+even when nested payload fields resemble JSON-LD nodes or contexts.
 Literal `inLanguage` codes, including aliases and simple value objects, use the
 target code; `@id`/`@vocab`-coerced language IRIs remain unchanged.
 
