@@ -159,7 +159,15 @@ The actual render URL supplies the initial document base and travels with each
 mutation, preventing state from leaking between documents. Paths, dot segments,
 queries and fragments resolve before routing; external bases and nondefault
 ports stay external. Absolute/prefixed IRIs and `@vocab` coercion retain their
-own expansion rules. Empty query and fragment delimiters remain present in
+own expansion rules. A relative `@vocab` resolves against the active base when
+no vocabulary is declared. With an existing declared vocabulary, it is appended
+verbatim instead; the helper's compatibility Schema.org default is not a declared
+vocabulary. Context arrays, null resets and property scopes keep this distinction.
+Fresh properties establish their scoped context before expanding containers or
+values. Object expansion reapplies that context after scope rollback; scalars
+and language maps do not receive an extra application. A resulting non-Schema
+vocabulary remains outside the prose allowlist.
+Empty query and fragment delimiters remain present in
 routed output and exact graph-identity keys; `/page/`, `/page/?`, `/page/#` and
 `/page/?#` do not share an identity. No context is fetched by the runtime helper.
 Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
@@ -174,8 +182,10 @@ configured internal language hosts, paths and slug mappings. Query and fragment
 distinctions remain intact. Keys are separate from URL output: each actual rewrite
 still uses SiteRouting and preserves its relative/absolute routing behavior.
 Absolute and scheme-relative page URLs must match a configured routing host and
-its effective port. Explicit and implicit default HTTP/HTTPS ports are equivalent;
-other services on the same host cannot seed identities or acquire page routing.
+its normalized scheme and effective port. Explicit and implicit default ports
+are equivalent within the same scheme; a different scheme remains external even
+when it explicitly uses the configured port. Other services on the same host
+cannot seed identities or acquire page routing.
 Scheme-relative URLs use the source site's scheme for the comparison and routing.
 Mapped language hosts use their own generated routing origin, including its port.
 External network-path references remain unchanged.
@@ -183,8 +193,8 @@ External network-path references remain unchanged.
 Local prefix definitions also expand compact page IDs and supported page URL
 values before internal-host checks, identity matching and routing. Only internal
 targets are rewritten; absolute prefixes produce absolute localized URLs. External or unresolved compact
-IRIs remain byte-for-byte unchanged. This does not add `@base` resolution or a
-general JSON-LD processor.
+IRIs remain byte-for-byte unchanged. Relative IRI and local `@base` resolution
+follow the bounded rules above; this helper is not a general JSON-LD processor.
 
 Simple string value objects (`@value`, optional string `@language`, valid
 `@direction: "ltr"` or `"rtl"`, and local

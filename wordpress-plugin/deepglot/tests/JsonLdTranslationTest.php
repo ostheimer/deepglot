@@ -2745,6 +2745,88 @@ $reviewCheck($explicitTypedOverrideOutput['ingredient'] === [['@value' => '[en] 
     && $explicitOverrideTexts === ['Explicit source prose', 'Explicit typed string'],
     'P2 scalar datatype: explicit value objects use their own datatype/language instead of scalar coercion');
 
+// Origin identity includes the scheme even when a foreign scheme pins our port.
+$schemeOriginOracleFixtures = [];
+foreach ([['https://www.meinhaushalt.at', 'http://www.meinhaushalt.at:443'],
+    ['http://www.meinhaushalt.at', 'https://www.meinhaushalt.at:80'],
+    ['https://www.meinhaushalt.at:8443', 'http://www.meinhaushalt.at:8443']] as [$originBase, $crossSchemeBase]) {
+    $schemeRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), $originBase, 'PATH_PREFIX', []);
+    foreach ([false, true] as $reverseSchemeScripts) {
+        $crossSchemeInput = ['@context' => ['@vocab' => 'https://schema.org/', 'page' => ['@id' => 'mainEntityOfPage', '@type' => '@id']], '@graph' => [
+            ['@type' => 'WebPage', '@id' => $crossSchemeBase . '/foreign/#page', 'url' => $crossSchemeBase . '/foreign/'],
+            ['page' => $crossSchemeBase . '/foreign-seed/'],
+            ['@type' => 'ListItem', 'item' => $crossSchemeBase . '/foreign-item/'],
+            ['@context' => ['@base' => $crossSchemeBase . '/'], '@type' => 'WebPage', '@id' => 'relative/', 'url' => './relative/'],
+        ]];
+        $crossSchemeRefs = ['isPartOf' => array_map(static fn ($iri) => ['@id' => $iri, 'url' => '/must-not-acquire-page-routing/'],
+            [$crossSchemeBase . '/foreign/#page', $crossSchemeBase . '/foreign-seed/', $crossSchemeBase . '/foreign-item/', $crossSchemeBase . '/relative/'])];
+        $crossSchemeBlocks = $reverseSchemeScripts ? [$crossSchemeRefs, $crossSchemeInput] : [$crossSchemeInput, $crossSchemeRefs];
+        $crossSchemeOutput = jsonLdReviewRender($crossSchemeBlocks, $schemeRouting, $crossSchemeTexts);
+        $schemeOriginOracleFixtures[] = ['input' => $crossSchemeInput, 'output' => $crossSchemeOutput[$reverseSchemeScripts ? 1 : 0]];
+        $reviewCheck($crossSchemeOutput === $crossSchemeBlocks && $crossSchemeTexts === [],
+            'P2 3944165305: same host/port with a different scheme stays external and cannot seed IDs: ' . $originBase . ' / ' . (int) $reverseSchemeScripts);
+    }
+}
+foreach (['HTTPS://WWW.MEINHAUSHALT.AT:443/scheme-positive/', '//www.meinhaushalt.at:443/scheme-positive/'] as $sameOriginIri) {
+    $sameOriginOutput = jsonLdReviewRender([['@type' => 'WebPage', '@id' => $sameOriginIri]], $routing)[0];
+    $reviewCheck($sameOriginOutput['@id'] === 'https://www.meinhaushalt.at/en/scheme-positive/',
+        'P2 origin: case-insensitive matching scheme and scheme-relative default port still route');
+}
+
+// Relative vocabularies use the active base only without an existing vocabulary.
+$relativeVocabOracleFixtures = [];
+$relativeVocabCases = [
+    ['context' => ['@base' => 'https://schema.org/', '@vocab' => './'], 'translate' => true],
+    ['context' => ['@vocab' => './', '@base' => 'https://schema.org/'], 'translate' => true],
+    ['context' => ['@base' => 'https://schema.org/folder/document', '@vocab' => '../'], 'translate' => true],
+    ['context' => ['@base' => 'https://schema.org/', '@vocab' => ''], 'translate' => true],
+    ['context' => ['@vocab' => ''], 'document' => 'https://schema.org/', 'translate' => true],
+    ['context' => [['@vocab' => 'https://schema.org/'], ['@vocab' => '']], 'translate' => true],
+    ['context' => [['@vocab' => 'https://foreign.example/'], ['@base' => 'https://schema.org/', '@vocab' => './']], 'translate' => false],
+    ['context' => [['@vocab' => 'https://schema.org/'], ['@vocab' => '../']], 'translate' => false],
+    ['context' => [['@vocab' => 'https://foreign.example/'], ['@vocab' => null], ['@base' => 'https://schema.org/', '@vocab' => './']], 'translate' => true],
+    ['context' => [['@vocab' => 'https://foreign.example/'], null, ['@vocab' => './']], 'document' => 'https://schema.org/', 'translate' => true],
+    ['context' => ['@base' => 'https://foreign.example/', '@vocab' => './'], 'translate' => false],
+    ['context' => ['@base' => null, '@vocab' => './'], 'translate' => false],
+];
+foreach ($relativeVocabCases as $caseIndex => $relativeVocabCase) {
+    $relativeVocabInput = ['@context' => $relativeVocabCase['context'], '@type' => 'Recipe', 'recipeIngredient' => 'Relative Wasser',
+        'recipeInstructions' => ['@type' => 'HowToStep', 'text' => 'Relativ kochen']];
+    $relativeVocabOutput = jsonLdReviewRender([$relativeVocabInput], $routing, $relativeVocabTexts, [], $relativeVocabCase['document'] ?? '')[0];
+    $relativeVocabExpected = $relativeVocabInput;
+    if ($relativeVocabCase['translate']) {
+        $relativeVocabExpected['recipeIngredient'] = '[en] Relative Wasser';
+        $relativeVocabExpected['recipeInstructions']['text'] = '[en] Relativ kochen';
+    }
+    $relativeVocabOracleFixtures[] = ['input' => $relativeVocabInput, 'output' => $relativeVocabOutput,
+        'document' => $relativeVocabCase['document'] ?? 'https://www.meinhaushalt.at/', 'translate' => $relativeVocabCase['translate']];
+    $reviewCheck($relativeVocabOutput === $relativeVocabExpected && $relativeVocabTexts === ($relativeVocabCase['translate'] ? ['Relative Wasser', 'Relativ kochen'] : []),
+        'P2 3944165306: relative/default/empty/reset/foreign vocabulary expansion matches literal semantics: ' . $caseIndex);
+}
+$relativeVocabScope = ['@context' => ['steps' => ['@id' => 'https://schema.org/recipeInstructions',
+    '@context' => ['@base' => 'https://schema.org/', '@vocab' => './']]],
+    '@type' => 'Recipe', 'steps' => ['@type' => 'HowToStep', 'text' => 'Scoped relative step']];
+$relativeVocabScopeOutput = jsonLdReviewRender([$relativeVocabScope], $routing, $relativeVocabScopeTexts)[0];
+$reviewCheck($relativeVocabScopeOutput === $relativeVocabScope && $relativeVocabScopeTexts === [],
+    'P2 relative vocabulary: repeated property scope preserves non-Schema /./ IRIs instead of translating them');
+$relativeVocabEmptyScope = $relativeVocabScope;
+$relativeVocabEmptyScope['@context']['steps']['@context']['@vocab'] = '';
+$relativeVocabEmptyScopeOutput = jsonLdReviewRender([$relativeVocabEmptyScope], $routing, $relativeVocabEmptyScopeTexts)[0];
+$reviewCheck($relativeVocabEmptyScopeOutput['steps']['text'] === '[en] Scoped relative step' && $relativeVocabEmptyScopeTexts === ['Scoped relative step'],
+    'P2 relative vocabulary: an idempotent empty property-scoped vocabulary still recognizes instruction text');
+$relativeVocabResetScope = $relativeVocabScope;
+$relativeVocabResetScope['@context']['steps']['@context'] = [['@vocab' => null], ['@base' => 'https://schema.org/', '@vocab' => './']];
+$relativeVocabResetScopeOutput = jsonLdReviewRender([$relativeVocabResetScope], $routing, $relativeVocabResetScopeTexts)[0];
+$reviewCheck($relativeVocabResetScopeOutput['steps']['text'] === '[en] Scoped relative step' && $relativeVocabResetScopeTexts === ['Scoped relative step'],
+    'P2 relative vocabulary: a property scope that clears the declared vocabulary before resolving stays idempotent');
+$relativeValueVocab = ['@context' => ['@base' => 'https://www.meinhaushalt.at/', '@vocab' => './',
+    'page' => ['@id' => 'https://schema.org/mainEntityOfPage', '@type' => '@vocab']], 'page' => 'relative-vocab/#page'];
+$relativeValueRefs = ['isPartOf' => ['@id' => '/relative-vocab/#page']];
+$relativeValueOutput = jsonLdReviewRender([$relativeValueVocab, $relativeValueRefs], $routing);
+$reviewCheck($relativeValueOutput[0]['page'] === 'https://www.meinhaushalt.at/en/relative-vocab/#page'
+    && $relativeValueOutput[1]['isPartOf']['@id'] === '/en/relative-vocab/#page',
+    'P2 relative vocabulary: @vocab scalar page expansion and canonical graph seeds share the resolved vocabulary');
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

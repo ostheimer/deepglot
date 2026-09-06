@@ -155,7 +155,7 @@ class JsonLdTranslator
     ];
 
     private ?SiteRouting $routing;
-    /** @var array<string, true>|null Host/effective-port pairs, built once per helper. */
+    /** @var array<string, true>|null Scheme/host/effective-port origins, built once per helper. */
     private ?array $internalOrigins = null;
     private ?string $sourceScheme = null;
 
@@ -810,7 +810,7 @@ class JsonLdTranslator
             return null;
         }
         $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
-        return strtolower($parts['host']) . ':' . $port;
+        return $scheme . '://' . strtolower($parts['host']) . ':' . $port;
     }
 
     /**
@@ -857,22 +857,22 @@ class JsonLdTranslator
             return;
         }
 
+        // Property expansion establishes the term context before container or
+        // recursive expansion. Arrays and wrappers retain it without repeating
+        // this phase; actual object expansion reapplies the scope after rollback.
+        $incomingTerm = $propertyMetadata['termKey'] ?? null;
+        if ($containerValue && $incomingTerm !== null && array_key_exists($incomingTerm, $context['scopedContexts'])) {
+            $context = $this->resolveContext($context['scopedContexts'][$incomingTerm], $context);
+            if ($this->isOpaqueProperty($this->propertyMetadata($incomingTerm, $context))) {
+                return;
+            }
+        }
+
         // Language maps expand directly from the incoming property context,
         // before node rollback or any contexts/keywords inside their payload.
         if ($containerValue && ($propertyMetadata['hasLanguageMap'] ?? false) && is_array($value)
             && ($value === [] || array_keys($value) !== range(0, count($value) - 1))) {
-            // The property's context governs language-key aliases. A map is
-            // not a new node: do not roll back the incoming type scope or
-            // interpret bucket payloads as local contexts.
-            $mapContext = $context;
-            $mapTerm = $propertyMetadata['termKey'] ?? null;
-            if ($mapTerm !== null && array_key_exists($mapTerm, $context['scopedContexts'])) {
-                $mapContext = $this->resolveContext($context['scopedContexts'][$mapTerm], $context);
-                if ($this->isOpaqueProperty($this->propertyMetadata($mapTerm, $mapContext))) {
-                    return;
-                }
-            }
-            $mapMetadata = $this->languageMapMetadata($value, $mapContext);
+            $mapMetadata = $this->languageMapMetadata($value, $context);
             if ($mapMetadata !== null) {
                 $visitor($value, $property, $parent, [], array_merge($propertyMetadata, $mapMetadata, ['isIriCoerced' => false]));
             }
@@ -912,7 +912,7 @@ class JsonLdTranslator
         if ($isObject && !$fromMap && isset($context['previousContext']) && !$this->retainsContext($value, $context)) {
             $context = $context['previousContext'];
         }
-        if ($hasPropertyScope) {
+        if ($hasPropertyScope && $isObject) {
             $context = $this->resolveContext($propertyScope, $context);
         }
         if ($termKey !== null && $this->isOpaqueProperty($this->propertyMetadata($termKey, $context))) {
@@ -1371,10 +1371,21 @@ class JsonLdTranslator
         }
 
         if (array_key_exists('@vocab', $definition)) {
-            $context['vocab'] = is_string($definition['@vocab'])
+            $vocab = is_string($definition['@vocab'])
                 ? $this->expandContextIri($definition['@vocab'], $context['prefixes'])
                 : null;
-            $context['valueVocab'] = $context['vocab'];
+            if ($vocab !== null && !str_starts_with($vocab, '_:')
+                && preg_match('~^[A-Za-z][A-Za-z0-9+.-]*:~', $vocab) !== 1) {
+                // An existing declared vocabulary concatenates relative IRIs
+                // verbatim. Only its absence enables document-base resolution;
+                // the context-free Schema.org compatibility default is not a
+                // declaration. Never normalize an absolute concatenated IRI.
+                $vocab = $context['valueVocab'] !== null
+                    ? $context['valueVocab'] . $vocab
+                    : $this->resolveDocumentIri($vocab, $context['base']);
+            }
+            $context['vocab'] = $vocab;
+            $context['valueVocab'] = $vocab;
         }
         if (array_key_exists('@language', $definition)) {
             $context['language'] = is_string($definition['@language']) ? $definition['@language'] : null;

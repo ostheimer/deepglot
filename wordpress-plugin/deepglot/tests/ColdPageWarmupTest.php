@@ -1349,6 +1349,36 @@ warmCollectAssert(json_decode($scopedTypedDoc->getElementsByTagName('script')->i
     && $scopedTypedWarmClient->batchCalls === [] && $scopedTypedTranslator->getLastPendingSegmentCount() === 0 && $scopedTypedWarmer->pending() === [],
     'P2 scoped maps/datatypes: warm hits preserve typed equal-text literals and blocked maps with zero pending/API work.');
 
+// Relative vocabulary discoveries must join the existing cold/warm pipeline.
+warmResetEnvironment();
+$relativeWarmTexts = ['Relative warm water', 'Relative warm boil'];
+$relativeWarmData = ['@context' => ['@base' => 'https://schema.org/', '@vocab' => './'],
+    '@type' => 'Recipe', 'recipeIngredient' => $relativeWarmTexts[0],
+    'recipeInstructions' => ['@type' => 'HowToStep', 'text' => $relativeWarmTexts[1]]];
+$relativeWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($relativeWarmData) . '</script></head><body></body></html>';
+$relativeWarmClient = new DeepglotWarmFakeClient();
+$relativeWarmCache = new DeepglotWarmArrayCache();
+$relativeWarmer = new TranslationWarmer($relativeWarmClient, $options, $relativeWarmCache);
+$relativeWarmTranslator = new HtmlTranslator($relativeWarmClient, $options, $relativeWarmCache, null, $relativeWarmer);
+$relativeWarmDoc = new DOMDocument();
+$relativeWarmDoc->loadHTML($relativeWarmTranslator->translate($relativeWarmHtml, 'en', 'https://jobspot.at/en/relative-vocab/', BotDetector::HUMAN));
+warmCollectAssert(($relativeWarmer->pending()['de|en'] ?? []) === $relativeWarmTexts
+    && $relativeWarmTranslator->getLastPendingSegmentCount() === 2 && $relativeWarmClient->batchCalls === [],
+    'P2 relative vocabulary: cold queue discovers both Recipe literals without synchronous provider calls.');
+warmCollectAssert(json_decode($relativeWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $relativeWarmData,
+    'P2 relative vocabulary: cold source output and original context stay intact.');
+$relativeWarmer->run();
+warmCollectAssert(array_merge([], ...$relativeWarmClient->batchCalls) === $relativeWarmTexts,
+    'P2 relative vocabulary: provider sees exactly the eligible ingredient and step.');
+$relativeWarmClient->reset();
+$relativeWarmDoc->loadHTML($relativeWarmTranslator->translate($relativeWarmHtml, 'en', 'https://jobspot.at/en/relative-vocab/', BotDetector::HUMAN));
+$relativeWarmExpected = $relativeWarmData;
+$relativeWarmExpected['recipeIngredient'] = '[en] ' . $relativeWarmTexts[0];
+$relativeWarmExpected['recipeInstructions']['text'] = '[en] ' . $relativeWarmTexts[1];
+warmCollectAssert(json_decode($relativeWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $relativeWarmExpected
+    && $relativeWarmClient->batchCalls === [] && $relativeWarmTranslator->getLastPendingSegmentCount() === 0 && $relativeWarmer->pending() === [],
+    'P2 relative vocabulary: warmed literals translate from cache with no pending or API work.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();
