@@ -63,12 +63,18 @@ one graph-discovery pass builds adjacency links, then a work queue propagates
 reachable identities without rescanning the document. Chained generic definitions
 stay linked regardless of script order. Scalar and array page URLs retain their property
 semantics and are trimmed before routing; external values remain unchanged.
+Valid `@list`/`@set` wrappers, including local keyword aliases and optional string
+`@index` metadata, preserve the enclosing field and parent semantics. Unsupported
+wrapper envelopes are left untouched.
 
 Compact type prefixes, ordinary class aliases, supported Schema.org property
 aliases and local keyword aliases are resolved from the active `@context`, including
-inherited aliases, overrides, context arrays and null resets. Context scope stays
+inherited aliases, overrides, context arrays and null resets. Property-scoped
+term contexts apply to their values before any value-local context; redefining a
+term without a scoped context removes that association. Context scope stays
 within its script block and subtree; page identity matching spans script blocks.
-Full Schema.org IRIs remain supported. Context definitions are never sent for
+Full Schema.org IRIs remain supported, with case-insensitive scheme/host matching
+and case-sensitive type/property names. Context definitions are never sent for
 translation or rewritten, and no remote context fetch is performed. The known
 Schema.org context is handled locally, including the exact HTTP/HTTPS
 `schema.org/docs/jsonldcontext.jsonld` and `.json` URLs; unknown remote contexts leave unresolved
@@ -92,6 +98,9 @@ Canonical identity keys equate root-relative and same-site absolute IDs, includi
 configured internal language hosts, paths and slug mappings. Query and fragment
 distinctions remain intact. Keys are separate from URL output: each actual rewrite
 still uses SiteRouting and preserves its relative/absolute routing behavior.
+Scheme-relative page URLs are accepted only after their host matches a configured
+internal host, then normalized to the source site's scheme for routing. External
+network-path references remain unchanged.
 
 Local prefix definitions also expand compact page IDs and supported page URL
 values before internal-host checks, identity matching and routing. Only internal
@@ -105,6 +114,10 @@ arrays. Local `@value`/`@language` aliases are supported. An existing language
 tag changes only when a translated value is available. Typed, identified,
 direction/index-bearing or otherwise unsupported value-object shapes remain
 untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
+Default and term-specific context language mappings are overridden with explicit
+target-language value objects only for translated literals. Context definitions,
+cache misses and unrelated literals keep their original language interpretation;
+explicitly untagged values remain untagged.
 Literal `inLanguage` codes, including aliases and simple value objects, use the
 target code; `@id`/`@vocab`-coerced language IRIs remain unchanged.
 

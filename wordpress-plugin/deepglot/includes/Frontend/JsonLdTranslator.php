@@ -76,6 +76,16 @@ class JsonLdTranslator
         'AudioObject',
     ];
 
+    private const EMPTY_CONTEXT = [
+        'prefixes' => [],
+        'terms' => [],
+        'coercions' => [],
+        'scopedContexts' => [],
+        'languages' => [],
+        'language' => null,
+        'vocab' => null,
+    ];
+
     private ?SiteRouting $routing;
 
     public function __construct(?SiteRouting $routing = null)
@@ -219,6 +229,11 @@ class JsonLdTranslator
                     && isset($translations[$value])
                 ) {
                     $value = $translations[$value];
+                    // Override only this translated literal. Changing the
+                    // context would also relabel untouched text/cache misses.
+                    if (isset($node['language'])) {
+                        $value = ['@value' => $value, '@language' => $targetLanguage];
+                    }
                 }
             }
 
@@ -394,17 +409,31 @@ class JsonLdTranslator
             return null;
         }
         $expanded = $this->expandContextIri(trim($value), $context['prefixes']);
-        return $this->isInternalUrlReference($expanded) ? trim($expanded) : null;
+        if (!$this->isInternalUrlReference($expanded)) {
+            return null;
+        }
+        if (str_starts_with($expanded, '//')) {
+            // SiteRouting accepts absolute URLs, but deliberately leaves
+            // network paths alone. Supply the source scheme only after the
+            // network path's nonempty host has passed the internal-host guard.
+            $sourceUrl = $this->routing->buildUrlForLanguage('/', $this->routing->getSourceLanguage());
+            $scheme = (string) wp_parse_url($sourceUrl, PHP_URL_SCHEME);
+            if (!in_array(strtolower($scheme), ['http', 'https'], true)) {
+                return null;
+            }
+            $expanded = $scheme . ':' . $expanded;
+        }
+        return trim($expanded);
     }
 
     private function isInternalUrlReference(string $value): bool
     {
         $value = trim($value);
-        if ($this->routing === null || !$this->isUrlReference($value) || str_starts_with($value, '//')) {
+        if ($this->routing === null || !$this->isUrlReference($value)) {
             return false;
         }
 
-        if (preg_match('#^https?://#i', $value) !== 1) {
+        if (preg_match('#^https?://#i', $value) !== 1 && !str_starts_with($value, '//')) {
             return true;
         }
 
@@ -424,7 +453,7 @@ class JsonLdTranslator
      *
      * @param mixed $value
      * @param callable $visitor Receives value, semantic property, parent state, resolved types and node metadata; returns child state.
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string}|null $context
+     * @param array<string, mixed>|null $context
      * @param array<string, mixed> $parent
      * @param array<string, mixed> $propertyMetadata
      */
@@ -436,7 +465,7 @@ class JsonLdTranslator
         array $parent = [],
         array $propertyMetadata = []
     ): void {
-        $context = $context ?? ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => 'https://schema.org/'];
+        $context = $context ?? array_replace(self::EMPTY_CONTEXT, ['vocab' => 'https://schema.org/']);
 
         if (is_array($value) && ($value === [] || array_keys($value) === range(0, count($value) - 1))) {
             foreach ($value as &$item) {
@@ -448,9 +477,14 @@ class JsonLdTranslator
 
         $types = [];
         $node = $propertyMetadata;
+        $isObject = is_array($value);
         if (is_array($value)) {
             if (array_key_exists('@context', $value)) {
                 $context = $this->resolveContext($value['@context'], $context);
+                if (isset($propertyMetadata['termKey'])) {
+                    $propertyMetadata = $this->propertyMetadata($propertyMetadata['termKey'], $context);
+                    $node = $propertyMetadata;
+                }
             }
             // A value object is a terminal literal, not a graph node. Validate
             // its complete envelope before any visitor can collect prose or IDs.
@@ -458,6 +492,17 @@ class JsonLdTranslator
             if ($valueObject !== null) {
                 if ($valueObject !== []) {
                     $visitor($value, $property, $parent, [], array_merge($propertyMetadata, $valueObject));
+                }
+                return;
+            }
+
+            // Lists/sets are envelopes for the enclosing property's values,
+            // not graph nodes. Keep its parent state and coercion metadata,
+            // and never visit envelope metadata as independently named fields.
+            $wrapper = $this->wrapperMetadata($value, $context);
+            if ($wrapper !== null) {
+                if ($wrapper !== []) {
+                    $this->walk($value[$wrapper['valueKey']], $visitor, $context, $property, $parent, $propertyMetadata);
                 }
                 return;
             }
@@ -476,6 +521,7 @@ class JsonLdTranslator
                 }
             }
         } elseif (is_string($value)) {
+            $node['language'] = $this->propertyLanguage($propertyMetadata['termKey'] ?? '', $context);
             $node['urlReference'] = $this->internalUrlReference($value, $context);
             if ($node['urlReference'] !== null) {
                 $node['referenceKey'] = $this->pageIdentityKey($node['urlReference']);
@@ -483,15 +529,22 @@ class JsonLdTranslator
         }
 
         $state = $visitor($value, $property, $parent, $types, $node);
-        if (!is_array($value)) {
+        // A visitor may replace a scalar with a tagged value object. It is
+        // still terminal for this pass and must not be translated a second time.
+        if (!$isObject || !is_array($value)) {
             return;
         }
 
         foreach ($value as $key => &$child) {
             if ($key !== '@context') {
                 $semanticProperty = is_string($key) ? $this->semanticProperty($key, $context) : $property;
-                $metadata = is_string($key) ? $this->propertyMetadata($key, $context) : $propertyMetadata;
-                $this->walk($child, $visitor, $context, $semanticProperty, $state, $metadata);
+                $childContext = is_string($key) && array_key_exists($key, $context['scopedContexts'])
+                    ? $this->resolveContext($context['scopedContexts'][$key], $context)
+                    : $context;
+                // The enclosing key keeps its original property IRI, while
+                // value expansion uses the scoped term's type/language mapping.
+                $metadata = is_string($key) ? $this->propertyMetadata($key, $childContext) : $propertyMetadata;
+                $this->walk($child, $visitor, $childContext, $semanticProperty, $state, $metadata);
             }
         }
         unset($child);
@@ -502,15 +555,15 @@ class JsonLdTranslator
      * Explicit foreign, disabled or unsupported mappings never fall back to a
      * familiar original key. The original document keys remain unchanged.
      *
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string} $context
+     * @param array<string, mixed> $context
      */
     private function semanticProperty(string $key, array $context): ?string
     {
         $iri = $this->termIri($key, $context);
-        if (in_array($iri, ['@type', '@id', '@value', '@language'], true)) {
+        if (in_array($iri, ['@type', '@id', '@value', '@language', '@list', '@set', '@index'], true)) {
             return $iri;
         }
-        if (!is_string($iri) || preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) !== 1) {
+        if (!is_string($iri) || preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) !== 1) {
             return null;
         }
         $property = $match[1];
@@ -521,14 +574,60 @@ class JsonLdTranslator
             : null;
     }
 
-    /** @return array{allowsIdReference: bool, isIriCoerced: bool} */
+    /** @return array{termKey: string, allowsIdReference: bool, isIriCoerced: bool} */
     private function propertyMetadata(string $key, array $context): array
     {
         $coercion = $context['coercions'][$key] ?? null;
         return [
+            'termKey' => $key,
             'allowsIdReference' => !array_key_exists($key, $context['coercions']) || $coercion === '@id',
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
         ];
+    }
+
+    /** Default/term language applies only to non-datatype-coerced strings. */
+    private function propertyLanguage(string $key, array $context): ?string
+    {
+        $coercion = $context['coercions'][$key] ?? null;
+        if ($coercion !== null && $coercion !== '@none') {
+            return null;
+        }
+        $language = array_key_exists($key, $context['languages'])
+            ? $context['languages'][$key]
+            : $context['language'];
+        return is_string($language) ? $language : null;
+    }
+
+    /**
+     * null means an ordinary node; [] is a malformed recognized envelope.
+     * A single list/set value permits only an optional string index and local
+     * context. Keyword aliases retain their original spelling in the output.
+     *
+     * @return array{valueKey?: string}|null
+     */
+    private function wrapperMetadata(array $value, array $context): ?array
+    {
+        $metadata = [];
+        $hasWrapper = false;
+        $hasIndex = false;
+        $valid = true;
+        foreach ($value as $key => $child) {
+            if ($key === '@context') {
+                continue;
+            }
+            $property = is_string($key) ? $this->semanticProperty($key, $context) : null;
+            if (in_array($property, ['@list', '@set'], true)) {
+                $hasWrapper = true;
+                $valid = $valid && !isset($metadata['valueKey']);
+                $metadata['valueKey'] = $key;
+            } elseif ($property === '@index') {
+                $valid = $valid && !$hasIndex && is_string($child);
+                $hasIndex = true;
+            } else {
+                $valid = false;
+            }
+        }
+        return $hasWrapper ? ($valid ? $metadata : []) : null;
     }
 
     /**
@@ -597,20 +696,20 @@ class JsonLdTranslator
      * the relevant vocabulary or prefix.
      *
      * @param mixed $definition
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string} $context
-     * @return array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string}
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
      */
     private function resolveContext($definition, array $context): array
     {
         if ($definition === null) {
-            return ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => null];
+            return self::EMPTY_CONTEXT;
         }
         if (is_string($definition)) {
             if (preg_match('~^(?i:https?://schema\.org)(?:/?|/docs/jsonldcontext\.json(?:ld)?)$~D', trim($definition)) === 1) {
                 $context['vocab'] = 'https://schema.org/';
                 return $context;
             }
-            return ['prefixes' => [], 'terms' => [], 'coercions' => [], 'vocab' => null];
+            return self::EMPTY_CONTEXT;
         }
         if (!is_array($definition)) {
             return $context;
@@ -643,6 +742,9 @@ class JsonLdTranslator
                 ? $this->expandContextIri($definition['@vocab'], $context['prefixes'])
                 : null;
         }
+        if (array_key_exists('@language', $definition)) {
+            $context['language'] = is_string($definition['@language']) ? $definition['@language'] : null;
+        }
 
         // Resolve ordinary term definitions after all prefixes in this scope are
         // known. Keep them separate: a class alias must never become an IRI prefix.
@@ -669,6 +771,15 @@ class JsonLdTranslator
             } else {
                 unset($context['coercions'][$term]);
             }
+            // Property scopes and term language mappings are replaced with the
+            // term definition, never inherited after an unscoped redefinition.
+            foreach (['@context' => 'scopedContexts', '@language' => 'languages'] as $keyword => $field) {
+                if (is_array($mapping) && array_key_exists($keyword, $mapping)) {
+                    $context[$field][$term] = $mapping[$keyword];
+                } else {
+                    unset($context[$field][$term]);
+                }
+            }
         }
         return $context;
     }
@@ -689,7 +800,7 @@ class JsonLdTranslator
     }
 
     /**
-     * @param array{prefixes: array<string, string>, terms: array<string, ?string>, coercions: array<string, mixed>, vocab: ?string} $context
+     * @param array<string, mixed> $context
      * @return string[]
      */
     private function schemaTypes($value, array $context): array
@@ -704,7 +815,7 @@ class JsonLdTranslator
 
             $type = trim($type);
             $iri = $this->termIri($type, $context);
-            if (is_string($iri) && preg_match('~^https?://schema\.org[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
+            if (is_string($iri) && preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
                 $types[] = $match[1];
             }
         }

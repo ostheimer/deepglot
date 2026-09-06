@@ -1349,6 +1349,193 @@ $foreignLanguageNodes = [
 ];
 $reviewCheck(jsonLdReviewRender($foreignLanguageNodes, $routing) === $foreignLanguageNodes, 'Foreign/null language properties retain their values and scopes');
 
+// Property-scoped contexts affect the value, not the property's enclosing key
+// or siblings. All four walker consumers must see the same scoped definitions.
+$scopedPropertyContext = [
+    '@vocab' => 'https://example.org/', 's' => 'https://schema.org/',
+    'instructions' => ['@id' => 's:recipeInstructions', '@context' => ['@vocab' => 'https://schema.org/']],
+    'page' => ['@id' => 's:mainEntityOfPage', '@context' => ['site' => 'https://www.meinhaushalt.at/', 'identifier' => '@id']],
+];
+$scopedPropertyInput = ['@context' => $scopedPropertyContext, 'instructions' => [
+    ['@type' => 'HowToStep', 'text' => 'Scoped step'],
+    ['@context' => ['@vocab' => 'https://example.org/'], '@type' => 'HowToStep', 'text' => 'Foreign step'],
+], 'sibling' => ['@type' => 'HowToStep', 'text' => 'Sibling step'], 'page' => ['identifier' => 'site:property-scope/#page']];
+$scopedPropertyOutput = jsonLdReviewRender([$scopedPropertyInput, ['isPartOf' => ['@id' => '/property-scope/#page']]], $routing, $scopedPropertyStrings);
+$reviewCheck(
+    $scopedPropertyOutput[0]['instructions'][0]['text'] === '[en] Scoped step'
+    && $scopedPropertyOutput[0]['page']['identifier'] === 'https://www.meinhaushalt.at/en/property-scope/#page'
+    && $scopedPropertyOutput[1]['isPartOf']['@id'] === '/en/property-scope/#page',
+    'P2 3942374025: property-scoped context reaches collection, translation, identity discovery and routing'
+);
+$reviewCheck(
+    $scopedPropertyStrings === ['Scoped step']
+    && $scopedPropertyOutput[0]['instructions'][1] === $scopedPropertyInput['instructions'][1]
+    && $scopedPropertyOutput[0]['sibling'] === $scopedPropertyInput['sibling']
+    && $scopedPropertyOutput[0]['@context'] === $scopedPropertyContext,
+    'Property scopes honor local overrides and never leak to siblings or mutate context definitions'
+);
+$scopeRemovalInput = ['@context' => $scopedPropertyContext, '@graph' => [
+    ['@context' => ['instructions' => 's:recipeInstructions'], 'instructions' => ['@type' => 'HowToStep', 'text' => 'Removed scope']],
+    ['@context' => ['instructions' => ['@id' => 's:recipeInstructions', '@context' => null]], 'instructions' => ['@type' => 'HowToStep', 'text' => 'Null scope']],
+    ['@context' => ['instructions' => ['@id' => 's:recipeInstructions', '@context' => 'https://example.org/context']], 'instructions' => ['@type' => 'HowToStep', 'text' => 'Remote scope']],
+]];
+$reviewCheck(jsonLdReviewRender([$scopeRemovalInput], $routing) === [$scopeRemovalInput], 'Redefinition clears property scope; null and unknown remote scopes fail closed');
+$scopedCoercionInput = ['@context' => [
+    'heading' => ['@id' => 'https://schema.org/headline', '@context' => ['heading' => ['@id' => 'https://schema.org/headline', '@type' => '@id']]],
+    'label' => ['@id' => 'https://schema.org/name', '@type' => '@id', '@context' => ['label' => 'https://schema.org/name']],
+], 'heading' => ['https://example.org/scoped-name', ['@set' => ['https://example.org/scoped-heading']]], 'label' => 'Scoped literal override'];
+$scopedCoercionOutput = jsonLdReviewRender([$scopedCoercionInput], $routing, $scopedCoercionStrings)[0];
+$reviewCheck(
+    $scopedCoercionOutput['heading'] === $scopedCoercionInput['heading']
+    && $scopedCoercionOutput['label'] === '[en] Scoped literal override'
+    && $scopedCoercionStrings === ['Scoped literal override'],
+    'Property-scoped redefinitions update active-term coercion for scalars, arrays and wrappers'
+);
+
+$caseIriInput = ['@context' => ['s' => 'HTTPS://SCHEMA.ORG/', 'heading' => 'HTTP://Schema.Org/headline', 'pageUrl' => 's:url'], '@graph' => [
+    ['@type' => 'HTTPS://SCHEMA.ORG/WebPage', '@id' => '/case/#page', 'heading' => 'Case heading', 'pageUrl' => '/case/'],
+    ['@type' => 's:HowToStep', 's:text' => 'Case step'],
+    ['@type' => 'HTTPS://SCHEMA.ORG/webpage', '@id' => '/case-lower/'],
+    ['@type' => 'HTTPS://SCHEMA.ORG.EXAMPLE/WebPage', '@id' => '/case-foreign/'],
+    ['s:Headline' => 'Wrong property case'],
+]];
+$caseIriOutput = jsonLdReviewRender([$caseIriInput], $routing, $caseIriStrings)[0];
+$reviewCheck(
+    $caseIriOutput['@graph'][0]['@id'] === '/en/case/#page'
+    && $caseIriOutput['@graph'][0]['heading'] === '[en] Case heading'
+    && $caseIriOutput['@graph'][0]['pageUrl'] === '/en/case/'
+    && $caseIriOutput['@graph'][1]['s:text'] === '[en] Case step',
+    'P2 3942374028: Schema.org type and property IRIs ignore scheme/host case for full IRIs and prefixes'
+);
+$reviewCheck(
+    array_slice($caseIriOutput['@graph'], 2) === array_slice($caseIriInput['@graph'], 2)
+    && $caseIriOutput['@context'] === $caseIriInput['@context']
+    && $caseIriStrings === ['Case heading', 'Case step'],
+    'Schema.org suffix case and host boundary remain exact'
+);
+
+// Preserve the original context and attach an explicit target tag only to
+// literals actually changed. Rewriting a default would relabel cache misses.
+$mappedLanguageContext = [
+    '@vocab' => 'https://schema.org/', '@language' => 'de',
+    'heading' => ['@id' => 'headline', '@language' => 'fr'],
+    'untagged' => ['@id' => 'description', '@language' => null],
+    'iriName' => ['@id' => 'name', '@type' => '@id'],
+];
+$mappedLanguageInput = ['@context' => $mappedLanguageContext,
+    'name' => 'Default language', 'heading' => ['Term language', 'Cache miss'],
+    'untagged' => 'Untagged language', 'identifier' => 'Untouched literal',
+    'iriName' => 'https://example.org/name', 'description' => ['@value' => 'Explicit untagged'],
+    '@graph' => [
+        ['@context' => ['@language' => null], 'name' => 'Cleared default'],
+        ['@context' => ['heading' => 'https://schema.org/headline'], 'heading' => 'Reset term mapping'],
+        ['@context' => ['recipeInstructions' => ['@context' => ['@language' => 'it']]], 'recipeInstructions' => ['@type' => 'HowToStep', 'text' => 'Scoped language']],
+    ],
+];
+$mappedLanguageOutput = jsonLdReviewRender([$mappedLanguageInput], $routing, $mappedLanguageStrings, ['Cache miss' => null])[0];
+$reviewCheck(
+    $mappedLanguageOutput['name'] === ['@value' => '[en] Default language', '@language' => 'en']
+    && $mappedLanguageOutput['heading'][0] === ['@value' => '[en] Term language', '@language' => 'en']
+    && $mappedLanguageOutput['@graph'][1]['heading'] === ['@value' => '[en] Reset term mapping', '@language' => 'en']
+    && $mappedLanguageOutput['@graph'][2]['recipeInstructions']['text'] === ['@value' => '[en] Scoped language', '@language' => 'en'],
+    'P2 3942374029: translated literals override default, term-specific and property-scoped language mappings'
+);
+$reviewCheck(
+    $mappedLanguageOutput['@context'] === $mappedLanguageContext
+    && $mappedLanguageOutput['heading'][1] === 'Cache miss'
+    && $mappedLanguageOutput['identifier'] === 'Untouched literal'
+    && $mappedLanguageOutput['iriName'] === $mappedLanguageInput['iriName']
+    && $mappedLanguageOutput['untagged'] === '[en] Untagged language'
+    && $mappedLanguageOutput['description'] === ['@value' => '[en] Explicit untagged']
+    && $mappedLanguageOutput['@graph'][0]['name'] === '[en] Cleared default',
+    'Language mappings never relabel untouched/cache-miss/IRI values or explicitly untagged literals'
+);
+$languageIsolationOutput = jsonLdReviewRender([
+    ['@context' => ['@language' => 'de'], 'name' => 'First script'],
+    ['name' => 'Second script'],
+], $routing);
+$reviewCheck($languageIsolationOutput[1]['name'] === '[en] Second script', 'Context language never leaks across scripts');
+$languageEdgeInput = ['@context' => [
+    '@vocab' => 'https://schema.org/',
+    'instructions' => ['@id' => 'recipeInstructions', '@context' => ['@language' => 'it']],
+    'heading' => ['@id' => 'headline', '@language' => 'fr'],
+], 'instructions' => ['Scoped scalar', 'Scoped array item'], 'heading' => 'Term without default',
+    'name' => ['@context' => ['@language' => 'de'], '@set' => ['Wrapper default']],
+    '@graph' => [['@context' => ['@language' => 'de', 'typedName' => ['@id' => 'name', '@type' => 'https://www.w3.org/2001/XMLSchema#string']], 'typedName' => 'Typed literal']],
+];
+$languageEdgeOutput = jsonLdReviewRender([$languageEdgeInput], $routing)[0];
+$reviewCheck(
+    $languageEdgeOutput['instructions'] === [
+        ['@value' => '[en] Scoped scalar', '@language' => 'en'],
+        ['@value' => '[en] Scoped array item', '@language' => 'en'],
+    ]
+    && $languageEdgeOutput['heading'] === ['@value' => '[en] Term without default', '@language' => 'en']
+    && $languageEdgeOutput['name']['@set'][0] === ['@value' => '[en] Wrapper default', '@language' => 'en']
+    && $languageEdgeOutput['@graph'][0]['typedName'] === '[en] Typed literal',
+    'Language mappings cover scoped scalars, arrays and wrapper-local defaults, but never replace datatype coercion'
+);
+
+$wrapperInput = ['@context' => ['@vocab' => 'https://schema.org/', 'list' => '@list', 'set' => '@set'], '@graph' => [
+    ['@type' => 'Recipe', 'recipeInstructions' => ['@list' => ['List prose', ['@type' => 'HowToStep', 'text' => ['set' => ['Wrapped step']]], ['@value' => 'Wrapped literal', '@language' => 'de']], '@index' => 'steps']],
+    ['@type' => 'WebPage', '@id' => '/wrapper/#page', 'url' => ['set' => ['/wrapper/', 'https://example.org/wrapper/']]],
+    ['@type' => 'ListItem', 'item' => ['list' => [['@id' => '/wrapper-item/']]]],
+    ['mainEntityOfPage' => ['@set' => '/wrapper-seed/']],
+    ['@type' => 'HowToStep', 'text' => ['@set' => ['@context' => ['@language' => 'de'], '@value' => 'Explicit wrapper literal', '@language' => 'de']]],
+]];
+$wrapperOutput = jsonLdReviewRender([$wrapperInput, ['@graph' => [
+    ['@id' => '/wrapper-item/'], ['@id' => '/wrapper-seed/'],
+]]], $routing, $wrapperStrings);
+$reviewCheck(
+    $wrapperOutput[0]['@graph'][0]['recipeInstructions']['@list'][0] === '[en] List prose'
+    && $wrapperOutput[0]['@graph'][0]['recipeInstructions']['@list'][1]['text']['set'][0] === '[en] Wrapped step'
+    && $wrapperOutput[0]['@graph'][0]['recipeInstructions']['@list'][2] === ['@value' => '[en] Wrapped literal', '@language' => 'en']
+    && $wrapperOutput[0]['@graph'][1]['url']['set'] === ['/en/wrapper/', 'https://example.org/wrapper/']
+    && $wrapperOutput[0]['@graph'][2]['item']['list'][0]['@id'] === '/en/wrapper-item/'
+    && $wrapperOutput[0]['@graph'][3]['mainEntityOfPage']['@set'] === '/en/wrapper-seed/'
+    && $wrapperOutput[1]['@graph'] === [['@id' => '/en/wrapper-item/'], ['@id' => '/en/wrapper-seed/']]
+    && $wrapperOutput[0]['@graph'][4]['text']['@set']['@language'] === 'en',
+    'P2 3942374031: list/set wrappers preserve enclosing field, parent semantics, literals and cross-script page seeds'
+);
+$reviewCheck(
+    $wrapperOutput[0]['@context'] === $wrapperInput['@context']
+    && $wrapperOutput[0]['@graph'][0]['recipeInstructions']['@index'] === 'steps',
+    'Wrapper metadata and context remain unchanged'
+);
+$wrapperBoundaryInput = ['@graph' => [
+    ['@type' => 'WebPage', 'url' => ['@set' => '/malformed/', '@id' => '/not-a-wrapper/']],
+    ['@type' => 'Recipe', 'recipeInstructions' => ['@list' => ['Malformed list'], '@set' => ['Malformed set']]],
+    ['@context' => ['list' => 'https://example.org/list'], 'recipeInstructions' => ['list' => ['Foreign wrapper']]],
+    ['@type' => 'Recipe', 'recipeInstructions' => ['@set' => ['Malformed index'], '@index' => []]],
+    ['@context' => ['iriText' => ['@id' => 'https://schema.org/name', '@type' => '@id']], 'iriText' => ['@set' => ['https://example.org/name']]],
+]];
+$reviewCheck(jsonLdReviewRender([$wrapperBoundaryInput], $routing) === [$wrapperBoundaryInput], 'Malformed/foreign wrappers fail closed and IRI coercion survives wrappers');
+
+$networkInput = ['@graph' => [
+    ['@type' => 'WebPage', '@id' => '//www.meinhaushalt.at/network/#page', 'url' => ['//www.meinhaushalt.at/network/?q=1#part', '//example.org/network/']],
+    ['@type' => 'Person', '@id' => '//www.meinhaushalt.at/person/'],
+    ['@type' => 'WebPage', '@id' => '//example.org/network/#page'],
+    ['@type' => 'WebPage', '@id' => '///network/'],
+]];
+foreach ([false, true] as $networkReverse) {
+    $networkRefs = ['isPartOf' => '/network/#page', 'breadcrumb' => ['@id' => 'https://www.meinhaushalt.at/network/#page']];
+    $networkOutput = jsonLdReviewRender($networkReverse ? [$networkInput, $networkRefs] : [$networkRefs, $networkInput], $routing);
+    $networkGraph = $networkOutput[$networkReverse ? 0 : 1]['@graph'];
+    $networkReferenceOutput = $networkOutput[$networkReverse ? 1 : 0];
+    $reviewCheck(
+        $networkGraph[0]['@id'] === 'https://www.meinhaushalt.at/en/network/#page'
+        && $networkGraph[0]['url'] === ['https://www.meinhaushalt.at/en/network/?q=1#part', '//example.org/network/']
+        && $networkReferenceOutput['isPartOf'] === '/en/network/#page'
+        && $networkReferenceOutput['breadcrumb']['@id'] === 'https://www.meinhaushalt.at/en/network/#page',
+        'P2 3942374033: same-site network-path references normalize after host validation and share canonical identity: ' . (int) $networkReverse
+    );
+    $reviewCheck(array_slice($networkGraph, 1) === array_slice($networkInput['@graph'], 1), 'Network-path shared, external and malformed values stay byte-identical');
+}
+$networkMappedOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => '//fr.meinhaushalt.at/recette/']], $identityHostRouting);
+$reviewCheck($networkMappedOutput[0]['url'] === 'https://en.meinhaushalt.at/recipe/', 'P2 3942374033: mapped internal language hosts also accept network paths');
+$networkHttpRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), 'http://www.meinhaushalt.at', 'PATH_PREFIX', []);
+$networkHttpOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => '//www.meinhaushalt.at/network/']], $networkHttpRouting);
+$reviewCheck($networkHttpOutput[0]['url'] === 'http://www.meinhaushalt.at/en/network/', 'Network-path normalization uses the configured source scheme');
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }
