@@ -1274,6 +1274,45 @@ warmCollectAssert(json_decode($literalWarmDoc->getElementsByTagName('script')->i
     && $literalWarmClient->batchCalls === [] && $literalWarmTranslator->getLastPendingSegmentCount() === 0 && $literalWarmer->pending() === [],
     'Literal language guard: warm cache changes only eligible values; identical foreign text and all other language alternatives stay intact with zero pending/API work.');
 
+// Direction metadata must survive both cold queues and warm cache hits.
+warmResetEnvironment();
+$directedWarmTexts = ['Directed warm water', 'Directed warm salt'];
+$directedWarmData = ['@context' => ['@vocab' => 'https://schema.org/', 'val' => '@value', 'lang' => '@language', 'dir' => '@direction'],
+    '@type' => 'Recipe', 'recipeIngredient' => [
+        ['val' => $directedWarmTexts[0], 'lang' => 'de', 'dir' => 'ltr'],
+        ['val' => $directedWarmTexts[1], 'dir' => 'rtl'],
+        ['val' => $directedWarmTexts[0], 'lang' => 'fr', 'dir' => 'rtl'],
+        ['val' => 'Unsupported warm direction', 'dir' => 'auto'],
+        ['val' => 'Incompatible warm direction', 'dir' => 'ltr', '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+    ], 'recipeInstructions' => ['@type' => 'HowToStep', 'text' => ['val' => $directedWarmTexts[0], 'lang' => 'DE', 'dir' => 'rtl']],
+];
+$directedWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($directedWarmData) . '</script></head><body></body></html>';
+$directedWarmClient = new DeepglotWarmFakeClient();
+$directedWarmCache = new DeepglotWarmArrayCache();
+$directedWarmer = new TranslationWarmer($directedWarmClient, $options, $directedWarmCache);
+$directedTranslator = new HtmlTranslator($directedWarmClient, $options, $directedWarmCache, null, $directedWarmer);
+$directedDoc = new DOMDocument();
+$directedDoc->loadHTML($directedTranslator->translate($directedWarmHtml, 'en', 'https://jobspot.at/en/directed/', BotDetector::HUMAN));
+warmCollectAssert(($directedWarmer->pending()['de|en'] ?? []) === $directedWarmTexts
+    && $directedTranslator->getLastPendingSegmentCount() === 2 && $directedWarmClient->batchCalls === [],
+    'P2 direction: exactly two eligible deduplicated literal texts enter the cold queue; invalid/typed/foreign directions do not.');
+warmCollectAssert(json_decode($directedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $directedWarmData,
+    'P2 direction: cold misses preserve full source envelopes and aliases.');
+$directedWarmer->run();
+warmCollectAssert(array_merge([], ...$directedWarmClient->batchCalls) === $directedWarmTexts,
+    'P2 direction: the background provider receives both eligible literal texts.');
+$directedWarmClient->reset();
+$directedDoc->loadHTML($directedTranslator->translate($directedWarmHtml, 'en', 'https://jobspot.at/en/directed/', BotDetector::HUMAN));
+$directedWarmExpected = $directedWarmData;
+$directedWarmExpected['recipeIngredient'][0]['val'] = '[en] ' . $directedWarmTexts[0];
+$directedWarmExpected['recipeIngredient'][0]['lang'] = 'en';
+$directedWarmExpected['recipeIngredient'][1]['val'] = '[en] ' . $directedWarmTexts[1];
+$directedWarmExpected['recipeInstructions']['text']['val'] = '[en] ' . $directedWarmTexts[0];
+$directedWarmExpected['recipeInstructions']['text']['lang'] = 'en';
+warmCollectAssert(json_decode($directedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $directedWarmExpected
+    && $directedWarmClient->batchCalls === [] && $directedTranslator->getLastPendingSegmentCount() === 0 && $directedWarmer->pending() === [],
+    'P2 direction: warm hits translate only eligible literals and preserve every direction with zero pending/API work.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();

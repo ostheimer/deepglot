@@ -250,6 +250,11 @@ class HtmlTranslator
         $sourceLang = $this->options->getSourceLanguage();
 
         $doc = $this->loadHtml($html);
+        if ($requestUrl !== '') {
+            // JSON-LD relative IRIs use this document's URL, never a previous
+            // request's base or an inferred site-root origin.
+            $doc->documentURI = $requestUrl;
+        }
 
         // Collect all translatable DOMText nodes, head metadata attributes,
         // accessibility-relevant body attributes (img alt, aria-label,

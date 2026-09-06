@@ -142,6 +142,11 @@ class JsonLdTranslator
         'scopedContexts' => [],
         'languages' => [],
         'language' => null,
+        'documentBase' => null,
+        'base' => null,
+        // False preserves root-relative compatibility when no document URL
+        // was supplied. An explicit null/unknown base is not that fallback.
+        'hasBase' => false,
         'vocab' => null,
         // Unlike the legacy property/type default, only a declared vocabulary
         // participates in expanding @vocab-coerced IRI values.
@@ -160,11 +165,13 @@ class JsonLdTranslator
     }
 
     /**
-     * @return array<int, array{node: \DOMText, data: array<mixed>, strings: string[], sourceLanguage: ?string}>
+     * @return array<int, array{node: \DOMText, data: array<mixed>, strings: string[], sourceLanguage: ?string, documentBase: ?string}>
      */
     public function collect(\DOMDocument $doc, ?string $targetLanguage = null, ?string $sourceLanguage = null): array
     {
         $sourceLanguage = $sourceLanguage ?? $this->routing?->getSourceLanguage();
+        $documentBase = trim($doc->documentURI ?? '');
+        $documentBase = $documentBase !== '' ? $documentBase : null;
         $mutations = [];
         $scripts = $doc->getElementsByTagName('script');
 
@@ -197,13 +204,14 @@ class JsonLdTranslator
             }
 
             $strings = [];
-            $this->collectStrings($decoded, $strings, $targetLanguage, $sourceLanguage);
+            $this->collectStrings($decoded, $strings, $targetLanguage, $sourceLanguage, $documentBase);
 
             $mutations[] = [
                 'node' => $textNode,
                 'data' => $decoded,
                 'strings' => array_values(array_unique($strings)),
                 'sourceLanguage' => $sourceLanguage,
+                'documentBase' => $documentBase,
             ];
         }
 
@@ -211,7 +219,7 @@ class JsonLdTranslator
     }
 
     /**
-     * @param array<int, array{node: \DOMText, data: array<mixed>, strings: string[], sourceLanguage?: ?string}> $mutations
+     * @param array<int, array{node: \DOMText, data: array<mixed>, strings: string[], sourceLanguage?: ?string, documentBase?: ?string}> $mutations
      * @param array<string, string> $translations
      */
     public function apply(array $mutations, array $translations, string $targetLanguage): void
@@ -222,8 +230,8 @@ class JsonLdTranslator
 
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
-            $this->applyTranslations($data, $translations, $targetLanguage, $mutation['sourceLanguage'] ?? null);
-            $this->localizePageUrls($data, $targetLanguage, $pageNodeIds);
+            $this->applyTranslations($data, $translations, $targetLanguage, $mutation['sourceLanguage'] ?? null, $mutation['documentBase'] ?? null);
+            $this->localizePageUrls($data, $targetLanguage, $pageNodeIds, $mutation['documentBase'] ?? null);
 
             // JSON_HEX_TAG escapes "<" and ">" as < / > so a
             // translated value that happens to contain "</script>" cannot
@@ -245,7 +253,7 @@ class JsonLdTranslator
      * @param array<mixed> $data
      * @param string[] $accumulator
      */
-    private function collectStrings(array $data, array &$accumulator, ?string $targetLanguage, ?string $sourceLanguage): void
+    private function collectStrings(array $data, array &$accumulator, ?string $targetLanguage, ?string $sourceLanguage, ?string $documentBase): void
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator, $targetLanguage, $sourceLanguage): array {
             $texts = isset($node['valueKey']) ? [$value[$node['valueKey']]] : [$value];
@@ -278,14 +286,14 @@ class JsonLdTranslator
             }
 
             return $this->proseState($property, $parent, $types);
-        });
+        }, $this->initialContext($documentBase));
     }
 
     /**
      * @param array<mixed> $data
      * @param array<string, string> $translations
      */
-    private function applyTranslations(array &$data, array $translations, string $targetLanguage, ?string $sourceLanguage): void
+    private function applyTranslations(array &$data, array $translations, string $targetLanguage, ?string $sourceLanguage, ?string $documentBase): void
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage, $sourceLanguage): array {
             if (isset($node['languageMapNoneKeys'])) {
@@ -334,7 +342,7 @@ class JsonLdTranslator
             }
 
             return $this->proseState($property, $parent, $types);
-        });
+        }, $this->initialContext($documentBase));
     }
 
     private function isTranslatableField(string $key, array $parent): bool
@@ -491,7 +499,7 @@ class JsonLdTranslator
                 }
 
                 return ['isListItem' => in_array('ListItem', $types, true), 'pageVertex' => $vertex];
-            });
+            }, $this->initialContext($mutation['documentBase'] ?? null));
         }
 
         for ($cursor = 0; $cursor < count($queue); $cursor++) {
@@ -520,7 +528,8 @@ class JsonLdTranslator
     private function localizePageUrls(
         array &$data,
         string $targetLanguage,
-        array $pageNodeIds
+        array $pageNodeIds,
+        ?string $documentBase
     ): void {
         if ($this->routing === null) {
             return;
@@ -538,7 +547,7 @@ class JsonLdTranslator
             }
 
             return $state;
-        });
+        }, $this->initialContext($documentBase));
     }
 
     /**
@@ -592,7 +601,7 @@ class JsonLdTranslator
         return $this->routing->buildUrlForLanguage($reference, $this->routing->getSourceLanguage());
     }
 
-    /** Only @vocab scalars expand terms/vocabulary; other URL forms use prefixes alone. */
+    /** Expand terms/vocabulary only for @vocab scalars, then resolve the active base. */
     private function internalUrlReference($value, array $context, bool $vocabCoerced = false): ?string
     {
         if (!is_string($value)) {
@@ -605,6 +614,17 @@ class JsonLdTranslator
             $expanded = $this->termIri(trim($value), $context);
         } else {
             $expanded = $this->expandContextIri(trim($value), $context['prefixes']);
+        }
+        // A blank-node identifier is never an IRI relative to the document.
+        if ($expanded !== null && str_starts_with($expanded, '_:')) {
+            return null;
+        }
+        if ($expanded !== null && $context['hasBase']
+            && preg_match('~^[A-Za-z][A-Za-z0-9+.-]*:~', $expanded) !== 1) {
+            // Term/prefix/vocabulary expansion precedes document-relative
+            // resolution. Removed/unknown bases still permit absolute IRIs,
+            // but never reinterpret a relative value against the local site.
+            $expanded = $this->resolveDocumentIri($expanded, $context['base']);
         }
         if ($expanded === null || !$this->isInternalUrlReference($expanded)) {
             return null;
@@ -620,6 +640,105 @@ class JsonLdTranslator
             $expanded = $scheme . ':' . $expanded;
         }
         return trim($expanded);
+    }
+
+    /** RFC 3986 section 5.2 resolution; preserve empty query/fragment components. */
+    private function resolveDocumentIri(string $reference, ?string $base): ?string
+    {
+        $parts = $this->iriParts($reference);
+        if ($parts === null) {
+            return null;
+        }
+        if ($parts['scheme'] !== null) {
+            $parts['path'] = $this->removeDotSegments($parts['path']);
+        } else {
+            $baseParts = $base !== null ? $this->iriParts($base) : null;
+            if ($baseParts === null || $baseParts['scheme'] === null) {
+                return null;
+            }
+            $parts['scheme'] = $baseParts['scheme'];
+            if ($parts['authority'] !== null) {
+                $parts['path'] = $this->removeDotSegments($parts['path']);
+            } else {
+                $parts['authority'] = $baseParts['authority'];
+                if ($parts['path'] === '') {
+                    $parts['path'] = $baseParts['path'];
+                    $parts['query'] = $parts['query'] ?? $baseParts['query'];
+                } else {
+                    if (!str_starts_with($parts['path'], '/')) {
+                        $slash = strrpos($baseParts['path'], '/');
+                        $directory = $baseParts['authority'] !== null && $baseParts['path'] === ''
+                            ? '/'
+                            : ($slash === false ? '' : substr($baseParts['path'], 0, $slash + 1));
+                        $parts['path'] = $directory . $parts['path'];
+                    }
+                    $parts['path'] = $this->removeDotSegments($parts['path']);
+                }
+            }
+        }
+        return $parts['scheme'] . ':'
+            . ($parts['authority'] !== null ? '//' . $parts['authority'] : '')
+            . $parts['path']
+            . ($parts['query'] !== null ? '?' . $parts['query'] : '')
+            . ($parts['fragment'] !== null ? '#' . $parts['fragment'] : '');
+    }
+
+    /** Split an IRI without decoding reserved characters or guessing an origin. */
+    private function iriParts(string $iri): ?array
+    {
+        if (preg_match('~[\x00-\x20\x7f\\\\]~', $iri) === 1
+            || preg_match('~^(?:([A-Za-z][A-Za-z0-9+.-]*):)?(?://([^/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?$~D', $iri, $match, PREG_UNMATCHED_AS_NULL) !== 1) {
+            return null;
+        }
+        return ['scheme' => $match[1], 'authority' => $match[2], 'path' => $match[3], 'query' => $match[4], 'fragment' => $match[5]];
+    }
+
+    /** RFC dot-segment removal preserves encoded segments and repeated slashes. */
+    private function removeDotSegments(string $path): string
+    {
+        $output = '';
+        while ($path !== '') {
+            if (str_starts_with($path, '../') || str_starts_with($path, './')) {
+                $path = substr($path, strpos($path, '/') + 1);
+            } elseif (str_starts_with($path, '/./') || $path === '/.') {
+                $path = '/' . substr($path, 3);
+            } elseif (str_starts_with($path, '/../') || $path === '/..') {
+                $path = '/' . substr($path, 4);
+                $slash = strrpos($output, '/');
+                $output = $slash === false ? '' : substr($output, 0, $slash);
+            } elseif ($path === '.' || $path === '..') {
+                $path = '';
+            } else {
+                $slash = strpos($path, '/', str_starts_with($path, '/') ? 1 : 0);
+                $length = $slash === false ? strlen($path) : $slash;
+                $output .= substr($path, 0, $length);
+                $path = substr($path, $length);
+            }
+        }
+        return $output;
+    }
+
+    /** A document supplies its own immutable initial base for every script/pass. */
+    private function initialContext(?string $documentBase): array
+    {
+        return array_replace(self::EMPTY_CONTEXT, [
+            'vocab' => 'https://schema.org/',
+            'documentBase' => $documentBase,
+            'base' => $documentBase !== null ? $this->resolveDocumentIri($documentBase, null) : null,
+            'hasBase' => $documentBase !== null,
+        ]);
+    }
+
+    /** Explicit null restores the original document base; unknown contexts do not. */
+    private function resetContext(array $context, ?array $previousContext, bool $restoreDocumentBase): array
+    {
+        $initial = $this->initialContext($context['documentBase']);
+        return array_replace(self::EMPTY_CONTEXT, [
+            'documentBase' => $context['documentBase'],
+            'base' => $restoreDocumentBase ? $initial['base'] : null,
+            'hasBase' => $restoreDocumentBase ? $initial['hasBase'] : true,
+            'previousContext' => $previousContext,
+        ]);
     }
 
     private function isInternalUrlReference(string $value): bool
@@ -707,7 +826,7 @@ class JsonLdTranslator
         bool $containerValue = true,
         bool $fromMap = false
     ): void {
-        $context = $context ?? array_replace(self::EMPTY_CONTEXT, ['vocab' => 'https://schema.org/']);
+        $context = $context ?? $this->initialContext(null);
 
         // JSON payloads, reverse edges and unsupported implicit-type maps
         // are opaque before any visitor or nested context can see them.
@@ -799,10 +918,11 @@ class JsonLdTranslator
                     $literalMetadata['language'] = isset($valueObject['languageKey'])
                         ? $value[$valueObject['languageKey']]
                         : null;
-                    // Only untagged, untyped envelopes may represent these
-                    // supported URLs; @id itself never accepts a value object.
+                    // Only untagged, untyped, direction-free envelopes may
+                    // represent URLs; @id never accepts a value object.
                     if (!isset($valueObject['typeKey'])
                         && !isset($valueObject['languageKey'])
+                        && !isset($valueObject['directionKey'])
                         && in_array($property, ['url', 'mainEntityOfPage', 'item', 'isPartOf', 'breadcrumb'], true)) {
                         $literalMetadata['urlReference'] = $this->internalUrlReference($value[$valueObject['valueKey']], $context);
                         if ($literalMetadata['urlReference'] !== null) {
@@ -960,7 +1080,7 @@ class JsonLdTranslator
     private function semanticProperty(string $key, array $context): ?string
     {
         $iri = $this->termIri($key, $context);
-        if (in_array($iri, ['@type', '@id', '@value', '@language', '@list', '@set', '@index', '@nest', '@reverse'], true)) {
+        if (in_array($iri, ['@type', '@id', '@value', '@language', '@direction', '@list', '@set', '@index', '@nest', '@reverse'], true)) {
             return $iri;
         }
         if (!is_string($iri) || preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) !== 1) {
@@ -1077,10 +1197,10 @@ class JsonLdTranslator
     /**
      * null means an ordinary node; [] means an unsupported value object that
      * must stay entirely untouched. A string value permits either a language
-     * tag or the exact xsd:string datatype, plus the literal local @context.
-     * Datatype literals are prose only, never URL/identity reference envelopes.
+     * tag/direction or the exact xsd:string datatype, plus local @context.
+     * Tagged, directed and datatype literals never become URL references.
      *
-     * @return array{valueKey?: string, languageKey?: string, typeKey?: string}|null
+     * @return array{valueKey?: string, languageKey?: string, directionKey?: string, typeKey?: string}|null
      */
     private function valueObjectMetadata(array $value, array $context): ?array
     {
@@ -1099,6 +1219,9 @@ class JsonLdTranslator
             } elseif ($property === '@language') {
                 $valid = $valid && !isset($metadata['languageKey']) && is_string($child);
                 $metadata['languageKey'] = $key;
+            } elseif ($property === '@direction') {
+                $valid = $valid && !isset($metadata['directionKey']) && in_array($child, ['ltr', 'rtl'], true);
+                $metadata['directionKey'] = $key;
             } elseif ($property === '@type') {
                 $valid = $valid && !isset($metadata['typeKey']) && is_string($child)
                     && $this->termIri($child, $context) === 'http://www.w3.org/2001/XMLSchema#string';
@@ -1107,7 +1230,7 @@ class JsonLdTranslator
                 $valid = false;
             }
         }
-        $valid = $valid && !(isset($metadata['languageKey']) && isset($metadata['typeKey']));
+        $valid = $valid && !(isset($metadata['typeKey']) && (isset($metadata['languageKey']) || isset($metadata['directionKey'])));
         return $hasValue ? ($valid ? $metadata : []) : null;
     }
 
@@ -1161,13 +1284,13 @@ class JsonLdTranslator
             $context['previousContext'] = $scopeOrigin;
         }
         if ($definition === null) {
-            return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $propagate ? null : $context]);
+            return $this->resetContext($context, $propagate ? null : $context, true);
         }
         if (is_string($definition)) {
             if ($this->isSchemaContext($definition)) {
                 return $this->resolveContext(self::SCHEMA_CONTEXT, $context, $propagate, $scopeOrigin);
             }
-            return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $context['previousContext']]);
+            return $this->resetContext($context, $context['previousContext'], false);
         }
         if (!is_array($definition)) {
             return $context;
@@ -1190,9 +1313,16 @@ class JsonLdTranslator
             if (is_string($definition['@import']) && $this->isSchemaContext($definition['@import'])) {
                 $definition = array_replace(self::SCHEMA_CONTEXT, $definition);
             } else {
-                $context = array_replace(self::EMPTY_CONTEXT, ['previousContext' => $context['previousContext']]);
+                $context = $this->resetContext($context, $context['previousContext'], false);
             }
             unset($definition['@import']);
+        }
+
+        if (array_key_exists('@base', $definition)) {
+            $context['base'] = is_string($definition['@base'])
+                ? $this->resolveDocumentIri($definition['@base'], $context['base'])
+                : null;
+            $context['hasBase'] = true;
         }
 
         foreach ($definition as $term => $mapping) {

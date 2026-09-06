@@ -453,7 +453,7 @@ foreach (['Familie, Kinder, Erziehung', 'Comedy', 'Published'] as $controlled) {
 
 // Review regressions: run every case before reporting failures so each boundary
 // has independent red/green evidence. Decode JSON instead of matching output.
-function jsonLdReviewRender(array $blocks, SiteRouting $routing, ?array &$collected = null, array $extraTranslations = []): array
+function jsonLdReviewRender(array $blocks, SiteRouting $routing, ?array &$collected = null, array $extraTranslations = [], string $documentUrl = ''): array
 {
     $doc = new DOMDocument();
     $html = '<html><head><meta charset="utf-8">';
@@ -463,6 +463,9 @@ function jsonLdReviewRender(array $blocks, SiteRouting $routing, ?array &$collec
             . '</script>';
     }
     $doc->loadHTML($html . '</head><body></body></html>');
+    if ($documentUrl !== '') {
+        $doc->documentURI = $documentUrl;
+    }
     $helper = new JsonLdTranslator($routing);
     $mutations = $helper->collect($doc, 'en', $routing->getSourceLanguage());
     $translations = [];
@@ -1050,7 +1053,7 @@ foreach ([
     ['@value' => 'Falsche Sprachstruktur unverändert.', '@language' => ['de']],
     ['@value' => 42, '@language' => 'de'],
     ['@value' => null, '@language' => 'de'],
-    ['@value' => 'Wert mit Richtung unverändert.', '@language' => 'de', '@direction' => 'ltr'],
+    ['@value' => 'Wert mit ungültiger Richtung unverändert.', '@language' => 'de', '@direction' => 'auto'],
     ['@value' => 'Wert mit Index unverändert.', '@index' => '0'],
     ['literal' => 'Aliasiert typisiert unverändert.', 'kind' => 's:HowToStep'],
 ] as $invalidValue) {
@@ -1213,7 +1216,9 @@ $compactBoundaryNodes = [
     ['@context' => ['site' => 'https://example.org/'], '@type' => 'WebPage', '@id' => ' site:compact/ '],
 ];
 $compactBoundaryOutput = jsonLdReviewRender(array_merge([$compactGraph], $compactBoundaryNodes), $routing);
-$reviewCheck(array_slice($compactBoundaryOutput, 1) === $compactBoundaryNodes, 'Compact IRIs never leak scripts, infer term prefixes, expand external values or implement @base');
+$compactBoundaryExpected = $compactBoundaryNodes;
+$compactBoundaryExpected[1]['@id'] = 'https://www.meinhaushalt.at/en/relative-page/';
+$reviewCheck(array_slice($compactBoundaryOutput, 1) === $compactBoundaryExpected, 'Compact IRIs never leak scripts, infer term prefixes or expand external values; explicit internal @base resolves relative pages');
 
 // Identity keys are canonical, but output shape remains SiteRouting's choice.
 $identityPathRouting = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://www.meinhaushalt.at', 'PATH_PREFIX', [], [
@@ -2423,6 +2428,211 @@ $plainUrlLiteralOutput = jsonLdReviewRender([$plainUrlLiteral], $routing)[0];
 $reviewCheck($plainUrlLiteralOutput['url'] === ['@value' => '/en/still-plain/']
     && $plainUrlLiteralOutput['mainEntityOfPage'] === $plainUrlLiteral['mainEntityOfPage'],
     'Explicit untagged URL envelopes ignore default language and still honor effective-port boundaries');
+
+// P2 3944023857: resolve document-relative IRIs before classifying their origin.
+// RFC 3986 section 5.4 normal/abnormal examples pin resolution independently
+// of SiteRouting's deliberate canonical trailing-slash and language mapping.
+$rfcBaseCases = [
+    'g:h' => 'g:h', 'g' => 'http://a/b/c/g', './g' => 'http://a/b/c/g', 'g/' => 'http://a/b/c/g/',
+    '/g' => 'http://a/g', '//g' => 'http://g', '?y' => 'http://a/b/c/d;p?y', 'g?y' => 'http://a/b/c/g?y',
+    '#s' => 'http://a/b/c/d;p?q#s', 'g#s' => 'http://a/b/c/g#s', 'g?y#s' => 'http://a/b/c/g?y#s',
+    ';x' => 'http://a/b/c/;x', 'g;x' => 'http://a/b/c/g;x', 'g;x?y#s' => 'http://a/b/c/g;x?y#s',
+    '' => 'http://a/b/c/d;p?q', '.' => 'http://a/b/c/', './' => 'http://a/b/c/', '..' => 'http://a/b/',
+    '../' => 'http://a/b/', '../g' => 'http://a/b/g', '../..' => 'http://a/', '../../' => 'http://a/',
+    '../../g' => 'http://a/g', '../../../g' => 'http://a/g', '../../../../g' => 'http://a/g',
+    '/./g' => 'http://a/g', '/../g' => 'http://a/g', 'g.' => 'http://a/b/c/g.', '.g' => 'http://a/b/c/.g',
+    'g..' => 'http://a/b/c/g..', '..g' => 'http://a/b/c/..g', './../g' => 'http://a/b/g',
+    './g/.' => 'http://a/b/c/g/', 'g/./h' => 'http://a/b/c/g/h', 'g/../h' => 'http://a/b/c/h',
+    'g;x=1/./y' => 'http://a/b/c/g;x=1/y', 'g;x=1/../y' => 'http://a/b/c/y',
+    'g?y/./x' => 'http://a/b/c/g?y/./x', 'g?y/../x' => 'http://a/b/c/g?y/../x',
+    'g#s/./x' => 'http://a/b/c/g#s/./x', 'g#s/../x' => 'http://a/b/c/g#s/../x', 'http:g' => 'http:g',
+];
+$rfcResolver = new ReflectionMethod(JsonLdTranslator::class, 'resolveDocumentIri');
+$rfcHelper = new JsonLdTranslator();
+foreach ($rfcBaseCases as $reference => $resolved) {
+    $reviewCheck($rfcResolver->invoke($rfcHelper, $reference, 'http://a/b/c/d;p?q') === $resolved,
+        'RFC 3986 base resolution: ' . $reference);
+}
+$baseOracleFixtures = [];
+foreach (['https://external.example/catalog/page', 'https://www.meinhaushalt.at:9443/catalog/page', null] as $baseIri) {
+    foreach ([false, true] as $reverseBaseScripts) {
+        $baseInput = ['@context' => ['@vocab' => 'https://schema.org/', '@base' => $baseIri,
+            'identity' => '@id', 'pageUrl' => ['@id' => 'url', '@type' => '@id']], '@graph' => [
+            ['@type' => 'WebPage', 'identity' => '/base-page/', 'pageUrl' => ['relative/', '../up/', '#fragment', '?query=1', '']],
+            ['mainEntityOfPage' => ['@id' => '/base-linked/']],
+            ['@type' => 'ListItem', 'item' => ['@id' => '/base-item/']],
+        ]];
+        $baseRefs = ['isPartOf' => array_map(static fn ($id) => ['@id' => $id], ['/base-page/', '/base-linked/', '/base-item/'])];
+        $baseBlocks = $reverseBaseScripts ? [$baseRefs, $baseInput] : [$baseInput, $baseRefs];
+        $baseBlockOutput = jsonLdReviewRender($baseBlocks, $routing, $baseTexts);
+        if (!$reverseBaseScripts) {
+            $baseOracleFixtures[] = ['kind' => 'unchanged', 'input' => $baseInput, 'output' => $baseBlockOutput[0]];
+        }
+        $reviewCheck($baseBlockOutput === $baseBlocks && $baseTexts === [],
+            'P2 base: external/nondefault-port/null bases never route relative IRIs or seed local graph IDs: ' . var_export($baseIri, true) . ' / ' . (int) $reverseBaseScripts);
+    }
+}
+$baseCases = [
+    ['https://www.meinhaushalt.at/catalog/page?old=1', 'child/', 'https://www.meinhaushalt.at/en/catalog/child/'],
+    ['https://www.meinhaushalt.at/catalog/page?old=1', '../recipe/?q=1#step', 'https://www.meinhaushalt.at/en/recipe/?q=1#step'],
+    ['https://www.meinhaushalt.at/catalog/page?old=1', '#recipe', 'https://www.meinhaushalt.at/en/catalog/page/?old=1#recipe'],
+    ['https://www.meinhaushalt.at/catalog/page?old=1', '?new=2', 'https://www.meinhaushalt.at/en/catalog/page/?new=2'],
+    ['https://www.meinhaushalt.at/catalog/page?old=1', '', 'https://www.meinhaushalt.at/en/catalog/page/?old=1'],
+    ['https://WWW.meinhaushalt.at:443/catalog/', '/root/', 'https://www.meinhaushalt.at/en/root/'],
+];
+foreach ($baseCases as [$baseIri, $relativeIri, $resolvedTarget]) {
+    $baseInput = ['@context' => ['@vocab' => 'https://schema.org/', '@base' => $baseIri,
+        'pageUrl' => ['@id' => 'url', '@type' => '@id']], '@type' => 'WebPage', '@id' => $relativeIri, 'pageUrl' => $relativeIri];
+    $baseOutput = jsonLdReviewRender([$baseInput], $routing)[0];
+    $baseOracleFixtures[] = ['kind' => 'localized', 'input' => $baseInput, 'output' => $baseOutput, 'expectedId' => $resolvedTarget];
+    $reviewCheck($baseOutput['@id'] === $resolvedTarget && $baseOutput['pageUrl'] === $resolvedTarget
+        && $baseOutput['@context'] === $baseInput['@context'], 'P2 base: internal relative path/query/fragment resolves against active base: ' . $relativeIri);
+}
+$baseSequenceFixtures = [
+    [[['@base' => 'https://external.example/a/'], ['@base' => '../b/'], ['@vocab' => 'https://schema.org/']], '/keep/', '/keep/'],
+    [[['@base' => 'https://external.example/a/'], ['@base' => 'https://www.meinhaushalt.at/local/', '@vocab' => 'https://schema.org/']], 'child/', 'https://www.meinhaushalt.at/en/local/child/'],
+    [[['@base' => 'https://external.example/a/'], null, ['@vocab' => 'https://schema.org/']], 'child/', 'https://www.meinhaushalt.at/en/document/child/'],
+    [[['@base' => 'https://external.example/a/'], 'https://schema.org'], '/keep/', '/keep/'],
+    [[['@base' => 'https://external.example/a/'], ['@import' => 'https://schema.org']], '/keep/', '/keep/'],
+    [['@import' => 'https://schema.org', '@base' => 'https://www.meinhaushalt.at/import/'], 'child/', 'https://www.meinhaushalt.at/en/import/child/'],
+];
+foreach ($baseSequenceFixtures as [$baseContext, $relativeIri, $resolvedTarget]) {
+    $baseInput = ['@context' => $baseContext, '@type' => 'WebPage', '@id' => $relativeIri];
+    $baseOutput = jsonLdReviewRender([$baseInput], $routing, $baseTexts, [], 'https://www.meinhaushalt.at/document/current')[0];
+    $baseOracleFixtures[] = ['kind' => str_starts_with($resolvedTarget, '/') ? 'unchanged' : 'localized',
+        'input' => $baseInput, 'output' => $baseOutput, 'expectedId' => $resolvedTarget, 'base' => 'https://www.meinhaushalt.at/document/current'];
+    $reviewCheck($baseOutput['@id'] === $resolvedTarget && $baseOutput['@context'] === $baseContext,
+        'P2 base: context arrays, null reset, known remote/import and local overrides preserve active base: ' . json_encode($baseContext));
+}
+$baseScopeInput = ['@context' => ['@vocab' => 'https://schema.org/',
+    'externalPage' => ['@id' => 'mainEntityOfPage', '@context' => ['@base' => 'https://external.example/']],
+    'ExternalPage' => ['@id' => 'WebPage', '@context' => ['@base' => 'https://external.example/']],
+], '@graph' => [
+    ['externalPage' => ['@id' => '/property-external/']],
+    ['@type' => 'ExternalPage', '@id' => '/type-external/', 'next' => ['@type' => 'WebPage', '@id' => '/type-rollback/']],
+    ['@context' => ['@base' => 'https://external.example/'], '@type' => 'WebPage', '@id' => '/local-external/'],
+    ['@type' => 'WebPage', '@id' => '/sibling-internal/'],
+]];
+$baseScopeOutput = jsonLdReviewRender([$baseScopeInput], $routing)[0];
+$baseScopeExpected = $baseScopeInput;
+$baseScopeExpected['@graph'][1]['next']['@id'] = '/en/type-rollback/';
+$baseScopeExpected['@graph'][3]['@id'] = '/en/sibling-internal/';
+$reviewCheck($baseScopeOutput === $baseScopeExpected, 'P2 base: property/type/local base scopes do not leak and non-propagating type base rolls back');
+foreach ([false, true] as $reverseBaseGraph) {
+    $relativePageSeed = ['@context' => ['@vocab' => 'https://schema.org/', '@base' => 'https://www.meinhaushalt.at/identity/'],
+        '@type' => 'WebPage', '@id' => 'page'];
+    $relativePageReference = ['@context' => ['@vocab' => 'https://schema.org/', '@base' => 'https://www.meinhaushalt.at/identity/nested/'],
+        'isPartOf' => ['@id' => '../page', 'url' => '/related-identity/']];
+    $relativeGraphOutput = jsonLdReviewRender($reverseBaseGraph ? [$relativePageReference, $relativePageSeed] : [$relativePageSeed, $relativePageReference], $routing);
+    if ($reverseBaseGraph) {
+        $relativeGraphOutput = array_reverse($relativeGraphOutput);
+    }
+    $reviewCheck($relativeGraphOutput[0]['@id'] === 'https://www.meinhaushalt.at/en/identity/page/'
+        && $relativeGraphOutput[1]['isPartOf']['@id'] === 'https://www.meinhaushalt.at/en/identity/page/'
+        && $relativeGraphOutput[1]['isPartOf']['url'] === 'https://www.meinhaushalt.at/en/related-identity/',
+        'P2 base: differently spelled relative IDs share canonical graph identity across scripts in either order');
+}
+foreach (['https://unknown.example/context', ['@import' => 'https://unknown.example/context']] as $unresolvedBaseContext) {
+    $unresolvedBaseInput = ['@context' => [['@base' => 'https://external.example/'], $unresolvedBaseContext, ['@vocab' => 'https://schema.org/']],
+        '@type' => 'WebPage', '@id' => '/unresolved-base/'];
+    $reviewCheck(jsonLdReviewRender([$unresolvedBaseInput], $routing) === [$unresolvedBaseInput],
+        'P2 base: unknown remote/import context must never reset an unresolved base to the internal site');
+}
+$documentBaseFixtures = [
+    [['@vocab' => 'https://schema.org/'], 'child/', 'https://www.meinhaushalt.at/en/document/child/'],
+    [['@vocab' => 'https://schema.org/', '@base' => '../other/'], '#page', 'https://www.meinhaushalt.at/en/other/#page'],
+    [['@vocab' => 'https://schema.org/', '@base' => ''], '?new=1', 'https://www.meinhaushalt.at/en/document/current/?new=1'],
+];
+foreach ($documentBaseFixtures as [$baseContext, $relativeIri, $resolvedTarget]) {
+    $baseInput = ['@context' => $baseContext, '@type' => 'WebPage', '@id' => $relativeIri];
+    $baseOutput = jsonLdReviewRender([$baseInput], $routing, $baseTexts, [], 'https://www.meinhaushalt.at/document/current?old=1')[0];
+    $baseOracleFixtures[] = ['kind' => 'localized', 'input' => $baseInput, 'output' => $baseOutput,
+        'expectedId' => $resolvedTarget, 'base' => 'https://www.meinhaushalt.at/document/current?old=1'];
+    $reviewCheck($baseOutput['@id'] === $resolvedTarget, 'P2 base: document URL supplies the initial base and resolves relative/empty local bases: ' . json_encode($baseContext));
+}
+$basePrefixInput = ['@context' => ['@vocab' => 'https://schema.org/', '@base' => 'https://external.example/',
+    'site' => 'https://www.meinhaushalt.at/', 'page' => ['@id' => 'mainEntityOfPage', '@type' => '@vocab']],
+    '@type' => 'WebPage', '@id' => 'site:absolute/', 'page' => 'WebPage'];
+$basePrefixOutput = jsonLdReviewRender([$basePrefixInput], $routing)[0];
+$reviewCheck($basePrefixOutput['@id'] === 'https://www.meinhaushalt.at/en/absolute/' && $basePrefixOutput['page'] === 'WebPage',
+    'P2 base: absolute compact IRIs override base while @vocab terms do not become document-relative');
+$documentBaseClient = new DeepglotJsonLdFakeClient();
+$documentBaseTranslator = new HtmlTranslator($documentBaseClient, $options, new DeepglotJsonLdNullCache(), new JsonLdTranslator($routing));
+$documentBaseHtml = '<html><head><script type="application/ld+json">'
+    . json_encode(['@context' => 'https://schema.org', '@type' => 'WebPage', '@id' => '#page', 'url' => '../related/'])
+    . '</script></head><body></body></html>';
+foreach (['https://www.meinhaushalt.at/en/catalog/one', 'https://external.example/en/catalog/one'] as $documentRequestUrl) {
+    $documentResult = $documentBaseTranslator->translate($documentBaseHtml, 'en', $documentRequestUrl);
+    $documentResultDoc = new DOMDocument();
+    $documentResultDoc->loadHTML($documentResult);
+    $documentResultData = json_decode($documentResultDoc->getElementsByTagName('script')->item(0)->textContent, true);
+    $reviewCheck($documentResultData['@id'] === (str_contains($documentRequestUrl, 'external.example') ? '#page' : 'https://www.meinhaushalt.at/en/catalog/one/#page')
+        && $documentResultData['url'] === (str_contains($documentRequestUrl, 'external.example') ? '../related/' : 'https://www.meinhaushalt.at/en/related/'),
+        'P2 base: HtmlTranslator passes actual document URL without leaking a previous document origin: ' . $documentRequestUrl);
+}
+
+// P2 3944023862: direction is literal metadata, not a prose or URL property.
+foreach (['https://external.example/', 'https://www.meinhaushalt.at/local/'] as $noVocabBase) {
+    $noVocabBaseInput = ['@context' => ['@base' => $noVocabBase,
+        'page' => ['@id' => 'https://schema.org/mainEntityOfPage', '@type' => '@vocab']], 'page' => ['child/', '/root/']];
+    $noVocabBaseOutput = jsonLdReviewRender([$noVocabBaseInput], $routing)[0];
+    $reviewCheck($noVocabBaseOutput['page'] === (str_contains($noVocabBase, 'external.example') ? ['child/', '/root/']
+        : ['https://www.meinhaushalt.at/en/local/child/', 'https://www.meinhaushalt.at/en/root/']),
+        'P2 base: @vocab coercion without a declared vocabulary still falls back to document-relative base resolution');
+}
+foreach ([false, true] as $reverseBlankScripts) {
+    $blankBaseInput = ['@context' => ['@vocab' => 'https://schema.org/', '@base' => 'https://www.meinhaushalt.at/blank-base/'],
+        '@type' => 'WebPage', '@id' => '_:blank'];
+    $blankBaseRefs = ['isPartOf' => ['@id' => '/blank-base/_:blank', 'url' => '/blank-not-a-page/']];
+    $blankBaseBlocks = $reverseBlankScripts ? [$blankBaseRefs, $blankBaseInput] : [$blankBaseInput, $blankBaseRefs];
+    $reviewCheck(jsonLdReviewRender($blankBaseBlocks, $routing, $blankBaseTexts) === $blankBaseBlocks && $blankBaseTexts === [],
+        'P2 base: blank-node identifiers are never resolved as document paths or used as local page seeds');
+}
+$directionOracleFixtures = [];
+foreach (['ltr', 'rtl'] as $literalDirection) {
+    foreach ([false, true] as $aliasedDirection) {
+        $valueKey = $aliasedDirection ? 'literal' : '@value';
+        $languageKey = $aliasedDirection ? 'lang' : '@language';
+        $directionKey = $aliasedDirection ? 'dir' : '@direction';
+        $directionContext = ['@vocab' => 'https://schema.org/', 'literal' => '@value', 'lang' => '@language', 'dir' => '@direction'];
+        $directionLiteralInput = ['@context' => $directionContext, '@type' => 'Recipe', 'recipeIngredient' => [
+            [$valueKey => 'Gerichtetes Wasser', $languageKey => 'DE', $directionKey => $literalDirection],
+            [$valueKey => 'Gerichtetes Salz', $directionKey => $literalDirection],
+            [$valueKey => 'French alternative', $languageKey => 'fr', $directionKey => $literalDirection],
+        ], 'recipeInstructions' => ['@list' => [['@type' => 'HowToStep', 'text' => [$valueKey => 'Gerichtet rühren', $languageKey => 'de', $directionKey => $literalDirection]]]]];
+        $directionLiteralOutput = jsonLdReviewRender([$directionLiteralInput], $routing, $directionLiteralTexts)[0];
+        $directionLiteralExpected = $directionLiteralInput;
+        $directionLiteralExpected['recipeIngredient'][0][$valueKey] = '[en] Gerichtetes Wasser';
+        $directionLiteralExpected['recipeIngredient'][0][$languageKey] = 'en';
+        $directionLiteralExpected['recipeIngredient'][1][$valueKey] = '[en] Gerichtetes Salz';
+        $directionLiteralExpected['recipeInstructions']['@list'][0]['text'][$valueKey] = '[en] Gerichtet rühren';
+        $directionLiteralExpected['recipeInstructions']['@list'][0]['text'][$languageKey] = 'en';
+        $directionOracleFixtures[] = ['input' => $directionLiteralInput, 'output' => $directionLiteralOutput, 'direction' => $literalDirection];
+        $reviewCheck($directionLiteralTexts === ['Gerichtetes Wasser', 'Gerichtetes Salz', 'Gerichtet rühren']
+            && $directionLiteralOutput === $directionLiteralExpected, 'P2 direction: valid source/untagged envelopes translate with aliases/list shape and direction intact: ' . $literalDirection . ' / ' . (int) $aliasedDirection);
+        $reviewCheck(jsonLdReviewRender([$directionLiteralInput], $routing, $directionMissTexts,
+            ['Gerichtetes Wasser' => null, 'Gerichtetes Salz' => null, 'Gerichtet rühren' => null])[0] === $directionLiteralInput,
+            'P2 direction: cache misses preserve complete direction/language envelopes');
+    }
+}
+foreach (['auto', 'LTR', '', ' rtl ', null, 1, true, [], ['ltr']] as $badDirection) {
+    $badDirectionInput = ['recipeIngredient' => ['@value' => 'Unsupported direction', '@direction' => $badDirection]];
+    $reviewCheck(jsonLdReviewRender([$badDirectionInput], $routing, $badDirectionTexts) === [$badDirectionInput] && $badDirectionTexts === [],
+        'P2 direction: invalid direction is opaque: ' . json_encode($badDirection));
+}
+foreach (['http://www.w3.org/2001/XMLSchema#string', 'http://www.w3.org/2001/XMLSchema#integer', '@json'] as $directionDatatype) {
+    $typedDirectionInput = ['recipeIngredient' => ['@value' => 'Typed direction', '@direction' => 'ltr', '@type' => $directionDatatype]];
+    $reviewCheck(jsonLdReviewRender([$typedDirectionInput], $routing, $typedDirectionTexts) === [$typedDirectionInput] && $typedDirectionTexts === [],
+        'P2 direction: datatype plus direction is incompatible and never translates: ' . $directionDatatype);
+}
+foreach ([false, true] as $reverseDirectionScripts) {
+    $directionUrlInput = ['@type' => 'WebPage', 'url' => ['@value' => '/directed-url/', '@direction' => 'ltr'],
+        'mainEntityOfPage' => ['@value' => '/directed-page/', '@direction' => 'rtl']];
+    $directionUrlRefs = ['isPartOf' => [['@id' => '/directed-url/'], ['@id' => '/directed-page/']]];
+    $directionBlocks = $reverseDirectionScripts ? [$directionUrlRefs, $directionUrlInput] : [$directionUrlInput, $directionUrlRefs];
+    $reviewCheck(jsonLdReviewRender($directionBlocks, $routing, $directionUrlTexts) === $directionBlocks && $directionUrlTexts === [],
+        'P2 direction: direction-tagged URL literals never route or publish graph seeds, in either script order');
+}
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);

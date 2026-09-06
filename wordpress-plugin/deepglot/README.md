@@ -150,6 +150,16 @@ Explicit node references remain eligible independently of scalar coercion.
 before the internal-URL check. Root-looking text under a foreign vocabulary
 does not become an internal page identity. The helper's legacy default for bare
 Schema.org property/type names is not an implicit vocabulary for IRI values.
+Relative page IRIs resolve against the effective local `@base` before internal
+origin/effective-port checks or graph identity discovery. Context arrays,
+property/type scopes and imports carry that base alongside other mappings;
+a null context resets it to the document base, while `@base: null` disables
+relative resolution. Unknown remote/imported bases are not guessed as internal.
+The actual render URL supplies the initial document base and travels with each
+mutation, preventing state from leaking between documents. Paths, dot segments,
+queries and fragments resolve before routing; external bases and nondefault
+ports stay external. Absolute/prefixed IRIs and `@vocab` coercion retain their
+own expansion rules. No context is fetched by the runtime helper.
 Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
 group properties of the same node: they share type, identity and visitor state.
 Nesting itself does not trigger context rollback; actual child nodes still do.
@@ -174,9 +184,11 @@ targets are rewritten; absolute prefixes produce absolute localized URLs. Extern
 IRIs remain byte-for-byte unchanged. This does not add `@base` resolution or a
 general JSON-LD processor.
 
-Simple string value objects (`@value`, optional string `@language` and local
+Simple string value objects (`@value`, optional string `@language`, valid
+`@direction: "ltr"` or `"rtl"`, and local
 `@context`) retain their enclosing supported text property's meaning, including inside
-arrays. Local `@value`/`@language` aliases are supported. An existing language
+arrays. Local `@value`/`@language`/`@direction` aliases are supported. Direction
+metadata retains its exact envelope on both cache hits and misses. An existing language
 tag changes only when a translated value is available and its language exactly
 matches the configured source (case-insensitive). The same source-language guard
 applies to scalar prose under default or term-specific context language mappings,
@@ -186,12 +198,14 @@ their text equals an eligible source value. Untagged prose remains source conten
 Explicit `xsd:string`
 value objects also translate while retaining their datatype and envelope,
 including full, compact and local term datatype aliases. Other typed, identified,
-direction/index-bearing or otherwise unsupported value-object shapes remain
+index-bearing, invalid-direction or otherwise unsupported value-object shapes remain
 untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
+Combining a datatype with direction metadata is unsupported and remains opaque.
 Supporting typed string prose does not make explicit datatype literals eligible
 for page-URL rewriting or graph-identity discovery. Language-tagged URL value
-objects are also excluded from routing and graph discovery regardless of their
-tag or an independently collected matching page ID. Only untagged, untyped URL
+objects, including direction-tagged literals, are also excluded from routing and
+graph discovery regardless of their tag or an independently collected matching
+page ID. Only untagged, untyped URL
 envelopes retain the existing routing support. Explicit value objects do not
 inherit the surrounding default language; their own tags/datatypes are decisive.
 Default and term-specific context language mappings are overridden with explicit
