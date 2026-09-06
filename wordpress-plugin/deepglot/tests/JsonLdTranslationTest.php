@@ -1469,7 +1469,7 @@ $languageEdgeInput = ['@context' => [
     'heading' => ['@id' => 'headline', '@language' => 'fr'],
 ], 'instructions' => ['Scoped scalar', 'Scoped array item'], 'heading' => 'Term without default',
     'name' => ['@context' => ['@language' => 'de'], '@set' => ['Wrapper default']],
-    '@graph' => [['@context' => ['@language' => 'de', 'typedName' => ['@id' => 'name', '@type' => 'https://www.w3.org/2001/XMLSchema#string']], 'typedName' => 'Typed literal']],
+    '@graph' => [['@context' => ['@language' => 'de', 'typedName' => ['@id' => 'name', '@type' => 'http://www.w3.org/2001/XMLSchema#string']], 'typedName' => 'Typed literal']],
 ];
 $languageEdgeOutput = jsonLdReviewRender([$languageEdgeInput], $routing)[0];
 $reviewCheck(
@@ -2633,6 +2633,117 @@ foreach ([false, true] as $reverseDirectionScripts) {
     $reviewCheck(jsonLdReviewRender($directionBlocks, $routing, $directionUrlTexts) === $directionBlocks && $directionUrlTexts === [],
         'P2 direction: direction-tagged URL literals never route or publish graph seeds, in either script order');
 }
+
+// Final-review regressions: scoped language maps must use property-context aliases.
+$scopedMapOracleFixtures = [];
+foreach (['@language', ['@language', '@set']] as $scopedMapContainer) {
+    $blockedScopedMap = ['@context' => ['@vocab' => 'https://schema.org/',
+        'ingredients' => ['@id' => 'recipeIngredient', '@container' => $scopedMapContainer, '@context' => ['en' => '@none']]],
+        '@type' => 'Recipe', 'ingredients' => ['de' => 'Scoped Wasser', 'en' => 'Scoped untagged']];
+    $blockedScopedOutput = jsonLdReviewRender([$blockedScopedMap], $routing, $blockedScopedTexts, ['Scoped Wasser' => '[en] Scoped Wasser'])[0];
+    $scopedMapOracleFixtures[] = ['input' => $blockedScopedMap, 'output' => $blockedScopedOutput];
+    $reviewCheck($blockedScopedOutput === $blockedScopedMap && $blockedScopedTexts === [],
+        'P2 3944108508: target-code @none alias in property scope blocks collection and cached application for language maps');
+}
+$localNoneMap = ['@context' => ['@vocab' => 'https://schema.org/',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['untagged' => '@none']]],
+    '@type' => 'Recipe', 'ingredients' => ['de' => 'Scoped Salz', 'untagged' => 'Scoped Zucker', 'fr' => 'French unchanged']];
+$localNoneOutput = jsonLdReviewRender([$localNoneMap], $routing, $localNoneTexts)[0];
+$localNoneExpected = $localNoneMap;
+$localNoneExpected['ingredients'] = ['untagged' => '[en] Scoped Zucker', 'fr' => 'French unchanged', 'en' => '[en] Scoped Salz'];
+$scopedMapOracleFixtures[] = ['input' => $localNoneMap, 'output' => $localNoneOutput];
+$reviewCheck($localNoneOutput === $localNoneExpected && $localNoneTexts === ['Scoped Salz', 'Scoped Zucker'],
+    'P2 scoped map: property-scoped @none aliases translate as untagged buckets and do not move to the target bucket');
+$restoredScopedMap = ['@context' => ['@vocab' => 'https://schema.org/', 'en' => '@none',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['en' => null]]],
+    '@type' => 'Recipe', 'ingredients' => ['de' => 'Restored map source', 'en' => 'Existing target']];
+$restoredScopedOutput = jsonLdReviewRender([$restoredScopedMap], $routing, $restoredScopedTexts)[0];
+$restoredScopedExpected = $restoredScopedMap;
+$restoredScopedExpected['ingredients'] = ['en' => ['Existing target', '[en] Restored map source']];
+$scopedMapOracleFixtures[] = ['input' => $restoredScopedMap, 'output' => $restoredScopedOutput];
+$reviewCheck($restoredScopedOutput === $restoredScopedExpected && $restoredScopedTexts === ['Restored map source'],
+    'P2 scoped map: disabling inherited target @none alias restores a usable English bucket');
+$typeScopedMap = ['@context' => ['@vocab' => 'https://schema.org/',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language'],
+    'ScopedRecipe' => ['@id' => 'Recipe', '@context' => ['ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['en' => '@none']]]]],
+    '@type' => 'ScopedRecipe', 'ingredients' => ['de' => 'Blocked typed map'],
+    'next' => ['@type' => 'Recipe', 'ingredients' => ['de' => 'Normal child map']]];
+$typeScopedMapOutput = jsonLdReviewRender([$typeScopedMap], $routing, $typeScopedMapTexts)[0];
+$typeScopedMapExpected = $typeScopedMap;
+$typeScopedMapExpected['next']['ingredients'] = ['en' => '[en] Normal child map'];
+$scopedMapOracleFixtures[] = ['input' => $typeScopedMap, 'output' => $typeScopedMapOutput];
+$reviewCheck($typeScopedMapOutput === $typeScopedMapExpected && $typeScopedMapTexts === ['Normal child map'],
+    'P2 scoped map: type-scoped property map aliases apply once and roll back for the next real node');
+
+// Query/fragment presence is part of an exact IRI, even if the component is empty.
+$emptyIriOracleFixtures = [];
+foreach (['?', '#', '?#', '?x=1#', '?#fragment'] as $emptySuffix) {
+    foreach (['root', 'absolute', 'compact', 'base'] as $emptyForm) {
+        $emptyIriContext = ['@vocab' => 'https://schema.org/', 'site' => 'https://www.meinhaushalt.at/', 'identity' => '@id',
+            'page' => ['@id' => 'mainEntityOfPage', '@type' => '@id']];
+        if ($emptyForm === 'base') {
+            $emptyIriContext['@base'] = 'https://www.meinhaushalt.at/';
+        }
+        $emptyPrefix = ['root' => '/', 'absolute' => 'https://www.meinhaushalt.at/', 'compact' => 'site:', 'base' => ''][$emptyForm];
+        $emptyIri = $emptyPrefix . 'empty-page/' . $emptySuffix;
+        $emptyExpectedIri = ($emptyForm === 'root' ? '' : 'https://www.meinhaushalt.at') . '/en/empty-page/' . $emptySuffix;
+        $emptyInput = ['@context' => $emptyIriContext, '@type' => 'WebPage', 'identity' => $emptyIri, 'url' => $emptyIri, 'page' => $emptyIri];
+        $emptyOutput = jsonLdReviewRender([$emptyInput], $routing)[0];
+        $emptyIriOracleFixtures[] = ['input' => $emptyInput, 'output' => $emptyOutput, 'expected' => 'https://www.meinhaushalt.at/en/empty-page/' . $emptySuffix];
+        $reviewCheck($emptyOutput['identity'] === $emptyExpectedIri && $emptyOutput['url'] === $emptyExpectedIri && $emptyOutput['page'] === $emptyExpectedIri,
+            'P2 3944108513: routed page IRIs retain empty query/fragment delimiters: ' . $emptyForm . ' / ' . $emptySuffix);
+    }
+}
+foreach (['', '?', '#', '?#'] as $seedSuffix) {
+    foreach ([false, true] as $reverseEmptyScripts) {
+        $emptySeed = ['@type' => 'WebPage', '@id' => '/distinct/' . $seedSuffix];
+        $emptyReferences = ['isPartOf' => array_map(static fn ($suffix) => ['@id' => '/distinct/' . $suffix, 'url' => '/attached/'], ['', '?', '#', '?#'])];
+        $emptyRefOutput = jsonLdReviewRender($reverseEmptyScripts ? [$emptyReferences, $emptySeed] : [$emptySeed, $emptyReferences], $routing);
+        if ($reverseEmptyScripts) {
+            $emptyRefOutput = array_reverse($emptyRefOutput);
+        }
+        $emptyExpectedRefs = $emptyReferences;
+        foreach (['', '?', '#', '?#'] as $index => $suffix) {
+            if ($suffix === $seedSuffix) {
+                $emptyExpectedRefs['isPartOf'][$index] = ['@id' => '/en/distinct/' . $suffix, 'url' => '/en/attached/'];
+            }
+        }
+        $reviewCheck($emptyRefOutput[0]['@id'] === '/en/distinct/' . $seedSuffix && $emptyRefOutput[1] === $emptyExpectedRefs,
+            'P2 empty components: graph identity distinguishes absent/query/fragment/both components in both script orders: ' . $seedSuffix);
+    }
+}
+
+// Scalar datatype coercion must not feed non-string literals to a prose provider.
+$scalarDatatypeOracleFixtures = [];
+foreach (['xsd:date', 'xsd:integer', 'xsd:boolean', 'rdf:HTML', 'https://example.org/CustomDatatype', 'https://www.w3.org/2001/XMLSchema#string', '@id', '@vocab'] as $scalarDatatype) {
+    $scalarTypedInput = ['@context' => ['@vocab' => 'https://schema.org/', 'xsd' => 'http://www.w3.org/2001/XMLSchema#',
+        'rdf' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+        'ingredient' => ['@id' => 'recipeIngredient', '@type' => $scalarDatatype],
+        'text' => ['@id' => 'text', '@type' => $scalarDatatype],
+        'inLanguage' => ['@id' => 'inLanguage', '@type' => $scalarDatatype]],
+        '@type' => 'Recipe', 'ingredient' => ['2026-09-06', '1234'],
+        'recipeInstructions' => ['@type' => 'HowToStep', 'text' => 'Typed scalar step'], 'inLanguage' => '2026-09-06'];
+    $scalarTypedOutput = jsonLdReviewRender([$scalarTypedInput], $routing, $scalarTypedTexts,
+        ['2026-09-06' => '[en] 2026-09-06', '1234' => '[en] 1234', 'Typed scalar step' => '[en] Typed scalar step'])[0];
+    $scalarDatatypeOracleFixtures[] = ['input' => $scalarTypedInput, 'output' => $scalarTypedOutput];
+    $reviewCheck($scalarTypedOutput === $scalarTypedInput && $scalarTypedTexts === [],
+        'P2 3944108517: non-string scalar datatype is opaque in collection/cache application/inLanguage: ' . $scalarDatatype);
+}
+foreach ([null, '@none', 'http://www.w3.org/2001/XMLSchema#string'] as $supportedCoercion) {
+    $supportedScalar = ['@context' => ['@vocab' => 'https://schema.org/', 'ingredient' => ['@id' => 'recipeIngredient', '@type' => $supportedCoercion]],
+        '@type' => 'Recipe', 'ingredient' => 'Supported scalar prose'];
+    $supportedScalarOutput = jsonLdReviewRender([$supportedScalar], $routing, $supportedScalarTexts)[0];
+    $reviewCheck($supportedScalarOutput['ingredient'] === '[en] Supported scalar prose' && $supportedScalarTexts === ['Supported scalar prose'],
+        'P2 scalar datatype: explicit no-coercion and exact xsd:string remain translatable');
+}
+$explicitTypedOverride = ['@context' => ['@vocab' => 'https://schema.org/', 'ingredient' => ['@id' => 'recipeIngredient', '@type' => 'http://www.w3.org/2001/XMLSchema#date']],
+    '@type' => 'Recipe', 'ingredient' => [['@value' => 'Explicit source prose', '@language' => 'de'],
+        ['@value' => 'Explicit typed string', '@type' => 'http://www.w3.org/2001/XMLSchema#string']]];
+$explicitTypedOverrideOutput = jsonLdReviewRender([$explicitTypedOverride], $routing, $explicitOverrideTexts)[0];
+$reviewCheck($explicitTypedOverrideOutput['ingredient'] === [['@value' => '[en] Explicit source prose', '@language' => 'en'],
+    ['@value' => '[en] Explicit typed string', '@type' => 'http://www.w3.org/2001/XMLSchema#string']]
+    && $explicitOverrideTexts === ['Explicit source prose', 'Explicit typed string'],
+    'P2 scalar datatype: explicit value objects use their own datatype/language instead of scalar coercion');
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);

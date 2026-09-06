@@ -1313,6 +1313,42 @@ warmCollectAssert(json_decode($directedDoc->getElementsByTagName('script')->item
     && $directedWarmClient->batchCalls === [] && $directedTranslator->getLastPendingSegmentCount() === 0 && $directedWarmer->pending() === [],
     'P2 direction: warm hits translate only eligible literals and preserve every direction with zero pending/API work.');
 
+// Scoped language maps and scalar datatypes share the same bounded queue/cache.
+warmResetEnvironment();
+$scopedTypedWarmTexts = ['2026-09-06', 'Scoped warm water', 'Scoped warm sugar'];
+$scopedTypedWarmData = ['@context' => ['@vocab' => 'https://schema.org/', 'xsd' => 'http://www.w3.org/2001/XMLSchema#',
+    'blocked' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['en' => '@none']],
+    'usable' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['untagged' => '@none']],
+    'dated' => ['@id' => 'recipeIngredient', '@type' => 'xsd:date'], 'text' => ['@id' => 'text', '@type' => 'xsd:date']],
+    '@type' => 'Recipe', 'name' => $scopedTypedWarmTexts[0], 'dated' => $scopedTypedWarmTexts[0],
+    'blocked' => ['de' => array_map(static fn ($i) => 'Blocked scoped map alternative ' . $i, range(1, 120)), 'en' => 'Untagged existing'],
+    'usable' => ['de' => $scopedTypedWarmTexts[1], 'untagged' => $scopedTypedWarmTexts[2]],
+    'recipeInstructions' => ['@type' => 'HowToStep', 'text' => $scopedTypedWarmTexts[0]],
+];
+$scopedTypedWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($scopedTypedWarmData) . '</script></head><body></body></html>';
+$scopedTypedWarmClient = new DeepglotWarmFakeClient();
+$scopedTypedWarmCache = new DeepglotWarmArrayCache();
+$scopedTypedWarmer = new TranslationWarmer($scopedTypedWarmClient, $options, $scopedTypedWarmCache);
+$scopedTypedTranslator = new HtmlTranslator($scopedTypedWarmClient, $options, $scopedTypedWarmCache, null, $scopedTypedWarmer);
+$scopedTypedDoc = new DOMDocument();
+$scopedTypedDoc->loadHTML($scopedTypedTranslator->translate($scopedTypedWarmHtml, 'en', 'https://jobspot.at/en/scoped-typed/', BotDetector::HUMAN));
+warmCollectAssert(($scopedTypedWarmer->pending()['de|en'] ?? []) === $scopedTypedWarmTexts
+    && $scopedTypedTranslator->getLastPendingSegmentCount() === 3 && $scopedTypedWarmClient->batchCalls === [],
+    'P2 scoped maps/datatypes: cold queue contains only three eligible values, excluding blocked maps and typed scalars.');
+warmCollectAssert(json_decode($scopedTypedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $scopedTypedWarmData,
+    'P2 scoped maps/datatypes: cold misses preserve every source envelope.');
+$scopedTypedWarmer->run();
+warmCollectAssert(array_merge([], ...$scopedTypedWarmClient->batchCalls) === $scopedTypedWarmTexts,
+    'P2 scoped maps/datatypes: background provider receives only eligible source values.');
+$scopedTypedWarmClient->reset();
+$scopedTypedDoc->loadHTML($scopedTypedTranslator->translate($scopedTypedWarmHtml, 'en', 'https://jobspot.at/en/scoped-typed/', BotDetector::HUMAN));
+$scopedTypedExpected = $scopedTypedWarmData;
+$scopedTypedExpected['name'] = '[en] ' . $scopedTypedWarmTexts[0];
+$scopedTypedExpected['usable'] = ['untagged' => '[en] ' . $scopedTypedWarmTexts[2], 'en' => '[en] ' . $scopedTypedWarmTexts[1]];
+warmCollectAssert(json_decode($scopedTypedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $scopedTypedExpected
+    && $scopedTypedWarmClient->batchCalls === [] && $scopedTypedTranslator->getLastPendingSegmentCount() === 0 && $scopedTypedWarmer->pending() === [],
+    'P2 scoped maps/datatypes: warm hits preserve typed equal-text literals and blocked maps with zero pending/API work.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();

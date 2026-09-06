@@ -277,6 +277,7 @@ class JsonLdTranslator
                     is_string($text)
                     && $property !== null
                     && !($node['isIriCoerced'] ?? false)
+                    && (!is_string($value) || ($node['allowsScalarProse'] ?? true))
                     && $this->isTranslatableField($property, $parent)
                     && $this->isSourceLiteral($node, $sourceLanguage, $targetLanguage)
                     && mb_strlen(trim($text)) >= 2
@@ -322,7 +323,8 @@ class JsonLdTranslator
                 }
                 return [];
             }
-            if (is_string($value) && $property !== null && !($node['isIriCoerced'] ?? false)) {
+            if (is_string($value) && $property !== null && !($node['isIriCoerced'] ?? false)
+                && ($node['allowsScalarProse'] ?? true)) {
                 if (in_array($property, self::LANGUAGE_KEYS, true)) {
                     $value = $targetLanguage;
                 } elseif (
@@ -538,7 +540,10 @@ class JsonLdTranslator
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($targetLanguage, $pageNodeIds): array {
             $state = $this->pageSemantics($property, $parent, $types, $node, $pageNodeIds);
             if ($state['isPageUrlValue'] && isset($node['urlReference'])) {
-                $localized = $this->routing->rewriteUrl($node['urlReference'], $targetLanguage);
+                $localized = $this->preserveIriSuffix(
+                    $node['urlReference'],
+                    $this->routing->rewriteUrl($node['urlReference'], $targetLanguage)
+                );
                 if (isset($node['valueKey'])) {
                     $value[$node['valueKey']] = $localized;
                 } else {
@@ -598,7 +603,17 @@ class JsonLdTranslator
      */
     private function pageIdentityKey(string $reference): string
     {
-        return $this->routing->buildUrlForLanguage($reference, $this->routing->getSourceLanguage());
+        return $this->preserveIriSuffix(
+            $reference,
+            $this->routing->buildUrlForLanguage($reference, $this->routing->getSourceLanguage())
+        );
+    }
+
+    /** Empty query/fragment components are distinct IRI suffixes, not absent ones. */
+    private function preserveIriSuffix(string $reference, string $routed): string
+    {
+        return substr($routed, 0, strcspn($routed, '?#'))
+            . substr($reference, strcspn($reference, '?#'));
     }
 
     /** Expand terms/vocabulary only for @vocab scalars, then resolve the active base. */
@@ -846,7 +861,18 @@ class JsonLdTranslator
         // before node rollback or any contexts/keywords inside their payload.
         if ($containerValue && ($propertyMetadata['hasLanguageMap'] ?? false) && is_array($value)
             && ($value === [] || array_keys($value) !== range(0, count($value) - 1))) {
-            $mapMetadata = $this->languageMapMetadata($value, $context);
+            // The property's context governs language-key aliases. A map is
+            // not a new node: do not roll back the incoming type scope or
+            // interpret bucket payloads as local contexts.
+            $mapContext = $context;
+            $mapTerm = $propertyMetadata['termKey'] ?? null;
+            if ($mapTerm !== null && array_key_exists($mapTerm, $context['scopedContexts'])) {
+                $mapContext = $this->resolveContext($context['scopedContexts'][$mapTerm], $context);
+                if ($this->isOpaqueProperty($this->propertyMetadata($mapTerm, $mapContext))) {
+                    return;
+                }
+            }
+            $mapMetadata = $this->languageMapMetadata($value, $mapContext);
             if ($mapMetadata !== null) {
                 $visitor($value, $property, $parent, [], array_merge($propertyMetadata, $mapMetadata, ['isIriCoerced' => false]));
             }
@@ -1104,6 +1130,9 @@ class JsonLdTranslator
             'termKey' => $key,
             'allowsIdReference' => !array_key_exists($key, $context['coercions']) || in_array($coercion, ['@id', '@vocab'], true),
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
+            // Scalar coercions do not determine an explicit value object's
+            // own datatype, nor the literals of a language-map container.
+            'allowsScalarProse' => in_array($coercion, [null, '@none', 'http://www.w3.org/2001/XMLSchema#string'], true),
             'isVocabCoerced' => $coercion === '@vocab',
             'isJsonCoerced' => $coercion === '@json',
             'isReverse' => ($context['reverses'][$key] ?? false) || $this->termIri($key, $context) === '@reverse',

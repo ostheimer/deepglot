@@ -159,7 +159,9 @@ The actual render URL supplies the initial document base and travels with each
 mutation, preventing state from leaking between documents. Paths, dot segments,
 queries and fragments resolve before routing; external bases and nondefault
 ports stay external. Absolute/prefixed IRIs and `@vocab` coercion retain their
-own expansion rules. No context is fetched by the runtime helper.
+own expansion rules. Empty query and fragment delimiters remain present in
+routed output and exact graph-identity keys; `/page/`, `/page/?`, `/page/#` and
+`/page/?#` do not share an identity. No context is fetched by the runtime helper.
 Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
 group properties of the same node: they share type, identity and visitor state.
 Nesting itself does not trigger context rollback; actual child nodes still do.
@@ -195,6 +197,12 @@ applies to scalar prose under default or term-specific context language mappings
 before collection and again before applying cached translations. Target-language,
 third-language and distinct regional alternatives remain unchanged even when
 their text equals an eligible source value. Untagged prose remains source content.
+Scalar prose and language codes also respect datatype coercion before collection
+and cache application: only absent/null coercion, `@none` and the exact
+`http://www.w3.org/2001/XMLSchema#string` datatype allow scalar text mutation.
+Dates, numbers, custom datatypes and other typed scalars remain unchanged.
+Explicit value objects and language-map buckets retain their own literal metadata
+instead of inheriting this scalar-only datatype gate.
 Explicit `xsd:string`
 value objects also translate while retaining their datatype and envelope,
 including full, compact and local term datatype aliases. Other typed, identified,
@@ -226,7 +234,9 @@ and empty arrays keep their source buckets. Explicit `@none` buckets and aliases
 remain untagged. Language maps are terminal literals, never graph nodes or page
 URLs; malformed maps and unsupported properties are not modified. A map also
 stays unchanged if its requested target language code is aliased to `@none`,
-because that key cannot represent the requested language.
+because that key cannot represent the requested language. Property-scoped
+contexts are resolved before interpreting language-map aliases, including
+type-scoped property definitions and local resets of inherited aliases.
 Values coerced with `@type: @json` are opaque JSON literals: their complete
 contents are excluded from text collection, translation, ID discovery and routing,
 even when nested payload fields resemble JSON-LD nodes or contexts.
