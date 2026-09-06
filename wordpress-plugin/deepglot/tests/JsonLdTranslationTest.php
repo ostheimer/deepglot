@@ -1680,6 +1680,96 @@ $reviewCheck(
     'Property/local/type scopes apply in order; type language and @json stay local unless propagation is explicitly true'
 );
 
+// Coercions are expanded once, in the context defining their term. A later
+// alias redefinition must not retroactively change an inherited coercion.
+foreach ([false, true] as $reverseCoercionDefinitions) {
+    $coercionAliasContext = [
+        '@vocab' => 'https://schema.org/', '@language' => 'de',
+        'blob' => ['@id' => 'https://example.org/blob', '@type' => 'jsonKind'],
+        'iriName' => ['@id' => 'name', '@type' => 'idKind'],
+        'vocabName' => ['@id' => 'name', '@type' => 'vocabKind'],
+        'target' => ['@id' => 'mainEntityOfPage', '@type' => 'idKind'],
+        'plainName' => ['@id' => 'name', '@type' => 'noneKind'],
+        'jsonKind' => '@json', 'idKind' => '@id', 'vocabKind' => '@vocab', 'noneKind' => '@none',
+    ];
+    if ($reverseCoercionDefinitions) {
+        $coercionAliasContext = array_reverse($coercionAliasContext, true);
+    }
+    $coercionAliasPayload = ['@type' => 'WebPage', '@id' => '/aliased-json/#page', 'name' => 'Opaque alias name', 'recipeInstructions' => ['Opaque alias instructions']];
+    $coercionAliasInput = ['@context' => $coercionAliasContext,
+        'blob' => [$coercionAliasPayload, ['@list' => [$coercionAliasPayload]]],
+        'iriName' => 'https://example.org/id-name', 'vocabName' => 'https://example.org/vocab-name',
+        'target' => '/alias-iri/', 'plainName' => 'Aliased none prose',
+        '@graph' => [
+            ['@context' => ['jsonKind' => 'https://example.org/Datatype'], 'blob' => $coercionAliasPayload],
+            ['@context' => ['blob' => 'https://example.org/blob'], 'blob' => ['name' => 'Restored alias blob']],
+        ],
+    ];
+    $coercionAliasRefs = ['isPartOf' => ['@id' => '/aliased-json/#page']];
+    $coercionAliasOutput = jsonLdReviewRender([$coercionAliasInput, $coercionAliasRefs], $routing, $coercionAliasStrings);
+    $reviewCheck(
+        $coercionAliasOutput[0]['blob'] === $coercionAliasInput['blob']
+        && $coercionAliasOutput[0]['@graph'][0] === $coercionAliasInput['@graph'][0]
+        && $coercionAliasOutput[0]['iriName'] === $coercionAliasInput['iriName']
+        && $coercionAliasOutput[0]['vocabName'] === $coercionAliasInput['vocabName']
+        && $coercionAliasOutput[0]['target'] === '/en/alias-iri/'
+        && $coercionAliasOutput[0]['plainName'] === ['@value' => '[en] Aliased none prose', '@language' => 'en']
+        && $coercionAliasOutput[0]['@graph'][1]['blob']['name'] === ['@value' => '[en] Restored alias blob', '@language' => 'en']
+        && $coercionAliasOutput[1] === $coercionAliasRefs
+        && $coercionAliasStrings === ['Aliased none prose', 'Restored alias blob']
+        && $coercionAliasOutput[0]['@context'] === $coercionAliasContext,
+        'P2 3943679619: coercion aliases resolve independent of definition order and retain defining scope: ' . (int) $reverseCoercionDefinitions
+    );
+}
+
+$nestContext = ['@vocab' => 'https://schema.org/', 'bundle' => '@nest'];
+$nestInput = ['@context' => $nestContext, '@graph' => [
+    ['@type' => 'WebPage', '@id' => '/nest/#page', '@nest' => ['url' => ['/nest/', 'https://example.org/nest/']]],
+    ['@type' => 'HowToStep', 'bundle' => [['text' => 'Nested step'], ['@nest' => ['text' => ['@value' => 'Deep nested step', '@language' => 'de']]]]],
+    ['@type' => 'ListItem', 'bundle' => ['item' => ['@id' => '/nest-item/']]],
+    ['url' => '/nested-type/', 'bundle' => ['@type' => 'WebPage', '@id' => '/nested-type/#page']],
+    ['@type' => 'WebPage', '@id' => '/nested-shared/', 'bundle' => ['@type' => 'Person', 'url' => '/nested-shared/']],
+    ['@type' => 'WebPage', '@nest' => ['@id' => '/nested-id/#page']],
+]];
+foreach ([false, true] as $reverseNestScripts) {
+    $nestRefs = ['@graph' => [['isPartOf' => ['@id' => '/nested-id/#page']], ['@id' => '/nest-item/']]];
+    $nestOutput = jsonLdReviewRender($reverseNestScripts ? [$nestInput, $nestRefs] : [$nestRefs, $nestInput], $routing, $nestStrings);
+    $nestNodes = $nestOutput[$reverseNestScripts ? 0 : 1]['@graph'];
+    $nestReferenceOutput = $nestOutput[$reverseNestScripts ? 1 : 0];
+    $reviewCheck(
+        $nestNodes[0]['@id'] === '/en/nest/#page'
+        && $nestNodes[0]['@nest']['url'] === ['/en/nest/', 'https://example.org/nest/']
+        && $nestNodes[1]['bundle'][0]['text'] === '[en] Nested step'
+        && $nestNodes[1]['bundle'][1]['@nest']['text'] === ['@value' => '[en] Deep nested step', '@language' => 'en']
+        && $nestNodes[2]['bundle']['item']['@id'] === '/en/nest-item/'
+        && $nestNodes[3]['url'] === '/en/nested-type/'
+        && $nestNodes[3]['bundle']['@id'] === '/en/nested-type/#page'
+        && $nestNodes[4] === $nestInput['@graph'][4]
+        && $nestNodes[5]['@nest']['@id'] === '/en/nested-id/#page'
+        && $nestReferenceOutput['@graph'][0]['isPartOf']['@id'] === '/en/nested-id/#page'
+        && $nestReferenceOutput['@graph'][1]['@id'] === '/en/nest-item/'
+        && $nestStrings === ['Nested step', 'Deep nested step'],
+        'P2 3943679621: @nest maps/arrays/aliases share one node type, identity and visitor state: ' . (int) $reverseNestScripts
+    );
+}
+$nestScopeInput = ['@context' => ['@vocab' => 'https://example.org/'], '@graph' => [[
+    '@context' => ['@vocab' => 'https://schema.org/', '@propagate' => false, 'group' => '@nest'],
+    '@type' => 'HowToStep', 'group' => ['text' => 'Same node keeps scope', 'child' => ['name' => 'Real child rolls back']],
+]]];
+$nestScopeOutput = jsonLdReviewRender([$nestScopeInput], $routing)[0];
+$reviewCheck(
+    $nestScopeOutput['@graph'][0]['group']['text'] === '[en] Same node keeps scope'
+    && $nestScopeOutput['@graph'][0]['group']['child'] === $nestScopeInput['@graph'][0]['group']['child'],
+    'Nesting retains non-propagating current-node scope but real nested child nodes still roll back'
+);
+$nestBoundaryInput = ['@context' => $nestContext, '@graph' => [
+    ['@type' => 'HowToStep', 'bundle' => ['@value' => 'Invalid nest value', 'text' => 'Not nested prose']],
+    ['@type' => 'WebPage', 'bundle' => ['/invalid-nest/', ['url' => '/invalid-nest-url/']]],
+    ['@context' => ['bundle' => 'https://example.org/bundle'], '@type' => 'HowToStep', 'bundle' => ['text' => 'Foreign grouping']],
+    ['@context' => ['jsonKind' => '@json', 'blob' => ['@id' => 'https://example.org/blob', '@type' => 'jsonKind']], 'blob' => ['@type' => 'HowToStep', 'bundle' => ['text' => 'Opaque nested prose']]],
+]];
+$reviewCheck(jsonLdReviewRender([$nestBoundaryInput], $routing) === [$nestBoundaryInput], 'Malformed/foreign nesting and JSON-coerced nesting remain untouched');
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

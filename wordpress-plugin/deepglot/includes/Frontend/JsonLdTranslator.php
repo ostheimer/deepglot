@@ -537,8 +537,7 @@ class JsonLdTranslator
             }
 
             $node['canBePageReference'] = true;
-            foreach ($value as $key => $child) {
-                $keyword = is_string($key) ? $this->semanticProperty($key, $context) : null;
+            $this->visitNodeProperties($value, $context, function (&$child, string $key, ?string $keyword) use (&$node, &$types, $context, $typeContext): void {
                 if ($keyword === '@type') {
                     // A type scope may redefine its own class term. It affects
                     // properties, never the class identity that activated it.
@@ -550,7 +549,7 @@ class JsonLdTranslator
                     $reference = $this->internalUrlReference($child, $context);
                     $node['idKey'] = $reference !== null ? $this->pageIdentityKey($reference) : null;
                 }
-            }
+            });
         } elseif (is_string($value)) {
             $node['language'] = $this->propertyLanguage($propertyMetadata['termKey'] ?? '', $context);
             $node['urlReference'] = $this->internalUrlReference($value, $context);
@@ -566,14 +565,61 @@ class JsonLdTranslator
             return;
         }
 
+        $this->visitNodeProperties($value, $context, function (&$child, string $key, ?string $semanticProperty) use ($visitor, $context, $state): void {
+            $this->walk($child, $visitor, $context, $semanticProperty, $state, $this->propertyMetadata($key, $context));
+        });
+    }
+
+    /**
+     * @nest repeats property processing on the same node, not node expansion.
+     * Collect nested types/IDs before the node visitor, then descend using that
+     * single visitor state. Nesting does not apply local/type contexts, roll
+     * back a scope, or create a graph vertex; actual child nodes still do.
+     */
+    private function visitNodeProperties(array &$value, array $context, callable $visit): void
+    {
         foreach ($value as $key => &$child) {
-            if ($key !== '@context') {
-                $semanticProperty = is_string($key) ? $this->semanticProperty($key, $context) : $property;
-                $metadata = is_string($key) ? $this->propertyMetadata($key, $context) : $propertyMetadata;
-                $this->walk($child, $visitor, $context, $semanticProperty, $state, $metadata);
+            if ($key === '@context' || !is_string($key)) {
+                continue;
+            }
+            $property = $this->semanticProperty($key, $context);
+            if ($property !== '@nest') {
+                $visit($child, $key, $property);
+                continue;
+            }
+            if ($this->propertyMetadata($key, $context)['isJsonCoerced'] || !$this->validNest($child, $context)) {
+                continue;
+            }
+            if ($child === [] || array_keys($child) === range(0, count($child) - 1)) {
+                foreach ($child as &$group) {
+                    $this->visitNodeProperties($group, $context, $visit);
+                }
+                unset($group);
+            } else {
+                $this->visitNodeProperties($child, $context, $visit);
             }
         }
         unset($child);
+    }
+
+    /** Validate the entire grouping before any of its properties are visited. */
+    private function validNest($value, array $context): bool
+    {
+        if (!is_array($value)) {
+            return false;
+        }
+        $groups = ($value === [] || array_keys($value) === range(0, count($value) - 1)) ? $value : [$value];
+        foreach ($groups as $group) {
+            if (!is_array($group) || ($group !== [] && array_keys($group) === range(0, count($group) - 1))) {
+                return false;
+            }
+            foreach ($group as $key => $_) {
+                if (is_string($key) && $this->semanticProperty($key, $context) === '@value') {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** W3C expansion exceptions to previous-context rollback, before local @context. */
@@ -622,7 +668,7 @@ class JsonLdTranslator
     private function semanticProperty(string $key, array $context): ?string
     {
         $iri = $this->termIri($key, $context);
-        if (in_array($iri, ['@type', '@id', '@value', '@language', '@list', '@set', '@index'], true)) {
+        if (in_array($iri, ['@type', '@id', '@value', '@language', '@list', '@set', '@index', '@nest'], true)) {
             return $iri;
         }
         if (!is_string($iri) || preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) !== 1) {
@@ -839,13 +885,6 @@ class JsonLdTranslator
                         ? $this->expandContextIri($id, $context['prefixes'])
                         : ($context['vocab'] ?? '') . $id))
                 : null;
-            // Keep coercion independent of the resolved property IRI. An
-            // override without @type removes inherited coercion in this scope.
-            if (is_array($mapping) && array_key_exists('@type', $mapping)) {
-                $context['coercions'][$term] = $mapping['@type'];
-            } else {
-                unset($context['coercions'][$term]);
-            }
             // Property scopes and term language mappings are replaced with the
             // term definition, never inherited after an unscoped redefinition.
             foreach (['@context' => 'scopedContexts', '@language' => 'languages'] as $keyword => $field) {
@@ -854,6 +893,20 @@ class JsonLdTranslator
                 } else {
                     unset($context[$field][$term]);
                 }
+            }
+        }
+        // Expand new coercions only after every local term is defined, so
+        // keyword aliases work in either definition order. Inherited coercions
+        // are already resolved and must not change when an alias is redefined.
+        foreach ($definition as $term => $mapping) {
+            if (!is_string($term) || str_starts_with($term, '@')) {
+                continue;
+            }
+            if (is_array($mapping) && array_key_exists('@type', $mapping)) {
+                $coercion = $mapping['@type'];
+                $context['coercions'][$term] = is_string($coercion) ? $this->termIri($coercion, $context) : $coercion;
+            } else {
+                unset($context['coercions'][$term]);
             }
         }
         return $context;

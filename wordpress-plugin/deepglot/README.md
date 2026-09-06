@@ -79,6 +79,9 @@ while scalars, `@value` objects and ID-only references retain their active scope
 Property scopes and value-local overrides are applied after that restoration.
 Context scope stays within its script block and subtree; page identity matching
 spans script blocks.
+Coercion keyword aliases in term `@type` mappings are expanded when the term is
+defined, independent of definition order. Later alias overrides do not change
+already inherited coercions.
 Full Schema.org IRIs remain supported, with case-insensitive scheme/host matching
 and case-sensitive type/property names. Context definitions are never sent for
 translation or rewritten, and no remote context fetch is performed. The known
@@ -102,6 +105,10 @@ strings do not acquire routing semantics from a matching value.
 Direct scalar `mainEntityOfPage` and `ListItem.item` relationships also respect
 literal datatype coercion: such literals neither route nor seed page identities.
 Explicit node references remain eligible independently of scalar coercion.
+Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
+group properties of the same node: they share type, identity and visitor state.
+Nesting itself does not trigger context rollback; actual child nodes still do.
+Malformed nesting envelopes are left untouched.
 
 Canonical identity keys equate root-relative and same-site absolute IDs, including
 configured internal language hosts, paths and slug mappings. Query and fragment
