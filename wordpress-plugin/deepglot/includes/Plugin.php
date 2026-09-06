@@ -14,6 +14,7 @@ use Deepglot\Frontend\DynamicTranslationController;
 use Deepglot\Frontend\DynamicUrlLocalizer;
 use Deepglot\Frontend\HreflangInjector;
 use Deepglot\Frontend\HtmlTranslator;
+use Deepglot\Frontend\JsonLdTranslator;
 use Deepglot\Frontend\LanguageSwitcher;
 use Deepglot\Frontend\LinkRewriter;
 use Deepglot\Frontend\MultilingualSitemap;
@@ -276,7 +277,7 @@ class Plugin
                 $c->get(Client::class),
                 $c->get(Options::class),
                 $c->get(TranslationCache::class),
-                null,
+                new JsonLdTranslator($c->get(SiteRouting::class)),
                 $c->get(TranslationWarmer::class)
             );
         });

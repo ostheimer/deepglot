@@ -308,6 +308,8 @@ require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/TranslationWarmer.php';
 require_once __DIR__ . '/../includes/Sync/SettingsSync.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
+require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
+require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Support/HtmlDocument.php';
 require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
@@ -1046,7 +1048,370 @@ warmAssert(
 );
 
 // -----------------------------------------------------------------------------
-// 3. Bot traffic never enqueues warm work (issue #147 boundary).
+// 3. Recipe JSON-LD converges from a cold render through the same warm cache.
+// -----------------------------------------------------------------------------
+warmResetEnvironment();
+$recipeTexts = [
+    '800 ml Wasser',
+    '250 g Maisgrieß',
+    'Das Wasser aufkochen lassen.',
+];
+$recipeJson = wp_json_encode([
+    '@context' => 'https://schema.org',
+    '@type' => 'Recipe',
+    'name' => 'Polenta Grundrezept',
+    'recipeIngredient' => array_slice($recipeTexts, 0, 2),
+    'recipeInstructions' => [
+        ['@type' => 'HowToStep', 'text' => $recipeTexts[2]],
+    ],
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$recipeHtml = '<!DOCTYPE html><html><head><title>Polenta</title>'
+    . '<script type="application/ld+json">' . $recipeJson . '</script>'
+    . '</head><body><p>Rezeptseite</p></body></html>';
+$client = new DeepglotWarmFakeClient();
+$cache = new DeepglotWarmArrayCache();
+$warmer = new TranslationWarmer($client, $options, $cache);
+$translator = new HtmlTranslator($client, $options, $cache, null, $warmer);
+$coldRecipe = html_entity_decode(
+    $translator->translate($recipeHtml, 'en', 'https://jobspot.at/en/polenta/', BotDetector::HUMAN),
+    ENT_QUOTES | ENT_HTML5,
+    'UTF-8'
+);
+$queuedRecipeTexts = $warmer->pending()['de|en'] ?? [];
+
+foreach ($recipeTexts as $text) {
+    $serializedText = str_replace('ß', '\\u00df', $text);
+    warmAssert(
+        in_array($text, $queuedRecipeTexts, true),
+        sprintf('A cold Recipe render must enqueue JSON-LD text, "%s" was dropped.', $text)
+    );
+    warmAssert(
+        (str_contains($coldRecipe, $text) || str_contains($coldRecipe, $serializedText))
+        && !str_contains($coldRecipe, '[en] ' . $text)
+        && !str_contains($coldRecipe, '[en] ' . $serializedText),
+        sprintf('A cold Recipe render must keep source JSON-LD intact, "%s" was mangled.', $text)
+    );
+}
+
+$warmer->run();
+$client->reset();
+$warmRecipe = html_entity_decode(
+    $translator->translate($recipeHtml, 'en', 'https://jobspot.at/en/polenta/', BotDetector::HUMAN),
+    ENT_QUOTES | ENT_HTML5,
+    'UTF-8'
+);
+
+warmAssert(empty($client->batchCalls), 'A warmed Recipe render must use the cache without an API request.');
+foreach ($recipeTexts as $text) {
+    $serializedText = str_replace('ß', '\\u00df', $text);
+    warmAssert(
+        str_contains($warmRecipe, '[en] ' . $text)
+        || str_contains($warmRecipe, '[en] ' . $serializedText),
+        sprintf('A warmed Recipe render must translate JSON-LD text, "%s" was not translated.', $text)
+    );
+}
+
+// -----------------------------------------------------------------------------
+// Language-map target alternatives must not occupy the cold-page warm queue.
+warmResetEnvironment();
+$mapWarmSource = ['Warm map source ingredient'];
+$mapWarmTarget = array_map(static fn ($i) => 'Existing English ingredient ' . $i, range(1, 120));
+$mapWarmData = ['@context' => ['@vocab' => 'https://schema.org/', 'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language']],
+    'ingredients' => ['en' => $mapWarmTarget, 'de' => $mapWarmSource],
+];
+$mapWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($mapWarmData) . '</script></head><body></body></html>';
+$mapWarmClient = new DeepglotWarmFakeClient();
+$mapWarmCache = new DeepglotWarmArrayCache();
+$mapWarmer = new TranslationWarmer($mapWarmClient, $options, $mapWarmCache);
+$mapWarmTranslator = new HtmlTranslator($mapWarmClient, $options, $mapWarmCache, null, $mapWarmer);
+$mapColdOutput = $mapWarmTranslator->translate($mapWarmHtml, 'en', 'https://jobspot.at/en/map/', BotDetector::HUMAN);
+warmCollectAssert(($mapWarmer->pending()['de|en'] ?? []) === $mapWarmSource
+    && $mapWarmTranslator->getLastPendingSegmentCount() === 1 && $mapWarmClient->batchCalls === [],
+    'P2 3943790902: cold language maps enqueue only source text; existing target alternatives consume no warm-queue or pending capacity.');
+$mapColdDoc = new DOMDocument();
+$mapColdDoc->loadHTML($mapColdOutput);
+warmCollectAssert(json_decode($mapColdDoc->getElementsByTagName('script')->item(0)->textContent, true) === $mapWarmData,
+    'A cold language-map render must preserve both source and target buckets until source translation is cached.');
+$mapWarmer->run();
+warmCollectAssert(array_merge([], ...$mapWarmClient->batchCalls) === $mapWarmSource,
+    'The background provider receives no already translated language-map alternatives.');
+$mapWarmClient->reset();
+$mapWarmOutput = $mapWarmTranslator->translate($mapWarmHtml, 'en', 'https://jobspot.at/en/map/', BotDetector::HUMAN);
+$mapWarmDoc = new DOMDocument();
+$mapWarmDoc->loadHTML($mapWarmOutput);
+$mapWarmDecoded = json_decode($mapWarmDoc->getElementsByTagName('script')->item(0)->textContent, true);
+warmCollectAssert($mapWarmDecoded['ingredients'] === ['en' => array_merge($mapWarmTarget, ['[en] ' . $mapWarmSource[0]])]
+    && $mapWarmClient->batchCalls === [] && $mapWarmTranslator->getLastPendingSegmentCount() === 0 && $mapWarmer->pending() === [],
+    'The warmed map merges the cached source into existing target values and has no outstanding work or provider calls.');
+
+// Typed literals, chained aliases and recipe directions share the existing
+// bounded cache queue; unsupported ID maps must never consume that queue.
+warmResetEnvironment();
+$semanticWarmTexts = ['Chained warm name', 'Typed warm ingredient', 'Direction warm instruction'];
+$semanticWarmData = ['@context' => ['@vocab' => 'https://schema.org/',
+    'schemaName' => 'name', 'label' => 'schemaName', 'inLanguage' => ['@language' => 'de'],
+    'pages' => ['@id' => 'hasPart', '@container' => '@id']], '@type' => 'Recipe',
+    'label' => $semanticWarmTexts[0], 'inLanguage' => 'de',
+    'recipeIngredient' => ['@value' => $semanticWarmTexts[1], '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+    'recipeInstructions' => ['@type' => 'HowToSection', 'itemListElement' => [
+        ['@type' => 'HowToDirection', 'text' => $semanticWarmTexts[2]],
+        ['@type' => 'HowToDirection', 'text' => $semanticWarmTexts[1]],
+    ]], 'pages' => ['/opaque-warm-map/' => ['@type' => 'WebPage', 'name' => 'Opaque map text']],
+];
+$semanticWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($semanticWarmData) . '</script></head><body></body></html>';
+$semanticWarmClient = new DeepglotWarmFakeClient();
+$semanticWarmCache = new DeepglotWarmArrayCache();
+$semanticWarmer = new TranslationWarmer($semanticWarmClient, $options, $semanticWarmCache);
+$semanticWarmTranslator = new HtmlTranslator($semanticWarmClient, $options, $semanticWarmCache, null, $semanticWarmer);
+$semanticColdOutput = $semanticWarmTranslator->translate($semanticWarmHtml, 'en', 'https://jobspot.at/en/semantic/', BotDetector::HUMAN);
+warmCollectAssert(($semanticWarmer->pending()['de|en'] ?? []) === $semanticWarmTexts
+    && $semanticWarmTranslator->getLastPendingSegmentCount() === 3 && $semanticWarmClient->batchCalls === [],
+    'Final-review semantics: cold render queues all three deduplicated prose values and no opaque ID-map text.');
+$semanticColdDoc = new DOMDocument();
+$semanticColdDoc->loadHTML($semanticColdOutput);
+$semanticColdExpected = $semanticWarmData;
+$semanticColdExpected['inLanguage'] = ['@value' => 'en', '@language' => 'en'];
+warmCollectAssert(json_decode($semanticColdDoc->getElementsByTagName('script')->item(0)->textContent, true) === $semanticColdExpected,
+    'Cold semantic render preserves source prose/envelopes/context and immediately labels the language code correctly.');
+$semanticWarmer->run();
+warmCollectAssert(array_merge([], ...$semanticWarmClient->batchCalls) === $semanticWarmTexts,
+    'The semantic warm batch contains exactly deduplicated source prose, never language codes or ID-map values.');
+$semanticWarmClient->reset();
+$semanticWarmOutput = $semanticWarmTranslator->translate($semanticWarmHtml, 'en', 'https://jobspot.at/en/semantic/', BotDetector::HUMAN);
+$semanticWarmDoc = new DOMDocument();
+$semanticWarmDoc->loadHTML($semanticWarmOutput);
+$semanticWarmExpected = $semanticColdExpected;
+$semanticWarmExpected['label'] = '[en] ' . $semanticWarmTexts[0];
+$semanticWarmExpected['recipeIngredient']['@value'] = '[en] ' . $semanticWarmTexts[1];
+$semanticWarmExpected['recipeInstructions']['itemListElement'][0]['text'] = '[en] ' . $semanticWarmTexts[2];
+$semanticWarmExpected['recipeInstructions']['itemListElement'][1]['text'] = '[en] ' . $semanticWarmTexts[1];
+warmCollectAssert(json_decode($semanticWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $semanticWarmExpected
+    && $semanticWarmClient->batchCalls === [] && $semanticWarmTranslator->getLastPendingSegmentCount() === 0 && $semanticWarmer->pending() === [],
+    'The warmed semantic render translates every supported value from cache with intact envelopes and zero API/pending work.');
+
+// Completion review: standard/import aliases and source language selection must
+// also be correct before a cold render reserves bounded background capacity.
+warmResetEnvironment();
+$completionWarmTexts = ['Standard warm typed ingredient', 'Standard warm step', 'German warm map ingredient'];
+$completionWarmData = ['@context' => ['@import' => 'https://schema.org/docs/jsonldcontext.jsonld',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language'],
+    'typedSteps' => ['@id' => 'recipeInstructions', '@container' => '@type'],
+    'url' => ['@reverse' => 'https://example.org/linkedFrom']], 'type' => 'Recipe',
+    'recipeIngredient' => ['@value' => $completionWarmTexts[0], 'type' => 'xsd:string'],
+    'recipeInstructions' => ['type' => 'HowToStep', 'text' => $completionWarmTexts[1]],
+    'ingredients' => ['fr' => array_merge(array_map(static fn ($i) => 'French warm alternative ' . $i, range(1, 120)), [$completionWarmTexts[2]]),
+        'en' => 'Existing warm target', 'de' => $completionWarmTexts[2]],
+    'typedSteps' => ['HowToStep' => ['name' => 'Opaque warm type-map name']],
+    'url' => ['name' => 'Opaque warm reverse name'],
+    'unknownImport' => ['@context' => ['@import' => 'https://example.org/context'], 'name' => 'Opaque warm imported name'],
+];
+$completionWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($completionWarmData) . '</script></head><body></body></html>';
+$completionWarmClient = new DeepglotWarmFakeClient();
+$completionWarmCache = new DeepglotWarmArrayCache();
+$completionWarmer = new TranslationWarmer($completionWarmClient, $options, $completionWarmCache);
+$completionTranslator = new HtmlTranslator($completionWarmClient, $options, $completionWarmCache, null, $completionWarmer);
+$completionCold = $completionTranslator->translate($completionWarmHtml, 'en', 'https://jobspot.at/en/completion/', BotDetector::HUMAN);
+warmCollectAssert(($completionWarmer->pending()['de|en'] ?? []) === $completionWarmTexts
+    && $completionTranslator->getLastPendingSegmentCount() === 3 && $completionWarmClient->batchCalls === [],
+    'Completion review: only three supported German values reserve queue capacity; 120 French alternatives and opaque containers do not.');
+$completionDoc = new DOMDocument();
+$completionDoc->loadHTML($completionCold);
+warmCollectAssert(json_decode($completionDoc->getElementsByTagName('script')->item(0)->textContent, true) === $completionWarmData,
+    'Completion review: the cold cache-miss output preserves all original context, literals and language buckets.');
+$completionWarmer->run();
+warmCollectAssert(array_merge([], ...$completionWarmClient->batchCalls) === $completionWarmTexts,
+    'Completion review: the background batch contains exactly the supported deduplicated source values.');
+$completionWarmClient->reset();
+$completionDoc->loadHTML($completionTranslator->translate($completionWarmHtml, 'en', 'https://jobspot.at/en/completion/', BotDetector::HUMAN));
+$completionExpected = $completionWarmData;
+$completionExpected['recipeIngredient']['@value'] = '[en] ' . $completionWarmTexts[0];
+$completionExpected['recipeInstructions']['text'] = '[en] ' . $completionWarmTexts[1];
+unset($completionExpected['ingredients']['de']);
+$completionExpected['ingredients']['en'] = ['Existing warm target', '[en] ' . $completionWarmTexts[2]];
+warmCollectAssert(json_decode($completionDoc->getElementsByTagName('script')->item(0)->textContent, true) === $completionExpected
+    && $completionWarmClient->batchCalls === [] && $completionTranslator->getLastPendingSegmentCount() === 0 && $completionWarmer->pending() === [],
+    'Completion review: warm render changes only eligible source values, leaves a same-text French value intact and has zero API/pending work.');
+
+// Explicit/scalar language alternatives must remain outside a source-language
+// cache namespace, even when their text equals a real source segment.
+warmResetEnvironment();
+$literalWarmTexts = ['Shared source literal', 'Untagged source literal', 'Typed source literal'];
+$literalWarmForeign = array_map(static fn ($i) => ['@value' => 'Foreign warm literal ' . $i, '@language' => 'fr'], range(1, 120));
+$literalWarmData = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'fr'], '@type' => 'Recipe',
+    'name' => 'French default-language name',
+    'recipeIngredient' => array_merge($literalWarmForeign, [
+        ['@value' => $literalWarmTexts[0], '@language' => 'fr'],
+        ['@value' => $literalWarmTexts[0], '@language' => 'de'],
+        ['@value' => $literalWarmTexts[1]],
+        ['@value' => $literalWarmTexts[2], '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+        ['@value' => 'Existing English warm literal', '@language' => 'en'],
+        ['@value' => 'Regional warm literal', '@language' => 'de-AT'],
+    ]),
+    'recipeInstructions' => ['@type' => 'HowToStep', 'text' => ['@value' => $literalWarmTexts[0], '@language' => 'DE']],
+];
+$literalWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($literalWarmData) . '</script></head><body></body></html>';
+$literalWarmClient = new DeepglotWarmFakeClient();
+$literalWarmCache = new DeepglotWarmArrayCache();
+$literalWarmer = new TranslationWarmer($literalWarmClient, $options, $literalWarmCache);
+$literalWarmTranslator = new HtmlTranslator($literalWarmClient, $options, $literalWarmCache, null, $literalWarmer);
+$literalCold = $literalWarmTranslator->translate($literalWarmHtml, 'en', 'https://jobspot.at/en/literals/', BotDetector::HUMAN);
+warmCollectAssert(($literalWarmer->pending()['de|en'] ?? []) === $literalWarmTexts
+    && $literalWarmTranslator->getLastPendingSegmentCount() === 3 && $literalWarmClient->batchCalls === [],
+    'Literal language guard: only three deduplicated source values enter the cold queue, never tagged/default foreign or regional alternatives.');
+$literalWarmDoc = new DOMDocument();
+$literalWarmDoc->loadHTML($literalCold);
+warmCollectAssert(json_decode($literalWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $literalWarmData,
+    'Literal language guard: cold cache misses preserve every language tag and typed or untagged envelope.');
+$literalWarmer->run();
+warmCollectAssert(array_merge([], ...$literalWarmClient->batchCalls) === $literalWarmTexts,
+    'Literal language guard: the background provider sees only configured-source or untagged values.');
+$literalWarmClient->reset();
+$literalWarmDoc->loadHTML($literalWarmTranslator->translate($literalWarmHtml, 'en', 'https://jobspot.at/en/literals/', BotDetector::HUMAN));
+$literalWarmExpected = $literalWarmData;
+$literalWarmExpected['recipeIngredient'][121] = ['@value' => '[en] ' . $literalWarmTexts[0], '@language' => 'en'];
+$literalWarmExpected['recipeIngredient'][122]['@value'] = '[en] ' . $literalWarmTexts[1];
+$literalWarmExpected['recipeIngredient'][123]['@value'] = '[en] ' . $literalWarmTexts[2];
+$literalWarmExpected['recipeInstructions']['text'] = ['@value' => '[en] ' . $literalWarmTexts[0], '@language' => 'en'];
+warmCollectAssert(json_decode($literalWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $literalWarmExpected
+    && $literalWarmClient->batchCalls === [] && $literalWarmTranslator->getLastPendingSegmentCount() === 0 && $literalWarmer->pending() === [],
+    'Literal language guard: warm cache changes only eligible values; identical foreign text and all other language alternatives stay intact with zero pending/API work.');
+
+// Direction metadata must survive both cold queues and warm cache hits.
+warmResetEnvironment();
+$directedWarmTexts = ['Directed warm water', 'Directed warm salt'];
+$directedWarmData = ['@context' => ['@vocab' => 'https://schema.org/', 'val' => '@value', 'lang' => '@language', 'dir' => '@direction'],
+    '@type' => 'Recipe', 'recipeIngredient' => [
+        ['val' => $directedWarmTexts[0], 'lang' => 'de', 'dir' => 'ltr'],
+        ['val' => $directedWarmTexts[1], 'dir' => 'rtl'],
+        ['val' => $directedWarmTexts[0], 'lang' => 'fr', 'dir' => 'rtl'],
+        ['val' => 'Unsupported warm direction', 'dir' => 'auto'],
+        ['val' => 'Incompatible warm direction', 'dir' => 'ltr', '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+    ], 'recipeInstructions' => ['@type' => 'HowToStep', 'text' => ['val' => $directedWarmTexts[0], 'lang' => 'DE', 'dir' => 'rtl']],
+];
+$directedWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($directedWarmData) . '</script></head><body></body></html>';
+$directedWarmClient = new DeepglotWarmFakeClient();
+$directedWarmCache = new DeepglotWarmArrayCache();
+$directedWarmer = new TranslationWarmer($directedWarmClient, $options, $directedWarmCache);
+$directedTranslator = new HtmlTranslator($directedWarmClient, $options, $directedWarmCache, null, $directedWarmer);
+$directedDoc = new DOMDocument();
+$directedDoc->loadHTML($directedTranslator->translate($directedWarmHtml, 'en', 'https://jobspot.at/en/directed/', BotDetector::HUMAN));
+warmCollectAssert(($directedWarmer->pending()['de|en'] ?? []) === $directedWarmTexts
+    && $directedTranslator->getLastPendingSegmentCount() === 2 && $directedWarmClient->batchCalls === [],
+    'P2 direction: exactly two eligible deduplicated literal texts enter the cold queue; invalid/typed/foreign directions do not.');
+warmCollectAssert(json_decode($directedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $directedWarmData,
+    'P2 direction: cold misses preserve full source envelopes and aliases.');
+$directedWarmer->run();
+warmCollectAssert(array_merge([], ...$directedWarmClient->batchCalls) === $directedWarmTexts,
+    'P2 direction: the background provider receives both eligible literal texts.');
+$directedWarmClient->reset();
+$directedDoc->loadHTML($directedTranslator->translate($directedWarmHtml, 'en', 'https://jobspot.at/en/directed/', BotDetector::HUMAN));
+$directedWarmExpected = $directedWarmData;
+$directedWarmExpected['recipeIngredient'][0]['val'] = '[en] ' . $directedWarmTexts[0];
+$directedWarmExpected['recipeIngredient'][0]['lang'] = 'en';
+$directedWarmExpected['recipeIngredient'][1]['val'] = '[en] ' . $directedWarmTexts[1];
+$directedWarmExpected['recipeInstructions']['text']['val'] = '[en] ' . $directedWarmTexts[0];
+$directedWarmExpected['recipeInstructions']['text']['lang'] = 'en';
+warmCollectAssert(json_decode($directedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $directedWarmExpected
+    && $directedWarmClient->batchCalls === [] && $directedTranslator->getLastPendingSegmentCount() === 0 && $directedWarmer->pending() === [],
+    'P2 direction: warm hits translate only eligible literals and preserve every direction with zero pending/API work.');
+
+// Scoped language maps and scalar datatypes share the same bounded queue/cache.
+warmResetEnvironment();
+$scopedTypedWarmTexts = ['2026-09-06', 'Scoped warm water', 'Scoped warm sugar'];
+$scopedTypedWarmData = ['@context' => ['@vocab' => 'https://schema.org/', 'xsd' => 'http://www.w3.org/2001/XMLSchema#',
+    'blocked' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['en' => '@none']],
+    'usable' => ['@id' => 'recipeIngredient', '@container' => '@language', '@context' => ['untagged' => '@none']],
+    'dated' => ['@id' => 'recipeIngredient', '@type' => 'xsd:date'], 'text' => ['@id' => 'text', '@type' => 'xsd:date']],
+    '@type' => 'Recipe', 'name' => $scopedTypedWarmTexts[0], 'dated' => $scopedTypedWarmTexts[0],
+    'blocked' => ['de' => array_map(static fn ($i) => 'Blocked scoped map alternative ' . $i, range(1, 120)), 'en' => 'Untagged existing'],
+    'usable' => ['de' => $scopedTypedWarmTexts[1], 'untagged' => $scopedTypedWarmTexts[2]],
+    'recipeInstructions' => ['@type' => 'HowToStep', 'text' => $scopedTypedWarmTexts[0]],
+];
+$scopedTypedWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($scopedTypedWarmData) . '</script></head><body></body></html>';
+$scopedTypedWarmClient = new DeepglotWarmFakeClient();
+$scopedTypedWarmCache = new DeepglotWarmArrayCache();
+$scopedTypedWarmer = new TranslationWarmer($scopedTypedWarmClient, $options, $scopedTypedWarmCache);
+$scopedTypedTranslator = new HtmlTranslator($scopedTypedWarmClient, $options, $scopedTypedWarmCache, null, $scopedTypedWarmer);
+$scopedTypedDoc = new DOMDocument();
+$scopedTypedDoc->loadHTML($scopedTypedTranslator->translate($scopedTypedWarmHtml, 'en', 'https://jobspot.at/en/scoped-typed/', BotDetector::HUMAN));
+warmCollectAssert(($scopedTypedWarmer->pending()['de|en'] ?? []) === $scopedTypedWarmTexts
+    && $scopedTypedTranslator->getLastPendingSegmentCount() === 3 && $scopedTypedWarmClient->batchCalls === [],
+    'P2 scoped maps/datatypes: cold queue contains only three eligible values, excluding blocked maps and typed scalars.');
+warmCollectAssert(json_decode($scopedTypedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $scopedTypedWarmData,
+    'P2 scoped maps/datatypes: cold misses preserve every source envelope.');
+$scopedTypedWarmer->run();
+warmCollectAssert(array_merge([], ...$scopedTypedWarmClient->batchCalls) === $scopedTypedWarmTexts,
+    'P2 scoped maps/datatypes: background provider receives only eligible source values.');
+$scopedTypedWarmClient->reset();
+$scopedTypedDoc->loadHTML($scopedTypedTranslator->translate($scopedTypedWarmHtml, 'en', 'https://jobspot.at/en/scoped-typed/', BotDetector::HUMAN));
+$scopedTypedExpected = $scopedTypedWarmData;
+$scopedTypedExpected['name'] = '[en] ' . $scopedTypedWarmTexts[0];
+$scopedTypedExpected['usable'] = ['untagged' => '[en] ' . $scopedTypedWarmTexts[2], 'en' => '[en] ' . $scopedTypedWarmTexts[1]];
+warmCollectAssert(json_decode($scopedTypedDoc->getElementsByTagName('script')->item(0)->textContent, true) === $scopedTypedExpected
+    && $scopedTypedWarmClient->batchCalls === [] && $scopedTypedTranslator->getLastPendingSegmentCount() === 0 && $scopedTypedWarmer->pending() === [],
+    'P2 scoped maps/datatypes: warm hits preserve typed equal-text literals and blocked maps with zero pending/API work.');
+
+// Relative vocabulary discoveries must join the existing cold/warm pipeline.
+warmResetEnvironment();
+$relativeWarmTexts = ['Relative warm water', 'Relative warm boil'];
+$relativeWarmData = ['@context' => ['@base' => 'https://schema.org/', '@vocab' => './'],
+    '@type' => 'Recipe', 'recipeIngredient' => $relativeWarmTexts[0],
+    'recipeInstructions' => ['@type' => 'HowToStep', 'text' => $relativeWarmTexts[1]]];
+$relativeWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($relativeWarmData) . '</script></head><body></body></html>';
+$relativeWarmClient = new DeepglotWarmFakeClient();
+$relativeWarmCache = new DeepglotWarmArrayCache();
+$relativeWarmer = new TranslationWarmer($relativeWarmClient, $options, $relativeWarmCache);
+$relativeWarmTranslator = new HtmlTranslator($relativeWarmClient, $options, $relativeWarmCache, null, $relativeWarmer);
+$relativeWarmDoc = new DOMDocument();
+$relativeWarmDoc->loadHTML($relativeWarmTranslator->translate($relativeWarmHtml, 'en', 'https://jobspot.at/en/relative-vocab/', BotDetector::HUMAN));
+warmCollectAssert(($relativeWarmer->pending()['de|en'] ?? []) === $relativeWarmTexts
+    && $relativeWarmTranslator->getLastPendingSegmentCount() === 2 && $relativeWarmClient->batchCalls === [],
+    'P2 relative vocabulary: cold queue discovers both Recipe literals without synchronous provider calls.');
+warmCollectAssert(json_decode($relativeWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $relativeWarmData,
+    'P2 relative vocabulary: cold source output and original context stay intact.');
+$relativeWarmer->run();
+warmCollectAssert(array_merge([], ...$relativeWarmClient->batchCalls) === $relativeWarmTexts,
+    'P2 relative vocabulary: provider sees exactly the eligible ingredient and step.');
+$relativeWarmClient->reset();
+$relativeWarmDoc->loadHTML($relativeWarmTranslator->translate($relativeWarmHtml, 'en', 'https://jobspot.at/en/relative-vocab/', BotDetector::HUMAN));
+$relativeWarmExpected = $relativeWarmData;
+$relativeWarmExpected['recipeIngredient'] = '[en] ' . $relativeWarmTexts[0];
+$relativeWarmExpected['recipeInstructions']['text'] = '[en] ' . $relativeWarmTexts[1];
+warmCollectAssert(json_decode($relativeWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $relativeWarmExpected
+    && $relativeWarmClient->batchCalls === [] && $relativeWarmTranslator->getLastPendingSegmentCount() === 0 && $relativeWarmer->pending() === [],
+    'P2 relative vocabulary: warmed literals translate from cache with no pending or API work.');
+
+// Page routing exclusions remain intact in both cold and warm HTML output.
+warmResetEnvironment();
+$boundaryWarmData = ['@graph' => [
+    ['@type' => 'WebPage', '@id' => '/shop/#page', 'url' => '/shop/'],
+    ['@type' => 'WebPage', '@id' => '/blog/wp-json/deepglot/v1/', 'url' => '/blog/wp-admin/'],
+    ['@type' => 'Recipe', '@id' => '/blog/content/', 'name' => 'Boundary warm recipe'],
+]];
+$boundaryWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($boundaryWarmData) . '</script></head><body></body></html>';
+$boundaryWarmClient = new DeepglotWarmFakeClient();
+$boundaryWarmCache = new DeepglotWarmArrayCache();
+$boundaryWarmer = new TranslationWarmer($boundaryWarmClient, $options, $boundaryWarmCache);
+$boundaryWarmRouting = new \Deepglot\Support\SiteRouting(new \Deepglot\Support\UrlLanguageResolver('de', ['en']), 'https://jobspot.at/blog', 'PATH_PREFIX', []);
+$boundaryWarmTranslator = new HtmlTranslator($boundaryWarmClient, $options, $boundaryWarmCache,
+    new \Deepglot\Frontend\JsonLdTranslator($boundaryWarmRouting), $boundaryWarmer);
+$boundaryWarmDoc = new DOMDocument();
+$boundaryWarmDoc->loadHTML($boundaryWarmTranslator->translate($boundaryWarmHtml, 'en', 'https://jobspot.at/blog/en/content/', BotDetector::HUMAN));
+$boundaryWarmExpected = $boundaryWarmData;
+$boundaryWarmExpected['@graph'][2]['@id'] = 'https://jobspot.at/blog/en/content/';
+warmCollectAssert(json_decode($boundaryWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $boundaryWarmExpected,
+    'P2 site/infrastructure: cold output routes only the content identity and preserves excluded URLs.');
+warmCollectAssert(($boundaryWarmer->pending()['de|en'] ?? []) === ['Boundary warm recipe'] && $boundaryWarmClient->batchCalls === [],
+    'P2 site/infrastructure: excluded URLs are never queued as text; eligible prose remains queued.');
+$boundaryWarmer->run();
+$boundaryWarmClient->reset();
+$boundaryWarmDoc->loadHTML($boundaryWarmTranslator->translate($boundaryWarmHtml, 'en', 'https://jobspot.at/blog/en/content/', BotDetector::HUMAN));
+$boundaryWarmExpected['@graph'][2]['name'] = '[en] Boundary warm recipe';
+warmCollectAssert(json_decode($boundaryWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $boundaryWarmExpected
+    && $boundaryWarmClient->batchCalls === [] && $boundaryWarmer->pending() === [],
+    'P2 site/infrastructure: warm output preserves excluded URLs while translating the content name with no API work.');
+
+// 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();
 add_filter('deepglot_max_sync_batches', static fn() => WARM_TEST_SYNC_LIMIT);

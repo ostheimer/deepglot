@@ -53,6 +53,216 @@ wordpress-plugin/deepglot/
 └── tests/
 ```
 
+## Structured data
+
+JSON-LD localization supports Recipe instructions as strings, arrays of strings,
+typed HowToStep objects and text entries inside HowToSection `itemListElement`.
+HowToDirection text is also supported along recipe instruction, section and
+step relationships; unrelated direction nodes remain outside this scope.
+Nested recipe sections retain instruction semantics through lists and aliases;
+unrelated ItemLists and foreign type/property mappings do not acquire them.
+Page identities and matching references, including
+references with extra metadata, are collected across all JSON-LD blocks in one
+document before rewriting. Safe page relationships also seed these identities;
+one graph-discovery pass builds adjacency links, then a work queue propagates
+reachable identities without rescanning the document. Chained generic definitions
+stay linked regardless of script order. Scalar and array page URLs retain their property
+semantics and are trimmed before routing; external values remain unchanged.
+Supported simple URL value objects retain their envelope and local keyword
+aliases while their inner URL follows the same page identity and routing checks.
+Valid `@list`/`@set` wrappers, including local keyword aliases and optional string
+`@index` metadata, preserve the enclosing field and parent semantics. Unsupported
+wrapper envelopes are left untouched.
+Plain `@index` containers, optionally combined with `@set`, preserve their index
+keys and process values with the enclosing property's semantics. Index keys are
+never interpreted as properties or graph identities. Bucket nodes retain the
+active scope for their own properties; ordinary descendants still restore a
+non-propagating context.
+Custom property-index mappings and graph-index combinations remain opaque.
+Identity (`@id`) containers, including `@set`/`@graph` combinations, are also
+entirely opaque: their implicit identity keys and contents cannot be partially
+localized, collected for translation or used to seed external graph references.
+Type (`@type`) containers, including `@set` combinations, remain wholly opaque
+as well: this helper does not implement their implicit node-type semantics.
+Reverse properties (explicit `@reverse`, keyword aliases and term definitions)
+are opaque to all visitors. Their resolved reverse IRI never falls back to a
+similarly named forward Schema.org property; forward redefinition removes that
+boundary. This is conservative non-processing, not reverse-graph localization.
+
+Compact type prefixes, ordinary class aliases, supported Schema.org property
+aliases and local keyword aliases are resolved from the active `@context`, including
+inherited aliases, overrides, context arrays and null resets. Property-scoped
+term contexts apply to their values before any value-local context; redefining a
+term without a scoped context removes that association. Type-scoped term contexts
+apply to the node's properties in lexical type-term order; type identities use
+the pre-type-scope definitions. Type scopes do not propagate by default. Explicit
+`@propagate: false` contexts restore their previous scope at descendant nodes,
+while scalars, `@value` objects and ID-only references retain their active scope.
+Property scopes and value-local overrides are applied after that restoration.
+Context scope stays within its script block and subtree; page identity matching
+spans script blocks.
+Chained term aliases resolve recursively before vocabulary fallback, independent
+of definition order. Resolved inherited aliases retain their original meaning
+after child-context overrides; disabled targets and cycles do not fall back to
+familiar Schema.org names.
+Coercion keyword aliases in term `@type` mappings are expanded when the term is
+defined, independent of definition order. Later alias overrides do not change
+already inherited coercions.
+Full Schema.org IRIs remain supported, with case-insensitive scheme/host matching
+and case-sensitive type/property names. Context definitions are never sent for
+translation or rewritten, and no remote context fetch is performed. The known
+Schema.org context is handled locally, including the exact HTTP/HTTPS
+`schema.org/docs/jsonldcontext.jsonld` and `.json` URLs. Its relevant keyword
+(`type`, `id`) and datatype/prefix definitions are modeled locally, respect
+later overrides and are reinstalled by a later known context. This bounded model
+is not a runtime download of the entire Schema.org context.
+The model is checked against the [published context](https://schema.org/docs/jsonldcontext.jsonld).
+Known `@import` forms reuse that model with importing definitions taking
+precedence. Unknown imports clear unresolved mappings just like unknown remote
+contexts; explicit local definitions can restore only their declared semantics.
+Import precedence follows [JSON-LD 1.1 context processing](https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm).
+Context-free bare type names retain the legacy Schema.org
+default, which explicit null contexts or foreign vocabularies remove. Generic
+`text` outside HowToStep or supported recipe directions and shared person,
+organization and media IDs remain
+outside the new translation/routing scope.
+
+Schema.org types ending in `Article` follow page routing, including specific
+news and scholarly subtypes. For objects without an explicit page-related type,
+relationships and exact collected page-ID matches only supply page semantics to
+untyped objects or exclusively Schema.org `Thing` types. Other specific, mixed
+or unresolved reference types remain unchanged, including organization, person
+and media subtypes. Aliases retain their original JSON keys and share the same
+scope for text selection, ID collection and routing. Scalar `isPartOf` and
+`breadcrumb` references, including aliases with `@id` or `@vocab` coercion, only route when
+they exactly match a collected page ID; `sameAs`, `citation` and unrelated
+strings do not acquire routing semantics from a matching value.
+Explicit page-plus-shared multi-types retain their stable entity identities too.
+The bounded shared-type list covers the direct subtypes documented under
+[Organization](https://schema.org/Organization) and
+[MediaObject](https://schema.org/MediaObject), plus common business, education,
+sports, performance and media-snapshot descendants. It is not runtime subclass
+inference or a complete transitive Schema.org taxonomy.
+Direct scalar `mainEntityOfPage` and `ListItem.item` relationships also respect
+literal datatype coercion: such literals neither route nor seed page identities.
+Explicit node references remain eligible independently of scalar coercion.
+`@vocab`-coerced scalar references first resolve their term/vocabulary meaning
+before the internal-URL check. Root-looking text under a foreign vocabulary
+does not become an internal page identity. The helper's legacy default for bare
+Schema.org property/type names is not an implicit vocabulary for IRI values.
+Relative page IRIs resolve against the effective local `@base` before internal
+origin/effective-port checks or graph identity discovery. Context arrays,
+property/type scopes and imports carry that base alongside other mappings;
+a null context resets it to the document base, while `@base: null` disables
+relative resolution. Unknown remote/imported bases are not guessed as internal.
+The actual render URL supplies the initial document base and travels with each
+mutation, preventing state from leaking between documents. Paths, dot segments,
+queries and fragments resolve before routing; external bases and nondefault
+ports stay external. Absolute/prefixed IRIs and `@vocab` coercion retain their
+own expansion rules. A relative `@vocab` resolves against the active base when
+no vocabulary is declared. With an existing declared vocabulary, it is appended
+verbatim instead; the helper's compatibility Schema.org default is not a declared
+vocabulary. Context arrays, null resets and property scopes keep this distinction.
+Fresh properties establish their scoped context before expanding containers or
+values. Object expansion reapplies that context after scope rollback; scalars
+and language maps do not receive an extra application. A resulting non-Schema
+vocabulary remains outside the prose allowlist.
+Empty query and fragment delimiters remain present in
+routed output and exact graph-identity keys; `/page/`, `/page/?`, `/page/#` and
+`/page/?#` do not share an identity. No context is fetched by the runtime helper.
+Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
+group properties of the same node: they share type, identity and visitor state.
+Nesting itself does not trigger context rollback; actual child nodes still do.
+Nested `@type` values contribute node identity but do not activate type-scoped
+contexts: JSON-LD expansion unfolds nesting after direct type scopes are applied.
+Malformed nesting envelopes are left untouched.
+
+Canonical identity keys equate root-relative and same-site absolute IDs, including
+configured internal language hosts, paths and slug mappings. Query and fragment
+distinctions remain intact. Keys are separate from URL output: each actual rewrite
+still uses SiteRouting and preserves its relative/absolute routing behavior.
+Absolute and scheme-relative page URLs must match a configured routing host and
+its normalized scheme and effective port. Explicit and implicit default ports
+are equivalent within the same scheme; a different scheme remains external even
+when it explicitly uses the configured port. Other services on the same host
+cannot seed identities or acquire page routing.
+Scheme-relative URLs use the source site's scheme for the comparison and routing.
+Mapped language hosts use their own generated routing origin, including its port.
+External network-path references remain unchanged.
+For WordPress installations below a subdirectory, a URL must also be the exact
+configured site path or a slash-bounded descendant; same-origin sibling sites
+and dot-segment escapes cannot route or seed page identities. Mapped language
+hosts retain this site-path boundary. WordPress infrastructure URLs, including
+REST/admin/login endpoints, core assets and sitemaps, stay unchanged according
+to SiteRouting's shared infrastructure classifier. These URL exclusions do not
+suppress otherwise eligible prose on the same node.
+
+Local prefix definitions also expand compact page IDs and supported page URL
+values before internal-host checks, identity matching and routing. Only internal
+targets are rewritten; absolute prefixes produce absolute localized URLs. External or unresolved compact
+IRIs remain byte-for-byte unchanged. Relative IRI and local `@base` resolution
+follow the bounded rules above; this helper is not a general JSON-LD processor.
+
+Simple string value objects (`@value`, optional string `@language`, valid
+`@direction: "ltr"` or `"rtl"`, and local
+`@context`) retain their enclosing supported text property's meaning, including inside
+arrays. Local `@value`/`@language`/`@direction` aliases are supported. Direction
+metadata retains its exact envelope on both cache hits and misses. An existing language
+tag changes only when a translated value is available and its language exactly
+matches the configured source (case-insensitive). The same source-language guard
+applies to scalar prose under default or term-specific context language mappings,
+before collection and again before applying cached translations. Target-language,
+third-language and distinct regional alternatives remain unchanged even when
+their text equals an eligible source value. Untagged prose remains source content.
+Scalar prose and language codes also respect datatype coercion before collection
+and cache application: only absent/null coercion, `@none` and the exact
+`http://www.w3.org/2001/XMLSchema#string` datatype allow scalar text mutation.
+Dates, numbers, custom datatypes and other typed scalars remain unchanged.
+Explicit value objects and language-map buckets retain their own literal metadata
+instead of inheriting this scalar-only datatype gate.
+Explicit `xsd:string`
+value objects also translate while retaining their datatype and envelope,
+including full, compact and local term datatype aliases. Other typed, identified,
+index-bearing, invalid-direction or otherwise unsupported value-object shapes remain
+untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
+Combining a datatype with direction metadata is unsupported and remains opaque.
+Supporting typed string prose does not make explicit datatype literals eligible
+for page-URL rewriting or graph-identity discovery. Language-tagged URL value
+objects, including direction-tagged literals, are also excluded from routing and
+graph discovery regardless of their tag or an independently collected matching
+page ID. Only untagged, untyped URL
+envelopes retain the existing routing support. Explicit value objects do not
+inherit the surrounding default language; their own tags/datatypes are decisive.
+Default and term-specific context language mappings are overridden with explicit
+target-language value objects only for translated literals. Context definitions,
+cache misses and unrelated literals keep their original language interpretation;
+explicitly untagged values remain untagged.
+Language-map containers (`@language`, optionally with `@set`) retain the enclosing
+supported text property's meaning, including HowToStep text and scoped aliases.
+Translated strings move to the target-language bucket; existing target values are
+preserved and merged without overwriting them. Collection receives the configured
+source and target languages before cache lookup, provider batching and background
+warming. Only exact source-tag matches (case-insensitive) are eligible; target,
+third-language and distinct regional alternatives remain unchanged, even when
+their text is identical to source text or happens to have a cached translation.
+The source language travels with each collected mutation into application.
+Cache misses, short strings, nulls
+and empty arrays keep their source buckets. Explicit `@none` buckets and aliases
+remain untagged. Language maps are terminal literals, never graph nodes or page
+URLs; malformed maps and unsupported properties are not modified. A map also
+stays unchanged if its requested target language code is aliased to `@none`,
+because that key cannot represent the requested language. Property-scoped
+contexts are resolved before interpreting language-map aliases, including
+type-scoped property definitions and local resets of inherited aliases.
+Values coerced with `@type: @json` are opaque JSON literals: their complete
+contents are excluded from text collection, translation, ID discovery and routing,
+even when nested payload fields resemble JSON-LD nodes or contexts.
+Literal `inLanguage` codes, including aliases and simple value objects, use the
+target code. Active default or term language mappings receive an explicit
+target-language value override without changing the shared context or cache
+misses; null term-language mappings remain untagged.
+`@id`/`@vocab`-coerced language IRIs remain unchanged.
+
 ## Installation in WordPress
 
 1. Build the versioned ZIP from an explicit commit using the release command below.
@@ -65,7 +275,7 @@ wordpress-plugin/deepglot/
 The plugin ships a complete translation pipeline:
 
 - Admin configuration under `Settings → Deepglot` (API identity plus WordPress-owned routing, switcher, and exclusions); SaaS-owned project languages and automatic redirect appear as read-only runtime mirrors after authenticated sync.
-- `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD.
+- `OutputBuffer` + `HtmlTranslator` (PHP `DOMDocument`) translate the rendered HTML — text nodes, head metadata, accessibility attributes, and JSON-LD. Recipe ingredients and instruction text use the same cache/warm-up pipeline; internal page and breadcrumb identities and their exact graph references follow target-language routing while shared person, organization, media, and external identifiers remain stable.
 - `LinkRewriter` rewrites internal links; SaaS-managed translated URL-slug mappings are applied and reversed for path-prefix and subdomain routing; `HreflangInjector` adds `hreflang` / canonical SEO tags; `<html lang>` is switched.
 - A WordPress-transient translation cache, bounded background cache warming, batched + parallel API requests, and path-prefix / subdomain routing. Queue claims are atomic, partial responses stay queued, and supported full-page caches are purged after a page finishes warming.
 - Independent language-switcher instances (shortcode, Gutenberg block, classic widget, nav-menu, automatic placement), versioned design templates, and a same-origin visual placement editor.
