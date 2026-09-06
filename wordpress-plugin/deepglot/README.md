@@ -177,13 +177,23 @@ general JSON-LD processor.
 Simple string value objects (`@value`, optional string `@language` and local
 `@context`) retain their enclosing supported text property's meaning, including inside
 arrays. Local `@value`/`@language` aliases are supported. An existing language
-tag changes only when a translated value is available. Explicit `xsd:string`
+tag changes only when a translated value is available and its language exactly
+matches the configured source (case-insensitive). The same source-language guard
+applies to scalar prose under default or term-specific context language mappings,
+before collection and again before applying cached translations. Target-language,
+third-language and distinct regional alternatives remain unchanged even when
+their text equals an eligible source value. Untagged prose remains source content.
+Explicit `xsd:string`
 value objects also translate while retaining their datatype and envelope,
 including full, compact and local term datatype aliases. Other typed, identified,
 direction/index-bearing or otherwise unsupported value-object shapes remain
 untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
 Supporting typed string prose does not make explicit datatype literals eligible
-for page-URL rewriting or graph-identity discovery.
+for page-URL rewriting or graph-identity discovery. Language-tagged URL value
+objects are also excluded from routing and graph discovery regardless of their
+tag or an independently collected matching page ID. Only untagged, untyped URL
+envelopes retain the existing routing support. Explicit value objects do not
+inherit the surrounding default language; their own tags/datatypes are decisive.
 Default and term-specific context language mappings are overridden with explicit
 target-language value objects only for translated literals. Context definitions,
 cache misses and unrelated literals keep their original language interpretation;

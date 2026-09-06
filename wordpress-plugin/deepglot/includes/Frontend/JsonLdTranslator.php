@@ -270,6 +270,7 @@ class JsonLdTranslator
                     && $property !== null
                     && !($node['isIriCoerced'] ?? false)
                     && $this->isTranslatableField($property, $parent)
+                    && $this->isSourceLiteral($node, $sourceLanguage, $targetLanguage)
                     && mb_strlen(trim($text)) >= 2
                 ) {
                     $accumulator[] = $text;
@@ -300,6 +301,7 @@ class JsonLdTranslator
                         $value[$key] = $targetLanguage;
                     } elseif (
                         $this->isTranslatableField($property, $parent)
+                        && $this->isSourceLiteral($node, $sourceLanguage, $targetLanguage)
                         && isset($translations[$value[$key]])
                     ) {
                         $value[$key] = $translations[$value[$key]];
@@ -317,6 +319,7 @@ class JsonLdTranslator
                     $value = $targetLanguage;
                 } elseif (
                     $this->isTranslatableField($property, $parent)
+                    && $this->isSourceLiteral($node, $sourceLanguage, $targetLanguage)
                     && isset($translations[$value])
                 ) {
                     $value = $translations[$value];
@@ -352,6 +355,13 @@ class JsonLdTranslator
             'isRecipeSection' => $isRecipeInstruction && in_array('HowToSection', $types, true),
             'isRecipeDirection' => $isRecipeInstruction && in_array('HowToDirection', $types, true),
         ];
+    }
+
+    /** Untagged prose is source copy; an explicit/effective tag must match the configured source. */
+    private function isSourceLiteral(array $node, ?string $sourceLanguage, ?string $targetLanguage): bool
+    {
+        return !isset($node['language'])
+            || $this->isSourceLanguageBucket($node['language'], $sourceLanguage, $targetLanguage);
     }
 
     /** Exact configured source only: neither regional nor unrelated buckets share a cache namespace. */
@@ -784,9 +794,15 @@ class JsonLdTranslator
             if ($valueObject !== null) {
                 if ($valueObject !== []) {
                     $literalMetadata = array_merge($propertyMetadata, $valueObject);
-                    // These supported URL fields may use literal envelopes;
-                    // @id itself requires a string, never a value object.
+                    // Value objects do not inherit default/term language. This
+                    // includes xsd:string literals, which remain untagged.
+                    $literalMetadata['language'] = isset($valueObject['languageKey'])
+                        ? $value[$valueObject['languageKey']]
+                        : null;
+                    // Only untagged, untyped envelopes may represent these
+                    // supported URLs; @id itself never accepts a value object.
                     if (!isset($valueObject['typeKey'])
+                        && !isset($valueObject['languageKey'])
                         && in_array($property, ['url', 'mainEntityOfPage', 'item', 'isPartOf', 'breadcrumb'], true)) {
                         $literalMetadata['urlReference'] = $this->internalUrlReference($value[$valueObject['valueKey']], $context);
                         if ($literalMetadata['urlReference'] !== null) {

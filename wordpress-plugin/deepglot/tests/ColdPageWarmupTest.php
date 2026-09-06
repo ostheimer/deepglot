@@ -1230,6 +1230,50 @@ warmCollectAssert(json_decode($completionDoc->getElementsByTagName('script')->it
     && $completionWarmClient->batchCalls === [] && $completionTranslator->getLastPendingSegmentCount() === 0 && $completionWarmer->pending() === [],
     'Completion review: warm render changes only eligible source values, leaves a same-text French value intact and has zero API/pending work.');
 
+// Explicit/scalar language alternatives must remain outside a source-language
+// cache namespace, even when their text equals a real source segment.
+warmResetEnvironment();
+$literalWarmTexts = ['Shared source literal', 'Untagged source literal', 'Typed source literal'];
+$literalWarmForeign = array_map(static fn ($i) => ['@value' => 'Foreign warm literal ' . $i, '@language' => 'fr'], range(1, 120));
+$literalWarmData = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'fr'], '@type' => 'Recipe',
+    'name' => 'French default-language name',
+    'recipeIngredient' => array_merge($literalWarmForeign, [
+        ['@value' => $literalWarmTexts[0], '@language' => 'fr'],
+        ['@value' => $literalWarmTexts[0], '@language' => 'de'],
+        ['@value' => $literalWarmTexts[1]],
+        ['@value' => $literalWarmTexts[2], '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+        ['@value' => 'Existing English warm literal', '@language' => 'en'],
+        ['@value' => 'Regional warm literal', '@language' => 'de-AT'],
+    ]),
+    'recipeInstructions' => ['@type' => 'HowToStep', 'text' => ['@value' => $literalWarmTexts[0], '@language' => 'DE']],
+];
+$literalWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($literalWarmData) . '</script></head><body></body></html>';
+$literalWarmClient = new DeepglotWarmFakeClient();
+$literalWarmCache = new DeepglotWarmArrayCache();
+$literalWarmer = new TranslationWarmer($literalWarmClient, $options, $literalWarmCache);
+$literalWarmTranslator = new HtmlTranslator($literalWarmClient, $options, $literalWarmCache, null, $literalWarmer);
+$literalCold = $literalWarmTranslator->translate($literalWarmHtml, 'en', 'https://jobspot.at/en/literals/', BotDetector::HUMAN);
+warmCollectAssert(($literalWarmer->pending()['de|en'] ?? []) === $literalWarmTexts
+    && $literalWarmTranslator->getLastPendingSegmentCount() === 3 && $literalWarmClient->batchCalls === [],
+    'Literal language guard: only three deduplicated source values enter the cold queue, never tagged/default foreign or regional alternatives.');
+$literalWarmDoc = new DOMDocument();
+$literalWarmDoc->loadHTML($literalCold);
+warmCollectAssert(json_decode($literalWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $literalWarmData,
+    'Literal language guard: cold cache misses preserve every language tag and typed or untagged envelope.');
+$literalWarmer->run();
+warmCollectAssert(array_merge([], ...$literalWarmClient->batchCalls) === $literalWarmTexts,
+    'Literal language guard: the background provider sees only configured-source or untagged values.');
+$literalWarmClient->reset();
+$literalWarmDoc->loadHTML($literalWarmTranslator->translate($literalWarmHtml, 'en', 'https://jobspot.at/en/literals/', BotDetector::HUMAN));
+$literalWarmExpected = $literalWarmData;
+$literalWarmExpected['recipeIngredient'][121] = ['@value' => '[en] ' . $literalWarmTexts[0], '@language' => 'en'];
+$literalWarmExpected['recipeIngredient'][122]['@value'] = '[en] ' . $literalWarmTexts[1];
+$literalWarmExpected['recipeIngredient'][123]['@value'] = '[en] ' . $literalWarmTexts[2];
+$literalWarmExpected['recipeInstructions']['text'] = ['@value' => '[en] ' . $literalWarmTexts[0], '@language' => 'en'];
+warmCollectAssert(json_decode($literalWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $literalWarmExpected
+    && $literalWarmClient->batchCalls === [] && $literalWarmTranslator->getLastPendingSegmentCount() === 0 && $literalWarmer->pending() === [],
+    'Literal language guard: warm cache changes only eligible values; identical foreign text and all other language alternatives stay intact with zero pending/API work.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();

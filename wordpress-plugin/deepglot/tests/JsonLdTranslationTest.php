@@ -1437,10 +1437,11 @@ $mappedLanguageInput = ['@context' => $mappedLanguageContext,
 $mappedLanguageOutput = jsonLdReviewRender([$mappedLanguageInput], $routing, $mappedLanguageStrings, ['Cache miss' => null])[0];
 $reviewCheck(
     $mappedLanguageOutput['name'] === ['@value' => '[en] Default language', '@language' => 'en']
-    && $mappedLanguageOutput['heading'][0] === ['@value' => '[en] Term language', '@language' => 'en']
+    && $mappedLanguageOutput['heading'] === $mappedLanguageInput['heading']
     && $mappedLanguageOutput['@graph'][1]['heading'] === ['@value' => '[en] Reset term mapping', '@language' => 'en']
-    && $mappedLanguageOutput['@graph'][2]['recipeInstructions']['text'] === ['@value' => '[en] Scoped language', '@language' => 'en'],
-    'P2 3942374029: translated literals override default, term-specific and property-scoped language mappings'
+    && $mappedLanguageOutput['@graph'][2]['recipeInstructions']['text'] === 'Scoped language'
+    && !in_array('Term language', $mappedLanguageStrings, true) && !in_array('Scoped language', $mappedLanguageStrings, true),
+    'P2 3942374029 / 3943975376: source/default literals translate, while foreign term/property language mappings remain unchanged'
 );
 $reviewCheck(
     $mappedLanguageOutput['@context'] === $mappedLanguageContext
@@ -1467,15 +1468,26 @@ $languageEdgeInput = ['@context' => [
 ];
 $languageEdgeOutput = jsonLdReviewRender([$languageEdgeInput], $routing)[0];
 $reviewCheck(
-    $languageEdgeOutput['instructions'] === [
-        ['@value' => '[en] Scoped scalar', '@language' => 'en'],
-        ['@value' => '[en] Scoped array item', '@language' => 'en'],
-    ]
-    && $languageEdgeOutput['heading'] === ['@value' => '[en] Term without default', '@language' => 'en']
+    $languageEdgeOutput['instructions'] === $languageEdgeInput['instructions']
+    && $languageEdgeOutput['heading'] === $languageEdgeInput['heading']
     && $languageEdgeOutput['name']['@set'][0] === ['@value' => '[en] Wrapper default', '@language' => 'en']
     && $languageEdgeOutput['@graph'][0]['typedName'] === '[en] Typed literal',
-    'Language mappings cover scoped scalars, arrays and wrapper-local defaults, but never replace datatype coercion'
+    'Foreign scoped scalars/arrays remain unchanged; source wrapper defaults translate without replacing datatype coercion'
 );
+$sourceMappedLanguageInput = $mappedLanguageInput;
+$sourceMappedLanguageInput['@context']['heading']['@language'] = 'DE';
+$sourceMappedLanguageInput['@graph'][2]['@context']['recipeInstructions']['@context']['@language'] = 'DE';
+$sourceMappedLanguageOutput = jsonLdReviewRender([$sourceMappedLanguageInput], $routing, $sourceMappedLanguageTexts, ['Cache miss' => null])[0];
+$reviewCheck($sourceMappedLanguageOutput['heading'] === [['@value' => '[en] Term language', '@language' => 'en'], 'Cache miss']
+    && $sourceMappedLanguageOutput['@graph'][2]['recipeInstructions']['text'] === ['@value' => '[en] Scoped language', '@language' => 'en'],
+    'Source-language term and property mappings still translate with explicit target tags while cache misses retain their source tag');
+$sourceLanguageEdgeInput = $languageEdgeInput;
+$sourceLanguageEdgeInput['@context']['instructions']['@context']['@language'] = 'de';
+$sourceLanguageEdgeInput['@context']['heading']['@language'] = 'de';
+$sourceLanguageEdgeOutput = jsonLdReviewRender([$sourceLanguageEdgeInput], $routing)[0];
+$reviewCheck($sourceLanguageEdgeOutput['instructions'] === [['@value' => '[en] Scoped scalar', '@language' => 'en'], ['@value' => '[en] Scoped array item', '@language' => 'en']]
+    && $sourceLanguageEdgeOutput['heading'] === ['@value' => '[en] Term without default', '@language' => 'en'],
+    'Source-language property-scoped scalars/arrays and term mappings retain their positive translation coverage');
 
 $wrapperInput = ['@context' => ['@vocab' => 'https://schema.org/', 'list' => '@list', 'set' => '@set'], '@graph' => [
     ['@type' => 'Recipe', 'recipeInstructions' => ['@list' => ['List prose', ['@type' => 'HowToStep', 'text' => ['set' => ['Wrapped step']]], ['@value' => 'Wrapped literal', '@language' => 'de']], '@index' => 'steps']],
@@ -2293,6 +2305,124 @@ $sourceBatchTranslator = new HtmlTranslator($sourceBatchClient, $options, new De
 $sourceBatchTranslator->translate('<html><head><script type="application/ld+json">' . json_encode($sourceBatchInput) . '</script></head><body></body></html>', 'en');
 $reviewCheck($sourceBatchClient->sentTexts === ['Source batch water'],
     'HtmlTranslator passes configured source language before cache/dedup/batch collection; 120 third-language values consume no capacity');
+
+// Literal-language review: source selection applies outside language maps too.
+foreach (['de', 'DE', 'en', 'fr', 'de-AT'] as $literalLanguage) {
+    foreach (['value', 'alias', 'default', 'term'] as $literalShape) {
+        $literalGuardInput = ['@context' => ['@vocab' => 'https://schema.org/'], '@type' => 'Recipe'];
+        $guardText = 'Literal guard prose';
+        if ($literalShape === 'value' || $literalShape === 'alias') {
+            $valueKey = $literalShape === 'alias' ? 'literal' : '@value';
+            $langKey = $literalShape === 'alias' ? 'lang' : '@language';
+            $literalGuardInput['@context'] += ['literal' => '@value', 'lang' => '@language'];
+            $literalGuardInput['recipeIngredient'] = [$valueKey => $guardText, $langKey => $literalLanguage];
+        } else {
+            $literalGuardInput['@context']['@language'] = $literalShape === 'default' ? $literalLanguage : 'de';
+            if ($literalShape === 'term') {
+                $literalGuardInput['@context']['recipeIngredient'] = ['@language' => $literalLanguage];
+            }
+            $literalGuardInput['recipeIngredient'] = $guardText;
+        }
+        $literalGuardOutput = jsonLdReviewRender([$literalGuardInput], $routing, $literalGuardTexts, [$guardText => '[en] ' . $guardText])[0];
+        $isSource = strcasecmp($literalLanguage, 'de') === 0;
+        $expectedLiteral = $literalGuardInput;
+        if ($isSource) {
+            $expectedLiteral['recipeIngredient'] = in_array($literalShape, ['value', 'alias'], true)
+                ? [$valueKey => '[en] ' . $guardText, $langKey => 'en']
+                : ['@value' => '[en] ' . $guardText, '@language' => 'en'];
+        }
+        $reviewCheck($literalGuardOutput === $expectedLiteral && $literalGuardTexts === ($isSource ? [$guardText] : []),
+            'P2 3943975376: literal language source guard applies before collection and cache application: ' . $literalShape . ' / ' . $literalLanguage);
+    }
+}
+$literalScopeInput = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'fr',
+    'sourceName' => ['@id' => 'name', '@language' => 'de'], 'plainName' => ['@id' => 'name', '@language' => null],
+    'steps' => ['@id' => 'recipeInstructions', '@container' => '@language'],
+    'Scoped' => ['@id' => 'Recipe', '@context' => ['@language' => 'de']],
+    'child' => ['@id' => 'https://example.org/child', '@context' => ['@language' => 'de']]],
+    'name' => 'Texte français', 'sourceName' => 'Quellname', 'plainName' => 'Ohne Sprachmarkierung',
+    'recipeIngredient' => ['@value' => 'Typisierte Zutat', '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+    'recipeInstructions' => ['@list' => [['@value' => 'Ohne Tag im Wrapper'], ['@value' => 'Valeur française', '@language' => 'fr']]],
+    'steps' => ['fr' => 'Étape française', 'de' => 'Kartoffeln waschen', 'en' => 'Existing English step'],
+    'child' => ['name' => 'Kindname', 'untagged' => ['@context' => ['@language' => null], 'name' => 'Nullsprache']],
+    '@graph' => [['@type' => 'Scoped', '@nest' => ['name' => 'Typname'], 'next' => ['name' => 'Français après rollback']]],
+    'inLanguage' => ['@value' => 'de', '@language' => 'fr'],
+];
+$literalScopeOutput = jsonLdReviewRender([$literalScopeInput], $routing, $literalScopeTexts)[0];
+$reviewCheck($literalScopeTexts === ['Quellname', 'Ohne Sprachmarkierung', 'Typisierte Zutat', 'Ohne Tag im Wrapper', 'Kartoffeln waschen', 'Kindname', 'Nullsprache', 'Typname']
+    && $literalScopeOutput['name'] === $literalScopeInput['name']
+    && $literalScopeOutput['sourceName'] === ['@value' => '[en] Quellname', '@language' => 'en']
+    && $literalScopeOutput['plainName'] === '[en] Ohne Sprachmarkierung'
+    && $literalScopeOutput['recipeIngredient'] === ['@value' => '[en] Typisierte Zutat', '@type' => 'http://www.w3.org/2001/XMLSchema#string']
+    && $literalScopeOutput['recipeInstructions']['@list'][0] === ['@value' => '[en] Ohne Tag im Wrapper']
+    && $literalScopeOutput['recipeInstructions']['@list'][1] === $literalScopeInput['recipeInstructions']['@list'][1]
+    && $literalScopeOutput['steps'] === ['fr' => 'Étape française', 'en' => ['Existing English step', '[en] Kartoffeln waschen']]
+    && $literalScopeOutput['child']['name'] === ['@value' => '[en] Kindname', '@language' => 'en']
+    && $literalScopeOutput['child']['untagged']['name'] === '[en] Nullsprache'
+    && $literalScopeOutput['@graph'][0]['@nest']['name'] === ['@value' => '[en] Typname', '@language' => 'en']
+    && $literalScopeOutput['@graph'][0]['next'] === $literalScopeInput['@graph'][0]['next']
+    && $literalScopeOutput['inLanguage'] === ['@value' => 'en', '@language' => 'en'],
+    'Source-language filtering follows default/term/property/type/nest/list contexts while maps, untagged xsd:string and inLanguage retain their distinct contracts');
+$frenchLiteralInput = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'fr'], 'name' => 'Texte français',
+    'description' => ['@value' => 'Deutscher Text', '@language' => 'de']];
+$frenchLiteralOutput = jsonLdReviewRender([$frenchLiteralInput], $frenchRouting, $frenchLiteralTexts)[0];
+$reviewCheck($frenchLiteralTexts === ['Texte français']
+    && $frenchLiteralOutput['name'] === ['@value' => '[en] Texte français', '@language' => 'en']
+    && $frenchLiteralOutput['description'] === $frenchLiteralInput['description'],
+    'Literal source-language matching follows configured French source rather than hard-coded German');
+$literalBatchInput = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'fr'],
+    'name' => array_map(static fn ($n) => 'French literal alternative ' . $n, range(1, 120)),
+    'recipeIngredient' => [['@value' => 'Gleichlautend', '@language' => 'fr'], ['@value' => 'Gleichlautend', '@language' => 'de'],
+        ['@value' => 'Existing English ingredient', '@language' => 'en'], ['@value' => 'Regionale Zutat', '@language' => 'de-AT']],
+];
+$literalBatchClient = new DeepglotJsonLdFakeClient();
+$literalBatchTranslator = new HtmlTranslator($literalBatchClient, $options, new DeepglotJsonLdNullCache());
+$literalBatchTranslator->translate('<html><head><script type="application/ld+json">' . json_encode($literalBatchInput) . '</script></head><body></body></html>', 'en');
+$reviewCheck($literalBatchClient->sentTexts === ['Gleichlautend'],
+    'Explicit/default foreign language alternatives consume no cache/batch capacity; equal source and foreign text is deduplicated only for source');
+$literalDuplicateOutput = jsonLdReviewRender([$literalBatchInput], $routing, $literalDuplicateTexts)[0];
+$reviewCheck($literalDuplicateTexts === ['Gleichlautend'] && $literalDuplicateOutput['name'] === $literalBatchInput['name']
+    && $literalDuplicateOutput['recipeIngredient'][0] === $literalBatchInput['recipeIngredient'][0]
+    && $literalDuplicateOutput['recipeIngredient'][1] === ['@value' => '[en] Gleichlautend', '@language' => 'en']
+    && array_slice($literalDuplicateOutput['recipeIngredient'], 2) === array_slice($literalBatchInput['recipeIngredient'], 2),
+    'A source cache hit never rewrites the same text in a foreign-language literal');
+
+// Tagged or typed URL literals cannot acquire IRI semantics or publish graph IDs.
+foreach (['de', 'en', 'fr', 'de-AT', 'typed'] as $urlLiteralLanguage) {
+    foreach ([false, true] as $reverseLiteralScripts) {
+        $urlLiteralContext = ['@vocab' => 'https://schema.org/', 'literal' => '@value', 'lang' => '@language', 'kind' => '@type',
+            'pageUrl' => 'url', 'page' => 'mainEntityOfPage', 'part' => 'isPartOf', 'crumb' => 'breadcrumb'];
+        $literalEnvelope = static fn ($path) => ['literal' => $path] + ($urlLiteralLanguage === 'typed'
+            ? ['kind' => 'http://www.w3.org/2001/XMLSchema#string'] : ['lang' => $urlLiteralLanguage]);
+        $urlLiteralInput = ['@context' => $urlLiteralContext, '@graph' => [
+            ['@type' => 'WebPage', 'pageUrl' => $literalEnvelope('/tagged-url/')],
+            ['page' => $literalEnvelope('/tagged-main/')],
+            ['@type' => 'ListItem', 'item' => ['@set' => [$literalEnvelope('/tagged-item/')]]],
+            ['part' => $literalEnvelope('/independent-seed/'), 'crumb' => $literalEnvelope('/independent-seed/')],
+            ['@type' => 'WebPage', '@id' => '/independent-seed/'],
+        ]];
+        $urlLiteralRefs = ['isPartOf' => array_map(static fn ($path) => ['@id' => $path], ['/tagged-url/', '/tagged-main/', '/tagged-item/'])];
+        $blocks = $reverseLiteralScripts ? [$urlLiteralRefs, $urlLiteralInput] : [$urlLiteralInput, $urlLiteralRefs];
+        $urlLiteralOutput = jsonLdReviewRender($blocks, $routing, $urlLiteralTexts);
+        if ($reverseLiteralScripts) {
+            $urlLiteralOutput = array_reverse($urlLiteralOutput);
+        }
+        $urlLiteralExpected = $urlLiteralInput;
+        $urlLiteralExpected['@graph'][4]['@id'] = '/en/independent-seed/';
+        if ($urlLiteralLanguage === 'fr' && !$reverseLiteralScripts) {
+            $taggedUrlOracleInput = $urlLiteralInput;
+            $taggedUrlOracleOutput = $urlLiteralOutput[0];
+        }
+        $reviewCheck($urlLiteralOutput === [$urlLiteralExpected, $urlLiteralRefs] && $urlLiteralTexts === [],
+            'P2 3943975379: language/datatype URL envelopes never route or seed, even with independent matching IDs: ' . $urlLiteralLanguage . ' / ' . (int) $reverseLiteralScripts);
+    }
+}
+$plainUrlLiteral = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'fr'], '@type' => 'WebPage',
+    'url' => ['@value' => '/still-plain/'], 'mainEntityOfPage' => ['@value' => 'https://www.meinhaushalt.at:9443/not-this-origin/']];
+$plainUrlLiteralOutput = jsonLdReviewRender([$plainUrlLiteral], $routing)[0];
+$reviewCheck($plainUrlLiteralOutput['url'] === ['@value' => '/en/still-plain/']
+    && $plainUrlLiteralOutput['mainEntityOfPage'] === $plainUrlLiteral['mainEntityOfPage'],
+    'Explicit untagged URL envelopes ignore default language and still honor effective-port boundaries');
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
