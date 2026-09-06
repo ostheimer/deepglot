@@ -2024,6 +2024,169 @@ $invalidValueIdRefs = ['isPartOf' => ['@id' => '/invalid-value-id/']];
 $reviewCheck(jsonLdReviewRender([$invalidValueId, $invalidValueIdRefs], $routing) === [$invalidValueId, $invalidValueIdRefs],
     'An invalid @id value-object envelope is not a URL field and cannot route or seed another graph reference');
 
+// Final-review regressions: preserve all prior cases and test each new boundary.
+foreach ([false, true] as $reverseAliasDefinitions) {
+    $chainContext = ['@vocab' => 'https://foreign.example/', 's' => 'https://schema.org/',
+        'schemaName' => 's:name', 'middleName' => 'schemaName', 'label' => 'middleName',
+        'schemaPage' => 's:WebPage', 'PageAlias' => ['@id' => 'schemaPage'],
+        'identifier' => '@id', 'idAlias' => 'identifier'];
+    if ($reverseAliasDefinitions) {
+        $chainContext = array_reverse($chainContext, true);
+    }
+    $chainInput = ['@context' => $chainContext, '@type' => 'PageAlias', 'idAlias' => '/chain-alias/#page', 'label' => 'Verketteter Name'];
+    $chainOutput = jsonLdReviewRender([$chainInput], $routing, $chainStrings)[0];
+    $reviewCheck($chainOutput['label'] === '[en] Verketteter Name'
+        && $chainOutput['idAlias'] === '/en/chain-alias/#page'
+        && $chainOutput['@context'] === $chainContext && $chainStrings === ['Verketteter Name'],
+        'P2 3943842011: chained property/class/keyword aliases resolve before foreign vocab in either definition order: ' . (int) $reverseAliasDefinitions);
+}
+$inheritedChainInput = ['@context' => [['@vocab' => 'https://foreign.example/', 'schemaName' => 'https://schema.org/name'],
+    ['label' => 'schemaName']], 'label' => 'Geerbter Alias', 'child' => ['@context' => ['schemaName' => null], 'label' => 'Stabil aufgelöst']];
+$inheritedChainOutput = jsonLdReviewRender([$inheritedChainInput], $routing)[0];
+$reviewCheck($inheritedChainOutput['label'] === '[en] Geerbter Alias' && $inheritedChainOutput['child']['label'] === '[en] Stabil aufgelöst',
+    'Chained aliases resolve inherited terms once and do not rebind after a child override');
+$cyclicAliasInput = ['@context' => ['@vocab' => 'https://schema.org/', 'name' => 'cycle', 'cycle' => 'name', 'description' => 'disabled', 'disabled' => null],
+    'name' => 'Zyklus bleibt unverändert', 'description' => 'Deaktiviert bleibt unverändert'];
+$cyclicAliasOutput = jsonLdReviewRender([$cyclicAliasInput], $routing, $cyclicAliasStrings);
+$reviewCheck($cyclicAliasOutput === [$cyclicAliasInput] && $cyclicAliasStrings === [], 'Cyclic and null alias chains fail closed without vocabulary fallback');
+
+foreach (['@id', ['@id', '@set'], ['@graph', '@id']] as $idContainer) {
+    $idMapInput = ['@context' => ['@vocab' => 'https://schema.org/', 'pages' => ['@id' => 'hasPart', '@container' => $idContainer]],
+        'pages' => ['/id-map/#page' => ['@type' => 'WebPage', 'url' => '/id-map/', 'name' => 'Map-Name', 'mainEntityOfPage' => '/id-map-seed/'],
+            '@none' => ['@type' => 'WebPage', '@id' => '/id-map-none/', 'description' => 'Map-Beschreibung']]];
+    $idMapReferences = ['@graph' => [['isPartOf' => ['@id' => '/id-map/']], ['isPartOf' => ['@id' => '/id-map-seed/']], ['isPartOf' => ['@id' => '/id-map-none/']]]];
+    $idMapOutput = jsonLdReviewRender([$idMapInput, $idMapReferences], $routing, $idMapStrings);
+    $reviewCheck($idMapOutput === [$idMapInput, $idMapReferences] && $idMapStrings === [],
+        'P2 3943842012: unsupported identity maps stay wholly opaque, including prose, implicit IDs and page seeds: ' . json_encode($idContainer));
+}
+$idMapRedefined = ['@context' => [
+    ['@vocab' => 'https://schema.org/', 'pages' => ['@id' => 'recipeInstructions', '@container' => '@id']],
+    ['pages' => 'recipeInstructions']], 'pages' => 'Kein Identitätscontainer mehr'];
+$reviewCheck(jsonLdReviewRender([$idMapRedefined], $routing)[0]['pages'] === '[en] Kein Identitätscontainer mehr', 'Redefining an ID-map term restores ordinary prose traversal');
+
+$typedStringContext = ['@vocab' => 'https://schema.org/', 'xsd' => 'http://www.w3.org/2001/XMLSchema#',
+    'StringType' => 'xsd:string', 'literal' => '@value', 'kind' => '@type'];
+foreach (['http://www.w3.org/2001/XMLSchema#string', 'xsd:string', 'StringType'] as $stringDatatype) {
+    $typedStringInput = ['@context' => $typedStringContext, '@type' => 'Recipe',
+        'recipeIngredient' => ['literal' => 'Typisiertes Wasser', 'kind' => $stringDatatype],
+        'recipeInstructions' => ['@type' => 'HowToStep', 'text' => ['@value' => 'Typisiert kochen', '@type' => $stringDatatype]]];
+    $typedStringOutput = jsonLdReviewRender([$typedStringInput], $routing, $typedStringTexts)[0];
+    $reviewCheck($typedStringOutput['recipeIngredient'] === ['literal' => '[en] Typisiertes Wasser', 'kind' => $stringDatatype]
+        && $typedStringOutput['recipeInstructions']['text'] === ['@value' => '[en] Typisiert kochen', '@type' => $stringDatatype]
+        && $typedStringTexts === ['Typisiertes Wasser', 'Typisiert kochen'] && $typedStringOutput['@context'] === $typedStringContext,
+        'P2 3943842014: xsd:string literals collect and translate inside their unchanged typed envelope: ' . $stringDatatype);
+    $typedMiss = jsonLdReviewRender([$typedStringInput], $routing, $typedMissTexts, ['Typisiertes Wasser' => null, 'Typisiert kochen' => null]);
+    $reviewCheck($typedMiss === [$typedStringInput], 'Typed string cache misses retain the full original envelope: ' . $stringDatatype);
+}
+foreach ([['@value' => 'Invalid mixed literal', '@type' => 'xsd:string', '@language' => 'de'],
+    ['@value' => 'Other datatype', '@type' => 'xsd:date'], ['@value' => 'Invalid array type', '@type' => ['xsd:string']],
+    ['@value' => 'Duplicate type', '@type' => 'xsd:string', 'kind' => 'xsd:string'], ['@value' => 4, '@type' => 'xsd:string']] as $typedBoundary) {
+    $typedBoundaryInput = ['@context' => $typedStringContext, 'recipeInstructions' => $typedBoundary];
+    $reviewCheck(jsonLdReviewRender([$typedBoundaryInput], $routing, $typedBoundaryTexts) === [$typedBoundaryInput] && $typedBoundaryTexts === [],
+        'Unsupported or malformed typed literal stays opaque: ' . json_encode($typedBoundary));
+}
+
+$typedUrlBoundary = ['@context' => $typedStringContext, '@graph' => [
+    ['@type' => 'WebPage', 'url' => ['@value' => '/typed-url-boundary/', '@type' => 'xsd:string']],
+    ['mainEntityOfPage' => ['@value' => '/typed-reference-boundary/', '@type' => 'xsd:string']],
+    ['isPartOf' => ['@id' => '/typed-url-boundary/']], ['isPartOf' => ['@id' => '/typed-reference-boundary/']],
+]];
+$reviewCheck(jsonLdReviewRender([$typedUrlBoundary], $routing, $typedUrlTexts) === [$typedUrlBoundary] && $typedUrlTexts === [],
+    'Supporting typed string prose must not make explicit datatype URL literals route or seed graph references');
+
+foreach (['LocalBusiness', 'NewsMediaOrganization', 'Corporation', 'NGO', 'Restaurant', 'Store', 'MedicalClinic',
+    'EducationalOrganization', 'CollegeOrUniversity', 'SportsTeam', 'PerformingGroup', 'MusicGroup',
+    'DataDownload', '3DModel', 'AudioObjectSnapshot', 'ImageObjectSnapshot', 'VideoObjectSnapshot', 'MusicVideoObject',
+    'Airline', 'Consortium', 'Cooperative', 'FundingScheme', 'GovernmentOrganization', 'LibrarySystem', 'OnlineBusiness',
+    'PoliticalParty', 'Project', 'ResearchOrganization', 'SearchRescueOrganization', 'WorkersUnion',
+    'AmpStory', 'LegislationObject', 'TextObject'] as $sharedSubtype) {
+    $sharedSubtypeInput = ['@context' => ['s' => 'https://schema.org/'], '@type' => ['s:WebPage', 's:' . $sharedSubtype],
+        '@id' => '/shared-subtype/' . $sharedSubtype . '#entity', 'url' => '/shared-subtype/' . $sharedSubtype];
+    $sharedSubtypeRefs = ['isPartOf' => ['@id' => $sharedSubtypeInput['@id']]];
+    $reviewCheck(jsonLdReviewRender([$sharedSubtypeInput, $sharedSubtypeRefs], $routing) === [$sharedSubtypeInput, $sharedSubtypeRefs],
+        'P2 3943842016: page plus shared Organization/media subtype neither routes nor seeds its stable identity: ' . $sharedSubtype);
+}
+$reviewCheck(jsonLdReviewRender([['@type' => ['WebPage', 'Article'], '@id' => '/page-article/']], $routing)[0]['@id'] === '/en/page-article/',
+    'Compatible explicit page multi-types still localize');
+
+$vocabReferenceContext = ['@vocab' => 'https://schema.org/', 'site' => 'https://www.meinhaushalt.at/',
+    'page' => ['@id' => 'mainEntityOfPage', '@type' => '@vocab'], 'entry' => ['@id' => 'item', '@type' => '@vocab'],
+    'part' => ['@id' => 'isPartOf', '@type' => '@vocab'], 'trail' => ['@id' => 'breadcrumb', '@type' => '@vocab']];
+$vocabReferenceInput = ['@context' => $vocabReferenceContext, '@graph' => [
+    ['page' => 'https://www.meinhaushalt.at/vocab-seed/#page'], ['@type' => 'ListItem', 'entry' => 'site:vocab-item/#page'],
+    ['part' => 'https://www.meinhaushalt.at/vocab-seed/#page', 'trail' => 'site:vocab-item/#page'],
+    ['page' => 'https://foreign.example/vocab/', 'part' => '/vocab-unseeded/', 'trail' => 'https://www.meinhaushalt.at:9443/vocab-seed/#page'],
+]];
+$vocabReferenceDefinitions = ['@graph' => [['@id' => '/vocab-seed/#page', 'url' => '/vocab-seed/'],
+    ['@id' => '/vocab-item/#page', 'url' => '/vocab-item/']]];
+foreach ([false, true] as $vocabReverse) {
+    $vocabReferenceOutput = jsonLdReviewRender($vocabReverse ? [$vocabReferenceDefinitions, $vocabReferenceInput] : [$vocabReferenceInput, $vocabReferenceDefinitions], $routing, $vocabReferenceTexts);
+    $vocabNodes = $vocabReferenceOutput[$vocabReverse ? 1 : 0]['@graph'];
+    $vocabDefinitions = $vocabReferenceOutput[$vocabReverse ? 0 : 1]['@graph'];
+    $reviewCheck($vocabNodes[0]['page'] === 'https://www.meinhaushalt.at/en/vocab-seed/#page'
+        && $vocabNodes[1]['entry'] === 'https://www.meinhaushalt.at/en/vocab-item/#page'
+        && $vocabNodes[2]['part'] === 'https://www.meinhaushalt.at/en/vocab-seed/#page'
+        && $vocabNodes[2]['trail'] === 'https://www.meinhaushalt.at/en/vocab-item/#page'
+        && $vocabNodes[3] === $vocabReferenceInput['@graph'][3]
+        && $vocabDefinitions[0]['@id'] === '/en/vocab-seed/#page' && $vocabDefinitions[1]['url'] === '/en/vocab-item/'
+        && $vocabReferenceTexts === [],
+        'P2 3943842018: @vocab internal page references seed and follow IDs across script order without collecting IRI strings: ' . (int) $vocabReverse);
+}
+
+$vocabExpansionInput = ['@context' => ['@vocab' => 'https://foreign.example/',
+    'page' => ['@id' => 'https://schema.org/mainEntityOfPage', '@type' => '@vocab'],
+    'localTarget' => 'https://www.meinhaushalt.at/vocab-term/#page'], '@graph' => [
+        ['page' => 'localTarget'], ['page' => '/vocab-foreign/#page'],
+    ]];
+$vocabExpansionReferences = ['@graph' => [['isPartOf' => ['@id' => '/vocab-term/#page']], ['isPartOf' => ['@id' => '/vocab-foreign/#page']]]];
+$vocabExpansionOutput = jsonLdReviewRender([$vocabExpansionInput, $vocabExpansionReferences], $routing);
+$reviewCheck($vocabExpansionOutput[0]['@graph'][0]['page'] === 'https://www.meinhaushalt.at/en/vocab-term/#page'
+    && $vocabExpansionOutput[0]['@graph'][1] === $vocabExpansionInput['@graph'][1]
+    && $vocabExpansionOutput[1]['@graph'][0]['isPartOf']['@id'] === '/en/vocab-term/#page'
+    && $vocabExpansionOutput[1]['@graph'][1] === $vocabExpansionReferences['@graph'][1],
+    '@vocab references expand term/vocabulary semantics before the internal-URL guard; a root-looking foreign-vocab value cannot route or seed');
+$noDefaultVocabInput = ['@context' => ['page' => ['@id' => 'https://schema.org/mainEntityOfPage', '@type' => '@vocab']], 'page' => '/no-default-vocab/'];
+$reviewCheck(jsonLdReviewRender([$noDefaultVocabInput], $routing)[0]['page'] === '/en/no-default-vocab/',
+    'The legacy Schema.org default for bare property names is not an actual @vocab for coerced IRI values');
+
+foreach ([['@vocab' => 'https://schema.org/', '@language' => 'de'],
+    ['@vocab' => 'https://schema.org/', 'inLanguage' => ['@language' => 'fr']],
+    ['@vocab' => 'https://schema.org/', 'language' => ['@id' => 'inLanguage', '@language' => 'de']]] as $codeLanguageContext) {
+    $languageCodeKey = isset($codeLanguageContext['language']) ? 'language' : 'inLanguage';
+    $codeLanguageInput = ['@context' => $codeLanguageContext, $languageCodeKey => ['de', 'fr'], 'description' => 'Ungecachter Beschreibungstext'];
+    $codeLanguageOutput = jsonLdReviewRender([$codeLanguageInput], $routing, $codeLanguageTexts, ['Ungecachter Beschreibungstext' => null])[0];
+    $reviewCheck($codeLanguageOutput[$languageCodeKey] === [['@value' => 'en', '@language' => 'en'], ['@value' => 'en', '@language' => 'en']]
+        && $codeLanguageOutput['@context'] === $codeLanguageContext && $codeLanguageOutput['description'] === 'Ungecachter Beschreibungstext'
+        && !in_array('de', $codeLanguageTexts, true) && !in_array('fr', $codeLanguageTexts, true),
+        'P2 3943842020: language-code rewrites override default/term language without relabeling untouched siblings: ' . $languageCodeKey . json_encode($codeLanguageContext));
+}
+$nullCodeLanguageInput = ['@context' => ['@vocab' => 'https://schema.org/', '@language' => 'de', 'inLanguage' => ['@language' => null]], 'inLanguage' => 'de'];
+$reviewCheck(jsonLdReviewRender([$nullCodeLanguageInput], $routing)[0]['inLanguage'] === 'en', 'A null term-language override keeps inLanguage untagged');
+
+$directionInput = ['@context' => ['@vocab' => 'https://schema.org/', 'Dir' => 'HowToDirection', 'body' => 'text', 'entries' => 'itemListElement'],
+    '@type' => 'Recipe', 'recipeInstructions' => [
+        ['@type' => 'Dir', 'body' => 'Direkt rühren'],
+        ['@type' => 'HowToSection', 'entries' => ['@list' => [
+            ['@type' => 'Dir', 'body' => ['@value' => 'Im Abschnitt kochen', '@language' => 'de']],
+            ['@type' => 'HowToSection', 'entries' => [['@type' => 'Dir', '@nest' => ['body' => 'Tief salzen']]]],
+        ]]],
+        ['@type' => 'HowToStep', 'entries' => [['@type' => 'Dir', 'body' => 'Schritt-Richtung']]],
+    ], 'other' => ['@type' => 'HowToDirection', 'text' => 'Fremde Richtung']];
+$directionOutput = jsonLdReviewRender([$directionInput], $routing, $directionTexts)[0];
+$reviewCheck($directionOutput['recipeInstructions'][0]['body'] === '[en] Direkt rühren'
+    && $directionOutput['recipeInstructions'][1]['entries']['@list'][0]['body'] === ['@value' => '[en] Im Abschnitt kochen', '@language' => 'en']
+    && $directionOutput['recipeInstructions'][1]['entries']['@list'][1]['entries'][0]['@nest']['body'] === '[en] Tief salzen'
+    && $directionOutput['recipeInstructions'][2]['entries'][0]['body'] === '[en] Schritt-Richtung'
+    && $directionOutput['other'] === $directionInput['other'] && count($directionTexts) === 4,
+    'P2 3943842022: HowToDirection text translates only along Recipe instruction/section/step relationships, including aliases and wrappers');
+$directionBoundaryInput = ['@type' => 'Recipe', 'recipeInstructions' => [
+    ['@context' => ['@vocab' => 'https://foreign.example/'], '@type' => 'HowToDirection', 'text' => 'Foreign direction'],
+    ['@context' => ['text' => ['@type' => '@json']], '@type' => 'HowToDirection', 'text' => ['name' => 'Opaque direction']],
+    ['@type' => 'Thing', 'text' => 'Generic direction'],
+]];
+$reviewCheck(jsonLdReviewRender([$directionBoundaryInput], $routing, $directionBoundaryTexts) === [$directionBoundaryInput] && $directionBoundaryTexts === [],
+    'HowToDirection retains foreign vocabulary, @json and generic-text boundaries');
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

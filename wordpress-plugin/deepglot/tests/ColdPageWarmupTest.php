@@ -1142,6 +1142,51 @@ warmCollectAssert($mapWarmDecoded['ingredients'] === ['en' => array_merge($mapWa
     && $mapWarmClient->batchCalls === [] && $mapWarmTranslator->getLastPendingSegmentCount() === 0 && $mapWarmer->pending() === [],
     'The warmed map merges the cached source into existing target values and has no outstanding work or provider calls.');
 
+// Typed literals, chained aliases and recipe directions share the existing
+// bounded cache queue; unsupported ID maps must never consume that queue.
+warmResetEnvironment();
+$semanticWarmTexts = ['Chained warm name', 'Typed warm ingredient', 'Direction warm instruction'];
+$semanticWarmData = ['@context' => ['@vocab' => 'https://schema.org/',
+    'schemaName' => 'name', 'label' => 'schemaName', 'inLanguage' => ['@language' => 'de'],
+    'pages' => ['@id' => 'hasPart', '@container' => '@id']], '@type' => 'Recipe',
+    'label' => $semanticWarmTexts[0], 'inLanguage' => 'de',
+    'recipeIngredient' => ['@value' => $semanticWarmTexts[1], '@type' => 'http://www.w3.org/2001/XMLSchema#string'],
+    'recipeInstructions' => ['@type' => 'HowToSection', 'itemListElement' => [
+        ['@type' => 'HowToDirection', 'text' => $semanticWarmTexts[2]],
+        ['@type' => 'HowToDirection', 'text' => $semanticWarmTexts[1]],
+    ]], 'pages' => ['/opaque-warm-map/' => ['@type' => 'WebPage', 'name' => 'Opaque map text']],
+];
+$semanticWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($semanticWarmData) . '</script></head><body></body></html>';
+$semanticWarmClient = new DeepglotWarmFakeClient();
+$semanticWarmCache = new DeepglotWarmArrayCache();
+$semanticWarmer = new TranslationWarmer($semanticWarmClient, $options, $semanticWarmCache);
+$semanticWarmTranslator = new HtmlTranslator($semanticWarmClient, $options, $semanticWarmCache, null, $semanticWarmer);
+$semanticColdOutput = $semanticWarmTranslator->translate($semanticWarmHtml, 'en', 'https://jobspot.at/en/semantic/', BotDetector::HUMAN);
+warmCollectAssert(($semanticWarmer->pending()['de|en'] ?? []) === $semanticWarmTexts
+    && $semanticWarmTranslator->getLastPendingSegmentCount() === 3 && $semanticWarmClient->batchCalls === [],
+    'Final-review semantics: cold render queues all three deduplicated prose values and no opaque ID-map text.');
+$semanticColdDoc = new DOMDocument();
+$semanticColdDoc->loadHTML($semanticColdOutput);
+$semanticColdExpected = $semanticWarmData;
+$semanticColdExpected['inLanguage'] = ['@value' => 'en', '@language' => 'en'];
+warmCollectAssert(json_decode($semanticColdDoc->getElementsByTagName('script')->item(0)->textContent, true) === $semanticColdExpected,
+    'Cold semantic render preserves source prose/envelopes/context and immediately labels the language code correctly.');
+$semanticWarmer->run();
+warmCollectAssert(array_merge([], ...$semanticWarmClient->batchCalls) === $semanticWarmTexts,
+    'The semantic warm batch contains exactly deduplicated source prose, never language codes or ID-map values.');
+$semanticWarmClient->reset();
+$semanticWarmOutput = $semanticWarmTranslator->translate($semanticWarmHtml, 'en', 'https://jobspot.at/en/semantic/', BotDetector::HUMAN);
+$semanticWarmDoc = new DOMDocument();
+$semanticWarmDoc->loadHTML($semanticWarmOutput);
+$semanticWarmExpected = $semanticColdExpected;
+$semanticWarmExpected['label'] = '[en] ' . $semanticWarmTexts[0];
+$semanticWarmExpected['recipeIngredient']['@value'] = '[en] ' . $semanticWarmTexts[1];
+$semanticWarmExpected['recipeInstructions']['itemListElement'][0]['text'] = '[en] ' . $semanticWarmTexts[2];
+$semanticWarmExpected['recipeInstructions']['itemListElement'][1]['text'] = '[en] ' . $semanticWarmTexts[1];
+warmCollectAssert(json_decode($semanticWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $semanticWarmExpected
+    && $semanticWarmClient->batchCalls === [] && $semanticWarmTranslator->getLastPendingSegmentCount() === 0 && $semanticWarmer->pending() === [],
+    'The warmed semantic render translates every supported value from cache with intact envelopes and zero API/pending work.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();

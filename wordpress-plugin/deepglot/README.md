@@ -57,6 +57,8 @@ wordpress-plugin/deepglot/
 
 JSON-LD localization supports Recipe instructions as strings, arrays of strings,
 typed HowToStep objects and text entries inside HowToSection `itemListElement`.
+HowToDirection text is also supported along recipe instruction, section and
+step relationships; unrelated direction nodes remain outside this scope.
 Nested recipe sections retain instruction semantics through lists and aliases;
 unrelated ItemLists and foreign type/property mappings do not acquire them.
 Page identities and matching references, including
@@ -77,6 +79,9 @@ never interpreted as properties or graph identities. Bucket nodes retain the
 active scope for their own properties; ordinary descendants still restore a
 non-propagating context.
 Custom property-index mappings and graph-index combinations remain opaque.
+Identity (`@id`) containers, including `@set`/`@graph` combinations, are also
+entirely opaque: their implicit identity keys and contents cannot be partially
+localized, collected for translation or used to seed external graph references.
 
 Compact type prefixes, ordinary class aliases, supported Schema.org property
 aliases and local keyword aliases are resolved from the active `@context`, including
@@ -90,6 +95,10 @@ while scalars, `@value` objects and ID-only references retain their active scope
 Property scopes and value-local overrides are applied after that restoration.
 Context scope stays within its script block and subtree; page identity matching
 spans script blocks.
+Chained term aliases resolve recursively before vocabulary fallback, independent
+of definition order. Resolved inherited aliases retain their original meaning
+after child-context overrides; disabled targets and cycles do not fall back to
+familiar Schema.org names.
 Coercion keyword aliases in term `@type` mappings are expanded when the term is
 defined, independent of definition order. Later alias overrides do not change
 already inherited coercions.
@@ -100,7 +109,8 @@ Schema.org context is handled locally, including the exact HTTP/HTTPS
 `schema.org/docs/jsonldcontext.jsonld` and `.json` URLs; unknown remote contexts leave unresolved
 types unchanged. Context-free bare type names retain the legacy Schema.org
 default, which explicit null contexts or foreign vocabularies remove. Generic
-`text` outside HowToStep and shared person, organization and media IDs remain
+`text` outside HowToStep or supported recipe directions and shared person,
+organization and media IDs remain
 outside the new translation/routing scope.
 
 Schema.org types ending in `Article` follow page routing, including specific
@@ -110,12 +120,22 @@ untyped objects or exclusively Schema.org `Thing` types. Other specific, mixed
 or unresolved reference types remain unchanged, including organization, person
 and media subtypes. Aliases retain their original JSON keys and share the same
 scope for text selection, ID collection and routing. Scalar `isPartOf` and
-`breadcrumb` references, including aliases with `@id` coercion, only route when
+`breadcrumb` references, including aliases with `@id` or `@vocab` coercion, only route when
 they exactly match a collected page ID; `sameAs`, `citation` and unrelated
 strings do not acquire routing semantics from a matching value.
+Explicit page-plus-shared multi-types retain their stable entity identities too.
+The bounded shared-type list covers the direct subtypes documented under
+[Organization](https://schema.org/Organization) and
+[MediaObject](https://schema.org/MediaObject), plus common business, education,
+sports, performance and media-snapshot descendants. It is not runtime subclass
+inference or a complete transitive Schema.org taxonomy.
 Direct scalar `mainEntityOfPage` and `ListItem.item` relationships also respect
 literal datatype coercion: such literals neither route nor seed page identities.
 Explicit node references remain eligible independently of scalar coercion.
+`@vocab`-coerced scalar references first resolve their term/vocabulary meaning
+before the internal-URL check. Root-looking text under a foreign vocabulary
+does not become an internal page identity. The helper's legacy default for bare
+Schema.org property/type names is not an implicit vocabulary for IRI values.
 Valid `@nest` maps and arrays, including keyword aliases and repeated nesting,
 group properties of the same node: they share type, identity and visitor state.
 Nesting itself does not trigger context rollback; actual child nodes still do.
@@ -143,9 +163,13 @@ general JSON-LD processor.
 Simple string value objects (`@value`, optional string `@language` and local
 `@context`) retain their enclosing supported text property's meaning, including inside
 arrays. Local `@value`/`@language` aliases are supported. An existing language
-tag changes only when a translated value is available. Typed, identified,
+tag changes only when a translated value is available. Explicit `xsd:string`
+value objects also translate while retaining their datatype and envelope,
+including full, compact and local term datatype aliases. Other typed, identified,
 direction/index-bearing or otherwise unsupported value-object shapes remain
 untouched. Foreign or disabled property aliases are not interpreted as Schema.org properties.
+Supporting typed string prose does not make explicit datatype literals eligible
+for page-URL rewriting or graph-identity discovery.
 Default and term-specific context language mappings are overridden with explicit
 target-language value objects only for translated literals. Context definitions,
 cache misses and unrelated literals keep their original language interpretation;
@@ -166,7 +190,10 @@ Values coerced with `@type: @json` are opaque JSON literals: their complete
 contents are excluded from text collection, translation, ID discovery and routing,
 even when nested payload fields resemble JSON-LD nodes or contexts.
 Literal `inLanguage` codes, including aliases and simple value objects, use the
-target code; `@id`/`@vocab`-coerced language IRIs remain unchanged.
+target code. Active default or term language mappings receive an explicit
+target-language value override without changing the shared context or cache
+misses; null term-language mappings remain untagged.
+`@id`/`@vocab`-coerced language IRIs remain unchanged.
 
 ## Installation in WordPress
 

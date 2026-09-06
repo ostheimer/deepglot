@@ -65,15 +65,53 @@ class JsonLdTranslator
         'WebSite',
     ];
 
-    // Preserve the existing guard for explicit Page + shared/media multi-types.
+    // Bounded Schema.org taxonomy for the explicit Page + shared/media veto:
+    // Organization and common business/education/group subtypes, plus media
+    // assets and snapshots. This is an explicit list, not suffix inference or
+    // runtime subclass expansion (schema.org/Organization, schema.org/MediaObject).
     // Reference inference instead uses the positive untyped/Thing-only model.
     private const SHARED_ENTITY_TYPES = [
         'Person',
         'Organization',
+        'Airline',
+        'Consortium',
+        'Cooperative',
+        'FundingScheme',
+        'GovernmentOrganization',
+        'LibrarySystem',
+        'LocalBusiness',
+        'NewsMediaOrganization',
+        'OnlineBusiness',
+        'PoliticalParty',
+        'Project',
+        'ResearchOrganization',
+        'SearchRescueOrganization',
+        'WorkersUnion',
+        'Corporation',
+        'NGO',
+        'Restaurant',
+        'Store',
+        'MedicalOrganization',
+        'MedicalClinic',
+        'EducationalOrganization',
+        'CollegeOrUniversity',
+        'SportsOrganization',
+        'SportsTeam',
+        'PerformingGroup',
+        'MusicGroup',
         'MediaObject',
+        'AmpStory',
         'ImageObject',
+        'LegislationObject',
+        'TextObject',
         'VideoObject',
         'AudioObject',
+        'DataDownload',
+        '3DModel',
+        'AudioObjectSnapshot',
+        'ImageObjectSnapshot',
+        'VideoObjectSnapshot',
+        'MusicVideoObject',
     ];
 
     private const EMPTY_CONTEXT = [
@@ -86,6 +124,9 @@ class JsonLdTranslator
         'languages' => [],
         'language' => null,
         'vocab' => null,
+        // Unlike the legacy property/type default, only a declared vocabulary
+        // participates in expanding @vocab-coerced IRI values.
+        'valueVocab' => null,
         'previousContext' => null,
     ];
 
@@ -207,7 +248,7 @@ class JsonLdTranslator
                     is_string($text)
                     && $property !== null
                     && !($node['isIriCoerced'] ?? false)
-                    && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)
+                    && $this->isTranslatableField($property, $parent)
                     && mb_strlen(trim($text)) >= 2
                 ) {
                     $accumulator[] = $text;
@@ -226,7 +267,7 @@ class JsonLdTranslator
     {
         $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage): array {
             if (isset($node['languageMapNoneKeys'])) {
-                if ($property !== null && $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)) {
+                if ($property !== null && $this->isTranslatableField($property, $parent)) {
                     $this->translateLanguageMap($value, $translations, $targetLanguage, $node['languageMapNoneKeys']);
                 }
                 return [];
@@ -237,7 +278,7 @@ class JsonLdTranslator
                     if (in_array($property, self::LANGUAGE_KEYS, true)) {
                         $value[$key] = $targetLanguage;
                     } elseif (
-                        $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)
+                        $this->isTranslatableField($property, $parent)
                         && isset($translations[$value[$key]])
                     ) {
                         $value[$key] = $translations[$value[$key]];
@@ -254,15 +295,17 @@ class JsonLdTranslator
                 if (in_array($property, self::LANGUAGE_KEYS, true)) {
                     $value = $targetLanguage;
                 } elseif (
-                    $this->isTranslatableField($property, $parent['isHowToStep'] ?? false, $parent['isRecipeSection'] ?? false)
+                    $this->isTranslatableField($property, $parent)
                     && isset($translations[$value])
                 ) {
                     $value = $translations[$value];
-                    // Override only this translated literal. Changing the
-                    // context would also relabel untouched text/cache misses.
-                    if (isset($node['language'])) {
-                        $value = ['@value' => $value, '@language' => $targetLanguage];
-                    }
+                } else {
+                    return [];
+                }
+                // Override only the changed literal, including language codes.
+                // A context edit would also relabel untouched cache misses.
+                if (isset($node['language'])) {
+                    $value = ['@value' => $value, '@language' => $targetLanguage];
                 }
             }
 
@@ -270,21 +313,23 @@ class JsonLdTranslator
         });
     }
 
-    private function isTranslatableField(string $key, bool $isHowToStep, bool $isRecipeSection = false): bool
+    private function isTranslatableField(string $key, array $parent): bool
     {
         return in_array($key, self::TRANSLATABLE_KEYS, true)
-            || ($key === 'text' && $isHowToStep)
-            || ($key === 'itemListElement' && $isRecipeSection);
+            || ($key === 'text' && (($parent['isHowToStep'] ?? false) || ($parent['isRecipeDirection'] ?? false)))
+            || ($key === 'itemListElement' && ($parent['isRecipeSection'] ?? false));
     }
 
-    /** Section list prose is limited to the recipeInstructions relationship. */
+    /** Sections/directions need recipe relationships; ordinary HowToStep text remains supported. */
     private function proseState(?string $property, array $parent, array $types): array
     {
+        $isRecipeInstruction = $property === 'recipeInstructions'
+            || ($property === 'itemListElement' && (($parent['isRecipeSection'] ?? false) || ($parent['isRecipeStep'] ?? false)));
         return [
             'isHowToStep' => in_array('HowToStep', $types, true),
-            'isRecipeSection' => in_array('HowToSection', $types, true)
-                && ($property === 'recipeInstructions'
-                    || ($property === 'itemListElement' && ($parent['isRecipeSection'] ?? false))),
+            'isRecipeStep' => $isRecipeInstruction && in_array('HowToStep', $types, true),
+            'isRecipeSection' => $isRecipeInstruction && in_array('HowToSection', $types, true),
+            'isRecipeDirection' => $isRecipeInstruction && in_array('HowToDirection', $types, true),
         ];
     }
 
@@ -508,14 +553,21 @@ class JsonLdTranslator
         return $this->routing->buildUrlForLanguage($reference, $this->routing->getSourceLanguage());
     }
 
-    /** Expand only local prefixes, never @base, terms or remote contexts. */
-    private function internalUrlReference($value, array $context): ?string
+    /** Only @vocab scalars expand terms/vocabulary; other URL forms use prefixes alone. */
+    private function internalUrlReference($value, array $context, bool $vocabCoerced = false): ?string
     {
         if (!is_string($value)) {
             return null;
         }
-        $expanded = $this->expandContextIri(trim($value), $context['prefixes']);
-        if (!$this->isInternalUrlReference($expanded)) {
+        if ($vocabCoerced) {
+            // Do not apply the compatibility Schema.org vocabulary used for
+            // bare properties/types to IRI values without a real @vocab.
+            $context['vocab'] = $context['valueVocab'];
+            $expanded = $this->termIri(trim($value), $context);
+        } else {
+            $expanded = $this->expandContextIri(trim($value), $context['prefixes']);
+        }
+        if ($expanded === null || !$this->isInternalUrlReference($expanded)) {
             return null;
         }
         if (str_starts_with($expanded, '//')) {
@@ -624,6 +676,14 @@ class JsonLdTranslator
             return;
         }
 
+        // Identity/graph-ID maps need implicit identity semantics that this
+        // helper does not implement. Never mistake buckets for ordinary nodes,
+        // even when their payload contains recognizable prose or page types.
+        if ($containerValue && ($propertyMetadata['hasIdMap'] ?? false) && is_array($value)
+            && ($value === [] || array_keys($value) !== range(0, count($value) - 1))) {
+            return;
+        }
+
         // Language maps expand directly from the incoming property context,
         // before node rollback or any contexts/keywords inside their payload.
         if ($containerValue && ($propertyMetadata['hasLanguageMap'] ?? false) && is_array($value)
@@ -694,7 +754,8 @@ class JsonLdTranslator
                     $literalMetadata = array_merge($propertyMetadata, $valueObject);
                     // These supported URL fields may use literal envelopes;
                     // @id itself requires a string, never a value object.
-                    if (in_array($property, ['url', 'mainEntityOfPage', 'item', 'isPartOf', 'breadcrumb'], true)) {
+                    if (!isset($valueObject['typeKey'])
+                        && in_array($property, ['url', 'mainEntityOfPage', 'item', 'isPartOf', 'breadcrumb'], true)) {
                         $literalMetadata['urlReference'] = $this->internalUrlReference($value[$valueObject['valueKey']], $context);
                         if ($literalMetadata['urlReference'] !== null) {
                             $literalMetadata['referenceKey'] = $this->pageIdentityKey($literalMetadata['urlReference']);
@@ -732,7 +793,7 @@ class JsonLdTranslator
             });
         } elseif (is_string($value)) {
             $node['language'] = $this->propertyLanguage($propertyMetadata['termKey'] ?? '', $context);
-            $node['urlReference'] = $this->internalUrlReference($value, $context);
+            $node['urlReference'] = $this->internalUrlReference($value, $context, $node['isVocabCoerced'] ?? false);
             if ($node['urlReference'] !== null) {
                 $node['referenceKey'] = $this->pageIdentityKey($node['urlReference']);
             }
@@ -870,10 +931,12 @@ class JsonLdTranslator
         $containers = is_array($container) ? $container : [$container];
         return [
             'termKey' => $key,
-            'allowsIdReference' => !array_key_exists($key, $context['coercions']) || $coercion === '@id',
+            'allowsIdReference' => !array_key_exists($key, $context['coercions']) || in_array($coercion, ['@id', '@vocab'], true),
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
+            'isVocabCoerced' => $coercion === '@vocab',
             'isJsonCoerced' => $coercion === '@json',
             'hasLanguageMap' => $container === '@language' || (is_array($container) && in_array('@language', $container, true)),
+            'hasIdMap' => in_array('@id', $containers, true),
             'hasIndexMap' => in_array('@index', $containers, true),
             'isPlainIndexMap' => in_array('@index', $containers, true)
                 && array_diff($containers, ['@index', '@set']) === []
@@ -952,10 +1015,11 @@ class JsonLdTranslator
 
     /**
      * null means an ordinary node; [] means an unsupported value object that
-     * must stay entirely untouched. Only one string value and an optional string
-     * language tag (plus the literal local @context) form the supported envelope.
+     * must stay entirely untouched. A string value permits either a language
+     * tag or the exact xsd:string datatype, plus the literal local @context.
+     * Datatype literals are prose only, never URL/identity reference envelopes.
      *
-     * @return array{valueKey?: string, languageKey?: string}|null
+     * @return array{valueKey?: string, languageKey?: string, typeKey?: string}|null
      */
     private function valueObjectMetadata(array $value, array $context): ?array
     {
@@ -974,10 +1038,15 @@ class JsonLdTranslator
             } elseif ($property === '@language') {
                 $valid = $valid && !isset($metadata['languageKey']) && is_string($child);
                 $metadata['languageKey'] = $key;
+            } elseif ($property === '@type') {
+                $valid = $valid && !isset($metadata['typeKey']) && is_string($child)
+                    && $this->termIri($child, $context) === 'http://www.w3.org/2001/XMLSchema#string';
+                $metadata['typeKey'] = $key;
             } else {
                 $valid = false;
             }
         }
+        $valid = $valid && !(isset($metadata['languageKey']) && isset($metadata['typeKey']));
         return $hasValue ? ($valid ? $metadata : []) : null;
     }
 
@@ -1036,6 +1105,7 @@ class JsonLdTranslator
         if (is_string($definition)) {
             if (preg_match('~^(?i:https?://schema\.org)(?:/?|/docs/jsonldcontext\.json(?:ld)?)$~D', trim($definition)) === 1) {
                 $context['vocab'] = 'https://schema.org/';
+                $context['valueVocab'] = $context['vocab'];
                 return $context;
             }
             return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $context['previousContext']]);
@@ -1073,29 +1143,21 @@ class JsonLdTranslator
             $context['vocab'] = is_string($definition['@vocab'])
                 ? $this->expandContextIri($definition['@vocab'], $context['prefixes'])
                 : null;
+            $context['valueVocab'] = $context['vocab'];
         }
         if (array_key_exists('@language', $definition)) {
             $context['language'] = is_string($definition['@language']) ? $definition['@language'] : null;
         }
 
-        // Resolve ordinary term definitions after all prefixes in this scope are
-        // known. Keep them separate: a class alias must never become an IRI prefix.
-        // Storing null explicitly also prevents a disabled term falling back to
-        // the default vocabulary during type resolution.
+        // Resolve dependent term definitions once, independently of key order.
+        // Keep ordinary terms separate from prefixes: class aliases are not
+        // namespace prefixes. Inherited terms are already expanded and frozen.
+        $defined = [];
         foreach ($definition as $term => $mapping) {
             if (!is_string($term) || str_starts_with($term, '@')) {
                 continue;
             }
-            $id = is_array($mapping)
-                ? (array_key_exists('@id', $mapping) ? $mapping['@id'] : $term)
-                : $mapping;
-            $context['terms'][$term] = is_string($id)
-                ? (str_starts_with($id, '@')
-                    ? $id
-                    : (str_contains($id, ':')
-                        ? $this->expandContextIri($id, $context['prefixes'])
-                        : ($context['vocab'] ?? '') . $id))
-                : null;
+            $this->resolveTerm($term, $definition, $context, $defined);
             // Property scopes and term language mappings are replaced with the
             // term definition, never inherited after an unscoped redefinition.
             foreach (['@context' => 'scopedContexts', '@language' => 'languages', '@container' => 'containers', '@index' => 'indexMappings'] as $keyword => $field) {
@@ -1121,6 +1183,44 @@ class JsonLdTranslator
             }
         }
         return $context;
+    }
+
+    /**
+     * The bounded local dependency resolver follows Create Term Definition's
+     * defined/being-defined states. Cycles and disabled aliases resolve to null
+     * without falling back to @vocab. Metadata stays on its own term definition.
+     *
+     * @param array<string, bool> $defined
+     */
+    private function resolveTerm(string $term, array $definition, array &$context, array &$defined): ?string
+    {
+        if (array_key_exists($term, $defined)) {
+            return $defined[$term] ? $context['terms'][$term] : null;
+        }
+        $defined[$term] = false;
+        $mapping = $definition[$term];
+        $id = is_array($mapping)
+            ? (array_key_exists('@id', $mapping) ? $mapping['@id'] : $term)
+            : $mapping;
+        $iri = null;
+        if (is_string($id)) {
+            if (str_starts_with($id, '@')) {
+                $iri = $id;
+            } elseif ($id !== $term && array_key_exists($id, $definition)) {
+                $iri = $this->resolveTerm($id, $definition, $context, $defined);
+            } elseif ($id !== $term && array_key_exists($id, $context['terms'])) {
+                $iri = $context['terms'][$id];
+            } else {
+                // A self mapping (explicit or implicit) expands using the
+                // vocabulary/prefix, not an inherited definition of itself.
+                $iri = str_contains($id, ':')
+                    ? $this->expandContextIri($id, $context['prefixes'])
+                    : ($context['vocab'] ?? '') . $id;
+            }
+        }
+        $context['terms'][$term] = $iri;
+        $defined[$term] = true;
+        return $iri;
     }
 
     /** @param array<string, string> $prefixes */
@@ -1154,7 +1254,7 @@ class JsonLdTranslator
 
             $type = trim($type);
             $iri = $this->termIri($type, $context);
-            if (is_string($iri) && preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) === 1) {
+            if (is_string($iri) && preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z0-9]+)$~', $iri, $match) === 1) {
                 $types[] = $match[1];
             }
         }
