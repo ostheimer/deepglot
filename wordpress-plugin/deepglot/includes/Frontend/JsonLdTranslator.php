@@ -44,6 +44,24 @@ class JsonLdTranslator
     private const LANGUAGE_KEYS = ['inLanguage'];
 
     /**
+     * Relevant definitions from Schema.org's published JSON-LD context. Keep
+     * this local and bounded: recognizing its URL never performs a fetch.
+     */
+    private const SCHEMA_CONTEXT = [
+        '@vocab' => 'http://schema.org/',
+        'type' => '@type',
+        'id' => '@id',
+        'schema' => 'http://schema.org/',
+        'xsd' => 'http://www.w3.org/2001/XMLSchema#',
+        'rdf' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+        'rdfs' => 'http://www.w3.org/2000/01/rdf-schema#',
+        'HTML' => ['@id' => 'rdf:HTML'],
+        'url' => ['@id' => 'schema:url', '@type' => '@id'],
+        'mainEntityOfPage' => ['@id' => 'schema:mainEntityOfPage', '@type' => '@id'],
+        'isPartOf' => ['@id' => 'schema:isPartOf', '@type' => '@id'],
+    ];
+
+    /**
      * Schema entities whose own @id and url identify the localized page (or
      * a page-scoped fragment), rather than a shared person, organization or
      * media asset. Direct breadcrumb items and mainEntityOfPage strings are
@@ -118,6 +136,7 @@ class JsonLdTranslator
         'prefixes' => [],
         'terms' => [],
         'coercions' => [],
+        'reverses' => [],
         'containers' => [],
         'indexMappings' => [],
         'scopedContexts' => [],
@@ -141,10 +160,11 @@ class JsonLdTranslator
     }
 
     /**
-     * @return array<int, array{node: \DOMText, data: array<mixed>, strings: string[]}>
+     * @return array<int, array{node: \DOMText, data: array<mixed>, strings: string[], sourceLanguage: ?string}>
      */
-    public function collect(\DOMDocument $doc, ?string $targetLanguage = null): array
+    public function collect(\DOMDocument $doc, ?string $targetLanguage = null, ?string $sourceLanguage = null): array
     {
+        $sourceLanguage = $sourceLanguage ?? $this->routing?->getSourceLanguage();
         $mutations = [];
         $scripts = $doc->getElementsByTagName('script');
 
@@ -177,12 +197,13 @@ class JsonLdTranslator
             }
 
             $strings = [];
-            $this->collectStrings($decoded, $strings, $targetLanguage);
+            $this->collectStrings($decoded, $strings, $targetLanguage, $sourceLanguage);
 
             $mutations[] = [
                 'node' => $textNode,
                 'data' => $decoded,
                 'strings' => array_values(array_unique($strings)),
+                'sourceLanguage' => $sourceLanguage,
             ];
         }
 
@@ -190,7 +211,7 @@ class JsonLdTranslator
     }
 
     /**
-     * @param array<int, array{node: \DOMText, data: array<mixed>, strings: string[]}> $mutations
+     * @param array<int, array{node: \DOMText, data: array<mixed>, strings: string[], sourceLanguage?: ?string}> $mutations
      * @param array<string, string> $translations
      */
     public function apply(array $mutations, array $translations, string $targetLanguage): void
@@ -201,7 +222,7 @@ class JsonLdTranslator
 
         foreach ($mutations as $mutation) {
             $data = $mutation['data'];
-            $this->applyTranslations($data, $translations, $targetLanguage);
+            $this->applyTranslations($data, $translations, $targetLanguage, $mutation['sourceLanguage'] ?? null);
             $this->localizePageUrls($data, $targetLanguage, $pageNodeIds);
 
             // JSON_HEX_TAG escapes "<" and ">" as < / > so a
@@ -224,9 +245,9 @@ class JsonLdTranslator
      * @param array<mixed> $data
      * @param string[] $accumulator
      */
-    private function collectStrings(array $data, array &$accumulator, ?string $targetLanguage): void
+    private function collectStrings(array $data, array &$accumulator, ?string $targetLanguage, ?string $sourceLanguage): void
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator, $targetLanguage): array {
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use (&$accumulator, $targetLanguage, $sourceLanguage): array {
             $texts = isset($node['valueKey']) ? [$value[$node['valueKey']]] : [$value];
             if (isset($node['languageMapNoneKeys'])) {
                 if ($targetLanguage !== null && isset($node['languageMapNoneKeys'][$targetLanguage])) {
@@ -234,8 +255,8 @@ class JsonLdTranslator
                 }
                 $texts = [];
                 foreach ($value as $language => $bucket) {
-                    if ($targetLanguage !== null && !isset($node['languageMapNoneKeys'][$language])
-                        && strcasecmp($language, $targetLanguage) === 0) {
+                    if (!isset($node['languageMapNoneKeys'][$language])
+                        && !$this->isSourceLanguageBucket($language, $sourceLanguage, $targetLanguage)) {
                         continue;
                     }
                     foreach (is_array($bucket) ? $bucket : [$bucket] as $text) {
@@ -263,12 +284,12 @@ class JsonLdTranslator
      * @param array<mixed> $data
      * @param array<string, string> $translations
      */
-    private function applyTranslations(array &$data, array $translations, string $targetLanguage): void
+    private function applyTranslations(array &$data, array $translations, string $targetLanguage, ?string $sourceLanguage): void
     {
-        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage): array {
+        $this->walk($data, function (&$value, ?string $property, array $parent, array $types, array $node) use ($translations, $targetLanguage, $sourceLanguage): array {
             if (isset($node['languageMapNoneKeys'])) {
                 if ($property !== null && $this->isTranslatableField($property, $parent)) {
-                    $this->translateLanguageMap($value, $translations, $targetLanguage, $node['languageMapNoneKeys']);
+                    $this->translateLanguageMap($value, $translations, $targetLanguage, $sourceLanguage, $node['languageMapNoneKeys']);
                 }
                 return [];
             }
@@ -333,8 +354,16 @@ class JsonLdTranslator
         ];
     }
 
-    /** Move only translated, tagged values; untagged values stay in their bucket. */
-    private function translateLanguageMap(array &$value, array $translations, string $targetLanguage, array $noneKeys): void
+    /** Exact configured source only: neither regional nor unrelated buckets share a cache namespace. */
+    private function isSourceLanguageBucket(string $language, ?string $sourceLanguage, ?string $targetLanguage): bool
+    {
+        return $sourceLanguage !== null && $sourceLanguage !== ''
+            && strcasecmp($language, $sourceLanguage) === 0
+            && ($targetLanguage === null || strcasecmp($language, $targetLanguage) !== 0);
+    }
+
+    /** Move only translated source values; untagged values stay in their bucket. */
+    private function translateLanguageMap(array &$value, array $translations, string $targetLanguage, ?string $sourceLanguage, array $noneKeys): void
     {
         // This spelling cannot express the requested language in this context.
         // Preserve the whole map rather than silently creating untagged output.
@@ -352,7 +381,7 @@ class JsonLdTranslator
         $preserveArray = false;
         foreach ($value as $language => $bucket) {
             $untagged = isset($noneKeys[$language]);
-            if (!$untagged && strcasecmp($language, $targetLanguage) === 0) {
+            if (!$untagged && !$this->isSourceLanguageBucket($language, $sourceLanguage, $targetLanguage)) {
                 continue;
             }
             $remaining = [];
@@ -670,9 +699,9 @@ class JsonLdTranslator
     ): void {
         $context = $context ?? array_replace(self::EMPTY_CONTEXT, ['vocab' => 'https://schema.org/']);
 
-        // An incoming JSON literal is opaque before array iteration, local
-        // contexts or graph/literal inspection. Payload keys are not JSON-LD.
-        if ($propertyMetadata['isJsonCoerced'] ?? false) {
+        // JSON payloads, reverse edges and unsupported implicit-type maps
+        // are opaque before any visitor or nested context can see them.
+        if ($this->isOpaqueProperty($propertyMetadata)) {
             return;
         }
 
@@ -731,7 +760,7 @@ class JsonLdTranslator
         if ($hasPropertyScope) {
             $context = $this->resolveContext($propertyScope, $context);
         }
-        if ($termKey !== null && $this->propertyMetadata($termKey, $context)['isJsonCoerced']) {
+        if ($termKey !== null && $this->isOpaqueProperty($this->propertyMetadata($termKey, $context))) {
             return;
         }
         if ($isObject && array_key_exists('@context', $value)) {
@@ -743,6 +772,9 @@ class JsonLdTranslator
         }
         if ($termKey !== null) {
             $propertyMetadata = $this->propertyMetadata($termKey, $context);
+        }
+        if ($this->isOpaqueProperty($propertyMetadata)) {
+            return;
         }
         $node = $propertyMetadata;
         if ($isObject) {
@@ -824,6 +856,9 @@ class JsonLdTranslator
                 continue;
             }
             $property = $this->semanticProperty($key, $context);
+            if ($this->isOpaqueProperty($this->propertyMetadata($key, $context))) {
+                continue;
+            }
             if ($property !== '@nest') {
                 $visit($child, $key, $property);
                 continue;
@@ -909,7 +944,7 @@ class JsonLdTranslator
     private function semanticProperty(string $key, array $context): ?string
     {
         $iri = $this->termIri($key, $context);
-        if (in_array($iri, ['@type', '@id', '@value', '@language', '@list', '@set', '@index', '@nest'], true)) {
+        if (in_array($iri, ['@type', '@id', '@value', '@language', '@list', '@set', '@index', '@nest', '@reverse'], true)) {
             return $iri;
         }
         if (!is_string($iri) || preg_match('~^(?i:https?://schema\.org)[/#]([A-Za-z][A-Za-z0-9]*)$~', $iri, $match) !== 1) {
@@ -935,13 +970,23 @@ class JsonLdTranslator
             'isIriCoerced' => in_array($coercion, ['@id', '@vocab'], true),
             'isVocabCoerced' => $coercion === '@vocab',
             'isJsonCoerced' => $coercion === '@json',
+            'isReverse' => ($context['reverses'][$key] ?? false) || $this->termIri($key, $context) === '@reverse',
             'hasLanguageMap' => $container === '@language' || (is_array($container) && in_array('@language', $container, true)),
             'hasIdMap' => in_array('@id', $containers, true),
+            'hasTypeMap' => in_array('@type', $containers, true),
             'hasIndexMap' => in_array('@index', $containers, true),
             'isPlainIndexMap' => in_array('@index', $containers, true)
                 && array_diff($containers, ['@index', '@set']) === []
                 && !array_key_exists($key, $context['indexMappings']),
         ];
+    }
+
+    /** All traversal passes share these unsupported-property boundaries. */
+    private function isOpaqueProperty(array $metadata): bool
+    {
+        return ($metadata['isJsonCoerced'] ?? false)
+            || ($metadata['isReverse'] ?? false)
+            || ($metadata['hasTypeMap'] ?? false);
     }
 
     /** Validate every bucket before any visitor sees the map; keys are language tags, not properties. */
@@ -1103,10 +1148,8 @@ class JsonLdTranslator
             return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $propagate ? null : $context]);
         }
         if (is_string($definition)) {
-            if (preg_match('~^(?i:https?://schema\.org)(?:/?|/docs/jsonldcontext\.json(?:ld)?)$~D', trim($definition)) === 1) {
-                $context['vocab'] = 'https://schema.org/';
-                $context['valueVocab'] = $context['vocab'];
-                return $context;
+            if ($this->isSchemaContext($definition)) {
+                return $this->resolveContext(self::SCHEMA_CONTEXT, $context, $propagate, $scopeOrigin);
             }
             return array_replace(self::EMPTY_CONTEXT, ['previousContext' => $context['previousContext']]);
         }
@@ -1121,6 +1164,19 @@ class JsonLdTranslator
                 $context = $this->resolveContext($entry, $context, $propagate, $scopeOrigin);
             }
             return $context;
+        }
+
+        if (array_key_exists('@import', $definition)) {
+            // Import merges complete term definitions before processing them;
+            // importing definitions replace, rather than recursively combine,
+            // the imported ones. Unknown imports cannot preserve a guessed
+            // vocabulary, but explicit local definitions can restore semantics.
+            if (is_string($definition['@import']) && $this->isSchemaContext($definition['@import'])) {
+                $definition = array_replace(self::SCHEMA_CONTEXT, $definition);
+            } else {
+                $context = array_replace(self::EMPTY_CONTEXT, ['previousContext' => $context['previousContext']]);
+            }
+            unset($definition['@import']);
         }
 
         foreach ($definition as $term => $mapping) {
@@ -1158,6 +1214,11 @@ class JsonLdTranslator
                 continue;
             }
             $this->resolveTerm($term, $definition, $context, $defined);
+            if (is_array($mapping) && array_key_exists('@reverse', $mapping)) {
+                $context['reverses'][$term] = true;
+            } else {
+                unset($context['reverses'][$term]);
+            }
             // Property scopes and term language mappings are replaced with the
             // term definition, never inherited after an unscoped redefinition.
             foreach (['@context' => 'scopedContexts', '@language' => 'languages', '@container' => 'containers', '@index' => 'indexMappings'] as $keyword => $field) {
@@ -1185,6 +1246,11 @@ class JsonLdTranslator
         return $context;
     }
 
+    private function isSchemaContext(string $definition): bool
+    {
+        return preg_match('~^(?i:https?://schema\.org)(?:/?|/docs/jsonldcontext\.json(?:ld)?)$~D', trim($definition)) === 1;
+    }
+
     /**
      * The bounded local dependency resolver follows Create Term Definition's
      * defined/being-defined states. Cycles and disabled aliases resolve to null
@@ -1200,7 +1266,8 @@ class JsonLdTranslator
         $defined[$term] = false;
         $mapping = $definition[$term];
         $id = is_array($mapping)
-            ? (array_key_exists('@id', $mapping) ? $mapping['@id'] : $term)
+            ? (array_key_exists('@reverse', $mapping) ? $mapping['@reverse']
+                : (array_key_exists('@id', $mapping) ? $mapping['@id'] : $term))
             : $mapping;
         $iri = null;
         if (is_string($id)) {

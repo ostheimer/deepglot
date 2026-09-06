@@ -464,7 +464,7 @@ function jsonLdReviewRender(array $blocks, SiteRouting $routing, ?array &$collec
     }
     $doc->loadHTML($html . '</head><body></body></html>');
     $helper = new JsonLdTranslator($routing);
-    $mutations = $helper->collect($doc, 'en');
+    $mutations = $helper->collect($doc, 'en', $routing->getSourceLanguage());
     $translations = [];
     foreach ($mutations as $mutation) {
         foreach ($mutation['strings'] as $text) {
@@ -1802,7 +1802,7 @@ $languageMapInput = ['@context' => $languageMapContext, '@type' => 'Recipe',
 ];
 $languageMapOutput = jsonLdReviewRender([$languageMapInput], $routing, $languageMapStrings, ['Salz' => null])[0];
 $reviewCheck(
-    $languageMapOutput['ingredients'] === ['de' => ['Salz', null], 'en' => ['Existing salt', '[en] Wasser', '[en] Farine'], '@none' => '[en] Untagged ingredient']
+    $languageMapOutput['ingredients'] === ['de' => ['Salz', null], 'en' => ['Existing salt', '[en] Wasser'], 'fr' => 'Farine', '@none' => '[en] Untagged ingredient']
     && $languageMapOutput['steps'] === ['noLanguage' => ['[en] Untagged step'], 'en' => '[en] Alles mischen']
     && $languageMapOutput['recipeInstructions'][0]['stepText'] === ['en' => ['[en] Gut rühren']]
     && $languageMapOutput['recipeInstructions'][1] === $languageMapInput['recipeInstructions'][1]
@@ -2186,6 +2186,113 @@ $directionBoundaryInput = ['@type' => 'Recipe', 'recipeInstructions' => [
 ]];
 $reviewCheck(jsonLdReviewRender([$directionBoundaryInput], $routing, $directionBoundaryTexts) === [$directionBoundaryInput] && $directionBoundaryTexts === [],
     'HowToDirection retains foreign vocabulary, @json and generic-text boundaries');
+
+// Completion-review regressions: remote/import/reverse/type-map/source boundaries.
+foreach (['https://schema.org', 'http://schema.org/', 'https://schema.org/docs/jsonldcontext.jsonld', 'http://schema.org/docs/jsonldcontext.json'] as $standardContext) {
+    $standardInput = ['@context' => $standardContext, 'type' => 'Recipe', 'id' => '/standard/#recipe',
+        'recipeIngredient' => ['@value' => 'Standardwasser', 'type' => 'xsd:string'],
+        'recipeInstructions' => ['type' => 'HowToStep', 'text' => 'Standardmäßig rühren'],
+        'description' => ['@value' => 'Kein HTML übersetzen', 'type' => 'HTML'],
+    ];
+    $standardOutput = jsonLdReviewRender([$standardInput, ['isPartOf' => ['@id' => '/standard/#recipe']]], $routing, $standardTexts);
+    $reviewCheck($standardOutput[0]['id'] === '/en/standard/#recipe'
+        && $standardOutput[0]['recipeIngredient'] === ['@value' => '[en] Standardwasser', 'type' => 'xsd:string']
+        && $standardOutput[0]['recipeInstructions']['text'] === '[en] Standardmäßig rühren'
+        && $standardOutput[0]['description'] === $standardInput['description']
+        && $standardOutput[0]['@context'] === $standardContext
+        && $standardOutput[1]['isPartOf']['@id'] === '/en/standard/#recipe'
+        && $standardTexts === ['Standardwasser', 'Standardmäßig rühren'],
+        'P2 3943912143: known remote keyword/datatype aliases work without fetching: ' . $standardContext);
+}
+$standardOverride = ['@context' => ['https://schema.org', ['type' => null, 'id' => 'https://example.org/id', 'xsd' => 'https://example.org/types#']],
+    'type' => 'Recipe', 'id' => '/standard-override/', 'recipeIngredient' => ['@value' => 'Foreign datatype', '@type' => 'xsd:string'],
+    'recipeInstructions' => ['type' => 'HowToStep', 'text' => 'Disabled type alias']];
+$reviewCheck(jsonLdReviewRender([$standardOverride], $routing, $standardOverrideTexts) === [$standardOverride] && $standardOverrideTexts === [],
+    'Known remote aliases respect later null, foreign and datatype-prefix overrides');
+$standardRestore = ['@context' => [['type' => null, 'id' => 'https://example.org/id', 'xsd' => 'https://example.org/'], 'https://schema.org'],
+    'type' => 'Recipe', 'id' => '/standard-restore/', 'recipeIngredient' => ['@value' => 'Wiederhergestelltes Wasser', 'type' => 'xsd:string']];
+$reviewCheck(jsonLdReviewRender([$standardRestore], $routing)[0]['id'] === '/en/standard-restore/'
+    && jsonLdReviewRender([$standardRestore], $routing)[0]['recipeIngredient']['@value'] === '[en] Wiederhergestelltes Wasser',
+    'A later known remote context reinstalls its own keyword and datatype definitions');
+
+foreach (['@type', ['@type', '@set']] as $typeContainer) {
+    foreach (['s:HowToStep', 's:Organization', '@none'] as $bucketType) {
+        $typeMapInput = ['@context' => ['s' => 'https://schema.org/',
+            'recipeInstructions' => ['@id' => 's:recipeInstructions', '@container' => $typeContainer]],
+            'recipeInstructions' => [$bucketType => ['@type' => 'WebPage', '@id' => '/type-map-no-seed/',
+                'name' => 'Typcontainer Name', 'text' => 'Typcontainer Schritt', 'url' => '/type-map-url/']]];
+        $typeMapRef = ['isPartOf' => ['@id' => '/type-map-no-seed/']];
+        $reviewCheck(jsonLdReviewRender([$typeMapInput, $typeMapRef], $routing, $typeMapTexts) === [$typeMapInput, $typeMapRef]
+            && $typeMapTexts === [], 'P2 3943912146: unsupported type maps stay wholly opaque, including implicit shared types and none: '
+                . json_encode($typeContainer) . ' / ' . $bucketType);
+    }
+}
+$typeMapRestored = ['@context' => [['steps' => ['@id' => 'recipeInstructions', '@container' => '@type']], ['steps' => 'recipeInstructions']],
+    'steps' => ['@type' => 'HowToStep', 'text' => 'Wieder normaler Schritt']];
+$reviewCheck(jsonLdReviewRender([$typeMapRestored], $routing)[0]['steps']['text'] === '[en] Wieder normaler Schritt',
+    'Redefining a type-map property restores its ordinary traversal');
+
+foreach (['https://example.org/linkedFrom', 'https://schema.org/url', 's:mainEntityOfPage'] as $reverseIri) {
+    $reverseInput = ['@context' => ['s' => 'https://schema.org/', 'url' => ['@reverse' => $reverseIri]],
+        '@type' => 'WebPage', 'url' => ['@id' => '/reverse-no-seed/', 'name' => 'Rückwärtsname',
+            'nested' => ['@type' => 'WebPage', '@id' => '/reverse-child/']]];
+    $reverseRef = ['isPartOf' => [['@id' => '/reverse-no-seed/'], ['@id' => '/reverse-child/']]];
+    $reviewCheck(jsonLdReviewRender([$reverseInput, $reverseRef], $routing, $reverseTexts) === [$reverseInput, $reverseRef]
+        && $reverseTexts === [], 'P2 3943912150: foreign and Schema.org reverse mappings are not forward page/prose edges: ' . $reverseIri);
+}
+$reverseKeyword = ['@context' => ['backlinks' => '@reverse'], '@type' => 'WebPage',
+    'backlinks' => ['mainEntityOfPage' => ['@id' => '/reverse-keyword/', 'name' => 'Reverse keyword name']]];
+$reviewCheck(jsonLdReviewRender([$reverseKeyword], $routing, $reverseKeywordTexts) === [$reverseKeyword] && $reverseKeywordTexts === [],
+    'Explicit/aliased @reverse keyword subtrees have the same opaque boundary');
+$reverseRestored = ['@context' => [['url' => ['@reverse' => 'https://example.org/link']], ['url' => 'https://schema.org/url']],
+    '@type' => 'WebPage', 'url' => '/reverse-restored/'];
+$reviewCheck(jsonLdReviewRender([$reverseRestored], $routing)[0]['url'] === '/en/reverse-restored/',
+    'A forward redefinition clears inherited reverse-property status');
+
+foreach (['https://example.org/context', 'https://schema.org.evil.test/context', 'https://schema.org/docs/jsonldcontext.jsonld?other'] as $importUrl) {
+    $importInput = ['@context' => ['@import' => $importUrl], '@type' => 'WebPage', '@id' => '/unknown-import/',
+        'name' => 'Unbekannter Import', 'recipeInstructions' => ['@type' => 'HowToStep', 'text' => 'Unbekannter Schritt']];
+    $importRef = ['isPartOf' => ['@id' => '/unknown-import/']];
+    $reviewCheck(jsonLdReviewRender([$importInput, $importRef], $routing, $importTexts) === [$importInput, $importRef] && $importTexts === [],
+        'P2 3943912153: unknown imports clear unresolved semantics and cannot seed across scripts: ' . $importUrl);
+}
+$knownImport = ['@context' => ['@import' => 'https://schema.org/docs/jsonldcontext.jsonld', 'id' => 'https://example.org/id'],
+    'type' => 'Recipe', 'id' => '/foreign-import-id/', 'recipeIngredient' => ['@value' => 'Importwasser', 'type' => 'xsd:string'],
+    'recipeInstructions' => ['type' => 'HowToStep', 'text' => 'Importschritt']];
+$knownImportOutput = jsonLdReviewRender([$knownImport], $routing, $knownImportTexts)[0];
+$reviewCheck($knownImportOutput['id'] === '/foreign-import-id/'
+    && $knownImportOutput['recipeIngredient']['@value'] === '[en] Importwasser'
+    && $knownImportOutput['recipeInstructions']['text'] === '[en] Importschritt'
+    && $knownImportOutput['@context'] === $knownImport['@context']
+    && $knownImportTexts === ['Importwasser', 'Importschritt'],
+    'Known imports install the local Schema.org model with importing term definitions taking precedence');
+$restoredImport = ['@context' => ['@import' => 'https://example.org/context', 's' => 'https://schema.org/',
+    'kind' => '@type', 'label' => 's:name'], 'kind' => 's:WebPage', '@id' => '/restored-import/', 'label' => 'Expliziter Name', 'name' => 'Weiter unbekannt'];
+$reviewCheck(jsonLdReviewRender([$restoredImport], $routing, $restoredImportTexts)[0]['label'] === '[en] Expliziter Name'
+    && $restoredImportTexts === ['Expliziter Name'], 'Explicit local mappings after an unknown import restore only their declared semantics');
+
+$sourceMapInput = ['@context' => $languageMapContext, 'ingredients' => [
+    'de' => ['Wasser', 'Cachemiss'], 'DE' => 'Salz', 'fr' => ['Farine', 'Wasser'], 'en' => 'Salt', 'de-AT' => 'Regionale Zutat', '@none' => 'Ungetaggt']];
+$sourceMapOutput = jsonLdReviewRender([$sourceMapInput], $routing, $sourceMapTexts,
+    ['Cachemiss' => null, 'Farine' => 'Wrong French cache hit', 'Regionale Zutat' => 'Wrong regional cache hit'])[0];
+$reviewCheck($sourceMapTexts === ['Wasser', 'Cachemiss', 'Salz', 'Ungetaggt']
+    && $sourceMapOutput['ingredients'] === ['de' => ['Cachemiss'], 'fr' => ['Farine', 'Wasser'],
+        'en' => ['Salt', '[en] Wasser', '[en] Salz'], 'de-AT' => 'Regionale Zutat', '@none' => '[en] Ungetaggt'],
+    'P2 3943912156: only exact case-insensitive source buckets are collected/applied; third-language duplicates and cached hits stay unchanged');
+$frenchRouting = new SiteRouting(new UrlLanguageResolver('fr', ['en']), 'https://www.meinhaushalt.at', 'PATH_PREFIX', []);
+$frenchOutput = jsonLdReviewRender([$sourceMapInput], $frenchRouting, $frenchTexts)[0];
+$reviewCheck($frenchTexts === ['Farine', 'Wasser', 'Ungetaggt']
+    && $frenchOutput['ingredients']['de'] === $sourceMapInput['ingredients']['de']
+    && $frenchOutput['ingredients']['DE'] === 'Salz'
+    && $frenchOutput['ingredients']['en'] === ['Salt', '[en] Farine', '[en] Wasser'],
+    'Source-language selection is configured, not hard-coded to German');
+$sourceBatchInput = ['@context' => $languageMapContext, 'ingredients' => [
+    'fr' => array_map(static fn ($n) => 'French alternative ' . $n, range(1, 120)), 'de' => 'Source batch water', 'en' => 'English alternative']];
+$sourceBatchClient = new DeepglotJsonLdFakeClient();
+$sourceBatchTranslator = new HtmlTranslator($sourceBatchClient, $options, new DeepglotJsonLdNullCache());
+$sourceBatchTranslator->translate('<html><head><script type="application/ld+json">' . json_encode($sourceBatchInput) . '</script></head><body></body></html>', 'en');
+$reviewCheck($sourceBatchClient->sentTexts === ['Source batch water'],
+    'HtmlTranslator passes configured source language before cache/dedup/batch collection; 120 third-language values consume no capacity');
 
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);

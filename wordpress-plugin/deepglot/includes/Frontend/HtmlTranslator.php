@@ -260,7 +260,7 @@ class HtmlTranslator
             $this->collectMetadataAttributes($doc),
             $this->collectAccessibilityAttributes($doc)
         );
-        $jsonLdMutations = $this->jsonLd->collect($doc, $targetLanguage);
+        $jsonLdMutations = $this->jsonLd->collect($doc, $targetLanguage, $sourceLang);
 
         if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
             return ['html' => $html, 'segments' => []];

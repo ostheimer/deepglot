@@ -1187,6 +1187,49 @@ warmCollectAssert(json_decode($semanticWarmDoc->getElementsByTagName('script')->
     && $semanticWarmClient->batchCalls === [] && $semanticWarmTranslator->getLastPendingSegmentCount() === 0 && $semanticWarmer->pending() === [],
     'The warmed semantic render translates every supported value from cache with intact envelopes and zero API/pending work.');
 
+// Completion review: standard/import aliases and source language selection must
+// also be correct before a cold render reserves bounded background capacity.
+warmResetEnvironment();
+$completionWarmTexts = ['Standard warm typed ingredient', 'Standard warm step', 'German warm map ingredient'];
+$completionWarmData = ['@context' => ['@import' => 'https://schema.org/docs/jsonldcontext.jsonld',
+    'ingredients' => ['@id' => 'recipeIngredient', '@container' => '@language'],
+    'typedSteps' => ['@id' => 'recipeInstructions', '@container' => '@type'],
+    'url' => ['@reverse' => 'https://example.org/linkedFrom']], 'type' => 'Recipe',
+    'recipeIngredient' => ['@value' => $completionWarmTexts[0], 'type' => 'xsd:string'],
+    'recipeInstructions' => ['type' => 'HowToStep', 'text' => $completionWarmTexts[1]],
+    'ingredients' => ['fr' => array_merge(array_map(static fn ($i) => 'French warm alternative ' . $i, range(1, 120)), [$completionWarmTexts[2]]),
+        'en' => 'Existing warm target', 'de' => $completionWarmTexts[2]],
+    'typedSteps' => ['HowToStep' => ['name' => 'Opaque warm type-map name']],
+    'url' => ['name' => 'Opaque warm reverse name'],
+    'unknownImport' => ['@context' => ['@import' => 'https://example.org/context'], 'name' => 'Opaque warm imported name'],
+];
+$completionWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($completionWarmData) . '</script></head><body></body></html>';
+$completionWarmClient = new DeepglotWarmFakeClient();
+$completionWarmCache = new DeepglotWarmArrayCache();
+$completionWarmer = new TranslationWarmer($completionWarmClient, $options, $completionWarmCache);
+$completionTranslator = new HtmlTranslator($completionWarmClient, $options, $completionWarmCache, null, $completionWarmer);
+$completionCold = $completionTranslator->translate($completionWarmHtml, 'en', 'https://jobspot.at/en/completion/', BotDetector::HUMAN);
+warmCollectAssert(($completionWarmer->pending()['de|en'] ?? []) === $completionWarmTexts
+    && $completionTranslator->getLastPendingSegmentCount() === 3 && $completionWarmClient->batchCalls === [],
+    'Completion review: only three supported German values reserve queue capacity; 120 French alternatives and opaque containers do not.');
+$completionDoc = new DOMDocument();
+$completionDoc->loadHTML($completionCold);
+warmCollectAssert(json_decode($completionDoc->getElementsByTagName('script')->item(0)->textContent, true) === $completionWarmData,
+    'Completion review: the cold cache-miss output preserves all original context, literals and language buckets.');
+$completionWarmer->run();
+warmCollectAssert(array_merge([], ...$completionWarmClient->batchCalls) === $completionWarmTexts,
+    'Completion review: the background batch contains exactly the supported deduplicated source values.');
+$completionWarmClient->reset();
+$completionDoc->loadHTML($completionTranslator->translate($completionWarmHtml, 'en', 'https://jobspot.at/en/completion/', BotDetector::HUMAN));
+$completionExpected = $completionWarmData;
+$completionExpected['recipeIngredient']['@value'] = '[en] ' . $completionWarmTexts[0];
+$completionExpected['recipeInstructions']['text'] = '[en] ' . $completionWarmTexts[1];
+unset($completionExpected['ingredients']['de']);
+$completionExpected['ingredients']['en'] = ['Existing warm target', '[en] ' . $completionWarmTexts[2]];
+warmCollectAssert(json_decode($completionDoc->getElementsByTagName('script')->item(0)->textContent, true) === $completionExpected
+    && $completionWarmClient->batchCalls === [] && $completionTranslator->getLastPendingSegmentCount() === 0 && $completionWarmer->pending() === [],
+    'Completion review: warm render changes only eligible source values, leaves a same-text French value intact and has zero API/pending work.');
+
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
 warmResetEnvironment();

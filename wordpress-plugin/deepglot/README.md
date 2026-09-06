@@ -82,6 +82,12 @@ Custom property-index mappings and graph-index combinations remain opaque.
 Identity (`@id`) containers, including `@set`/`@graph` combinations, are also
 entirely opaque: their implicit identity keys and contents cannot be partially
 localized, collected for translation or used to seed external graph references.
+Type (`@type`) containers, including `@set` combinations, remain wholly opaque
+as well: this helper does not implement their implicit node-type semantics.
+Reverse properties (explicit `@reverse`, keyword aliases and term definitions)
+are opaque to all visitors. Their resolved reverse IRI never falls back to a
+similarly named forward Schema.org property; forward redefinition removes that
+boundary. This is conservative non-processing, not reverse-graph localization.
 
 Compact type prefixes, ordinary class aliases, supported Schema.org property
 aliases and local keyword aliases are resolved from the active `@context`, including
@@ -106,8 +112,16 @@ Full Schema.org IRIs remain supported, with case-insensitive scheme/host matchin
 and case-sensitive type/property names. Context definitions are never sent for
 translation or rewritten, and no remote context fetch is performed. The known
 Schema.org context is handled locally, including the exact HTTP/HTTPS
-`schema.org/docs/jsonldcontext.jsonld` and `.json` URLs; unknown remote contexts leave unresolved
-types unchanged. Context-free bare type names retain the legacy Schema.org
+`schema.org/docs/jsonldcontext.jsonld` and `.json` URLs. Its relevant keyword
+(`type`, `id`) and datatype/prefix definitions are modeled locally, respect
+later overrides and are reinstalled by a later known context. This bounded model
+is not a runtime download of the entire Schema.org context.
+The model is checked against the [published context](https://schema.org/docs/jsonldcontext.jsonld).
+Known `@import` forms reuse that model with importing definitions taking
+precedence. Unknown imports clear unresolved mappings just like unknown remote
+contexts; explicit local definitions can restore only their declared semantics.
+Import precedence follows [JSON-LD 1.1 context processing](https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm).
+Context-free bare type names retain the legacy Schema.org
 default, which explicit null contexts or foreign vocabularies remove. Generic
 `text` outside HowToStep or supported recipe directions and shared person,
 organization and media IDs remain
@@ -177,9 +191,12 @@ explicitly untagged values remain untagged.
 Language-map containers (`@language`, optionally with `@set`) retain the enclosing
 supported text property's meaning, including HowToStep text and scoped aliases.
 Translated strings move to the target-language bucket; existing target values are
-preserved and merged without overwriting them. Collection receives the active
-target language and excludes those target buckets before cache lookup, provider
-batching and background warming, including case variants of the language tag.
+preserved and merged without overwriting them. Collection receives the configured
+source and target languages before cache lookup, provider batching and background
+warming. Only exact source-tag matches (case-insensitive) are eligible; target,
+third-language and distinct regional alternatives remain unchanged, even when
+their text is identical to source text or happens to have a cached translation.
+The source language travels with each collected mutation into application.
 Cache misses, short strings, nulls
 and empty arrays keep their source buckets. Explicit `@none` buckets and aliases
 remain untagged. Language maps are terminal literals, never graph nodes or page
