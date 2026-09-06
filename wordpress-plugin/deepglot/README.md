@@ -189,6 +189,13 @@ cannot seed identities or acquire page routing.
 Scheme-relative URLs use the source site's scheme for the comparison and routing.
 Mapped language hosts use their own generated routing origin, including its port.
 External network-path references remain unchanged.
+For WordPress installations below a subdirectory, a URL must also be the exact
+configured site path or a slash-bounded descendant; same-origin sibling sites
+and dot-segment escapes cannot route or seed page identities. Mapped language
+hosts retain this site-path boundary. WordPress infrastructure URLs, including
+REST/admin/login endpoints, core assets and sitemaps, stay unchanged according
+to SiteRouting's shared infrastructure classifier. These URL exclusions do not
+suppress otherwise eligible prose on the same node.
 
 Local prefix definitions also expand compact page IDs and supported page URL
 values before internal-host checks, identity matching and routing. Only internal

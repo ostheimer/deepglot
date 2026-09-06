@@ -158,6 +158,7 @@ class JsonLdTranslator
     /** @var array<string, true>|null Scheme/host/effective-port origins, built once per helper. */
     private ?array $internalOrigins = null;
     private ?string $sourceScheme = null;
+    private ?string $sourceSitePath = null;
 
     public function __construct(?SiteRouting $routing = null)
     {
@@ -763,18 +764,32 @@ class JsonLdTranslator
             return false;
         }
 
-        if (preg_match('#^https?://#i', $value) !== 1 && !str_starts_with($value, '//')) {
-            return true;
-        }
-
         $parts = wp_parse_url($value);
-        $host = is_array($parts) ? ($parts['host'] ?? '') : '';
-        if ($host === '' || !$this->routing->isInternalHost($host)) {
+        if (!is_array($parts)) {
             return false;
         }
         $origins = $this->getInternalOrigins();
-        $origin = $this->originKey($parts, $this->sourceScheme);
-        return $origin !== null && isset($origins[$origin]);
+        if (preg_match('#^https?://#i', $value) === 1 || str_starts_with($value, '//')) {
+            $host = $parts['host'] ?? '';
+            $origin = $this->originKey($parts, $this->sourceScheme);
+            if ($host === '' || !$this->routing->isInternalHost($host)
+                || $origin === null || !isset($origins[$origin])) {
+                return false;
+            }
+        }
+
+        // Origin membership does not make a sibling WordPress installation
+        // ours. Resolve literal escapes before comparing exact path segments.
+        $path = $this->removeDotSegments($parts['path'] ?? '/');
+        if ($this->sourceSitePath === null || ($this->sourceSitePath !== ''
+            && $path !== $this->sourceSitePath
+            && !str_starts_with($path, $this->sourceSitePath . '/'))) {
+            return false;
+        }
+
+        // Host membership was checked above. Reuse the routing policy on the
+        // normalized path without another host lookup or changing the IRI.
+        return !$this->routing->isWordPressInfrastructureUrl('/' . ltrim($path, '/'));
     }
 
     /** Actual language hosts may use default ports even when the source does not. */
@@ -793,6 +808,7 @@ class JsonLdTranslator
             }
             if ($language === $sourceLanguage) {
                 $this->sourceScheme = strtolower($parts['scheme'] ?? '');
+                $this->sourceSitePath = rtrim($this->removeDotSegments($parts['path'] ?? '/'), '/');
             }
             $origin = $this->originKey($parts);
             if ($origin !== null) {

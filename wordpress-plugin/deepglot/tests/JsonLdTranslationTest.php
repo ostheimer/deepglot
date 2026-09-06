@@ -2827,6 +2827,72 @@ $reviewCheck($relativeValueOutput[0]['page'] === 'https://www.meinhaushalt.at/en
     && $relativeValueOutput[1]['isPartOf']['@id'] === '/en/relative-vocab/#page',
     'P2 relative vocabulary: @vocab scalar page expansion and canonical graph seeds share the resolved vocabulary');
 
+// Configured WordPress path boundaries apply before graph seeds and routing.
+$siteBoundaryOracleFixtures = [];
+foreach (['PATH_PREFIX', 'SUBDOMAIN'] as $boundaryMode) {
+    $boundaryRouting = new SiteRouting(new UrlLanguageResolver('de', ['en', 'fr']), 'https://www.meinhaushalt.at/blog', $boundaryMode,
+        ['en' => 'en.meinhaushalt.at', 'fr' => 'fr.meinhaushalt.at']);
+    foreach (['/shop/', '/blogger/', 'https://www.meinhaushalt.at/shop/#page', '//www.meinhaushalt.at/shop/?',
+        'site:shop/', 'https://www.meinhaushalt.at/blog/../shop/', '/blog/../shop/', '/?inside=/blog/'] as $outsideSiteIri) {
+        foreach ([false, true] as $reverseBoundaryScripts) {
+            $boundaryInput = ['@context' => ['@vocab' => 'https://schema.org/', 'site' => 'https://www.meinhaushalt.at/'], '@graph' => [
+                ['@type' => 'WebPage', '@id' => $outsideSiteIri, 'url' => $outsideSiteIri],
+                ['mainEntityOfPage' => $outsideSiteIri], ['@type' => 'ListItem', 'item' => $outsideSiteIri],
+            ]];
+            $boundaryRefs = ['isPartOf' => ['@id' => $outsideSiteIri, 'url' => '/blog/attached/']];
+            $boundaryBlocks = $reverseBoundaryScripts ? [$boundaryRefs, $boundaryInput] : [$boundaryInput, $boundaryRefs];
+            $boundaryOutput = jsonLdReviewRender($boundaryBlocks, $boundaryRouting, $boundaryTexts);
+            $siteBoundaryOracleFixtures[] = ['input' => $boundaryInput, 'output' => $boundaryOutput[$reverseBoundaryScripts ? 1 : 0]];
+            $reviewCheck($boundaryOutput === $boundaryBlocks && $boundaryTexts === [],
+                'P2 3944243980: outside-subdirectory URLs neither route nor seed page identities: ' . $boundaryMode . ' / ' . $outsideSiteIri . ' / ' . (int) $reverseBoundaryScripts);
+        }
+    }
+    foreach (['/blog', '/blog/', '/blog/kontakt/', '/blog/en/kontakt/', '/blog/index.php/kontakt/', '/blog/wp-admin-help/'] as $insideSiteIri) {
+        $insideSiteOutput = jsonLdReviewRender([['@type' => 'WebPage', '@id' => $insideSiteIri, 'url' => $insideSiteIri]], $boundaryRouting)[0];
+        $reviewCheck($insideSiteOutput['@id'] === $boundaryRouting->rewriteUrl($insideSiteIri, 'en')
+            && $insideSiteOutput['url'] === $boundaryRouting->rewriteUrl($insideSiteIri, 'en'),
+            'P2 site path: exact site root and descendants retain existing routing: ' . $boundaryMode . ' / ' . $insideSiteIri);
+    }
+    if ($boundaryMode === 'SUBDOMAIN') {
+        foreach (['https://fr.meinhaushalt.at/shop/', '//en.meinhaushalt.at/blogger/'] as $outsideMappedIri) {
+            $outsideMappedInput = ['@type' => 'WebPage', '@id' => $outsideMappedIri, 'url' => $outsideMappedIri];
+            $reviewCheck(jsonLdReviewRender([$outsideMappedInput], $boundaryRouting) === [$outsideMappedInput],
+                'P2 site path: mapped language hosts retain the same subdirectory boundary');
+        }
+        $mappedInsideOutput = jsonLdReviewRender([['@type' => 'WebPage', 'url' => 'https://fr.meinhaushalt.at/blog/kontakt/']], $boundaryRouting)[0];
+        $reviewCheck($mappedInsideOutput['url'] === 'https://en.meinhaushalt.at/blog/kontakt/',
+            'P2 site path: mapped host inside the configured subdirectory still localizes');
+    }
+}
+
+// Infrastructure stays unprefixed regardless of page semantics or URL spelling.
+$infrastructureOracleFixtures = [];
+foreach (['', '/blog'] as $infrastructureSitePath) {
+    $infrastructureRouting = new SiteRouting(new UrlLanguageResolver('de', ['en']), 'https://www.meinhaushalt.at' . $infrastructureSitePath, 'PATH_PREFIX', []);
+    foreach (['wp-json/deepglot/v1/', 'wp-admin/', 'wp-login.php', 'wp-cron.php', 'wp-content/uploads/photo.jpg',
+        'wp-includes/js/jquery.js', 'xmlrpc.php', 'wp-comments-post.php', 'wp-sitemap.xml', 'robots.txt',
+        'deepglot-sitemap.xml', 'en/wp-json/deepglot/v1/', 'index.php/en/wp-admin/', '%77p-admin/'] as $infrastructurePath) {
+        foreach (['root', 'absolute', 'network', 'compact'] as $infrastructureForm) {
+            $infrastructurePrefix = ['root' => '', 'absolute' => 'https://www.meinhaushalt.at', 'network' => '//www.meinhaushalt.at', 'compact' => 'site:'][$infrastructureForm];
+            $infrastructureIri = $infrastructurePrefix . ($infrastructureForm === 'compact' ? '' : $infrastructureSitePath . '/') . $infrastructurePath;
+            $infrastructureInput = ['@context' => ['@vocab' => 'https://schema.org/', 'site' => 'https://www.meinhaushalt.at' . $infrastructureSitePath . '/'], '@graph' => [
+                ['@type' => 'WebPage', '@id' => $infrastructureIri, 'url' => $infrastructureIri],
+                ['mainEntityOfPage' => $infrastructureIri], ['@type' => 'ListItem', 'item' => ['@id' => $infrastructureIri]],
+                ['@id' => $infrastructureIri, 'url' => $infrastructureSitePath . '/attached/'],
+            ]];
+            $infrastructureOutput = jsonLdReviewRender([$infrastructureInput], $infrastructureRouting, $infrastructureTexts)[0];
+            $infrastructureOracleFixtures[] = ['input' => $infrastructureInput, 'output' => $infrastructureOutput];
+            $reviewCheck($infrastructureOutput === $infrastructureInput && $infrastructureTexts === [],
+                'P2 3944243984: infrastructure cannot route or seed attached page URLs: ' . $infrastructureSitePath . ' / ' . $infrastructureForm . ' / ' . $infrastructurePath);
+        }
+    }
+    $infrastructureProseInput = ['@type' => 'WebPage', 'url' => $infrastructureSitePath . '/wp-admin/', 'name' => 'Administrative Anleitung'];
+    $infrastructureProseOutput = jsonLdReviewRender([$infrastructureProseInput], $infrastructureRouting, $infrastructureProseTexts)[0];
+    $reviewCheck($infrastructureProseOutput['url'] === $infrastructureProseInput['url']
+        && $infrastructureProseOutput['name'] === '[en] Administrative Anleitung' && $infrastructureProseTexts === ['Administrative Anleitung'],
+        'P2 infrastructure URL exclusion does not suppress otherwise eligible visible prose');
+}
+
 foreach ($reviewFailures as $failure) {
     fwrite(STDERR, 'FAIL: ' . $failure . PHP_EOL);
 }

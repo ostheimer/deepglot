@@ -308,6 +308,8 @@ require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Support/TranslationWarmer.php';
 require_once __DIR__ . '/../includes/Sync/SettingsSync.php';
 require_once __DIR__ . '/../includes/Frontend/JsonLdTranslator.php';
+require_once __DIR__ . '/../includes/Support/UrlLanguageResolver.php';
+require_once __DIR__ . '/../includes/Support/SiteRouting.php';
 require_once __DIR__ . '/../includes/Support/BotDetector.php';
 require_once __DIR__ . '/../includes/Support/HtmlDocument.php';
 require_once __DIR__ . '/../includes/Frontend/HtmlTranslator.php';
@@ -1378,6 +1380,36 @@ $relativeWarmExpected['recipeInstructions']['text'] = '[en] ' . $relativeWarmTex
 warmCollectAssert(json_decode($relativeWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $relativeWarmExpected
     && $relativeWarmClient->batchCalls === [] && $relativeWarmTranslator->getLastPendingSegmentCount() === 0 && $relativeWarmer->pending() === [],
     'P2 relative vocabulary: warmed literals translate from cache with no pending or API work.');
+
+// Page routing exclusions remain intact in both cold and warm HTML output.
+warmResetEnvironment();
+$boundaryWarmData = ['@graph' => [
+    ['@type' => 'WebPage', '@id' => '/shop/#page', 'url' => '/shop/'],
+    ['@type' => 'WebPage', '@id' => '/blog/wp-json/deepglot/v1/', 'url' => '/blog/wp-admin/'],
+    ['@type' => 'Recipe', '@id' => '/blog/content/', 'name' => 'Boundary warm recipe'],
+]];
+$boundaryWarmHtml = '<html><head><script type="application/ld+json">' . wp_json_encode($boundaryWarmData) . '</script></head><body></body></html>';
+$boundaryWarmClient = new DeepglotWarmFakeClient();
+$boundaryWarmCache = new DeepglotWarmArrayCache();
+$boundaryWarmer = new TranslationWarmer($boundaryWarmClient, $options, $boundaryWarmCache);
+$boundaryWarmRouting = new \Deepglot\Support\SiteRouting(new \Deepglot\Support\UrlLanguageResolver('de', ['en']), 'https://jobspot.at/blog', 'PATH_PREFIX', []);
+$boundaryWarmTranslator = new HtmlTranslator($boundaryWarmClient, $options, $boundaryWarmCache,
+    new \Deepglot\Frontend\JsonLdTranslator($boundaryWarmRouting), $boundaryWarmer);
+$boundaryWarmDoc = new DOMDocument();
+$boundaryWarmDoc->loadHTML($boundaryWarmTranslator->translate($boundaryWarmHtml, 'en', 'https://jobspot.at/blog/en/content/', BotDetector::HUMAN));
+$boundaryWarmExpected = $boundaryWarmData;
+$boundaryWarmExpected['@graph'][2]['@id'] = 'https://jobspot.at/blog/en/content/';
+warmCollectAssert(json_decode($boundaryWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $boundaryWarmExpected,
+    'P2 site/infrastructure: cold output routes only the content identity and preserves excluded URLs.');
+warmCollectAssert(($boundaryWarmer->pending()['de|en'] ?? []) === ['Boundary warm recipe'] && $boundaryWarmClient->batchCalls === [],
+    'P2 site/infrastructure: excluded URLs are never queued as text; eligible prose remains queued.');
+$boundaryWarmer->run();
+$boundaryWarmClient->reset();
+$boundaryWarmDoc->loadHTML($boundaryWarmTranslator->translate($boundaryWarmHtml, 'en', 'https://jobspot.at/blog/en/content/', BotDetector::HUMAN));
+$boundaryWarmExpected['@graph'][2]['name'] = '[en] Boundary warm recipe';
+warmCollectAssert(json_decode($boundaryWarmDoc->getElementsByTagName('script')->item(0)->textContent, true) === $boundaryWarmExpected
+    && $boundaryWarmClient->batchCalls === [] && $boundaryWarmer->pending() === [],
+    'P2 site/infrastructure: warm output preserves excluded URLs while translating the content name with no API work.');
 
 // 4. Bot traffic never enqueues warm work (issue #147 boundary).
 // -----------------------------------------------------------------------------
