@@ -190,7 +190,11 @@ export function LanguageModelSettingsCard({
             id="translationProvider"
             data-testid="translation-provider-select"
             value={provider}
-            onChange={(event) => setProvider(event.target.value)}
+            onChange={(event) => {
+              const nextProvider = event.target.value;
+              if (nextProvider !== provider) setModel("");
+              setProvider(nextProvider);
+            }}
             className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           >
             <option value="">{copy.workspaceDefault}</option>

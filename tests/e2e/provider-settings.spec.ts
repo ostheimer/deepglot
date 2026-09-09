@@ -32,6 +32,7 @@ test.describe("provider settings", () => {
       });
       expect(seeded.ok()).toBeTruthy();
       await page.goto(`/projects/${projectId}/settings/language-model`);
+      await page.getByTestId("translation-provider-select").selectOption("gemini");
 
       const unchangedSave = page.waitForRequest(
         (request) => request.url().endsWith(settingsUrl) && request.method() === "PATCH"
@@ -55,6 +56,38 @@ test.describe("provider settings", () => {
       await expect(page.getByTestId("translation-runtime-provider")).toContainText(
         "Google Gemini · gemini-custom-model"
       );
+    } finally {
+      const restored = await page.request.patch(settingsUrl, {
+        data: { ...settings, apiKeyAction: "keep" },
+      });
+      expect(restored.ok()).toBeTruthy();
+    }
+  });
+
+  test("clears the previous provider model when switching to Gemini", async ({ page }) => {
+    const projectId = await signInAndGetProjectId(page);
+    const settingsUrl = `/api/projects/${projectId}/language-model`;
+    const original = await page.request.get(settingsUrl);
+    expect(original.ok()).toBeTruthy();
+    const { settings } = await original.json();
+
+    try {
+      const seeded = await page.request.patch(settingsUrl, {
+        data: { provider: "openai", model: "gpt-5-mini", apiKeyAction: "keep" },
+      });
+      expect(seeded.ok()).toBeTruthy();
+      await page.goto(`/projects/${projectId}/settings/language-model`);
+      await expect(page.getByLabel("Model", { exact: true })).toHaveValue("gpt-5-mini");
+
+      await page.getByTestId("translation-provider-select").selectOption("gemini");
+      await expect(page.getByLabel("Model", { exact: true })).toHaveValue("");
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByText("Language model settings saved.")).toBeVisible();
+      const saved = await page.request.get(settingsUrl);
+      expect(saved.ok()).toBeTruthy();
+      const result = await saved.json();
+      expect(result.settings).toMatchObject({ provider: "gemini", model: null });
+      expect(result.effective.model).toMatch(/^gemini-/);
     } finally {
       const restored = await page.request.patch(settingsUrl, {
         data: { ...settings, apiKeyAction: "keep" },
