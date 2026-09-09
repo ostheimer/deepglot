@@ -55,6 +55,7 @@ const COPY = {
       "For Ollama/local gateways, the Vercel runtime must be able to reach the base URL. localhost on your laptop is not reachable from production.",
     providers: {
       openai: "OpenAI models. Default model is gpt-5-mini — best $/quality ratio for translation.",
+      gemini: "Google Gemini models for automatic translations.",
       openrouter: "OpenRouter model ids such as openai/gpt-5-mini, google/gemini-3-pro or anthropic/claude-sonnet-4.6.",
       ollama: "Ollama or another local OpenAI-compatible endpoint.",
       "openai-compatible": "Any OpenAI-compatible API gateway, proxy, or self-hosted endpoint.",
@@ -85,6 +86,7 @@ const COPY = {
       "Für Ollama/lokale Gateways muss die Vercel-Laufzeit die Base URL erreichen können. localhost auf deinem Laptop ist in Production nicht erreichbar.",
     providers: {
       openai: "OpenAI-Modelle. Standardmodell ist gpt-5-mini — bestes Preis/Qualitäts-Verhältnis für Übersetzungen.",
+      gemini: "Google-Gemini-Modelle für automatische Übersetzungen.",
       openrouter: "OpenRouter-Modell-IDs wie openai/gpt-5-mini, google/gemini-3-pro oder anthropic/claude-sonnet-4.6.",
       ollama: "Ollama oder ein anderer lokaler OpenAI-kompatibler Endpoint.",
       "openai-compatible": "Beliebiger OpenAI-kompatibler API-Gateway, Proxy oder selbst gehosteter Endpoint.",
@@ -97,6 +99,7 @@ const COPY = {
 function needsModel(provider: string | null) {
   return (
     provider === "openai" ||
+    provider === "gemini" ||
     provider === "openrouter" ||
     provider === "ollama" ||
     provider === "openai-compatible"

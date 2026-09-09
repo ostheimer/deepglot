@@ -757,6 +757,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Google Gemini models for automatic translations.": "Модели на Google Gemini за автоматични преводи.",
     "Reported content type": "Докладван тип съдържание",
     "Text": "Текст",
     "Media / documents": "Медии / документи",
@@ -1817,6 +1818,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Google Gemini models for automatic translations.": "Modeli Google Gemini za automatske prijevode.",
     "Reported content type": "Prijavljena vrsta sadržaja",
     "Text": "Tekst",
     "Media / documents": "Mediji / dokumenti",
@@ -2877,6 +2879,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Google Gemini models for automatic translations.": "Modely Google Gemini pro automatické překlady.",
     "Reported content type": "Nahlášený typ obsahu",
     "Text": "Text",
     "Media / documents": "Média / dokumenty",
@@ -3937,6 +3940,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Google Gemini models for automatic translations.": "Google Gemini-modeller til automatiske oversættelser.",
     "Reported content type": "Rapporteret indholdstype",
     "Text": "Tekst",
     "Media / documents": "Medier / dokumenter",
@@ -4997,6 +5001,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Google Gemini models for automatic translations.": "Google Gemini-modellen voor automatische vertalingen.",
     "Reported content type": "Gemeld inhoudstype",
     "Text": "Tekst",
     "Media / documents": "Media / documenten",
@@ -6057,6 +6062,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Google Gemini models for automatic translations.": "Google Gemini mudelid automaatseks tõlkimiseks.",
     "Reported content type": "Teatatud sisutüüp",
     "Text": "Tekst",
     "Media / documents": "Meedia / dokumendid",
@@ -7117,6 +7123,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Google Gemini models for automatic translations.": "Google Gemini -mallit automaattisiin käännöksiin.",
     "Reported content type": "Ilmoitettu sisältötyyppi",
     "Text": "Teksti",
     "Media / documents": "Media / asiakirjat",
@@ -8177,6 +8184,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Google Gemini models for automatic translations.": "Modèles Google Gemini pour les traductions automatiques.",
     "Reported content type": "Type de contenu signalé",
     "Text": "Texte",
     "Media / documents": "Médias / documents",
@@ -9237,6 +9245,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Google Gemini models for automatic translations.": "Μοντέλα Google Gemini για αυτόματες μεταφράσεις.",
     "Reported content type": "Αναφερόμενος τύπος περιεχομένου",
     "Text": "Κείμενο",
     "Media / documents": "Πολυμέσα / έγγραφα",
@@ -10297,6 +10306,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Google Gemini models for automatic translations.": "Google Gemini-modellek automatikus fordításokhoz.",
     "Reported content type": "Jelentett tartalomtípus",
     "Text": "Szöveg",
     "Media / documents": "Média / dokumentumok",
@@ -11357,6 +11367,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Google Gemini models for automatic translations.": "Samhlacha Google Gemini le haghaidh aistriúchán uathoibríoch.",
     "Reported content type": "Cineál ábhair tuairiscithe",
     "Text": "Téacs",
     "Media / documents": "Meáin / doiciméid",
@@ -12417,6 +12428,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Google Gemini models for automatic translations.": "Modelli Google Gemini per traduzioni automatiche.",
     "Reported content type": "Tipo di contenuto segnalato",
     "Text": "Testo",
     "Media / documents": "Media / documenti",
@@ -13477,6 +13489,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Google Gemini models for automatic translations.": "Google Gemini modeļi automātiskiem tulkojumiem.",
     "Reported content type": "Ziņotais satura tips",
     "Text": "Teksts",
     "Media / documents": "Multivide / dokumenti",
@@ -14537,6 +14550,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Google Gemini models for automatic translations.": "Google Gemini modeliai automatiniams vertimams.",
     "Reported content type": "Praneštas turinio tipas",
     "Text": "Tekstas",
     "Media / documents": "Medija / dokumentai",
@@ -15597,6 +15611,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Google Gemini models for automatic translations.": "Mudelli Google Gemini għal traduzzjonijiet awtomatiċi.",
     "Reported content type": "Tip ta’ kontenut irrappurtat",
     "Text": "Test",
     "Media / documents": "Midja / dokumenti",
@@ -16657,6 +16672,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Google Gemini models for automatic translations.": "Modele Google Gemini do tłumaczeń automatycznych.",
     "Reported content type": "Zgłoszony typ treści",
     "Text": "Tekst",
     "Media / documents": "Media / dokumenty",
@@ -17717,6 +17733,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Google Gemini models for automatic translations.": "Modelos Google Gemini para traduções automáticas.",
     "Reported content type": "Tipo de conteúdo comunicado",
     "Text": "Texto",
     "Media / documents": "Multimédia / documentos",
@@ -18777,6 +18794,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Google Gemini models for automatic translations.": "Modele Google Gemini pentru traduceri automate.",
     "Reported content type": "Tip de conținut raportat",
     "Text": "Text",
     "Media / documents": "Media / documente",
@@ -19837,6 +19855,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Google Gemini models for automatic translations.": "Modely Google Gemini na automatické preklady.",
     "Reported content type": "Nahlásený typ obsahu",
     "Text": "Text",
     "Media / documents": "Médiá / dokumenty",
@@ -20897,6 +20916,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Google Gemini models for automatic translations.": "Modeli Google Gemini za samodejne prevode.",
     "Reported content type": "Sporočena vrsta vsebine",
     "Text": "Besedilo",
     "Media / documents": "Mediji / dokumenti",
@@ -21957,6 +21977,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Google Gemini models for automatic translations.": "Modelos Google Gemini para traducciones automáticas.",
     "Reported content type": "Tipo de contenido comunicado",
     "Text": "Texto",
     "Media / documents": "Medios / documentos",
@@ -23017,6 +23038,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Google Gemini models for automatic translations.": "Google Gemini-modeller för automatiska översättningar.",
     "Reported content type": "Rapporterad innehållstyp",
     "Text": "Text",
     "Media / documents": "Medier / dokument",
