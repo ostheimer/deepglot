@@ -532,7 +532,6 @@ class OutputBuffer
 
     private function currentRequestUrl(): string
     {
-        $originalUri = $this->router->getOriginalRequestUri();
         $uri = RequestInput::server('REQUEST_URI', '/');
         $targetLanguage = $this->detectTargetLanguage();
 
@@ -549,13 +548,16 @@ class OutputBuffer
 
     private function sourceRequestUrl(): string
     {
+        $originalUri = $this->router->getOriginalRequestUri();
         $uri = RequestInput::server('REQUEST_URI', '/');
 
         if (
             $this->urlSync !== null
             && $this->urlSync->isCurrentRequest($originalUri)
         ) {
-            $uri = $this->urlSync->stripQueryArg($originalUri ?? $uri);
+            // Validate the signed public URL, but keep the rewritten source
+            // path for exclusion checks. Only its control query is removed.
+            $uri = $this->urlSync->stripQueryArg($uri);
         }
 
         if (function_exists('home_url')) {
