@@ -93,6 +93,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.8 =
+* Fixed source URL checks with URL synchronization configured and preserved canonical source exclusions when validating signed localized sync requests.
 * Preserved raw ampersands, quotes, and literal entity text in translated metadata and accessibility attributes on fresh and cached renders, including the visual editor.
 * Canonicalized equivalent internal graph identities, propagated page reachability with a work queue, and preserved IRI-coerced language values.
 * Collected relationship-established page IDs, recognized the official Schema.org context URL locally, and expanded internal compact page IRIs before routing.
