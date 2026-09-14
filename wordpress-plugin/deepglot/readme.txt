@@ -93,6 +93,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Changelog ==
 
 = 0.12.8 =
+* Preserved raw ampersands, quotes, and literal entity text in translated metadata and accessibility attributes on fresh and cached renders, including the visual editor.
 * Canonicalized equivalent internal graph identities, propagated page reachability with a work queue, and preserved IRI-coerced language values.
 * Collected relationship-established page IDs, recognized the official Schema.org context URL locally, and expanded internal compact page IRIs before routing.
 * Resolved supported Schema.org property aliases, matched scalar page references, and translated simple language-tagged value objects through the shared local context.

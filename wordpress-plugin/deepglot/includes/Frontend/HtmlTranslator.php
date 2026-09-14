@@ -444,12 +444,15 @@ class HtmlTranslator
             }
         }
 
-        // Translate whitelisted head metadata attributes in place.
+        // Translate whitelisted metadata and accessibility attributes in place.
         foreach ($attrs as $attr) {
             $original = $attr->value;
 
             if (isset($all[$original])) {
-                $attr->value = $all[$original];
+                // DOMAttr::value parses entity references, which can erase a
+                // raw ampersand or decode literal entity text a second time.
+                // setAttribute() stores plain text and escapes it on output.
+                $attr->ownerElement->setAttribute($attr->name, $all[$original]);
             }
         }
 

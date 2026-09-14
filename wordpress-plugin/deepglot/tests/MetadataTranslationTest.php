@@ -30,10 +30,11 @@ if (!function_exists('get_option')) {
     }
 
     function get_transient($key) {
-        return false;
+        return $GLOBALS['_deepglot_transients'][$key] ?? false;
     }
 
     function set_transient($key, $value, $ttl = 0) {
+        $GLOBALS['_deepglot_transients'][$key] = $value;
         return true;
     }
 
@@ -227,6 +228,87 @@ dgAssert(preg_match('/<h1>\s*<span[^>]*data-deepglot-segment-id/u', $editorDecod
 // Editor segments list must not include the title text node.
 foreach ($editorResult['segments'] as $segment) {
     dgAssert($segment['originalText'] !== 'Hallo', 'Title text node must not be exposed as an editor segment');
+}
+
+// meinhaushalt #157 baseline: raw ampersands in translated attribute values
+// must not be parsed as entity references or erase OG/X titles and image alt.
+$specialSource = 'Gurken-Sushi mit Avocado & Karotte – einfaches Rezept';
+$specialHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">'
+    . '<meta property="og:title" content="' . htmlspecialchars($specialSource, ENT_QUOTES) . '">'
+    . '<meta name="twitter:title" content="' . htmlspecialchars($specialSource, ENT_QUOTES) . '">'
+    . '<meta property="og:image:alt" content="' . htmlspecialchars($specialSource, ENT_QUOTES) . '">'
+    . '</head><body><p>Rezept</p></body></html>';
+$specialOutput = $translator->translate($specialHtml, 'en');
+$specialDoc = new DOMDocument();
+$specialDoc->loadHTML('<?xml encoding="UTF-8">' . $specialOutput);
+foreach ($specialDoc->getElementsByTagName('meta') as $meta) {
+    if (in_array($meta->getAttribute('property') ?: $meta->getAttribute('name'), ['og:title', 'twitter:title', 'og:image:alt'], true)) {
+        dgAssert($meta->getAttribute('content') === '[en] ' . $specialSource, 'Raw ampersand must survive translated social attribute: ' . $specialDoc->saveHTML($meta));
+    }
+}
+
+// Exercise actual serialization and the production translation cache, not a
+// decoded markup substring: decoding the entire document can conceal extra
+// entity interpretation or broken attribute boundaries. Every entrypoint must
+// retain the exact provider text on the first render and on a cache-only rerun.
+$attributeSources = [
+    $specialSource,
+    'Avocado "frisch" und Karotte \'knackig\'',
+    'Wörtliche Entities: &amp; &quot; &copy; &#169; &#x1F363; &recipe;',
+    'Wörtliches Markup: "><script>alert("Rezept")</script> <b>frisch</b>',
+];
+$attributeHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">';
+foreach ($attributeSources as $source) {
+    $escaped = htmlspecialchars($source, ENT_QUOTES, 'UTF-8');
+    $attributeHtml .= '<meta property="og:title" content="' . $escaped . '">'
+        . '<meta name="twitter:title" content="' . $escaped . '">'
+        . '<meta property="og:image:alt" content="' . $escaped . '">';
+}
+$attributeHtml .= '</head><body>';
+foreach ($attributeSources as $source) {
+    $escaped = htmlspecialchars($source, ENT_QUOTES, 'UTF-8');
+    $attributeHtml .= '<img src="/recipe.jpg" alt="' . $escaped . '" title="' . $escaped . '">';
+}
+$attributeHtml .= '</body></html>';
+
+foreach (['translate', 'translateInline', 'translateForEditor'] as $entrypoint) {
+    $GLOBALS['_deepglot_transients'] = [];
+    $attributeClient = new DeepglotMetadataFakeClient();
+    $attributeCache = new TranslationCache();
+    $attributeTranslator = new HtmlTranslator($attributeClient, $options, $attributeCache);
+
+    foreach (['provider', 'cache'] as $origin) {
+        $attributeClient->sentTexts = [];
+        $attributeResult = $attributeTranslator->$entrypoint($attributeHtml, 'en');
+        $attributeOutput = is_array($attributeResult) ? $attributeResult['html'] : $attributeResult;
+        $attributeDoc = new DOMDocument();
+        $attributeDoc->loadHTML('<?xml encoding="UTF-8">' . $attributeOutput);
+        $label = $entrypoint . ' / ' . $origin;
+
+        $socialNodes = (new DOMXPath($attributeDoc))->query('//meta[@content]');
+        dgAssert($socialNodes->length === count($attributeSources) * 3, $label . ': all social attributes must survive');
+        foreach ($socialNodes as $index => $meta) {
+            dgAssert($meta->getAttribute('content') === '[en] ' . $attributeSources[intdiv($index, 3)], $label . ': social attribute must retain exact translated text');
+        }
+
+        $imageNodes = $attributeDoc->getElementsByTagName('img');
+        dgAssert($imageNodes->length === count($attributeSources), $label . ': all images must survive');
+        foreach ($imageNodes as $index => $img) {
+            foreach (['alt', 'title'] as $attribute) {
+                dgAssert($img->getAttribute($attribute) === '[en] ' . $attributeSources[$index], $label . ': image ' . $attribute . ' must retain exact translated text');
+            }
+        }
+        dgAssert($attributeDoc->getElementsByTagName('script')->length === 0, $label . ': literal markup must stay inside attribute text');
+
+        if ($origin === 'provider') {
+            dgAssert($attributeClient->sentTexts === $attributeSources, $label . ': send decoded, deduplicated source text');
+            foreach ($attributeSources as $source) {
+                dgAssert($attributeCache->get($source, 'de', 'en') === '[en] ' . $source, $label . ': cache must retain exact provider text');
+            }
+        } else {
+            dgAssert($attributeClient->sentTexts === [], $label . ': cached output must not call the provider');
+        }
+    }
 }
 
 fwrite(STDOUT, "MetadataTranslationTest: OK\n");
