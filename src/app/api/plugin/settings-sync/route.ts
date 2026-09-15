@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   buildPluginOwnedSettingsUpdate,
+  buildRuntimeSyncMirrorRecord,
   findPluginMirrorConflicts,
   pluginSettingsSyncSchema,
   validatePluginDomainMappings,
@@ -152,7 +153,10 @@ async function syncPluginSettings(request: NextRequest) {
           targetLanguages: activeTargetLanguages,
           autoRedirect: authoritativeProject.settings?.autoSwitch ?? false,
         });
-        const settingsUpdate = buildPluginOwnedSettingsUpdate(body);
+        const settingsUpdate = {
+          ...buildPluginOwnedSettingsUpdate(body),
+          ...buildRuntimeSyncMirrorRecord(body, mirrorConflicts),
+        };
 
         await tx.projectSettings.upsert({
           where: { projectId },

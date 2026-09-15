@@ -4,7 +4,9 @@ import test from "node:test";
 
 import {
   buildPluginOwnedSettingsUpdate,
+  buildRuntimeSyncMirrorRecord,
   findPluginMirrorConflicts,
+  hasRuntimeSyncDomainConflict,
   type PluginSettingsSyncPayload,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
@@ -105,4 +107,50 @@ test("the plugin sync response selects only safe settings and never provider cip
   assert.match(source, /settings:\s*\{\s*select:/);
   assert.match(source, /translateEmails:\s*true/);
   assert.match(source, /runtimeSyncedAt:\s*true/);
+});
+
+test("records the reporting host and conflicts of the last plugin sync", () => {
+  assert.deepEqual(
+    buildRuntimeSyncMirrorRecord(
+      { ...basePayload, siteUrl: "https://www.jobspot.at/" },
+      ["domain"],
+    ),
+    { runtimeSyncSiteHost: "www.jobspot.at", runtimeSyncConflicts: ["domain"] },
+  );
+  assert.deepEqual(
+    buildRuntimeSyncMirrorRecord({ ...basePayload, siteUrl: undefined }, []),
+    { runtimeSyncSiteHost: null, runtimeSyncConflicts: [] },
+  );
+});
+
+test("a domain conflict is only shown when the plugin reported a host", () => {
+  assert.equal(hasRuntimeSyncDomainConflict(["domain"], "www.jobspot.at"), true);
+  assert.equal(hasRuntimeSyncDomainConflict(["autoRedirect"], "www.jobspot.at"), false);
+  assert.equal(hasRuntimeSyncDomainConflict(["domain"], null), false);
+  assert.equal(hasRuntimeSyncDomainConflict(undefined, undefined), false);
+});
+
+test("the plugin sync route persists the mirror record and every settings page surfaces it", () => {
+  const route = readFileSync(
+    "src/app/api/plugin/settings-sync/route.ts",
+    "utf8",
+  );
+  assert.match(route, /buildRuntimeSyncMirrorRecord\(body, mirrorConflicts\)/);
+
+  const banner = readFileSync(
+    "src/components/projekte/runtime-sync-banner.tsx",
+    "utf8",
+  );
+  assert.match(banner, /hasRuntimeSyncDomainConflict\(/);
+  assert.match(banner, /role="alert"/);
+
+  for (const page of [
+    "src/app/(dashboard)/projekte/[projektId]/einstellungen/page.tsx",
+    "src/app/(dashboard)/projekte/[projektId]/einstellungen/wordpress/page.tsx",
+    "src/app/(dashboard)/projekte/[projektId]/einstellungen/switcher/page.tsx",
+  ]) {
+    const source = readFileSync(page, "utf8");
+    assert.match(source, /syncSiteHost=\{/, page);
+    assert.match(source, /syncConflicts=\{/, page);
+  }
 });

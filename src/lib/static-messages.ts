@@ -757,6 +757,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Plugin reports a different website": "Плъгинът съобщава за друг уебсайт",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Последната синхронизация дойде от {host}, но този проект принадлежи на {domain}. Вероятно друга WordPress инсталация използва API ключа на този проект. Създайте отделен проект за нея или коригирайте домейна в общите настройки.",
     "Google Gemini models for automatic translations.": "Модели на Google Gemini за автоматични преводи.",
     "Reported content type": "Докладван тип съдържание",
     "Text": "Текст",
@@ -1818,6 +1820,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Plugin reports a different website": "Dodatak prijavljuje drugu web stranicu",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Posljednja sinkronizacija stigla je s {host}, ali ovaj projekt pripada domeni {domain}. Vjerojatno druga WordPress instalacija koristi API ključ ovog projekta. Napravite zaseban projekt za nju ili ispravite domenu u općim postavkama.",
     "Google Gemini models for automatic translations.": "Modeli Google Gemini za automatske prijevode.",
     "Reported content type": "Prijavljena vrsta sadržaja",
     "Text": "Tekst",
@@ -2879,6 +2883,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Plugin reports a different website": "Plugin hlásí jiný web",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Poslední synchronizace přišla z {host}, ale tento projekt patří k {domain}. Pravděpodobně jiná instalace WordPressu používá API klíč tohoto projektu. Vytvořte pro ni samostatný projekt nebo opravte doménu v obecných nastaveních.",
     "Google Gemini models for automatic translations.": "Modely Google Gemini pro automatické překlady.",
     "Reported content type": "Nahlášený typ obsahu",
     "Text": "Text",
@@ -3940,6 +3946,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Plugin reports a different website": "Pluginet rapporterer et andet websted",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Den seneste synkronisering kom fra {host}, men dette projekt tilhører {domain}. En anden WordPress-installation bruger sandsynligvis dette projekts API-nøgle. Opret et separat projekt til den, eller ret domænet under generelle indstillinger.",
     "Google Gemini models for automatic translations.": "Google Gemini-modeller til automatiske oversættelser.",
     "Reported content type": "Rapporteret indholdstype",
     "Text": "Tekst",
@@ -5001,6 +5009,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Plugin reports a different website": "Plugin meldt een andere website",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "De laatste synchronisatie kwam van {host}, maar dit project hoort bij {domain}. Waarschijnlijk gebruikt een andere WordPress-installatie de API-sleutel van dit project. Maak er een apart project voor aan of corrigeer het domein in de algemene instellingen.",
     "Google Gemini models for automatic translations.": "Google Gemini-modellen voor automatische vertalingen.",
     "Reported content type": "Gemeld inhoudstype",
     "Text": "Tekst",
@@ -6062,6 +6072,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Plugin reports a different website": "Plugin teatab teisest veebisaidist",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Viimane sünkroonimine tuli hostilt {host}, kuid see projekt kuulub domeenile {domain}. Tõenäoliselt kasutab selle projekti API-võtit teine WordPressi paigaldus. Loo sellele eraldi projekt või paranda domeen üldistes seadetes.",
     "Google Gemini models for automatic translations.": "Google Gemini mudelid automaatseks tõlkimiseks.",
     "Reported content type": "Teatatud sisutüüp",
     "Text": "Tekst",
@@ -7123,6 +7135,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Plugin reports a different website": "Lisäosa ilmoittaa eri verkkosivuston",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Viimeisin synkronointi tuli osoitteesta {host}, mutta tämä projekti kuuluu osoitteelle {domain}. Todennäköisesti toinen WordPress-asennus käyttää tämän projektin API-avainta. Luo sille erillinen projekti tai korjaa verkkotunnus yleisissä asetuksissa.",
     "Google Gemini models for automatic translations.": "Google Gemini -mallit automaattisiin käännöksiin.",
     "Reported content type": "Ilmoitettu sisältötyyppi",
     "Text": "Teksti",
@@ -8184,6 +8198,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Plugin reports a different website": "Le plugin signale un autre site web",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "La dernière synchronisation provenait de {host}, mais ce projet appartient à {domain}. Une autre installation WordPress utilise probablement la clé API de ce projet. Créez un projet distinct pour elle ou corrigez le domaine dans les paramètres généraux.",
     "Google Gemini models for automatic translations.": "Modèles Google Gemini pour les traductions automatiques.",
     "Reported content type": "Type de contenu signalé",
     "Text": "Texte",
@@ -9245,6 +9261,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Plugin reports a different website": "Το πρόσθετο αναφέρει διαφορετικό ιστότοπο",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Ο τελευταίος συγχρονισμός προήλθε από {host}, αλλά αυτό το έργο ανήκει στο {domain}. Πιθανότατα μια άλλη εγκατάσταση WordPress χρησιμοποιεί το κλειδί API αυτού του έργου. Δημιουργήστε ξεχωριστό έργο για αυτήν ή διορθώστε τον τομέα στις γενικές ρυθμίσεις.",
     "Google Gemini models for automatic translations.": "Μοντέλα Google Gemini για αυτόματες μεταφράσεις.",
     "Reported content type": "Αναφερόμενος τύπος περιεχομένου",
     "Text": "Κείμενο",
@@ -10306,6 +10324,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Plugin reports a different website": "A bővítmény másik webhelyet jelez",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Az utolsó szinkronizálás innen érkezett: {host}, de ez a projekt ide tartozik: {domain}. Valószínűleg egy másik WordPress-telepítés használja ennek a projektnek az API-kulcsát. Hozzon létre neki külön projektet, vagy javítsa a domaint az általános beállításokban.",
     "Google Gemini models for automatic translations.": "Google Gemini-modellek automatikus fordításokhoz.",
     "Reported content type": "Jelentett tartalomtípus",
     "Text": "Szöveg",
@@ -11367,6 +11387,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Plugin reports a different website": "Tuairiscíonn an breiseán suíomh gréasáin eile",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Tháinig an sioncrónú deireanach ó {host}, ach baineann an tionscadal seo le {domain}. Is dócha go bhfuil suiteáil WordPress eile ag úsáid eochair API an tionscadail seo. Cruthaigh tionscadal ar leith dó nó ceartaigh an fearann sna socruithe ginearálta.",
     "Google Gemini models for automatic translations.": "Samhlacha Google Gemini le haghaidh aistriúchán uathoibríoch.",
     "Reported content type": "Cineál ábhair tuairiscithe",
     "Text": "Téacs",
@@ -12428,6 +12450,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Plugin reports a different website": "Il plugin segnala un sito web diverso",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "L'ultima sincronizzazione proveniva da {host}, ma questo progetto appartiene a {domain}. Probabilmente un'altra installazione WordPress sta usando la chiave API di questo progetto. Crea un progetto separato per essa o correggi il dominio nelle impostazioni generali.",
     "Google Gemini models for automatic translations.": "Modelli Google Gemini per traduzioni automatiche.",
     "Reported content type": "Tipo di contenuto segnalato",
     "Text": "Testo",
@@ -13489,6 +13513,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Plugin reports a different website": "Spraudnis ziņo par citu vietni",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Pēdējā sinhronizācija nāca no {host}, bet šis projekts pieder {domain}. Visticamāk, cita WordPress instalācija izmanto šī projekta API atslēgu. Izveidojiet tai atsevišķu projektu vai izlabojiet domēnu vispārīgajos iestatījumos.",
     "Google Gemini models for automatic translations.": "Google Gemini modeļi automātiskiem tulkojumiem.",
     "Reported content type": "Ziņotais satura tips",
     "Text": "Teksts",
@@ -14550,6 +14576,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Plugin reports a different website": "Papildinys praneša apie kitą svetainę",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Paskutinis sinchronizavimas atėjo iš {host}, bet šis projektas priklauso {domain}. Tikriausiai kita WordPress instaliacija naudoja šio projekto API raktą. Sukurkite jai atskirą projektą arba pataisykite domeną bendruosiuose nustatymuose.",
     "Google Gemini models for automatic translations.": "Google Gemini modeliai automatiniams vertimams.",
     "Reported content type": "Praneštas turinio tipas",
     "Text": "Tekstas",
@@ -15611,6 +15639,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Plugin reports a different website": "Il-plugin jirrapporta websajt differenti",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "L-aħħar sinkronizzazzjoni ġiet minn {host}, iżda dan il-proġett jappartjeni lil {domain}. Probabbilment installazzjoni oħra ta' WordPress qed tuża ċ-ċavetta API ta' dan il-proġett. Oħloq proġett separat għaliha jew ikkoreġi d-dominju fis-settings ġenerali.",
     "Google Gemini models for automatic translations.": "Mudelli Google Gemini għal traduzzjonijiet awtomatiċi.",
     "Reported content type": "Tip ta’ kontenut irrappurtat",
     "Text": "Test",
@@ -16672,6 +16702,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Plugin reports a different website": "Wtyczka zgłasza inną witrynę",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Ostatnia synchronizacja pochodziła z {host}, ale ten projekt należy do {domain}. Prawdopodobnie inna instalacja WordPressa używa klucza API tego projektu. Utwórz dla niej osobny projekt lub popraw domenę w ustawieniach ogólnych.",
     "Google Gemini models for automatic translations.": "Modele Google Gemini do tłumaczeń automatycznych.",
     "Reported content type": "Zgłoszony typ treści",
     "Text": "Tekst",
@@ -17733,6 +17765,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Plugin reports a different website": "O plugin reporta um site diferente",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "A última sincronização veio de {host}, mas este projeto pertence a {domain}. Provavelmente outra instalação WordPress está a usar a chave API deste projeto. Crie um projeto separado para ela ou corrija o domínio nas definições gerais.",
     "Google Gemini models for automatic translations.": "Modelos Google Gemini para traduções automáticas.",
     "Reported content type": "Tipo de conteúdo comunicado",
     "Text": "Texto",
@@ -18794,6 +18828,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Plugin reports a different website": "Pluginul raportează un alt site web",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Ultima sincronizare a venit de la {host}, dar acest proiect aparține de {domain}. Probabil o altă instalare WordPress folosește cheia API a acestui proiect. Creați un proiect separat pentru ea sau corectați domeniul în setările generale.",
     "Google Gemini models for automatic translations.": "Modele Google Gemini pentru traduceri automate.",
     "Reported content type": "Tip de conținut raportat",
     "Text": "Text",
@@ -19855,6 +19891,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Plugin reports a different website": "Plugin hlási iný web",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Posledná synchronizácia prišla z {host}, ale tento projekt patrí k {domain}. Pravdepodobne iná inštalácia WordPressu používa API kľúč tohto projektu. Vytvorte pre ňu samostatný projekt alebo opravte doménu vo všeobecných nastaveniach.",
     "Google Gemini models for automatic translations.": "Modely Google Gemini na automatické preklady.",
     "Reported content type": "Nahlásený typ obsahu",
     "Text": "Text",
@@ -20916,6 +20954,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Plugin reports a different website": "Vtičnik poroča o drugem spletnem mestu",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Zadnja sinhronizacija je prišla z {host}, ta projekt pa pripada {domain}. Verjetno druga namestitev WordPressa uporablja API ključ tega projekta. Zanjo ustvarite ločen projekt ali popravite domeno v splošnih nastavitvah.",
     "Google Gemini models for automatic translations.": "Modeli Google Gemini za samodejne prevode.",
     "Reported content type": "Sporočena vrsta vsebine",
     "Text": "Besedilo",
@@ -21977,6 +22017,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Plugin reports a different website": "El plugin informa de un sitio web diferente",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "La última sincronización procedía de {host}, pero este proyecto pertenece a {domain}. Probablemente otra instalación de WordPress está usando la clave API de este proyecto. Crea un proyecto aparte para ella o corrige el dominio en la configuración general.",
     "Google Gemini models for automatic translations.": "Modelos Google Gemini para traducciones automáticas.",
     "Reported content type": "Tipo de contenido comunicado",
     "Text": "Texto",
@@ -23038,6 +23080,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Plugin reports a different website": "Tillägget rapporterar en annan webbplats",
+    "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.": "Den senaste synkroniseringen kom från {host}, men det här projektet tillhör {domain}. Troligen använder en annan WordPress-installation projektets API-nyckel. Skapa ett separat projekt för den eller rätta domänen i de allmänna inställningarna.",
     "Google Gemini models for automatic translations.": "Google Gemini-modeller för automatiska översättningar.",
     "Reported content type": "Rapporterad innehållstyp",
     "Text": "Text",
