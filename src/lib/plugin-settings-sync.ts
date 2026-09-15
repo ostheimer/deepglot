@@ -174,3 +174,30 @@ export function validatePluginDomainMappings(
 
   return null;
 }
+
+export type RuntimeSyncMirrorRecord = {
+  runtimeSyncSiteHost: string | null;
+  runtimeSyncConflicts: PluginMirrorConflict[];
+};
+
+/**
+ * Persist what the last plugin sync reported so the dashboard can show a
+ * project whose API key is being reused by another WordPress installation.
+ * The record is informational only; the authoritative values stay untouched.
+ */
+export function buildRuntimeSyncMirrorRecord(
+  payload: PluginSettingsSyncPayload,
+  conflicts: readonly PluginMirrorConflict[],
+): RuntimeSyncMirrorRecord {
+  return {
+    runtimeSyncSiteHost: pluginSiteHost(payload.siteUrl),
+    runtimeSyncConflicts: [...conflicts],
+  };
+}
+
+export function hasRuntimeSyncDomainConflict(
+  conflicts: readonly string[] | null | undefined,
+  siteHost: string | null | undefined,
+): siteHost is string {
+  return Boolean(siteHost) && (conflicts ?? []).includes("domain");
+}
