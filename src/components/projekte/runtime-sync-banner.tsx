@@ -11,6 +11,8 @@ type RuntimeSyncBannerProps = {
   locale: SiteLocale;
   domain: string;
   runtimeSyncedAt?: Date | null;
+  domainConflictHost?: string | null;
+  domainConflictAt?: Date | null;
   source?: "wordpress-runtime" | "saas-general";
 };
 
@@ -18,6 +20,8 @@ export function RuntimeSyncBanner({
   locale,
   domain,
   runtimeSyncedAt,
+  domainConflictHost,
+  domainConflictAt,
   source = "wordpress-runtime",
 }: RuntimeSyncBannerProps) {
   const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
@@ -28,11 +32,41 @@ export function RuntimeSyncBanner({
         locale: getDateFnsLocale(locale),
       })
     : null;
+  const conflictLabel = domainConflictAt
+    ? formatDistanceToNow(domainConflictAt, {
+        addSuffix: true,
+        locale: getDateFnsLocale(locale),
+      })
+    : null;
   const saasGeneral = source === "saas-general";
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
       <div>
+        {domainConflictHost ? (
+          <div
+            className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3"
+            role="alert"
+          >
+            <p className="text-sm font-semibold text-amber-900">
+              {uiText(
+                locale,
+                "Domain conflict detected",
+                "Domain-Konflikt erkannt",
+              )}
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              {uiText(
+                locale,
+                "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.",
+                "WordPress meldet {reportedHost}; dieses Projekt verwendet {storedHost}. Die Projekt-Domain wurde nicht geändert. Verwende ein eigenes Projekt mit eigenem API-Key.",
+              )
+                .replace("{reportedHost}", domainConflictHost)
+                .replace("{storedHost}", domain)}
+              {conflictLabel ? ` (${conflictLabel})` : null}
+            </p>
+          </div>
+        ) : null}
         <p className="text-sm font-semibold text-blue-900">
           {saasGeneral
             ? uiText(

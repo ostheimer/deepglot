@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   buildPluginOwnedSettingsUpdate,
+  buildPluginMirrorStatusUpdate,
   findPluginMirrorConflicts,
   type PluginSettingsSyncPayload,
   validatePluginDomainMappings,
@@ -105,4 +106,40 @@ test("the plugin sync response selects only safe settings and never provider cip
   assert.match(source, /settings:\s*\{\s*select:/);
   assert.match(source, /translateEmails:\s*true/);
   assert.match(source, /runtimeSyncedAt:\s*true/);
+});
+
+test("persists a reported WordPress host when it conflicts with the project domain", () => {
+  const syncedAt = new Date("2026-09-15T08:00:00.000Z");
+
+  assert.deepEqual(
+    buildPluginMirrorStatusUpdate(
+      { ...basePayload, siteUrl: "https://WWW.jobspot.at/wordpress" },
+      ["domain"],
+      syncedAt,
+    ),
+    {
+      runtimeDomainConflictHost: "www.jobspot.at",
+      runtimeDomainConflictAt: syncedAt,
+    },
+  );
+});
+
+test("clears a previous domain warning only after a matching host is reported", () => {
+  const syncedAt = new Date("2026-09-15T08:00:00.000Z");
+
+  assert.deepEqual(
+    buildPluginMirrorStatusUpdate(basePayload, [], syncedAt),
+    {
+      runtimeDomainConflictHost: null,
+      runtimeDomainConflictAt: null,
+    },
+  );
+  assert.deepEqual(
+    buildPluginMirrorStatusUpdate(
+      { ...basePayload, siteUrl: undefined },
+      [],
+      syncedAt,
+    ),
+    {},
+  );
 });

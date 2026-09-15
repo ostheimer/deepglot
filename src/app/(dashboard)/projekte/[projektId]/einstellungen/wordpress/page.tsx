@@ -42,6 +42,8 @@ export default async function WordPressSettingsPage({ params }: PageProps) {
         locale={locale}
         domain={project.domain}
         runtimeSyncedAt={s?.runtimeSyncedAt}
+        domainConflictHost={s?.runtimeDomainConflictHost}
+        domainConflictAt={s?.runtimeDomainConflictAt}
       />
 
       <section className="grid gap-4 md:grid-cols-2">
