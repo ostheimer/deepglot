@@ -52,6 +52,11 @@ export type PluginOwnedSettingsUpdate = {
   runtimeSyncedAt: Date;
 };
 
+export type PluginMirrorStatusUpdate = {
+  runtimeDomainConflictHost?: string | null;
+  runtimeDomainConflictAt?: Date | null;
+};
+
 export type PluginMirrorState = {
   domain: string;
   sourceLanguage: string;
@@ -98,6 +103,30 @@ function pluginSiteHost(siteUrl: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+export function buildPluginMirrorStatusUpdate(
+  payload: PluginSettingsSyncPayload,
+  mirrorConflicts: readonly PluginMirrorConflict[],
+  syncedAt = new Date(),
+): PluginMirrorStatusUpdate {
+  if (!payload.siteUrl) return {};
+
+  if (mirrorConflicts.includes("domain")) {
+    const conflictHost = pluginSiteHost(payload.siteUrl);
+
+    return conflictHost
+      ? {
+          runtimeDomainConflictHost: conflictHost,
+          runtimeDomainConflictAt: syncedAt,
+        }
+      : {};
+  }
+
+  return {
+    runtimeDomainConflictHost: null,
+    runtimeDomainConflictAt: null,
+  };
 }
 
 /**

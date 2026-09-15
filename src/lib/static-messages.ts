@@ -757,6 +757,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Domain conflict detected": "Открит е конфликт на домейн",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress отчита {reportedHost}; този проект използва {storedHost}. Домейнът на проекта остана непроменен. Използвайте отделен проект и API ключ.",
     "Google Gemini models for automatic translations.": "Модели на Google Gemini за автоматични преводи.",
     "Reported content type": "Докладван тип съдържание",
     "Text": "Текст",
@@ -1818,6 +1820,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Domain conflict detected": "Otkriven je sukob domena",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress izvještava {reportedHost}; ovaj projekt koristi {storedHost}. Domena projekta ostala je nepromijenjena. Koristite zasebni projekt i API ključ.",
     "Google Gemini models for automatic translations.": "Modeli Google Gemini za automatske prijevode.",
     "Reported content type": "Prijavljena vrsta sadržaja",
     "Text": "Tekst",
@@ -2879,6 +2883,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Domain conflict detected": "Byl zjištěn konflikt domény",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress hlásí {reportedHost}; tento projekt používá {storedHost}. Doména projektu zůstala nezměněna. Použijte samostatný projekt a klíč API.",
     "Google Gemini models for automatic translations.": "Modely Google Gemini pro automatické překlady.",
     "Reported content type": "Nahlášený typ obsahu",
     "Text": "Text",
@@ -3940,6 +3946,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Domain conflict detected": "Domænekonflikt registreret",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress rapporterer {reportedHost}; dette projekt bruger {storedHost}. Projektdomænet forblev uændret. Brug et separat projekt og en separat API-nøgle.",
     "Google Gemini models for automatic translations.": "Google Gemini-modeller til automatiske oversættelser.",
     "Reported content type": "Rapporteret indholdstype",
     "Text": "Tekst",
@@ -5001,6 +5009,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Domain conflict detected": "Domeinconflict gedetecteerd",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress rapporteert {reportedHost}; dit project gebruikt {storedHost}. Het projectdomein bleef ongewijzigd. Gebruik een apart project en een aparte API-sleutel.",
     "Google Gemini models for automatic translations.": "Google Gemini-modellen voor automatische vertalingen.",
     "Reported content type": "Gemeld inhoudstype",
     "Text": "Tekst",
@@ -6062,6 +6072,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Domain conflict detected": "Tuvastati domeenikonflikt",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress teatab {reportedHost}; see projekt kasutab {storedHost}. Projekti domeen jäi muutumatuks. Kasuta eraldi projekti ja API-võtit.",
     "Google Gemini models for automatic translations.": "Google Gemini mudelid automaatseks tõlkimiseks.",
     "Reported content type": "Teatatud sisutüüp",
     "Text": "Tekst",
@@ -7123,6 +7135,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Domain conflict detected": "Verkkotunnusristiriita havaittu",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress ilmoittaa osoitteeksi {reportedHost}; tämä projekti käyttää osoitetta {storedHost}. Projektin verkkotunnus säilyi ennallaan. Käytä erillistä projektia ja API-avainta.",
     "Google Gemini models for automatic translations.": "Google Gemini -mallit automaattisiin käännöksiin.",
     "Reported content type": "Ilmoitettu sisältötyyppi",
     "Text": "Teksti",
@@ -8184,6 +8198,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Domain conflict detected": "Conflit de domaine détecté",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress signale {reportedHost} ; ce projet utilise {storedHost}. Le domaine du projet est resté inchangé. Utilisez un projet et une clé API distincts.",
     "Google Gemini models for automatic translations.": "Modèles Google Gemini pour les traductions automatiques.",
     "Reported content type": "Type de contenu signalé",
     "Text": "Texte",
@@ -9245,6 +9261,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Domain conflict detected": "Εντοπίστηκε σύγκρουση τομέων",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "Το WordPress αναφέρει {reportedHost}· αυτό το έργο χρησιμοποιεί {storedHost}. Ο τομέας του έργου παρέμεινε αμετάβλητος. Χρησιμοποιήστε ξεχωριστό έργο και κλειδί API.",
     "Google Gemini models for automatic translations.": "Μοντέλα Google Gemini για αυτόματες μεταφράσεις.",
     "Reported content type": "Αναφερόμενος τύπος περιεχομένου",
     "Text": "Κείμενο",
@@ -10306,6 +10324,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Domain conflict detected": "Domainütközés észlelve",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "A WordPress a {reportedHost} címet jelenti; ez a projekt a {storedHost} címet használja. A projekt domainje változatlan maradt. Használjon külön projektet és API-kulcsot.",
     "Google Gemini models for automatic translations.": "Google Gemini-modellek automatikus fordításokhoz.",
     "Reported content type": "Jelentett tartalomtípus",
     "Text": "Szöveg",
@@ -11367,6 +11387,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Domain conflict detected": "Braitheadh coinbhleacht fearainn",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "Tuairiscíonn WordPress {reportedHost}; úsáideann an tionscadal seo {storedHost}. D'fhan fearann an tionscadail gan athrú. Bain úsáid as tionscadal ar leith agus eochair API.",
     "Google Gemini models for automatic translations.": "Samhlacha Google Gemini le haghaidh aistriúchán uathoibríoch.",
     "Reported content type": "Cineál ábhair tuairiscithe",
     "Text": "Téacs",
@@ -12428,6 +12450,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Domain conflict detected": "Rilevato un conflitto di dominio",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress segnala {reportedHost}; questo progetto utilizza {storedHost}. Il dominio del progetto è rimasto invariato. Utilizza un progetto e una chiave API separati.",
     "Google Gemini models for automatic translations.": "Modelli Google Gemini per traduzioni automatiche.",
     "Reported content type": "Tipo di contenuto segnalato",
     "Text": "Testo",
@@ -13489,6 +13513,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Domain conflict detected": "Konstatēts domēna konflikts",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress ziņo par {reportedHost}; šis projekts izmanto {storedHost}. Projekta domēns palika nemainīgs. Izmantojiet atsevišķu projektu un API atslēgu.",
     "Google Gemini models for automatic translations.": "Google Gemini modeļi automātiskiem tulkojumiem.",
     "Reported content type": "Ziņotais satura tips",
     "Text": "Teksts",
@@ -14550,6 +14576,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Domain conflict detected": "Aptiktas domeno konfliktas",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress praneša apie {reportedHost}; šis projektas naudoja {storedHost}. Projekto domenas liko nepakitęs. Naudokite atskirą projektą ir API raktą.",
     "Google Gemini models for automatic translations.": "Google Gemini modeliai automatiniams vertimams.",
     "Reported content type": "Praneštas turinio tipas",
     "Text": "Tekstas",
@@ -15611,6 +15639,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Domain conflict detected": "Instab kunflitt tad-dominju",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress jirrapporta {reportedHost}; dan il-proġett juża {storedHost}. Id-dominju tal-proġett baqa' l-istess. Uża proġett separat u ċavetta API.",
     "Google Gemini models for automatic translations.": "Mudelli Google Gemini għal traduzzjonijiet awtomatiċi.",
     "Reported content type": "Tip ta’ kontenut irrappurtat",
     "Text": "Test",
@@ -16672,6 +16702,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Domain conflict detected": "Wykryto konflikt domen",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress raportuje {reportedHost}; ten projekt korzysta z {storedHost}. Domena projektu pozostała bez zmian. Użyj oddzielnego projektu i klucza API.",
     "Google Gemini models for automatic translations.": "Modele Google Gemini do tłumaczeń automatycznych.",
     "Reported content type": "Zgłoszony typ treści",
     "Text": "Tekst",
@@ -17733,6 +17765,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Domain conflict detected": "Conflito de domínio detetado",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "O WordPress informa {reportedHost}; este projeto usa {storedHost}. O domínio do projeto permaneceu inalterado. Use um projeto e uma chave de API separados.",
     "Google Gemini models for automatic translations.": "Modelos Google Gemini para traduções automáticas.",
     "Reported content type": "Tipo de conteúdo comunicado",
     "Text": "Texto",
@@ -18794,6 +18828,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Domain conflict detected": "A fost detectat un conflict de domeniu",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress raportează {reportedHost}; acest proiect utilizează {storedHost}. Domeniul proiectului a rămas neschimbat. Utilizați un proiect separat și o cheie API.",
     "Google Gemini models for automatic translations.": "Modele Google Gemini pentru traduceri automate.",
     "Reported content type": "Tip de conținut raportat",
     "Text": "Text",
@@ -19855,6 +19891,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Domain conflict detected": "Zistený konflikt domény",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress hlási {reportedHost}; tento projekt používa {storedHost}. Doména projektu zostala nezmenená. Použite samostatný projekt a kľúč API.",
     "Google Gemini models for automatic translations.": "Modely Google Gemini na automatické preklady.",
     "Reported content type": "Nahlásený typ obsahu",
     "Text": "Text",
@@ -20916,6 +20954,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Domain conflict detected": "Zaznan je bil konflikt domene",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress poroča {reportedHost}; ta projekt uporablja {storedHost}. Domena projekta je ostala nespremenjena. Uporabite ločen projekt in ključ API.",
     "Google Gemini models for automatic translations.": "Modeli Google Gemini za samodejne prevode.",
     "Reported content type": "Sporočena vrsta vsebine",
     "Text": "Besedilo",
@@ -21977,6 +22017,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Domain conflict detected": "Conflicto de dominio detectado",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress informa de {reportedHost}; este proyecto utiliza {storedHost}. El dominio del proyecto se mantuvo sin cambios. Utilice un proyecto y una clave API separados.",
     "Google Gemini models for automatic translations.": "Modelos Google Gemini para traducciones automáticas.",
     "Reported content type": "Tipo de contenido comunicado",
     "Text": "Texto",
@@ -23038,6 +23080,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Domain conflict detected": "Domänkonflikt upptäckt",
+    "WordPress reports {reportedHost}; this project uses {storedHost}. The project domain stayed unchanged. Use a separate project and API key.": "WordPress rapporterar {reportedHost}; det här projektet använder {storedHost}. Projektdomänen förblev oförändrad. Använd ett separat projekt och en separat API-nyckel.",
     "Google Gemini models for automatic translations.": "Google Gemini-modeller för automatiska översättningar.",
     "Reported content type": "Rapporterad innehållstyp",
     "Text": "Text",

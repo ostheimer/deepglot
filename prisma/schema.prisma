@@ -364,6 +364,9 @@ model ProjectSettings {
   translationApiKeyUpdatedAt DateTime?
   routingMode             RoutingMode @default(PATH_PREFIX)
   runtimeSyncedAt         DateTime?
+  // Last WordPress host that conflicted with the SaaS-owned project domain.
+  runtimeDomainConflictHost String?
+  runtimeDomainConflictAt DateTime?
 
   // Language Switcher
   switcherDisplayName     Boolean  @default(true)
