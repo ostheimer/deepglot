@@ -1,26 +1,26 @@
 name: Schema push (production)
 
-# Applies a prisma/schema.prisma to the database configured in Vercel's
-# Production environment. Run it once with apply=false to see the SQL diff;
-# the plan prints the exact commit it used. Then run it again with
-# schema_ref=<that commit> and apply=true. Credentials are pulled from Vercel
-# inside the runner and masked; only the database hostname is printed.
+# Applies main's prisma/schema.prisma to the database configured in Vercel's
+# Production environment. Only merged, reviewed schema is ever applied.
 #
-# Always dispatch from main. The toolchain (package-lock, Prisma CLI,
-# prisma.config.ts) is checked out from main; only the schema file is taken
-# from schema_ref, so a branch cannot run code with the production credential.
+#   1. Dispatch with apply=false: prints the SQL diff and the main commit used.
+#   2. Dispatch with apply=true and schema_sha=<that commit>: applies it.
+#
+# The production URL is read through the Vercel REST API with Node's built-in
+# fetch (no third-party CLI sees the token), masked, and only its hostname is
+# printed. Prisma runs from the locked toolchain in package-lock.json.
 
 on:
   workflow_dispatch:
     inputs:
-      schema_ref:
-        description: "Branch, tag or commit whose prisma/schema.prisma is used. apply=true requires a full 40-character commit SHA reported by a plan run."
-        type: string
-        default: main
       apply:
         description: "Apply the schema (false = only print the SQL diff)"
         type: boolean
         default: false
+      schema_sha:
+        description: "For apply=true: the 40-character main commit printed by the plan run. The run fails if main has moved since."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -39,30 +39,23 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
-      SCHEMA_REF: ${{ inputs.schema_ref }}
       APPLY: ${{ inputs.apply }}
+      SCHEMA_SHA: ${{ inputs.schema_sha }}
     steps:
-      - name: Require an immutable commit for apply
-        if: ${{ inputs.apply }}
-        run: |
-          if ! printf '%s' "$SCHEMA_REF" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::apply=true needs schema_ref to be the 40-character commit SHA printed by a plan run, got '$SCHEMA_REF'."
-            exit 1
-          fi
-
-      - name: Check out trusted toolchain (main)
+      - name: Check out main
         uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Take prisma/schema.prisma from schema_ref
+      - name: Resolve schema commit
         run: |
-          git fetch --no-tags --depth=1 origin "$SCHEMA_REF"
-          resolved="$(git rev-parse FETCH_HEAD)"
-          git show "FETCH_HEAD:prisma/schema.prisma" > prisma/schema.prisma
-          echo "Schema taken from commit $resolved (schema_ref=$SCHEMA_REF)"
-          echo "::notice title=Schema commit::$resolved"
-          git --no-pager diff --stat -- prisma/schema.prisma
+          head="$(git rev-parse HEAD)"
+          echo "Schema: prisma/schema.prisma at main commit $head"
+          echo "::notice title=Schema commit::$head"
+          if [ "$APPLY" = "true" ] && [ "$SCHEMA_SHA" != "$head" ]; then
+            echo "::error::apply=true needs schema_sha=$head (the commit printed by the plan run); got '$SCHEMA_SHA'. Re-run the plan if main has moved."
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -73,28 +66,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Pull production environment from Vercel
-        run: npx vercel@latest env pull .env.production.local --environment=production --yes --token="$VERCEL_TOKEN"
+      - name: Read production database URL from Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
-      - name: Export masked database URL
         run: |
           node -e '
-            const { parse } = require("dotenv");
             const fs = require("node:fs");
-            const env = parse(fs.readFileSync(".env.production.local"));
-            // Same precedence as prisma.config.ts and src/lib/database-url.ts.
-            const url = (env.DEEPGLOT_DATABASE_URL || "").trim() || env.DATABASE_URL;
-            if (!url) { console.error("Neither DEEPGLOT_DATABASE_URL nor DATABASE_URL is set in the Vercel Production scope"); process.exit(1); }
-            console.log(`::add-mask::${url}`);
-            fs.appendFileSync(process.env.GITHUB_ENV, `DEEPGLOT_DATABASE_URL=${url}\n`);
-            console.log(`Database host: ${new URL(url).hostname}`);
+            const { VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID } = process.env;
+            const url = `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}&decrypt=true`;
+            fetch(url, { headers: { Authorization: `Bearer ${VERCEL_TOKEN}` } })
+              .then(async (res) => {
+                if (!res.ok) throw new Error(`Vercel API ${res.status}`);
+                const { envs } = await res.json();
+                const pick = (key) => envs.find((e) => e.key === key && e.target.includes("production") && typeof e.value === "string" && e.value.trim());
+                // Same precedence as prisma.config.ts and src/lib/database-url.ts.
+                const entry = pick("DEEPGLOT_DATABASE_URL") || pick("DATABASE_URL");
+                if (!entry) throw new Error("Neither DEEPGLOT_DATABASE_URL nor DATABASE_URL is readable in the Vercel Production scope");
+                const value = entry.value.trim();
+                console.log(`::add-mask::${value}`);
+                fs.appendFileSync(process.env.GITHUB_ENV, `DEEPGLOT_DATABASE_URL=${value}\n`);
+                console.log(`Using ${entry.key}; database host: ${new URL(value).hostname}`);
+              })
+              .catch((error) => { console.error(error.message); process.exit(1); });
           '
-          rm -f .env.production.local
 
       - name: Plan (SQL diff, live database → schema.prisma)
-        run: npx prisma migrate diff --from-url "$DEEPGLOT_DATABASE_URL" --to-schema prisma/schema.prisma --script
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
 
       - name: Apply schema
         if: ${{ inputs.apply }}
