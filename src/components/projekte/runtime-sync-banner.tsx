@@ -77,7 +77,9 @@ export function RuntimeSyncBanner({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {projectId ? <DismissSyncOriginButton projectId={projectId} /> : null}
+          {projectId ? (
+            <DismissSyncOriginButton projectId={projectId} siteHost={syncSiteHost} />
+          ) : null}
           <Button asChild variant="outline">
             <Link href={withLocalePrefix("/projekte/neu", locale)}>
               {uiText(locale, "Create project", "Projekt erstellen")}

@@ -10,10 +10,12 @@ import { uiText } from "@/lib/static-copy";
 
 type DismissSyncOriginButtonProps = {
   projectId: string;
+  siteHost: string;
 };
 
 export function DismissSyncOriginButton({
   projectId,
+  siteHost,
 }: DismissSyncOriginButtonProps) {
   const locale = useLocale();
   const router = useRouter();
@@ -25,11 +27,18 @@ export function DismissSyncOriginButton({
     try {
       const response = await fetch(
         `/api/projects/${projectId}/runtime-sync-origin`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ siteHost }),
+        }
       );
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 409) {
+          router.refresh();
+        }
         toast.error(
           data.error ??
             uiText(locale, "Could not dismiss the warning", "Warnung konnte nicht verworfen werden")

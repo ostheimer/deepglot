@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CLEARED_RUNTIME_SYNC_ORIGIN } from "@/lib/plugin-settings-sync";
 import { userCanManageProject } from "@/lib/project-access";
+import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -13,12 +14,13 @@ function t(locale: SiteLocale, deText: string, enText: string) {
 }
 
 /**
- * Forget the host recorded by the last plugin sync. Managers use this after
- * moving a foreign installation to its own project; the next sync from any
- * installation records a fresh origin.
+ * Forget the site recorded by the last plugin sync. The caller names the
+ * site it saw; if a newer sync recorded another site in the meantime the
+ * request is refused so a fresh reuse event is never wiped by a stale click.
+ * Managers use this after moving a foreign installation to its own project.
  */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ projektId: string }> }
 ) {
   const locale = await getCookieLocale();
@@ -38,10 +40,43 @@ export async function DELETE(
     );
   }
 
-  await db.projectSettings.updateMany({
-    where: { projectId: projektId },
-    data: CLEARED_RUNTIME_SYNC_ORIGIN,
+  const body = (await request.json().catch(() => null)) as
+    | { siteHost?: unknown }
+    | null;
+  const expectedSiteHost =
+    typeof body?.siteHost === "string" && body.siteHost.trim()
+      ? body.siteHost.trim()
+      : null;
+  if (!expectedSiteHost) {
+    return NextResponse.json(
+      { error: t(locale, "Ungültige Anfrage", "Invalid request") },
+      { status: 400 }
+    );
+  }
+
+  const cleared = await db.$transaction(async (tx) => {
+    if (!(await lockProjectRuntimeConfiguration(tx, projektId))) {
+      return false;
+    }
+    const result = await tx.projectSettings.updateMany({
+      where: { projectId: projektId, runtimeSyncSiteHost: expectedSiteHost },
+      data: CLEARED_RUNTIME_SYNC_ORIGIN,
+    });
+    return result.count === 1;
   });
+
+  if (!cleared) {
+    return NextResponse.json(
+      {
+        error: t(
+          locale,
+          "Die Warnung hat sich inzwischen geändert. Lade die Seite neu.",
+          "The warning changed in the meantime. Reload the page."
+        ),
+      },
+      { status: 409 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

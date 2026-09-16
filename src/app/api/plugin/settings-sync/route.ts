@@ -7,9 +7,8 @@ import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   buildPluginOwnedSettingsUpdate,
   buildRuntimeSyncMirrorRecord,
-  buildRuntimeSyncOrigin,
   findPluginMirrorConflicts,
-  isSiteIdentityChange,
+  resolveRuntimeSyncOrigin,
   pluginSettingsSyncSchema,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
@@ -135,7 +134,11 @@ async function syncPluginSettings(request: NextRequest) {
             domain: true,
             originalLang: true,
             settings: {
-              select: { autoSwitch: true, runtimeSyncSiteHost: true },
+              select: {
+                autoSwitch: true,
+                runtimeSyncSiteHost: true,
+                runtimeSyncConflicts: true,
+              },
             },
             languages: {
               select: { langCode: true, isActive: true },
@@ -149,15 +152,14 @@ async function syncPluginSettings(request: NextRequest) {
         // Record who is talking to this project before any validation can
         // reject the payload: a foreign installation reusing the key must
         // become visible even when its mirrored settings are refused.
-        const origin = buildRuntimeSyncOrigin(body.siteUrl);
-        const siteIdentityChanged = isSiteIdentityChange(
-          authoritativeProject.settings?.runtimeSyncSiteHost,
-          origin.runtimeSyncSiteHost,
+        const { origin, siteIdentityConflict } = resolveRuntimeSyncOrigin(
+          authoritativeProject.settings,
+          body.siteUrl,
+          apiKey.id,
         );
         const syncOrigin = {
           ...origin,
-          runtimeSyncApiKeyId: apiKey.id,
-          ...(siteIdentityChanged
+          ...(siteIdentityConflict
             ? { runtimeSyncConflicts: ["siteIdentity"] }
             : {}),
         };
@@ -187,7 +189,7 @@ async function syncPluginSettings(request: NextRequest) {
           targetLanguages: activeTargetLanguages,
           autoRedirect: authoritativeProject.settings?.autoSwitch ?? false,
         });
-        if (siteIdentityChanged) {
+        if (siteIdentityConflict) {
           mirrorConflicts.push("siteIdentity");
         }
         const settingsUpdate = {
@@ -297,10 +299,6 @@ async function syncPluginSettings(request: NextRequest) {
       // Same discipline as the main path: under the project lock, only while
       // the key still exists, and as an upsert because a first sync has no
       // settings row yet.
-      const rolledBackOrigin = {
-        ...buildRuntimeSyncOrigin(body.siteUrl),
-        runtimeSyncApiKeyId: apiKey.id,
-      };
       await db
         .$transaction(async (tx) => {
           if (!(await lockProjectRuntimeConfiguration(tx, apiKey.project.id))) {
@@ -313,6 +311,23 @@ async function syncPluginSettings(request: NextRequest) {
           if (!liveKey) {
             return;
           }
+          // The main transaction's identity decision rolled back too; redo it
+          // against what is actually stored.
+          const stored = await tx.projectSettings.findUnique({
+            where: { projectId: apiKey.project.id },
+            select: { runtimeSyncSiteHost: true, runtimeSyncConflicts: true },
+          });
+          const { origin, siteIdentityConflict } = resolveRuntimeSyncOrigin(
+            stored,
+            body.siteUrl,
+            apiKey.id,
+          );
+          const rolledBackOrigin = {
+            ...origin,
+            ...(siteIdentityConflict
+              ? { runtimeSyncConflicts: ["siteIdentity"] }
+              : {}),
+          };
           await tx.projectSettings.upsert({
             where: { projectId: apiKey.project.id },
             create: { projectId: apiKey.project.id, ...rolledBackOrigin },

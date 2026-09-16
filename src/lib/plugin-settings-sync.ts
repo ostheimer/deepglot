@@ -152,7 +152,8 @@ export function canonicalSiteIdentity(
     const hostname = url.hostname.toLowerCase().replace(/\.+$/, "");
     if (!hostname) return null;
     const host = url.port ? `${hostname}:${url.port}` : hostname;
-    const path = url.pathname.toLowerCase().replace(/\/+$/, "");
+    // URL paths are case-sensitive and the plugin routes them that way.
+    const path = url.pathname.replace(/\/+$/, "");
     return path && path !== "/" ? `${host}${path}` : host;
   } catch {
     return null;
@@ -315,3 +316,32 @@ export const CLEARED_RUNTIME_SYNC_ORIGIN = {
   runtimeSyncApiKeyId: null,
   runtimeSyncConflicts: [] as PluginMirrorConflict[],
 } as const;
+
+export type StoredRuntimeSyncOrigin = {
+  runtimeSyncSiteHost: string | null;
+  runtimeSyncConflicts: readonly string[];
+};
+
+/**
+ * Fields to write for an incoming sync given what is currently stored.
+ * A same-host path change raises the "siteIdentity" marker; an existing
+ * marker is preserved until a manager dismisses it or the key is revoked.
+ * Without a reported siteUrl the stored site stays as it is.
+ */
+export function resolveRuntimeSyncOrigin(
+  stored: StoredRuntimeSyncOrigin | null | undefined,
+  siteUrl: string | null | undefined,
+  apiKeyId: string,
+): {
+  origin: { runtimeSyncSiteHost?: string; runtimeSyncApiKeyId: string };
+  siteIdentityConflict: boolean;
+} {
+  const origin = buildRuntimeSyncOrigin(siteUrl);
+  const siteIdentityConflict =
+    isSiteIdentityChange(stored?.runtimeSyncSiteHost, origin.runtimeSyncSiteHost) ||
+    (stored?.runtimeSyncConflicts ?? []).includes("siteIdentity");
+  return {
+    origin: { ...origin, runtimeSyncApiKeyId: apiKeyId },
+    siteIdentityConflict,
+  };
+}

@@ -9,6 +9,7 @@ import {
   canonicalHost,
   canonicalSiteIdentity,
   isSiteIdentityChange,
+  resolveRuntimeSyncOrigin,
   findPluginMirrorConflicts,
   hasRuntimeSyncDomainConflict,
   type PluginSettingsSyncPayload,
@@ -128,12 +129,14 @@ test("records the reporting site identity and conflicts of the last plugin sync"
   );
   assert.deepEqual(buildRuntimeSyncOrigin(undefined), {});
   assert.deepEqual(buildRuntimeSyncOrigin("https://Example.com/Blog/"), {
-    runtimeSyncSiteHost: "example.com/blog",
+    runtimeSyncSiteHost: "example.com/Blog",
   });
 });
 
 test("canonicalSiteIdentity keeps subdirectory installations apart", () => {
   assert.equal(canonicalSiteIdentity("https://example.com/blog/"), "example.com/blog");
+  assert.equal(canonicalSiteIdentity("https://EXAMPLE.com/Blog"), "example.com/Blog");
+  assert.equal(isSiteIdentityChange("example.com/Blog", "example.com/blog"), true);
   assert.equal(canonicalSiteIdentity("https://example.com/shop"), "example.com/shop");
   assert.equal(canonicalSiteIdentity("https://example.com./"), "example.com");
   assert.equal(canonicalSiteIdentity("https://www.example.com:8443/wp/"), "www.example.com:8443/wp");
@@ -197,20 +200,21 @@ test("the plugin sync route persists the mirror record and every settings page s
   assert.match(route, /buildRuntimeSyncMirrorRecord\(body, mirrorConflicts\)/);
   // The reporting host is stored before domain-mapping validation can reject
   // the payload, and again best-effort when the transaction rolls back.
+  const originWrite = route.indexOf("resolveRuntimeSyncOrigin(");
   assert.ok(
-    route.indexOf("runtimeSyncApiKeyId: apiKey.id") <
-      route.indexOf("validatePluginDomainMappings("),
+    originWrite < route.indexOf("validatePluginDomainMappings("),
     "sync origin must be recorded before validation",
   );
   assert.ok(
     route.indexOf("lockProjectRuntimeConfiguration(tx, projectId)") <
       route.indexOf("tx.apiKey.findFirst(") &&
-      route.indexOf("tx.apiKey.findFirst(") <
-        route.indexOf("runtimeSyncApiKeyId: apiKey.id"),
+      route.indexOf("tx.apiKey.findFirst(") < originWrite,
     "the key must be re-validated under the lock before the origin is written",
   );
   assert.match(route, /error\.code === "P2002"[\s\S]*buildRuntimeSyncOrigin\(body\.siteUrl\)/);
-  assert.match(route, /isSiteIdentityChange\(/);
+  assert.match(route, /resolveRuntimeSyncOrigin\(\s*authoritativeProject\.settings/);
+  const recoveryBlock = route.slice(route.indexOf('error.code === "P2002"'));
+  assert.match(recoveryBlock, /resolveRuntimeSyncOrigin\(\s*stored/);
   assert.match(route, /error\.code === "P2002"[\s\S]*projectSettings\s*\.upsert\(/);
   const recovery = route.slice(route.indexOf('error.code === "P2002"'));
   assert.ok(
@@ -237,6 +241,10 @@ test("the plugin sync route persists the mirror record and every settings page s
   );
   assert.match(dismiss, /userCanManageProject\(/);
   assert.match(dismiss, /CLEARED_RUNTIME_SYNC_ORIGIN/);
+  assert.match(dismiss, /lockProjectRuntimeConfiguration\(tx, projektId\)/);
+  assert.match(dismiss, /runtimeSyncSiteHost: expectedSiteHost/);
+  const button = readFileSync("src/components/projekte/dismiss-sync-origin-button.tsx", "utf8");
+  assert.match(button, /JSON\.stringify\(\{ siteHost \}\)/);
 
   const banner = readFileSync(
     "src/components/projekte/runtime-sync-banner.tsx",
@@ -255,4 +263,23 @@ test("the plugin sync route persists the mirror record and every settings page s
     assert.match(source, /syncConflicts=\{/, page);
     assert.match(source, /projectId=\{projektId\}/, page);
   }
+});
+
+test("resolveRuntimeSyncOrigin raises and preserves the site identity marker", () => {
+  const key = "key_1";
+  const stored = { runtimeSyncSiteHost: "example.com/blog", runtimeSyncConflicts: [] };
+
+  const changed = resolveRuntimeSyncOrigin(stored, "https://example.com/shop", key);
+  assert.deepEqual(changed.origin, { runtimeSyncSiteHost: "example.com/shop", runtimeSyncApiKeyId: key });
+  assert.equal(changed.siteIdentityConflict, true);
+
+  // The next sync from /shop matches the stored site, the marker stays.
+  const flagged = { runtimeSyncSiteHost: "example.com/shop", runtimeSyncConflicts: ["siteIdentity"] };
+  assert.equal(resolveRuntimeSyncOrigin(flagged, "https://example.com/shop", key).siteIdentityConflict, true);
+  // ...also when the client sends no siteUrl, which leaves the site untouched.
+  const omitted = resolveRuntimeSyncOrigin(flagged, undefined, key);
+  assert.deepEqual(omitted.origin, { runtimeSyncApiKeyId: key });
+  assert.equal(omitted.siteIdentityConflict, true);
+
+  assert.equal(resolveRuntimeSyncOrigin(null, "https://example.com/", key).siteIdentityConflict, false);
 });

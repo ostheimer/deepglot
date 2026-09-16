@@ -757,6 +757,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "The warning changed in the meantime. Reload the page.": "Предупреждението междувременно се промени. Презаредете страницата.",
+    "Invalid request": "Невалидна заявка",
     "Could not dismiss the warning": "Предупреждението не можа да бъде отхвърлено",
     "Warning dismissed. The next plugin sync records the site again.": "Предупреждението е отхвърлено. Следващата синхронизация на плъгина ще запише сайта отново.",
     "Dismiss": "Отхвърляне",
@@ -1823,6 +1825,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "The warning changed in the meantime. Reload the page.": "Upozorenje se u međuvremenu promijenilo. Ponovno učitajte stranicu.",
+    "Invalid request": "Nevažeći zahtjev",
     "Could not dismiss the warning": "Upozorenje nije moguće odbaciti",
     "Warning dismissed. The next plugin sync records the site again.": "Upozorenje odbačeno. Sljedeća sinkronizacija dodatka ponovno će zabilježiti web stranicu.",
     "Dismiss": "Odbaci",
@@ -2889,6 +2893,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "The warning changed in the meantime. Reload the page.": "Upozornění se mezitím změnilo. Načtěte stránku znovu.",
+    "Invalid request": "Neplatný požadavek",
     "Could not dismiss the warning": "Upozornění se nepodařilo zavřít",
     "Warning dismissed. The next plugin sync records the site again.": "Upozornění zavřeno. Příští synchronizace pluginu web znovu zaznamená.",
     "Dismiss": "Zavřít",
@@ -3955,6 +3961,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "The warning changed in the meantime. Reload the page.": "Advarslen er ændret i mellemtiden. Genindlæs siden.",
+    "Invalid request": "Ugyldig anmodning",
     "Could not dismiss the warning": "Advarslen kunne ikke afvises",
     "Warning dismissed. The next plugin sync records the site again.": "Advarsel afvist. Næste plugin-synkronisering registrerer webstedet igen.",
     "Dismiss": "Afvis",
@@ -5021,6 +5029,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "The warning changed in the meantime. Reload the page.": "De waarschuwing is intussen gewijzigd. Laad de pagina opnieuw.",
+    "Invalid request": "Ongeldig verzoek",
     "Could not dismiss the warning": "Waarschuwing kon niet worden gesloten",
     "Warning dismissed. The next plugin sync records the site again.": "Waarschuwing gesloten. De volgende pluginsynchronisatie registreert de website opnieuw.",
     "Dismiss": "Sluiten",
@@ -6087,6 +6097,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "The warning changed in the meantime. Reload the page.": "Hoiatus on vahepeal muutunud. Laadi leht uuesti.",
+    "Invalid request": "Vigane päring",
     "Could not dismiss the warning": "Hoiatust ei õnnestunud sulgeda",
     "Warning dismissed. The next plugin sync records the site again.": "Hoiatus suletud. Järgmine plugina sünkroonimine salvestab veebisaidi uuesti.",
     "Dismiss": "Sulge",
@@ -7153,6 +7165,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "The warning changed in the meantime. Reload the page.": "Varoitus on muuttunut sillä välin. Lataa sivu uudelleen.",
+    "Invalid request": "Virheellinen pyyntö",
     "Could not dismiss the warning": "Varoitusta ei voitu ohittaa",
     "Warning dismissed. The next plugin sync records the site again.": "Varoitus ohitettu. Seuraava lisäosan synkronointi kirjaa sivuston uudelleen.",
     "Dismiss": "Ohita",
@@ -8219,6 +8233,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "The warning changed in the meantime. Reload the page.": "L'avertissement a changé entre-temps. Rechargez la page.",
+    "Invalid request": "Requête invalide",
     "Could not dismiss the warning": "Impossible d'ignorer l'avertissement",
     "Warning dismissed. The next plugin sync records the site again.": "Avertissement ignoré. La prochaine synchronisation du plugin enregistrera à nouveau le site.",
     "Dismiss": "Ignorer",
@@ -9285,6 +9301,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "The warning changed in the meantime. Reload the page.": "Η προειδοποίηση άλλαξε στο μεταξύ. Φορτώστε ξανά τη σελίδα.",
+    "Invalid request": "Μη έγκυρο αίτημα",
     "Could not dismiss the warning": "Δεν ήταν δυνατή η απόρριψη της προειδοποίησης",
     "Warning dismissed. The next plugin sync records the site again.": "Η προειδοποίηση απορρίφθηκε. Ο επόμενος συγχρονισμός του πρόσθετου θα καταγράψει ξανά τον ιστότοπο.",
     "Dismiss": "Απόρριψη",
@@ -10351,6 +10369,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "The warning changed in the meantime. Reload the page.": "A figyelmeztetés időközben megváltozott. Töltse be újra az oldalt.",
+    "Invalid request": "Érvénytelen kérés",
     "Could not dismiss the warning": "A figyelmeztetést nem sikerült elvetni",
     "Warning dismissed. The next plugin sync records the site again.": "Figyelmeztetés elvetve. A következő bővítmény-szinkronizálás újra rögzíti a webhelyet.",
     "Dismiss": "Elvetés",
@@ -11417,6 +11437,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "The warning changed in the meantime. Reload the page.": "D'athraigh an rabhadh idir an dá linn. Athlódáil an leathanach.",
+    "Invalid request": "Iarratas neamhbhailí",
     "Could not dismiss the warning": "Níorbh fhéidir an rabhadh a dhíbhe",
     "Warning dismissed. The next plugin sync records the site again.": "Rabhadh díbeartha. Taifeadfaidh an chéad sioncrónú breiseáin eile an suíomh arís.",
     "Dismiss": "Díbh",
@@ -12483,6 +12505,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "The warning changed in the meantime. Reload the page.": "L'avviso è cambiato nel frattempo. Ricarica la pagina.",
+    "Invalid request": "Richiesta non valida",
     "Could not dismiss the warning": "Impossibile ignorare l'avviso",
     "Warning dismissed. The next plugin sync records the site again.": "Avviso ignorato. La prossima sincronizzazione del plugin registrerà di nuovo il sito.",
     "Dismiss": "Ignora",
@@ -13549,6 +13573,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "The warning changed in the meantime. Reload the page.": "Brīdinājums pa to laiku ir mainījies. Pārlādējiet lapu.",
+    "Invalid request": "Nederīgs pieprasījums",
     "Could not dismiss the warning": "Brīdinājumu neizdevās noraidīt",
     "Warning dismissed. The next plugin sync records the site again.": "Brīdinājums noraidīts. Nākamā spraudņa sinhronizācija vietni reģistrēs no jauna.",
     "Dismiss": "Noraidīt",
@@ -14615,6 +14641,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "The warning changed in the meantime. Reload the page.": "Įspėjimas per tą laiką pasikeitė. Įkelkite puslapį iš naujo.",
+    "Invalid request": "Neteisinga užklausa",
     "Could not dismiss the warning": "Nepavyko atmesti įspėjimo",
     "Warning dismissed. The next plugin sync records the site again.": "Įspėjimas atmestas. Kitas papildinio sinchronizavimas svetainę užfiksuos iš naujo.",
     "Dismiss": "Atmesti",
@@ -15681,6 +15709,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "The warning changed in the meantime. Reload the page.": "It-twissija nbidlet sadanittant. Erġa' tella' l-paġna.",
+    "Invalid request": "Talba invalida",
     "Could not dismiss the warning": "It-twissija ma setgħetx tiġi miċħuda",
     "Warning dismissed. The next plugin sync records the site again.": "Twissija miċħuda. Is-sinkronizzazzjoni li jmiss tal-plugin terġa' tirreġistra l-websajt.",
     "Dismiss": "Iċħad",
@@ -16747,6 +16777,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "The warning changed in the meantime. Reload the page.": "Ostrzeżenie w międzyczasie się zmieniło. Odśwież stronę.",
+    "Invalid request": "Nieprawidłowe żądanie",
     "Could not dismiss the warning": "Nie udało się odrzucić ostrzeżenia",
     "Warning dismissed. The next plugin sync records the site again.": "Ostrzeżenie odrzucone. Następna synchronizacja wtyczki ponownie zarejestruje witrynę.",
     "Dismiss": "Odrzuć",
@@ -17813,6 +17845,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "The warning changed in the meantime. Reload the page.": "O aviso mudou entretanto. Recarregue a página.",
+    "Invalid request": "Pedido inválido",
     "Could not dismiss the warning": "Não foi possível dispensar o aviso",
     "Warning dismissed. The next plugin sync records the site again.": "Aviso dispensado. A próxima sincronização do plugin volta a registar o site.",
     "Dismiss": "Dispensar",
@@ -18879,6 +18913,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "The warning changed in the meantime. Reload the page.": "Avertismentul s-a schimbat între timp. Reîncărcați pagina.",
+    "Invalid request": "Cerere invalidă",
     "Could not dismiss the warning": "Avertismentul nu a putut fi respins",
     "Warning dismissed. The next plugin sync records the site again.": "Avertisment respins. Următoarea sincronizare a pluginului va înregistra din nou site-ul.",
     "Dismiss": "Respinge",
@@ -19945,6 +19981,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "The warning changed in the meantime. Reload the page.": "Upozornenie sa medzitým zmenilo. Načítajte stránku znova.",
+    "Invalid request": "Neplatná požiadavka",
     "Could not dismiss the warning": "Upozornenie sa nepodarilo zavrieť",
     "Warning dismissed. The next plugin sync records the site again.": "Upozornenie zavreté. Ďalšia synchronizácia pluginu web znova zaznamená.",
     "Dismiss": "Zavrieť",
@@ -21011,6 +21049,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "The warning changed in the meantime. Reload the page.": "Opozorilo se je medtem spremenilo. Znova naložite stran.",
+    "Invalid request": "Neveljavna zahteva",
     "Could not dismiss the warning": "Opozorila ni bilo mogoče zavrniti",
     "Warning dismissed. The next plugin sync records the site again.": "Opozorilo zavrnjeno. Naslednja sinhronizacija vtičnika bo spletno mesto znova zabeležila.",
     "Dismiss": "Zavrni",
@@ -22077,6 +22117,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "The warning changed in the meantime. Reload the page.": "La advertencia ha cambiado mientras tanto. Recarga la página.",
+    "Invalid request": "Solicitud no válida",
     "Could not dismiss the warning": "No se pudo descartar la advertencia",
     "Warning dismissed. The next plugin sync records the site again.": "Advertencia descartada. La próxima sincronización del plugin volverá a registrar el sitio.",
     "Dismiss": "Descartar",
@@ -23143,6 +23185,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "The warning changed in the meantime. Reload the page.": "Varningen har ändrats under tiden. Ladda om sidan.",
+    "Invalid request": "Ogiltig begäran",
     "Could not dismiss the warning": "Varningen kunde inte avfärdas",
     "Warning dismissed. The next plugin sync records the site again.": "Varning avfärdad. Nästa tilläggssynkronisering registrerar webbplatsen igen.",
     "Dismiss": "Avfärda",
