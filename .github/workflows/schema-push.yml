@@ -76,7 +76,11 @@ jobs:
             const url = `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}&decrypt=true`;
             fetch(url, { headers: { Authorization: `Bearer ${VERCEL_TOKEN}` } })
               .then(async (res) => {
-                if (!res.ok) throw new Error(`Vercel API ${res.status}`);
+                if (!res.ok) {
+                  // Vercel error bodies carry only a code and message, never values.
+                  const body = await res.text().catch(() => "");
+                  throw new Error(`Vercel API ${res.status} for project env read (team ${VERCEL_ORG_ID}): ${body.slice(0, 500)}`);
+                }
                 const { envs } = await res.json();
                 const pick = (key) => envs.find((e) => e.key === key && e.target.includes("production") && typeof e.value === "string" && e.value.trim());
                 // Same precedence as prisma.config.ts and src/lib/database-url.ts.
