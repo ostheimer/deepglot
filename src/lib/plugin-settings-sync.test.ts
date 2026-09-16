@@ -5,7 +5,10 @@ import test from "node:test";
 import {
   buildPluginOwnedSettingsUpdate,
   buildRuntimeSyncMirrorRecord,
+  buildRuntimeSyncOrigin,
   canonicalHost,
+  canonicalSiteIdentity,
+  isSiteIdentityChange,
   findPluginMirrorConflicts,
   hasRuntimeSyncDomainConflict,
   type PluginSettingsSyncPayload,
@@ -110,7 +113,7 @@ test("the plugin sync response selects only safe settings and never provider cip
   assert.match(source, /runtimeSyncedAt:\s*true/);
 });
 
-test("records the reporting host and conflicts of the last plugin sync", () => {
+test("records the reporting site identity and conflicts of the last plugin sync", () => {
   assert.deepEqual(
     buildRuntimeSyncMirrorRecord(
       { ...basePayload, siteUrl: "https://www.jobspot.at/" },
@@ -118,10 +121,32 @@ test("records the reporting host and conflicts of the last plugin sync", () => {
     ),
     { runtimeSyncSiteHost: "www.jobspot.at", runtimeSyncConflicts: ["domain"] },
   );
+  // An omitted siteUrl leaves the recorded site untouched instead of clearing it.
   assert.deepEqual(
     buildRuntimeSyncMirrorRecord({ ...basePayload, siteUrl: undefined }, []),
-    { runtimeSyncSiteHost: null, runtimeSyncConflicts: [] },
+    { runtimeSyncConflicts: [] },
   );
+  assert.deepEqual(buildRuntimeSyncOrigin(undefined), {});
+  assert.deepEqual(buildRuntimeSyncOrigin("https://Example.com/Blog/"), {
+    runtimeSyncSiteHost: "example.com/blog",
+  });
+});
+
+test("canonicalSiteIdentity keeps subdirectory installations apart", () => {
+  assert.equal(canonicalSiteIdentity("https://example.com/blog/"), "example.com/blog");
+  assert.equal(canonicalSiteIdentity("https://example.com/shop"), "example.com/shop");
+  assert.equal(canonicalSiteIdentity("https://example.com./"), "example.com");
+  assert.equal(canonicalSiteIdentity("https://www.example.com:8443/wp/"), "www.example.com:8443/wp");
+  assert.equal(canonicalSiteIdentity(""), null);
+});
+
+test("a sync from another install path on the same host is a site identity change", () => {
+  assert.equal(isSiteIdentityChange("example.com/blog", "example.com/shop"), true);
+  assert.equal(isSiteIdentityChange("example.com", "www.example.com"), false);
+  assert.equal(isSiteIdentityChange("example.com/blog", "example.com/blog"), false);
+  assert.equal(isSiteIdentityChange(null, "example.com/shop"), false);
+  // A different host is a domain conflict, not an identity change.
+  assert.equal(isSiteIdentityChange("example.com/blog", "other.example/blog"), false);
 });
 
 test("canonicalHost reduces stored domains and site URLs to a comparable hostname", () => {
@@ -142,6 +167,9 @@ test("the domain warning compares the reported host with the current domain", ()
   assert.equal(hasRuntimeSyncDomainConflict("https://example.com", "example.com"), false);
   assert.equal(hasRuntimeSyncDomainConflict("www.jobspot.at", "www.jobspot.at"), false);
   assert.equal(hasRuntimeSyncDomainConflict("example.com:8443", "example.com:9443"), true);
+  assert.equal(hasRuntimeSyncDomainConflict("example.com", "www.example.com/blog"), false);
+  assert.equal(hasRuntimeSyncDomainConflict("example.com", "example.com/shop", ["siteIdentity"]), true);
+  assert.equal(hasRuntimeSyncDomainConflict("example.com", null, ["siteIdentity"]), false);
   assert.equal(hasRuntimeSyncDomainConflict("www.meinhaushalt.at", null), false);
   assert.equal(hasRuntimeSyncDomainConflict(undefined, undefined), false);
 });
@@ -181,7 +209,8 @@ test("the plugin sync route persists the mirror record and every settings page s
         route.indexOf("runtimeSyncApiKeyId: apiKey.id"),
     "the key must be re-validated under the lock before the origin is written",
   );
-  assert.match(route, /error\.code === "P2002"[\s\S]*runtimeSyncSiteHost: getSourceHost\(body\)/);
+  assert.match(route, /error\.code === "P2002"[\s\S]*buildRuntimeSyncOrigin\(body\.siteUrl\)/);
+  assert.match(route, /isSiteIdentityChange\(/);
   assert.match(route, /error\.code === "P2002"[\s\S]*projectSettings\s*\.upsert\(/);
   const recovery = route.slice(route.indexOf('error.code === "P2002"'));
   assert.ok(
@@ -223,6 +252,7 @@ test("the plugin sync route persists the mirror record and every settings page s
   ]) {
     const source = readFileSync(page, "utf8");
     assert.match(source, /syncSiteHost=\{/, page);
+    assert.match(source, /syncConflicts=\{/, page);
     assert.match(source, /projectId=\{projektId\}/, page);
   }
 });

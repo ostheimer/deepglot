@@ -65,6 +65,7 @@ export default async function SwitcherPage({ params }: PageProps) {
         domain={project.domain}
         runtimeSyncedAt={s?.runtimeSyncedAt}
         syncSiteHost={s?.runtimeSyncSiteHost}
+        syncConflicts={s?.runtimeSyncConflicts}
         projectId={projektId}
       />
 

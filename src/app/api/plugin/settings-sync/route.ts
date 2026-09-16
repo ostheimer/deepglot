@@ -7,9 +7,10 @@ import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   buildPluginOwnedSettingsUpdate,
   buildRuntimeSyncMirrorRecord,
+  buildRuntimeSyncOrigin,
   findPluginMirrorConflicts,
+  isSiteIdentityChange,
   pluginSettingsSyncSchema,
-  type PluginSettingsSyncPayload,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
@@ -31,18 +32,6 @@ function getRawApiKey(request: NextRequest) {
     : null;
 
   return queryApiKey ?? bearerKey;
-}
-
-function getSourceHost(payload: PluginSettingsSyncPayload) {
-  if (!payload.siteUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(payload.siteUrl).host.toLowerCase();
-  } catch {
-    return null;
-  }
 }
 
 async function syncPluginSettings(request: NextRequest) {
@@ -146,7 +135,7 @@ async function syncPluginSettings(request: NextRequest) {
             domain: true,
             originalLang: true,
             settings: {
-              select: { autoSwitch: true },
+              select: { autoSwitch: true, runtimeSyncSiteHost: true },
             },
             languages: {
               select: { langCode: true, isActive: true },
@@ -160,9 +149,17 @@ async function syncPluginSettings(request: NextRequest) {
         // Record who is talking to this project before any validation can
         // reject the payload: a foreign installation reusing the key must
         // become visible even when its mirrored settings are refused.
+        const origin = buildRuntimeSyncOrigin(body.siteUrl);
+        const siteIdentityChanged = isSiteIdentityChange(
+          authoritativeProject.settings?.runtimeSyncSiteHost,
+          origin.runtimeSyncSiteHost,
+        );
         const syncOrigin = {
-          runtimeSyncSiteHost: getSourceHost(body),
+          ...origin,
           runtimeSyncApiKeyId: apiKey.id,
+          ...(siteIdentityChanged
+            ? { runtimeSyncConflicts: ["siteIdentity"] }
+            : {}),
         };
         await tx.projectSettings.upsert({
           where: { projectId },
@@ -190,6 +187,9 @@ async function syncPluginSettings(request: NextRequest) {
           targetLanguages: activeTargetLanguages,
           autoRedirect: authoritativeProject.settings?.autoSwitch ?? false,
         });
+        if (siteIdentityChanged) {
+          mirrorConflicts.push("siteIdentity");
+        }
         const settingsUpdate = {
           ...buildPluginOwnedSettingsUpdate(body),
           ...buildRuntimeSyncMirrorRecord(body, mirrorConflicts),
@@ -298,7 +298,7 @@ async function syncPluginSettings(request: NextRequest) {
       // the key still exists, and as an upsert because a first sync has no
       // settings row yet.
       const rolledBackOrigin = {
-        runtimeSyncSiteHost: getSourceHost(body),
+        ...buildRuntimeSyncOrigin(body.siteUrl),
         runtimeSyncApiKeyId: apiKey.id,
       };
       await db

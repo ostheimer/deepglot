@@ -17,6 +17,7 @@ type RuntimeSyncBannerProps = {
   runtimeSyncedAt?: Date | null;
   source?: "wordpress-runtime" | "saas-general";
   syncSiteHost?: string | null;
+  syncConflicts?: readonly string[] | null;
   projectId?: string;
 };
 
@@ -26,9 +27,14 @@ export function RuntimeSyncBanner({
   runtimeSyncedAt,
   source = "wordpress-runtime",
   syncSiteHost,
+  syncConflicts,
   projectId,
 }: RuntimeSyncBannerProps) {
-  const domainConflict = hasRuntimeSyncDomainConflict(domain, syncSiteHost);
+  const domainConflict = hasRuntimeSyncDomainConflict(
+    domain,
+    syncSiteHost,
+    syncConflicts,
+  );
   const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
 
   const syncedLabel = runtimeSyncedAt
