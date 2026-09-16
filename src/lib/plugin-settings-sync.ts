@@ -117,8 +117,14 @@ export function canonicalHost(value: string | null | undefined): string | null {
     : `https://${trimmed}`;
 
   try {
-    const host = new URL(withScheme).host.toLowerCase().replace(/^www\./, "");
-    return host || null;
+    const url = new URL(withScheme);
+    // Absolute DNS names ("example.com.") are the same host without the dot.
+    const hostname = url.hostname
+      .toLowerCase()
+      .replace(/\.+$/, "")
+      .replace(/^www\./, "");
+    if (!hostname) return null;
+    return url.port ? `${hostname}:${url.port}` : hostname;
   } catch {
     return null;
   }

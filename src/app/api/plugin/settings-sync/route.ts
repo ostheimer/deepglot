@@ -129,6 +129,17 @@ async function syncPluginSettings(request: NextRequest) {
           return { kind: "not_found" } as const;
         }
 
+        // The key was validated before the transaction; a manager may have
+        // revoked it since. Re-check under the lock so a revoked key can
+        // neither sync nor re-create the sync origin it just cleared.
+        const liveKey = await tx.apiKey.findFirst({
+          where: { id: apiKey.id, projectId, isActive: true },
+          select: { id: true },
+        });
+        if (!liveKey) {
+          return { kind: "key_revoked" } as const;
+        }
+
         const authoritativeProject = await tx.project.findUnique({
           where: { id: projectId },
           select: {
@@ -251,6 +262,16 @@ async function syncPluginSettings(request: NextRequest) {
         title: "Project not found",
         detail: "The API key's project no longer exists.",
         code: "project_not_found",
+        instance: "/api/plugin/settings-sync",
+      });
+    }
+
+    if (result.kind === "key_revoked") {
+      return apiProblem({
+        status: 401,
+        title: "Authentication required",
+        detail: "The API key was revoked.",
+        code: "invalid_api_key",
         instance: "/api/plugin/settings-sync",
       });
     }

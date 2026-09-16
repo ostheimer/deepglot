@@ -130,6 +130,8 @@ test("canonicalHost reduces stored domains and site URLs to a comparable hostnam
   assert.equal(canonicalHost("www.example.com"), "example.com");
   assert.equal(canonicalHost("example.com:8443"), "example.com:8443");
   assert.equal(canonicalHost("https://example.com:443/"), "example.com");
+  assert.equal(canonicalHost("https://example.com./"), "example.com");
+  assert.equal(canonicalHost("www.example.com.:8443"), "example.com:8443");
   assert.equal(canonicalHost("  "), null);
   assert.equal(canonicalHost(null), null);
 });
@@ -171,6 +173,13 @@ test("the plugin sync route persists the mirror record and every settings page s
     route.indexOf("runtimeSyncApiKeyId: apiKey.id") <
       route.indexOf("validatePluginDomainMappings("),
     "sync origin must be recorded before validation",
+  );
+  assert.ok(
+    route.indexOf("lockProjectRuntimeConfiguration(tx, projectId)") <
+      route.indexOf("tx.apiKey.findFirst(") &&
+      route.indexOf("tx.apiKey.findFirst(") <
+        route.indexOf("runtimeSyncApiKeyId: apiKey.id"),
+    "the key must be re-validated under the lock before the origin is written",
   );
   assert.match(route, /error\.code === "P2002"[\s\S]*runtimeSyncSiteHost: getSourceHost\(body\)/);
   assert.match(route, /error\.code === "P2002"[\s\S]*projectSettings\s*\.upsert\(/);
