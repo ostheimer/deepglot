@@ -9,6 +9,7 @@ import {
   buildRuntimeSyncMirrorRecord,
   findPluginMirrorConflicts,
   pluginSettingsSyncSchema,
+  type PluginSettingsSyncPayload,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
@@ -30,6 +31,18 @@ function getRawApiKey(request: NextRequest) {
     : null;
 
   return queryApiKey ?? bearerKey;
+}
+
+function getSourceHost(payload: PluginSettingsSyncPayload) {
+  if (!payload.siteUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(payload.siteUrl).host.toLowerCase();
+  } catch {
+    return null;
+  }
 }
 
 async function syncPluginSettings(request: NextRequest) {
@@ -133,6 +146,19 @@ async function syncPluginSettings(request: NextRequest) {
           return { kind: "not_found" } as const;
         }
 
+        // Record who is talking to this project before any validation can
+        // reject the payload: a foreign installation reusing the key must
+        // become visible even when its mirrored settings are refused.
+        const syncOrigin = {
+          runtimeSyncSiteHost: getSourceHost(body),
+          runtimeSyncApiKeyId: apiKey.id,
+        };
+        await tx.projectSettings.upsert({
+          where: { projectId },
+          create: { projectId, ...syncOrigin },
+          update: syncOrigin,
+        });
+
         const activeTargetLanguages = authoritativeProject.languages
           .filter((language) => language.isActive)
           .map((language) => language.langCode.toLowerCase());
@@ -156,6 +182,7 @@ async function syncPluginSettings(request: NextRequest) {
         const settingsUpdate = {
           ...buildPluginOwnedSettingsUpdate(body),
           ...buildRuntimeSyncMirrorRecord(body, mirrorConflicts),
+          ...syncOrigin,
         };
 
         await tx.projectSettings.upsert({
@@ -245,6 +272,17 @@ async function syncPluginSettings(request: NextRequest) {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
+      // The transaction rolled back; keep the reporting host visible anyway.
+      await db.projectSettings
+        .updateMany({
+          where: { projectId: apiKey.project.id },
+          data: {
+            runtimeSyncSiteHost: getSourceHost(body),
+            runtimeSyncApiKeyId: apiKey.id,
+          },
+        })
+        .catch(() => undefined);
+
       return apiProblem({
         status: 409,
         title: "Conflict",

@@ -2,6 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
+import { DismissSyncOriginButton } from "@/components/projekte/dismiss-sync-origin-button";
 import { Button } from "@/components/ui/button";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
 import { getProjectUrl } from "@/lib/project-url";
@@ -16,6 +17,7 @@ type RuntimeSyncBannerProps = {
   runtimeSyncedAt?: Date | null;
   source?: "wordpress-runtime" | "saas-general";
   syncSiteHost?: string | null;
+  projectId?: string;
 };
 
 export function RuntimeSyncBanner({
@@ -24,6 +26,7 @@ export function RuntimeSyncBanner({
   runtimeSyncedAt,
   source = "wordpress-runtime",
   syncSiteHost,
+  projectId,
 }: RuntimeSyncBannerProps) {
   const domainConflict = hasRuntimeSyncDomainConflict(domain, syncSiteHost);
   const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
@@ -67,11 +70,14 @@ export function RuntimeSyncBanner({
             </p>
           </div>
         </div>
-        <Button asChild variant="outline" className="shrink-0">
-          <Link href={withLocalePrefix("/projekte/neu", locale)}>
-            {uiText(locale, "Create project", "Projekt erstellen")}
-          </Link>
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {projectId ? <DismissSyncOriginButton projectId={projectId} /> : null}
+          <Button asChild variant="outline">
+            <Link href={withLocalePrefix("/projekte/neu", locale)}>
+              {uiText(locale, "Create project", "Projekt erstellen")}
+            </Link>
+          </Button>
+        </div>
       </div>
     ) : null}
     <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">

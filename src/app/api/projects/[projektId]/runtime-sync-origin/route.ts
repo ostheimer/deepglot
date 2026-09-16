@@ -12,11 +12,14 @@ function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
 }
 
+/**
+ * Forget the host recorded by the last plugin sync. Managers use this after
+ * moving a foreign installation to its own project; the next sync from any
+ * installation records a fresh origin.
+ */
 export async function DELETE(
   _request: Request,
-  {
-    params,
-  }: { params: Promise<{ projektId: string; apiKeyId: string }> }
+  { params }: { params: Promise<{ projektId: string }> }
 ) {
   const locale = await getCookieLocale();
   const session = await auth();
@@ -27,9 +30,7 @@ export async function DELETE(
     );
   }
 
-  const { projektId, apiKeyId } = await params;
-
-  // Revoking an API key is a management action; gate on management rights.
+  const { projektId } = await params;
   if (!(await userCanManageProject(session.user.id, projektId))) {
     return NextResponse.json(
       { error: t(locale, "Projekt nicht gefunden", "Project not found") },
@@ -37,27 +38,8 @@ export async function DELETE(
     );
   }
 
-  const apiKey = await db.apiKey.findFirst({
-    where: {
-      id: apiKeyId,
-      projectId: projektId,
-    },
-  });
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: t(locale, "API-Key nicht gefunden", "API key not found") },
-      { status: 404 }
-    );
-  }
-
-  await db.apiKey.delete({
-    where: { id: apiKey.id },
-  });
-
-  // A sync-origin warning that this key produced is resolved by revoking it.
   await db.projectSettings.updateMany({
-    where: { projectId: projektId, runtimeSyncApiKeyId: apiKey.id },
+    where: { projectId: projektId },
     data: CLEARED_RUNTIME_SYNC_ORIGIN,
   });
 

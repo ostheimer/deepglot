@@ -104,7 +104,9 @@ function pluginSiteHost(siteUrl: string | undefined): string | null {
  * Reduce a stored domain or reported site URL to a comparable hostname.
  * Accepts bare hosts as well as scheme-bearing values (`https://Example.com/`)
  * that older project-creation paths stored unchanged, and treats the `www.`
- * prefix as the same site. Returns null when nothing host-like remains.
+ * prefix as the same site. Non-default ports are kept because projects may
+ * legitimately live on `example.com:8443`. Returns null when nothing
+ * host-like remains.
  */
 export function canonicalHost(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -115,7 +117,7 @@ export function canonicalHost(value: string | null | undefined): string | null {
     : `https://${trimmed}`;
 
   try {
-    const host = new URL(withScheme).hostname.toLowerCase().replace(/^www\./, "");
+    const host = new URL(withScheme).host.toLowerCase().replace(/^www\./, "");
     return host || null;
   } catch {
     return null;
@@ -234,3 +236,10 @@ export function hasRuntimeSyncDomainConflict(
   if (!reported) return false;
   return reported !== canonicalHost(domain);
 }
+
+/** Field values that remove a recorded plugin sync origin from a project. */
+export const CLEARED_RUNTIME_SYNC_ORIGIN = {
+  runtimeSyncSiteHost: null,
+  runtimeSyncApiKeyId: null,
+  runtimeSyncConflicts: [] as PluginMirrorConflict[],
+} as const;

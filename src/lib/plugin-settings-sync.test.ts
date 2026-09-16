@@ -128,7 +128,8 @@ test("canonicalHost reduces stored domains and site URLs to a comparable hostnam
   assert.equal(canonicalHost("https://Example.com/"), "example.com");
   assert.equal(canonicalHost("HTTP://www.example.com/path?x=1"), "example.com");
   assert.equal(canonicalHost("www.example.com"), "example.com");
-  assert.equal(canonicalHost("example.com:8443"), "example.com");
+  assert.equal(canonicalHost("example.com:8443"), "example.com:8443");
+  assert.equal(canonicalHost("https://example.com:443/"), "example.com");
   assert.equal(canonicalHost("  "), null);
   assert.equal(canonicalHost(null), null);
 });
@@ -138,6 +139,7 @@ test("the domain warning compares the reported host with the current domain", ()
   assert.equal(hasRuntimeSyncDomainConflict("www.meinhaushalt.at", "meinhaushalt.at"), false);
   assert.equal(hasRuntimeSyncDomainConflict("https://example.com", "example.com"), false);
   assert.equal(hasRuntimeSyncDomainConflict("www.jobspot.at", "www.jobspot.at"), false);
+  assert.equal(hasRuntimeSyncDomainConflict("example.com:8443", "example.com:9443"), true);
   assert.equal(hasRuntimeSyncDomainConflict("www.meinhaushalt.at", null), false);
   assert.equal(hasRuntimeSyncDomainConflict(undefined, undefined), false);
 });
@@ -163,6 +165,28 @@ test("the plugin sync route persists the mirror record and every settings page s
     "utf8",
   );
   assert.match(route, /buildRuntimeSyncMirrorRecord\(body, mirrorConflicts\)/);
+  // The reporting host is stored before domain-mapping validation can reject
+  // the payload, and again best-effort when the transaction rolls back.
+  assert.ok(
+    route.indexOf("runtimeSyncApiKeyId: apiKey.id") <
+      route.indexOf("validatePluginDomainMappings("),
+    "sync origin must be recorded before validation",
+  );
+  assert.match(route, /error\.code === "P2002"[\s\S]*runtimeSyncSiteHost: getSourceHost\(body\)/);
+
+  const revoke = readFileSync(
+    "src/app/api/projects/[projektId]/api-keys/[apiKeyId]/route.ts",
+    "utf8",
+  );
+  assert.match(revoke, /runtimeSyncApiKeyId: apiKey\.id/);
+  assert.match(revoke, /CLEARED_RUNTIME_SYNC_ORIGIN/);
+
+  const dismiss = readFileSync(
+    "src/app/api/projects/[projektId]/runtime-sync-origin/route.ts",
+    "utf8",
+  );
+  assert.match(dismiss, /userCanManageProject\(/);
+  assert.match(dismiss, /CLEARED_RUNTIME_SYNC_ORIGIN/);
 
   const banner = readFileSync(
     "src/components/projekte/runtime-sync-banner.tsx",
@@ -178,5 +202,6 @@ test("the plugin sync route persists the mirror record and every settings page s
   ]) {
     const source = readFileSync(page, "utf8");
     assert.match(source, /syncSiteHost=\{/, page);
+    assert.match(source, /projectId=\{projektId\}/, page);
   }
 });

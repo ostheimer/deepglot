@@ -66,6 +66,7 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
         domain={generalSettings.domain}
         runtimeSyncedAt={project.settings?.runtimeSyncedAt}
         syncSiteHost={project.settings?.runtimeSyncSiteHost}
+        projectId={projektId}
         source="saas-general"
       />
 
