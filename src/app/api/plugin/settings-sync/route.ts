@@ -273,13 +273,17 @@ async function syncPluginSettings(request: NextRequest) {
       error.code === "P2002"
     ) {
       // The transaction rolled back; keep the reporting host visible anyway.
+      // Upsert, because a project synced for the first time has no settings
+      // row yet and the rolled-back upsert above never committed one.
+      const rolledBackOrigin = {
+        runtimeSyncSiteHost: getSourceHost(body),
+        runtimeSyncApiKeyId: apiKey.id,
+      };
       await db.projectSettings
-        .updateMany({
+        .upsert({
           where: { projectId: apiKey.project.id },
-          data: {
-            runtimeSyncSiteHost: getSourceHost(body),
-            runtimeSyncApiKeyId: apiKey.id,
-          },
+          create: { projectId: apiKey.project.id, ...rolledBackOrigin },
+          update: rolledBackOrigin,
         })
         .catch(() => undefined);
 

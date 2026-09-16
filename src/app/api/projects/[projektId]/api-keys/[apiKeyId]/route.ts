@@ -51,15 +51,18 @@ export async function DELETE(
     );
   }
 
-  await db.apiKey.delete({
-    where: { id: apiKey.id },
-  });
-
-  // A sync-origin warning that this key produced is resolved by revoking it.
-  await db.projectSettings.updateMany({
-    where: { projectId: projektId, runtimeSyncApiKeyId: apiKey.id },
-    data: CLEARED_RUNTIME_SYNC_ORIGIN,
-  });
+  // Revoking the key also resolves the sync-origin warning it produced;
+  // both happen in one transaction so a partial failure cannot leave a
+  // revoked key with a stale alert.
+  await db.$transaction([
+    db.apiKey.delete({
+      where: { id: apiKey.id },
+    }),
+    db.projectSettings.updateMany({
+      where: { projectId: projektId, runtimeSyncApiKeyId: apiKey.id },
+      data: CLEARED_RUNTIME_SYNC_ORIGIN,
+    }),
+  ]);
 
   return NextResponse.json({ success: true });
 }

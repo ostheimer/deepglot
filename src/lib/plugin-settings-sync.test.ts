@@ -173,6 +173,7 @@ test("the plugin sync route persists the mirror record and every settings page s
     "sync origin must be recorded before validation",
   );
   assert.match(route, /error\.code === "P2002"[\s\S]*runtimeSyncSiteHost: getSourceHost\(body\)/);
+  assert.match(route, /error\.code === "P2002"[\s\S]*projectSettings\s*\.upsert\(/);
 
   const revoke = readFileSync(
     "src/app/api/projects/[projektId]/api-keys/[apiKeyId]/route.ts",
@@ -180,6 +181,7 @@ test("the plugin sync route persists the mirror record and every settings page s
   );
   assert.match(revoke, /runtimeSyncApiKeyId: apiKey\.id/);
   assert.match(revoke, /CLEARED_RUNTIME_SYNC_ORIGIN/);
+  assert.match(revoke, /\$transaction\(\[[\s\S]*apiKey\.delete\([\s\S]*projectSettings\.updateMany\(/);
 
   const dismiss = readFileSync(
     "src/app/api/projects/[projektId]/runtime-sync-origin/route.ts",
