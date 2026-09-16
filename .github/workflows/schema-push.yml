@@ -4,10 +4,18 @@ name: Schema push (production)
 # Production environment. Run it once with apply=false to see the SQL diff,
 # then again with apply=true. Credentials are pulled from Vercel inside the
 # runner and masked; nothing is printed.
+#
+# Always dispatch from main (the GitHub "Production" environment is restricted
+# to main, so the workflow code cannot be swapped on a branch); the schema to
+# apply comes from the `schema_ref` input instead.
 
 on:
   workflow_dispatch:
     inputs:
+      schema_ref:
+        description: "Branch, tag or SHA whose prisma/schema.prisma is applied"
+        type: string
+        default: main
       apply:
         description: "Apply the schema (false = only print the SQL diff)"
         type: boolean
@@ -25,13 +33,16 @@ jobs:
     name: ${{ inputs.apply && 'Apply' || 'Plan' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: Production
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
-      - name: Check out repository
+      - name: Check out schema source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.schema_ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -53,16 +64,17 @@ jobs:
             const { parse } = require("dotenv");
             const fs = require("node:fs");
             const env = parse(fs.readFileSync(".env.production.local"));
-            const url = env.DATABASE_URL_UNPOOLED || env.DATABASE_URL;
-            if (!url) { console.error("No DATABASE_URL in Vercel production env"); process.exit(1); }
+            // Same precedence as prisma.config.ts and src/lib/database-url.ts.
+            const url = (env.DEEPGLOT_DATABASE_URL || "").trim() || env.DATABASE_URL;
+            if (!url) { console.error("Neither DEEPGLOT_DATABASE_URL nor DATABASE_URL is set in the Vercel Production scope"); process.exit(1); }
             console.log(`::add-mask::${url}`);
-            fs.appendFileSync(process.env.GITHUB_ENV, `DATABASE_URL=${url}\n`);
+            fs.appendFileSync(process.env.GITHUB_ENV, `DEEPGLOT_DATABASE_URL=${url}\n`);
             console.log(`Database host: ${new URL(url).hostname}`);
           '
           rm -f .env.production.local
 
       - name: Plan (SQL diff, live database → schema.prisma)
-        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema prisma/schema.prisma --script
+        run: npx prisma migrate diff --from-url "$DEEPGLOT_DATABASE_URL" --to-schema prisma/schema.prisma --script
 
       - name: Apply schema
         if: ${{ inputs.apply }}
