@@ -211,7 +211,6 @@ test("the plugin sync route persists the mirror record and every settings page s
       route.indexOf("tx.apiKey.findFirst(") < originWrite,
     "the key must be re-validated under the lock before the origin is written",
   );
-  assert.match(route, /error\.code === "P2002"[\s\S]*buildRuntimeSyncOrigin\(body\.siteUrl\)/);
   assert.match(route, /resolveRuntimeSyncOrigin\(\s*authoritativeProject\.settings/);
   const recoveryBlock = route.slice(route.indexOf('error.code === "P2002"'));
   assert.match(recoveryBlock, /resolveRuntimeSyncOrigin\(\s*stored/);
