@@ -294,17 +294,30 @@ async function syncPluginSettings(request: NextRequest) {
       error.code === "P2002"
     ) {
       // The transaction rolled back; keep the reporting host visible anyway.
-      // Upsert, because a project synced for the first time has no settings
-      // row yet and the rolled-back upsert above never committed one.
+      // Same discipline as the main path: under the project lock, only while
+      // the key still exists, and as an upsert because a first sync has no
+      // settings row yet.
       const rolledBackOrigin = {
         runtimeSyncSiteHost: getSourceHost(body),
         runtimeSyncApiKeyId: apiKey.id,
       };
-      await db.projectSettings
-        .upsert({
-          where: { projectId: apiKey.project.id },
-          create: { projectId: apiKey.project.id, ...rolledBackOrigin },
-          update: rolledBackOrigin,
+      await db
+        .$transaction(async (tx) => {
+          if (!(await lockProjectRuntimeConfiguration(tx, apiKey.project.id))) {
+            return;
+          }
+          const liveKey = await tx.apiKey.findFirst({
+            where: { id: apiKey.id, projectId: apiKey.project.id, isActive: true },
+            select: { id: true },
+          });
+          if (!liveKey) {
+            return;
+          }
+          await tx.projectSettings.upsert({
+            where: { projectId: apiKey.project.id },
+            create: { projectId: apiKey.project.id, ...rolledBackOrigin },
+            update: rolledBackOrigin,
+          });
         })
         .catch(() => undefined);
 

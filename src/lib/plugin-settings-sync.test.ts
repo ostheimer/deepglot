@@ -183,6 +183,13 @@ test("the plugin sync route persists the mirror record and every settings page s
   );
   assert.match(route, /error\.code === "P2002"[\s\S]*runtimeSyncSiteHost: getSourceHost\(body\)/);
   assert.match(route, /error\.code === "P2002"[\s\S]*projectSettings\s*\.upsert\(/);
+  const recovery = route.slice(route.indexOf('error.code === "P2002"'));
+  assert.ok(
+    recovery.indexOf("lockProjectRuntimeConfiguration(tx, apiKey.project.id)") <
+      recovery.indexOf("tx.apiKey.findFirst(") &&
+      recovery.indexOf("tx.apiKey.findFirst(") < recovery.indexOf("tx.projectSettings.upsert("),
+    "the rollback recovery must lock, re-check the key, then upsert",
+  );
 
   const revoke = readFileSync(
     "src/app/api/projects/[projektId]/api-keys/[apiKeyId]/route.ts",
@@ -190,7 +197,10 @@ test("the plugin sync route persists the mirror record and every settings page s
   );
   assert.match(revoke, /runtimeSyncApiKeyId: apiKey\.id/);
   assert.match(revoke, /CLEARED_RUNTIME_SYNC_ORIGIN/);
-  assert.match(revoke, /\$transaction\(\[[\s\S]*apiKey\.delete\([\s\S]*projectSettings\.updateMany\(/);
+  assert.match(
+    revoke,
+    /\$transaction\(async \(tx\) => \{[\s\S]*lockProjectRuntimeConfiguration\(tx, projektId\)[\s\S]*tx\.apiKey\.delete\([\s\S]*tx\.projectSettings\.updateMany\(/,
+  );
 
   const dismiss = readFileSync(
     "src/app/api/projects/[projektId]/runtime-sync-origin/route.ts",
