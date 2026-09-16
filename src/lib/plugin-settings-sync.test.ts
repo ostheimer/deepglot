@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildPluginOwnedSettingsUpdate,
   buildRuntimeSyncMirrorRecord,
+  canonicalHost,
   findPluginMirrorConflicts,
   hasRuntimeSyncDomainConflict,
   type PluginSettingsSyncPayload,
@@ -123,11 +124,37 @@ test("records the reporting host and conflicts of the last plugin sync", () => {
   );
 });
 
-test("a domain conflict is only shown when the plugin reported a host", () => {
-  assert.equal(hasRuntimeSyncDomainConflict(["domain"], "www.jobspot.at"), true);
-  assert.equal(hasRuntimeSyncDomainConflict(["autoRedirect"], "www.jobspot.at"), false);
-  assert.equal(hasRuntimeSyncDomainConflict(["domain"], null), false);
+test("canonicalHost reduces stored domains and site URLs to a comparable hostname", () => {
+  assert.equal(canonicalHost("https://Example.com/"), "example.com");
+  assert.equal(canonicalHost("HTTP://www.example.com/path?x=1"), "example.com");
+  assert.equal(canonicalHost("www.example.com"), "example.com");
+  assert.equal(canonicalHost("example.com:8443"), "example.com");
+  assert.equal(canonicalHost("  "), null);
+  assert.equal(canonicalHost(null), null);
+});
+
+test("the domain warning compares the reported host with the current domain", () => {
+  assert.equal(hasRuntimeSyncDomainConflict("www.meinhaushalt.at", "www.jobspot.at"), true);
+  assert.equal(hasRuntimeSyncDomainConflict("www.meinhaushalt.at", "meinhaushalt.at"), false);
+  assert.equal(hasRuntimeSyncDomainConflict("https://example.com", "example.com"), false);
+  assert.equal(hasRuntimeSyncDomainConflict("www.jobspot.at", "www.jobspot.at"), false);
+  assert.equal(hasRuntimeSyncDomainConflict("www.meinhaushalt.at", null), false);
   assert.equal(hasRuntimeSyncDomainConflict(undefined, undefined), false);
+});
+
+test("mirror conflicts ignore scheme and www differences in the stored domain", () => {
+  assert.deepEqual(
+    findPluginMirrorConflicts(
+      { ...basePayload, siteUrl: "https://www.example.com" },
+      {
+        domain: "https://example.com",
+        sourceLanguage: "de",
+        targetLanguages: ["en", "fr"],
+        autoRedirect: false,
+      },
+    ),
+    [],
+  );
 });
 
 test("the plugin sync route persists the mirror record and every settings page surfaces it", () => {
@@ -151,6 +178,5 @@ test("the plugin sync route persists the mirror record and every settings page s
   ]) {
     const source = readFileSync(page, "utf8");
     assert.match(source, /syncSiteHost=\{/, page);
-    assert.match(source, /syncConflicts=\{/, page);
   }
 });

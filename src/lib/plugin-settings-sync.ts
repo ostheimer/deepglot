@@ -101,6 +101,28 @@ function pluginSiteHost(siteUrl: string | undefined): string | null {
 }
 
 /**
+ * Reduce a stored domain or reported site URL to a comparable hostname.
+ * Accepts bare hosts as well as scheme-bearing values (`https://Example.com/`)
+ * that older project-creation paths stored unchanged, and treats the `www.`
+ * prefix as the same site. Returns null when nothing host-like remains.
+ */
+export function canonicalHost(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const host = new URL(withScheme).hostname.toLowerCase().replace(/^www\./, "");
+    return host || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Report WordPress values that differ from the authoritative SaaS mirror. The
  * caller can surface this drift without accepting the stale values as writes.
  */
@@ -111,7 +133,10 @@ export function findPluginMirrorConflicts(
   const conflicts: PluginMirrorConflict[] = [];
   const siteHost = pluginSiteHost(payload.siteUrl);
 
-  if (siteHost !== null && siteHost !== authoritative.domain.toLowerCase()) {
+  if (
+    siteHost !== null &&
+    canonicalHost(siteHost) !== canonicalHost(authoritative.domain)
+  ) {
     conflicts.push("domain");
   }
   if (
@@ -195,9 +220,17 @@ export function buildRuntimeSyncMirrorRecord(
   };
 }
 
+/**
+ * Decide at render time whether the host reported by the last plugin sync
+ * belongs to a different site than the project's *current* domain. Comparing
+ * live (instead of trusting the persisted conflict list) keeps the warning
+ * correct after a manager edits the domain in the general settings.
+ */
 export function hasRuntimeSyncDomainConflict(
-  conflicts: readonly string[] | null | undefined,
+  domain: string | null | undefined,
   siteHost: string | null | undefined,
 ): siteHost is string {
-  return Boolean(siteHost) && (conflicts ?? []).includes("domain");
+  const reported = canonicalHost(siteHost);
+  if (!reported) return false;
+  return reported !== canonicalHost(domain);
 }
