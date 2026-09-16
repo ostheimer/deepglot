@@ -20,7 +20,7 @@ type SocialMetadataOptions = {
 };
 
 const SOCIAL_IMAGE = {
-  url: "/opengraph-image.png",
+  url: "/opengraph-image.png?v=2",
   width: 1200,
   height: 630,
   alt: "Deepglot — WordPress translation built in Austria",
