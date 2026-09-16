@@ -1,19 +1,20 @@
 name: Schema push (production)
 
-# Applies prisma/schema.prisma to the database configured in Vercel's
-# Production environment. Run it once with apply=false to see the SQL diff,
-# then again with apply=true. Credentials are pulled from Vercel inside the
-# runner and masked; nothing is printed.
+# Applies a prisma/schema.prisma to the database configured in Vercel's
+# Production environment. Run it once with apply=false to see the SQL diff;
+# the plan prints the exact commit it used. Then run it again with
+# schema_ref=<that commit> and apply=true. Credentials are pulled from Vercel
+# inside the runner and masked; only the database hostname is printed.
 #
-# Always dispatch from main (the GitHub "Production" environment is restricted
-# to main, so the workflow code cannot be swapped on a branch); the schema to
-# apply comes from the `schema_ref` input instead.
+# Always dispatch from main. The toolchain (package-lock, Prisma CLI,
+# prisma.config.ts) is checked out from main; only the schema file is taken
+# from schema_ref, so a branch cannot run code with the production credential.
 
 on:
   workflow_dispatch:
     inputs:
       schema_ref:
-        description: "Branch, tag or SHA whose prisma/schema.prisma is applied"
+        description: "Branch, tag or commit whose prisma/schema.prisma is used. apply=true requires a full 40-character commit SHA reported by a plan run."
         type: string
         default: main
       apply:
@@ -38,11 +39,30 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      SCHEMA_REF: ${{ inputs.schema_ref }}
+      APPLY: ${{ inputs.apply }}
     steps:
-      - name: Check out schema source
+      - name: Require an immutable commit for apply
+        if: ${{ inputs.apply }}
+        run: |
+          if ! printf '%s' "$SCHEMA_REF" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::apply=true needs schema_ref to be the 40-character commit SHA printed by a plan run, got '$SCHEMA_REF'."
+            exit 1
+          fi
+
+      - name: Check out trusted toolchain (main)
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.schema_ref }}
+          ref: main
+
+      - name: Take prisma/schema.prisma from schema_ref
+        run: |
+          git fetch --no-tags --depth=1 origin "$SCHEMA_REF"
+          resolved="$(git rev-parse FETCH_HEAD)"
+          git show "FETCH_HEAD:prisma/schema.prisma" > prisma/schema.prisma
+          echo "Schema taken from commit $resolved (schema_ref=$SCHEMA_REF)"
+          echo "::notice title=Schema commit::$resolved"
+          git --no-pager diff --stat -- prisma/schema.prisma
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -78,4 +98,4 @@ jobs:
 
       - name: Apply schema
         if: ${{ inputs.apply }}
-        run: npx prisma db push --skip-generate
+        run: npx prisma db push
