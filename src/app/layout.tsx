@@ -49,7 +49,7 @@ const baseMetadata: Metadata = {
       "Open-source WordPress translation, built in Austria and designed to keep your content under your control.",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: "/opengraph-image.png?v=2",
         width: 1200,
         height: 630,
         alt: "Deepglot — WordPress translation built in Austria",
@@ -61,7 +61,7 @@ const baseMetadata: Metadata = {
     title: "Deepglot — WordPress translation without lock-in",
     description:
       "Open-source WordPress translation, built in Austria and designed to keep your content under your control.",
-    images: ["/opengraph-image.png"],
+    images: ["/opengraph-image.png?v=2"],
   },
 };
 

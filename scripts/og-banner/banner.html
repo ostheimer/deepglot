@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{font-family:Manrope,system-ui,sans-serif;background:#fbfaf7;color:#071521;position:relative}
+  .glow{position:absolute;right:-180px;top:-220px;width:760px;height:760px;border-radius:50%;
+        background:radial-gradient(closest-side,#ffd9d0 0%,rgba(255,240,236,.55) 55%,rgba(251,250,247,0) 100%)}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(7,21,33,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(7,21,33,.045) 1px,transparent 1px);background-size:40px 40px;
+        -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.9),rgba(0,0,0,0) 85%)}
+  .left{position:absolute;left:64px;top:56px;width:620px;height:518px;display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand img{width:64px;height:64px}
+  .brand span{font-size:34px;font-weight:800;letter-spacing:-.04em}
+  h1{margin-top:44px;font-size:60px;line-height:1.06;white-space:nowrap;font-weight:800;letter-spacing:-.035em}
+  h1 .red{color:#d92f19}
+  .sub{margin-top:22px;font-size:22px;line-height:1.4;font-weight:500;color:#3b4a57;max-width:540px}
+  .tags{margin-top:auto;display:flex;gap:10px;white-space:nowrap}
+  .tag{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c62812;background:#fff0ec;border:1px solid #ffd2c8;border-radius:999px;padding:9px 16px}
+  /* right: browser mock */
+  .win{position:absolute;left:712px;top:108px;width:560px;height:470px;background:#fff;border-radius:22px;
+       box-shadow:0 30px 80px rgba(7,21,33,.18),0 2px 0 rgba(7,21,33,.04);border:1px solid rgba(7,21,33,.08);overflow:hidden}
+  .bar{height:52px;background:#f4f2ee;border-bottom:1px solid rgba(7,21,33,.07);display:flex;align-items:center;padding:0 18px;gap:8px}
+  .dot{width:12px;height:12px;border-radius:50%;background:#d9d5cd}
+  .url{margin-left:14px;flex:1;height:30px;border-radius:8px;background:#fff;border:1px solid rgba(7,21,33,.08);display:flex;align-items:center;padding:0 12px;font-size:15px;color:#6b7783;font-weight:600}
+  .url b{color:#071521;font-weight:700}
+  .page{padding:26px 30px}
+  .langs{display:flex;gap:8px;margin-bottom:22px}
+  .lang{font-size:14px;font-weight:700;padding:6px 12px;border-radius:8px;color:#6b7783;background:#f4f2ee}
+  .lang.on{background:#071521;color:#fff}
+  .ph{height:12px;border-radius:6px;background:#e9e6df;margin-bottom:10px}
+  .ph.title{height:22px;width:78%;background:#071521;margin-bottom:16px;border-radius:7px}
+  .row{display:flex;gap:14px;margin-top:20px}
+  .card{flex:1;height:96px;border-radius:12px;background:#f4f2ee}
+  .card.hl{background:#fff0ec;border:1px solid #ffd2c8}
+  /* floating translation bubbles */
+  .bub{position:absolute;background:#fff;border:1px solid rgba(7,21,33,.08);border-radius:14px;padding:12px 16px;
+       box-shadow:0 14px 34px rgba(7,21,33,.14);font-weight:800;font-size:22px;white-space:nowrap;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+  .bub small{font-size:12px;font-weight:700;letter-spacing:.1em;color:#c62812;background:#fff0ec;border-radius:6px;padding:3px 7px}
+  .b1{left:672px;top:60px}
+  .b2{left:920px;top:296px}
+  .b3{left:652px;top:440px}
+  .b4{left:950px;top:548px;background:#071521;color:#fff;border-color:#071521}
+  .b4 small{background:#d92f19;color:#fff}
+</style></head><body>
+<div class="glow"></div><div class="grid"></div>
+<div class="left">
+  <div class="brand"><img src="../../public/marketing/deepglot-mark-transparent.png" alt=""><span>Deepglot</span></div>
+  <h1>Your WordPress site<br>in every language.<br><span class="red">Without lock-in.</span></h1>
+  <p class="sub">AI translation for WordPress. Bring your own AI provider, keep your content, publish multilingual pages in minutes.</p>
+  <div class="tags"><span class="tag">Open source</span><span class="tag">Built in Austria</span><span class="tag">OpenAI · Gemini · DeepL</span></div>
+</div>
+<div class="win">
+  <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <div class="url"><b>yoursite.com</b>&nbsp;/fr/</div></div>
+  <div class="page">
+    <div class="langs"><span class="lang">EN</span><span class="lang">DE</span><span class="lang on">FR</span><span class="lang">ES</span><span class="lang">IT</span><span class="lang">PL</span></div>
+    <div class="ph title"></div>
+    <div class="ph" style="width:96%"></div><div class="ph" style="width:88%"></div><div class="ph" style="width:64%"></div>
+    <div class="row"><div class="card hl"></div><div class="card"></div><div class="card"></div></div>
+    <div class="ph" style="width:92%;margin-top:22px"></div><div class="ph" style="width:70%"></div>
+  </div>
+</div>
+<div class="bub b1"><small>DE</small>Hallo Welt</div>
+<div class="bub b2"><small>FR</small>Bonjour le monde</div>
+<div class="bub b3"><small>ES</small>Hola mundo</div>
+<div class="bub b4"><small>JA</small>こんにちは世界</div>
+</body></html>
