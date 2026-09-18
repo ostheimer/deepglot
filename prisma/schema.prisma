@@ -365,6 +365,11 @@ model ProjectSettings {
   translationApiKeyUpdatedAt DateTime?
   routingMode             RoutingMode @default(PATH_PREFIX)
   runtimeSyncedAt         DateTime?
+  // Host reported by the last plugin sync plus the mirrored fields that
+  // differed from the SaaS values. Surfaces API-key reuse by a foreign site.
+  runtimeSyncSiteHost     String?
+  runtimeSyncApiKeyId     String?  // ApiKey.id that sent the last sync; cleared with the key
+  runtimeSyncConflicts    String[] @default([])
 
   // Language Switcher
   switcherDisplayName     Boolean  @default(true)

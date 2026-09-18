@@ -30,6 +30,8 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
         settings: {
           select: {
             runtimeSyncedAt: true,
+            runtimeSyncSiteHost: true,
+            runtimeSyncConflicts: true,
             translationMemory: true,
           },
         },
@@ -64,6 +66,9 @@ export default async function EinstellungenGeneralPage({ params }: PageProps) {
         locale={locale}
         domain={generalSettings.domain}
         runtimeSyncedAt={project.settings?.runtimeSyncedAt}
+        syncSiteHost={project.settings?.runtimeSyncSiteHost}
+        syncConflicts={project.settings?.runtimeSyncConflicts}
+        projectId={projektId}
         source="saas-general"
       />
 
