@@ -326,14 +326,18 @@ export type StoredRuntimeSyncOrigin = {
  * Fields to write for an incoming sync given what is currently stored.
  * A same-host path change raises the "siteIdentity" marker; an existing
  * marker is preserved until a manager dismisses it or the key is revoked.
- * Without a reported siteUrl the stored site stays as it is.
+ * Without a reported siteUrl the stored site *and* its recorded key stay as
+ * they are: a compatible client that omits siteUrl reports no site identity
+ * at all, so attributing the untouched host to whichever key happened to
+ * send this request would let an unrelated key's revocation clear (or its
+ * continued presence hide) another key's conflict.
  */
 export function resolveRuntimeSyncOrigin(
   stored: StoredRuntimeSyncOrigin | null | undefined,
   siteUrl: string | null | undefined,
   apiKeyId: string,
 ): {
-  origin: { runtimeSyncSiteHost?: string; runtimeSyncApiKeyId: string };
+  origin: { runtimeSyncSiteHost?: string; runtimeSyncApiKeyId?: string };
   siteIdentityConflict: boolean;
 } {
   const origin = buildRuntimeSyncOrigin(siteUrl);
@@ -341,7 +345,10 @@ export function resolveRuntimeSyncOrigin(
     isSiteIdentityChange(stored?.runtimeSyncSiteHost, origin.runtimeSyncSiteHost) ||
     (stored?.runtimeSyncConflicts ?? []).includes("siteIdentity");
   return {
-    origin: { ...origin, runtimeSyncApiKeyId: apiKeyId },
+    origin:
+      origin.runtimeSyncSiteHost !== undefined
+        ? { ...origin, runtimeSyncApiKeyId: apiKeyId }
+        : origin,
     siteIdentityConflict,
   };
 }

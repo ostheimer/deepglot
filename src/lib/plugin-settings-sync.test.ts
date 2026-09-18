@@ -275,10 +275,30 @@ test("resolveRuntimeSyncOrigin raises and preserves the site identity marker", (
   // The next sync from /shop matches the stored site, the marker stays.
   const flagged = { runtimeSyncSiteHost: "example.com/shop", runtimeSyncConflicts: ["siteIdentity"] };
   assert.equal(resolveRuntimeSyncOrigin(flagged, "https://example.com/shop", key).siteIdentityConflict, true);
-  // ...also when the client sends no siteUrl, which leaves the site untouched.
+  // ...also when the client sends no siteUrl, which leaves the site *and*
+  // its recorded key association untouched — an omitted siteUrl reports no
+  // identity at all, so nothing here can be credited to this request's key.
   const omitted = resolveRuntimeSyncOrigin(flagged, undefined, key);
-  assert.deepEqual(omitted.origin, { runtimeSyncApiKeyId: key });
+  assert.deepEqual(omitted.origin, {});
   assert.equal(omitted.siteIdentityConflict, true);
 
   assert.equal(resolveRuntimeSyncOrigin(null, "https://example.com/", key).siteIdentityConflict, false);
+});
+
+test("resolveRuntimeSyncOrigin does not reassign the recorded key when a different key omits siteUrl", () => {
+  const keyA = "key_A";
+  const keyB = "key_B";
+
+  // Key A's sync recorded the site and claimed the association.
+  const fromKeyA = resolveRuntimeSyncOrigin(null, "https://example.com/blog", keyA);
+  assert.deepEqual(fromKeyA.origin, { runtimeSyncSiteHost: "example.com/blog", runtimeSyncApiKeyId: keyA });
+  const stored = { runtimeSyncSiteHost: fromKeyA.origin.runtimeSyncSiteHost, runtimeSyncConflicts: [] };
+
+  // A compatible client authenticated with key B then syncs without
+  // reporting siteUrl. It must not steal key A's recorded association:
+  // revoking A should still be able to clear this origin, and revoking the
+  // unrelated B must not clear A's.
+  const fromKeyB = resolveRuntimeSyncOrigin(stored, undefined, keyB);
+  assert.deepEqual(fromKeyB.origin, {});
+  assert.equal(fromKeyB.siteIdentityConflict, false);
 });
