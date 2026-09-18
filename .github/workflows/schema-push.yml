@@ -3,8 +3,17 @@ name: Schema push (production)
 # Applies main's prisma/schema.prisma to the database configured in Vercel's
 # Production environment. Only merged, reviewed schema is ever applied.
 #
-#   1. Dispatch with apply=false: prints the SQL diff and the main commit used.
-#   2. Dispatch with apply=true and schema_sha=<that commit>: applies it.
+#   1. Dispatch with apply=false: computes the SQL plan (schema-plan.sql) with
+#      `prisma migrate diff`, prints it, and warns if it contains destructive
+#      statements. Nothing is executed against the database.
+#   2. Dispatch with apply=true and schema_sha=<the commit the plan run used>:
+#      recomputes the same plan and, if it is not destructive, executes that
+#      exact schema-plan.sql with `prisma db execute`. A destructive plan
+#      (DROP/TRUNCATE/DELETE/ALTER COLUMN ... TYPE) fails the run instead of
+#      being applied — review it manually and run it by hand if intended.
+#
+# `prisma db push` is not used: it would infer and run its own diff against
+# the live database rather than the exact, reviewed schema-plan.sql.
 #
 # The production URL is read through the Vercel REST API with Node's built-in
 # fetch (no third-party CLI sees the token), masked, and only its hostname is
@@ -123,8 +132,85 @@ jobs:
           '
 
       - name: Plan (SQL diff, live database → schema.prisma)
-        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
+        id: plan
+        run: |
+          npx prisma migrate diff \
+            --from-config-datasource \
+            --to-schema prisma/schema.prisma \
+            --script \
+            -o schema-plan.sql
+
+          echo "----- schema-plan.sql -----"
+          cat schema-plan.sql
+          echo "----------------------------"
+
+          node -e '
+            const fs = require("node:fs");
+            const sql = fs.readFileSync("schema-plan.sql", "utf8");
+
+            // A real diff always has at least one non-comment, non-blank
+            // line; an empty diff is rendered as a single comment line.
+            const meaningful = sql
+              .split("\n")
+              .filter((line) => !/^\s*--/.test(line) && line.trim() !== "");
+            const empty = meaningful.length === 0;
+
+            console.log(empty
+              ? "schema-plan.sql is EMPTY: no schema changes to apply."
+              : "schema-plan.sql is NOT empty: schema changes are pending.");
+
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_empty=${empty}\n`);
+          '
+
+      - name: Guard against destructive SQL
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const planFile = "schema-plan.sql";
+            const apply = process.env.APPLY === "true";
+            const raw = fs.readFileSync(planFile, "utf8");
+
+            // Drop full-line SQL comments before splitting into statements so
+            // a comment that merely mentions DROP/TRUNCATE/etc never trips
+            // the guard (e.g. "-- replaces the dropped legacy column").
+            const withoutComments = raw
+              .split("\n")
+              .filter((line) => !/^\s*--/.test(line))
+              .join("\n");
+
+            const statements = withoutComments
+              .split(";")
+              .map((s) => s.trim())
+              .filter(Boolean);
+
+            // DROP (TABLE/COLUMN/INDEX/CONSTRAINT/TYPE/...), TRUNCATE, DELETE,
+            // and a column type change (ALTER COLUMN ... TYPE) can all lose
+            // data; everything else `migrate diff` emits (CREATE, ADD COLUMN,
+            // ADD CONSTRAINT, ...) is additive and passes through.
+            const destructiveRe = /\b(DROP|TRUNCATE|DELETE)\b|ALTER\s+COLUMN\b[\s\S]*?\bTYPE\b/i;
+            const destructive = statements.filter((s) => destructiveRe.test(s));
+
+            if (destructive.length === 0) {
+              console.log(`No destructive statements detected in ${planFile}.`);
+              process.exit(0);
+            }
+
+            console.log(`${apply ? "::error::" : "::warning::"}Destructive statement(s) detected in ${planFile}:`);
+            for (const s of destructive) console.log(`  ${s};`);
+
+            if (apply) {
+              console.error("::error::Refusing to apply destructive SQL with apply=true. Review schema-plan.sql manually, then run the statements by hand if they are intended.");
+              process.exit(1);
+            }
+
+            console.log("::warning::apply=false, so this run continues as a plan only; re-check schema-plan.sql before dispatching with apply=true.");
+          '
 
       - name: Apply schema
         if: ${{ inputs.apply }}
-        run: npx prisma db push
+        run: |
+          if [ "${{ steps.plan.outputs.plan_empty }}" = "true" ]; then
+            echo "nothing to apply"
+            exit 0
+          fi
+          npx prisma db execute --file schema-plan.sql
