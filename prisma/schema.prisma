@@ -197,6 +197,7 @@ model Project {
   usageRecords   UsageRecord[]
   glossaryRules  GlossaryRule[]
   urlSlugs       UrlSlug[]
+  mediaReplacements ProjectMediaReplacement[]
   exclusions     TranslationExclusion[]
   translatedUrls TranslatedUrl[]
   pageViews      PageView[]
@@ -493,6 +494,24 @@ model UrlSlug {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, originalSlug, langTo])
+  @@index([projectId, langTo])
+}
+
+// Mirrors the table already present in production, pushed from the unmerged
+// branch origin/codex/issue-317-image-mapping (PR #322), so schema pushes
+// from main do not drop it. PR #322 owns the feature code (routes, UI).
+model ProjectMediaReplacement {
+  id           String   @id @default(cuid())
+  originalUrl  String
+  localizedUrl String
+  langTo       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, langTo, originalUrl])
   @@index([projectId, langTo])
 }
 
