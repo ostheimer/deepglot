@@ -73,25 +73,53 @@ jobs:
           node -e '
             const fs = require("node:fs");
             const { VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID } = process.env;
-            const url = `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}&decrypt=true`;
-            fetch(url, { headers: { Authorization: `Bearer ${VERCEL_TOKEN}` } })
-              .then(async (res) => {
-                if (!res.ok) {
-                  // Vercel error bodies carry only a code and message, never values.
-                  const body = await res.text().catch(() => "");
-                  throw new Error(`Vercel API ${res.status} for project env read (team ${VERCEL_ORG_ID}): ${body.slice(0, 500)}`);
-                }
-                const { envs } = await res.json();
-                const pick = (key) => envs.find((e) => e.key === key && e.target.includes("production") && typeof e.value === "string" && e.value.trim());
-                // Same precedence as prisma.config.ts and src/lib/database-url.ts.
-                const entry = pick("DEEPGLOT_DATABASE_URL") || pick("DATABASE_URL");
-                if (!entry) throw new Error("Neither DEEPGLOT_DATABASE_URL nor DATABASE_URL is readable in the Vercel Production scope");
-                const value = entry.value.trim();
-                console.log(`::add-mask::${value}`);
-                fs.appendFileSync(process.env.GITHUB_ENV, `DEEPGLOT_DATABASE_URL=${value}\n`);
-                console.log(`Using ${entry.key}; database host: ${new URL(value).hostname}`);
-              })
-              .catch((error) => { console.error(error.message); process.exit(1); });
+            const authHeaders = { Authorization: `Bearer ${VERCEL_TOKEN}` };
+
+            // Vercel error bodies carry only a code and message, never values.
+            const vercelError = async (res, context) => {
+              const body = await res.text().catch(() => "");
+              return new Error(`Vercel API ${res.status} for ${context} (team ${VERCEL_ORG_ID}): ${body.slice(0, 500)}`);
+            };
+
+            (async () => {
+              // The list endpoint never honours decrypt=true; it only tells us which
+              // variable to read and its id/type. See run 35339991961.
+              const listUrl = `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}`;
+              const listRes = await fetch(listUrl, { headers: authHeaders });
+              if (!listRes.ok) throw await vercelError(listRes, "project env list");
+              const { envs } = await listRes.json();
+              const pick = (key) => envs.find((e) => e.key === key && e.target.includes("production"));
+              // Same precedence as prisma.config.ts and src/lib/database-url.ts.
+              const entry = pick("DEEPGLOT_DATABASE_URL") || pick("DATABASE_URL");
+              if (!entry) throw new Error("Neither DEEPGLOT_DATABASE_URL nor DATABASE_URL is present in the Vercel Production scope");
+
+              if (entry.type === "sensitive") {
+                throw new Error(`${entry.key} is a Vercel "sensitive" environment variable; its value cannot be read back via the API. Provide it another way (e.g. a GitHub Actions secret).`);
+              }
+
+              const singleUrl = `https://api.vercel.com/v1/projects/${VERCEL_PROJECT_ID}/env/${entry.id}?teamId=${VERCEL_ORG_ID}`;
+              const singleRes = await fetch(singleUrl, { headers: authHeaders });
+              if (!singleRes.ok) throw await vercelError(singleRes, "single project env read");
+              const { value } = await singleRes.json();
+              if (typeof value !== "string" || !value.trim()) {
+                throw new Error(`${entry.key} did not come back with a decrypted value from Vercel (type: ${entry.type})`);
+              }
+              const trimmed = value.trim();
+
+              // Mask before any parsing so a malformed value never reaches the log unmasked.
+              console.log(`::add-mask::${trimmed}`);
+
+              let hostname;
+              try {
+                if (!/^postgres(?:ql)?:\/\//.test(trimmed)) throw new Error("not a postgres URL");
+                hostname = new URL(trimmed).hostname;
+              } catch {
+                throw new Error(`${entry.key} from Vercel is not a valid postgres:// connection string`);
+              }
+
+              fs.appendFileSync(process.env.GITHUB_ENV, `DEEPGLOT_DATABASE_URL=${trimmed}\n`);
+              console.log(`Using ${entry.key} (${entry.type}); database host: ${hostname}`);
+            })().catch((error) => { console.error(error.message); process.exit(1); });
           '
 
       - name: Plan (SQL diff, live database → schema.prisma)
