@@ -62,4 +62,22 @@ test.describe("pricing slider alignment (7.14)", () => {
         .toBeLessThanOrEqual(TOLERANCE_PX);
     }
   });
+
+  test("enterprise plans do not advertise unavailable SAML SSO (#318)", async ({
+    page,
+  }) => {
+    for (const pathname of ["/pricing", "/de/preise"]) {
+      await page.goto(pathname);
+
+      const slider = page.locator("#deepglot-words-slider");
+      const maximum = await slider.getAttribute("max");
+      if (!maximum) {
+        throw new Error("pricing slider has no maximum tier");
+      }
+
+      await slider.fill(maximum);
+      await expect(slider).toHaveAttribute("aria-valuetext", /^Enterprise:/);
+      await expect(page.getByText("SAML SSO", { exact: true })).toHaveCount(0);
+    }
+  });
 });
