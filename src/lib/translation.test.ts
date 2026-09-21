@@ -76,6 +76,76 @@ async function waitForProviderDelay(
   });
 }
 
+/**
+ * Runs `work` on a virtual monotonic clock so deadline admission compares
+ * exact numbers instead of wall-clock measurements.
+ *
+ * performance.now() and setTimeout are mocked; the clock then advances one
+ * millisecond at a time, and only after every promise chain has settled and is
+ * waiting on a timer again. Concurrent provider delays (waitForProviderDelay)
+ * therefore overlap exactly as they would in real time, and translateTexts' own
+ * request timer fires at its exact virtual deadline, so the real abort path
+ * still runs.
+ *
+ * Real timers made these tests depend on the machine: libuv keeps timer time
+ * in whole milliseconds, so a timer can fire up to 1 ms early by
+ * performance.now(), and any event-loop stall stretches the measured provider
+ * work. A root chain measured just under its nominal 60 ms flipped the
+ * singleton calibration admission on CI (18 calls instead of 2); with
+ * translation.test.ts running next to the rest of the suite on a throttled
+ * CPU, every count-mismatch admission test below failed the same way.
+ *
+ * AbortSignal.timeout() keeps running on wall-clock time under mock.timers,
+ * so a caller timeout must come from virtualTimeoutSignal() instead.
+ */
+async function runOnVirtualClock<T>(
+  t: TestContext,
+  work: () => Promise<T>
+): Promise<T> {
+  const VIRTUAL_LIMIT_MS = 10_000;
+  let virtualNowMs = 1_000;
+  t.mock.method(performance, "now", () => virtualNowMs);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+
+  let settled = false;
+  const pending = work().finally(() => {
+    settled = true;
+  });
+  // The loop below observes settlement; the caller receives the outcome.
+  pending.catch(() => {});
+
+  for (let elapsedMs = 0; ; elapsedMs += 1) {
+    // Let every promise chain run until it waits on a (mocked) timer again.
+    // setImmediate stays real, and each turn drains all pending microtasks.
+    for (let turn = 0; turn < 5; turn += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    if (settled) return pending;
+    if (elapsedMs >= VIRTUAL_LIMIT_MS) {
+      throw new Error(
+        `work did not settle within ${VIRTUAL_LIMIT_MS} virtual ms; is it waiting on a real timer?`
+      );
+    }
+    virtualNowMs += 1;
+    t.mock.timers.tick(1);
+  }
+}
+
+/**
+ * Virtual-clock stand-in for AbortSignal.timeout(): aborts with the same
+ * TimeoutError reason once `milliseconds` have passed on the mocked timers.
+ * Call it inside runOnVirtualClock().
+ */
+function virtualTimeoutSignal(milliseconds: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => {
+    controller.abort(
+      new DOMException("The operation was aborted due to timeout", "TimeoutError")
+    );
+  }, milliseconds);
+  return controller.signal;
+}
+
 test("counts words for usage tracking", () => {
   assert.equal(countWords("Hallo Welt"), 2);
   assert.equal(countWords("   one   two   three   "), 3);
@@ -2040,8 +2110,12 @@ test("caps in-flight provider calls during parallel isolation at the request con
  * least eleven 25-ms waves, which cannot fit a 240-ms deadline. Direct
  * singleton isolation needs only the two root-provider waves plus four
  * singleton waves, leaving enough margin for the same request to finish.
+ *
+ * On the virtual clock the roots end at 50 ms and calibration at 75 ms; each
+ * later wave re-admits 25 ms per remaining wave against what is left
+ * (75 < 165, 50 < 140, 25 < 115), and recovery finishes at 150 ms.
  */
-test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { timeout: 2_000 }, async () => {
+test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2069,18 +2143,20 @@ test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { t
 
   try {
     const texts = Array.from({ length: 48 }, (_, index) => `Segment ${index}`);
-    const result = await translateTexts(
-      { texts, sourceLang: "de", targetLang: "en" },
-      {
-        TRANSLATION_PROVIDER: "openai",
-        OPENAI_API_KEY: "openai-key",
-        GEMINI_API_KEY: "gemini-key",
-        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
-        TRANSLATION_CHUNK_SIZE: "8",
-        TRANSLATION_CHUNK_CONCURRENCY: "12",
-        TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
-        TRANSLATION_REQUEST_TIMEOUT_MS: "240",
-      }
+    const result = await runOnVirtualClock(t, () =>
+      translateTexts(
+        { texts, sourceLang: "de", targetLang: "en" },
+        {
+          TRANSLATION_PROVIDER: "openai",
+          OPENAI_API_KEY: "openai-key",
+          GEMINI_API_KEY: "gemini-key",
+          TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          TRANSLATION_CHUNK_SIZE: "8",
+          TRANSLATION_CHUNK_CONCURRENCY: "12",
+          TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+          TRANSLATION_REQUEST_TIMEOUT_MS: "240",
+        }
+      )
     );
 
     assert.deepEqual(
@@ -2106,8 +2182,13 @@ test("keeps multi-chunk count-mismatch recovery inside the shared deadline", { t
  * request must classify that impossibility after at most one bounded
  * singleton calibration wave instead of spending until the deadline aborts
  * it.
+ *
+ * On the virtual clock the thirteenth root starts when the first twelve finish,
+ * so the root phase ends at 100 ms; its 50-ms chain admits calibration against
+ * the 140 ms left. Calibration ends at 125 ms, and eight remaining 25-ms waves
+ * (200 ms) cannot fit the 115 ms left.
  */
-test("rejects request-wide count-mismatch recovery before impossible singleton work starts", { timeout: 2_000 }, async () => {
+test("rejects request-wide count-mismatch recovery before impossible singleton work starts", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2138,7 +2219,7 @@ test("rejects request-wide count-mismatch recovery before impossible singleton w
 
   try {
     await assert.rejects(
-      () =>
+      runOnVirtualClock(t, () =>
         translateTexts(
           {
             texts: Array.from({ length: 100 }, (_, index) => `Segment ${index}`),
@@ -2155,7 +2236,8 @@ test("rejects request-wide count-mismatch recovery before impossible singleton w
             TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
             TRANSLATION_REQUEST_TIMEOUT_MS: "240",
           }
-        ),
+        )
+      ),
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.equal(error.name, "TranslationCountMismatchDeadlineError");
@@ -2191,12 +2273,13 @@ test("rejects request-wide count-mismatch recovery before impossible singleton w
  * fixed cost plus payload-dependent work. Nine eight-text roots take two
  * 50-ms provider stages, while their 72 singletons still fit in six 25-ms
  * waves. Admission must measure an actual bounded singleton wave instead of
- * multiplying the slower root duration and rejecting recoverable work. The
- * 350-ms request deadline stays between the old 6 × 50-ms estimate after the
- * root phase and the new 5 × 25-ms remaining-work estimate with ample jitter
- * margin.
+ * multiplying the slower root duration and rejecting recoverable work. On the
+ * virtual clock the root phase ends at 100 ms and leaves 250 ms: the old
+ * 6 × 50-ms estimate (300 ms) would reject there, while calibration ends at
+ * 125 ms and the measured 5 × 25-ms remaining work (125 ms) fits the 225 ms
+ * left.
  */
-test("admits request-wide recovery from measured singleton waves rather than batched latency", { timeout: 2_000 }, async () => {
+test("admits request-wide recovery from measured singleton waves rather than batched latency", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2225,18 +2308,20 @@ test("admits request-wide recovery from measured singleton waves rather than bat
 
   try {
     const texts = Array.from({ length: 72 }, (_, index) => `Segment ${index}`);
-    const result = await translateTexts(
-      { texts, sourceLang: "de", targetLang: "en" },
-      {
-        TRANSLATION_PROVIDER: "openai",
-        OPENAI_API_KEY: "openai-key",
-        GEMINI_API_KEY: "gemini-key",
-        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
-        TRANSLATION_CHUNK_SIZE: "8",
-        TRANSLATION_CHUNK_CONCURRENCY: "12",
-        TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
-        TRANSLATION_REQUEST_TIMEOUT_MS: "350",
-      }
+    const result = await runOnVirtualClock(t, () =>
+      translateTexts(
+        { texts, sourceLang: "de", targetLang: "en" },
+        {
+          TRANSLATION_PROVIDER: "openai",
+          OPENAI_API_KEY: "openai-key",
+          GEMINI_API_KEY: "gemini-key",
+          TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          TRANSLATION_CHUNK_SIZE: "8",
+          TRANSLATION_CHUNK_CONCURRENCY: "12",
+          TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+          TRANSLATION_REQUEST_TIMEOUT_MS: "350",
+        }
+      )
     );
 
     assert.deepEqual(
@@ -2261,8 +2346,13 @@ test("admits request-wide recovery from measured singleton waves rather than bat
  * time left than translateTexts' fresh local ceiling. Admission must use that
  * absolute caller deadline and classify the request after the retained
  * calibration wave, before any additional paid singleton work starts.
+ *
+ * On the virtual clock the two root waves end at 80 ms; their 40-ms chain
+ * admits calibration against the 80 ms left of the 160-ms caller budget (the
+ * local ceiling would still allow 420 ms). Calibration ends at 100 ms, and
+ * eight remaining 20-ms waves (160 ms) cannot fit the 60 ms left.
  */
-test("uses the caller's absolute deadline when admitting singleton recovery", { timeout: 2_000 }, async () => {
+test("uses the caller's absolute deadline when admitting singleton recovery", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2290,9 +2380,8 @@ test("uses the caller's absolute deadline when admitting singleton recovery", { 
 
   try {
     const callerBudgetMs = 160;
-    const deadlineAt = performance.now() + callerBudgetMs;
     await assert.rejects(
-      () =>
+      runOnVirtualClock(t, () =>
         translateTexts(
           {
             texts: Array.from({ length: 100 }, (_, index) => `Segment ${index}`),
@@ -2312,10 +2401,11 @@ test("uses the caller's absolute deadline when admitting singleton recovery", { 
           null,
           {
             maxRequestTimeoutMs: 500,
-            signal: AbortSignal.timeout(callerBudgetMs),
-            deadlineAt,
+            signal: virtualTimeoutSignal(callerBudgetMs),
+            deadlineAt: performance.now() + callerBudgetMs,
           }
-        ),
+        )
+      ),
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.equal(error.name, "TranslationCountMismatchDeadlineError");
@@ -2336,18 +2426,15 @@ test("uses the caller's absolute deadline when admitting singleton recovery", { 
 
 /**
  * Runs one eight-text request whose complete two-provider root chain returns a
- * count mismatch, on a virtual monotonic clock. performance.now() is mocked
- * and every provider call advances it by exactly PROVIDER_CALL_MS without
- * waiting; setTimeout is mocked as well, so translateTexts' own request timer
- * cannot fire on wall-clock time. Singleton admission therefore compares exact
+ * count mismatch, on the virtual clock (runOnVirtualClock). Every provider call
+ * takes exactly PROVIDER_CALL_MS, so singleton admission compares exact
  * numbers: the observed root chain (two calls, 60 ms) against what is left of
  * `callerBudgetMs`.
  *
  * With real 30 ms timers and a 120 ms budget, the observed chain (~60 ms) and
- * the remaining time (~60 ms) sat on the `>=` admission boundary. libuv keeps
- * timer time in whole milliseconds, so a 30 ms timer can fire up to 1 ms early
- * by performance.now(); on CI the chain then measured just under 60 ms and a
- * full calibration wave started (18 calls instead of 2).
+ * the remaining time (~60 ms) sat on the `>=` admission boundary; on CI the
+ * chain measured just under 60 ms and a full calibration wave started (18
+ * calls instead of 2).
  *
  * Singletons translate successfully here, so every admitted calibration call
  * is visible both in `providerCalls` and in the result.
@@ -2362,17 +2449,14 @@ async function runSingletonCalibrationAdmission(
   const originalError = console.error;
   const errorLogs: string[] = [];
   let providerCalls = 0;
-  let virtualNowMs = 1_000;
 
-  t.mock.method(performance, "now", () => virtualNowMs);
-  t.mock.timers.enable({ apis: ["setTimeout"] });
   console.warn = () => {};
   console.error = (...args: unknown[]) => {
     errorLogs.push(args.map(String).join(" "));
   };
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     providerCalls += 1;
-    virtualNowMs += PROVIDER_CALL_MS;
+    await waitForProviderDelay(PROVIDER_CALL_MS, init?.signal);
 
     const url = typeof input === "string" ? input : input.toString();
     const body = JSON.parse(String(init?.body ?? "{}"));
@@ -2389,28 +2473,30 @@ async function runSingletonCalibrationAdmission(
   }) as typeof fetch;
 
   try {
-    const outcome = await translateTexts(
-      {
-        texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
-        sourceLang: "de",
-        targetLang: "en",
-      },
-      {
-        TRANSLATION_PROVIDER: "openai",
-        OPENAI_API_KEY: "openai-key",
-        GEMINI_API_KEY: "gemini-key",
-        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
-        TRANSLATION_CHUNK_SIZE: "8",
-        TRANSLATION_CHUNK_CONCURRENCY: "12",
-        TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
-        TRANSLATION_REQUEST_TIMEOUT_MS: "500",
-      },
-      null,
-      {
-        maxRequestTimeoutMs: 500,
-        signal: new AbortController().signal,
-        deadlineAt: performance.now() + callerBudgetMs,
-      }
+    const outcome = await runOnVirtualClock(t, () =>
+      translateTexts(
+        {
+          texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+          sourceLang: "de",
+          targetLang: "en",
+        },
+        {
+          TRANSLATION_PROVIDER: "openai",
+          OPENAI_API_KEY: "openai-key",
+          GEMINI_API_KEY: "gemini-key",
+          TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+          TRANSLATION_CHUNK_SIZE: "8",
+          TRANSLATION_CHUNK_CONCURRENCY: "12",
+          TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+          TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+        },
+        null,
+        {
+          maxRequestTimeoutMs: 500,
+          signal: new AbortController().signal,
+          deadlineAt: performance.now() + callerBudgetMs,
+        }
+      )
     ).then(
       (translations) => ({ status: "fulfilled" as const, translations }),
       (error: unknown) => ({ status: "rejected" as const, error })
@@ -2598,7 +2684,13 @@ test("preserves non-timeout cancellation before singleton calibration", async ()
   }
 });
 
-test("classifies a shared deadline reached during singleton calibration", { timeout: 2_000 }, async () => {
+/**
+ * The 40-ms root chain admits calibration against the 120 ms left of the
+ * 160-ms caller budget. All eight 200-ms calibration singletons are still in
+ * flight when the shared deadline fires at 160 ms on the virtual clock, so the
+ * real abort path has to classify the timeout.
+ */
+test("classifies a shared deadline reached during singleton calibration", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2624,9 +2716,8 @@ test("classifies a shared deadline reached during singleton calibration", { time
 
   try {
     const callerBudgetMs = 160;
-    const deadlineAt = performance.now() + callerBudgetMs;
     await assert.rejects(
-      () =>
+      runOnVirtualClock(t, () =>
         translateTexts(
           {
             texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
@@ -2646,10 +2737,11 @@ test("classifies a shared deadline reached during singleton calibration", { time
           null,
           {
             maxRequestTimeoutMs: 500,
-            signal: AbortSignal.timeout(callerBudgetMs),
-            deadlineAt,
+            signal: virtualTimeoutSignal(callerBudgetMs),
+            deadlineAt: performance.now() + callerBudgetMs,
           }
-        ),
+        )
+      ),
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.equal(error.name, "TranslationCountMismatchDeadlineError");
@@ -2673,8 +2765,14 @@ test("classifies a shared deadline reached during singleton calibration", { time
  * wave is not permission to launch every later wave. Re-admission after a
  * slower wave must stop before starting the final wave when that observed work
  * no longer fits the shared deadline.
+ *
+ * On the virtual clock the five roots end at 40 ms and calibration at 50 ms;
+ * its 10 ms admits the two remaining waves (20 ms < 110 ms left). The next
+ * wave falls back to Gemini (30 + 30 ms) and ends at 110 ms, and its 60 ms no
+ * longer fits the 50 ms left. With real timers this 10-ms margin shrank with
+ * every timer that fired early.
  */
-test("rechecks admission between heterogeneous singleton waves", { timeout: 2_000 }, async () => {
+test("rechecks admission between heterogeneous singleton waves", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2713,7 +2811,7 @@ test("rechecks admission between heterogeneous singleton waves", { timeout: 2_00
 
   try {
     await assert.rejects(
-      () =>
+      runOnVirtualClock(t, () =>
         translateTexts(
           {
             texts: Array.from({ length: 36 }, (_, index) => `Segment ${index}`),
@@ -2730,7 +2828,8 @@ test("rechecks admission between heterogeneous singleton waves", { timeout: 2_00
             TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
             TRANSLATION_REQUEST_TIMEOUT_MS: "160",
           }
-        ),
+        )
+      ),
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.equal(error.name, "TranslationCountMismatchDeadlineError");
@@ -2754,8 +2853,12 @@ test("rechecks admission between heterogeneous singleton waves", { timeout: 2_00
  * to launch. If that admitted singleton wave reaches the shared deadline, the
  * public API/PDF contract still needs the typed count-mismatch deadline error
  * rather than a generic provider timeout.
+ *
+ * On the virtual clock the roots end at 40 ms and calibration at 50 ms; its
+ * 10 ms admits the last wave (10 ms < 110 ms left). That wave's 200-ms
+ * singletons are still in flight when the shared deadline fires at 160 ms.
  */
-test("classifies a shared deadline reached during a later singleton wave", { timeout: 2_000 }, async () => {
+test("classifies a shared deadline reached during a later singleton wave", { timeout: 2_000 }, async (t) => {
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
@@ -2789,9 +2892,8 @@ test("classifies a shared deadline reached during a later singleton wave", { tim
 
   try {
     const callerBudgetMs = 160;
-    const deadlineAt = performance.now() + callerBudgetMs;
     await assert.rejects(
-      () =>
+      runOnVirtualClock(t, () =>
         translateTexts(
           {
             texts: Array.from({ length: 24 }, (_, index) => `Segment ${index}`),
@@ -2811,10 +2913,11 @@ test("classifies a shared deadline reached during a later singleton wave", { tim
           null,
           {
             maxRequestTimeoutMs: 500,
-            signal: AbortSignal.timeout(callerBudgetMs),
-            deadlineAt,
+            signal: virtualTimeoutSignal(callerBudgetMs),
+            deadlineAt: performance.now() + callerBudgetMs,
           },
         ),
+      ),
       (error: unknown) => {
         assert.ok(error instanceof Error);
         assert.equal(error.name, "TranslationCountMismatchDeadlineError");
