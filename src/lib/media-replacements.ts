@@ -101,13 +101,19 @@ function getProjectOrigin(projectDomain: string): URL {
     );
   }
 
+  // Project creation currently persists the `domain` field unchanged, so a
+  // project made with `http://example.com` is stored with that scheme even
+  // though `normalizeProjectDomain()` never emits one for new writes. Accept
+  // that legacy scheme-bearing HTTP form here (matching what the WordPress
+  // rewriter itself tolerates for HTTP site origins) in addition to the
+  // default and explicit HTTPS forms; any other scheme is still rejected.
   const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(normalizedDomain)
     ? normalizedDomain
     : `https://${normalizedDomain}`;
 
-  if (!/^https:\/\/[^/]+\/?$/i.test(candidate)) {
+  if (!/^https?:\/\/[^/]+\/?$/i.test(candidate)) {
     throw new MediaReplacementError(
-      "The project domain must contain only its public HTTPS hostname and optional port.",
+      "The project domain must contain only its public HTTP(S) hostname and optional port.",
       "INVALID_PROJECT_DOMAIN"
     );
   }
@@ -123,7 +129,7 @@ function getProjectOrigin(projectDomain: string): URL {
   }
 
   if (
-    projectOrigin.protocol !== "https:" ||
+    (projectOrigin.protocol !== "https:" && projectOrigin.protocol !== "http:") ||
     projectOrigin.username ||
     projectOrigin.password ||
     projectOrigin.search ||
@@ -198,7 +204,12 @@ export function normalizeMediaImageUrl(
   }
 
   if (
-    parsedImageUrl.protocol !== "https:" ||
+    // A root-relative mapping resolves against `projectOrigin` and so always
+    // inherits its scheme (http: on a legacy HTTP project domain); an
+    // absolute input is already required to be `https://` above regardless
+    // of the project's own scheme. Any other combination is unsafe.
+    (parsedImageUrl.protocol !== "https:" &&
+      parsedImageUrl.protocol !== projectOrigin.protocol) ||
     parsedImageUrl.username ||
     parsedImageUrl.password ||
     parsedImageUrl.port !== projectOrigin.port ||

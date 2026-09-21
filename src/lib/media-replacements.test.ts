@@ -73,6 +73,48 @@ test("legacy scheme-bearing project domains retain their canonical HTTPS media o
   );
 });
 
+test("scheme-bearing HTTP project domains accept root-relative mappings and HTTPS absolute inputs", () => {
+  // `POST /api/projects` persists `domain` unchanged, so a project created
+  // with `http://example.com` is stored with that scheme even though
+  // `normalizeProjectDomain()` never emits one for new writes.
+  assert.equal(
+    normalizeMediaImageUrl("/uploads/hero.png", "http://example.com"),
+    "/uploads/hero.png"
+  );
+  assert.equal(
+    normalizeMediaImageUrl("/uploads/hero.png", "HTTP://EXAMPLE.com/"),
+    "/uploads/hero.png"
+  );
+
+  // Absolute image inputs must still be HTTPS regardless of the project's
+  // own stored scheme.
+  assert.equal(
+    normalizeMediaImageUrl(
+      "https://example.com/uploads/hero.png",
+      "http://example.com"
+    ),
+    "/uploads/hero.png"
+  );
+  assert.throws(
+    () =>
+      normalizeMediaImageUrl(
+        "http://example.com/uploads/hero.png",
+        "http://example.com"
+      ),
+    (error: unknown) =>
+      error instanceof MediaReplacementError &&
+      error.code === "INVALID_IMAGE_URL"
+  );
+
+  // Only HTTP and HTTPS project domain schemes are accepted.
+  assert.throws(
+    () => normalizeMediaImageUrl("/uploads/hero.png", "ftp://example.com"),
+    (error: unknown) =>
+      error instanceof MediaReplacementError &&
+      error.code === "INVALID_PROJECT_DOMAIN"
+  );
+});
+
 test("canonical image paths enforce the URL limit after Unicode percent encoding", () => {
   const pathPrefix = "/uploads/";
   const extension = ".png";

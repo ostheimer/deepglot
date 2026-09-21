@@ -264,7 +264,19 @@ class MediaRewriter
             return null;
         }
 
-        $extension = strtolower(pathinfo((string) $parts['path'], PATHINFO_EXTENSION));
+        // Match the mapping-lookup identity: decode percent-encoded
+        // unreserved extension characters (e.g. `%70ng` -> `png`) before
+        // inferring the MIME type. Otherwise a partially mapped
+        // `<picture><source>` candidate whose unchanged sibling uses an
+        // encoded-but-equivalent extension is wrongly treated as an unknown
+        // format, and the whole typed source is left untouched.
+        $path = $this->canonicalizeUrlComponent((string) $parts['path'], false);
+
+        if ($path === null) {
+            return null;
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 
         return match ($extension) {
             'avif' => 'image/avif',
@@ -634,6 +646,21 @@ class MediaRewriter
     {
         if (preg_match('//u', $host) !== 1) {
             return '';
+        }
+
+        // The SaaS admission path parses hosts with the WHATWG URL algorithm,
+        // which percent-decodes the host before IDNA processing. A rendered
+        // absolute URL such as `https://%65xample.com/...` must therefore
+        // canonicalize to the same `example.com` host the SaaS already
+        // stored as a root-relative mapping, or wp_parse_url()'s literal
+        // `%65xample.com` spelling never matches it here. An invalid decode
+        // result still fails the strict equality check callers perform.
+        if (str_contains($host, '%')) {
+            $decodedHost = rawurldecode($host);
+            if (preg_match('//u', $decodedHost) !== 1) {
+                return '';
+            }
+            $host = $decodedHost;
         }
 
         $host = str_ends_with($host, '.') ? substr($host, 0, -1) : $host;
