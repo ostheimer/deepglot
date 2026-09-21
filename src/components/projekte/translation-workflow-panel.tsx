@@ -1,16 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
   Download,
   Loader2,
   Paintbrush,
+  Pencil,
   RotateCcw,
+  Save,
   Search,
   Send,
+  Trash2,
   UserCheck,
+  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +23,27 @@ import { Input } from "@/components/ui/input";
 import type { SiteLocale } from "@/lib/site-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import {
+  beginTranslationWorkspaceEdit,
+  canEditWorkspaceTranslation,
+  completeTranslationWorkspaceEdit,
+  deletionResponseMatchesWorkspaceQuery,
+  translationWorkspaceQueryKey,
+  type TranslationWorkspaceEditDraft,
+} from "@/lib/translation-workspace-client-state";
+import { planTranslationPaginationAfterDeletion } from "@/lib/translation-workspace-pagination";
+import { translationContextLink } from "@/lib/translation-context";
+import { TranslationMetadataPanel } from "./translation-metadata-panel";
+import type { TranslationMetadataValue } from "@/lib/translation-metadata";
+import { REPORTED_TYPE_GROUPS } from "@/lib/translation-reported-types";
+
+const reportedTypeLabels = {
+  text: ["Text", "Text"],
+  media: ["Media / documents", "Medien / Dokumente"],
+  link: ["External links", "Externe Links"],
+  other: ["Other", "Sonstige"],
+  unknown: ["Unknown", "Unbekannt"],
+} as const;
 
 type WorkflowStatus = "machine" | "assigned" | "in_review" | "approved";
 
@@ -31,6 +56,8 @@ type WorkflowMember = {
 };
 
 type WorkflowTranslation = {
+  typeObservations?: Array<{ wordType: number }>;
+  metadata?: TranslationMetadataValue | null;
   id: string;
   originalText: string;
   translatedText: string;
@@ -43,6 +70,13 @@ type WorkflowTranslation = {
   assignedToId: string | null;
   assignedTo: WorkflowMember | null;
   updatedAt: string;
+  createdAt: string;
+  _count?: { contexts: number };
+  contexts?: Array<{
+    urlPath: string;
+    firstSeenAt: string;
+    lastSeenAt: string;
+  }>;
 };
 
 type WorkflowResponse = {
@@ -51,6 +85,7 @@ type WorkflowResponse = {
   page: number;
   pageSize: number;
   totalPages: number;
+  contextPaths?: Array<{ urlPath: string }>;
 };
 
 const statusStyles: Record<WorkflowStatus, string> = {
@@ -76,6 +111,7 @@ function memberLabel(member: WorkflowMember) {
 
 export function TranslationWorkflowPanel({
   projectId,
+  domain,
   languages,
   members,
   canManage,
@@ -83,6 +119,7 @@ export function TranslationWorkflowPanel({
   locale,
 }: {
   projectId: string;
+  domain: string;
   languages: Array<{ id: string; langCode: string }>;
   members: WorkflowMember[];
   canManage: boolean;
@@ -93,17 +130,65 @@ export function TranslationWorkflowPanel({
   const [status, setStatus] = useState<WorkflowStatus | "">("");
   const [langTo, setLangTo] = useState("");
   const [assignee, setAssignee] = useState("");
+  const [source, setSource] = useState("");
+  const [label, setLabel] = useState("");
+  const [submittedLabel, setSubmittedLabel] = useState("");
+  const [variables, setVariables] = useState("");
+  const [quality, setQuality] = useState("");
+  const [activity, setActivity] = useState("");
+  const [reportedType, setReportedType] = useState("");
+  const [mode, setMode] = useState("");
+  const [context, setContext] = useState("");
+  const [urlPath, setUrlPath] = useState("");
+  const [sort, setSort] = useState("updated_desc");
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] =
+    useState<TranslationWorkspaceEditDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestIdRef = useRef(0);
+  const activeLanguageCodes = languages.map((language) => language.langCode);
+  const currentQueryKey = translationWorkspaceQueryKey({
+    reportedType,
+    quality,
+    activity,
+    label: submittedLabel,
+    variables,
+    source,
+    mode,
+    context,
+    urlPath,
+    sort,
+    status,
+    langTo,
+    assignee,
+    submittedQuery,
+    page,
+  });
+  const latestQueryKeyRef = useRef(currentQueryKey);
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     setError(null);
     const search = new URLSearchParams();
+    for (const [key, value] of Object.entries({
+      reportedType,
+      quality,
+      activity,
+      label: submittedLabel,
+      variables,
+      source,
+      mode,
+      context,
+      urlPath,
+      sort,
+    })) {
+      if (value) search.set(key, value);
+    }
     if (status) search.set("status", status);
     if (langTo) search.set("langTo", langTo);
     if (assignee) search.set("assignee", assignee);
@@ -115,10 +200,18 @@ export function TranslationWorkflowPanel({
         `/api/projects/${projectId}/translations?${search.toString()}`,
         { cache: "no-store" },
       );
-      const body = (await response.json()) as WorkflowResponse & { error?: string };
+      const body = (await response.json()) as WorkflowResponse & {
+        error?: string;
+      };
       if (!response.ok) throw new Error(body.error || "Request failed");
+      if (requestId !== loadRequestIdRef.current) return;
+      if (page > body.totalPages && body.totalPages >= 1) {
+        setPage(body.totalPages);
+        return;
+      }
       setData(body);
     } catch {
+      if (requestId !== loadRequestIdRef.current) return;
       setError(
         uiText(
           locale,
@@ -127,17 +220,44 @@ export function TranslationWorkflowPanel({
         ),
       );
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [assignee, langTo, locale, page, projectId, status, submittedQuery]);
+  }, [
+    reportedType,
+    quality,
+    activity,
+    submittedLabel,
+    variables,
+    assignee,
+    langTo,
+    locale,
+    page,
+    projectId,
+    status,
+    submittedQuery,
+    source,
+    mode,
+    context,
+    urlPath,
+    sort,
+  ]);
+
+  const latestLoadRef = useRef(load);
 
   useEffect(() => {
+    latestQueryKeyRef.current = currentQueryKey;
+    latestLoadRef.current = load;
     void load();
-  }, [load]);
+  }, [currentQueryKey, load]);
 
   async function updateTranslation(
     translationId: string,
-    patch: { status?: WorkflowStatus; assignedToId?: string | null },
+    patch:
+      | { status?: WorkflowStatus; assignedToId?: string | null }
+      | { translatedText: string; expectedUpdatedAt: string },
+    mutation: "content" | "workflow" = "workflow",
   ) {
     setSavingId(translationId);
     setError(null);
@@ -157,16 +277,76 @@ export function TranslationWorkflowPanel({
       if (!response.ok || !body.translation) {
         throw new Error(body.error || "Request failed");
       }
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              items: current.items.map((item) =>
-                item.id === translationId ? body.translation! : item,
-              ),
-            }
-          : current,
+      // Content/workflow changes can move a row outside the active filters.
+      // Reload the latest query instead of inserting a stale mutation response.
+      await latestLoadRef.current();
+      setEditingDraft((current) =>
+        completeTranslationWorkspaceEdit(current, {
+          translationId,
+          mutation,
+        }),
       );
+    } catch {
+      setError(
+        uiText(
+          locale,
+          "The workflow change could not be saved. Reload and try again.",
+          "Die Workflow-Änderung konnte nicht gespeichert werden. Lade neu und versuche es erneut.",
+        ),
+      );
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function deleteTranslation(translation: WorkflowTranslation) {
+    const confirmed = window.confirm(`${uiText(locale, "Delete", "Löschen")}?`);
+    if (!confirmed) return;
+
+    setSavingId(translation.id);
+    setError(null);
+    const requestQueryKey = currentQueryKey;
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/translations/${translation.id}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expectedUpdatedAt: translation.updatedAt }),
+        },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error || "Request failed");
+      }
+      if (
+        !deletionResponseMatchesWorkspaceQuery(
+          requestQueryKey,
+          latestQueryKeyRef.current,
+        )
+      ) {
+        await latestLoadRef.current();
+        return;
+      }
+      if (!data) {
+        await latestLoadRef.current();
+        return;
+      }
+
+      const pagination = planTranslationPaginationAfterDeletion(data);
+      setData({
+        ...data,
+        ...pagination,
+        items: data.items.filter((item) => item.id !== translation.id),
+      });
+      if (pagination.page !== data.page) {
+        setLoading(true);
+        setPage(pagination.page);
+      } else {
+        await load();
+      }
     } catch {
       setError(
         uiText(
@@ -234,11 +414,12 @@ export function TranslationWorkflowPanel({
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <form
-          className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_160px_170px_180px_auto]"
+          className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0"
           onSubmit={(event) => {
             event.preventDefault();
             setPage(1);
             setSubmittedQuery(query.trim());
+            setSubmittedLabel(label.trim());
           }}
         >
           <div className="relative">
@@ -259,7 +440,9 @@ export function TranslationWorkflowPanel({
             className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm"
             aria-label={uiText(locale, "Target language", "Zielsprache")}
           >
-            <option value="">{uiText(locale, "All languages", "Alle Sprachen")}</option>
+            <option value="">
+              {uiText(locale, "All languages", "Alle Sprachen")}
+            </option>
             {languages.map((language) => (
               <option key={language.id} value={language.langCode}>
                 {language.langCode.toUpperCase()}
@@ -275,7 +458,9 @@ export function TranslationWorkflowPanel({
             className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm"
             aria-label="Status"
           >
-            <option value="">{uiText(locale, "All statuses", "Alle Status")}</option>
+            <option value="">
+              {uiText(locale, "All statuses", "Alle Status")}
+            </option>
             {(["machine", "assigned", "in_review", "approved"] as const).map(
               (value) => (
                 <option key={value} value={value}>
@@ -294,8 +479,12 @@ export function TranslationWorkflowPanel({
               className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm"
               aria-label={uiText(locale, "Assignee", "Zuweisung")}
             >
-              <option value="">{uiText(locale, "All assignees", "Alle Zuweisungen")}</option>
-              <option value="unassigned">{uiText(locale, "Unassigned", "Nicht zugewiesen")}</option>
+              <option value="">
+                {uiText(locale, "All assignees", "Alle Zuweisungen")}
+              </option>
+              <option value="unassigned">
+                {uiText(locale, "Unassigned", "Nicht zugewiesen")}
+              </option>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
                   {memberLabel(member)}
@@ -310,16 +499,317 @@ export function TranslationWorkflowPanel({
                 setAssignee(event.target.value);
               }}
               className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm"
-              aria-label={uiText(locale, "Assignment filter", "Zuweisungsfilter")}
+              aria-label={uiText(
+                locale,
+                "Assignment filter",
+                "Zuweisungsfilter",
+              )}
             >
-              <option value="">{uiText(locale, "All segments", "Alle Segmente")}</option>
-              <option value="me">{uiText(locale, "Assigned to me", "Mir zugewiesen")}</option>
+              <option value="">
+                {uiText(locale, "All segments", "Alle Segmente")}
+              </option>
+              <option value="me">
+                {uiText(locale, "Assigned to me", "Mir zugewiesen")}
+              </option>
             </select>
           )}
           <Button type="submit" variant="secondary">
             {uiText(locale, "Search", "Suchen")}
           </Button>
+          <select
+            aria-label={uiText(
+              locale,
+              "Translation source",
+              "Übersetzungsquelle",
+            )}
+            value={source}
+            onChange={(event) => {
+              setSource(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All sources", "Alle Quellen")}
+            </option>
+            {["DEEPL", "OPENAI", "GOOGLE", "MANUAL", "MOCK", "IMPORT"].map(
+              (value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ),
+            )}
+          </select>
+          <select
+            aria-label={uiText(locale, "Editing mode", "Bearbeitungsart")}
+            value={mode}
+            onChange={(event) => {
+              setMode(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All editing modes", "Alle Bearbeitungsarten")}
+            </option>
+            <option value="manual">
+              {uiText(locale, "Manually edited", "Manuell bearbeitet")}
+            </option>
+            <option value="automatic">
+              {uiText(
+                locale,
+                "Not manually edited",
+                "Nicht manuell bearbeitet",
+              )}
+            </option>
+          </select>
+          <select
+            aria-label={uiText(locale, "Page context", "Seitenkontext")}
+            value={context}
+            onChange={(event) => {
+              setContext(event.target.value);
+              setUrlPath("");
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "Any context", "Jeder Kontext")}
+            </option>
+            <option value="known">
+              {uiText(locale, "With page context", "Mit Seitenkontext")}
+            </option>
+            <option value="unknown">
+              {uiText(locale, "No recorded context", "Ohne erfassten Kontext")}
+            </option>
+          </select>
+          <select
+            aria-label={uiText(locale, "Page path", "Seitenpfad")}
+            value={urlPath}
+            onChange={(event) => {
+              setUrlPath(event.target.value);
+              setContext("");
+              setPage(1);
+            }}
+            className="h-9 min-w-0 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(
+                locale,
+                "All pages (up to 500 listed)",
+                "Alle Seiten (bis zu 500 angezeigt)",
+              )}
+            </option>
+            {urlPath &&
+              !data?.contextPaths?.some(
+                (entry) => entry.urlPath === urlPath,
+              ) && <option value={urlPath}>{urlPath}</option>}
+            {data?.contextPaths?.map(({ urlPath: path }) => (
+              <option key={path} value={path}>
+                {path}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={uiText(locale, "Sort order", "Sortierung")}
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="updated_desc">
+              {uiText(locale, "Recently changed", "Zuletzt geändert")}
+            </option>
+            <option value="created_desc">
+              {uiText(locale, "Newest first", "Neueste zuerst")}
+            </option>
+            <option value="created_asc">
+              {uiText(locale, "Oldest first", "Älteste zuerst")}
+            </option>
+            <option value="original_asc">
+              {uiText(locale, "Original A–Z", "Original A–Z")}
+            </option>
+          </select>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setLabel("");
+              setSubmittedLabel("");
+              setVariables("");
+              setQuality("");
+              setActivity("");
+              setReportedType("");
+              setSource("");
+              setMode("");
+              setContext("");
+              setUrlPath("");
+              setSort("updated_desc");
+              setStatus("");
+              setLangTo("");
+              setAssignee("");
+              setQuery("");
+              setSubmittedQuery("");
+              setPage(1);
+            }}
+          >
+            {uiText(locale, "Reset filters", "Filter zurücksetzen")}
+          </Button>
+          <Input
+            value={label}
+            maxLength={40}
+            onChange={(event) => setLabel(event.target.value)}
+            aria-label={uiText(locale, "Label filter", "Label-Filter")}
+            placeholder={uiText(locale, "Label filter", "Label-Filter")}
+          />
+          <select
+            value={variables}
+            onChange={(event) => {
+              setVariables(event.target.value);
+              setPage(1);
+            }}
+            aria-label={uiText(
+              locale,
+              "Saved variables",
+              "Gespeicherte Variablen",
+            )}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All variable states", "Alle Variablenzustände")}
+            </option>
+            <option value="saved">
+              {uiText(
+                locale,
+                "With saved variables",
+                "Mit gespeicherten Variablen",
+              )}
+            </option>
+            <option value="none">
+              {uiText(
+                locale,
+                "No saved variables",
+                "Ohne gespeicherte Variablen",
+              )}
+            </option>
+          </select>
+          <select
+            aria-label={uiText(
+              locale,
+              "Saved variable check",
+              "Prüfung gespeicherter Variablen",
+            )}
+            value={quality}
+            onChange={(event) => {
+              setQuality(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All check states", "Alle Prüfzustände")}
+            </option>
+            <option value="mismatch">
+              {uiText(locale, "Variable mismatch", "Variablenabweichung")}
+            </option>
+            <option value="match">
+              {uiText(
+                locale,
+                "Selected variables preserved",
+                "Ausgewählte Variablen erhalten",
+              )}
+            </option>
+            <option value="unchecked">
+              {uiText(
+                locale,
+                "No variables selected",
+                "Keine Variablen ausgewählt",
+              )}
+            </option>
+          </select>
+          <select
+            aria-label={uiText(
+              locale,
+              "Observed activity",
+              "Beobachtete Aktivität",
+            )}
+            value={activity}
+            onChange={(event) => {
+              setActivity(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(
+                locale,
+                "All observation states",
+                "Alle Beobachtungszustände",
+              )}
+            </option>
+            <option value="recent">
+              {uiText(
+                locale,
+                "Seen in the last 30 days",
+                "In den letzten 30 Tagen gesehen",
+              )}
+            </option>
+            <option value="older">
+              {uiText(
+                locale,
+                "Last seen over 30 days ago",
+                "Zuletzt vor mehr als 30 Tagen gesehen",
+              )}
+            </option>
+            <option value="unknown">
+              {uiText(
+                locale,
+                "Never observed by SaaS",
+                "Noch nicht von SaaS beobachtet",
+              )}
+            </option>
+          </select>
+          <select
+            aria-label={uiText(
+              locale,
+              "Reported content type",
+              "Gemeldeter Inhaltstyp",
+            )}
+            value={reportedType}
+            onChange={(event) => {
+              setReportedType(event.target.value);
+              setPage(1);
+            }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">
+              {uiText(locale, "All types", "Alle Typen")}
+            </option>
+            {Object.entries(reportedTypeLabels).map(([value, labels]) => (
+              <option key={value} value={value}>
+                {uiText(locale, labels[0], labels[1])}
+              </option>
+            ))}
+          </select>
         </form>
+        <p className="mt-3 text-xs text-gray-600">
+          {uiText(
+            locale,
+            "Types are reported by clients, not inferred. Multiple types can apply; older entries may be unknown.",
+            "Typen werden von Clients gemeldet, nicht abgeleitet. Mehrere Typen sind möglich; ältere Einträge können unbekannt sein.",
+          )}
+        </p>
+        {(quality || activity) && (
+          <p className="mt-3 text-xs text-gray-600">
+            {uiText(
+              locale,
+              "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity.",
+              "Geprüft werden nur ausgewählte Variablen. Beobachtungen erfassen keine lokalen Cache-Treffer und beweisen keine Inaktivität.",
+            )}
+          </p>
+        )}
       </div>
 
       {error && (
@@ -333,7 +823,9 @@ export function TranslationWorkflowPanel({
           <span className="text-sm font-medium text-gray-700">
             {data?.total ?? 0} {uiText(locale, "segments", "Segmente")}
           </span>
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-brand-600" />}
+          {loading && (
+            <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+          )}
         </div>
 
         {!loading && data?.items.length === 0 ? (
@@ -351,26 +843,218 @@ export function TranslationWorkflowPanel({
               const eligibleMembers = members.filter(
                 (member) =>
                   member.langCode === null ||
-                  member.langCode.toLowerCase() === translation.langTo.toLowerCase(),
+                  member.langCode.toLowerCase() ===
+                    translation.langTo.toLowerCase(),
               );
               const canSubmit =
                 translation.status === "assigned" &&
                 translation.assignedToId === currentMemberId;
+              const canEdit = canEditWorkspaceTranslation({
+                canManage,
+                currentMemberId,
+                assignedToId: translation.assignedToId,
+                langTo: translation.langTo,
+                activeLanguageCodes,
+              });
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
+                  <TranslationMetadataPanel
+                    projectId={projectId}
+                    translationId={translation.id}
+                    originalText={translation.originalText}
+                    metadata={translation.metadata}
+                    canEdit={canEdit}
+                    locale={locale}
+                    onSaved={() => latestLoadRef.current()}
+                  />
+                  <details className="rounded-md bg-gray-50 p-3 text-xs text-gray-600">
+                    <summary className="cursor-pointer font-medium">
+                      {uiText(
+                        locale,
+                        "Context and metadata",
+                        "Kontext und Metadaten",
+                      )}{" "}
+                      · {translation.contexts?.length ?? 0}
+                      {(translation._count?.contexts ?? 0) >
+                      (translation.contexts?.length ?? 0)
+                        ? ` / ${translation._count?.contexts}`
+                        : ""}{" "}
+                      {uiText(locale, "Pages", "Seiten")}
+                    </summary>
+                    <p className="mt-2">
+                      {uiText(
+                        locale,
+                        "Reported content type",
+                        "Gemeldeter Inhaltstyp",
+                      )}
+                      :{" "}
+                      {translation.typeObservations?.length
+                        ? Object.entries(REPORTED_TYPE_GROUPS)
+                            .filter(([, values]) =>
+                              translation.typeObservations!.some((o) =>
+                                (values as readonly number[]).includes(
+                                  o.wordType,
+                                ),
+                              ),
+                            )
+                            .map(([group]) => {
+                              const labels =
+                                reportedTypeLabels[
+                                  group as keyof typeof REPORTED_TYPE_GROUPS
+                                ];
+                              return uiText(locale, labels[0], labels[1]);
+                            })
+                            .join(", ")
+                        : uiText(locale, "Unknown", "Unbekannt")}
+                    </p>
+                    <p className="mt-2">
+                      {uiText(locale, "Created", "Erstellt")}:{" "}
+                      {translation.createdAt
+                        ? new Date(translation.createdAt).toLocaleString(locale)
+                        : "—"}{" "}
+                      · {uiText(locale, "Changed", "Geändert")}:{" "}
+                      {new Date(translation.updatedAt).toLocaleString(locale)}
+                    </p>
+                    {!translation.contexts?.length && (
+                      <p>
+                        {uiText(
+                          locale,
+                          "No page context recorded yet. Context is collected on subsequent translation requests.",
+                          "Noch kein Seitenkontext erfasst. Er wird bei weiteren Übersetzungsanfragen gesammelt.",
+                        )}
+                      </p>
+                    )}
+                    <ul className="mt-2 space-y-1">
+                      {translation.contexts?.map((entry) => (
+                        <li
+                          key={entry.urlPath}
+                          className="flex flex-wrap items-center gap-2"
+                        >
+                          <button
+                            type="button"
+                            className="break-all text-brand-700 underline"
+                            onClick={() => {
+                              setUrlPath(entry.urlPath);
+                              setContext("");
+                              setPage(1);
+                            }}
+                          >
+                            {entry.urlPath}
+                          </button>
+                          {translationContextLink(domain, entry.urlPath) && (
+                            <a
+                              href={translationContextLink(
+                                domain,
+                                entry.urlPath,
+                              )!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                            >
+                              {uiText(locale, "Open page", "Seite öffnen")}
+                            </a>
+                          )}
+                          <span>
+                            {uiText(locale, "Last seen", "Zuletzt gesehen")}:{" "}
+                            {new Date(entry.lastSeenAt).toLocaleString(locale)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div>
                       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        {translation.langFrom.toUpperCase()} · {uiText(locale, "Original", "Original")}
+                        {translation.langFrom.toUpperCase()} ·{" "}
+                        {uiText(locale, "Original", "Original")}
                       </p>
-                      <p className="text-sm text-gray-800">{translation.originalText}</p>
+                      <p className="text-sm text-gray-800">
+                        {translation.originalText}
+                      </p>
                     </div>
                     <div>
-                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        {translation.langTo.toUpperCase()} · {uiText(locale, "Translation", "Übersetzung")}
-                      </p>
-                      <p className="text-sm text-gray-800">{translation.translatedText}</p>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          {translation.langTo.toUpperCase()} ·{" "}
+                          {uiText(locale, "Translation", "Übersetzung")}
+                        </p>
+                        {canEdit && editingDraft?.id !== translation.id && (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            disabled={saving}
+                            onClick={() =>
+                              setEditingDraft(
+                                beginTranslationWorkspaceEdit(translation),
+                              )
+                            }
+                          >
+                            <Pencil />
+                            {uiText(locale, "Edit", "Bearbeiten")}
+                          </Button>
+                        )}
+                      </div>
+                      {editingDraft?.id === translation.id ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editingDraft.text}
+                            onChange={(event) =>
+                              setEditingDraft((current) =>
+                                current?.id === translation.id
+                                  ? { ...current, text: event.target.value }
+                                  : current,
+                              )
+                            }
+                            rows={4}
+                            maxLength={100_000}
+                            className="w-full resize-y rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                            aria-label={uiText(
+                              locale,
+                              "Translation",
+                              "Übersetzung",
+                            )}
+                          />
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="outline"
+                              disabled={saving}
+                              onClick={() => setEditingDraft(null)}
+                            >
+                              <X />
+                              {uiText(locale, "Cancel", "Abbrechen")}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="xs"
+                              disabled={
+                                saving || editingDraft.text.trim().length === 0
+                              }
+                              onClick={() =>
+                                void updateTranslation(
+                                  translation.id,
+                                  {
+                                    translatedText: editingDraft.text,
+                                    expectedUpdatedAt:
+                                      editingDraft.expectedUpdatedAt,
+                                  },
+                                  "content",
+                                )
+                              }
+                            >
+                              <Save />
+                              {uiText(locale, "Save", "Speichern")}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-800">
+                          {translation.translatedText}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -385,7 +1069,8 @@ export function TranslationWorkflowPanel({
                           : uiText(locale, "Unassigned", "Nicht zugewiesen")}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {translation.wordCount} {uiText(locale, "words", "Wörter")}
+                        {translation.wordCount}{" "}
+                        {uiText(locale, "words", "Wörter")}
                       </span>
                     </div>
 
@@ -400,9 +1085,15 @@ export function TranslationWorkflowPanel({
                             })
                           }
                           className="h-8 max-w-52 rounded-md border border-gray-200 bg-white px-2 text-xs"
-                          aria-label={uiText(locale, "Assign segment", "Segment zuweisen")}
+                          aria-label={uiText(
+                            locale,
+                            "Assign segment",
+                            "Segment zuweisen",
+                          )}
                         >
-                          <option value="">{uiText(locale, "Unassigned", "Nicht zugewiesen")}</option>
+                          <option value="">
+                            {uiText(locale, "Unassigned", "Nicht zugewiesen")}
+                          </option>
                           {eligibleMembers.map((member) => (
                             <option key={member.id} value={member.id}>
                               {memberLabel(member)}
@@ -411,21 +1102,26 @@ export function TranslationWorkflowPanel({
                         </select>
                       )}
 
-                      {(canManage || canSubmit) && translation.status === "assigned" && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          disabled={saving}
-                          onClick={() =>
-                            void updateTranslation(translation.id, {
-                              status: "in_review",
-                            })
-                          }
-                        >
-                          <Send />
-                          {uiText(locale, "Submit for review", "Zur Prüfung einreichen")}
-                        </Button>
-                      )}
+                      {(canManage || canSubmit) &&
+                        translation.status === "assigned" && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={saving}
+                            onClick={() =>
+                              void updateTranslation(translation.id, {
+                                status: "in_review",
+                              })
+                            }
+                          >
+                            <Send />
+                            {uiText(
+                              locale,
+                              "Submit for review",
+                              "Zur Prüfung einreichen",
+                            )}
+                          </Button>
+                        )}
                       {canManage && translation.status === "in_review" && (
                         <>
                           <Button
@@ -470,7 +1166,22 @@ export function TranslationWorkflowPanel({
                           {uiText(locale, "Reopen", "Erneut bearbeiten")}
                         </Button>
                       )}
-                      {saving && <Loader2 className="h-4 w-4 animate-spin text-brand-600" />}
+                      {canManage && (
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          disabled={saving}
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => void deleteTranslation(translation)}
+                        >
+                          <Trash2 />
+                          {uiText(locale, "Delete", "Löschen")}
+                        </Button>
+                      )}
+                      {saving && (
+                        <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+                      )}
                     </div>
                   </div>
                 </article>
@@ -483,8 +1194,8 @@ export function TranslationWorkflowPanel({
       {data && data.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            {uiText(locale, "Page", "Seite")} {data.page} {locale === "de" ? "von" : "of"}{" "}
-            {data.totalPages}
+            {uiText(locale, "Page", "Seite")} {data.page}{" "}
+            {locale === "de" ? "von" : "of"} {data.totalPages}
           </p>
           <div className="flex gap-2">
             {data.page > 1 && (

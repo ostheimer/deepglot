@@ -1,9 +1,13 @@
 import { formatDistanceToNow } from "date-fns";
-import { ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
+import { DismissSyncOriginButton } from "@/components/projekte/dismiss-sync-origin-button";
 import { Button } from "@/components/ui/button";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
 import { getProjectUrl } from "@/lib/project-url";
+import { hasRuntimeSyncDomainConflict } from "@/lib/plugin-settings-sync";
+import { withLocalePrefix } from "@/lib/site-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -12,6 +16,9 @@ type RuntimeSyncBannerProps = {
   domain: string;
   runtimeSyncedAt?: Date | null;
   source?: "wordpress-runtime" | "saas-general";
+  syncSiteHost?: string | null;
+  syncConflicts?: readonly string[] | null;
+  projectId?: string;
 };
 
 export function RuntimeSyncBanner({
@@ -19,7 +26,15 @@ export function RuntimeSyncBanner({
   domain,
   runtimeSyncedAt,
   source = "wordpress-runtime",
+  syncSiteHost,
+  syncConflicts,
+  projectId,
 }: RuntimeSyncBannerProps) {
+  const domainConflict = hasRuntimeSyncDomainConflict(
+    domain,
+    syncSiteHost,
+    syncConflicts,
+  );
   const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
 
   const syncedLabel = runtimeSyncedAt
@@ -31,6 +46,48 @@ export function RuntimeSyncBanner({
   const saasGeneral = source === "saas-general";
 
   return (
+    <div className="space-y-3">
+    {domainConflict ? (
+      <div
+        role="alert"
+        className="flex flex-col gap-4 rounded-xl border border-amber-300 bg-amber-50 p-4 md:flex-row md:items-center md:justify-between"
+      >
+        <div className="flex items-start gap-3">
+          <AlertTriangle
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-700"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">
+              {uiText(
+                locale,
+                "Plugin reports a different website",
+                "Plugin meldet eine andere Website",
+              )}
+            </p>
+            <p className="mt-1 text-sm text-amber-800">
+              {uiText(
+                locale,
+                "The last sync came from {host}, but this project belongs to {domain}. Another WordPress installation is probably using this project's API key. Create a separate project for it or correct the domain in the general settings.",
+                "Die letzte Synchronisierung kam von {host}, dieses Projekt gehört aber zu {domain}. Vermutlich verwendet eine andere WordPress-Installation den API-Key dieses Projekts. Lege dafür ein eigenes Projekt an oder korrigiere die Domain in den allgemeinen Einstellungen.",
+              )
+                .replace("{host}", syncSiteHost)
+                .replace("{domain}", domain)}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {projectId ? (
+            <DismissSyncOriginButton projectId={projectId} siteHost={syncSiteHost} />
+          ) : null}
+          <Button asChild variant="outline">
+            <Link href={withLocalePrefix("/projekte/neu", locale)}>
+              {uiText(locale, "Create project", "Projekt erstellen")}
+            </Link>
+          </Button>
+        </div>
+      </div>
+    ) : null}
     <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="text-sm font-semibold text-blue-900">
@@ -82,6 +139,7 @@ export function RuntimeSyncBanner({
           )}
         </a>
       </Button>
+    </div>
     </div>
   );
 }

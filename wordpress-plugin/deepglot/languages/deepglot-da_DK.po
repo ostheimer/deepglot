@@ -745,11 +745,11 @@ msgstr "For mange anmodninger. Vent venligst %d sekunder."
 msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden."
 msgstr "Kildesprog, målsprog og automatisk viderestilling administreres i Deepglot-dashboardet og kan kun læses via WordPress REST API."
 
-#: includes/Api/RestApi.php:659
+#: includes/Api/RestApi.php:665
 msgid "Monatliches Wortlimit ausgeschöpft."
 msgstr "Månedlig ordgrænse opbrugt."
 
-#: includes/Api/RestApi.php:667
+#: includes/Api/RestApi.php:673
 msgid "API-Key ungültig oder widerrufen."
 msgstr "API-Key ugyldig eller tilbagekaldt."
 

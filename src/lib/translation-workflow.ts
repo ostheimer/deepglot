@@ -1,8 +1,22 @@
 import type {
   Prisma,
   ProjectMember,
+  TranslationSource,
   TranslationWorkflowStatus,
 } from "@prisma/client";
+
+import { inspectPostgresText } from "@/lib/postgres-text";
+import { Prisma as PrismaSql } from "@prisma/client";
+import {
+  observationCutoff,
+  type ObservedActivity,
+  type VariableQuality,
+} from "./translation-quality";
+import {
+  workspaceSqlWhere,
+  workspaceSqlOrder,
+} from "./translation-workspace-query";
+import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 
 export type TranslationWorkflowActor = {
   canManage: boolean;
@@ -31,6 +45,25 @@ export class TranslationWorkflowError extends Error {
   ) {
     super(message);
     this.name = "TranslationWorkflowError";
+  }
+}
+
+export const MAX_TRANSLATION_CONTENT_LENGTH = 100_000;
+
+export function assertValidTranslationContent(translatedText: string) {
+  const postgresTextError = inspectPostgresText(translatedText, {
+    boundary: "translation_workspace_edit",
+    field: "translatedText",
+  });
+  if (
+    translatedText.trim().length === 0 ||
+    translatedText.length > MAX_TRANSLATION_CONTENT_LENGTH ||
+    postgresTextError
+  ) {
+    throw new TranslationWorkflowError(
+      "INVALID_PAYLOAD",
+      "Translation text must be non-empty, supported text within the size limit.",
+    );
   }
 }
 
@@ -67,6 +100,36 @@ export function resolveTranslationWorkflowLanguage(
   throw new TranslationWorkflowError(
     "FORBIDDEN",
     "You are not authorized for this target language.",
+  );
+}
+
+export function assertTranslationContentMutationAllowed({
+  actor,
+  langTo,
+  assignedToId,
+  operation,
+}: {
+  actor: TranslationWorkflowActor;
+  langTo: string;
+  assignedToId: string | null;
+  operation: "edit" | "delete";
+}) {
+  assertLanguageAccess(actor, langTo);
+
+  if (actor.canManage) return;
+  if (
+    operation === "edit" &&
+    actor.projectMemberId !== null &&
+    actor.projectMemberId === assignedToId
+  ) {
+    return;
+  }
+
+  throw new TranslationWorkflowError(
+    "FORBIDDEN",
+    operation === "delete"
+      ? "Only project managers may delete translation segments."
+      : "Translators may only edit their own assigned segments.",
   );
 }
 
@@ -127,10 +190,7 @@ export function resetProjectMemberWorkflowAssignments(
   });
 }
 
-function assertLanguageAccess(
-  actor: TranslationWorkflowActor,
-  langTo: string,
-) {
+function assertLanguageAccess(actor: TranslationWorkflowActor, langTo: string) {
   resolveTranslationWorkflowLanguage(actor, langTo);
 }
 
@@ -244,6 +304,16 @@ export function planTranslationWorkflowUpdate({
 }
 
 export type TranslationWorkflowFilters = {
+  reportedType?: import("./translation-reported-types").ReportedTypeFilter;
+  quality?: VariableQuality;
+  activity?: ObservedActivity;
+  label?: string;
+  variables?: "saved" | "none";
+  source?: TranslationSource;
+  mode?: "manual" | "automatic";
+  context?: "known" | "unknown";
+  urlPath?: string;
+  sort?: "updated_desc" | "created_desc" | "created_asc" | "original_asc";
   langTo?: string;
   status?: TranslationWorkflowStatus;
   assignedToId?: string | null;
@@ -253,6 +323,10 @@ export type TranslationWorkflowFilters = {
 };
 
 const workflowInclude = {
+  typeObservations: { orderBy: { wordType: "asc" }, take: 11 },
+  metadata: true,
+  contexts: { orderBy: { urlPath: "asc" }, take: 100 },
+  _count: { select: { contexts: true } },
   assignedTo: {
     select: {
       id: true,
@@ -276,7 +350,10 @@ export async function listProjectTranslationWorkflow({
   const { db } = await import("@/lib/db");
   const langTo = resolveTranslationWorkflowLanguage(actor, filters.langTo);
   const page = Math.max(1, Math.trunc(filters.page ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Math.trunc(filters.pageSize ?? 25)));
+  const pageSize = Math.min(
+    100,
+    Math.max(1, Math.trunc(filters.pageSize ?? 25)),
+  );
 
   if (langTo) {
     const activeLanguage = await db.projectLanguage.findFirst({
@@ -291,46 +368,49 @@ export async function listProjectTranslationWorkflow({
     }
   }
 
-  const where: Prisma.TranslationWhereInput = {
-    projectId,
-    ...(langTo ? { langTo } : {}),
-    ...(filters.status ? { workflowStatus: filters.status } : {}),
-    ...(filters.assignedToId !== undefined
-      ? { assignedToId: filters.assignedToId }
-      : {}),
-    ...(filters.query?.trim()
-      ? {
-          OR: [
-            {
-              originalText: {
-                contains: filters.query.trim(),
-                mode: "insensitive",
-              },
+  const observedAt = new Date();
+  const cutoff = observationCutoff(observedAt);
+  const where = workspaceSqlWhere(projectId, langTo, filters, cutoff);
+  // Count, page IDs and hydration see one snapshot even if a reviewer edits
+  // content/metadata during the request. Only the bounded page leaves the DB.
+  const { items, total } = await db.$transaction(
+    async (tx) => {
+      const totals = await tx.$queryRaw<Array<{ total: bigint }>>(PrismaSql.sql`
+      SELECT count(*) AS total FROM "Translation" t WHERE ${where}
+    `);
+      const ids = await tx.$queryRaw<Array<{ id: string }>>(PrismaSql.sql`
+      SELECT t.id FROM "Translation" t WHERE ${where}
+      ORDER BY ${workspaceSqlOrder(filters.sort)}
+      LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+    `);
+      const rows = ids.length
+        ? await tx.translation.findMany({
+            where: {
+              projectId,
+              ...(langTo ? { langTo } : {}),
+              id: { in: ids.map(({ id }) => id) },
             },
-            {
-              translatedText: {
-                contains: filters.query.trim(),
-                mode: "insensitive",
-              },
-            },
-          ],
-        }
-      : {}),
-  };
-
-  const [items, total] = await Promise.all([
-    db.translation.findMany({
-      where,
-      include: workflowInclude,
-      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.translation.count({ where }),
-  ]);
+            include: workflowInclude,
+          })
+        : [];
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return {
+        items: ids.map(({ id }) => byId.get(id)!),
+        total: Number(totals[0].total),
+      };
+    },
+    { isolationLevel: "RepeatableRead", timeout: 15_000 },
+  );
 
   return {
     items,
+    observation: { evaluatedAt: observedAt, cutoff },
+    contextPaths: await db.translationContext.groupBy({
+      where: { translation: { projectId, ...(langTo ? { langTo } : {}) } },
+      by: ["urlPath"],
+      orderBy: { urlPath: "asc" },
+      take: 500,
+    }),
     total,
     page,
     pageSize,
@@ -408,5 +488,218 @@ export async function updateProjectTranslationWorkflow({
       where: { id: current.id },
       include: workflowInclude,
     });
+  });
+}
+
+export async function updateProjectTranslationContent({
+  projectId,
+  translationId,
+  actor,
+  translatedText,
+  expectedUpdatedAt,
+}: {
+  projectId: string;
+  translationId: string;
+  actor: TranslationWorkflowActor;
+  translatedText: string;
+  expectedUpdatedAt: Date;
+}) {
+  assertValidTranslationContent(translatedText);
+  const { db } = await import("@/lib/db");
+  const { queueProjectWebhookEvent } =
+    await import("@/lib/project-webhook-delivery");
+  const { recordTranslationBatch } = await import("@/lib/translation-batches");
+  return db.$transaction(async (tx) => {
+    const current = await tx.translation.findFirst({
+      where: { id: translationId, projectId },
+      select: {
+        id: true,
+        originalText: true,
+        translatedText: true,
+        langFrom: true,
+        langTo: true,
+        wordCount: true,
+        workflowStatus: true,
+        assignedToId: true,
+        updatedAt: true,
+        project: { select: { organizationId: true } },
+      },
+    });
+    if (!current) {
+      throw new TranslationWorkflowError(
+        "NOT_FOUND",
+        "Translation segment not found.",
+      );
+    }
+    assertTranslationContentMutationAllowed({
+      actor,
+      langTo: current.langTo,
+      assignedToId: current.assignedToId,
+      operation: "edit",
+    });
+
+    const languageConfigurationIsCurrent =
+      await lockAndValidateProjectLanguageWrite(tx, {
+        projectId,
+        sourceLanguages: [current.langFrom],
+        targetLanguages: [current.langTo],
+      });
+    if (!languageConfigurationIsCurrent) {
+      throw new TranslationWorkflowError(
+        "INVALID_LANGUAGE",
+        "The translation language pair is no longer active for this project.",
+      );
+    }
+
+    const lockedCurrentVersion = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Translation"
+      WHERE "id" = ${current.id}
+        AND "projectId" = ${projectId}
+        AND "updatedAt" = ${expectedUpdatedAt}
+      FOR UPDATE
+    `;
+    if (lockedCurrentVersion.length !== 1) {
+      throw new TranslationWorkflowError(
+        "STALE_UPDATE",
+        "The segment changed while it was being edited. Reload and retry.",
+      );
+    }
+
+    if (current.translatedText === translatedText) {
+      return tx.translation.findUniqueOrThrow({
+        where: { id: current.id },
+        include: workflowInclude,
+      });
+    }
+
+    const changed = await tx.translation.updateMany({
+      where: {
+        id: current.id,
+        projectId,
+        updatedAt: expectedUpdatedAt,
+      },
+      data: {
+        translatedText,
+        isManual: true,
+        source: "MANUAL",
+        ...workflowResetFieldsIfTranslatedTextChanged(current, translatedText),
+      },
+    });
+    if (changed.count !== 1) {
+      throw new TranslationWorkflowError(
+        "STALE_UPDATE",
+        "The segment changed while it was being edited. Reload and retry.",
+      );
+    }
+
+    const saved = await tx.translation.findUniqueOrThrow({
+      where: { id: current.id },
+      include: workflowInclude,
+    });
+    await recordTranslationBatch(
+      {
+        organizationId: current.project.organizationId,
+        projectId,
+        langFrom: current.langFrom,
+        langTo: current.langTo,
+        provider: "manual",
+        totalWords: current.wordCount,
+        cachedWords: 0,
+        manualWords: current.wordCount,
+        glossaryWords: 0,
+        translatedWords: 0,
+      },
+      tx,
+    );
+    await queueProjectWebhookEvent(
+      {
+        projectId,
+        eventType: "translation.manual_updated",
+        payload: {
+          type: "translation.manual_updated",
+          translationId: saved.id,
+          originalText: saved.originalText,
+          translatedText: saved.translatedText,
+          langFrom: saved.langFrom,
+          langTo: saved.langTo,
+          created: false,
+        },
+      },
+      tx,
+    );
+
+    return saved;
+  });
+}
+
+export async function deleteProjectTranslation({
+  projectId,
+  translationId,
+  actor,
+  expectedUpdatedAt,
+}: {
+  projectId: string;
+  translationId: string;
+  actor: TranslationWorkflowActor;
+  expectedUpdatedAt: Date;
+}) {
+  const { db } = await import("@/lib/db");
+  const { queueProjectWebhookEvent } =
+    await import("@/lib/project-webhook-delivery");
+  return db.$transaction(async (tx) => {
+    const current = await tx.translation.findFirst({
+      where: { id: translationId, projectId },
+      select: {
+        id: true,
+        originalHash: true,
+        langFrom: true,
+        langTo: true,
+        assignedToId: true,
+        updatedAt: true,
+      },
+    });
+    if (!current) {
+      throw new TranslationWorkflowError(
+        "NOT_FOUND",
+        "Translation segment not found.",
+      );
+    }
+    assertTranslationContentMutationAllowed({
+      actor,
+      langTo: current.langTo,
+      assignedToId: current.assignedToId,
+      operation: "delete",
+    });
+
+    const deleted = await tx.translation.deleteMany({
+      where: {
+        id: current.id,
+        projectId,
+        updatedAt: expectedUpdatedAt,
+      },
+    });
+    if (deleted.count !== 1) {
+      throw new TranslationWorkflowError(
+        "STALE_UPDATE",
+        "The segment changed while it was being deleted. Reload and retry.",
+      );
+    }
+
+    await queueProjectWebhookEvent(
+      {
+        projectId,
+        eventType: "translation.deleted",
+        payload: {
+          type: "translation.deleted",
+          translationId: current.id,
+          originalHash: current.originalHash,
+          langFrom: current.langFrom,
+          langTo: current.langTo,
+        },
+      },
+      tx,
+    );
+    return { id: current.id };
   });
 }

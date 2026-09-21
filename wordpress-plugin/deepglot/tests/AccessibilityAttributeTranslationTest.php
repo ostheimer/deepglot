@@ -9,7 +9,7 @@
  * accessibility-relevant alt text stayed in the source language.
  *
  * The translator must also translate user-facing copy carried in:
- *   - <img alt="…">
+ *   - <img alt="…" title="…">
  *   - <a title="…">
  *   - <button title="…">
  *   - <input placeholder="…">
@@ -150,13 +150,15 @@ $html = '<!DOCTYPE html><html><head>'
     . '<link rel="canonical" href="https://example.com/" title="Should not translate">'
     . '</head>'
     . '<body>'
-    . '<img alt="Online einkaufen leicht gemacht: Erfahrungsbericht" src="/img/cover.jpg">'
+    . '<img alt="Online einkaufen leicht gemacht: Erfahrungsbericht" title="VR-Brille bei Ihrem Zahnarzt in Ungarn" src="/img/cover.jpg">'
     . '<img alt="" src="/img/spacer.gif">'
     . '<img alt="x" src="/img/short.gif">'
     . '<img alt="   " src="/img/whitespace.gif">'
     . '<a href="/blog/" title="Mehr über das Bloggen">Blog Link</a>'
     . '<a href="/x/" aria-label="Suche öffnen"><span aria-hidden="true">🔍</span></a>'
     . '<button title="Neuen Beitrag erstellen" aria-label="Beitrag hinzufügen">+</button>'
+    . '<nav aria-label="Hauptmenü"><a href="/">Start</a></nav>'
+    . '<div role="navigation" aria-label="Seitennavigation">Weiter</div>'
     . '<input type="text" placeholder="Suche nach Rezepten">'
     . '<input type="email" placeholder="E-Mail eingeben">'
     . '<textarea placeholder="Hinterlasse einen Kommentar"></textarea>'
@@ -173,6 +175,8 @@ $decoded = html_entity_decode($translated, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 // 1. <img alt> on body images IS sent for translation and applied back.
 a11yAssert(in_array('Online einkaufen leicht gemacht: Erfahrungsbericht', $client->sentTexts, true), 'Long img alt must be sent for translation');
 a11yAssert(str_contains($decoded, 'alt="[en] Online einkaufen leicht gemacht: Erfahrungsbericht"'), 'Img alt should be rewritten with translation: ' . substr($decoded, 0, 600));
+a11yAssert(in_array('VR-Brille bei Ihrem Zahnarzt in Ungarn', $client->sentTexts, true), 'Img title must be sent for translation');
+a11yAssert(str_contains($decoded, 'title="[en] VR-Brille bei Ihrem Zahnarzt in Ungarn"'), 'Img title should be rewritten with translation');
 
 // 2. Empty / single-character / whitespace-only alt values are NOT sent.
 a11yAssert(!in_array('', $client->sentTexts, true), 'Empty alt must not be sent');
@@ -188,6 +192,20 @@ a11yAssert(str_contains($decoded, 'aria-label="[en] Suche öffnen"'), 'Translate
 // 4. <button title> and aria-label both translate (deduped if equal, kept separate if different).
 a11yAssert(in_array('Neuen Beitrag erstellen', $client->sentTexts, true), '<button title> must be sent');
 a11yAssert(in_array('Beitrag hinzufügen', $client->sentTexts, true), '<button aria-label> must be sent');
+
+// 4a. aria-label is human-facing on every body element, not only controls.
+// HD-Dental's Avada navigation exposes "Hauptmenü" on <nav>, while other
+// themes use role-bearing containers for the same accessible name.
+a11yAssert(in_array('Hauptmenü', $client->sentTexts, true), '<nav aria-label> must be sent');
+a11yAssert(in_array('Seitennavigation', $client->sentTexts, true), '<div aria-label> must be sent');
+a11yAssert(str_contains($decoded, 'aria-label="[en] Hauptmenü"'), 'Translated <nav aria-label> should be rewritten');
+a11yAssert(str_contains($decoded, 'aria-label="[en] Seitennavigation"'), 'Translated generic aria-label should be rewritten');
+
+$translatorSource = file_get_contents(__DIR__ . '/../includes/Frontend/HtmlTranslator.php');
+a11yAssert(
+    is_string($translatorSource) && str_contains($translatorSource, "'descendant-or-self::*[@aria-label]'"),
+    'Generic accessibility collection must query only elements that actually carry aria-label.'
+);
 
 // 5. <input placeholder> and <textarea placeholder> translate.
 a11yAssert(in_array('Suche nach Rezepten', $client->sentTexts, true), 'Input placeholder must be sent');

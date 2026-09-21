@@ -26,7 +26,7 @@ test("marketing metadata carries complete Open Graph and Twitter cards", () => {
     description: "Deepglot Preise",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: "/opengraph-image.png?v=2",
         width: 1200,
         height: 630,
         alt: "Deepglot — WordPress translation built in Austria",
@@ -39,7 +39,7 @@ test("marketing metadata carries complete Open Graph and Twitter cards", () => {
     description: "Deepglot Preise",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: "/opengraph-image.png?v=2",
         width: 1200,
         height: 630,
         alt: "Deepglot — WordPress translation built in Austria",
@@ -77,7 +77,7 @@ test("editorial metadata can publish an EN/DE-only article canonical", () => {
     description: "Article description",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: "/opengraph-image.png?v=2",
         width: 1200,
         height: 630,
         alt: "Deepglot — WordPress translation built in Austria",

@@ -30,14 +30,16 @@ class TranslationCache
         $value = get_transient($envelopeKey);
 
         if ($value !== false) {
-            return is_string($value) ? $this->decodeEnvelope($value, $envelopeKey) : null;
+            $decoded = is_string($value) ? $this->decodeEnvelope($value, $envelopeKey) : null;
+
+            return is_string($decoded) && !$this->isBlank($decoded) ? $decoded : null;
         }
 
         // Only a missing versioned key may fall back to the legacy plain
         // string. A malformed versioned value must never downgrade to it.
         $legacyValue = get_transient($this->legacyKey($text, $sourceLang, $targetLang));
 
-        return is_string($legacyValue) ? $legacyValue : null;
+        return is_string($legacyValue) && !$this->isBlank($legacyValue) ? $legacyValue : null;
     }
 
     /**
@@ -47,6 +49,10 @@ class TranslationCache
      */
     public function set(string $text, string $sourceLang, string $targetLang, string $translated): bool
     {
+        if ($this->isBlank($translated)) {
+            return false;
+        }
+
         $key = $this->envelopeKey($text, $sourceLang, $targetLang);
         $envelope = $this->encodeEnvelope($translated, $key);
 
@@ -127,6 +133,11 @@ class TranslationCache
     private function envelopeKey(string $text, string $sourceLang, string $targetLang): string
     {
         return self::ENVELOPE_KEY_PREFIX . sha1($sourceLang . '|' . $targetLang . '|' . $text);
+    }
+
+    private function isBlank(string $value): bool
+    {
+        return $value === '' || preg_match('/\A[\p{Z}\s]*\z/u', $value) === 1;
     }
 
     /**

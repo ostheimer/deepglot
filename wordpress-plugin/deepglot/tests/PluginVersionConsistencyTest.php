@@ -39,7 +39,7 @@ versionAssert(
 $headerVersion = $headerMatch[1] ?? '';
 $constantVersion = $constantMatch[1] ?? '';
 
-versionAssert($headerVersion === '0.12.8', 'Prepared WordPress.org release must be version 0.12.8');
+versionAssert($headerVersion === '0.12.9', 'Prepared WordPress.org release must be version 0.12.9');
 versionAssert(
     !str_contains($dynamicTranslator, 'var rateLimitedUntil = 0;')
         || version_compare($headerVersion, '0.12.1', '>='),
@@ -123,8 +123,8 @@ versionAssert(
 );
 
 versionAssert(
-    preg_match('/^Tested up to:\s*7\.0$/m', $wordpressReadme) === 1,
-    'WordPress.org tested version must be 7.0'
+    preg_match('/^Tested up to:\s*7\.1$/m', $wordpressReadme) === 1,
+    'WordPress.org tested version must be 7.1'
 );
 versionAssert(
     preg_match('/^ \* License:\s*GPLv2 or later$/m', $plugin) === 1,

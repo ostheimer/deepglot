@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 
 import { SITE_LOCALES, type SiteLocale } from "@/lib/site-locale";
 import { translateTexts } from "@/lib/translation";
+import { STATIC_MESSAGES } from "@/lib/static-messages";
 
 const ROOT = process.cwd();
 const SRC_DIR = path.join(ROOT, "src");
@@ -233,8 +234,15 @@ function findObjectProperty(node: ts.Node | undefined, key: string): ts.Expressi
 }
 
 function readCache(): TranslationCache {
-  if (!fs.existsSync(CACHE_FILE)) return {};
-  return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8")) as TranslationCache;
+  const cache: TranslationCache = fs.existsSync(CACHE_FILE)
+    ? JSON.parse(fs.readFileSync(CACHE_FILE, "utf8")) as TranslationCache
+    : {};
+  // A fresh worktree has no ignored cache. Preserve the reviewed catalogues
+  // instead of retranslating the entire product (and undoing manual corrections).
+  for (const locale of SITE_LOCALES) {
+    cache[locale] = { ...cache[locale], ...STATIC_MESSAGES[locale] };
+  }
+  return cache;
 }
 
 function writeCache(cache: TranslationCache) {

@@ -1,6 +1,8 @@
 import type { TranslationWorkflowStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { translationMetadataSchema } from "@/lib/translation-metadata";
+import { updateProjectTranslationMetadata } from "@/lib/translation-metadata-workflow";
 
 import { db } from "@/lib/db";
 import {
@@ -10,7 +12,10 @@ import {
   getProjectAccess,
 } from "@/lib/project-access";
 import {
+  deleteProjectTranslation,
+  MAX_TRANSLATION_CONTENT_LENGTH,
   TranslationWorkflowError,
+  updateProjectTranslationContent,
   updateProjectTranslationWorkflow,
 } from "@/lib/translation-workflow";
 
@@ -21,11 +26,12 @@ const statusMap = {
   approved: "APPROVED",
 } as const satisfies Record<string, TranslationWorkflowStatus>;
 
-const patchSchema = z
+const workflowPatchSchema = z
   .object({
     status: z.enum(["machine", "assigned", "in_review", "approved"]).optional(),
     assignedToId: z.string().trim().min(1).nullable().optional(),
   })
+  .strict()
   .refine(
     (value) =>
       value.status !== undefined ||
@@ -33,10 +39,43 @@ const patchSchema = z
     { message: "A status or assignment change is required." },
   );
 
+const contentPatchSchema = z
+  .object({
+    translatedText: z
+      .string()
+      .max(MAX_TRANSLATION_CONTENT_LENGTH)
+      .refine(
+        (value) => value.trim().length > 0,
+        "Translation text is required.",
+      ),
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
+const metadataPatchSchema = z
+  .object({
+    metadata: translationMetadataSchema,
+    expectedVersion: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+const patchSchema = z.union([
+  contentPatchSchema,
+  workflowPatchSchema,
+  metadataPatchSchema,
+]);
+const deleteSchema = z
+  .object({
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+
 function errorResponse(error: unknown) {
   if (!(error instanceof TranslationWorkflowError)) {
     console.error("[translation-workflow] update failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 
   const status =
@@ -47,14 +86,15 @@ function errorResponse(error: unknown) {
         : error.code === "INVALID_TRANSITION" || error.code === "STALE_UPDATE"
           ? 409
           : 400;
-  return NextResponse.json({ error: error.message, code: error.code }, { status });
+  return NextResponse.json(
+    { error: error.message, code: error.code },
+    { status },
+  );
 }
 
 export async function PATCH(
   request: NextRequest,
-  {
-    params,
-  }: { params: Promise<{ projektId: string; translationId: string }> },
+  { params }: { params: Promise<{ projektId: string; translationId: string }> },
 ) {
   const userId = await getAuthenticatedUserId();
   const { projektId, translationId } = await params;
@@ -81,7 +121,84 @@ export async function PATCH(
   });
 
   try {
-    const translation = await updateProjectTranslationWorkflow({
+    const actor = {
+      canManage: canManageProject(access),
+      projectMemberId: membership?.id ?? null,
+      langCode: access.langCode ?? null,
+    };
+    if ("metadata" in parsed.data) {
+      const metadata = await updateProjectTranslationMetadata({
+        projectId: projektId,
+        translationId,
+        actor,
+        metadata: parsed.data.metadata,
+        expectedVersion: parsed.data.expectedVersion,
+      });
+      return NextResponse.json({ metadata });
+    }
+    const translation =
+      "translatedText" in parsed.data
+        ? await updateProjectTranslationContent({
+            projectId: projektId,
+            translationId,
+            actor,
+            translatedText: parsed.data.translatedText,
+            expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
+          })
+        : await updateProjectTranslationWorkflow({
+            projectId: projektId,
+            translationId,
+            actor,
+            patch: {
+              status: parsed.data.status
+                ? statusMap[parsed.data.status]
+                : undefined,
+              ...(Object.prototype.hasOwnProperty.call(
+                parsed.data,
+                "assignedToId",
+              )
+                ? { assignedToId: parsed.data.assignedToId }
+                : {}),
+            },
+          });
+
+    const { workflowStatus, ...item } = translation;
+    return NextResponse.json({
+      translation: { ...item, status: workflowStatus.toLowerCase() },
+    });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ projektId: string; translationId: string }> },
+) {
+  const userId = await getAuthenticatedUserId();
+  const { projektId, translationId } = await params;
+  if (!userId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const access = await getProjectAccess(userId, projektId);
+  if (!access || !canAccessProject(access)) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+  const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid delete request" },
+      { status: 400 },
+    );
+  }
+  const membership = await db.projectMember.findFirst({
+    where: { projectId: projektId, userId },
+    select: { id: true },
+  });
+
+  try {
+    await deleteProjectTranslation({
       projectId: projektId,
       translationId,
       actor: {
@@ -89,18 +206,9 @@ export async function PATCH(
         projectMemberId: membership?.id ?? null,
         langCode: access.langCode ?? null,
       },
-      patch: {
-        status: parsed.data.status ? statusMap[parsed.data.status] : undefined,
-        ...(Object.prototype.hasOwnProperty.call(parsed.data, "assignedToId")
-          ? { assignedToId: parsed.data.assignedToId }
-          : {}),
-      },
+      expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
     });
-
-    const { workflowStatus, ...item } = translation;
-    return NextResponse.json({
-      translation: { ...item, status: workflowStatus.toLowerCase() },
-    });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);
   }

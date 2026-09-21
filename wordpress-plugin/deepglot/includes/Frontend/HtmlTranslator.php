@@ -63,13 +63,12 @@ class HtmlTranslator
      * intentionally left out.
      */
     private const TRANSLATABLE_BODY_ATTRIBUTES = [
-        'img' => ['alt'],
-        'a' => ['title', 'aria-label'],
-        'button' => ['title', 'aria-label'],
-        'input' => ['placeholder', 'aria-label'],
-        'textarea' => ['placeholder', 'aria-label'],
-        'select' => ['aria-label'],
-        'label' => ['aria-label'],
+        '*' => ['aria-label'],
+        'img' => ['alt', 'title'],
+        'a' => ['title'],
+        'button' => ['title'],
+        'input' => ['placeholder'],
+        'textarea' => ['placeholder'],
         'optgroup' => ['label'],
         'option' => ['label'],
     ];
@@ -251,6 +250,11 @@ class HtmlTranslator
         $sourceLang = $this->options->getSourceLanguage();
 
         $doc = $this->loadHtml($html);
+        if ($requestUrl !== '') {
+            // JSON-LD relative IRIs use this document's URL, never a previous
+            // request's base or an inferred site-root origin.
+            $doc->documentURI = $requestUrl;
+        }
 
         // Collect all translatable DOMText nodes, head metadata attributes,
         // accessibility-relevant body attributes (img alt, aria-label,
@@ -261,7 +265,7 @@ class HtmlTranslator
             $this->collectMetadataAttributes($doc),
             $this->collectAccessibilityAttributes($doc)
         );
-        $jsonLdMutations = $this->jsonLd->collect($doc);
+        $jsonLdMutations = $this->jsonLd->collect($doc, $targetLanguage, $sourceLang);
 
         if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
             return ['html' => $html, 'segments' => []];
@@ -440,12 +444,15 @@ class HtmlTranslator
             }
         }
 
-        // Translate whitelisted head metadata attributes in place.
+        // Translate whitelisted metadata and accessibility attributes in place.
         foreach ($attrs as $attr) {
             $original = $attr->value;
 
             if (isset($all[$original])) {
-                $attr->value = $all[$original];
+                // DOMAttr::value parses entity references, which can erase a
+                // raw ampersand or decode literal entity text a second time.
+                // setAttribute() stores plain text and escapes it on output.
+                $attr->ownerElement->setAttribute($attr->name, $all[$original]);
             }
         }
 
@@ -669,6 +676,34 @@ class HtmlTranslator
             $result[] = $contentAttr;
         }
 
+        // WordPress feed-discovery titles are human-readable metadata. Keep
+        // ordinary <link> titles untouched: only RSS/Atom alternates qualify.
+        $links = $head->getElementsByTagName('link');
+
+        foreach ($links as $link) {
+            if (!$link instanceof \DOMElement) {
+                continue;
+            }
+
+            $relations = preg_split('/\s+/', strtolower(trim($link->getAttribute('rel')))) ?: [];
+            if (!in_array('alternate', $relations, true)) {
+                continue;
+            }
+
+            $typeParts = explode(';', strtolower(trim($link->getAttribute('type'))), 2);
+            $type = trim($typeParts[0]);
+            if (!in_array($type, ['application/rss+xml', 'application/atom+xml'], true)) {
+                continue;
+            }
+
+            $titleAttr = $link->getAttributeNode('title');
+            if (!$titleAttr instanceof \DOMAttr || !$this->isTranslatableAttributeValue($titleAttr->value)) {
+                continue;
+            }
+
+            $result[] = $titleAttr;
+        }
+
         return $result;
     }
 
@@ -691,7 +726,8 @@ class HtmlTranslator
         $result = [];
 
         foreach (self::TRANSLATABLE_BODY_ATTRIBUTES as $tagName => $attributeNames) {
-            $elements = $xpath->query('.//' . $tagName, $body);
+            $query = $tagName === '*' ? 'descendant-or-self::*[@aria-label]' : './/' . $tagName;
+            $elements = $xpath->query($query, $body);
             if ($elements === false) {
                 continue;
             }

@@ -61,6 +61,7 @@ export type PluginMirrorState = {
 
 export type PluginMirrorConflict =
   | "domain"
+  | "siteIdentity"
   | "sourceLanguage"
   | "targetLanguages"
   | "autoRedirect";
@@ -101,6 +102,72 @@ function pluginSiteHost(siteUrl: string | undefined): string | null {
 }
 
 /**
+ * Reduce a stored domain or reported site URL to a comparable hostname.
+ * Accepts bare hosts as well as scheme-bearing values (`https://Example.com/`)
+ * that older project-creation paths stored unchanged, and treats the `www.`
+ * prefix as the same site. Non-default ports are kept because projects may
+ * legitimately live on `example.com:8443`. Returns null when nothing
+ * host-like remains.
+ */
+export function canonicalHost(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withScheme);
+    // Absolute DNS names ("example.com.") are the same host without the dot.
+    const hostname = url.hostname
+      .toLowerCase()
+      .replace(/\.+$/, "")
+      .replace(/^www\./, "");
+    if (!hostname) return null;
+    return url.port ? `${hostname}:${url.port}` : hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Site identity of a WordPress installation as reported by the plugin:
+ * lowercase host (trailing DNS dot removed, `www.` kept for display) plus the
+ * install path without trailing slash, e.g. `example.com/blog`. Subdirectory
+ * installations sharing a host are distinct sites and must stay distinct here.
+ */
+export function canonicalSiteIdentity(
+  siteUrl: string | null | undefined,
+): string | null {
+  const trimmed = siteUrl?.trim();
+  if (!trimmed) return null;
+
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withScheme);
+    const hostname = url.hostname.toLowerCase().replace(/\.+$/, "");
+    if (!hostname) return null;
+    const host = url.port ? `${hostname}:${url.port}` : hostname;
+    // URL paths are case-sensitive and the plugin routes them that way.
+    const path = url.pathname.replace(/\/+$/, "");
+    return path && path !== "/" ? `${host}${path}` : host;
+  } catch {
+    return null;
+  }
+}
+
+/** Host component of a value produced by canonicalSiteIdentity. */
+export function siteIdentityHost(identity: string | null | undefined) {
+  if (!identity) return null;
+  const slash = identity.indexOf("/");
+  return slash === -1 ? identity : identity.slice(0, slash);
+}
+
+/**
  * Report WordPress values that differ from the authoritative SaaS mirror. The
  * caller can surface this drift without accepting the stale values as writes.
  */
@@ -111,7 +178,10 @@ export function findPluginMirrorConflicts(
   const conflicts: PluginMirrorConflict[] = [];
   const siteHost = pluginSiteHost(payload.siteUrl);
 
-  if (siteHost !== null && siteHost !== authoritative.domain.toLowerCase()) {
+  if (
+    siteHost !== null &&
+    canonicalHost(siteHost) !== canonicalHost(authoritative.domain)
+  ) {
     conflicts.push("domain");
   }
   if (
@@ -173,4 +243,112 @@ export function validatePluginDomainMappings(
   }
 
   return null;
+}
+
+export type RuntimeSyncMirrorRecord = {
+  runtimeSyncSiteHost?: string;
+  runtimeSyncConflicts: PluginMirrorConflict[];
+};
+
+/**
+ * Persist what the last plugin sync reported so the dashboard can show a
+ * project whose API key is being reused by another WordPress installation.
+ * The record is informational only; the authoritative values stay untouched.
+ */
+export function buildRuntimeSyncMirrorRecord(
+  payload: PluginSettingsSyncPayload,
+  conflicts: readonly PluginMirrorConflict[],
+): RuntimeSyncMirrorRecord {
+  return {
+    ...buildRuntimeSyncOrigin(payload.siteUrl),
+    runtimeSyncConflicts: [...conflicts],
+  };
+}
+
+/**
+ * Fields describing where a sync came from. When the client did not report a
+ * siteUrl the previously recorded site is left untouched rather than cleared:
+ * an omitted value proves nothing about the foreign installation.
+ */
+export function buildRuntimeSyncOrigin(
+  siteUrl: string | null | undefined,
+): { runtimeSyncSiteHost?: string } {
+  const identity = canonicalSiteIdentity(siteUrl);
+  return identity ? { runtimeSyncSiteHost: identity } : {};
+}
+
+/**
+ * A sync from the same host but a different install path than the one on
+ * record is a different WordPress installation reusing the key. The project
+ * domain carries no path, so this is the only place it can be detected.
+ */
+export function isSiteIdentityChange(
+  previous: string | null | undefined,
+  next: string | null | undefined,
+) {
+  if (!previous || !next || previous === next) return false;
+  const sameHost =
+    canonicalHost(siteIdentityHost(previous)) === canonicalHost(siteIdentityHost(next));
+  const pathOf = (identity: string) => identity.slice(siteIdentityHost(identity)?.length ?? 0);
+  return sameHost && pathOf(previous) !== pathOf(next);
+}
+
+/**
+ * Decide at render time whether the host reported by the last plugin sync
+ * belongs to a different site than the project's *current* domain. Comparing
+ * live (instead of trusting the persisted conflict list) keeps the warning
+ * correct after a manager edits the domain in the general settings.
+ */
+export function hasRuntimeSyncDomainConflict(
+  domain: string | null | undefined,
+  siteIdentity: string | null | undefined,
+  conflicts: readonly string[] | null | undefined = [],
+): siteIdentity is string {
+  const reported = canonicalHost(siteIdentityHost(siteIdentity));
+  if (!reported) return false;
+  if (reported !== canonicalHost(domain)) return true;
+  return (conflicts ?? []).includes("siteIdentity");
+}
+
+/** Field values that remove a recorded plugin sync origin from a project. */
+export const CLEARED_RUNTIME_SYNC_ORIGIN = {
+  runtimeSyncSiteHost: null,
+  runtimeSyncApiKeyId: null,
+  runtimeSyncConflicts: [] as PluginMirrorConflict[],
+} as const;
+
+export type StoredRuntimeSyncOrigin = {
+  runtimeSyncSiteHost: string | null;
+  runtimeSyncConflicts: readonly string[];
+};
+
+/**
+ * Fields to write for an incoming sync given what is currently stored.
+ * A same-host path change raises the "siteIdentity" marker; an existing
+ * marker is preserved until a manager dismisses it or the key is revoked.
+ * Without a reported siteUrl the stored site *and* its recorded key stay as
+ * they are: a compatible client that omits siteUrl reports no site identity
+ * at all, so attributing the untouched host to whichever key happened to
+ * send this request would let an unrelated key's revocation clear (or its
+ * continued presence hide) another key's conflict.
+ */
+export function resolveRuntimeSyncOrigin(
+  stored: StoredRuntimeSyncOrigin | null | undefined,
+  siteUrl: string | null | undefined,
+  apiKeyId: string,
+): {
+  origin: { runtimeSyncSiteHost?: string; runtimeSyncApiKeyId?: string };
+  siteIdentityConflict: boolean;
+} {
+  const origin = buildRuntimeSyncOrigin(siteUrl);
+  const siteIdentityConflict =
+    isSiteIdentityChange(stored?.runtimeSyncSiteHost, origin.runtimeSyncSiteHost) ||
+    (stored?.runtimeSyncConflicts ?? []).includes("siteIdentity");
+  return {
+    origin:
+      origin.runtimeSyncSiteHost !== undefined
+        ? { ...origin, runtimeSyncApiKeyId: apiKeyId }
+        : origin,
+    siteIdentityConflict,
+  };
 }

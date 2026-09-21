@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -2335,25 +2335,53 @@ test("uses the caller's absolute deadline when admitting singleton recovery", { 
 });
 
 /**
- * A complete two-provider root mismatch can leave too little caller time for
- * even the first singleton wave. Recovery must classify that state before it
- * launches any paid calibration calls instead of letting the shared timer
- * abort them with a generic timeout.
+ * Runs one eight-text request whose complete two-provider root chain returns a
+ * count mismatch, on a virtual monotonic clock. performance.now() is mocked
+ * and every provider call advances it by exactly PROVIDER_CALL_MS without
+ * waiting; setTimeout is mocked as well, so translateTexts' own request timer
+ * cannot fire on wall-clock time. Singleton admission therefore compares exact
+ * numbers: the observed root chain (two calls, 60 ms) against what is left of
+ * `callerBudgetMs`.
+ *
+ * With real 30 ms timers and a 120 ms budget, the observed chain (~60 ms) and
+ * the remaining time (~60 ms) sat on the `>=` admission boundary. libuv keeps
+ * timer time in whole milliseconds, so a 30 ms timer can fire up to 1 ms early
+ * by performance.now(); on CI the chain then measured just under 60 ms and a
+ * full calibration wave started (18 calls instead of 2).
+ *
+ * Singletons translate successfully here, so every admitted calibration call
+ * is visible both in `providerCalls` and in the result.
  */
-test("checks the remaining deadline before starting singleton calibration", { timeout: 2_000 }, async () => {
+async function runSingletonCalibrationAdmission(
+  t: TestContext,
+  callerBudgetMs: number
+) {
+  const PROVIDER_CALL_MS = 30;
   const originalFetch = globalThis.fetch;
   const originalWarn = console.warn;
   const originalError = console.error;
+  const errorLogs: string[] = [];
   let providerCalls = 0;
+  let virtualNowMs = 1_000;
 
+  t.mock.method(performance, "now", () => virtualNowMs);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   console.warn = () => {};
-  console.error = () => {};
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(" "));
+  };
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     providerCalls += 1;
-    await waitForProviderDelay(30, init?.signal);
+    virtualNowMs += PROVIDER_CALL_MS;
 
     const url = typeof input === "string" ? input : input.toString();
-    if (url.includes("openai.com")) return openAIResponse([]);
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (url.includes("openai.com")) {
+      const { texts } = JSON.parse(body.messages[1].content) as { texts: string[] };
+      return openAIResponse(
+        texts.length === 1 ? [{ text: `en:${texts[0]}` }] : []
+      );
+    }
     if (url.includes("generativelanguage.googleapis.com")) {
       return geminiResponse([]);
     }
@@ -2361,49 +2389,89 @@ test("checks the remaining deadline before starting singleton calibration", { ti
   }) as typeof fetch;
 
   try {
-    const callerBudgetMs = 120;
-    const deadlineAt = performance.now() + callerBudgetMs;
-    await assert.rejects(
-      () =>
-        translateTexts(
-          {
-            texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
-            sourceLang: "de",
-            targetLang: "en",
-          },
-          {
-            TRANSLATION_PROVIDER: "openai",
-            OPENAI_API_KEY: "openai-key",
-            GEMINI_API_KEY: "gemini-key",
-            TRANSLATION_FALLBACK_PROVIDERS: "gemini",
-            TRANSLATION_CHUNK_SIZE: "8",
-            TRANSLATION_CHUNK_CONCURRENCY: "12",
-            TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
-            TRANSLATION_REQUEST_TIMEOUT_MS: "500",
-          },
-          null,
-          {
-            maxRequestTimeoutMs: 500,
-            signal: AbortSignal.timeout(callerBudgetMs),
-            deadlineAt,
-          },
-        ),
-      (error: unknown) => {
-        assert.ok(error instanceof Error);
-        assert.equal(error.name, "TranslationCountMismatchDeadlineError");
-        return true;
+    const outcome = await translateTexts(
+      {
+        texts: Array.from({ length: 8 }, (_, index) => `Segment ${index}`),
+        sourceLang: "de",
+        targetLang: "en",
       },
+      {
+        TRANSLATION_PROVIDER: "openai",
+        OPENAI_API_KEY: "openai-key",
+        GEMINI_API_KEY: "gemini-key",
+        TRANSLATION_FALLBACK_PROVIDERS: "gemini",
+        TRANSLATION_CHUNK_SIZE: "8",
+        TRANSLATION_CHUNK_CONCURRENCY: "12",
+        TRANSLATION_PROVIDER_TIMEOUT_MS: "1000",
+        TRANSLATION_REQUEST_TIMEOUT_MS: "500",
+      },
+      null,
+      {
+        maxRequestTimeoutMs: 500,
+        signal: new AbortController().signal,
+        deadlineAt: performance.now() + callerBudgetMs,
+      }
+    ).then(
+      (translations) => ({ status: "fulfilled" as const, translations }),
+      (error: unknown) => ({ status: "rejected" as const, error })
     );
-    assert.equal(
-      providerCalls,
-      2,
-      "the complete root chain may run, but no singleton calibration call may start",
-    );
+
+    return { outcome, providerCalls, errorLogs };
   } finally {
     globalThis.fetch = originalFetch;
     console.warn = originalWarn;
     console.error = originalError;
   }
+}
+
+/**
+ * A complete two-provider root mismatch can leave too little caller time for
+ * even the first singleton wave. Recovery must classify that state before it
+ * launches any paid calibration calls instead of letting the shared timer
+ * abort them with a generic timeout.
+ */
+test("checks the remaining deadline before starting singleton calibration", { timeout: 2_000 }, async (t) => {
+  // The root chain takes 60 ms and leaves 100 - 60 = 40 ms: too short.
+  const { outcome, providerCalls, errorLogs } =
+    await runSingletonCalibrationAdmission(t, 100);
+
+  assert.equal(outcome.status, "rejected");
+  assert.ok(outcome.error instanceof Error);
+  assert.equal(outcome.error.name, "TranslationCountMismatchDeadlineError");
+  assert.equal(
+    providerCalls,
+    2,
+    "the complete root chain may run, but no singleton calibration call may start",
+  );
+  assert.ok(
+    errorLogs.some((line) =>
+      line.includes(
+        "singleton calibration cannot fit the remaining request deadline"
+      )
+    ),
+    "the admission check itself must decline, not a later deadline abort",
+  );
+});
+
+/**
+ * Control for the test above: the identical request with enough caller time
+ * left must start calibration, so the deadline is what blocks it there.
+ */
+test("starts singleton calibration when the remaining deadline fits the root chain", { timeout: 2_000 }, async (t) => {
+  // The root chain takes 60 ms and leaves 400 - 60 = 340 ms.
+  const { outcome, providerCalls } =
+    await runSingletonCalibrationAdmission(t, 400);
+
+  assert.equal(outcome.status, "fulfilled");
+  assert.deepEqual(
+    outcome.translations.map((translation) => translation.text),
+    Array.from({ length: 8 }, (_, index) => `en:Segment ${index}`)
+  );
+  assert.equal(
+    providerCalls,
+    10,
+    "the root chain plus one successful calibration call per segment",
+  );
 });
 
 test("classifies a caller timeout observed before singleton calibration", async () => {

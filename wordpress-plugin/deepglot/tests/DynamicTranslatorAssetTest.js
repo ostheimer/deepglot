@@ -13,6 +13,7 @@ function createHarness(fetchHandler, options = {}) {
   const fetchPayloads = [];
   let observerId = 0;
   let now = 0;
+  let classContainsChecks = 0;
 
   class FakeText {
     constructor(data) {
@@ -39,6 +40,7 @@ function createHarness(fetchHandler, options = {}) {
     }
 
     contains(name) {
+      classContainsChecks += 1;
       return (this.element.getAttribute('class') || '')
         .split(/\s+/)
         .filter(Boolean)
@@ -191,14 +193,15 @@ function createHarness(fetchHandler, options = {}) {
       langFrom: 'de',
       langTo: 'en',
       skipTags: ['script', 'style', 'pre', 'code', 'textarea', 'noscript', 'svg', 'math'],
-      excludeSelectors: [],
+      excludeSelectors: options.excludeSelectors || [],
       noTranslateAttr: 'data-deepglot-no-translate',
       attrSkipTags: ['script', 'style', 'noscript', 'template'],
       attrMap: {
-        img: ['alt'],
-        button: ['title', 'aria-label'],
-        input: ['placeholder', 'aria-label'],
-        textarea: ['placeholder', 'aria-label'],
+        '*': ['aria-label'],
+        img: ['alt', 'title'],
+        button: ['title'],
+        input: ['placeholder'],
+        textarea: ['placeholder'],
       },
       inputValueTypes: ['submit', 'button', 'reset'],
       minLength: 2,
@@ -282,6 +285,7 @@ function createHarness(fetchHandler, options = {}) {
     preexistingText,
     preexistingLink,
     preexistingStaticText,
+    get classContainsChecks() { return classContainsChecks; },
   };
 }
 
@@ -390,6 +394,56 @@ async function testAttributeMutationsAreTranslated() {
 
   assert.deepEqual(harness.fetchCalls, [['Search']]);
   assert.equal(input.getAttribute('placeholder'), 'Suchen');
+}
+
+async function testGenericAriaLabelAndImageTitleAreTranslated() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {
+    'Main navigation': 'Hauptnavigation',
+    'Dental headset': 'Dental-Headset',
+  }));
+
+  const nav = harness.document.createElement('nav');
+  nav.setAttribute('aria-label', 'Main navigation');
+  harness.document.body.appendChild(nav);
+
+  const image = harness.document.createElement('img');
+  image.setAttribute('title', 'Dental headset');
+  harness.document.body.appendChild(image);
+
+  const excluded = harness.document.createElement('aside');
+  excluded.setAttribute('data-deepglot-no-translate', '');
+  const excludedNav = harness.document.createElement('nav');
+  excludedNav.setAttribute('aria-label', 'Private navigation');
+  excluded.appendChild(excludedNav);
+  harness.document.body.appendChild(excluded);
+  await harness.runTimers();
+
+  assert.deepEqual(harness.fetchCalls, [['Main navigation', 'Dental headset']]);
+  assert.equal(nav.getAttribute('aria-label'), 'Hauptnavigation');
+  assert.equal(image.getAttribute('title'), 'Dental-Headset');
+  assert.equal(excludedNav.getAttribute('aria-label'), 'Private navigation');
+}
+
+async function testOrdinaryInsertedSubtreeSkipsAttributeExclusionWalks() {
+  const harness = createHarness(async (texts) => translationResponse(texts, {}), {
+    excludeSelectors: ['.skip'],
+  });
+
+  const root = harness.document.createElement('div');
+  let parent = root;
+  for (let index = 0; index < 50; index += 1) {
+    const child = harness.document.createElement('div');
+    parent.appendChild(child);
+    parent = child;
+  }
+  harness.document.body.appendChild(root);
+  await harness.runTimers();
+
+  assert.ok(
+    harness.classContainsChecks <= 2,
+    'Elements without configured translatable attributes must avoid per-descendant ancestor exclusion walks.'
+  );
+  assert.deepEqual(harness.fetchCalls, []);
 }
 
 async function testPropertyOnlyButtonInputValueIsTranslatedOnInsert() {
@@ -683,6 +737,8 @@ async function main() {
     testConfiguredPreexistingDynamicRootLocalizesInternalLinks,
     testProcessedTextNodeCanBeTranslatedAfterChanging,
     testAttributeMutationsAreTranslated,
+    testGenericAriaLabelAndImageTitleAreTranslated,
+    testOrdinaryInsertedSubtreeSkipsAttributeExclusionWalks,
     testPropertyOnlyButtonInputValueIsTranslatedOnInsert,
     testPendingTextOptedOutBeforeFlushIsNotSent,
     testContentEditableTextIsSkipped,

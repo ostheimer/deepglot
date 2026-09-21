@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { recordTranslationContexts } from "@/lib/translation-context";
+import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { crossedQuotaThresholds } from "@/lib/quota-usage";
@@ -70,21 +72,6 @@ export const runtime = "nodejs";
  * hang-then-recover still finishes here, while a runaway dies 2.5x sooner.
  */
 export const maxDuration = 120;
-
-// WordType - same values as the legacy translation contract for drop-in compatibility
-export const WordType = {
-  OTHER: 0,
-  TEXT: 1,
-  VALUE: 2,
-  PLACEHOLDER: 3,
-  META_CONTENT: 4,
-  IFRAME_SRC: 5,
-  IMG_SRC: 6,
-  IMG_ALT: 7,
-  PDF_HREF: 8,
-  PAGE_TITLE: 9,
-  EXTERNAL_LINK: 10,
-} as const;
 
 // BotType - same values as the legacy translation contract
 export const BotType = {
@@ -205,7 +192,9 @@ async function executeAuthenticatedTranslateRequest(
       words.length === 0 ||
       words.some((word) => !word || typeof word.w !== "string")
     ) {
-      validationErrors.words = ["Mindestens ein gültiger Texteingang ist erforderlich."];
+      validationErrors.words = [
+        "Mindestens ein gültiger Texteingang ist erforderlich.",
+      ];
     }
     if (typeof l_from !== "string" || !l_from.trim()) {
       validationErrors.l_from = ["Erforderlich"];
@@ -279,7 +268,9 @@ async function executeAuthenticatedTranslateRequest(
         detail: `Source language '${l_from}' must match the project's original language.`,
         instance: "/api/translate",
         errors: {
-          l_from: ["Source language must match the project's original language."],
+          l_from: [
+            "Source language must match the project's original language.",
+          ],
         },
       });
     }
@@ -414,8 +405,7 @@ async function executeAuthenticatedTranslateRequest(
         l_from.toLowerCase();
       const targetLanguageStillActive =
         currentRuntimeConfiguration?.languages.some(
-          (language) =>
-            language.langCode.toLowerCase() === l_to.toLowerCase(),
+          (language) => language.langCode.toLowerCase() === l_to.toLowerCase(),
         ) ?? false;
       if (!sourceLanguageStillMatches || !targetLanguageStillActive) {
         return apiProblem({
@@ -433,9 +423,7 @@ async function executeAuthenticatedTranslateRequest(
         isBot,
         automaticTranslation: providerSettings?.automaticTranslation,
       });
-      providerName = canCreateFreshTranslations
-        ? "cache"
-        : "disabled";
+      providerName = canCreateFreshTranslations ? "cache" : "disabled";
     }
 
     // 6. Check usage limits after cache/manual/glossary short-circuiting.
@@ -639,7 +627,10 @@ async function executeAuthenticatedTranslateRequest(
           providerName = "disabled";
           translatedWords = 0;
         } else {
-          providerName = resolveTranslationProvider(undefined, providerSettings);
+          providerName = resolveTranslationProvider(
+            undefined,
+            providerSettings,
+          );
         }
       } catch (error) {
         await refundBeforeProvider();
@@ -852,6 +843,21 @@ async function executeAuthenticatedTranslateRequest(
               tx,
             });
 
+            await recordTranslationContexts(tx, {
+              projectId: project.id,
+              domain: project.domain,
+              requestUrl: request_url,
+              langFrom: l_from,
+              langTo: l_to,
+              hashes,
+            });
+            await recordTranslationTypes(tx, {
+              projectId: project.id,
+              langFrom: l_from,
+              langTo: l_to,
+              hashes,
+              words,
+            });
             return { kind: "persisted" } as const;
           },
           {
@@ -913,10 +919,7 @@ async function executeAuthenticatedTranslateRequest(
       }
     });
 
-    if (
-      !isBot &&
-      (pendingTranslations.length === 0 || !canCreateFreshTranslations)
-    ) {
+    if (pendingTranslations.length === 0 || !canCreateFreshTranslations) {
       await db.$transaction(async (tx) => {
         const languageConfigurationIsCurrent =
           await lockAndValidateProjectLanguageWrite(tx, {
@@ -925,10 +928,29 @@ async function executeAuthenticatedTranslateRequest(
             targetLanguages: [l_to],
           });
         if (!languageConfigurationIsCurrent) {
-          // Cached translations are still safe to serve. Skip only analytics
-          // whose language identity became stale while this request ran.
+          // Cached translations are still safe to serve. Skip context and
+          // analytics whose language identity became stale during this request.
           return;
         }
+
+        // WordPress also marks human cache-only loads as OTHER. Context is an
+        // observed segment/path association, independent of human analytics.
+        await recordTranslationContexts(tx, {
+          projectId: project.id,
+          domain: project.domain,
+          requestUrl: request_url,
+          langFrom: l_from,
+          langTo: l_to,
+          hashes,
+        });
+        await recordTranslationTypes(tx, {
+          projectId: project.id,
+          langFrom: l_from,
+          langTo: l_to,
+          hashes,
+          words,
+        });
+        if (isBot) return;
 
         await recordTranslationBatch(
           {
@@ -1018,7 +1040,9 @@ function translateIdempotencyResponseRetentionMs(response: StoredApiResponse) {
   return retryAfterSeconds * 1_000;
 }
 
-async function captureApiResponse(response: NextResponse): Promise<StoredApiResponse> {
+async function captureApiResponse(
+  response: NextResponse,
+): Promise<StoredApiResponse> {
   const text = await response.text();
   const contentType = response.headers.get("content-type") ?? "";
   let body: unknown = text;
@@ -1153,7 +1177,10 @@ export async function POST(req: NextRequest) {
 
     return restoreApiResponse(result.response);
   } catch (error) {
-    console.error("[/api/translate] Idempotency/Authentifizierung fehlgeschlagen:", error);
+    console.error(
+      "[/api/translate] Idempotency/Authentifizierung fehlgeschlagen:",
+      error,
+    );
     return apiProblem({
       status: 500,
       title: "Internal server error",

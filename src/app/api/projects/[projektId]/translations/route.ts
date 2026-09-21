@@ -1,6 +1,7 @@
 import type { TranslationWorkflowStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { translationLabelSchema } from "@/lib/translation-metadata";
 
 import { db } from "@/lib/db";
 import {
@@ -22,6 +23,24 @@ const statusMap = {
 } as const satisfies Record<string, TranslationWorkflowStatus>;
 
 const querySchema = z.object({
+  quality: z.enum(["mismatch", "match", "unchecked"]).optional(),
+  reportedType: z.enum(["text", "media", "link", "other", "unknown"]).optional(),
+  activity: z.enum(["recent", "older", "unknown"]).optional(),
+  label: translationLabelSchema.optional(),
+  variables: z.enum(["saved", "none"]).optional(),
+  source: z
+    .enum(["DEEPL", "OPENAI", "GOOGLE", "MANUAL", "MOCK", "IMPORT"])
+    .optional(),
+  mode: z.enum(["manual", "automatic"]).optional(),
+  context: z.enum(["known", "unknown"]).optional(),
+  urlPath: z
+    .string()
+    .max(2048)
+    .regex(/^\/(?!\/)[^?#\\\u0000-\u001f]*$/)
+    .optional(),
+  sort: z
+    .enum(["updated_desc", "created_desc", "created_asc", "original_asc"])
+    .optional(),
   langTo: z.string().trim().min(2).max(16).optional(),
   status: z.enum(["machine", "assigned", "in_review", "approved"]).optional(),
   assignee: z.string().trim().min(1).optional(),
@@ -33,7 +52,10 @@ const querySchema = z.object({
 function errorResponse(error: unknown) {
   if (!(error instanceof TranslationWorkflowError)) {
     console.error("[translation-workflow] list failed:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 
   const status =
@@ -44,7 +66,10 @@ function errorResponse(error: unknown) {
         : error.code === "INVALID_TRANSITION" || error.code === "STALE_UPDATE"
           ? 409
           : 400;
-  return NextResponse.json({ error: error.message, code: error.code }, { status });
+  return NextResponse.json(
+    { error: error.message, code: error.code },
+    { status },
+  );
 }
 
 export async function GET(
@@ -86,6 +111,16 @@ export async function GET(
         langCode: access.langCode ?? null,
       },
       filters: {
+        quality: parsed.data.quality,
+        reportedType: parsed.data.reportedType,
+        activity: parsed.data.activity,
+        label: parsed.data.label,
+        variables: parsed.data.variables,
+        source: parsed.data.source,
+        mode: parsed.data.mode,
+        context: parsed.data.context,
+        urlPath: parsed.data.urlPath,
+        sort: parsed.data.sort,
         langTo: parsed.data.langTo,
         status: parsed.data.status ? statusMap[parsed.data.status] : undefined,
         assignedToId:

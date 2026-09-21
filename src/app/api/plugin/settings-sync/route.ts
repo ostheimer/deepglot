@@ -6,7 +6,9 @@ import { db } from "@/lib/db";
 import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   buildPluginOwnedSettingsUpdate,
+  buildRuntimeSyncMirrorRecord,
   findPluginMirrorConflicts,
+  resolveRuntimeSyncOrigin,
   pluginSettingsSyncSchema,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
@@ -115,13 +117,28 @@ async function syncPluginSettings(request: NextRequest) {
           return { kind: "not_found" } as const;
         }
 
+        // The key was validated before the transaction; a manager may have
+        // revoked it since. Re-check under the lock so a revoked key can
+        // neither sync nor re-create the sync origin it just cleared.
+        const liveKey = await tx.apiKey.findFirst({
+          where: { id: apiKey.id, projectId, isActive: true },
+          select: { id: true },
+        });
+        if (!liveKey) {
+          return { kind: "key_revoked" } as const;
+        }
+
         const authoritativeProject = await tx.project.findUnique({
           where: { id: projectId },
           select: {
             domain: true,
             originalLang: true,
             settings: {
-              select: { autoSwitch: true },
+              select: {
+                autoSwitch: true,
+                runtimeSyncSiteHost: true,
+                runtimeSyncConflicts: true,
+              },
             },
             languages: {
               select: { langCode: true, isActive: true },
@@ -131,6 +148,26 @@ async function syncPluginSettings(request: NextRequest) {
         if (!authoritativeProject) {
           return { kind: "not_found" } as const;
         }
+
+        // Record who is talking to this project before any validation can
+        // reject the payload: a foreign installation reusing the key must
+        // become visible even when its mirrored settings are refused.
+        const { origin, siteIdentityConflict } = resolveRuntimeSyncOrigin(
+          authoritativeProject.settings,
+          body.siteUrl,
+          apiKey.id,
+        );
+        const syncOrigin = {
+          ...origin,
+          ...(siteIdentityConflict
+            ? { runtimeSyncConflicts: ["siteIdentity"] }
+            : {}),
+        };
+        await tx.projectSettings.upsert({
+          where: { projectId },
+          create: { projectId, ...syncOrigin },
+          update: syncOrigin,
+        });
 
         const activeTargetLanguages = authoritativeProject.languages
           .filter((language) => language.isActive)
@@ -152,7 +189,14 @@ async function syncPluginSettings(request: NextRequest) {
           targetLanguages: activeTargetLanguages,
           autoRedirect: authoritativeProject.settings?.autoSwitch ?? false,
         });
-        const settingsUpdate = buildPluginOwnedSettingsUpdate(body);
+        if (siteIdentityConflict) {
+          mirrorConflicts.push("siteIdentity");
+        }
+        const settingsUpdate = {
+          ...buildPluginOwnedSettingsUpdate(body),
+          ...buildRuntimeSyncMirrorRecord(body, mirrorConflicts),
+          ...syncOrigin,
+        };
 
         await tx.projectSettings.upsert({
           where: { projectId },
@@ -224,6 +268,16 @@ async function syncPluginSettings(request: NextRequest) {
       });
     }
 
+    if (result.kind === "key_revoked") {
+      return apiProblem({
+        status: 401,
+        title: "Authentication required",
+        detail: "The API key was revoked.",
+        code: "invalid_api_key",
+        instance: "/api/plugin/settings-sync",
+      });
+    }
+
     if (result.kind === "invalid_domain_mappings") {
       return validationProblem({
         instance: "/api/plugin/settings-sync",
@@ -241,6 +295,47 @@ async function syncPluginSettings(request: NextRequest) {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
+      // The transaction rolled back; keep the reporting host visible anyway.
+      // Same discipline as the main path: under the project lock, only while
+      // the key still exists, and as an upsert because a first sync has no
+      // settings row yet.
+      await db
+        .$transaction(async (tx) => {
+          if (!(await lockProjectRuntimeConfiguration(tx, apiKey.project.id))) {
+            return;
+          }
+          const liveKey = await tx.apiKey.findFirst({
+            where: { id: apiKey.id, projectId: apiKey.project.id, isActive: true },
+            select: { id: true },
+          });
+          if (!liveKey) {
+            return;
+          }
+          // The main transaction's identity decision rolled back too; redo it
+          // against what is actually stored.
+          const stored = await tx.projectSettings.findUnique({
+            where: { projectId: apiKey.project.id },
+            select: { runtimeSyncSiteHost: true, runtimeSyncConflicts: true },
+          });
+          const { origin, siteIdentityConflict } = resolveRuntimeSyncOrigin(
+            stored,
+            body.siteUrl,
+            apiKey.id,
+          );
+          const rolledBackOrigin = {
+            ...origin,
+            ...(siteIdentityConflict
+              ? { runtimeSyncConflicts: ["siteIdentity"] }
+              : {}),
+          };
+          await tx.projectSettings.upsert({
+            where: { projectId: apiKey.project.id },
+            create: { projectId: apiKey.project.id, ...rolledBackOrigin },
+            update: rolledBackOrigin,
+          });
+        })
+        .catch(() => undefined);
+
       return apiProblem({
         status: 409,
         title: "Conflict",

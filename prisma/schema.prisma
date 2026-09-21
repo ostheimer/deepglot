@@ -242,11 +242,50 @@ model Translation {
   assignedToId String?
   project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignedTo  ProjectMember? @relation("TranslationAssignment", fields: [assignedToId], references: [id], onDelete: SetNull)
+  contexts    TranslationContext[]
+  metadata    TranslationMetadata?
+  typeObservations TranslationTypeObservation[]
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
   @@index([projectId, langTo, workflowStatus])
   @@index([assignedToId])
+}
+
+// Client-reported provenance, not inferred content classification.
+model TranslationTypeObservation {
+  translationId String
+  wordType Int
+  firstSeenAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  translation Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@id([translationId, wordType])
+}
+
+// Editorial annotations; independent of translation content concurrency tokens.
+model TranslationMetadata {
+  translationId String @id
+  labels String[] @default([])
+  variables String[] @default([])
+  note String @default("")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  translation Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@index([labels], type: Gin)
+}
+
+// Observed segment/page associations. Never store URL queries or fragments.
+model TranslationContext {
+  translationId String
+  urlPath       String
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+
+  @@id([translationId, urlPath])
+  @@index([urlPath])
 }
 
 enum TranslationSource {
@@ -326,6 +365,11 @@ model ProjectSettings {
   translationApiKeyUpdatedAt DateTime?
   routingMode             RoutingMode @default(PATH_PREFIX)
   runtimeSyncedAt         DateTime?
+  // Host reported by the last plugin sync plus the mirrored fields that
+  // differed from the SaaS values. Surfaces API-key reuse by a foreign site.
+  runtimeSyncSiteHost     String?
+  runtimeSyncApiKeyId     String?  // ApiKey.id that sent the last sync; cleared with the key
+  runtimeSyncConflicts    String[] @default([])
 
   // Language Switcher
   switcherDisplayName     Boolean  @default(true)

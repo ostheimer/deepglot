@@ -745,11 +745,11 @@ msgstr "Pārāk daudz pieprasījumu. Lūdzu, uzgaidiet %d sekundes."
 msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden."
 msgstr "Avota valoda, mērķa valodas un automātiskā novirzīšana tiek pārvaldīti Deepglot informācijas panelī un ir tikai lasāmi, izmantojot WordPress REST API."
 
-#: includes/Api/RestApi.php:659
+#: includes/Api/RestApi.php:665
 msgid "Monatliches Wortlimit ausgeschöpft."
 msgstr "Mēneša vārdu ierobežojums ir izsmelts."
 
-#: includes/Api/RestApi.php:667
+#: includes/Api/RestApi.php:673
 msgid "API-Key ungültig oder widerrufen."
 msgstr "API-Key nederīgs vai atsaukts."
 

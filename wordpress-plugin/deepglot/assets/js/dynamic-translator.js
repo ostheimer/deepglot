@@ -44,6 +44,7 @@
   // Element/attribute copy (alt, aria-label, placeholder, option labels, …) so
   // SPA-injected elements that carry only such an attribute still get localized.
   var attrMap = cfg.attrMap || {};
+  var genericAttrs = attrMap['*'] || [];
   var inputValueTypes = toSet(cfg.inputValueTypes);
 
   var classSelectors = [];
@@ -183,17 +184,29 @@
   function considerElementAttrs(el) {
     if (!el || el.nodeType !== 1) return;
     var tag = el.tagName ? el.tagName.toLowerCase() : '';
-    var attrs = attrMap[tag];
-    if (!attrs && tag !== 'input') return;
+    var tagAttrs = attrMap[tag] || [];
+    if (!genericAttrs.length && !tagAttrs.length && tag !== 'input') return;
+    var seenAttrs = Object.create(null);
+    var attrs = genericAttrs.concat(tagAttrs);
+    var carriesConfiguredAttr = false;
+    for (var i = 0; i < attrs.length; i++) {
+      if (seenAttrs[attrs[i]]) continue;
+      seenAttrs[attrs[i]] = true;
+      if (el.hasAttribute(attrs[i])) carriesConfiguredAttr = true;
+    }
+    var inputValueIsVisible = false;
+    if (tag === 'input') {
+      var inputType = (el.getAttribute('type') || el.type || '').toLowerCase();
+      inputValueIsVisible = !!inputValueTypes[inputType];
+    }
+    if (!carriesConfiguredAttr && !inputValueIsVisible) return;
     if (excludedAttr(el)) return;
-    if (attrs) {
-      for (var i = 0; i < attrs.length; i++) considerAttr(el, attrs[i]);
+    for (var attrIndex = 0; attrIndex < attrs.length; attrIndex++) {
+      if (!el.hasAttribute(attrs[attrIndex])) continue;
+      considerAttr(el, attrs[attrIndex]);
     }
     // <input value> is UI copy only for button-like types.
-    if (tag === 'input') {
-      var type = (el.getAttribute('type') || el.type || '').toLowerCase();
-      if (inputValueTypes[type]) considerInputValue(el);
-    }
+    if (inputValueIsVisible) considerInputValue(el);
   }
 
   function pendingNodeIsCurrent(item) {

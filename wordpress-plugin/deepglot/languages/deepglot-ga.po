@@ -745,11 +745,11 @@ msgstr "An iomarca iarratas. Fan go fóill %d soicind."
 msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden."
 msgstr "Déantar an teanga fhoinseach, na sprioctheangacha agus an t-atreorú uathoibríoch a bhainistiú i ndeais Deepglot agus ní féidir iad a léamh ach tríd an WordPress REST API."
 
-#: includes/Api/RestApi.php:659
+#: includes/Api/RestApi.php:665
 msgid "Monatliches Wortlimit ausgeschöpft."
 msgstr "Teorainn mhíosúil focal ídithe."
 
-#: includes/Api/RestApi.php:667
+#: includes/Api/RestApi.php:673
 msgid "API-Key ungültig oder widerrufen."
 msgstr "API-Key neamhbhailí nó cúlghairthe."
 
