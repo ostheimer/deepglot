@@ -46,6 +46,8 @@ const MANAGEMENT_ROUTES: ReadonlyArray<{
   { file: "webhooks/health/route.ts", methods: ["GET"] },
   { file: "exclusions/route.ts", methods: ["GET", "POST"] },
   { file: "exclusions/[exclusionId]/route.ts", methods: ["PATCH", "DELETE"] },
+  { file: "media/route.ts", methods: ["GET", "POST"] },
+  { file: "media/[mediaId]/route.ts", methods: ["PATCH", "DELETE"] },
   { file: "members/route.ts", methods: ["GET"] },
   { file: "members/[memberId]/route.ts", methods: ["PATCH", "DELETE"] },
   { file: "members/invite/route.ts", methods: ["POST"] },

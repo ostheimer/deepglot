@@ -12,6 +12,7 @@ class Options
 {
     public const OPTION_KEY = 'deepglot_settings';
     public const URL_SLUG_MAPPINGS_OPTION_KEY = 'deepglot_url_slug_mappings';
+    public const MEDIA_REPLACEMENTS_OPTION_KEY = 'deepglot_media_replacements';
 
     /** Current persisted schema for independently configured switchers. */
     public const SWITCHER_INSTANCES_VERSION = 1;
@@ -68,6 +69,9 @@ class Options
     public const URL_SLUG_MAPPINGS_MAX = 10000;
     public const URL_SLUG_MAPPINGS_MAX_BYTES = 2097152;
     public const URL_SLUG_SEGMENT_MAX_LEN = 200;
+    public const MEDIA_REPLACEMENTS_MAX = 500;
+    public const MEDIA_REPLACEMENTS_MAX_BYTES = 262144;
+    public const MEDIA_REPLACEMENT_URL_MAX_LEN = 2048;
 
     public static function defaults(): array
     {
@@ -632,6 +636,32 @@ class Options
         return $this->storeUrlSlugMappings([]);
     }
 
+    /**
+     * Return only the authenticated project's safe, active-language images.
+     *
+     * @return array<string, string>
+     */
+    public function getMediaReplacements(string $targetLanguage): array
+    {
+        $settings = $this->all();
+        $language = $this->sanitizeLanguage($targetLanguage);
+        $activeLanguages = $this->normalizeLanguageList($settings['target_languages'] ?? []);
+
+        if ($language === '' || !in_array($language, $activeLanguages, true)) {
+            return [];
+        }
+
+        $persisted = get_option(self::MEDIA_REPLACEMENTS_OPTION_KEY, []);
+        $mappings = $this->normalizeMediaReplacements($persisted, $activeLanguages);
+
+        return $mappings[$language] ?? [];
+    }
+
+    public function clearMediaReplacements(): bool
+    {
+        return $this->storeMediaReplacements([]);
+    }
+
     public function shouldAutoRedirect(): bool
     {
         $options = $this->all();
@@ -894,6 +924,13 @@ class Options
             ));
         }
 
+        if (array_key_exists('mediaReplacements', $runtimeConfig)) {
+            $this->storeMediaReplacements($this->normalizeMediaReplacements(
+                $runtimeConfig['mediaReplacements'],
+                $this->normalizeLanguageList($settings['target_languages'] ?? [])
+            ));
+        }
+
         if (array_key_exists('switcher', $runtimeConfig) && is_array($runtimeConfig['switcher'])) {
             $switcher = $runtimeConfig['switcher'];
 
@@ -967,7 +1004,7 @@ class Options
         }
 
         $settings['runtime_config_synced_at'] = time();
-        unset($settings['url_slug_mappings']);
+        unset($settings['url_slug_mappings'], $settings['media_replacements']);
 
         return $this->updateSettingsOption($settings, true);
     }
@@ -1017,9 +1054,10 @@ class Options
     private function sanitizeLanguage(string $language): string
     {
         $language = strtolower(trim($language));
-        $language = preg_replace('/[^a-z-]/', '', $language);
 
-        return $language ?: '';
+        return preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/D', $language) === 1
+            ? $language
+            : '';
     }
 
     /**
@@ -1235,6 +1273,166 @@ class Options
         }
 
         return (bool) $updated;
+    }
+
+    /**
+     * Image mappings remain outside WordPress's autoloaded global options.
+     *
+     * @param array<string, array<string, string>> $mappings
+     */
+    private function storeMediaReplacements(array $mappings): bool
+    {
+        if (strlen(serialize($mappings)) > self::MEDIA_REPLACEMENTS_MAX_BYTES) {
+            $mappings = [];
+        }
+
+        if (function_exists('add_option')) {
+            $added = add_option(self::MEDIA_REPLACEMENTS_OPTION_KEY, $mappings, '', false);
+
+            if ($added) {
+                if (function_exists('wp_cache_delete')) {
+                    wp_cache_delete(self::MEDIA_REPLACEMENTS_OPTION_KEY, 'options');
+                    wp_cache_delete('alloptions', 'options');
+                }
+
+                return true;
+            }
+        }
+
+        if (!function_exists('update_option')) {
+            return false;
+        }
+
+        $updated = update_option(self::MEDIA_REPLACEMENTS_OPTION_KEY, $mappings);
+
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::MEDIA_REPLACEMENTS_OPTION_KEY, 'options');
+            wp_cache_delete('alloptions', 'options');
+        }
+
+        return (bool) $updated;
+    }
+
+    /**
+     * @param mixed $value
+     * @param string[] $allowedLanguages
+     * @return array<string, array<string, string>>
+     */
+    private function normalizeMediaReplacements($value, array $allowedLanguages): array
+    {
+        if (!is_array($value) || strlen(serialize($value)) > self::MEDIA_REPLACEMENTS_MAX_BYTES) {
+            return [];
+        }
+
+        $mappings = [];
+        $blocked = [];
+        $seenCount = 0;
+
+        foreach ($value as $rawLanguage => $languageMappings) {
+            if (!is_string($rawLanguage) || !is_array($languageMappings)) {
+                continue;
+            }
+
+            $language = $this->sanitizeLanguage($rawLanguage);
+            if ($language === '' || !in_array($language, $allowedLanguages, true)) {
+                continue;
+            }
+
+            foreach ($languageMappings as $rawOriginal => $rawLocalized) {
+                $seenCount++;
+                if ($seenCount > self::MEDIA_REPLACEMENTS_MAX) {
+                    return [];
+                }
+
+                if (!is_string($rawOriginal) || !is_string($rawLocalized)) {
+                    continue;
+                }
+
+                $original = $this->normalizeMediaReplacementUrl($rawOriginal);
+                $localized = $this->normalizeMediaReplacementUrl($rawLocalized);
+
+                if ($original === null || $localized === null || isset($blocked[$language][$original])) {
+                    continue;
+                }
+
+                if (isset($mappings[$language][$original]) && $mappings[$language][$original] !== $localized) {
+                    unset($mappings[$language][$original]);
+                    $blocked[$language][$original] = true;
+                    continue;
+                }
+
+                $mappings[$language][$original] = $localized;
+            }
+
+            if (isset($mappings[$language]) && $mappings[$language] === []) {
+                unset($mappings[$language]);
+            }
+        }
+
+        return strlen(serialize($mappings)) <= self::MEDIA_REPLACEMENTS_MAX_BYTES
+            ? $mappings
+            : [];
+    }
+
+    private function normalizeMediaReplacementUrl(string $value): ?string
+    {
+        if (
+            $value === ''
+            || strlen($value) > self::MEDIA_REPLACEMENT_URL_MAX_LEN
+            || preg_match('/[\x00-\x20\x7f\\\\]/', $value) === 1
+            || preg_match('/%(?![0-9a-f]{2})/i', $value) === 1
+            || preg_match('/%(?:0[0-9a-f]|1[0-9a-f]|2f|5c|7f)/i', $value) === 1
+            || str_starts_with($value, '//')
+        ) {
+            return null;
+        }
+
+        $parts = wp_parse_url($value);
+        if (
+            !is_array($parts)
+            || isset($parts['fragment'])
+            || isset($parts['user'])
+            || isset($parts['pass'])
+        ) {
+            return null;
+        }
+
+        if (isset($parts['scheme']) || isset($parts['host'])) {
+            if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+                return null;
+            }
+
+            $siteUrl = function_exists('get_site_url') ? (string) get_site_url() : '';
+            $siteParts = $siteUrl !== '' ? wp_parse_url($siteUrl) : false;
+
+            if (
+                !is_array($siteParts)
+                || !isset($siteParts['host'], $parts['host'])
+                || strtolower((string) $siteParts['host']) !== strtolower((string) $parts['host'])
+                || (int) ($siteParts['port'] ?? 443) !== (int) ($parts['port'] ?? 443)
+            ) {
+                return null;
+            }
+        } elseif (!str_starts_with($value, '/')) {
+            return null;
+        }
+
+        $path = (string) ($parts['path'] ?? '');
+        $decodedPath = rawurldecode($path);
+
+        if (
+            $path === ''
+            || !str_starts_with($path, '/')
+            || str_starts_with($path, '//')
+            || str_contains($decodedPath, '\\')
+            || preg_match('#(?:^|/)\.\.?(/|$)#', $decodedPath) === 1
+            || preg_match('/%(?:2e|2f|5c)/i', $decodedPath) === 1
+            || preg_match('/\.(?:png|jpe?g|webp|avif|gif)$/i', $path) !== 1
+        ) {
+            return null;
+        }
+
+        return $path . (isset($parts['query']) ? '?' . $parts['query'] : '');
     }
 
     /**

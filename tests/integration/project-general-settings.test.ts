@@ -70,10 +70,7 @@ test(
       }),
     ]);
 
-    assert.deepEqual(
-      [first.kind, second.kind].sort(),
-      ["conflict", "updated"],
-    );
+    assert.deepEqual([first.kind, second.kind].sort(), ["conflict", "updated"]);
     const stored = await db.project.findUniqueOrThrow({
       where: { id: project.id },
       include: { settings: true },
@@ -275,8 +272,14 @@ test(
       }),
     ]);
     assert.equal(readBack.originalLang, "de");
-    assert.deepEqual(activeTargets.map(({ langCode }) => langCode), ["en"]);
-    assert.equal(readBack.updatedAt.toISOString(), project.updatedAt.toISOString());
+    assert.deepEqual(
+      activeTargets.map(({ langCode }) => langCode),
+      ["en"],
+    );
+    assert.equal(
+      readBack.updatedAt.toISOString(),
+      project.updatedAt.toISOString(),
+    );
   },
 );
 
@@ -430,9 +433,8 @@ test(
     const result = await migration;
     assert.equal(result.kind, "source_language_locked");
     assert.equal(
-      (
-        await db.project.findUniqueOrThrow({ where: { id: project.id } })
-      ).originalLang,
+      (await db.project.findUniqueOrThrow({ where: { id: project.id } }))
+        .originalLang,
       "de",
     );
     assert.equal(
@@ -520,6 +522,51 @@ test(
       patch: { originalLang: "en" },
     });
     assert.equal(migrated.kind, "updated");
+  },
+);
+
+test(
+  "locale-specific media replacements lock source-language migration",
+  { skip: skipWithoutDatabase },
+  async () => {
+    const { db } = await import("@/lib/db");
+    const suffix = crypto.randomUUID();
+    const organization = await db.organization.create({
+      data: { name: `Media lock ${suffix}`, slug: `media-lock-${suffix}` },
+    });
+    organizationIds.push(organization.id);
+    const project = await db.project.create({
+      data: {
+        organizationId: organization.id,
+        name: "Media lock",
+        domain: `${suffix}.example.test`,
+        originalLang: "de",
+        languages: { create: [{ langCode: "en", isActive: true }] },
+        mediaReplacements: {
+          create: {
+            langTo: "en",
+            originalUrl: "/uploads/hero.png",
+            localizedUrl: "/uploads/hero-en.webp",
+          },
+        },
+      },
+    });
+
+    const lockedView = await getProjectGeneralSettings(db, project.id);
+    assert.equal(lockedView?.sourceLanguageLocked, true);
+    assert.equal(lockedView?.languageDependentContent.mediaReplacements, 1);
+
+    const locked = await updateProjectGeneralSettings(db, {
+      projectId: project.id,
+      expectedVersion: project.updatedAt.toISOString(),
+      patch: { originalLang: "en" },
+    });
+    assert.equal(locked.kind, "source_language_locked");
+    assert.equal(
+      (await db.project.findUniqueOrThrow({ where: { id: project.id } }))
+        .originalLang,
+      "de",
+    );
   },
 );
 
@@ -640,10 +687,7 @@ test(
       allowWriterCommit = resolve;
     });
     const writer = db.$transaction(async (tx) => {
-      assert.equal(
-        await lockProjectRuntimeConfiguration(tx, project.id),
-        true,
-      );
+      assert.equal(await lockProjectRuntimeConfiguration(tx, project.id), true);
       announceWriterLock();
       await writerMayCommit;
       await tx.projectDomainMapping.create({
@@ -747,9 +791,7 @@ test(
       const translated = await translate("Fresh and enabled");
       assert.equal(translated.status, 200);
       const translatedBody = await translated.json();
-      assert.deepEqual(translatedBody.to_words, [
-        "[en] Fresh and enabled",
-      ]);
+      assert.deepEqual(translatedBody.to_words, ["[en] Fresh and enabled"]);
       assert.equal(translatedBody.cache_only, false);
       assert.equal(
         await db.translation.count({ where: { projectId: project.id } }),
@@ -1205,7 +1247,10 @@ test(
   },
 );
 
-for (const failurePoint of ["dispatch transaction", "provider resolution"] as const) {
+for (const failurePoint of [
+  "dispatch transaction",
+  "provider resolution",
+] as const) {
   test(
     `${failurePoint} failure before provider dispatch refunds the exact velocity reservation`,
     { skip: skipWithoutDatabase },
@@ -1309,7 +1354,10 @@ for (const failurePoint of ["dispatch transaction", "provider resolution"] as co
             },
           },
         });
-        assert.ok(velocityBucket, "the successful reservation must be observable");
+        assert.ok(
+          velocityBucket,
+          "the successful reservation must be observable",
+        );
         assert.equal(
           velocityBucket.count,
           0,

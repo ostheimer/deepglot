@@ -55,18 +55,23 @@ export function normalizeProjectDomain(input: string): string {
   return domain;
 }
 
-const domainSchema = z.string().trim().transform((value, context) => {
-  try {
-    return normalizeProjectDomain(value);
-  } catch (error) {
-    context.addIssue({
-      code: "custom",
-      message:
-        error instanceof Error ? error.message : "Enter a valid website domain.",
-    });
-    return z.NEVER;
-  }
-});
+const domainSchema = z
+  .string()
+  .trim()
+  .transform((value, context) => {
+    try {
+      return normalizeProjectDomain(value);
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Enter a valid website domain.",
+      });
+      return z.NEVER;
+    }
+  });
 
 const languageSchema = z
   .string()
@@ -91,8 +96,7 @@ export const projectGeneralSettingsPatchSchema = z
   })
   .strict()
   .refine(
-    (value) =>
-      Object.keys(value).some((key) => key !== "expectedVersion"),
+    (value) => Object.keys(value).some((key) => key !== "expectedVersion"),
     { message: "At least one project setting must be provided." },
   )
   .transform(({ sourceLanguage, autoRedirect, ...value }) => ({
@@ -210,6 +214,7 @@ export type LanguageDependentContentCounts = {
   glossaryRules: number;
   urlSlugs: number;
   translatedUrls: number;
+  mediaReplacements: number;
   languageScopedMembers: number;
   pendingLanguageInvitations: number;
 };
@@ -223,6 +228,7 @@ async function getLanguageDependentContentCounts(
     glossaryRules,
     urlSlugs,
     translatedUrls,
+    mediaReplacements,
     languageScopedMembers,
     pendingLanguageInvitations,
   ] = await Promise.all([
@@ -230,6 +236,7 @@ async function getLanguageDependentContentCounts(
     database.glossaryRule.count({ where: { projectId } }),
     database.urlSlug.count({ where: { projectId } }),
     database.translatedUrl.count({ where: { projectId } }),
+    database.projectMediaReplacement.count({ where: { projectId } }),
     database.projectMember.count({
       where: { projectId, langCode: { not: null } },
     }),
@@ -248,6 +255,7 @@ async function getLanguageDependentContentCounts(
     glossaryRules,
     urlSlugs,
     translatedUrls,
+    mediaReplacements,
     languageScopedMembers,
     pendingLanguageInvitations,
   };

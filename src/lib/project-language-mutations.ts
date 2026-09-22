@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 
+import { withBoundedMediaRuntimeMutation } from "@/lib/media-runtime-limits";
 import {
   isProjectRuntimeSerializationConflict,
   lockProjectRuntimeConfiguration,
@@ -81,30 +82,32 @@ export async function addProjectTargetLanguages(
       return { kind: "source_language_cannot_be_target" } as const;
     }
 
-    // Source migrations retain the source language row as inactive. If that
-    // language later becomes a target again, createMany(skipDuplicates) alone
-    // would silently leave the existing row inactive.
-    await tx.projectLanguage.updateMany({
-      where: { projectId, langCode: { in: languages } },
-      data: { isActive: true },
-    });
-    await tx.projectLanguage.createMany({
-      data: languages.map((langCode) => ({
-        projectId,
-        langCode,
-        isActive: true,
-      })),
-      skipDuplicates: true,
-    });
-    const versionWrite = await tx.project.updateMany({
-      where: { id: projectId, updatedAt: project.updatedAt },
-      data: { updatedAt: nextProjectUpdatedAt(project.updatedAt) },
-    });
-    if (versionWrite.count !== 1) {
-      throw new ProjectLanguageMutationConflictError();
-    }
+    return withBoundedMediaRuntimeMutation(tx, projectId, async () => {
+      // Source migrations retain the source language row as inactive. If that
+      // language later becomes a target again, createMany(skipDuplicates) alone
+      // would silently leave the existing row inactive.
+      await tx.projectLanguage.updateMany({
+        where: { projectId, langCode: { in: languages } },
+        data: { isActive: true },
+      });
+      await tx.projectLanguage.createMany({
+        data: languages.map((langCode) => ({
+          projectId,
+          langCode,
+          isActive: true,
+        })),
+        skipDuplicates: true,
+      });
+      const versionWrite = await tx.project.updateMany({
+        where: { id: projectId, updatedAt: project.updatedAt },
+        data: { updatedAt: nextProjectUpdatedAt(project.updatedAt) },
+      });
+      if (versionWrite.count !== 1) {
+        throw new ProjectLanguageMutationConflictError();
+      }
 
-    return { kind: "updated" } as const;
+      return { kind: "updated" } as const;
+    });
   });
 }
 

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 
 import { BILLING_PLANS } from "@/lib/billing-plans";
 import { db } from "@/lib/db";
+import { withBoundedMediaRuntimeMutation } from "@/lib/media-runtime-limits";
 import {
   lockAndValidateProjectLanguageWrite,
   lockProjectRuntimeConfiguration,
@@ -32,17 +33,19 @@ async function ensureTestProjectSeed(
       );
     }
 
-    await tx.projectLanguage.updateMany({
-      where: { projectId, langCode: { in: ["en", "fr"] } },
-      data: { isActive: true },
+    await withBoundedMediaRuntimeMutation(tx, projectId, async () => {
+      await tx.projectLanguage.updateMany({
+        where: { projectId, langCode: { in: ["en", "fr"] } },
+        data: { isActive: true },
+      });
+      await tx.projectLanguage.createMany({
+        data: [
+          { projectId, langCode: "en", isActive: true },
+          { projectId, langCode: "fr", isActive: true },
+        ],
+        skipDuplicates: true,
+      });
     });
-    await tx.projectLanguage.createMany({
-    data: [
-      { projectId, langCode: "en", isActive: true },
-      { projectId, langCode: "fr", isActive: true },
-    ],
-    skipDuplicates: true,
-  });
 
     if (
       !(await lockAndValidateProjectLanguageWrite(tx, {

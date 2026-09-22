@@ -497,9 +497,8 @@ model UrlSlug {
   @@index([projectId, langTo])
 }
 
-// Mirrors the table already present in production, pushed from the unmerged
-// branch origin/codex/issue-317-image-mapping (PR #322), so schema pushes
-// from main do not drop it. PR #322 owns the feature code (routes, UI).
+// ─── Locale-specific image replacements ───────────────────────────────────
+
 model ProjectMediaReplacement {
   id           String   @id @default(cuid())
   originalUrl  String

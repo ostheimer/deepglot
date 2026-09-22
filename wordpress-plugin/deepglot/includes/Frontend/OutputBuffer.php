@@ -41,6 +41,7 @@ class OutputBuffer
     private RequestRouter $router;
     private SiteRouting $routing;
     private ?UrlTranslationSync $urlSync;
+    private ?MediaRewriter $mediaRewriter;
 
     public function __construct(
         Options $options,
@@ -50,7 +51,8 @@ class OutputBuffer
         HreflangInjector $hreflangInjector,
         RequestRouter $router,
         SiteRouting $routing,
-        ?UrlTranslationSync $urlSync = null
+        ?UrlTranslationSync $urlSync = null,
+        ?MediaRewriter $mediaRewriter = null
     ) {
         $this->options          = $options;
         $this->resolver         = $resolver;
@@ -60,6 +62,7 @@ class OutputBuffer
         $this->router           = $router;
         $this->routing          = $routing;
         $this->urlSync          = $urlSync;
+        $this->mediaRewriter    = $mediaRewriter;
     }
 
     public function register(): void
@@ -133,6 +136,10 @@ class OutputBuffer
 
         // Step 2: rewrite internal links to include language prefix.
         $this->linkRewriter->rewrite($doc, $targetLanguage);
+
+        // Explicitly mapped image assets stay on their original upload paths;
+        // only their locale-specific file names are replaced.
+        $this->mediaRewriter?->rewrite($doc, $targetLanguage);
 
         // Step 3: inject hreflang tags.
         // Use the original (pre-rewrite) REQUEST_URI to get the canonical path.

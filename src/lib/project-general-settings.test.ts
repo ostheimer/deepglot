@@ -69,10 +69,7 @@ test("preserves the existing one-character project-name contract", () => {
 
 test("accepts host and localhost domains with an explicit port", () => {
   assert.equal(normalizeProjectDomain("localhost:3100"), "localhost:3100");
-  assert.equal(
-    normalizeProjectDomain("Example.COM:8080"),
-    "example.com:8080",
-  );
+  assert.equal(normalizeProjectDomain("Example.COM:8080"), "example.com:8080");
   assert.equal(
     normalizeProjectDomain("http://localhost:3100/"),
     "localhost:3100",
@@ -157,6 +154,7 @@ test("expired language invitations do not lock a source-language change", async 
     glossaryRule: { count: zeroCount },
     urlSlug: { count: zeroCount },
     translatedUrl: { count: zeroCount },
+    projectMediaReplacement: { count: zeroCount },
     projectMember: { count: zeroCount },
     projectInvitation: {
       count: async ({ where }: { where: Record<string, unknown> }) => {
