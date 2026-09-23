@@ -139,7 +139,7 @@ export function CreateApiKeyDialog({
         </DialogHeader>
 
         {createdApiKey ? (
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-start gap-3">
                 <div className="rounded-full bg-emerald-100 p-2">
