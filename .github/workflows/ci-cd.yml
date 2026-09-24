@@ -92,6 +92,9 @@ jobs:
       - name: Prepare Playwright database
         run: npx prisma db push
 
+      - name: Verify target schema acceptance
+        run: npm run acceptance:target-schema
+
       - name: Verify Plan schema acceptance
         run: npm run acceptance:plan-schema
 
