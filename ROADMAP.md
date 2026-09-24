@@ -16,12 +16,13 @@
 | 0.5 | Vendor-neutral terminology in code and core documentation | ✅ Completed |
 | 0.6 | Playwright E2E coverage verifies locale switching, redirects, and localized auth entry points | ✅ Completed |
 | 0.7 | Automated Markdown documentation language check in npm scripts and GitHub Actions | ✅ Completed |
-| 0.8 | CI/CD verifies PRs in GitHub Actions while Vercel Git integration deploys Preview and Production by branch | ✅ Completed |
+| 0.8 | CI/CD verifies PRs in GitHub Actions while Vercel Git integration builds PR Previews and deploys `main` to Production | ✅ Completed |
 | 0.9 | Manual Vercel CLI deployments ignore local `.env*` files via `.vercelignore` | ✅ Completed |
 | 0.10 | Repository-level `AGENTS.md` defines a test-first bug workflow before fixes | ✅ Completed |
-| 0.11 | Vercel Production uses Neon `prod` branch; Dev/Preview use Neon `preview` (Variant A: 2 branches) | ✅ Completed |
+| 0.11 | Vercel Production uses Neon `prod` branch; Dev/Preview use Neon `main` (Variant A: 2 branches) | ✅ Completed |
 | 0.12 | Production is served on the canonical `deepglot.ai` domain with `www` page redirects | ✅ Completed |
 | 0.13 | EU-wide localization: public routes, auth, and dashboard serve additional EU language codes beyond EN/DE; localized route round-trip regression test guards regressions | ✅ Completed |
+| 0.14 | Deployment target-schema acceptance checks the configured database before each Vercel Preview and Production build, including table, column, index, and constraint drift; Preview drift was repaired with reviewed additive SQL ([#329](https://github.com/ostheimer/deepglot/issues/329)) | ✅ Completed |
 
 ---
 
@@ -42,8 +43,8 @@ Next.js App (Vercel)          WordPress Plugin
 │   └── Locale switcher keeps users on the matching localized page
 ├── CI / CD
 │   ├── `main` deploys to Vercel Production
-│   ├── Non-`main` pushes deploy to Vercel Preview
-│   └── Local + Preview share Neon `preview`, Production uses Neon `prod`
+│   ├── PR branches build Vercel Preview
+│   └── Local + Preview share Neon `main`, Production uses Neon `prod`
 ├── API Routes
 │   ├── /api/translate   ←──  Plugin endpoint
 │   ├── /api/projects
