@@ -76,11 +76,11 @@ test("project image creation validates active tenant languages and same-project 
   );
   assert.match(
     collectionRoute,
-    /originalUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/,
+    /const mapping = normalizeMediaMapping\(parsed\.data\.originalUrl, parsed\.data\.localizedUrl, projectDomain\)/,
   );
   assert.match(
     collectionRoute,
-    /localizedUrl:\s*normalizeMediaImageUrl\([\s\S]*?projectDomain/,
+    /originalUrl:\s*mapping\.originalUrl[\s\S]*?localizedUrl:\s*mapping\.localizedUrl/,
   );
   assert.doesNotMatch(collectionRoute, /\b(?:fetch|axios|undici)\s*\(/);
 });

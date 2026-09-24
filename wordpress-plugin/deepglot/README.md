@@ -1,8 +1,8 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.9**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.10**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
 
-v0.12.9 adds project- and target-language-specific same-site media replacements. It safely rewrites server-rendered regular, responsive, and lazy-loaded image URLs, keeps picture-source MIME hints aligned with uniform replacement formats, and preserves no-translate subtrees plus configured class and ID exclusions. Publishing this package does not automatically install or update the plugin on customer sites.
+v0.12.10 adds project- and target-language-specific document and video URL replacements. It supports same-site PDF, DOCX, XLSX, PPTX, MP4, and WebM files plus fixed YouTube, YouTube-nocookie, and Vimeo embed endpoints. Unsupported or absent mappings keep the original URL. Changed runtime mappings purge known page-cache plugins; upstream caches still require operator readback. v0.12.9 added same-site responsive and lazy-loaded image replacement. Publishing this package does not automatically install or update the plugin on customer sites.
 
 v0.12.8 translates generic ARIA labels in page content, image title tooltips, and human-readable RSS or Atom feed titles. The dynamic-content pass applies the same attribute rules with request deduplication, while ordinary link metadata remains excluded from translation-provider requests. Empty and whitespace-only translations are rejected on cache writes and reads, including legacy plain-string entries, so a stale blank value cannot remove translated metadata.
 
@@ -357,8 +357,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.9 this creates `deepglot-0.12.9.zip` and
-`deepglot-0.12.9.zip.sha256`. Build the same commit into two empty output
+For v0.12.10 this creates `deepglot-0.12.10.zip` and
+`deepglot-0.12.10.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test
@@ -386,9 +386,9 @@ The legacy global switcher is migrated to the `default` instance without changin
 
 If a saved selector is invalid or no longer exists after a theme change, the switcher remains at its safe WordPress footer fallback. Every render retains a unique checkbox/label ID for independent dropdown and ARIA state.
 
-## Locale-specific image replacements
+## Locale-specific media URL replacements
 
-Project managers can explicitly configure original-to-localized image mappings
+Project managers can explicitly configure original-to-localized media URL mappings
 for active target languages through the authenticated SaaS management API:
 
 - `GET /api/projects/{projectId}/media`
@@ -407,11 +407,24 @@ projects and inactive languages never enter the plugin runtime response.
   absolute URLs are normalized to root-relative storage. External domains, IP
   hosts, credentials, fragments, traversal, SVG, and unsupported file types are
   rejected.
+- **Documents and video:** PDF, DOCX, XLSX, PPTX, MP4, and WebM files use the
+  same project-host URL rules. A replacement keeps the original file extension.
+  External embeds are limited to exact HTTPS `www.youtube.com/embed/{11-character-id}`,
+  `www.youtube-nocookie.com/embed/{11-character-id}`, or
+  `player.vimeo.com/video/{numeric-id}` URLs. Replacements keep the same provider
+  host; query parameters, fragments, watch URLs, and other providers are rejected.
 - **Rendered attributes:** `img[src]`, `img[srcset]`, `img[data-src]`, and
   `img[data-srcset]`, plus `srcset` and `data-srcset` on `picture > source`.
   Responsive width/density descriptors and the original URL's absolute or
   root-relative style are preserved. Source-language pages, excluded subtrees,
   unrelated images, and dynamically inserted AJAX content are unchanged.
+- **Document and video attributes:** document mappings change `a[href]`;
+  self-hosted video mappings change `video[src|data-src]` and direct
+  `video > source[src|data-src]`; provider embed mappings change
+  `iframe[src|data-src]`. File links keep their original upload path through
+  language routing. Missing, deleted, excluded, or unsafe mappings leave the
+  original URL unchanged. Text, download attributes, MIME hints, dimensions,
+  and accessibility metadata are preserved.
 - **Capacity and storage:** at most 500 mappings per project. The SaaS limits
   the JSON runtime payload to 224 KiB; WordPress independently bounds the
   serialized `deepglot_media_replacements` option to 256 KiB. The dedicated
@@ -421,15 +434,17 @@ projects and inactive languages never enter the plugin runtime response.
   is rejected if its preserved mappings would exceed the SaaS runtime bound.
 - **Synchronization and caches:** runtime configuration refreshes at most once
   every 300 seconds on a frontend request that reaches WordPress. Mapping
-  changes do not automatically invalidate full-page caches. After the new
-  mapping arrives, manually purge only the affected translated page URLs and
-  verify their public HTML.
+  changes purge known WP Rocket, W3 Total Cache, LiteSpeed Cache, and WP Super
+  Cache page caches site-wide after the snapshot arrives. An upstream CDN or a
+  full-page cache that blocks the refresh request still needs an operator purge
+  and query-free public HTML readback.
 - **Rights:** managers must own or otherwise hold the rights to use and
-  redistribute both original and localized images. Deepglot does not fetch,
-  upload, host, generate, or license media on their behalf.
+  redistribute both original and localized files and to publish embedded videos.
+  Deepglot does not verify licenses, provider terms, file existence, or content
+  types and does not fetch, upload, host, or generate media on their behalf.
 
 There is currently no dashboard editing UI, media upload/storage, external CDN
-support, SVG/PDF/document/video localization, AI-generated media, or AJAX image
+support, SVG, arbitrary iframe providers, subtitles, transcoding, AI-generated media, or AJAX media
 replacement. The production schema gate was completed on 2026-09-04 against the
 verified Deepglot Neon `prod` branch: only the additive
 `ProjectMediaReplacement` table, project foreign key with update/delete cascade,

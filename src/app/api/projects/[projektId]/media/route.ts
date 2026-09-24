@@ -14,7 +14,7 @@ import {
   MediaReplacementError,
   assertMediaReplacementCapacity,
   assertMediaTargetLanguage,
-  normalizeMediaImageUrl,
+  normalizeMediaMapping,
 } from "@/lib/media-replacements";
 import {
   getAuthenticatedUserId,
@@ -165,19 +165,14 @@ export async function POST(
           assertMediaReplacementCapacity(currentCount);
 
           const projectDomain = targetLanguage.project.domain;
+          const mapping = normalizeMediaMapping(parsed.data.originalUrl, parsed.data.localizedUrl, projectDomain);
           return withBoundedMediaRuntimeMutation(tx, projektId, () =>
             tx.projectMediaReplacement.create({
               data: {
                 projectId: projektId,
                 langTo: parsed.data.langTo,
-                originalUrl: normalizeMediaImageUrl(
-                  parsed.data.originalUrl,
-                  projectDomain
-                ),
-                localizedUrl: normalizeMediaImageUrl(
-                  parsed.data.localizedUrl,
-                  projectDomain
-                ),
+                originalUrl: mapping.originalUrl,
+                localizedUrl: mapping.localizedUrl,
               },
               select: mediaReplacementSelect,
             })
@@ -202,7 +197,7 @@ export async function POST(
           {
             error: t(
               locale,
-              "Die Bildersetzungen überschreiten die zulässige Laufzeitgröße",
+              "Die Medienersetzungen überschreiten die zulässige Laufzeitgröße",
               "Invalid input"
             ),
             code: "media_replacements_payload_too_large",
@@ -232,7 +227,7 @@ export async function POST(
             {
               error: t(
                 locale,
-                `Pro Projekt sind höchstens ${MAX_RUNTIME_MEDIA_REPLACEMENTS} Bildersetzungen möglich`,
+                `Pro Projekt sind höchstens ${MAX_RUNTIME_MEDIA_REPLACEMENTS} Medienersetzungen möglich`,
                 "Invalid input"
               ),
               code: "media_replacements_limit_exceeded",
@@ -246,7 +241,7 @@ export async function POST(
           {
             error: t(
               locale,
-              "Ungültige Bild-URL: Nur sichere Bilder derselben Website sind zulässig",
+              "Ungültige Medien-URL oder nicht unterstütztes Format",
               "Invalid input"
             ),
             code: "invalid_media_image_url",
@@ -261,7 +256,7 @@ export async function POST(
             {
               error: t(
                 locale,
-                "Für dieses Bild und diese Zielsprache existiert bereits eine Ersetzung",
+                "Für diese Medien-URL und Zielsprache existiert bereits eine Ersetzung",
                 "Invalid input"
               ),
               code: "media_replacement_already_exists",
@@ -276,7 +271,7 @@ export async function POST(
         {
           error: t(
             locale,
-            "Bildersetzung konnte nicht erstellt werden",
+            "Medienersetzung konnte nicht erstellt werden",
             "Something went wrong."
           ),
           code: "media_replacement_create_failed",
@@ -290,7 +285,7 @@ export async function POST(
     {
       error: t(
         locale,
-        "Bildersetzung konnte nicht erstellt werden",
+        "Medienersetzung konnte nicht erstellt werden",
         "Something went wrong."
       ),
       code: "media_replacement_create_failed",

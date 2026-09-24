@@ -17,7 +17,7 @@ export class MediaRuntimePayloadLimitError extends Error {
     public readonly previousBytes: number,
     public readonly nextBytes: number
   ) {
-    super("The project's active image replacements exceed the runtime size limit.");
+    super("The project's active media replacements exceed the runtime size limit.");
     this.name = "MediaRuntimePayloadLimitError";
   }
 }

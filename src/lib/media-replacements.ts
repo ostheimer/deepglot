@@ -4,6 +4,10 @@ export const MAX_RUNTIME_MEDIA_REPLACEMENTS = 500;
 export const MAX_MEDIA_IMAGE_URL_LENGTH = 2048;
 
 const SAFE_IMAGE_EXTENSION = /\.(?:png|jpe?g|webp|avif|gif)$/i;
+const SAFE_DOCUMENT_EXTENSION = /\.(?:pdf|docx|xlsx|pptx)$/i;
+const SAFE_VIDEO_EXTENSION = /\.(?:mp4|webm)$/i;
+const YOUTUBE_EMBED = /^https:\/\/(www\.youtube\.com|www\.youtube-nocookie\.com)\/embed\/([a-zA-Z0-9_-]{11})$/;
+const VIMEO_EMBED = /^https:\/\/player\.vimeo\.com\/video\/([0-9]+)$/;
 const SAFE_LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const ENCODED_UNSAFE_CHARACTER = /%(?:0[0-9a-f]|1[0-9a-f]|2f|5c|7f)/i;
@@ -25,6 +29,8 @@ export class MediaReplacementError extends Error {
       | "INVALID_PROJECT_DOMAIN"
       | "INVALID_IMAGE_URL"
       | "INVALID_IMAGE_FORMAT"
+      | "INVALID_MEDIA_URL"
+      | "INVALID_MEDIA_FORMAT"
       | "INVALID_TARGET_LANGUAGE"
       | "DUPLICATE_IMAGE_REPLACEMENT"
       | "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
@@ -37,7 +43,7 @@ export class MediaReplacementError extends Error {
 export function assertMediaReplacementCapacity(currentCount: number): void {
   if (currentCount >= MAX_RUNTIME_MEDIA_REPLACEMENTS) {
     throw new MediaReplacementError(
-      `A project can contain at most ${MAX_RUNTIME_MEDIA_REPLACEMENTS} image replacements.`,
+      `A project can contain at most ${MAX_RUNTIME_MEDIA_REPLACEMENTS} media replacements.`,
       "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
     );
   }
@@ -163,13 +169,14 @@ function canonicalizePercentEscapes(value: string): string {
 }
 
 /**
- * Store same-project image URLs in one root-relative canonical form so absolute
+ * Store same-project file URLs in one root-relative canonical form so absolute
  * and relative references cannot create duplicate or cross-origin mappings.
  * The SaaS never fetches these URLs; browsers only receive validated paths.
  */
-export function normalizeMediaImageUrl(
+function normalizeSameSiteMediaUrl(
   rawImageUrl: string,
-  projectDomain: string
+  projectDomain: string,
+  format: RegExp
 ): string {
   const projectOrigin = getProjectOrigin(projectDomain);
   const imageUrl = rawImageUrl.trim();
@@ -234,10 +241,10 @@ export function normalizeMediaImageUrl(
   const canonicalPath = canonicalizePercentEscapes(parsedImageUrl.pathname);
   const canonicalSearch = canonicalizePercentEscapes(parsedImageUrl.search);
 
-  if (!SAFE_IMAGE_EXTENSION.test(canonicalPath)) {
+  if (!format.test(canonicalPath)) {
     throw new MediaReplacementError(
-      "Only PNG, JPG, JPEG, WebP, AVIF, and GIF images are supported.",
-      "INVALID_IMAGE_FORMAT"
+      "The URL has an unsupported media format.",
+      "INVALID_MEDIA_FORMAT"
     );
   }
 
@@ -250,13 +257,72 @@ export function normalizeMediaImageUrl(
   return canonicalImageUrl;
 }
 
+export function normalizeMediaImageUrl(rawImageUrl: string, projectDomain: string): string {
+  try {
+    return normalizeSameSiteMediaUrl(rawImageUrl, projectDomain, SAFE_IMAGE_EXTENSION);
+  } catch (error) {
+    if (error instanceof MediaReplacementError && error.code === "INVALID_MEDIA_FORMAT") {
+      throw new MediaReplacementError("Only PNG, JPG, JPEG, WebP, AVIF, and GIF images are supported.", "INVALID_IMAGE_FORMAT");
+    }
+    throw error;
+  }
+}
+
+export type MediaKind = "image" | "document" | "video" | "embed";
+
+function embedProvider(url: string): "youtube" | "youtube-nocookie" | "vimeo" | null {
+  const youtube = YOUTUBE_EMBED.exec(url);
+  if (youtube) return youtube[1] === "www.youtube.com" ? "youtube" : "youtube-nocookie";
+  return VIMEO_EMBED.test(url) ? "vimeo" : null;
+}
+
+/** Only fixed HTTPS provider embed endpoints are allowed; no arbitrary iframe URLs or query parameters. */
+export function normalizeMediaMapping(
+  rawOriginalUrl: string,
+  rawLocalizedUrl: string,
+  projectDomain: string
+): { originalUrl: string; localizedUrl: string; kind: MediaKind } {
+  const original = rawOriginalUrl.trim();
+  const localized = rawLocalizedUrl.trim();
+  if (original.length > MAX_MEDIA_IMAGE_URL_LENGTH || localized.length > MAX_MEDIA_IMAGE_URL_LENGTH) {
+    throw new MediaReplacementError("The media URL exceeds the maximum supported length.", "INVALID_MEDIA_URL");
+  }
+  const originalProvider = embedProvider(original);
+  if (originalProvider) {
+    if (embedProvider(localized) !== originalProvider) {
+      throw new MediaReplacementError("Embed replacements must use the same supported provider endpoint.", "INVALID_MEDIA_URL");
+    }
+    return { originalUrl: original, localizedUrl: localized, kind: "embed" };
+  }
+
+  // Classify from the original path, never from an untrusted replacement URL.
+  const rawPath = canonicalizePercentEscapes(original.split("?")[0]);
+  let kind: MediaKind;
+  if (SAFE_IMAGE_EXTENSION.test(rawPath)) {
+    kind = "image";
+  } else if (SAFE_DOCUMENT_EXTENSION.test(rawPath)) {
+    kind = "document";
+  } else if (SAFE_VIDEO_EXTENSION.test(rawPath)) {
+    kind = "video";
+  } else {
+    throw new MediaReplacementError("Unsupported media URL or format.", "INVALID_MEDIA_FORMAT");
+  }
+  const format = kind === "image" ? SAFE_IMAGE_EXTENSION : kind === "document" ? SAFE_DOCUMENT_EXTENSION : SAFE_VIDEO_EXTENSION;
+  const originalUrl = normalizeSameSiteMediaUrl(original, projectDomain, format);
+  const localizedUrl = normalizeSameSiteMediaUrl(localized, projectDomain, format);
+  if (kind !== "image" && originalUrl.split("?")[0].split(".").at(-1)?.toLowerCase() !== localizedUrl.split("?")[0].split(".").at(-1)?.toLowerCase()) {
+    throw new MediaReplacementError("Document and video replacements must keep the original file format.", "INVALID_MEDIA_FORMAT");
+  }
+  return { originalUrl, localizedUrl, kind };
+}
+
 /** Build the compact, language-scoped contract consumed by the WordPress plugin. */
 export function buildRuntimeMediaReplacements(
   rows: RuntimeMediaReplacementRow[]
 ): Record<string, Record<string, string>> {
   if (rows.length > MAX_RUNTIME_MEDIA_REPLACEMENTS) {
     throw new MediaReplacementError(
-      "The project image mapping exceeds the runtime safety limit.",
+      "The project media mapping exceeds the runtime safety limit.",
       "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
     );
   }
@@ -267,26 +333,21 @@ export function buildRuntimeMediaReplacements(
     const language = row.langTo.trim().toLowerCase();
     if (!SAFE_LANGUAGE_CODE.test(language)) {
       throw new MediaReplacementError(
-        "The image mapping contains an invalid target language.",
+        "The media mapping contains an invalid target language.",
         "INVALID_TARGET_LANGUAGE"
       );
     }
 
-    if (!row.originalUrl.startsWith("/") || !row.localizedUrl.startsWith("/")) {
-      invalidImageUrl("Persisted image mappings must remain root-relative.");
-    }
-
-    const originalUrl = normalizeMediaImageUrl(row.originalUrl, "deepglot.invalid");
-    const localizedUrl = normalizeMediaImageUrl(row.localizedUrl, "deepglot.invalid");
+    const { originalUrl, localizedUrl } = normalizeMediaMapping(row.originalUrl, row.localizedUrl, "deepglot.invalid");
 
     if (originalUrl !== row.originalUrl || localizedUrl !== row.localizedUrl) {
-      invalidImageUrl("Persisted image mappings must use their canonical form.");
+      invalidImageUrl("Persisted media mappings must use their canonical form.");
     }
 
     const languageReplacements = (replacements[language] ??= {});
     if (Object.hasOwn(languageReplacements, originalUrl)) {
       throw new MediaReplacementError(
-        "The project contains duplicate image replacement keys.",
+        "The project contains duplicate media replacement keys.",
         "DUPLICATE_IMAGE_REPLACEMENT"
       );
     }

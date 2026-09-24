@@ -118,6 +118,7 @@ update_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [
             => '/wp-content/uploads/literal%2520-en.webp',
         '/wp-content/uploads/punctuation.png?label=caf%C3%A9%20%27au%27&tags=a+b,2'
             => '/wp-content/uploads/punctuation-en.webp?label=coffee%20%27and%27&tags=a+b,2',
+        '/uploads/guide.pdf' => '/uploads/guide-en.pdf',
     ],
     'fr' => [
         '/wp-content/uploads/cover.png' => '/wp-content/uploads/cover-fr.png',
@@ -151,6 +152,7 @@ assertMediaPipeline(
 $html = '<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Hallo</title></head><body>'
     . '<a id="page-link" href="/angebote/">Angebote</a>'
     . '<a id="media-link" href="/wp-content/uploads/cover.png">Download</a>'
+    . '<a id="encoded-document" href="/uploads/guide.%70df">Guide</a>'
     . '<img id="cover" src="/wp-content/uploads/cover.png" alt="Bildbeschreibung" width="640" height="480">'
     . '<img id="absolute" src="https://example.com/wp-content/uploads/cover.png">'
     . '<img id="unicode-literal" src="/wp-content/uploads/café.png">'
@@ -204,6 +206,7 @@ assertMediaPipeline(mediaPipelineAttribute($translated, 'cover', 'alt') === 'Bil
 assertMediaPipeline(mediaPipelineAttribute($translated, 'cover', 'width') === '640' && mediaPipelineAttribute($translated, 'cover', 'height') === '480', 'Existing image dimensions remain intact');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'page-link', 'href') === '/en/angebote/', 'Existing page-link localization remains intact');
 assertMediaPipeline(mediaPipelineAttribute($translated, 'media-link', 'href') === '/wp-content/uploads/cover.png', 'Media download links are not language-prefixed or replaced');
+assertMediaPipeline(mediaPipelineAttribute($translated, 'encoded-document', 'href') === '/uploads/guide-en.pdf', 'Encoded document extensions survive link routing and match the canonical media mapping');
 
 $xpath = new DOMXPath($translated);
 assertMediaPipeline($xpath->query('//link[@rel="alternate" and @hreflang="de"]')->length === 1, 'Source-language hreflang remains intact');
@@ -216,5 +219,6 @@ assertMediaPipeline(mediaPipelineAttribute($source, 'cover', 'src') === '/wp-con
 assertMediaPipeline(mediaPipelineAttribute($source, 'unicode-literal', 'src') === '/wp-content/uploads/caf%C3%A9.png', 'Source-language response never replaces literal UTF-8 image paths');
 assertMediaPipeline(mediaPipelineAttribute($source, 'comma-lazy', 'data-srcset') === '  /wp-content/uploads/cover.png?crop=10,20 1x,  /wp-content/uploads/cover-800.png 2x ', 'Source-language response does not rewrite responsive image queries containing commas');
 assertMediaPipeline(mediaPipelineAttribute($source, 'page-link', 'href') === '/angebote/', 'Source-language response does not localize page links');
+assertMediaPipeline(mediaPipelineAttribute($source, 'encoded-document', 'href') === '/uploads/guide.%70df', 'Source-language document URL remains unchanged');
 
 fwrite(STDOUT, "MediaRewriterPipelineTest: OK\n");

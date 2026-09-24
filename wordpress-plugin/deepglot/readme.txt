@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.12.9
+Stable tag: 0.12.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,7 @@ Deepglot translates rendered WordPress pages through the Deepglot translation AP
 
 * Translates text, metadata, accessibility attributes, and JSON-LD structured data.
 * Rewrites internal links and SaaS-managed translated URL slugs for path-prefix or subdomain routing.
-* Replaces explicitly mapped same-site images for active target languages in rendered responsive and lazy-loaded markup.
+* Replaces explicitly mapped same-site images, document links, self-hosted video files, and supported video embeds for active target languages.
 * Adds canonical and `hreflang` tags plus a multilingual sitemap.
 * Provides shortcode, block, widget, nav-menu, and automatic language switchers.
 * Caches translations locally and serves cached translations to crawlers without spending quota.
@@ -50,9 +50,9 @@ No. Translation happens on rendered output. Source content remains in the origin
 
 Yes. A project manager can explicitly map an original same-site image to a localized same-site image for each active target language through the authenticated Deepglot project management API. The plugin updates `src`, `srcset`, `data-src`, and `data-srcset` on translated image elements, including responsive `picture` sources. Source-language pages and excluded content are unchanged.
 
-Each project supports at most 500 PNG, JPG, JPEG, WebP, AVIF, or GIF mappings. Original and replacement images must use root-relative paths or HTTPS URLs on the same project host; external CDN images, SVG, PDF, documents, video, uploads, AI-generated assets, and dynamically inserted AJAX images are unsupported. Managers are responsible for holding all image usage and redistribution rights. There is currently no dashboard editing interface.
+Each project supports at most 500 mappings in total. Same-site image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF. Document links support PDF, DOCX, XLSX, and PPTX; self-hosted video supports MP4 and WebM. File URLs must be root-relative or HTTPS on the project host. Video embeds support only exact HTTPS `www.youtube.com/embed/ID`, `www.youtube-nocookie.com/embed/ID`, and `player.vimeo.com/video/ID` endpoints, with an unchanged provider host and no query or fragment. Documents and self-hosted videos must retain their file extension. External CDN images, SVG, other iframe providers, uploads, AI-generated assets, subtitles, and dynamically inserted AJAX media are unsupported. Project managers are responsible for all file and video usage, publication, and redistribution rights; Deepglot does not verify licenses, file existence, or content type. There is currently no dashboard editing interface.
 
-The plugin refreshes runtime mappings at most every 300 seconds when a request reaches WordPress and stores them in a dedicated non-autoloaded option. Existing full-page caches are not automatically invalidated when mappings change; manually purge the affected translated page URLs after synchronization.
+The plugin refreshes runtime mappings at most every 300 seconds when a request reaches WordPress and stores them in a dedicated non-autoloaded option. On a changed snapshot it purges known WP Rocket, W3 Total Cache, LiteSpeed Cache, and WP Super Cache page caches. An upstream CDN or page cache that prevents WordPress from receiving a refresh request needs an operator purge and public readback. Missing or deleted mappings leave the original URL in place.
 
 = What happens when the quota is exhausted? =
 
@@ -72,7 +72,7 @@ Since version 0.12.3, the text and URL queues use a versioned, checksummed ASCII
 
 Since version 0.12.4, translated cache values also use a separate versioned, checksummed ASCII-safe key space. Existing non-empty plain-string cache entries remain readable. A cache write counts as complete only after an exact readback; failed writes stay queued, their page cache is not purged, and inline responses remain non-cacheable until the translation is durable. Version 0.12.8 rejects empty and whitespace-only translations on both cache writes and reads, including legacy cache values.
 
-Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable. Version 0.12.7 reads project-wide language, redirect, disclosure, and automatic-translation settings from one authenticated, versioned SaaS snapshot. WordPress keeps valid cached translations available when automatic generation is off, prunes obsolete warm-up work after a language change, and prevents source-language cache-only fallbacks from entering full-page caches under a target URL. Version 0.12.8 translates generic ARIA labels in the page body, image title tooltips, and human-readable RSS or Atom feed titles while excluding ordinary link metadata from provider requests, and rejects blank translation-cache values. Version 0.12.9 adds locale-specific, same-site media replacements for server-rendered responsive and lazy-loaded images while preserving excluded and unsafe content.
+Since version 0.12.5, configured cookie-consent widgets that already exist before the footer observer starts are translated through the same bounded dynamic endpoint without rescanning the server-rendered page. Their internal page links are localized with the server-side routing rules and are never sent to the translation provider. Version 0.12.6 follows WordPress core viewability for public post types, so built-in pages remain in the multilingual sitemap while non-viewable builder content types stay excluded. Public taxonomies must still be publicly queryable. Version 0.12.7 reads project-wide language, redirect, disclosure, and automatic-translation settings from one authenticated, versioned SaaS snapshot. WordPress keeps valid cached translations available when automatic generation is off, prunes obsolete warm-up work after a language change, and prevents source-language cache-only fallbacks from entering full-page caches under a target URL. Version 0.12.8 translates generic ARIA labels in the page body, image title tooltips, and human-readable RSS or Atom feed titles while excluding ordinary link metadata from provider requests, and rejects blank translation-cache values. Version 0.12.9 adds locale-specific, same-site image replacements for server-rendered responsive and lazy-loaded images while preserving excluded and unsafe content. Version 0.12.10 adds document links and supported video URLs and embeds.
 
 When every attempted SaaS provider returns only a count mismatch for the same multi-text root chunk, Deepglot starts direct singleton isolation. It skips redundant binary intermediate shapes and retries each original text through the configured provider chain in input order. The provider-call ceiling is chain length × (chunk size + 1) for a multi-text root, while an original singleton gets one chain; a default eight-text chunk with two providers therefore allows at most 18 provider calls. All root chunks and isolated singletons share the request-wide provider-call concurrency cap (default 12) and a 100-second provider-work deadline. A failing parallel chunk stops new sibling provider calls, while the WordPress warmer keeps any terminal remainder queued. Singleton, call-budget, and deadline mismatches remain terminal; timeouts, authentication failures, rate limits, U+0000 output, and other malformed responses never enter this extra isolation path.
 
@@ -90,7 +90,7 @@ For translation requests, the plugin sends the configured API key, text fragment
 
 Settings synchronization sends the configured API key, site URL, WordPress-owned routing mode and domain mappings, and the feature flags for email translation, search translation, AMP translation, and dynamic translation. It also sends bootstrap mirrors for source language, target languages, and automatic redirect; the authenticated SaaS project remains authoritative for those three project-wide values.
 
-Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, translated URL-slug mappings, and active-language image replacements scoped to that API key's project. The plugin can also request the public supported-languages list without an API key.
+Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, translated URL-slug mappings, and active-language media URL replacements scoped to that API key's project. The plugin can also request the public supported-languages list without an API key.
 
 Starting the Visual Editor verifies its token through the project-scoped `editor-sessions/verify` endpoint. Saving a manual translation sends the token, original and translated text, source and target language codes, and the request URL to the project-scoped `manual-translations` endpoint.
 
@@ -100,6 +100,10 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.10 =
+* Added locale-specific PDF, DOCX, XLSX, PPTX, MP4, WebM, YouTube, YouTube-nocookie, and Vimeo URL replacement for server-rendered links and video embeds.
+* Preserved file URLs through language routing and purged known page caches when a media mapping snapshot changes.
 
 = 0.12.9 =
 * Added project- and target-language-specific same-site image replacements for server-rendered media.
@@ -211,8 +215,11 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Upgrade Notice ==
 
+= 0.12.10 =
+Adds localized document links and supported video file or embed URLs with safe fallback and cache purging. Publishing the package does not automatically update customer sites.
+
 = 0.12.9 =
-Adds locale-specific media replacements with safe responsive and lazy rewriting plus configured exclusions. Publishing the package does not automatically update customer sites.
+Adds locale-specific image replacements with safe responsive and lazy rewriting plus configured exclusions.
 
 = 0.12.8 =
 Keeps accessibility labels, image tooltips, and visible feed titles in the active language while ordinary link metadata stays excluded from translation requests, and prevents blank cache values from removing page metadata.

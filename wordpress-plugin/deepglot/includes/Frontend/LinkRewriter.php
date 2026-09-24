@@ -61,6 +61,7 @@ class LinkRewriter
                 $normalizedValue === ''
                 || !$this->isInternalUrl($normalizedValue)
                 || $this->routing->isWordPressInfrastructureUrl($normalizedValue)
+                || ($tag === 'a' && $this->isSupportedMediaFileUrl($normalizedValue))
             ) {
                 continue;
             }
@@ -84,6 +85,24 @@ class LinkRewriter
 
             $node->setAttribute($attr, $this->routing->rewriteUrl($normalizedValue, $language));
         }
+    }
+
+    private function isSupportedMediaFileUrl(string $url): bool
+    {
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        $canonicalPath = preg_replace_callback(
+            '/%([0-9a-f]{2})/i',
+            static function (array $match): string {
+                $character = chr(hexdec($match[1]));
+                return preg_match('/^[A-Za-z0-9._~-]$/D', $character) === 1
+                    ? $character
+                    : $match[0];
+            },
+            $path
+        );
+
+        return is_string($canonicalPath)
+            && preg_match('/\.(?:png|jpe?g|webp|avif|gif|pdf|docx|xlsx|pptx|mp4|webm)$/i', $canonicalPath) === 1;
     }
 
     /**

@@ -159,6 +159,13 @@ $runtimeMappings = [
         '/wp-content/uploads/svg-destination.png' => '/wp-content/uploads/svg-destination-en.svg',
         '/wp-content/uploads/document.pdf' => '/wp-content/uploads/document-en.png',
         '/wp-content/uploads/video.mp4' => '/wp-content/uploads/video-en.png',
+        '/wp-content/uploads/guide.pdf' => '/wp-content/uploads/guide-en.pdf',
+        '/wp-content/uploads/workbook.xlsx' => '/wp-content/uploads/workbook-en.xlsx',
+        '/wp-content/uploads/clip.mp4' => '/wp-content/uploads/clip-en.mp4',
+        'https://www.youtube-nocookie.com/embed/abcdefghijk' => 'https://www.youtube-nocookie.com/embed/lmnopqrstuv',
+        'https://player.vimeo.com/video/123' => 'https://player.vimeo.com/video/456',
+        'https://www.youtube.com/embed/abcdefghijk' => 'https://www.youtube-nocookie.com/embed/lmnopqrstuv',
+        '/wp-content/uploads/mismatch.pdf' => '/wp-content/uploads/mismatch-en.docx',
         'https://outside.example/wp-content/uploads/foreign-original.png' => '/wp-content/uploads/foreign-original-en.png',
         '/wp-content/uploads/foreign-destination.png' => 'https://outside.example/wp-content/uploads/foreign-destination-en.png',
         '/wp-content/uploads/foreign-port.png' => 'https://example.com:8443/wp-content/uploads/foreign-port-en.png',
@@ -189,6 +196,11 @@ $english = [
     '/wp-content/uploads/absolute.jpg?size=400' => '/wp-content/uploads/absolute-en.avif?size=400',
     '/wp-content/uploads/mixed.gif' => '/wp-content/uploads/mixed-en.jpeg',
     '/wp-content/uploads/uppercase.PNG' => '/wp-content/uploads/uppercase-en.JPG',
+    '/wp-content/uploads/guide.pdf' => '/wp-content/uploads/guide-en.pdf',
+    '/wp-content/uploads/workbook.xlsx' => '/wp-content/uploads/workbook-en.xlsx',
+    '/wp-content/uploads/clip.mp4' => '/wp-content/uploads/clip-en.mp4',
+    'https://www.youtube-nocookie.com/embed/abcdefghijk' => 'https://www.youtube-nocookie.com/embed/lmnopqrstuv',
+    'https://player.vimeo.com/video/123' => 'https://player.vimeo.com/video/456',
 ];
 $french = ['/wp-content/uploads/relative.png' => '/wp-content/uploads/relative-fr.png'];
 $latinAmericanSpanish = ['/wp-content/uploads/latin-america.png' => '/wp-content/uploads/latin-america-es-419.png'];
