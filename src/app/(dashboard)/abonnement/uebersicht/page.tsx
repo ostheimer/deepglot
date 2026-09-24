@@ -14,19 +14,12 @@ import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import {
   BILLING_PLANS,
-  BILLING_PLAN_KEYS,
-  type BillingPlanKey,
+  getEffectiveWordsLimit,
+  resolveBillingPlanKey,
 } from "@/lib/billing-plans";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Plan overview", "Plan-Übersicht");
-}
-
-function normalizePlan(plan: string | null | undefined): BillingPlanKey {
-  if (plan === "PROFESSIONAL") return "PRO";
-  return (BILLING_PLAN_KEYS as readonly string[]).includes(plan ?? "")
-    ? (plan as BillingPlanKey)
-    : "FREE";
 }
 
 const STATUS_BADGE: Record<
@@ -62,8 +55,9 @@ export default async function PlanUebersichtPage({
 
   const org = membership?.organization;
   const sub = org?.subscription;
-  const planKey = normalizePlan(org?.plan);
+  const planKey = resolveBillingPlanKey(org?.plan);
   const plan = BILLING_PLANS[planKey];
+  const effectiveWordsLimit = getEffectiveWordsLimit(sub);
   const status = sub?.status ?? "INACTIVE";
   const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.INACTIVE;
 
@@ -129,10 +123,20 @@ export default async function PlanUebersichtPage({
             {formatNumber(plan.wordsLimit, locale)}{" "}
             {uiText(
               locale,
-              "translated words / month",
-              "übersetzte Wörter / Monat"
+              "translated words / month (standard plan allowance)",
+              "übersetzte Wörter / Monat (Standardkontingent des Plans)"
             )}
           </li>
+          {effectiveWordsLimit !== plan.wordsLimit && (
+            <li className="text-sm text-gray-700">
+              {formatNumber(effectiveWordsLimit, locale)}{" "}
+              {uiText(
+                locale,
+                "translated words / month (applicable limit)",
+                "übersetzte Wörter / Monat (geltendes Limit)"
+              )}
+            </li>
+          )}
         </ul>
 
         <p className="text-sm text-gray-600 mt-5">
