@@ -3,6 +3,8 @@ import type { SiteLocale } from "@/lib/site-locale";
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {
   "en": {},
   "de": {
+    "{count} segment updated together.": "{count} Segment gemeinsam aktualisiert.",
+    "{count} segments updated together.": "{count} Segmente gemeinsam aktualisiert.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Die Sammelaktion konnte nicht bestätigt werden. Prüfe die aktualisierte Liste vor einem erneuten Versuch.",
     "Remove assignment from selected segments": "Zuweisung für ausgewählte Segmente aufheben",
     "Assign selected to a team member": "Auswahl einem Teammitglied zuweisen",
@@ -777,6 +779,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "{count} segment updated together.": "Актуализиран е {count} сегмент.",
+    "{count} segments updated together.": "Актуализирани са {count} сегмента.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Груповото действие не можа да бъде потвърдено. Проверете обновения списък, преди да опитате отново.",
     "Remove assignment from selected segments": "Премахване на заданието от избраните сегменти",
     "Assign selected to a team member": "Задайте избраното на член на екипа",
@@ -1864,6 +1868,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "{count} segment updated together.": "Ažuriran je {count} segment.",
+    "{count} segments updated together.": "Ažurirani segmenti: {count}.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Skupnu akciju nije bilo moguće potvrditi. Prije ponovnog pokušaja provjerite osvježeni popis.",
     "Remove assignment from selected segments": "Ukloni dodjelu iz odabranih segmenata",
     "Assign selected to a team member": "Dodijeli odabrano članu tima",
@@ -2951,6 +2957,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "{count} segment updated together.": "Aktualizován {count} segment.",
+    "{count} segments updated together.": "Aktualizované segmenty: {count}.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Hromadnou akci se nepodařilo potvrdit. Než to zkusíte znovu, zkontrolujte aktualizovaný seznam.",
     "Remove assignment from selected segments": "Odebrat přiřazení z vybraných segmentů",
     "Assign selected to a team member": "Přiřadit vybrané členu týmu",
@@ -4038,6 +4046,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "{count} segment updated together.": "Opdateret {count} segment samlet.",
+    "{count} segments updated together.": "Opdateret {count} segmenter samlet.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Massehandlingen kunne ikke bekræftes. Tjek den opdaterede liste, før du prøver igen.",
     "Remove assignment from selected segments": "Fjern opgave fra valgte segmenter",
     "Assign selected to a team member": "Tildel valgte til et teammedlem",
@@ -5125,6 +5135,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "{count} segment updated together.": "Er is {count} segment tegelijk bijgewerkt.",
+    "{count} segments updated together.": "Er zijn {count} segmenten tegelijk bijgewerkt.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "De bulkactie kon niet worden bevestigd. Controleer de vernieuwde lijst voordat u het opnieuw probeert.",
     "Remove assignment from selected segments": "Verwijder toewijzing uit geselecteerde segmenten",
     "Assign selected to a team member": "Wijs de geselecteerde toe aan een teamlid",
@@ -6212,6 +6224,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "{count} segment updated together.": "Korraga värskendati {count} segment.",
+    "{count} segments updated together.": "Korraga värskendati {count} segmenti.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Hulgitoimingut ei saanud kinnitada. Enne uuesti proovimist kontrollige värskendatud loendit.",
     "Remove assignment from selected segments": "Eemalda valitud segmentidest ülesanne",
     "Assign selected to a team member": "Määrake valitud meeskonnaliikmele",
@@ -7299,6 +7313,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "{count} segment updated together.": "Päivitettiin {count} segmentti yhdessä.",
+    "{count} segments updated together.": "Päivitettiin {count} segmenttiä yhdessä.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Joukkotoimintoa ei voitu vahvistaa. Tarkista päivitetty luettelo ennen kuin yrität uudelleen.",
     "Remove assignment from selected segments": "Poista tehtävä valituista segmenteistä",
     "Assign selected to a team member": "Määritä valitut ryhmän jäsenelle",
@@ -8386,6 +8402,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "{count} segment updated together.": "Mise à jour de {count} segment en une fois.",
+    "{count} segments updated together.": "Mise à jour de {count} segments en une fois.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "L'action globale n'a pas pu être confirmée. Vérifiez la liste actualisée avant de réessayer.",
     "Remove assignment from selected segments": "Supprimer l'affectation des segments sélectionnés",
     "Assign selected to a team member": "Attribuer la sélection à un membre de l'équipe",
@@ -9473,6 +9491,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "{count} segment updated together.": "Ενημερώθηκε {count} τμήμα μαζί.",
+    "{count} segments updated together.": "Ενημερώθηκαν {count} τμήματα μαζί.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Δεν ήταν δυνατή η επιβεβαίωση της μαζικής ενέργειας. Ελέγξτε την ανανεωμένη λίστα πριν προσπαθήσετε ξανά.",
     "Remove assignment from selected segments": "Κατάργηση ανάθεσης από επιλεγμένα τμήματα",
     "Assign selected to a team member": "Αναθέστε επιλεγμένο σε ένα μέλος της ομάδας",
@@ -10560,6 +10580,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "{count} segment updated together.": "Egyszerre {count} szegmens frissült.",
+    "{count} segments updated together.": "Egyszerre {count} szegmens frissült.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "A tömeges művelet nem erősíthető meg. Az újrapróbálkozás előtt ellenőrizze a frissített listát.",
     "Remove assignment from selected segments": "Hozzárendelés eltávolítása a kijelölt szegmensekből",
     "Assign selected to a team member": "A kiválasztott csoport hozzárendelése egy csapattaghoz",
@@ -11647,6 +11669,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "{count} segment updated together.": "Nuashonraíodh {count} mhír le chéile.",
+    "{count} segments updated together.": "Nuashonraíodh {count} mír le chéile.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Níorbh fhéidir an gníomh mórchóir a dhearbhú. Seiceáil an liosta athnuaite roimh duit triail eile a bhaint as.",
     "Remove assignment from selected segments": "Bain an tasc ó mhíreanna roghnaithe",
     "Assign selected to a team member": "Sann roghnaithe do bhall foirne",
@@ -12734,6 +12758,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "{count} segment updated together.": "Aggiornato {count} segmento insieme.",
+    "{count} segments updated together.": "Aggiornati {count} segmenti insieme.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Non è stato possibile confermare l'azione collettiva. Controlla l'elenco aggiornato prima di riprovare.",
     "Remove assignment from selected segments": "Rimuovi l'assegnazione dai segmenti selezionati",
     "Assign selected to a team member": "Assegna selezionato a un membro del team",
@@ -13821,6 +13847,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "{count} segment updated together.": "Kopā atjaunināts {count} segments.",
+    "{count} segments updated together.": "Kopā atjaunināti {count} segmenti.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Lielapjoma darbību nevarēja apstiprināt. Pirms atkārtotas mēģinājuma pārbaudiet atjaunināto sarakstu.",
     "Remove assignment from selected segments": "Noņemt uzdevumu no atlasītajiem segmentiem",
     "Assign selected to a team member": "Piešķirt atlasīto komandas dalībniekam",
@@ -14908,6 +14936,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "{count} segment updated together.": "Kartu atnaujintas {count} segmentas.",
+    "{count} segments updated together.": "Kartu atnaujinti segmentai: {count}.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Masinio veiksmo patvirtinti nepavyko. Prieš bandydami dar kartą, patikrinkite atnaujintą sąrašą.",
     "Remove assignment from selected segments": "Pašalinti priskyrimą iš pasirinktų segmentų",
     "Assign selected to a team member": "Pasirinktą priskirti komandos nariui",
@@ -15995,6 +16025,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "{count} segment updated together.": "Ġie aġġornat {count} segment flimkien.",
+    "{count} segments updated together.": "Ġew aġġornati {count} segmenti flimkien.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "L-azzjoni bl-ingrossa ma setgħetx tiġi kkonfermata. Iċċekkja l-lista aggornata qabel terġa 'tipprova.",
     "Remove assignment from selected segments": "Neħħi l-assenjazzjoni minn segmenti magħżula",
     "Assign selected to a team member": "Assenja magħżula lil membru tat-tim",
@@ -17082,6 +17114,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "{count} segment updated together.": "Zaktualizowano {count} segment jednocześnie.",
+    "{count} segments updated together.": "Zaktualizowano segmenty jednocześnie: {count}.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Nie udało się potwierdzić działania zbiorczego. Przed ponowną próbą sprawdź odświeżoną listę.",
     "Remove assignment from selected segments": "Usuń przypisanie z wybranych segmentów",
     "Assign selected to a team member": "Przypisz wybrane członkowi zespołu",
@@ -18169,6 +18203,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "{count} segment updated together.": "Foi atualizado {count} segmento em conjunto.",
+    "{count} segments updated together.": "Foram atualizados {count} segmentos em conjunto.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "A ação em massa não pôde ser confirmada. Verifique a lista atualizada antes de tentar novamente.",
     "Remove assignment from selected segments": "Remover atribuição dos segmentos selecionados",
     "Assign selected to a team member": "Atribuir selecionado a um membro da equipe",
@@ -19256,6 +19292,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "{count} segment updated together.": "A fost actualizat {count} segment împreună.",
+    "{count} segments updated together.": "Au fost actualizate {count} segmente împreună.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Acțiunea în bloc nu a putut fi confirmată. Verificați lista reîmprospătată înainte de a încerca din nou.",
     "Remove assignment from selected segments": "Eliminați atribuirea din segmentele selectate",
     "Assign selected to a team member": "Atribuiți selectat unui membru al echipei",
@@ -20343,6 +20381,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "{count} segment updated together.": "Spoločne sa aktualizoval {count} segment.",
+    "{count} segments updated together.": "Spoločne aktualizované segmenty: {count}.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Hromadnú akciu nebolo možné potvrdiť. Pred opätovným pokusom skontrolujte aktualizovaný zoznam.",
     "Remove assignment from selected segments": "Odstrániť priradenie z vybratých segmentov",
     "Assign selected to a team member": "Priradiť vybrané členovi tímu",
@@ -21430,6 +21470,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "{count} segment updated together.": "Hkrati je bil posodobljen {count} segment.",
+    "{count} segments updated together.": "Hkrati posodobljeni segmenti: {count}.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Množičnega dejanja ni bilo mogoče potrditi. Pred ponovnim poskusom preverite osveženi seznam.",
     "Remove assignment from selected segments": "Odstrani dodelitev iz izbranih segmentov",
     "Assign selected to a team member": "Dodeli izbrano članu ekipe",
@@ -22517,6 +22559,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "{count} segment updated together.": "Se actualizó {count} segmento a la vez.",
+    "{count} segments updated together.": "Se actualizaron {count} segmentos a la vez.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "No se pudo confirmar la acción masiva. Consulte la lista actualizada antes de volver a intentarlo.",
     "Remove assignment from selected segments": "Eliminar asignación de segmentos seleccionados",
     "Assign selected to a team member": "Asignar seleccionado a un miembro del equipo",
@@ -23604,6 +23648,8 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "{count} segment updated together.": "Samtidigt uppdaterades {count} segment.",
+    "{count} segments updated together.": "Samtidigt uppdaterades {count} segment.",
     "The bulk action could not be confirmed. Check the refreshed list before retrying.": "Massåtgärden kunde inte bekräftas. Kontrollera den uppdaterade listan innan du försöker igen.",
     "Remove assignment from selected segments": "Ta bort tilldelning från valda segment",
     "Assign selected to a team member": "Tilldela valda till en gruppmedlem",

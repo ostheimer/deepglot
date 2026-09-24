@@ -193,6 +193,8 @@ export function TranslationWorkflowPanel({
     selectedItems.every((item) => member.langCode === null ||
       member.langCode.toLowerCase() === item.langTo.toLowerCase()),
   );
+  const bulkAssigneeIsEligible = eligibleBulkMembers.some((member) =>
+    member.id === bulkAssigneeId);
 
   useEffect(() => {
     setSelectedIds([]);
@@ -330,7 +332,7 @@ export function TranslationWorkflowPanel({
 
   async function applyBulkWorkflow() {
     if (!selectedItems.length || !bulkActionAvailable || bulkBusy) return;
-    if (bulkAction === "assign" && !bulkAssigneeId) return;
+    if (bulkAction === "assign" && !bulkAssigneeIsEligible) return;
     setBulkBusy(true);
     setError(null);
     setBulkMessage(null);
@@ -355,10 +357,10 @@ export function TranslationWorkflowPanel({
         throw new Error(body.error || "Bulk workflow change failed");
       }
       setSelectedIds([]);
-      setBulkMessage(uiText(locale,
-        `${body.updated} segments updated together.`,
-        `${body.updated} Segmente gemeinsam aktualisiert.`,
-      ));
+      const successTemplate = body.updated === 1
+        ? "{count} segment updated together."
+        : "{count} segments updated together.";
+      setBulkMessage(uiText(locale, successTemplate).replace("{count}", String(body.updated)));
     } catch {
       setError(uiText(locale,
         "The bulk action could not be confirmed. Check the refreshed list before retrying.",
@@ -937,7 +939,7 @@ export function TranslationWorkflowPanel({
             {bulkAction === "assign" && (
               <select
                 aria-label={uiText(locale, "Assign selected to a team member", "Auswahl einem Teammitglied zuweisen")}
-                value={bulkAssigneeId}
+                value={bulkAssigneeIsEligible ? bulkAssigneeId : ""}
                 onChange={(event) => setBulkAssigneeId(event.target.value)}
                 className="h-9 rounded-md border px-2"
               >
@@ -948,7 +950,7 @@ export function TranslationWorkflowPanel({
             )}
             <Button type="button" size="sm"
               disabled={!selectedItems.length || !bulkActionAvailable ||
-                (bulkAction === "assign" && !bulkAssigneeId) || bulkBusy || loading || Boolean(savingId)}
+                (bulkAction === "assign" && !bulkAssigneeIsEligible) || bulkBusy || loading || Boolean(savingId)}
               onClick={() => void applyBulkWorkflow()}
             >
               {bulkBusy && <Loader2 className="h-4 w-4 animate-spin" />}
