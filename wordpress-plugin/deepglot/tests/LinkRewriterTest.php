@@ -116,6 +116,7 @@ function test_preserves_wordpress_media_links_byte_for_byte(): void
         '<a id="absolute-media" href="' . $absoluteMediaUrl . '">Photo</a>'
         . '<a id="relative-media" href="' . $relativeMediaUrl . '">PDF</a>'
         . '<a id="custom-upload" href="/uploads/guide.pdf">Guide</a>'
+        . '<a id="encoded-upload" href="/uploads/guide.%70df">Encoded guide</a>'
         . '<a id="custom-video" href="/uploads/clip.mp4">Video</a>'
         . '<a id="similar-content" href="/wp-content-tools/">Content tools</a>'
         . '<a id="contact" href="/kontakt/">Contact</a>',
@@ -126,6 +127,7 @@ function test_preserves_wordpress_media_links_byte_for_byte(): void
     $absoluteMedia = $doc->getElementById('absolute-media');
     $relativeMedia = $doc->getElementById('relative-media');
     $customUpload = $doc->getElementById('custom-upload');
+    $encodedUpload = $doc->getElementById('encoded-upload');
     $customVideo = $doc->getElementById('custom-video');
     $similarContent = $doc->getElementById('similar-content');
     $contact = $doc->getElementById('contact');
@@ -143,6 +145,7 @@ function test_preserves_wordpress_media_links_byte_for_byte(): void
         'Relative WordPress media href must remain byte-for-byte unchanged'
     );
     assert($customUpload instanceof DOMElement && $customUpload->getAttribute('href') === '/uploads/guide.pdf', 'Custom document paths must not gain a language prefix');
+    assert($encodedUpload instanceof DOMElement && $encodedUpload->getAttribute('href') === '/uploads/guide.%70df', 'Encoded unreserved extension bytes must still identify a file link');
     assert($customVideo instanceof DOMElement && $customVideo->getAttribute('href') === '/uploads/clip.mp4', 'Custom video paths must not gain a language prefix');
     assert(
         $similarContent->getAttribute('href') === '/en/wp-content-tools/',

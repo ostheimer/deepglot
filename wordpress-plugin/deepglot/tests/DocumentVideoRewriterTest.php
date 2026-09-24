@@ -52,6 +52,7 @@ function documentVideoAssert(DOMDocument $document, string $id, string $attribut
 
 $html = <<<'HTML'
 <a id="pdf" href="/uploads/guide.pdf" download aria-label="Guide">PDF</a>
+<a id="encoded-pdf" href="/uploads/guide.%70df">Encoded PDF</a>
 <a id="absolute" href="https://example.com/uploads/sheet.xlsx">XLSX</a>
 <a id="fallback" href="/uploads/other.pdf">Other</a>
 <a id="unsafe" href="/uploads/unsafe.pdf">Unsafe</a>
@@ -68,6 +69,7 @@ HTML;
 
 $english = documentVideoRender($html, 'en');
 documentVideoAssert($english, 'pdf', 'href', '/uploads/guide-en.pdf');
+documentVideoAssert($english, 'encoded-pdf', 'href', '/uploads/guide-en.pdf');
 documentVideoAssert($english, 'pdf', 'aria-label', 'Guide');
 documentVideoAssert($english, 'absolute', 'href', 'https://example.com/uploads/sheet-en.xlsx');
 documentVideoAssert($english, 'fallback', 'href', '/uploads/other.pdf');
