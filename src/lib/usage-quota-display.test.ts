@@ -28,7 +28,7 @@ function renderUsage(locale: "en" | "de", wordsLimit: number) {
   return renderToStaticMarkup(
     createElement(
       LocaleProvider,
-      { locale, children: undefined },
+      { locale } as Parameters<typeof LocaleProvider>[0],
       createElement(UsageCharts, {
         totalWords: 1_000,
         wordsLimit,
