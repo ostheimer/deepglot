@@ -303,8 +303,9 @@ Features:
 - Deepglot API client (HTTP requests to the Next.js backend)
 - WordPress transient-based translation cache (no custom table needed)
 - Link rewriter (`<a>`, `<form>`, `<link rel=canonical>`)
-- Explicit, project- and target-language-scoped same-site image replacement
-  for server-rendered responsive and lazy-loaded image attributes
+- Explicit, project- and target-language-scoped replacement of same-site
+  images, document links, self-hosted video, and supported video embeds in
+  server-rendered HTML
 - hreflang SEO tags and `<html lang>` switching
 - Independent language switchers: named shortcode/block/widget/automatic instances, safe legacy migration, 5 flag styles, list/dropdown mode, fixed/floating or validated selector placement, per-language custom flags, responsive hide, three versioned templates, and a same-origin visual placement preview
 - Gutenberg block for language switcher
