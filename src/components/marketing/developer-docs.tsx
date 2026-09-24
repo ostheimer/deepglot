@@ -140,6 +140,17 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
+              ? "Für Bild-, Dokument- und Videodateien sind nur root-relative URLs oder HTTPS-URLs auf dem exakten Projekthost erlaubt. Dokumente und Videos behalten bei der Ersetzung ihre Dateiendung. Externe Einbettungen sind ausschließlich exakte HTTPS-URLs von www.youtube.com/embed/{ID}, www.youtube-nocookie.com/embed/{ID} oder player.vimeo.com/video/{ID}; der Zielhost muss derselbe Anbieterhost sein. Query-Parameter, Fragmente, YouTube-Watch-Links, Kurzlinks und externe CDNs werden abgewiesen."
+              : "Image, document, and video files must use root-relative URLs or HTTPS URLs on the exact project host. Document and video replacements retain their file extension. External embeds are limited to exact HTTPS URLs at www.youtube.com/embed/{ID}, www.youtube-nocookie.com/embed/{ID}, or player.vimeo.com/video/{ID}; replacements keep the same provider host. Query strings, fragments, YouTube watch links, short links, and external CDNs are rejected."}
+          </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Verwaltende lesen Zuordnungen mit GET /api/projects/{projectId}/media und legen sie mit POST auf derselben Route an. Der JSON-Body enthält langTo, originalUrl und localizedUrl; langTo muss eine aktive Zielsprache sein. PATCH /api/projects/{projectId}/media/{mediaId} ändert eines oder mehrere dieser Felder, DELETE auf derselben Einzelroute entfernt die Zuordnung. Alle vier Aufrufe erfordern eine angemeldete Projektverwaltungssitzung."
+              : "Managers list mappings with GET /api/projects/{projectId}/media and create one with POST on the same route. The JSON body contains langTo, originalUrl, and localizedUrl; langTo must be an active target language. PATCH /api/projects/{projectId}/media/{mediaId} updates one or more of these fields, and DELETE on that item route removes the mapping. All four calls require an authenticated project manager session."}
+          </p>
+          <CodeBlock>{'{"langTo":"en","originalUrl":"/wp-content/uploads/guide.pdf","localizedUrl":"/wp-content/uploads/guide-en.pdf"}'}</CodeBlock>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
               ? "AMP-Seiten durchlaufen die Übersetzung nur bei aktivierter Plugin-Option. Die mehrsprachige Sitemap unter /deepglot-sitemap.xml wird in robots.txt angekündigt und enthält ausschließlich validierte interne Sprachalternativen."
               : "AMP pages enter the translation pipeline only when the plugin option is enabled. The multilingual sitemap at /deepglot-sitemap.xml is advertised in robots.txt and contains only validated internal language alternatives."}
           </p>
@@ -263,8 +274,8 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
           </p>
           <p className="mt-3 max-w-4xl leading-7 text-gray-700">
             {de
-              ? "v0.12.9 führte sprachabhängige Zuordnungen für vorhandene Bilder ein. v0.12.10 erweitert sie auf Dokumentlinks, selbst gehostete Videos und unterstützte Einbettungen. Die WordPress-Ausgabe ersetzt passende URLs in gerenderten Seiten und leert bekannte Seiten-Caches bei geänderter Konfiguration. Sie erzeugt oder prüft keine Zieldateien; die Installation auf einer Kunden-Website und eine Prüfung ihrer CDN-Ausgabe bleiben eigene Schritte."
-              : "v0.12.9 introduced language-specific mappings for existing images. v0.12.10 extends them to document links, self-hosted video, and supported embeds. The WordPress plugin replaces matching URLs in rendered pages and clears known page caches when configuration changes. It does not create or check target files; installing it on a customer site and verifying that site's CDN output remain separate steps."}
+              ? "v0.12.9 führte sprachabhängige Zuordnungen für vorhandene Bilder ein. v0.12.10 erweitert sie auf Dokumentlinks, selbst gehostete Videos und unterstützte Einbettungen. Die WordPress-Ausgabe ersetzt passende URLs in gerenderten Seiten. Bekannte WordPress-Seiten-Caches werden erst geleert, wenn WordPress nach einer Anfrage eine geänderte Runtime-Konfiguration abruft und übernimmt; dieser Abruf erfolgt frühestens nach 300 Sekunden. Ein vorgeschalteter CDN-Cache kann den WordPress-Aufruf verhindern. Bei sofortiger Abnahme deshalb WordPress-Synchronisierung, Cache-Purge und öffentliche Seite direkt prüfen. Die Ausgabe erzeugt oder prüft keine Zieldateien; die Installation auf einer Kunden-Website und ihre Live-QA bleiben eigene Schritte."
+              : "v0.12.9 introduced language-specific mappings for existing images. v0.12.10 extends them to document links, self-hosted video, and supported embeds. The WordPress plugin replaces matching URLs in rendered pages. It clears known WordPress page caches only after a request reaches WordPress and applies a changed runtime configuration; refreshes occur no sooner than every 300 seconds. An upstream CDN cache can prevent that WordPress request. For immediate acceptance, check WordPress synchronization, purge caches, and read the public page directly. The plugin does not create or check target files; installation on a customer site and live QA remain separate steps."}
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             {[

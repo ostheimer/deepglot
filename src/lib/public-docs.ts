@@ -253,6 +253,16 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     access: "manage",
   },
   {
+    path: "/api/projects/[projektId]/media",
+    sourceFile: "src/app/api/projects/[projektId]/media/route.ts",
+    access: "manage: GET, POST",
+  },
+  {
+    path: "/api/projects/[projektId]/media/[mediaId]",
+    sourceFile: "src/app/api/projects/[projektId]/media/[mediaId]/route.ts",
+    access: "manage: PATCH, DELETE",
+  },
+  {
     path: "/api/projects/[projektId]/import",
     sourceFile: "src/app/api/projects/[projektId]/import/route.ts",
     access: "session",
