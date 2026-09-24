@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { assessTargetSchemaDiff } from "@/lib/target-schema-acceptance";
@@ -38,4 +39,24 @@ test("fails closed on SQL it cannot classify", () => {
 
   assert.equal(assessment.ready, false);
   assert.deepEqual(assessment.drift.map((item) => item.kind), ["other"]);
+});
+
+test("blocks a Preview deployment when its target database is not configured", () => {
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/target-schema-acceptance.ts", "--vercel-build-gate"],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        VERCEL_ENV: "preview",
+        DEEPGLOT_DATABASE_URL: "",
+        DATABASE_URL: "",
+      },
+      encoding: "utf8",
+    }
+  );
+
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /DEEPGLOT_DATABASE_URL or DATABASE_URL is required/);
 });
