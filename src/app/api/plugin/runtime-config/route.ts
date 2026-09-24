@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
           langTo: true,
         },
         // Reject an oversized mapping set rather than silently localizing an
-        // arbitrary prefix of the project's images.
+        // arbitrary prefix of the project's media mappings.
         take: MAX_RUNTIME_MEDIA_REPLACEMENTS + 1,
       }),
     ]);

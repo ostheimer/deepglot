@@ -43,7 +43,7 @@ export class MediaReplacementError extends Error {
 export function assertMediaReplacementCapacity(currentCount: number): void {
   if (currentCount >= MAX_RUNTIME_MEDIA_REPLACEMENTS) {
     throw new MediaReplacementError(
-      `A project can contain at most ${MAX_RUNTIME_MEDIA_REPLACEMENTS} image replacements.`,
+      `A project can contain at most ${MAX_RUNTIME_MEDIA_REPLACEMENTS} media replacements.`,
       "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
     );
   }
@@ -322,7 +322,7 @@ export function buildRuntimeMediaReplacements(
 ): Record<string, Record<string, string>> {
   if (rows.length > MAX_RUNTIME_MEDIA_REPLACEMENTS) {
     throw new MediaReplacementError(
-      "The project image mapping exceeds the runtime safety limit.",
+      "The project media mapping exceeds the runtime safety limit.",
       "MEDIA_REPLACEMENTS_LIMIT_EXCEEDED"
     );
   }
@@ -333,7 +333,7 @@ export function buildRuntimeMediaReplacements(
     const language = row.langTo.trim().toLowerCase();
     if (!SAFE_LANGUAGE_CODE.test(language)) {
       throw new MediaReplacementError(
-        "The image mapping contains an invalid target language.",
+        "The media mapping contains an invalid target language.",
         "INVALID_TARGET_LANGUAGE"
       );
     }
@@ -347,7 +347,7 @@ export function buildRuntimeMediaReplacements(
     const languageReplacements = (replacements[language] ??= {});
     if (Object.hasOwn(languageReplacements, originalUrl)) {
       throw new MediaReplacementError(
-        "The project contains duplicate image replacement keys.",
+        "The project contains duplicate media replacement keys.",
         "DUPLICATE_IMAGE_REPLACEMENT"
       );
     }

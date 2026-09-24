@@ -637,7 +637,7 @@ class Options
     }
 
     /**
-     * Return only the authenticated project's safe, active-language images.
+     * Return only the authenticated project's safe, active-language media URLs.
      *
      * @return array<string, string>
      */

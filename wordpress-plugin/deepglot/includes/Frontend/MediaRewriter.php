@@ -5,7 +5,7 @@ namespace Deepglot\Frontend;
 use Deepglot\Config\Options;
 
 /**
- * Replaces explicitly mapped, same-origin images in translated documents.
+ * Replaces explicitly mapped media URLs in translated documents.
  */
 class MediaRewriter
 {
