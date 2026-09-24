@@ -392,6 +392,18 @@ npm run acceptance:plan-schema -- --env-file .env.production.local
 
 The guard uses `DEEPGLOT_DATABASE_URL` first and falls back to `DATABASE_URL`. It runs only read-only catalog and aggregate count queries. Its output includes the database hostname, observed enum values, and row counts, but never the connection credentials. CI runs the same guard against its local PostgreSQL database after `prisma db push`; run it separately against shared Neon environments to detect environment-specific schema drift.
 
+**Target schema acceptance**
+
+Compare the configured database with `prisma/schema.prisma` before treating an environment as ready:
+
+```bash
+npm run acceptance:target-schema -- --env-file .env.preview.local
+```
+
+The check runs Prisma's read-only `migrate diff` from the live database to the target schema. It reports pending table, column, index and constraint statements separately, and fails on any unclassified SQL. Raw SQL and connection credentials are withheld from its output. A missing or unreachable database blocks acceptance. CI runs this check after preparing its isolated PostgreSQL database; Vercel Preview and Production builds run it against their own configured database before `next build`. A green isolated CI database does not establish that the shared Preview or Production schema is current. Apply only reviewed, environment-specific migrations, then rerun the check; the acceptance command itself never applies SQL.
+
+On 2026-09-24, Vercel Preview was verified to use Neon `main` (`neondb`), while Production used the separate `prod` branch. The narrowly scoped, rerunnable Preview repairs are [`scripts/sql/preview-missing-tables.sql`](scripts/sql/preview-missing-tables.sql) and [`scripts/sql/preview-runtime-sync-media.sql`](scripts/sql/preview-runtime-sync-media.sql). They were tested twice on a schema-only Preview clone, then applied twice to the verified Preview branch. Readback confirmed all four tables, their columns, indexes, primary keys and cascading foreign keys, plus the three runtime-sync columns. The full target-schema check passed with no pending statements, and the Preview database idempotency integration suite passed all three cases; its synthetic rows were removed. No Production schema was changed by this repair.
+
 **Option B – Neon Console**  
 1. In the [Neon Console](https://console.neon.tech), open **Branches** and create a branch named `prod` with parent `main`.
 2. Open the `prod` branch and copy both connection strings: **Connection string** (pooled) → `DATABASE_URL`, **Session mode** (unpooled) → `DATABASE_URL_UNPOOLED`.

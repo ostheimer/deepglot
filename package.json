@@ -7,7 +7,7 @@
   "scripts": {
     "check:docs-language": "node --import tsx scripts/check-docs-language.ts",
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node --import tsx scripts/target-schema-acceptance.ts --vercel-build-gate && next build",
     "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
@@ -24,6 +24,7 @@
     "acceptance:translation-latency": "node --import tsx scripts/translation-latency-acceptance.ts",
     "acceptance:neon": "node --import tsx scripts/neon-restore-drill.ts",
     "acceptance:plan-schema": "node --import tsx scripts/plan-schema-acceptance.ts",
+    "acceptance:target-schema": "node --import tsx scripts/target-schema-acceptance.ts",
     "acceptance:stripe": "node --import tsx scripts/stripe-acceptance.ts",
     "acceptance:visual-editor": "node --import tsx scripts/visual-editor-acceptance.ts",
     "postinstall": "prisma generate"
