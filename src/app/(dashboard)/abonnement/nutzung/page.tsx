@@ -7,19 +7,17 @@ import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { startOfMonth } from "date-fns";
 import { uiText } from "@/lib/static-copy";
-import { getEffectiveWordsLimit } from "@/lib/billing-plans";
+import {
+  BILLING_PLANS,
+  getEffectiveWordsLimit,
+  getProjectsLimitForPlan,
+  resolveBillingPlanKey,
+} from "@/lib/billing-plans";
 import { QuotaUsageBanner } from "@/components/abonnement/quota-usage-banner";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Usage", "Nutzung");
 }
-
-const PLAN_LIMITS: Record<string, { words: number; requests: number; languages: number; projects: number; users: number }> = {
-  FREE:         { words: 10_000,    requests: 1_000,      languages: 1,  projects: 1,  users: 1 },
-  STARTER:      { words: 100_000,   requests: 50_000,     languages: 3,  projects: 3,  users: 5 },
-  PROFESSIONAL: { words: 1_000_000, requests: 1_000_000,  languages: 10, projects: 10, users: 25 },
-  ENTERPRISE:   { words: 10_000_000, requests: 10_000_000, languages: 50, projects: 50, users: 100 },
-};
 
 export default async function NutzungPage() {
   const locale = await getRequestLocale();
@@ -45,7 +43,8 @@ export default async function NutzungPage() {
 
   const org = membership?.organization;
   const plan = org?.plan ?? "FREE";
-  const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.FREE;
+  const planLimits = BILLING_PLANS[resolveBillingPlanKey(plan)];
+  const projectsLimit = getProjectsLimitForPlan(plan);
   const currentMonth = parseInt(new Date().toISOString().slice(0, 7).replace("-", ""));
   const monthStart = startOfMonth(new Date());
 
@@ -124,16 +123,15 @@ export default async function NutzungPage() {
       <UsageCharts
         totalWords={totalWords}
         wordsLimit={effectiveWordsLimit}
+        planWordsLimit={planLimits.wordsLimit}
         totalRequests={totalRequests}
-        requestsLimit={limits.requests}
         pieWordData={pieWordData}
         pieRequestData={pieRequestData}
         projectRows={projectRows}
         projectCount={org?._count.projects ?? 0}
-        projectsLimit={limits.projects}
+        projectsLimit={projectsLimit}
         membersCount={org?._count.members ?? 0}
-        membersLimit={limits.users}
-        langLimitPerProject={limits.languages}
+        langLimitPerProject={planLimits.languagesLimit}
       />
     </div>
   );

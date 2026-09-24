@@ -28,15 +28,14 @@ interface ProjectRow {
 interface Props {
   totalWords: number;
   wordsLimit: number;
+  planWordsLimit: number;
   totalRequests: number;
-  requestsLimit: number;
   pieWordData: { name: string; value: number }[];
   pieRequestData: { name: string; value: number }[];
   projectRows: ProjectRow[];
   projectCount: number;
   projectsLimit: number;
   membersCount: number;
-  membersLimit: number;
   langLimitPerProject: number;
 }
 
@@ -55,15 +54,14 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
 export function UsageCharts({
   totalWords,
   wordsLimit,
+  planWordsLimit,
   totalRequests,
-  requestsLimit,
   pieWordData,
   pieRequestData,
   projectRows,
   projectCount,
   projectsLimit,
   membersCount,
-  membersLimit,
   langLimitPerProject,
 }: Props) {
   const locale = useLocale();
@@ -87,6 +85,11 @@ export function UsageCharts({
               {formatNumber(totalWords, locale)} / {formatNumber(wordsLimit, locale)}
             </p>
           </div>
+          {planWordsLimit !== wordsLimit && (
+            <p className="text-xs text-gray-500 mb-3">
+              {uiText(locale, "Standard plan allowance", "Standardkontingent des Plans")}: {formatNumber(planWordsLimit, locale)} {uiText(locale, "words / month", "Wörter / Monat")}. {uiText(locale, "Applicable monthly word limit", "Geltendes monatliches Wortlimit")}: {formatNumber(wordsLimit, locale)}.
+            </p>
+          )}
 
           {/* Progress bar */}
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
@@ -138,7 +141,7 @@ export function UsageCharts({
               {uiText(locale, "Total translation requests", "Übersetzungs-Anfragen gesamt")}
             </p>
             <p className="text-sm font-semibold text-brand-600">
-              {formatNumber(totalRequests, locale)} / {formatNumber(requestsLimit, locale)}
+              {formatNumber(totalRequests, locale)}
             </p>
           </div>
 
@@ -246,7 +249,7 @@ export function UsageCharts({
 
                 {/* Members */}
                 <span className="text-sm text-gray-700">
-                  {membersCount} / {membersLimit}
+                  {membersCount}
                 </span>
 
                 {/* Actions */}
