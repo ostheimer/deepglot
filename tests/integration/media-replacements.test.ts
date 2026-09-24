@@ -17,6 +17,49 @@ const skipWithoutDatabase = databaseUrl
 const cleanupOrganizationIds = new Set<string>();
 const cleanupApiKeyIds = new Set<string>();
 
+test(
+  "PostgreSQL runtime publishes active document and video mappings and deletion restores fallback",
+  { skip: skipWithoutDatabase },
+  async () => {
+    const [{ db }, { generateApiKey }, runtime, media] = await Promise.all([
+      import("@/lib/db"),
+      import("@/lib/api-keys"),
+      import("@/app/api/plugin/runtime-config/route"),
+      import("@/lib/media-replacements"),
+    ]);
+    const suffix = crypto.randomUUID();
+    const organization = await db.organization.create({ data: { name: `Media video ${suffix}`, slug: `media-video-${suffix}` } });
+    cleanupOrganizationIds.add(organization.id);
+    const project = await db.project.create({ data: {
+      name: "Document and video localization", domain: `${suffix}.example.test`, originalLang: "de", organizationId: organization.id,
+      languages: { create: [{ langCode: "en", isActive: true }, { langCode: "fr", isActive: false }] },
+    } });
+    const { rawKey, apiKey } = await generateApiKey({ projectId: project.id, name: "Media runtime test" });
+    cleanupApiKeyIds.add(apiKey.id);
+
+    const mappings = [
+      media.normalizeMediaMapping("/uploads/guide.pdf", "/uploads/guide-en.pdf", project.domain),
+      media.normalizeMediaMapping("/uploads/clip.mp4", "/uploads/clip-en.mp4", project.domain),
+      media.normalizeMediaMapping("https://www.youtube-nocookie.com/embed/abcdefghijk", "https://www.youtube-nocookie.com/embed/lmnopqrstuv", project.domain),
+    ];
+    const rows = await Promise.all(mappings.map(({ originalUrl, localizedUrl }) => db.projectMediaReplacement.create({
+      data: { projectId: project.id, langTo: "en", originalUrl, localizedUrl },
+    })));
+    await db.projectMediaReplacement.create({ data: { projectId: project.id, langTo: "fr", originalUrl: "/uploads/guide.pdf", localizedUrl: "/uploads/guide-fr.pdf" } });
+
+    const response = await runtime.GET(runtimeRequest(rawKey));
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).mediaReplacements, { en: Object.fromEntries(mappings.map(({ originalUrl, localizedUrl }) => [originalUrl, localizedUrl])) });
+
+    await db.projectMediaReplacement.delete({ where: { id: rows[0].id } });
+    const afterDeletion = await runtime.GET(runtimeRequest(rawKey));
+    assert.equal(afterDeletion.status, 200);
+    const active = (await afterDeletion.json()).mediaReplacements.en;
+    assert.equal(active["/uploads/guide.pdf"], undefined);
+    assert.equal(active["/uploads/clip.mp4"], "/uploads/clip-en.mp4");
+  },
+);
+
 function runtimeRequest(apiKey?: string): NextRequest {
   const headers = new Headers();
   if (apiKey) {

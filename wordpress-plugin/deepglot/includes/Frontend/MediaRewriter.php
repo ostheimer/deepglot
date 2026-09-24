@@ -51,8 +51,8 @@ class MediaRewriter
                 continue;
             }
 
-            $this->rewriteUrlAttribute($image, 'src', $replacements);
-            $this->rewriteUrlAttribute($image, 'data-src', $replacements);
+            $this->rewriteUrlAttribute($image, 'src', $replacements, 'image');
+            $this->rewriteUrlAttribute($image, 'data-src', $replacements, 'image');
             $this->rewriteSrcsetAttribute($image, 'srcset', $replacements);
             $this->rewriteSrcsetAttribute($image, 'data-srcset', $replacements);
         }
@@ -62,10 +62,19 @@ class MediaRewriter
 
             if (
                 !$parent instanceof \DOMElement
-                || strtolower($parent->tagName) !== 'picture'
                 || $this->insideNoTranslateSubtree($source)
                 || $this->matchesExcludedSelector($source)
             ) {
+                continue;
+            }
+
+            if (strtolower($parent->tagName) === 'video') {
+                $this->rewriteUrlAttribute($source, 'src', $replacements, 'video');
+                $this->rewriteUrlAttribute($source, 'data-src', $replacements, 'video');
+                continue;
+            }
+
+            if (strtolower($parent->tagName) !== 'picture') {
                 continue;
             }
 
@@ -84,6 +93,26 @@ class MediaRewriter
 
             if ($replacementMime !== null) {
                 $source->setAttribute('type', $replacementMime);
+            }
+        }
+
+        foreach ($this->elements($document, 'a') as $link) {
+            if (!$this->insideNoTranslateSubtree($link) && !$this->matchesExcludedSelector($link)) {
+                $this->rewriteUrlAttribute($link, 'href', $replacements, 'document');
+            }
+        }
+
+        foreach ($this->elements($document, 'video') as $video) {
+            if (!$this->insideNoTranslateSubtree($video) && !$this->matchesExcludedSelector($video)) {
+                $this->rewriteUrlAttribute($video, 'src', $replacements, 'video');
+                $this->rewriteUrlAttribute($video, 'data-src', $replacements, 'video');
+            }
+        }
+
+        foreach ($this->elements($document, 'iframe') as $frame) {
+            if (!$this->insideNoTranslateSubtree($frame) && !$this->matchesExcludedSelector($frame)) {
+                $this->rewriteUrlAttribute($frame, 'src', $replacements, 'embed');
+                $this->rewriteUrlAttribute($frame, 'data-src', $replacements, 'embed');
             }
         }
     }
@@ -134,10 +163,17 @@ class MediaRewriter
                 continue;
             }
 
-            $source = $this->parseSameOriginUrl($original);
-            $destination = $this->parseSameOriginUrl($replacement);
+            $source = $this->parseMediaUrl($original);
+            $destination = $this->parseMediaUrl($replacement);
 
-            if ($source === null || $destination === null) {
+            if (
+                $source === null || $destination === null || $source['kind'] !== $destination['kind']
+                || ($source['kind'] === 'embed'
+                    && wp_parse_url($source['identity'], PHP_URL_HOST) !== wp_parse_url($destination['identity'], PHP_URL_HOST))
+                || (in_array($source['kind'], ['document', 'video'], true)
+                    && strtolower((string) pathinfo((string) wp_parse_url($source['identity'], PHP_URL_PATH), PATHINFO_EXTENSION))
+                        !== strtolower((string) pathinfo((string) wp_parse_url($destination['identity'], PHP_URL_PATH), PATHINFO_EXTENSION)))
+            ) {
                 continue;
             }
 
@@ -162,13 +198,13 @@ class MediaRewriter
     /**
      * @param array<string, string> $replacements
      */
-    private function rewriteUrlAttribute(\DOMElement $element, string $attribute, array $replacements): void
+    private function rewriteUrlAttribute(\DOMElement $element, string $attribute, array $replacements, ?string $kind = null): void
     {
         if (!$element->hasAttribute($attribute)) {
             return;
         }
 
-        $replacement = $this->replacementForUrl($element->getAttribute($attribute), $replacements);
+        $replacement = $this->replacementForUrl($element->getAttribute($attribute), $replacements, $kind);
 
         if ($replacement !== null) {
             $element->setAttribute($attribute, $replacement);
@@ -198,7 +234,7 @@ class MediaRewriter
         $changed = false;
 
         foreach ($candidates as $candidate) {
-            $replacement = $this->replacementForUrl($candidate['url'], $replacements);
+            $replacement = $this->replacementForUrl($candidate['url'], $replacements, 'image');
 
             if ($replacement !== null) {
                 $rewritten .= substr($original, $offset, $candidate['offset'] - $offset) . $replacement;
@@ -241,7 +277,7 @@ class MediaRewriter
             }
 
             foreach ($candidates as $candidate) {
-                $replacement = $this->replacementForUrl($candidate['url'], $replacements);
+                $replacement = $this->replacementForUrl($candidate['url'], $replacements, 'image');
                 $mime = $this->imageMimeTypeForUrl($replacement ?? $candidate['url']);
 
                 if ($mime === null || ($replacementMime !== null && $replacementMime !== $mime)) {
@@ -422,17 +458,37 @@ class MediaRewriter
     /**
      * @param array<string, string> $replacements
      */
-    private function replacementForUrl(string $url, array $replacements): ?string
+    private function replacementForUrl(string $url, array $replacements, ?string $kind = null): ?string
     {
-        $source = $this->parseSameOriginUrl($url);
+        $source = $this->parseMediaUrl($url);
 
-        if ($source === null || !array_key_exists($source['identity'], $replacements)) {
+        if ($source === null || ($kind !== null && $source['kind'] !== $kind) || !array_key_exists($source['identity'], $replacements)) {
             return null;
         }
 
         $replacement = $replacements[$source['identity']];
 
         return $source['absolute'] ? $source['origin'] . $replacement : $replacement;
+    }
+
+    /** @return array{identity: string, absolute: bool, origin: string, kind: string}|null */
+    private function parseMediaUrl(string $url): ?array
+    {
+        if (
+            preg_match('#^https://www\.youtube(?:-nocookie)?\.com/embed/[A-Za-z0-9_-]{11}$#D', $url) === 1
+            || preg_match('#^https://player\.vimeo\.com/video/[0-9]+$#D', $url) === 1
+        ) {
+            return ['identity' => $url, 'absolute' => true, 'origin' => '', 'kind' => 'embed'];
+        }
+
+        $parsed = $this->parseSameOriginUrl($url);
+        if ($parsed === null) return null;
+        $path = (string) (wp_parse_url($parsed['identity'], PHP_URL_PATH) ?: '');
+        if (preg_match('/\.(?:png|jpe?g|webp|avif|gif)$/i', $path) === 1) $kind = 'image';
+        elseif (preg_match('/\.(?:pdf|docx|xlsx|pptx)$/i', $path) === 1) $kind = 'document';
+        elseif (preg_match('/\.(?:mp4|webm)$/i', $path) === 1) $kind = 'video';
+        else return null;
+        return $parsed + ['kind' => $kind];
     }
 
     private function insideNoTranslateSubtree(\DOMNode $node): bool

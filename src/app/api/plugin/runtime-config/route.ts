@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       return apiProblem({
         status: 413,
         title: "Runtime configuration too large",
-        detail: `The project has more than ${MAX_RUNTIME_MEDIA_REPLACEMENTS} image replacements. Reduce the mapping set before retrying.`,
+        detail: `The project has more than ${MAX_RUNTIME_MEDIA_REPLACEMENTS} media replacements. Reduce the mapping set before retrying.`,
         code: "runtime_media_replacements_limit_exceeded",
         instance: "/api/plugin/runtime-config",
         extensions: { limit: MAX_RUNTIME_MEDIA_REPLACEMENTS },
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
       return apiProblem({
         status: 413,
         title: "Runtime configuration too large",
-        detail: "The project's image replacement configuration exceeds its safe size limit.",
+        detail: "The project's media replacement configuration exceeds its safe size limit.",
         code: "runtime_media_replacements_limit_exceeded",
         instance: "/api/plugin/runtime-config",
         extensions: { limit: MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES },

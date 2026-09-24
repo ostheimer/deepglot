@@ -47,8 +47,12 @@ class SettingsSync
         }
 
         if ($this->runtimeSourceChanged($oldValue, $newValue)) {
+            $previousMedia = get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []);
             $this->options->clearUrlSlugMappings();
             $this->options->clearMediaReplacements();
+            if ($previousMedia !== get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [])) {
+                $this->purgeMediaPageCaches();
+            }
             // A new key or backend invalidates the cached 401 verdict. Without
             // this reset a corrected key would only take effect once the
             // circuit breaker's TTL expired (#245).
@@ -255,7 +259,12 @@ class SettingsSync
         $previousTargetLanguages = $this->warmer !== null
             ? $this->options->getTargetLanguages()
             : [];
+        $previousMedia = get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []);
         $applied = $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
+
+        if ($previousMedia !== get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [])) {
+            $this->purgeMediaPageCaches();
+        }
 
         if ($applied) {
             delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
@@ -277,6 +286,23 @@ class SettingsSync
         }
 
         return $runtimeConfig;
+    }
+
+    /** A mapping may occur on any page, so known full-page caches need a site-wide purge. */
+    private function purgeMediaPageCaches(): void
+    {
+        if (function_exists('rocket_clean_domain')) {
+            rocket_clean_domain();
+        }
+        if (function_exists('w3tc_flush_all')) {
+            w3tc_flush_all();
+        }
+        if (function_exists('do_action')) {
+            do_action('litespeed_purge_all');
+        }
+        if (function_exists('wp_cache_clear_cache')) {
+            wp_cache_clear_cache();
+        }
     }
 
     private function acquireRuntimeRefreshLock(string $lockToken): bool

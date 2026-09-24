@@ -1,8 +1,8 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.9**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.10**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
 
-v0.12.9 adds project- and target-language-specific same-site media replacements. It safely rewrites server-rendered regular, responsive, and lazy-loaded image URLs, keeps picture-source MIME hints aligned with uniform replacement formats, and preserves no-translate subtrees plus configured class and ID exclusions. Publishing this package does not automatically install or update the plugin on customer sites.
+v0.12.10 adds project- and target-language-specific document and video URL replacements. It supports same-site PDF, DOCX, XLSX, PPTX, MP4, and WebM files plus fixed YouTube, YouTube-nocookie, and Vimeo embed endpoints. Unsupported or absent mappings keep the original URL. Changed runtime mappings purge known page-cache plugins; upstream caches still require operator readback. v0.12.9 added same-site responsive and lazy-loaded image replacement. Publishing this package does not automatically install or update the plugin on customer sites.
 
 v0.12.8 translates generic ARIA labels in page content, image title tooltips, and human-readable RSS or Atom feed titles. The dynamic-content pass applies the same attribute rules with request deduplication, while ordinary link metadata remains excluded from translation-provider requests. Empty and whitespace-only translations are rejected on cache writes and reads, including legacy plain-string entries, so a stale blank value cannot remove translated metadata.
 
@@ -357,8 +357,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.9 this creates `deepglot-0.12.9.zip` and
-`deepglot-0.12.9.zip.sha256`. Build the same commit into two empty output
+For v0.12.10 this creates `deepglot-0.12.10.zip` and
+`deepglot-0.12.10.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 
 ## Test

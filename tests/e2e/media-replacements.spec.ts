@@ -22,6 +22,7 @@ test("project managers safely manage locale-specific image mappings end to end",
   const frenchUrl = "/wp-content/uploads/deepglot-e2e-image-fr.avif";
   let mappingId: string | undefined;
   let apiKeyId: string | undefined;
+  const documentVideoIds: string[] = [];
 
   try {
     const domainResponse = await page.request.patch(
@@ -207,6 +208,29 @@ test("project managers safely manage locale-specific image mappings end to end",
       englishUrl,
     );
 
+    const documentVideoMappings = [
+      ["/uploads/guide.pdf", "/uploads/guide-en.pdf"],
+      ["/uploads/clip.mp4", "/uploads/clip-en.mp4"],
+      ["https://www.youtube-nocookie.com/embed/abcdefghijk", "https://www.youtube-nocookie.com/embed/lmnopqrstuv"],
+    ] as const;
+    for (const [originalMediaUrl, localizedMediaUrl] of documentVideoMappings) {
+      const response = await page.request.post(collectionPath, {
+        data: { langTo: "en", originalUrl: originalMediaUrl, localizedUrl: localizedMediaUrl },
+      });
+      expect(response.status()).toBe(201);
+      documentVideoIds.push(((await response.json()) as { mediaReplacement: { id: string } }).mediaReplacement.id);
+      expect((await runtimeConfig()).mediaReplacements.en?.[originalMediaUrl]).toBe(localizedMediaUrl);
+    }
+
+    const unsafeEmbed = await page.request.post(collectionPath, {
+      data: { langTo: "en", originalUrl: "https://www.youtube-nocookie.com/embed/abcdefghijk", localizedUrl: "https://evil.example/embed/lmnopqrstuv" },
+    });
+    expect(unsafeEmbed.status()).toBe(400);
+
+    await page.request.delete(`${collectionPath}/${documentVideoIds[0]}`);
+    documentVideoIds.shift();
+    expect((await runtimeConfig()).mediaReplacements.en?.["/uploads/guide.pdf"]).toBeUndefined();
+
     const [languageUpdate, imageUpdate] = await Promise.all([
       page.request.patch(`${collectionPath}/${mappingId}`, {
         data: { langTo: "fr" },
@@ -231,6 +255,9 @@ test("project managers safely manage locale-specific image mappings end to end",
       (await runtimeConfig()).mediaReplacements.fr?.[originalUrl],
     ).toBeUndefined();
   } finally {
+    for (const id of documentVideoIds) {
+      await page.request.delete(`${collectionPath}/${id}`);
+    }
     if (mappingId) {
       await page.request.delete(`${collectionPath}/${mappingId}`);
     }

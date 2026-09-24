@@ -1351,7 +1351,16 @@ class Options
                 $original = $this->normalizeMediaReplacementUrl($rawOriginal);
                 $localized = $this->normalizeMediaReplacementUrl($rawLocalized);
 
-                if ($original === null || $localized === null || isset($blocked[$language][$original])) {
+                if (
+                    $original === null || $localized === null
+                    || $this->mediaReplacementKind($original) !== $this->mediaReplacementKind($localized)
+                    || ($this->mediaReplacementKind($original) === 'embed'
+                        && wp_parse_url($original, PHP_URL_HOST) !== wp_parse_url($localized, PHP_URL_HOST))
+                    || (in_array($this->mediaReplacementKind($original), ['document', 'video'], true)
+                        && strtolower((string) pathinfo((string) wp_parse_url($original, PHP_URL_PATH), PATHINFO_EXTENSION))
+                            !== strtolower((string) pathinfo((string) wp_parse_url($localized, PHP_URL_PATH), PATHINFO_EXTENSION)))
+                    || isset($blocked[$language][$original])
+                ) {
                     continue;
                 }
 
@@ -1385,6 +1394,10 @@ class Options
             || str_starts_with($value, '//')
         ) {
             return null;
+        }
+
+        if ($this->mediaReplacementKind($value) === 'embed') {
+            return $value;
         }
 
         $parts = wp_parse_url($value);
@@ -1427,12 +1440,28 @@ class Options
             || str_contains($decodedPath, '\\')
             || preg_match('#(?:^|/)\.\.?(/|$)#', $decodedPath) === 1
             || preg_match('/%(?:2e|2f|5c)/i', $decodedPath) === 1
-            || preg_match('/\.(?:png|jpe?g|webp|avif|gif)$/i', $path) !== 1
+            || $this->mediaReplacementKind($path) === null
         ) {
             return null;
         }
 
         return $path . (isset($parts['query']) ? '?' . $parts['query'] : '');
+    }
+
+    private function mediaReplacementKind(string $url): ?string
+    {
+        if (
+            preg_match('#^https://www\.youtube(?:-nocookie)?\.com/embed/[A-Za-z0-9_-]{11}$#D', $url) === 1
+            || preg_match('#^https://player\.vimeo\.com/video/[0-9]+$#D', $url) === 1
+        ) {
+            return 'embed';
+        }
+
+        $path = (string) (wp_parse_url($url, PHP_URL_PATH) ?: '');
+        if (preg_match('/\.(?:png|jpe?g|webp|avif|gif)$/i', $path) === 1) return 'image';
+        if (preg_match('/\.(?:pdf|docx|xlsx|pptx)$/i', $path) === 1) return 'document';
+        if (preg_match('/\.(?:mp4|webm)$/i', $path) === 1) return 'video';
+        return null;
     }
 
     /**

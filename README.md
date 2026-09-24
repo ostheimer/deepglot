@@ -128,13 +128,13 @@ Segment metadata supports persistent labels, plain-text notes and explicitly sel
 
 The workspace supports selecting visible segments on the current page and applying one assignment or review action to at most 100 segments. Each request is atomic: a stale, unauthorized, missing or invalid row leaves the entire selection unchanged. See [bulk workflow semantics](docs/product-decisions/translation-workspace-bulk.md). This slice adds no database schema or translation-content changes. Issue #257 remains open for authoritative inactivity, broader quality and variable rules, history, AI actions and search-and-replace.
 
-## Locale-specific image replacements
+## Locale-specific media URL replacements
 
-Project managers can explicitly map an original image to a localized image for
+Project managers can explicitly map an original image, document, or video URL to a localized URL for
 one active target language. Configuration currently uses authenticated project
 management endpoints; there is no dashboard editing interface yet:
 
-- `GET /api/projects/{projectId}/media` lists project-owned image mappings.
+- `GET /api/projects/{projectId}/media` lists project-owned media mappings.
 - `POST /api/projects/{projectId}/media` creates one mapping.
 - `PATCH /api/projects/{projectId}/media/{mediaId}` updates selected fields.
 - `DELETE /api/projects/{projectId}/media/{mediaId}` removes one mapping.
@@ -162,17 +162,26 @@ such as `invalid_media_image_url`, `inactive_target_language`, and
 Configurations exceeding the runtime payload limit return
 `media_replacements_payload_too_large`.
 
-Both image URLs must be root-relative paths or HTTPS URLs on the exact project
-hostname. Accepted image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF.
+File URLs must be root-relative paths or HTTPS URLs on the exact project
+hostname. Accepted image formats are PNG, JPG, JPEG, WebP, AVIF, and GIF;
+document links support PDF, DOCX, XLSX, and PPTX; self-hosted video supports
+MP4 and WebM. Documents and video replacements must retain their file extension.
+The only external URLs supported are exact HTTPS embed endpoints of the form
+`https://www.youtube.com/embed/{11-character-id}`,
+`https://www.youtube-nocookie.com/embed/{11-character-id}`, and
+`https://player.vimeo.com/video/{numeric-id}`. An embed replacement must retain
+the provider hostname. Query parameters, fragments, watch-page links, short URLs,
+external CDNs, and other iframe providers are unsupported.
 Absolute same-site URLs are stored in canonical root-relative form, with a
 maximum length of 2,048 characters after percent encoding. Foreign origins,
 IP hosts, embedded credentials, fragments, unsafe or recursively encoded path
 separators, SVG, and executable formats are rejected. Project managers are
 responsible for owning or obtaining the necessary usage and redistribution
-rights for every original and localized image; Deepglot does not verify media
-licenses.
+rights for every original and localized file or embedded video, including the
+right to publish the localized URL on the target site. Deepglot does not verify
+licenses, provider terms, or the existence and content type of remote files.
 
-A project can contain at most **500 image replacements**. Concurrent creation
+A project can contain at most **500 media URL replacements**. Concurrent creation
 and partial updates use serializable project-scoped checks; a duplicate,
 exhausted item limit, or active-language JSON payload exceeding **224 KiB**
 returns HTTP 409 before its transaction commits. Activating a language through
@@ -194,15 +203,23 @@ During server-side target-language rendering, the plugin replaces matching
 rendered image paths are normalized to the same canonical representation as the
 saved mapping. Valid responsive width and density descriptors are preserved,
 including leading zeros and scientific notation; excluded subtrees are not
-modified, and source-language pages remain unchanged. Runtime settings refresh
-at most every **300 seconds** on a request that reaches WordPress. Existing
-full-page caches are not automatically purged when image mappings change;
-operators must manually purge affected translated page URLs after
-synchronization and verify the public response.
+modified, and source-language pages remain unchanged. Document mappings rewrite
+`a[href]`; MP4/WebM mappings rewrite `video[src]`,
+`video[data-src]`, and direct `video > source[src|data-src]`; provider embed
+mappings rewrite `iframe[src|data-src]`. A missing, deleted, unsupported, or
+unsafe mapping leaves the original URL in place. Existing link text, download
+attributes, video MIME hints, dimensions, and accessibility attributes remain
+unchanged. Known WP Rocket, W3 Total Cache, LiteSpeed Cache, and WP Super Cache
+page caches are purged site-wide after a changed runtime snapshot is applied.
+Runtime settings refresh at most every **300 seconds** on a request that reaches
+WordPress.
+An upstream CDN or a full-page cache that blocks the refresh request still
+requires an operator purge and public readback.
 
-This initial slice does not provide a dashboard interface, uploads, file
-storage, external CDN images, SVG/PDF/document/video localization, AI-generated
-media, or image replacement in dynamically inserted AJAX content.
+This slice does not provide a dashboard interface, uploads, file storage,
+external CDN images, SVG, arbitrary embeds, subtitles, transcoding, AI-generated
+media, or replacement in dynamically inserted AJAX content. Workspace editing
+and search remain tracked by #257 and the remaining #317 UI work.
 
 **Production schema gate completed on 2026-09-04:** the exact Deepglot Neon
 production branch (`prod`, database `neondb`) was inspected first. Only the
@@ -248,7 +265,7 @@ page-view analytics.
 
 ## WordPress plugin
 
-The plugin lives in `wordpress-plugin/deepglot`. Repository version: **v0.12.9**. v0.12.9 adds project- and target-language-specific same-site media replacements with safe rewriting for server-rendered responsive and lazy-loaded images, consistent picture-source MIME hints, and no-translate plus configured class and ID exclusions. v0.12.8 translates generic ARIA labels in page content, image title tooltips, and human-readable RSS or Atom feed titles while excluding ordinary link metadata from provider requests. v0.12.7 makes the authenticated SaaS project authoritative for source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy through one versioned runtime snapshot. WordPress shows source, targets, and redirect as read-only mirrors after sync, rejects REST writes to them, preserves valid bootstrap mirrors across a key change, continues serving existing cache hits when fresh generation is off, prevents target-URL caching of source-language fallbacks, and reconciles obsolete warm-up work after runtime language changes. v0.12.6 follows WordPress core post-type viewability so built-in public pages remain in the multilingual sitemap and URL-sync inventory while non-viewable builder content types, attachments, and non-queryable taxonomies stay excluded. v0.12.5 translates explicitly configured cookie-consent roots that render before the dynamic footer observer starts and localizes their internal links through the server-side routing rules without sending URLs to a translation provider. v0.12.4 preserves translated transient values containing emoji or other four-byte Unicode on legacy WordPress option tables through a separate versioned ASCII-safe key space, canonical Base64URL, and key-bound integrity checks. Existing plain-string cache entries remain readable. A provider result is complete only after exact cache readback; failed writes stay in the text and URL queues, do not purge the affected page, and keep inline responses out of full-page caches. v0.12.3 preserves background text and URL queues with the same Unicode constraint through a versioned, checksummed ASCII-safe storage envelope. Existing array queues migrate automatically, while damaged queue persistence fails closed, including during disabled cleanup. A separate short atomic lock couples text and purge-target mutations without surrounding provider calls; lease fencing prevents a stale owner from committing only one side. If a cold render cannot durably acquire that coupled queue state, its source-language response is marked non-cacheable so a later request can retry. v0.12.2 explicitly verifies one safe canonical redirect on the exact same origin and in the requested target language during URL synchronization, while automatic redirect following stays disabled. Publishing the GitHub release does not automatically update customer WordPress sites. The currently documented live deployment on `meinhaushalt.at` is **v0.12.1** from commit `3b914007`, deployed on 2026-08-10; the exact package/tree comparison, semantic configuration, 39-file PHP lint, canonical `?ver=0.12.1` browser asset, same-host HTTPS URL sync, public route smoke, WP Rocket purge, and cleanup all passed. This customer deployment is not evidence of a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel.
+The plugin lives in `wordpress-plugin/deepglot`. Repository version: **v0.12.10**. v0.12.10 adds document and video URL replacements as described above. v0.12.9 added project- and target-language-specific same-site media replacements with safe rewriting for server-rendered responsive and lazy-loaded images, consistent picture-source MIME hints, and no-translate plus configured class and ID exclusions. v0.12.8 translates generic ARIA labels in page content, image title tooltips, and human-readable RSS or Atom feed titles while excluding ordinary link metadata from provider requests. v0.12.7 makes the authenticated SaaS project authoritative for source language, target languages, automatic redirect, AI disclosure, and automatic-translation policy through one versioned runtime snapshot. WordPress shows source, targets, and redirect as read-only mirrors after sync, rejects REST writes to them, preserves valid bootstrap mirrors across a key change, continues serving existing cache hits when fresh generation is off, prevents target-URL caching of source-language fallbacks, and reconciles obsolete warm-up work after runtime language changes. v0.12.6 follows WordPress core post-type viewability so built-in public pages remain in the multilingual sitemap and URL-sync inventory while non-viewable builder content types, attachments, and non-queryable taxonomies stay excluded. v0.12.5 translates explicitly configured cookie-consent roots that render before the dynamic footer observer starts and localizes their internal links through the server-side routing rules without sending URLs to a translation provider. v0.12.4 preserves translated transient values containing emoji or other four-byte Unicode on legacy WordPress option tables through a separate versioned ASCII-safe key space, canonical Base64URL, and key-bound integrity checks. Existing plain-string cache entries remain readable. A provider result is complete only after exact cache readback; failed writes stay in the text and URL queues, do not purge the affected page, and keep inline responses out of full-page caches. v0.12.3 preserves background text and URL queues with the same Unicode constraint through a versioned, checksummed ASCII-safe storage envelope. Existing array queues migrate automatically, while damaged queue persistence fails closed, including during disabled cleanup. A separate short atomic lock couples text and purge-target mutations without surrounding provider calls; lease fencing prevents a stale owner from committing only one side. If a cold render cannot durably acquire that coupled queue state, its source-language response is marked non-cacheable so a later request can retry. v0.12.2 explicitly verifies one safe canonical redirect on the exact same origin and in the requested target language during URL synchronization, while automatic redirect following stays disabled. Publishing the GitHub release does not automatically update customer WordPress sites. The currently documented live deployment on `meinhaushalt.at` is **v0.12.1** from commit `3b914007`, deployed on 2026-08-10; the exact package/tree comparison, semantic configuration, 39-file PHP lint, canonical `?ver=0.12.1` browser asset, same-host HTTPS URL sync, public route smoke, WP Rocket purge, and cleanup all passed. This customer deployment is not evidence of a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel.
 
 The v0.12.8 package treats empty and whitespace-only versioned or legacy cache values as misses and rejects new blank translations, preventing stale cache data from clearing translated metadata.
 

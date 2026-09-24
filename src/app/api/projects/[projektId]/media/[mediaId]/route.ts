@@ -12,7 +12,7 @@ import {
   MAX_MEDIA_IMAGE_URL_LENGTH,
   MediaReplacementError,
   assertMediaTargetLanguage,
-  normalizeMediaImageUrl,
+  normalizeMediaMapping,
 } from "@/lib/media-replacements";
 import {
   getAuthenticatedUserId,
@@ -142,11 +142,8 @@ export async function PATCH(
 
           assertMediaTargetLanguage(langTo, existing.project.originalLang);
 
-          const originalUrl = normalizeMediaImageUrl(
+          const { originalUrl, localizedUrl } = normalizeMediaMapping(
             parsed.data.originalUrl ?? existing.originalUrl,
-            existing.project.domain
-          );
-          const localizedUrl = normalizeMediaImageUrl(
             parsed.data.localizedUrl ?? existing.localizedUrl,
             existing.project.domain
           );
@@ -187,7 +184,7 @@ export async function PATCH(
       if (error instanceof Error && error.message === NOT_FOUND_ERROR) {
         return NextResponse.json(
           {
-            error: t(locale, "Bildersetzung nicht gefunden", "Invalid input"),
+            error: t(locale, "Medienersetzung nicht gefunden", "Invalid input"),
             code: "media_replacement_not_found",
           },
           { status: 404 }
@@ -213,7 +210,7 @@ export async function PATCH(
           {
             error: t(
               locale,
-              "Die Bildersetzungen überschreiten die zulässige Laufzeitgröße",
+              "Die Medienersetzungen überschreiten die zulässige Laufzeitgröße",
               "Invalid input"
             ),
             code: "media_replacements_payload_too_large",
@@ -228,7 +225,7 @@ export async function PATCH(
           {
             error: t(
               locale,
-              "Ungültige Bild-URL: Nur sichere Bilder derselben Website sind zulässig",
+              "Ungültige Medien-URL oder nicht unterstütztes Format",
               "Invalid input"
             ),
             code: "invalid_media_image_url",
@@ -243,7 +240,7 @@ export async function PATCH(
             {
               error: t(
                 locale,
-                "Für dieses Bild und diese Zielsprache existiert bereits eine Ersetzung",
+                "Für diese Medien-URL und Zielsprache existiert bereits eine Ersetzung",
                 "Invalid input"
               ),
               code: "media_replacement_already_exists",
@@ -261,7 +258,7 @@ export async function PATCH(
         {
           error: t(
             locale,
-            "Bildersetzung konnte nicht aktualisiert werden",
+            "Medienersetzung konnte nicht aktualisiert werden",
             "Something went wrong."
           ),
           code: "media_replacement_update_failed",
@@ -275,7 +272,7 @@ export async function PATCH(
     {
       error: t(
         locale,
-        "Bildersetzung konnte nicht aktualisiert werden",
+        "Medienersetzung konnte nicht aktualisiert werden",
         "Something went wrong."
       ),
       code: "media_replacement_update_failed",
@@ -313,7 +310,7 @@ export async function DELETE(
   if (deleted.count === 0) {
     return NextResponse.json(
       {
-        error: t(locale, "Bildersetzung nicht gefunden", "Invalid input"),
+        error: t(locale, "Medienersetzung nicht gefunden", "Invalid input"),
         code: "media_replacement_not_found",
       },
       { status: 404 }

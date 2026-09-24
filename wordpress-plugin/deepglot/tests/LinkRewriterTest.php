@@ -115,6 +115,8 @@ function test_preserves_wordpress_media_links_byte_for_byte(): void
     $doc = rewriteDocumentUsingRouting(
         '<a id="absolute-media" href="' . $absoluteMediaUrl . '">Photo</a>'
         . '<a id="relative-media" href="' . $relativeMediaUrl . '">PDF</a>'
+        . '<a id="custom-upload" href="/uploads/guide.pdf">Guide</a>'
+        . '<a id="custom-video" href="/uploads/clip.mp4">Video</a>'
         . '<a id="similar-content" href="/wp-content-tools/">Content tools</a>'
         . '<a id="contact" href="/kontakt/">Contact</a>',
         'en',
@@ -123,6 +125,8 @@ function test_preserves_wordpress_media_links_byte_for_byte(): void
 
     $absoluteMedia = $doc->getElementById('absolute-media');
     $relativeMedia = $doc->getElementById('relative-media');
+    $customUpload = $doc->getElementById('custom-upload');
+    $customVideo = $doc->getElementById('custom-video');
     $similarContent = $doc->getElementById('similar-content');
     $contact = $doc->getElementById('contact');
 
@@ -138,6 +142,8 @@ function test_preserves_wordpress_media_links_byte_for_byte(): void
         $relativeMedia->getAttribute('href') === $relativeMediaUrl,
         'Relative WordPress media href must remain byte-for-byte unchanged'
     );
+    assert($customUpload instanceof DOMElement && $customUpload->getAttribute('href') === '/uploads/guide.pdf', 'Custom document paths must not gain a language prefix');
+    assert($customVideo instanceof DOMElement && $customVideo->getAttribute('href') === '/uploads/clip.mp4', 'Custom video paths must not gain a language prefix');
     assert(
         $similarContent->getAttribute('href') === '/en/wp-content-tools/',
         'A non-reserved slug that merely starts with wp-content must still be localized'

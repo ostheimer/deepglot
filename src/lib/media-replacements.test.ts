@@ -9,7 +9,48 @@ import {
   assertMediaReplacementCapacity,
   buildRuntimeMediaReplacements,
   normalizeMediaImageUrl,
+  normalizeMediaMapping,
 } from "@/lib/media-replacements";
+
+test("document, video, and provider embed mappings keep their format and endpoint", () => {
+  for (const extension of ["pdf", "docx", "xlsx", "pptx", "mp4", "webm"]) {
+    const mapping = normalizeMediaMapping(
+      `https://example.com/uploads/source.${extension}`,
+      `/uploads/localized.${extension}`,
+      "example.com"
+    );
+    assert.equal(mapping.originalUrl, `/uploads/source.${extension}`);
+    assert.equal(mapping.localizedUrl, `/uploads/localized.${extension}`);
+    assert.equal(mapping.kind, ["mp4", "webm"].includes(extension) ? "video" : "document");
+  }
+  for (const [original, localized] of [
+    ["https://www.youtube.com/embed/abcdefghijk", "https://www.youtube.com/embed/lmnopqrstuv"],
+    ["https://www.youtube-nocookie.com/embed/abcdefghijk", "https://www.youtube-nocookie.com/embed/lmnopqrstuv"],
+    ["https://player.vimeo.com/video/12345", "https://player.vimeo.com/video/67890"],
+  ]) {
+    assert.deepEqual(normalizeMediaMapping(original, localized, "example.com"), {
+      originalUrl: original, localizedUrl: localized, kind: "embed",
+    });
+  }
+});
+
+test("document and video mapping rejects unsafe URLs, unsupported formats, and provider switches", () => {
+  const invalid = [
+    ["/uploads/a.pdf", "https://evil.example/a.pdf"],
+    ["/uploads/a.pdf", "/uploads/a.docx"],
+    ["/uploads/a.mp4", "/uploads/a.webm"],
+    ["/uploads/a.svg", "/uploads/b.svg"],
+    ["/uploads/a.pdf", "javascript:alert(1)"],
+    ["/uploads/a.pdf", "/uploads/%2e%2e/b.pdf"],
+    ["https://www.youtube.com/embed/abcdefghijk", "https://www.youtube-nocookie.com/embed/lmnopqrstuv"],
+    ["https://www.youtube.com/embed/abcdefghijk", "https://evil.example/embed/lmnopqrstuv"],
+    ["https://www.youtube.com/embed/abcdefghijk", "https://www.youtube.com/embed/lmnopqrstuv?autoplay=1"],
+    ["https://player.vimeo.com/video/123", "https://player.vimeo.com/video/456#t=1"],
+  ];
+  for (const [original, localized] of invalid) {
+    assert.throws(() => normalizeMediaMapping(original, localized, "example.com"), MediaReplacementError);
+  }
+});
 
 test("same-project HTTPS and root-relative image URLs share one canonical path", () => {
   assert.equal(
