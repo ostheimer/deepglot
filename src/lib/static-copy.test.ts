@@ -7,6 +7,19 @@ import { SITE_LOCALES } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import { STATIC_MESSAGES } from "@/lib/static-messages";
 
+test("bulk workflow success templates are localized with singular and plural count placeholders", () => {
+  for (const locale of SITE_LOCALES) {
+    for (const key of ["{count} segment updated together.", "{count} segments updated together."]) {
+      const template = uiText(locale, key);
+      assert.match(template, /\{count\}/, `${locale}: ${key}`);
+      if (locale !== "en") {
+        assert.notEqual(template, key, `${locale}: ${key}`);
+        assert.equal(STATIC_MESSAGES[locale]?.[key], template);
+      }
+    }
+  }
+});
+
 // The static-message generator (scripts/i18n-generate-static-messages.ts)
 // once localized the product name — "Deepglot" -> "Diepglot" (nl),
 // "Glotte profonde" (fr), "Profundo" (es) — because the brand was not

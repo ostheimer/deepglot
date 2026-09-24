@@ -146,6 +146,11 @@ export function TranslationWorkflowPanel({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState("");
+  const [bulkAssigneeId, setBulkAssigneeId] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] =
     useState<TranslationWorkspaceEditDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -169,11 +174,37 @@ export function TranslationWorkflowPanel({
     page,
   });
   const latestQueryKeyRef = useRef(currentQueryKey);
+  const selectableItems = data?.items.filter((item) => canManage ||
+    (item.status === "assigned" && item.assignedToId === currentMemberId)) ?? [];
+  const selectedItems = data?.items.filter((item) => selectedIds.includes(item.id)) ?? [];
+  const allVisibleSelected = selectableItems.length > 0 &&
+    selectedItems.length === selectableItems.length;
+  const bulkActionAvailable = bulkAction === "assign" || bulkAction === "unassign"
+    ? canManage
+    : bulkAction === "submit"
+      ? selectedItems.every((item) => item.status === "assigned" &&
+          (canManage || item.assignedToId === currentMemberId))
+      : bulkAction === "approve" || bulkAction === "return"
+        ? canManage && selectedItems.every((item) => item.status === "in_review")
+        : bulkAction === "reopen"
+          ? canManage && selectedItems.every((item) => item.status === "approved")
+          : false;
+  const eligibleBulkMembers = members.filter((member) =>
+    selectedItems.every((item) => member.langCode === null ||
+      member.langCode.toLowerCase() === item.langTo.toLowerCase()),
+  );
+  const bulkAssigneeIsEligible = eligibleBulkMembers.some((member) =>
+    member.id === bulkAssigneeId);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    setSelectedIds([]);
+    setBulkMessage(null);
+  }, [currentQueryKey]);
+
+  const load = useCallback(async ({ preserveError = false }: { preserveError?: boolean } = {}) => {
     const requestId = ++loadRequestIdRef.current;
     setLoading(true);
-    setError(null);
+    if (!preserveError) setError(null);
     const search = new URLSearchParams();
     for (const [key, value] of Object.entries({
       reportedType,
@@ -296,6 +327,48 @@ export function TranslationWorkflowPanel({
       );
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function applyBulkWorkflow() {
+    if (!selectedItems.length || !bulkActionAvailable || bulkBusy) return;
+    if (bulkAction === "assign" && !bulkAssigneeIsEligible) return;
+    setBulkBusy(true);
+    setError(null);
+    setBulkMessage(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/translations/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: selectedItems.map((item) => ({
+            id: item.id,
+            expectedStatus: item.status.toUpperCase(),
+            expectedAssignedToId: item.assignedToId,
+            expectedUpdatedAt: item.updatedAt,
+          })),
+          action: bulkAction === "assign"
+            ? { kind: "assign", assignedToId: bulkAssigneeId }
+            : { kind: bulkAction },
+        }),
+      });
+      const body = await response.json() as { updated?: number; error?: string };
+      if (!response.ok || body.updated !== selectedItems.length) {
+        throw new Error(body.error || "Bulk workflow change failed");
+      }
+      setSelectedIds([]);
+      const successTemplate = body.updated === 1
+        ? "{count} segment updated together."
+        : "{count} segments updated together.";
+      setBulkMessage(uiText(locale, successTemplate).replace("{count}", String(body.updated)));
+    } catch {
+      setError(uiText(locale,
+        "The bulk action could not be confirmed. Check the refreshed list before retrying.",
+        "Die Sammelaktion konnte nicht bestätigt werden. Prüfe die aktualisierte Liste vor einem erneuten Versuch.",
+      ));
+    } finally {
+      setBulkBusy(false);
+      await latestLoadRef.current({ preserveError: true });
     }
   }
 
@@ -817,6 +890,7 @@ export function TranslationWorkflowPanel({
           {error}
         </div>
       )}
+      {bulkMessage && <p role="status" className="text-sm text-emerald-700">{bulkMessage}</p>}
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-3">
@@ -827,6 +901,63 @@ export function TranslationWorkflowPanel({
             <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
           )}
         </div>
+
+        {data && data.items.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 px-5 py-3 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                aria-label={uiText(locale, "Select visible segments", "Sichtbare Segmente auswählen")}
+                checked={allVisibleSelected}
+                disabled={loading || bulkBusy || Boolean(savingId) || selectableItems.length === 0}
+                onChange={(event) => setSelectedIds(event.target.checked
+                  ? selectableItems.map((item) => item.id)
+                  : [])}
+              />
+              {selectedItems.length} {uiText(locale, "selected on this page", "auf dieser Seite ausgewählt")}
+            </label>
+            <select
+              aria-label={uiText(locale, "Bulk action", "Sammelaktion")}
+              value={bulkAction}
+              disabled={!selectedItems.length || loading || bulkBusy}
+              onChange={(event) => { setBulkAction(event.target.value); setBulkAssigneeId(""); }}
+              className="h-9 rounded-md border px-2"
+            >
+              <option value="">{uiText(locale, "Choose action", "Aktion wählen")}</option>
+              {canManage && <option value="assign">{uiText(locale, "Assign selected", "Auswahl zuweisen")}</option>}
+              {canManage && <option value="unassign">{uiText(locale, "Remove assignment from selected segments", "Zuweisung für ausgewählte Segmente aufheben")}</option>}
+              {selectedItems.every((item) => item.status === "assigned" &&
+                (canManage || item.assignedToId === currentMemberId)) &&
+                <option value="submit">{uiText(locale, "Submit selected for review", "Auswahl zur Prüfung einreichen")}</option>}
+              {canManage && selectedItems.every((item) => item.status === "in_review") && <>
+                <option value="approve">{uiText(locale, "Approve selected", "Auswahl freigeben")}</option>
+                <option value="return">{uiText(locale, "Return selected", "Auswahl zurückgeben")}</option>
+              </>}
+              {canManage && selectedItems.every((item) => item.status === "approved") &&
+                <option value="reopen">{uiText(locale, "Reopen selected", "Auswahl erneut bearbeiten")}</option>}
+            </select>
+            {bulkAction === "assign" && (
+              <select
+                aria-label={uiText(locale, "Assign selected to a team member", "Auswahl einem Teammitglied zuweisen")}
+                value={bulkAssigneeIsEligible ? bulkAssigneeId : ""}
+                onChange={(event) => setBulkAssigneeId(event.target.value)}
+                className="h-9 rounded-md border px-2"
+              >
+                <option value="">{uiText(locale, "Choose a team member", "Teammitglied wählen")}</option>
+                {eligibleBulkMembers.map((member) =>
+                  <option key={member.id} value={member.id}>{memberLabel(member)}</option>)}
+              </select>
+            )}
+            <Button type="button" size="sm"
+              disabled={!selectedItems.length || !bulkActionAvailable ||
+                (bulkAction === "assign" && !bulkAssigneeIsEligible) || bulkBusy || loading || Boolean(savingId)}
+              onClick={() => void applyBulkWorkflow()}
+            >
+              {bulkBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {uiText(locale, "Apply to selection", "Auf Auswahl anwenden")}
+            </Button>
+          </div>
+        )}
 
         {!loading && data?.items.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-gray-500">
@@ -859,6 +990,19 @@ export function TranslationWorkflowPanel({
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
+                  {(canManage || canSubmit) && (
+                    <label className="flex items-center gap-2 text-xs text-gray-600">
+                      <input type="checkbox"
+                        aria-label={uiText(locale, "Select segment", "Segment auswählen")}
+                        checked={selectedIds.includes(translation.id)}
+                        disabled={loading || bulkBusy || Boolean(savingId)}
+                        onChange={(event) => setSelectedIds((current) => event.target.checked
+                          ? [...current, translation.id]
+                          : current.filter((id) => id !== translation.id))}
+                      />
+                      {uiText(locale, "Select", "Auswählen")}
+                    </label>
+                  )}
                   <TranslationMetadataPanel
                     projectId={projectId}
                     translationId={translation.id}
