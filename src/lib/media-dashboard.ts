@@ -6,6 +6,20 @@ export type MediaMapping = {
 };
 export type MediaFilterKind = "image" | "document" | "video" | "embed";
 
+/** Only send fields edited in this dialog so other managers' changes survive. */
+export function mediaMappingPayload(
+  mapping: MediaMapping,
+  baseline: MediaMapping | null,
+): Partial<Omit<MediaMapping, "id">> {
+  const payload: Partial<Omit<MediaMapping, "id">> = {};
+  for (const field of ["langTo", "originalUrl", "localizedUrl"] as const) {
+    if (!baseline || mapping[field] !== baseline[field]) {
+      payload[field] = mapping[field];
+    }
+  }
+  return payload;
+}
+
 /** Display classification of API-validated URLs; this does not validate input. */
 export function mediaDisplayKind(url: string): MediaFilterKind {
   if (

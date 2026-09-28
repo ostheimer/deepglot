@@ -19,6 +19,7 @@ import {
 import {
   filterMediaMappings,
   mediaDisplayKind,
+  mediaMappingPayload,
   type MediaMapping,
 } from "@/lib/media-dashboard";
 import { getLanguageName } from "@/lib/language-names";
@@ -44,6 +45,7 @@ export function MediaManager({
   const [language, setLanguage] = useState("");
   const [kind, setKind] = useState("");
   const [form, setForm] = useState<MediaMapping | null>(null);
+  const [editBaseline, setEditBaseline] = useState<MediaMapping | null>(null);
   const [deleting, setDeleting] = useState<MediaMapping | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -121,6 +123,15 @@ export function MediaManager({
   async function mutate(remove = false) {
     const item = remove ? deleting : form;
     if (!item || busy) return;
+    const payload = remove
+      ? null
+      : mediaMappingPayload(item, item.id ? editBaseline : null);
+    if (!remove && item.id && payload && !Object.keys(payload).length) {
+      setForm(null);
+      setError("");
+      await load();
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -131,11 +142,7 @@ export function MediaManager({
           ...(!remove
             ? {
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  langTo: item.langTo,
-                  originalUrl: item.originalUrl,
-                  localizedUrl: item.localizedUrl,
-                }),
+                body: JSON.stringify(payload),
               }
             : {}),
         },
@@ -381,6 +388,7 @@ export function MediaManager({
                         variant="outline"
                         onClick={() => {
                           setError("");
+                          setEditBaseline({ ...row });
                           setForm({ ...row });
                         }}
                       >

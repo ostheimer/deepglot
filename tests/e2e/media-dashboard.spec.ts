@@ -254,3 +254,53 @@ test("media list and save errors remain recoverable without losing entered URLs"
     dialog.getByRole("button", { name: "Save", exact: true }),
   ).toBeEnabled();
 });
+
+test("editing one mapping field preserves another manager's concurrent changes", async ({
+  page,
+}) => {
+  const projectId = await signInAndGetProjectId(page);
+  const endpoint = `/api/projects/${projectId}/media`;
+  const prefix = e2eId("media-concurrent");
+  const response = await page.request.post(endpoint, {
+    data: {
+      langTo: "en",
+      originalUrl: `/uploads/${prefix}.pdf`,
+      localizedUrl: `/uploads/${prefix}-en.pdf`,
+    },
+  });
+  expect(response.status()).toBe(201);
+  const { mediaReplacement } = await response.json();
+  try {
+    await page.goto(`/projects/${projectId}/translations/media`);
+    await page.getByLabel("Search URLs").fill(prefix);
+    await page
+      .getByTestId("media-mapping")
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Target language").selectOption("fr");
+    const concurrentUrl = `/uploads/${prefix}-new-fr.pdf`;
+    expect(
+      (
+        await page.request.patch(`${endpoint}/${mediaReplacement.id}`, {
+          data: { localizedUrl: concurrentUrl },
+        })
+      ).status(),
+    ).toBe(200);
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByTestId("media-mapping")).toContainText(
+      concurrentUrl,
+    );
+    await page.reload();
+    await page.getByLabel("Search URLs").fill(prefix);
+    await expect(page.getByTestId("media-mapping")).toContainText(
+      "French (FR)",
+    );
+    await expect(page.getByTestId("media-mapping")).toContainText(
+      concurrentUrl,
+    );
+  } finally {
+    await page.request.delete(`${endpoint}/${mediaReplacement.id}`);
+  }
+});
