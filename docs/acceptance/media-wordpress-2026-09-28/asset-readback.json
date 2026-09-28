@@ -1,0 +1,86 @@
+[
+  {
+    "file": "en.docx",
+    "status": 200,
+    "type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "bytes": 1140,
+    "sha256": "3adaf740ec9cd1d6904b8d3e1fb1929bd8819544756743f955a0b85fba7b5d00"
+  },
+  {
+    "file": "de.docx",
+    "status": 200,
+    "type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "bytes": 1140,
+    "sha256": "e3e53cd68579c247a358936fa2d9085e312fc9e3a1a639893c26191523572339"
+  },
+  {
+    "file": "en.pdf",
+    "status": 200,
+    "type": "application/pdf",
+    "bytes": 608,
+    "sha256": "4b194c5b4dfb782f8fb4a465d3d913865361029860aed2ac4f5afa7c0b890be2"
+  },
+  {
+    "file": "en.png",
+    "status": 200,
+    "type": "image/png",
+    "bytes": 929,
+    "sha256": "833a93dc8994467d762c77e38453c3f4a658cd6784460f59669baf3e871f678d"
+  },
+  {
+    "file": "de.mp4",
+    "status": 200,
+    "type": "video/mp4",
+    "bytes": 2301,
+    "sha256": "a38f7a4d7191a137f189522a465d5129468b0081898dc7dbb2cf10cc38940987"
+  },
+  {
+    "file": "en.mp4",
+    "status": 200,
+    "type": "video/mp4",
+    "bytes": 2301,
+    "sha256": "9dacf5a7c41421b81c8717a7485cb5beb23104843d5905c8ea56583d78e0eb8d"
+  },
+  {
+    "file": "en.webm",
+    "status": 200,
+    "type": "video/webm",
+    "bytes": 1146,
+    "sha256": "6b9ab20b14899198c64c44ae2998682530d38004c23458f9b39397ee8fc6cdfb"
+  },
+  {
+    "file": "unmapped.png",
+    "status": 200,
+    "type": "image/png",
+    "bytes": 925,
+    "sha256": "f152bbb0aa6adaca959dfe3136e668e0584a7d7d2a2829b4827a3c768498337e"
+  },
+  {
+    "file": "de.pdf",
+    "status": 200,
+    "type": "application/pdf",
+    "bytes": 608,
+    "sha256": "de60052e1b77c086eeea210c4ba27c5a6801aea5af620906379b287d2ec45dce"
+  },
+  {
+    "file": "de.png",
+    "status": 200,
+    "type": "image/png",
+    "bytes": 929,
+    "sha256": "81aab08a006a7d7a7fc440eb9cae6a75a618bea0bc4df60b1996feb71335f5df"
+  },
+  {
+    "file": "de.webm",
+    "status": 200,
+    "type": "video/webm",
+    "bytes": 1146,
+    "sha256": "cb06356ff2366dd3098906720727c49288899c13e3558b779a7a8cc0c7afb0bc"
+  },
+  {
+    "file": "en-v2.png",
+    "status": 200,
+    "type": "image/png",
+    "bytes": 929,
+    "sha256": "db31d1b6b8c2fd178e8ce5a0eb23b3f4bdef4b9c2a042a33d8bdd9bc0c9db951"
+  }
+]

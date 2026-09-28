@@ -1,0 +1,14 @@
+{
+  "runtime": {
+    "media": [],
+    "source": "de",
+    "targets": [
+      "en"
+    ],
+    "blockedFixtureApiRequests": "0"
+  },
+  "fixturePurge": {
+    "fixtureCachePurgeRequested": true,
+    "result": true
+  }
+}

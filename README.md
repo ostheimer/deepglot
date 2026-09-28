@@ -224,8 +224,13 @@ requires an operator purge and public readback.
 The dashboard provides mapping search and editing as described above. This feature
 does not provide uploads, file storage, external CDN images, SVG, arbitrary embeds,
 subtitles, transcoding, AI-generated media, or replacement in dynamically inserted
-AJAX content. The separate translation workspace remains tracked by #257; #317
-still owns customer WordPress installation and authorized-media live acceptance.
+AJAX content. The separate translation workspace remains tracked by #257.
+The [2026-09-28 WordPress media acceptance](docs/acceptance/media-wordpress-2026-09-28/README.md)
+records production-dashboard mappings, authenticated runtime refresh, anonymous
+DE/EN output, reachable neutral assets, WP Engine cache readback, editing,
+deletion, and cleanup on an independent public test installation. The test
+installation's original plugin was restored afterwards; customer production
+upgrades and other cache hosts remain separately verified deployment steps.
 
 **Production schema gate completed on 2026-09-04:** the exact Deepglot Neon
 production branch (`prod`, database `neondb`) was inspected first. Only the
