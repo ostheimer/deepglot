@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Images,
   Languages,
   Globe,
   Paintbrush,
@@ -39,7 +40,7 @@ import {
   canManageProject,
   type ProjectAccessContext,
 } from "@/lib/project-access-policy";
-import { withLocalePrefix } from "@/lib/site-locale";
+import { toInternalPath, withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 
 interface ProjectSidebarProps {
@@ -57,6 +58,7 @@ interface ProjectSidebarProps {
 export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
   const locale = useLocale();
   const pathname = usePathname();
+  const internalPathname = toInternalPath(pathname);
   const projectPath = (suffix = "") => withLocalePrefix(`/projects/${project.id}${suffix}`, locale);
   const canManage = canManageProject(access);
   const canViewAnalytics = canAccessProjectArea(access, "analytics");
@@ -69,6 +71,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
         { href: projectPath("/translations/urls"), label: "URLs", icon: Globe },
         { href: projectPath("/translations/visual"), label: uiText(locale, "Visual Editor", "Visueller Editor"), icon: Paintbrush },
         { href: projectPath("/translations/pros"), label: uiText(locale, "Human Review", "Menschliche Prüfung"), icon: UserCheck },
+        ...(canManage ? [{ href: projectPath("/translations/media"), label: uiText(locale, "Media", "Medien"), icon: Images }] : []),
         { href: projectPath("/translations/glossary"), label: uiText(locale, "Glossary", "Glossar"), icon: BookOpen },
         { href: projectPath("/translations/import-export"), label: "Import & Export", icon: Download },
         { href: projectPath("/translations/pdf"), label: locale === "de" ? "PDF-Übersetzung" : "PDF translation", icon: FileText },
@@ -145,8 +148,9 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
               </p>
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
+                  const internalHref = toInternalPath(item.href);
                   const isActive =
-                    pathname === item.href || pathname.startsWith(item.href + "/");
+                    internalPathname === internalHref || internalPathname.startsWith(internalHref + "/");
                   const link = (
                     <Link
                       href={item.href}

@@ -131,8 +131,13 @@ The workspace supports selecting visible segments on the current page and applyi
 ## Locale-specific media URL replacements
 
 Project managers can explicitly map an original image, document, or video URL to a localized URL for
-one active target language. Configuration currently uses authenticated project
-management endpoints; there is no dashboard editing interface yet:
+one active target language. Open **Project → Translations → Media** to search original
+or replacement URLs, filter by target language and media type, and create, edit or
+delete mappings. Only project managers can open this page or use its API. Existing
+inactive-language mappings remain visible and deletable; editing requires an active
+target language. Deletion restores the original after plugin runtime synchronization
+and cache refresh; it does not delete a media file. The dashboard uses the existing
+authenticated project management endpoints:
 
 - `GET /api/projects/{projectId}/media` lists project-owned media mappings.
 - `POST /api/projects/{projectId}/media` creates one mapping.
