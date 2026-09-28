@@ -10,6 +10,19 @@ $x=new DOMXPath($d);$p='/wp-content/uploads/deepglot-media-acceptance-20260928/'
 function same($actual,$expected,$label):void {if($actual!==$expected){fwrite(STDERR,"FAIL $label: ".json_encode(['actual'=>$actual,'expected'=>$expected])."\n");exit(1);}}
 function attr(DOMDocument $d,string $id,string $name):string { $el=$d->getElementById($id);if(!$el){throw new RuntimeException("Missing $id");}return $el->getAttribute($name); }
 same($d->documentElement->getAttribute('lang'),$lang,'html language');
+function visibleTexts(DOMXPath $x,string $query):array {
+    $texts=[];
+    foreach($x->query($query) as $node){$texts[]=trim(preg_replace('/\s+/u',' ',$node->textContent));}
+    return $texts;
+}
+same(visibleTexts($x,'//body//h1'),[$lang==='en'?'Media acceptance':'Medienprüfung'],'visible title');
+same(visibleTexts($x,'//body//p'),[$lang==='en'?'Temporary test page with our own neutral media.':'Temporäre Testseite mit eigenen neutralen Medien.'],'visible introduction');
+$headings=$lang==='en'?['Images','Documents','Videos','Embeds']:['Bilder','Dokumente','Videos','Einbettungen'];
+$actualHeadings=visibleTexts($x,'//body//h2');
+$prefixedHeadings=array_map(static fn($heading)=>'Deepglot fixture: '.$heading,$headings);
+if($actualHeadings!==$headings){same($actualHeadings,$prefixedHeadings,'visible section headings');}
+same(visibleTexts($x,'//body//a'),$lang==='en'?['Test PDF','Test document']:['Test-PDF','Test-Dokument'],'visible document labels');
+same(visibleTexts($x,'//body//small'),[$lang==='en'?'URL verification only, no connection to third parties.':'Nur URL-Prüfung, keine Verbindung zu Drittanbietern.'],'visible embed notice');
 same(attr($d,'direct','src'),$p.$asset.'.png','image src');
 same(attr($d,'direct','width'),'480','image width');same(attr($d,'direct','height'),'240','image height');
 same(attr($d,'direct','alt'),$lang==='en'?'Neutral test image':'Neutrales Testbild','translated alt');

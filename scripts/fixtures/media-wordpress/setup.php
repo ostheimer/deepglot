@@ -9,9 +9,24 @@ $t=['Medienprüfung'=>'Media acceptance','Neutrale Medienprüfung'=>'Neutral med
 $snapshot=[];
 foreach(array_keys($t) as $text){$key='dgv1_'.sha1('de|en|'.$text);$snapshot[$key]=['value'=>get_transient($key),'expires'=>(int)get_option('_transient_timeout_'.$key,0)];}
 if(!add_option('deepglot_media_acceptance_cache_snapshot',$snapshot,'',false)){throw new RuntimeException('Cannot persist fixture cache snapshot.');}
-$cache->setMany($t,'de','en');
-$id=wp_insert_post(['post_type'=>'page','post_status'=>'publish','post_title'=>'Deepglot disposable media acceptance','post_name'=>$slug,'post_content'=>'Disposable media acceptance fixture.'],true);
-if(is_wp_error($id)){throw new RuntimeException($id->get_error_message());}
-update_post_meta($id,'_deepglot_disposable_acceptance',true);
+require_once __DIR__.'/support.php';
+$id=0;
+try{
+    $seeded=$cache->setMany($t,'de','en');
+    if(count($seeded)!==count($t)||in_array(false,$seeded,true)){throw new RuntimeException('Cannot seed every fixture translation.');}
+    $inserted=wp_insert_post(['post_type'=>'page','post_status'=>'publish','post_title'=>'Deepglot disposable media acceptance','post_name'=>$slug,'post_content'=>'Disposable media acceptance fixture.'],true);
+    if(is_wp_error($inserted)){throw new RuntimeException($inserted->get_error_message());}
+    if(!is_int($inserted)||$inserted<=0){throw new RuntimeException('Cannot create fixture page.');}
+    $id=$inserted;
+    if(update_post_meta($id,'_deepglot_disposable_acceptance',true)===false||!get_post_meta($id,'_deepglot_disposable_acceptance',true)){
+        throw new RuntimeException('Cannot persist fixture page ownership.');
+    }
+}catch(Throwable $error){
+    $removed=$id===0||wp_delete_post($id,true);
+    dg_media_acceptance_restore_cache($snapshot);
+    if(!$removed){throw new RuntimeException('Setup failed and the partial fixture page could not be removed; cache restored, snapshot retained.',0,$error);}
+    delete_option('deepglot_media_acceptance_cache_snapshot');
+    throw $error;
+}
 update_option('deepglot_media_acceptance_blocked_requests',0,false);
 echo json_encode(['pageId'=>$id,'url'=>get_permalink($id),'cacheEntries'=>count($t)]);

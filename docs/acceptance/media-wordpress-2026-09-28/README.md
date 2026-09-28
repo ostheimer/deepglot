@@ -12,7 +12,7 @@ production installations were upgraded automatically.
 - WordPress: juvenisstage.wpengine.com, WordPress 7.0.5, PHP 8.2.33, existing SSH access and existing valid project connection. Deepglot 0.12.6 was backed up, temporarily replaced with the 0.12.10 repository artifact, and restored byte for byte afterwards.
 - The Stage already used the juvenismed.at project connection. Only disposable, previously absent upload paths and synthetic provider IDs were mapped in that project; no existing media mapping was edited.
 - hddental was excluded because its independent incident investigation still lacked an established origin-timeout cause.
-- Own neutral files and a clearly labeled noindex page were created. The page used seeded translations and a page-scoped HTTP guard. The final guard counter was **0**: fixture renders/editor annotation needed no translation, analytics, or URL-sync requests. Existing keys were reused without export, replacement, or creation.
+- Own neutral files and a clearly labeled noindex page were created. The page used seeded translations and a page-scoped HTTP guard. The final guard counter was **0**: fixture renders/editor annotation needed no translation or URL-sync requests. The actual template omitted WordPress head/footer hooks and all four captured documents contain only the JSON-LD script, so no analytics tracker or bridge script loaded in this run. The reusable HTTP guard also covers the bridge-specific `urlPath` payload, as checked by regression tests. Existing keys were reused without export, replacement, or creation.
 
 ## Observed results
 
@@ -35,6 +35,11 @@ production installations were upgraded automatically.
 Targeted verification passed: **43 Node tests**, seven PHP regression files,
 SwitcherVisualEditorTest.js, PHP syntax checks, documentation-language check,
 and four independent assertions over the stored anonymous HTML.
+Seven fixture regression groups also passed after test-first review fixes: bridge
+analytics isolation, cleanup with unrelated mappings, owned mapping detection,
+visible DE/EN copy, page-insertion rollback, ownership-metadata rollback and
+positive prefixed fixture copy. These tests exercise reusable helpers locally;
+they do not claim a second live failure-injection run.
 
 The exact prior main CI passed 743 unit, 48 PostgreSQL integration and 64 browser
 tests plus all required build/type/lint/schema/WordPress/visual-editor gates:
@@ -72,7 +77,7 @@ project: media acceptance uses SettingsSync's authenticated runtime GET, which
 preserves SaaS-owned configuration.
 
 1. Generate files into a new local directory with `python3 scripts/fixtures/media-wordpress/generate.py <new-directory>` (uses existing ffmpeg). No third-party assets or paid generation are needed.
-2. On the approved test installation, install the tested plugin artifact temporarily. Copy `scripts/fixtures/media-wordpress-acceptance.php` to `wp-content/mu-plugins/deepglot-media-acceptance.php`, and the PHP files from `scripts/fixtures/media-wordpress/` to `wp-content/mu-plugins/deepglot-media-acceptance/`. Copy generated assets to `wp-content/uploads/deepglot-media-acceptance-20260928/`.
+2. On the approved test installation, install the tested plugin artifact temporarily. Copy `scripts/fixtures/media-wordpress-acceptance.php` to `wp-content/mu-plugins/deepglot-media-acceptance.php`, and all PHP files (including `support.php`) from `scripts/fixtures/media-wordpress/` to `wp-content/mu-plugins/deepglot-media-acceptance/`. Copy generated assets to `wp-content/uploads/deepglot-media-acceptance-20260928/`.
 3. Run `wp eval-file wp-content/mu-plugins/deepglot-media-acceptance/setup.php`. It refuses an existing fixture, snapshots translated transient values/expiry before seeding, and refuses a persistent object cache without a suitable cache snapshot strategy. Capture anonymous source/EN baselines while mappings are absent.
 4. In Project → Translations → Media, map `de.png`, `de.pdf`, `de.docx`, `de.mp4`, `de.webm` to their EN counterparts under the fixture upload directory. For URL-only provider tests, map YouTube/YouTube-nocookie `/embed/DgMediaDE01` to `/embed/DgMediaEN01`, and Vimeo `/video/98765432101` to `/video/98765432102`. Do not add provider `src` attributes.
 5. Run `wp eval-file wp-content/mu-plugins/deepglot-media-acceptance/sync.php`. Capture and assert anonymous HTML; fetch only fixture assets and compare bytes/MIME. On this WP Engine installation, `purge.php` restricts its installed cache API purge to the fixture paths; other hosts need their actual cache procedure.
