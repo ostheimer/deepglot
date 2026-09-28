@@ -50,7 +50,11 @@ export function MediaManager({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const endpoint = `/api/projects/${projectId}/media`;
-  const active = languages.filter((item) => item.isActive);
+  const projectLanguages = languages.map((item) => ({
+    ...item,
+    langCode: item.langCode.trim().toLowerCase(),
+  }));
+  const active = projectLanguages.filter((item) => item.isActive);
   const selectClass =
     "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
   const labels = {
@@ -185,7 +189,7 @@ export function MediaManager({
   const visible = filterMediaMappings(rows, query, language, kind);
   const filterLanguages = [
     ...new Set([
-      ...languages.map((item) => item.langCode),
+      ...projectLanguages.map((item) => item.langCode),
       ...rows.map((item) => item.langTo),
     ]),
   ].sort();

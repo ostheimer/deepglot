@@ -338,3 +338,78 @@ test("editing one mapping field preserves another manager's concurrent changes",
     await db.project.delete({ where: { id: projectId } });
   }
 });
+
+test("media dashboard normalizes mixed-case project language codes", async ({
+  page,
+}) => {
+  const prefix = e2eId("media-language-case");
+  const { id: projectId } = await createMediaTestProject(page, prefix);
+  try {
+    await db.projectLanguage.updateMany({
+      where: { projectId, langCode: "en" },
+      data: { langCode: "EN" },
+    });
+    await db.projectLanguage.updateMany({
+      where: { projectId, langCode: "fr" },
+      data: { langCode: "fR" },
+    });
+    const response = await page.request.post(`/api/projects/${projectId}/media`, {
+      data: {
+        originalUrl: `/uploads/${prefix}.jpg`,
+        localizedUrl: `/uploads/${prefix}-en.webp`,
+        langTo: "EN",
+      },
+    });
+    expect(response.status()).toBe(201);
+    await page.goto(`/projects/${projectId}/translations/media`);
+    const row = page.getByTestId("media-mapping");
+    await expect(row).toBeVisible();
+    await expect(row).not.toContainText("Inactive language");
+    const filter = page.getByLabel("Target language", { exact: true });
+    await expect(filter.locator('option[value="en"]')).toHaveCount(1);
+    await expect(filter.locator('option[value="EN"]')).toHaveCount(0);
+    await filter.selectOption("en");
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: "Edit", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Target language")).toHaveValue("en");
+    await expect(
+      dialog.getByRole("button", { name: "Save", exact: true }),
+    ).toBeEnabled();
+    await dialog
+      .getByLabel("Replacement URL", { exact: true })
+      .fill(`/uploads/${prefix}-updated.webp`);
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(row).toContainText(`${prefix}-updated.webp`);
+    await page.getByRole("button", { name: "Add mapping", exact: true }).click();
+    await dialog.getByLabel("Target language").selectOption("fr");
+    await dialog
+      .getByLabel("Original URL", { exact: true })
+      .fill(`/uploads/${prefix}-fr.jpg`);
+    await dialog
+      .getByLabel("Replacement URL", { exact: true })
+      .fill(`/uploads/${prefix}-fr.webp`);
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await filter.selectOption("fr");
+    await expect(row).toHaveCount(1);
+    await expect(row).not.toContainText("Inactive language");
+    await expect(filter.locator('option[value="fr"]')).toHaveCount(1);
+    await expect(filter.locator('option[value="fR"]')).toHaveCount(0);
+    await db.projectLanguage.updateMany({
+      where: { projectId, langCode: "fR" },
+      data: { isActive: false },
+    });
+    await page.reload();
+    await filter.selectOption("fr");
+    await expect(row).toContainText("Inactive language");
+    await row.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(
+      dialog.getByRole("button", { name: "Save", exact: true }),
+    ).toBeDisabled();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  } finally {
+    await db.project.delete({ where: { id: projectId } });
+  }
+});
