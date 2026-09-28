@@ -33,6 +33,18 @@ test("media dashboard CRUD, scoped filters, invalid URLs, German copy and mobile
   const collection = `/api/projects/${projectId}/media`;
   const created: string[] = [];
   try {
+    const navigation = page.getByTestId("project-desktop-sidebar");
+    await page.goto(`/projects/${projectId}/settings`);
+    await expect(
+      navigation.getByRole("link", { name: "General", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    await page.goto(`/projects/${projectId}/settings/language-model`);
+    await expect(
+      navigation.getByRole("link", { name: "General", exact: true }),
+    ).not.toHaveAttribute("aria-current", "page");
+    await expect(
+      navigation.getByRole("link", { name: "Language Model New", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
     await page.goto(`/projects/${projectId}/translations/media`);
     await expect(
       page.getByRole("heading", { name: "Media", exact: true }),

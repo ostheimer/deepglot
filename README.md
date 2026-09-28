@@ -221,10 +221,11 @@ WordPress.
 An upstream CDN or a full-page cache that blocks the refresh request still
 requires an operator purge and public readback.
 
-This slice does not provide a dashboard interface, uploads, file storage,
-external CDN images, SVG, arbitrary embeds, subtitles, transcoding, AI-generated
-media, or replacement in dynamically inserted AJAX content. Workspace editing
-and search remain tracked by #257 and the remaining #317 UI work.
+The dashboard provides mapping search and editing as described above. This feature
+does not provide uploads, file storage, external CDN images, SVG, arbitrary embeds,
+subtitles, transcoding, AI-generated media, or replacement in dynamically inserted
+AJAX content. The separate translation workspace remains tracked by #257; #317
+still owns customer WordPress installation and authorized-media live acceptance.
 
 **Production schema gate completed on 2026-09-04:** the exact Deepglot Neon
 production branch (`prod`, database `neondb`) was inspected first. Only the

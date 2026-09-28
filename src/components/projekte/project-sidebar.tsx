@@ -90,7 +90,7 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
       label: uiText(locale, "Settings", "Einstellungen"),
       hidden: !canManage,
       items: [
-        { href: projectPath("/settings"), label: uiText(locale, "General", "Allgemein"), icon: Settings },
+        { href: projectPath("/settings"), label: uiText(locale, "General", "Allgemein"), icon: Settings, exact: true },
         { href: projectPath("/settings/language-model"), label: uiText(locale, "Language Model", "Sprachmodell"), icon: Cpu, badge: uiText(locale, "New", "Neu") },
         { href: projectPath("/settings/switcher"), label: uiText(locale, "Language Switcher", "Sprachauswahl"), icon: Globe },
         { href: projectPath("/settings/exclusions"), label: uiText(locale, "Exclusions", "Ausnahmen"), icon: ShieldOff },
@@ -150,7 +150,8 @@ export function ProjectSidebar({ project, access }: ProjectSidebarProps) {
                 {section.items.map((item) => {
                   const internalHref = toInternalPath(item.href);
                   const isActive =
-                    internalPathname === internalHref || internalPathname.startsWith(internalHref + "/");
+                    internalPathname === internalHref ||
+                    (!("exact" in item && item.exact) && internalPathname.startsWith(internalHref + "/"));
                   const link = (
                     <Link
                       href={item.href}
