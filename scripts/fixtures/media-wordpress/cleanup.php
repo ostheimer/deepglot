@@ -16,7 +16,9 @@ $snapshot=get_option('deepglot_media_acceptance_cache_snapshot',null);
 if(!is_array($snapshot)){throw new RuntimeException('Fixture cache snapshot missing; inspect before removing cache entries.');}
 require __DIR__.'/purge.php';
 dg_media_acceptance_restore_cache($snapshot);
+$deleted=wp_delete_post($post->ID,true);
+if(!$deleted||get_page_by_path($slug)!==null){throw new RuntimeException('Fixture page deletion failed; cache snapshot retained for retry.');}
 delete_option('deepglot_media_acceptance_cache_snapshot');
-wp_delete_post($post->ID,true);
 delete_option('deepglot_media_acceptance_blocked_requests');
-echo json_encode(['deletedOwnPage'=>$post->ID,'remainingFixturePage'=>get_page_by_path($slug)!==null,'remainingMediaCount'=>count(get_option('deepglot_media_replacements',[])),'blockedFixtureRequests'=>$blocked,'sourcePostsUntouched'=>true]);
+$remainingMediaCount=array_sum(array_map('count',get_option('deepglot_media_replacements',[])));
+echo json_encode(['deletedOwnPage'=>$post->ID,'remainingFixturePage'=>false,'remainingMediaCount'=>$remainingMediaCount,'blockedFixtureRequests'=>$blocked,'sourcePostsUntouched'=>true]);

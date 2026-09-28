@@ -15,6 +15,19 @@ namespace Deepglot\Support {
     }
 }
 
+namespace Deepglot\Config {
+    final class Options {
+        public function getSourceLanguage(): string { return 'de'; }
+        public function getTargetLanguages(): array { return ['en']; }
+    }
+}
+namespace Deepglot\Api { final class Client { public function __construct($options) {} } }
+namespace Deepglot\Sync {
+    final class SettingsSync {
+        public function __construct($options, $client) {}
+        public function refreshRuntimeConfig(...$arguments): array { return ['ok' => true, 'skipped' => $GLOBALS['mode'] === 'sync-skipped']; }
+    }
+}
 namespace {
     if (!defined('ABSPATH')) define('ABSPATH', __DIR__ . '/');
     define('WP_CLI', true);
@@ -36,7 +49,7 @@ namespace {
     function get_post_meta($id, $key, $single) { return $GLOBALS['fixtureOwned']; }
     function update_post_meta($id, $key, $value) { if ($GLOBALS['mode'] === 'metadata-error') return false; $GLOBALS['fixtureOwned'] = $value; return true; }
     function wp_insert_post($data, $error) { if ($GLOBALS['mode'] === 'insert-error') return new WP_Error('fixture_insert_error', 'simulated insert failure'); $GLOBALS['fixturePost'] = (object) ['ID' => 42]; return 42; }
-    function wp_delete_post($id, $force) { $GLOBALS['fixturePost'] = null; return true; }
+    function wp_delete_post($id, $force) { if ($GLOBALS['mode'] === 'cleanup-delete-error') return false; if ($GLOBALS['mode'] === 'cleanup-delete-stale') return true; $GLOBALS['fixturePost'] = null; return true; }
     function get_permalink($id): string { return 'https://stage.example/deepglot-media-acceptance-20260928/'; }
     function verify(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); }
 
@@ -65,6 +78,79 @@ namespace {
         verify($GLOBALS['fixturePost'] === null, 'Cleanup must remove only the owned page beside unrelated mappings.');
         verify(get_option('deepglot_media_replacements') === $existing, 'Unrelated mappings must remain unchanged.');
         verify(get_transient('prior') === 'prior-value', 'Cleanup must restore the transient snapshot.');
+    } elseif ($case === 'cleanup-delete-error') {
+        foreach (['cleanup-delete-error', 'cleanup-delete-stale'] as $failureMode) {
+        $GLOBALS['mode'] = $failureMode;
+        $GLOBALS['fixturePost'] = (object) ['ID' => 42];
+        $GLOBALS['fixtureOwned'] = true;
+        $snapshot = ['prior' => ['value' => 'prior-value', 'expires' => time() + 600]];
+        $GLOBALS['options']['deepglot_media_acceptance_cache_snapshot'] = $snapshot;
+        $threw = false;
+        ob_start();
+        try { require $root . '/scripts/fixtures/media-wordpress/cleanup.php'; } catch (RuntimeException $e) { $threw = true; }
+        ob_end_clean();
+        verify($threw, 'Failed page deletion must fail cleanup.');
+        verify($GLOBALS['fixturePost'] !== null, 'Failed page deletion must retain the page.');
+        verify(get_option('deepglot_media_acceptance_cache_snapshot') === $snapshot, 'Failed page deletion must retain snapshot for retry.');
+        $GLOBALS['mode'] = 'cleanup-retry';
+        ob_start(); require $root . '/scripts/fixtures/media-wordpress/cleanup.php'; ob_end_clean();
+        verify($GLOBALS['fixturePost'] === null, 'Retry must delete the owned page.');
+        verify(get_option('deepglot_media_acceptance_cache_snapshot', null) === null, 'Successful retry must clear snapshot.');
+        }
+    } elseif ($case === 'cleanup-count') {
+        $GLOBALS['fixturePost'] = (object) ['ID' => 42];
+        $GLOBALS['fixtureOwned'] = true;
+        $media = ['en' => [], 'fr' => []];
+        for ($i = 0; $i < 10; $i++) $media['en']['/uploads/file-' . $i . '.png'] = '/uploads/en-' . $i . '.png';
+        $media['fr'] = ['/uploads/a.png' => '/uploads/fr-a.png', '/uploads/b.png' => '/uploads/fr-b.png'];
+        $GLOBALS['options']['deepglot_media_replacements'] = $media;
+        $GLOBALS['options']['deepglot_media_acceptance_cache_snapshot'] = [];
+        ob_start(); require $root . '/scripts/fixtures/media-wordpress/cleanup.php'; $output = ob_get_clean();
+        // purge.php can print a separate JSON record before cleanup's final record.
+        preg_match('/\{"deletedOwnPage".*\}$/s', $output, $match);
+        $result = json_decode($match[0] ?? '', true);
+        verify(($result['remainingMediaCount'] ?? null) === 12, 'Cleanup must count mappings across language buckets.');
+        verify(get_option('deepglot_media_replacements') === $media, 'Counting must leave unrelated mappings unchanged.');
+    } elseif ($case === 'sync-skipped') {
+        $output = [];
+        exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --case sync-skipped-child 2>&1', $output, $status);
+        verify($status !== 0, 'Skipped runtime refresh must exit nonzero for operator retry.');
+        $output = [];
+        exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --case sync-success-child 2>&1', $output, $status);
+        verify($status === 0, 'Normal runtime refresh must exit successfully.');
+        $result = json_decode(implode('\n', $output), true);
+        verify(is_array($result) && isset($result['media']) && $result['source'] === 'de', 'Normal sync must report its runtime state.');
+    } elseif (in_array($case, ['sync-skipped-child', 'sync-success-child'], true)) {
+        $GLOBALS['mode'] = $case === 'sync-skipped-child' ? 'sync-skipped' : 'sync-success';
+        require $root . '/scripts/fixtures/media-wordpress/sync.php';
+    } elseif ($case === 'absolute-origin') {
+        $html = file_get_contents($root . '/docs/acceptance/media-wordpress-2026-09-28/mapped-en-hit.html');
+        foreach (['https://attacker.example', 'http://juvenisstage.wpengine.com'] as $origin) {
+            foreach ([
+                '/(<img id="responsive" src=")[^"]*("[^>]*>)/' => 'en.png',
+                '/("image":")[^"]*(")/' => 'de.png',
+            ] as $pattern => $asset) {
+            $htmlWithWrongOrigin = preg_replace($pattern, '$1' . $origin . '/wp-content/uploads/deepglot-media-acceptance-20260928/' . $asset . '$2', $html, -1, $changed);
+            verify($changed === 1, 'Expected one fixture image URL for ' . $pattern);
+            $temporary = tempnam(sys_get_temp_dir(), 'dg-media-origin-');
+            try {
+                file_put_contents($temporary, $htmlWithWrongOrigin);
+                $output = [];
+                exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/scripts/fixtures/media-wordpress-assert.php') . ' ' . escapeshellarg($temporary) . ' en en 2>&1', $output, $status);
+                verify($status !== 0, 'Verifier must reject incorrect absolute fixture origin ' . $origin);
+            } finally { unlink($temporary); }
+            }
+        }
+        foreach (['https://approved.example.test:8443', 'http://approved.example.test:8080', 'ftp://approved.example.test', 'https://user:password@approved.example.test', 'https://approved.example.test/path', 'https://approved.example.test?query=1', 'https://approved.example.test#fragment'] as $origin) {
+            $temporary = tempnam(sys_get_temp_dir(), 'dg-media-approved-origin-');
+            try {
+                file_put_contents($temporary, str_replace('https://juvenisstage.wpengine.com', $origin, $html));
+                $output = [];
+                exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/scripts/fixtures/media-wordpress-assert.php') . ' ' . escapeshellarg($temporary) . ' en en ' . escapeshellarg($origin) . ' 2>&1', $output, $status);
+                $approved = in_array($origin, ['https://approved.example.test:8443', 'http://approved.example.test:8080'], true);
+                verify($approved ? $status === 0 : $status !== 0, 'Verifier must accept only valid explicitly supplied site origins: ' . $origin);
+            } finally { unlink($temporary); }
+        }
     } elseif ($case === 'cleanup-owned') {
         foreach ([
             ['/wp-content/uploads/deepglot-media-acceptance-20260928/de.png', '/uploads/replacement.png'],
@@ -133,7 +219,7 @@ namespace {
         }
     } elseif ($case === '') {
         $failures = 0;
-        foreach (['page-views', 'cleanup-unrelated', 'cleanup-owned', 'visible-copy', 'prefixed-copy', 'insert-error', 'metadata-error'] as $scenario) {
+        foreach (['page-views', 'cleanup-unrelated', 'cleanup-owned', 'visible-copy', 'prefixed-copy', 'insert-error', 'metadata-error', 'cleanup-delete-error', 'cleanup-count', 'sync-skipped', 'absolute-origin'] as $scenario) {
             passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --case ' . escapeshellarg($scenario), $status);
             if ($status !== 0) $failures++;
         }

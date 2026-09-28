@@ -35,10 +35,12 @@ production installations were upgraded automatically.
 Targeted verification passed: **43 Node tests**, seven PHP regression files,
 SwitcherVisualEditorTest.js, PHP syntax checks, documentation-language check,
 and four independent assertions over the stored anonymous HTML.
-Seven fixture regression groups also passed after test-first review fixes: bridge
+Eleven fixture regression groups also passed after test-first review fixes: bridge
 analytics isolation, cleanup with unrelated mappings, owned mapping detection,
 visible DE/EN copy, page-insertion rollback, ownership-metadata rollback and
-positive prefixed fixture copy. These tests exercise reusable helpers locally;
+positive prefixed fixture copy, retry after failed page deletion, nested mapping
+counts, skipped runtime refreshes and absolute media origin verification. These
+tests exercise reusable helpers locally;
 they do not claim a second live failure-injection run.
 
 The exact prior main CI passed 743 unit, 48 PostgreSQL integration and 64 browser
@@ -66,6 +68,10 @@ php scripts/fixtures/media-wordpress-assert.php docs/acceptance/media-wordpress-
 php scripts/fixtures/media-wordpress-assert.php docs/acceptance/media-wordpress-2026-09-28/deleted-en.html en de
 ```
 
+For another approved test host, append its explicit HTTP(S) origin as the final
+argument to the HTML verifier. The verifier checks absolute image and JSON-LD
+identity URLs against that origin; the default is the recorded Stage origin.
+
 ## Reproduce on an approved WordPress test installation
 
 Use an existing valid connection and back up the installed plugin before testing.
@@ -80,9 +86,9 @@ preserves SaaS-owned configuration.
 2. On the approved test installation, install the tested plugin artifact temporarily. Copy `scripts/fixtures/media-wordpress-acceptance.php` to `wp-content/mu-plugins/deepglot-media-acceptance.php`, and all PHP files (including `support.php`) from `scripts/fixtures/media-wordpress/` to `wp-content/mu-plugins/deepglot-media-acceptance/`. Copy generated assets to `wp-content/uploads/deepglot-media-acceptance-20260928/`.
 3. Run `wp eval-file wp-content/mu-plugins/deepglot-media-acceptance/setup.php`. It refuses an existing fixture, snapshots translated transient values/expiry before seeding, and refuses a persistent object cache without a suitable cache snapshot strategy. Capture anonymous source/EN baselines while mappings are absent.
 4. In Project → Translations → Media, map `de.png`, `de.pdf`, `de.docx`, `de.mp4`, `de.webm` to their EN counterparts under the fixture upload directory. For URL-only provider tests, map YouTube/YouTube-nocookie `/embed/DgMediaDE01` to `/embed/DgMediaEN01`, and Vimeo `/video/98765432101` to `/video/98765432102`. Do not add provider `src` attributes.
-5. Run `wp eval-file wp-content/mu-plugins/deepglot-media-acceptance/sync.php`. Capture and assert anonymous HTML; fetch only fixture assets and compare bytes/MIME. On this WP Engine installation, `purge.php` restricts its installed cache API purge to the fixture paths; other hosts need their actual cache procedure.
+5. Run `wp eval-file wp-content/mu-plugins/deepglot-media-acceptance/sync.php`. A skipped runtime refresh fails for an operator retry. Capture and assert anonymous HTML; fetch only fixture assets and compare bytes/MIME. On this WP Engine installation, `purge.php` restricts its installed cache API purge to the fixture paths; other hosts need their actual cache procedure.
 6. Edit only the image replacement to `en-v2.png`; refresh runtime and prove cached versus purged public output. Run `editor.php` for the installed editor annotation plus media rewrite check.
-7. Delete only the fixture mappings in the dashboard; refresh runtime, purge fixture caches and assert EN fallback. Then run `cleanup.php` to restore the transient snapshot and remove the owned page. Remove the owned MU files and upload directory, restore the original plugin tree, and verify anonymous 404/home 200 and empty mappings.
+7. Delete only the fixture mappings in the dashboard; refresh runtime, purge fixture caches and assert EN fallback. Then run `cleanup.php` to restore the transient snapshot and remove the owned page. A failed page deletion retains the snapshot and fails so cleanup can be retried; unrelated media maps remain untouched and are counted individually. Remove the owned MU files and upload directory, restore the original plugin tree, and verify anonymous 404/home 200 and empty mappings.
 
 ## Product boundaries and #317 reconciliation
 

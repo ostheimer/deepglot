@@ -1,10 +1,16 @@
 <?php
 /** Verify captured anonymous HTML; never fetches third-party embed providers. */
 declare(strict_types=1);
-if ($argc !== 4 || !in_array($argv[2], ['de','en'], true) || !in_array($argv[3], ['de','en','en-v2'], true)) {
-    fwrite(STDERR,"Usage: php media-wordpress-assert.php <html-file> <page-language> <asset-language>\n");exit(2);
+if (!in_array($argc,[4,5],true) || !in_array($argv[2], ['de','en'], true) || !in_array($argv[3], ['de','en','en-v2'], true)) {
+    fwrite(STDERR,"Usage: php media-wordpress-assert.php <html-file> <page-language> <asset-language> [site-origin]\n");exit(2);
 }
 [$script,$file,$lang,$asset]=$argv;
+$origin=$argv[4]??'https://juvenisstage.wpengine.com';
+$originParts=parse_url($origin);
+if(!is_array($originParts)||!in_array($originParts['scheme']??'', ['http','https'],true)||empty($originParts['host'])||filter_var($origin,FILTER_VALIDATE_URL)===false
+    ||isset($originParts['user'])||isset($originParts['pass'])||isset($originParts['path'])||isset($originParts['query'])||isset($originParts['fragment'])){
+    fwrite(STDERR,"Invalid site origin: use an HTTP(S) scheme and hostname with optional port, without credentials, path, query or fragment.\n");exit(2);
+}
 $d=new DOMDocument();libxml_use_internal_errors(true);$d->loadHTML(file_get_contents($file));libxml_clear_errors();
 $x=new DOMXPath($d);$p='/wp-content/uploads/deepglot-media-acceptance-20260928/';
 function same($actual,$expected,$label):void {if($actual!==$expected){fwrite(STDERR,"FAIL $label: ".json_encode(['actual'=>$actual,'expected'=>$expected])."\n");exit(1);}}
@@ -31,7 +37,7 @@ same(attr($d,'lazy','data-srcset'),$p.$asset.'.png 480w','lazy srcset descriptor
 same(attr($d,'picture','srcset'),$p.$asset.'.png 480w, '.$p.'unmapped.png 960w','picture fallback and widths');
 same(attr($d,'picture','type'),'image/png','picture MIME');
 same(attr($d,'responsive','srcset'),$p.$asset.'.png 1x, '.$p.'unmapped.png 2x','density descriptors');
-$absolute=attr($d,'responsive','src');same(parse_url($absolute,PHP_URL_PATH),$p.$asset.'.png','absolute image URL');
+$absolute=attr($d,'responsive','src');same($absolute,$origin.$p.$asset.'.png','absolute image URL');
 same(attr($d,'fallback','src'),$p.'unmapped.png','unmapped image fallback');
 $docAsset=$asset==='de'?'de':'en';
 foreach(['pdf'=>'pdf','document'=>'docx'] as $id=>$ext){same(attr($d,$id,'href'),$p.$docAsset.'.'.$ext,'document '.$ext);same($d->getElementById($id)->hasAttribute('download'),true,'download preserved');}
@@ -43,6 +49,6 @@ same($x->evaluate('string(//title)'),$lang==='en'?'Media acceptance':'Medienprü
 same($x->evaluate('string(//meta[@name="description"]/@content)'),$lang==='en'?'Neutral media acceptance':'Neutrale Medienprüfung','SEO description');
 $j=json_decode($x->evaluate('string(//script[@type="application/ld+json"])'),true,512,JSON_THROW_ON_ERROR);
 same($j['headline'],$lang==='en'?'Media acceptance':'Medienprüfung','JSON-LD translation');
-same(parse_url($j['image'],PHP_URL_PATH),$p.'de.png','JSON-LD shared media identity');
+same($j['image'],$origin.$p.'de.png','JSON-LD shared media identity');
 same($x->evaluate('string(//meta[@name="robots"]/@content)'),'noindex,nofollow','fixture noindex');
 echo "OK: $lang HTML / $asset assets; responsive, lazy, document, video, embeds, text, alt, SEO, JSON-LD, fallback.\n";
