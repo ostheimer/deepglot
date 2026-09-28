@@ -1,0 +1,26 @@
+{
+  "fixturePurge": {
+    "fixtureCachePurgeRequested": true,
+    "result": true
+  },
+  "cleanup": {
+    "deletedOwnPage": 15433,
+    "remainingFixturePage": false,
+    "remainingMediaCount": 0,
+    "blockedFixtureRequests": 0,
+    "sourcePostsUntouched": true
+  },
+  "publicReadback": {
+    "sourcePage": 404,
+    "englishPage": 404,
+    "deletedImage": 404,
+    "stageHome": 200
+  },
+  "cacheNote": "All seeded fixture keys removed, including four generic headings after checking their fixture values. Exact pre-test transient values/expiry are not claimed: this first run had no snapshot. Persistent SaaS translations and customer source posts were not changed.",
+  "finalCacheCleanup": {
+    "remainingFixtureHeadingEntriesRemoved": 4,
+    "phpVersion": "8.2.33",
+    "apiKeyPresent": true,
+    "mediaCount": 0
+  }
+}

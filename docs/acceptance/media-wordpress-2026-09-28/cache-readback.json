@@ -1,0 +1,52 @@
+[
+  {
+    "capture": "before-en.headers",
+    "headers": [
+      "HTTP/2 200 ",
+      "date: Mon, 28 Sep 2026 14:52:58 GMT",
+      "x-cacheable: SHORT",
+      "cache-control: max-age=600, must-revalidate",
+      "x-cache: MISS"
+    ]
+  },
+  {
+    "capture": "mapped-en-hit.headers",
+    "headers": [
+      "HTTP/2 200 ",
+      "date: Mon, 28 Sep 2026 14:55:45 GMT",
+      "x-cacheable: SHORT",
+      "cache-control: max-age=600, must-revalidate",
+      "x-cache: HIT: 1"
+    ]
+  },
+  {
+    "capture": "edited-before-purge.headers",
+    "headers": [
+      "HTTP/2 200 ",
+      "date: Mon, 28 Sep 2026 14:56:44 GMT",
+      "x-cacheable: SHORT",
+      "cache-control: max-age=600, must-revalidate",
+      "x-cache: HIT: 2"
+    ]
+  },
+  {
+    "capture": "edited-en.headers",
+    "headers": [
+      "HTTP/2 200 ",
+      "date: Mon, 28 Sep 2026 14:57:10 GMT",
+      "x-cacheable: SHORT",
+      "cache-control: max-age=600, must-revalidate",
+      "x-cache: MISS"
+    ]
+  },
+  {
+    "capture": "deleted-en.headers",
+    "headers": [
+      "HTTP/2 200 ",
+      "date: Mon, 28 Sep 2026 15:00:49 GMT",
+      "x-cacheable: SHORT",
+      "cache-control: max-age=600, must-revalidate",
+      "x-cache: MISS"
+    ]
+  }
+]
