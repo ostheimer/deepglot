@@ -1,12 +1,34 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { db } from "../../src/lib/db";
 import { e2eId, signInAndGetProjectId } from "./helpers";
+
+async function createMediaTestProject(page: Page, prefix: string) {
+  const seededProjectId = await signInAndGetProjectId(page);
+  const seededProject = await db.project.findUniqueOrThrow({
+    where: { id: seededProjectId },
+    select: { organizationId: true },
+  });
+  return db.project.create({
+    data: {
+      name: prefix,
+      domain: `${prefix}.example.test`,
+      originalLang: "de",
+      organizationId: seededProject.organizationId,
+      languages: {
+        create: [
+          { langCode: "en", isActive: true },
+          { langCode: "fr", isActive: true },
+        ],
+      },
+    },
+  });
+}
 
 test("media dashboard CRUD, scoped filters, invalid URLs, German copy and mobile layout", async ({
   page,
 }) => {
-  const projectId = await signInAndGetProjectId(page);
   const prefix = e2eId("dashboard-media");
+  const { id: projectId } = await createMediaTestProject(page, prefix);
   const url = `/uploads/${prefix}.pdf`;
   const collection = `/api/projects/${projectId}/media`;
   const created: string[] = [];
@@ -107,7 +129,7 @@ test("media dashboard CRUD, scoped filters, invalid URLs, German copy and mobile
       ),
     ).toBe(false);
   } finally {
-    for (const id of created) await page.request.delete(`${collection}/${id}`);
+    await db.project.delete({ where: { id: projectId } });
   }
 });
 
@@ -258,19 +280,19 @@ test("media list and save errors remain recoverable without losing entered URLs"
 test("editing one mapping field preserves another manager's concurrent changes", async ({
   page,
 }) => {
-  const projectId = await signInAndGetProjectId(page);
-  const endpoint = `/api/projects/${projectId}/media`;
   const prefix = e2eId("media-concurrent");
-  const response = await page.request.post(endpoint, {
-    data: {
-      langTo: "en",
-      originalUrl: `/uploads/${prefix}.pdf`,
-      localizedUrl: `/uploads/${prefix}-en.pdf`,
-    },
-  });
-  expect(response.status()).toBe(201);
-  const { mediaReplacement } = await response.json();
+  const { id: projectId } = await createMediaTestProject(page, prefix);
+  const endpoint = `/api/projects/${projectId}/media`;
   try {
+    const response = await page.request.post(endpoint, {
+      data: {
+        langTo: "en",
+        originalUrl: `/uploads/${prefix}.pdf`,
+        localizedUrl: `/uploads/${prefix}-en.pdf`,
+      },
+    });
+    expect(response.status()).toBe(201);
+    const { mediaReplacement } = await response.json();
     await page.goto(`/projects/${projectId}/translations/media`);
     await page.getByLabel("Search URLs").fill(prefix);
     await page
@@ -301,6 +323,6 @@ test("editing one mapping field preserves another manager's concurrent changes",
       concurrentUrl,
     );
   } finally {
-    await page.request.delete(`${endpoint}/${mediaReplacement.id}`);
+    await db.project.delete({ where: { id: projectId } });
   }
 });
