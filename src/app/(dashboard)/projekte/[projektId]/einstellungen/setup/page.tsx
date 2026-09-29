@@ -95,7 +95,7 @@ export default async function SetupPage({ params }: PageProps) {
                 <Button asChild variant="outline" size="sm">
                   <Link href={wordpressInstaller.directoryUrl} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    {uiText(locale, "Download and install the plugin from WordPress.org", "Plugin von WordPress.org herunterladen und installieren")}
+                    WordPress.org
                   </Link>
                 </Button>
               ),
