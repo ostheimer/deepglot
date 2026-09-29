@@ -48,6 +48,17 @@ for (const locale of ["en", "de"] as const) {
       const result = await response.json();
       expect(result.items).toHaveLength(1);
       expect(Object.keys(result.items[0].actor)).toEqual(["name"]);
+      // Synthetic imported content can exceed the workspace's edit limit.
+      await db.translationContentRevision.create({ data: { translationId: row.id, beforeText: "🦉".repeat(1_000_000), afterText: "Saved imported fixture" } });
+      await page.reload();
+      await page.getByPlaceholder(locale === "de" ? "Text suchen..." : "Search text...").fill(marker);
+      await page.getByRole("button", { name: locale === "de" ? "Suchen" : "Search", exact: true }).click();
+      await article.locator("summary").filter({ hasText: title }).click();
+      await expect(article.getByText(locale === "de" ? "Langer Text wird in dieser Vorschau gekürzt. Die vollständige Änderung ist gespeichert." : "Long text is shortened in this preview. The complete change is stored.")).toBeVisible();
+      const largePage = await (await page.request.get(`${historyUrl}?pageSize=1`)).json();
+      expect(largePage.items[0].textTruncated).toBe(true);
+      expect(largePage.nextCursor).toBe(largePage.items[0].id);
+      expect((await (await page.request.get(`${historyUrl}?cursor=${largePage.nextCursor}`)).json()).items[0].afterText).toBe("Saved <script>fixture</script>");
     } finally {
       await db.translation.deleteMany({ where: { id: row.id } });
     }

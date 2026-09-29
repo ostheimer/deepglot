@@ -6,11 +6,13 @@ Scope: new direct workspace text edits only, attached to #257. No historic backf
 
 SQL: `scripts/sql/translation-history.sql`. The fresh production clone `br-red-mud-agl2usli` expires at 2026-09-30 00:00 UTC. Two consecutive applications preserved all 243,343 translation rows; six revision columns, two foreign keys plus primary key and three indexes matched the intended schema. Preview `main` (`br-empty-cherry-ag8su2hl`) was verified to match the Vercel Preview database host, and two applications preserved all 730 translation rows. Both environments had zero revisions. The full Prisma target-schema acceptance passed with no pending statements on clone and preview. JSON reports are included.
 
-Production migration, exact-head independent review, CI, deployed Preview browser checks and Production read-only acceptance are release gates still pending at this initial checkpoint.
+Deployed Preview acceptance passed on the READY deployment for `3aae4619c082a194d884c8bf482f27f7b169d5ee`: EN/DE browser saves produced the synthetic A → B → C chain, persisted across reload, and displayed attribution and the limited-scope notice. The fixture and its two synthetic batch logs were removed; zero fixture revisions remain. The included readback and cleanup reports contain synthetic data only. Both Verify jobs passed on that head.
+
+The normal independent Code Review found one oversized-import response issue. A failing regression reproduced it; the fix bounds the individual preview, preserves the stored content and cursor, and adds explicit copy in all 24 locales. The regression also covers JSON escaping and surrogate boundaries. Final-head review/CI, Production migration and Production read-only acceptance remain release gates; #257 stays open.
 
 ## Local verification
 
-- Node 20 unit suite: 746 tests passed, including bounded UTF-8 history responses and all 24 frontend catalogues.
+- Node 20 unit suite: 747 tests passed, including bounded UTF-8 history responses and all 24 frontend catalogues.
 - PostgreSQL integration suite: 49 tests passed. The history test covers before/after chains, no-op/stale/denied attempts, rollback of translation and batch when a revision insert fails, concurrent CAS attempts, project/language scope, segment-scoped cursors, equal-timestamp ordering, actor deletion and segment deletion.
 - Final production-build Playwright suite: 67 tests passed on the matching localhost origin. EN/DE history browser tests passed. They verify lazy loading, save/reload persistence, plain-text rendering, no-store, anonymous access and query validation. The API test exercises revoked membership and foreign-language/cursor denial using only an isolated fixture organization.
 - Full typecheck, production build, WordPress tests, documentation-language check passed. Lint has zero errors and four pre-existing Stripe warnings.

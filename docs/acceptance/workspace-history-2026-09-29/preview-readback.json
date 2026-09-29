@@ -1,0 +1,21 @@
+{
+  "fixture": {
+    "id": "bfa1a287-e097-4f9d-86e6-aa878545fe71",
+    "projectId": "cmorbbxeg0003xn7hztacn6lr",
+    "marker": "History preview bfa1a287-e097-4f9d-86e6-aa878545fe71"
+  },
+  "rows": [
+    {
+      "beforeText": "Preview original target",
+      "afterText": "Preview saved target",
+      "createdAtUtc": "2026-09-29 15:40:14.951",
+      "hasActor": true
+    },
+    {
+      "beforeText": "Preview saved target",
+      "afterText": "Preview second saved target",
+      "createdAtUtc": "2026-09-29 15:41:12.814",
+      "hasActor": true
+    }
+  ]
+}

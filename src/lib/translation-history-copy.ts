@@ -1,7 +1,7 @@
 import type { SiteLocale } from "./site-locale";
 import { uiText } from "./static-copy";
 
-export const HISTORY_KEYS = ["title", "scope", "empty", "unknown", "before", "after", "error", "loading", "retry", "more"] as const;
+export const HISTORY_KEYS = ["title", "scope", "empty", "unknown", "before", "after", "error", "loading", "retry", "more", "truncated"] as const;
 type HistoryKey = (typeof HISTORY_KEYS)[number];
 const english: Record<HistoryKey, string> = {
   "title": "Change history",
@@ -13,7 +13,8 @@ const english: Record<HistoryKey, string> = {
   "error": "History could not be loaded.",
   "loading": "Loading…",
   "retry": "Retry",
-  "more": "Load older changes"
+  "more": "Load older changes",
+  "truncated": "Long text is shortened in this preview. The complete change is stored."
 };
 export function historyText(locale: SiteLocale, key: HistoryKey): string {
   return uiText(locale, english[key]);

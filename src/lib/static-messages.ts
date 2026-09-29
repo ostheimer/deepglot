@@ -3,6 +3,7 @@ import type { SiteLocale } from "@/lib/site-locale";
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {
   "en": {},
   "de": {
+    "Long text is shortened in this preview. The complete change is stored.": "Langer Text wird in dieser Vorschau gekürzt. Die vollständige Änderung ist gespeichert.",
     "Change history": "Änderungsverlauf",
     "New workspace edits only. Earlier edits and other editors are not included.": "Nur neue Änderungen im Workspace. Frühere Änderungen und andere Editoren sind nicht enthalten.",
     "No recorded workspace edits.": "Keine Änderungen im Workspace aufgezeichnet.",
@@ -790,6 +791,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    "Long text is shortened in this preview. The complete change is stored.": "Дългият текст е съкратен в този преглед. Пълната промяна е съхранена.",
     "Change history": "История на промените",
     "New workspace edits only. Earlier edits and other editors are not included.": "Само нови промени в работното пространство. По-ранни промени и други редактори не са включени.",
     "No recorded workspace edits.": "Няма записани промени в работното пространство.",
@@ -1931,6 +1933,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    "Long text is shortened in this preview. The complete change is stored.": "Dugi tekst skraćen je u ovom pregledu. Cijela promjena je pohranjena.",
     "Change history": "Povijest promjena",
     "New workspace edits only. Earlier edits and other editors are not included.": "Samo nove promjene u radnom prostoru. Ranije promjene i drugi uređivači nisu uključeni.",
     "No recorded workspace edits.": "Nema zabilježenih promjena u radnom prostoru.",
@@ -3072,6 +3075,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    "Long text is shortened in this preview. The complete change is stored.": "Dlouhý text je v tomto náhledu zkrácen. Úplná změna je uložena.",
     "Change history": "Historie změn",
     "New workspace edits only. Earlier edits and other editors are not included.": "Pouze nové změny v pracovním prostoru. Dřívější změny a jiné editory nejsou zahrnuty.",
     "No recorded workspace edits.": "Žádné zaznamenané změny v pracovním prostoru.",
@@ -4213,6 +4217,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    "Long text is shortened in this preview. The complete change is stored.": "Lang tekst er forkortet i denne forhåndsvisning. Hele ændringen er gemt.",
     "Change history": "Ændringshistorik",
     "New workspace edits only. Earlier edits and other editors are not included.": "Kun nye ændringer i arbejdsområdet. Tidligere ændringer og andre editorer er ikke medtaget.",
     "No recorded workspace edits.": "Ingen registrerede ændringer i arbejdsområdet.",
@@ -5354,6 +5359,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    "Long text is shortened in this preview. The complete change is stored.": "Lange tekst is ingekort in deze voorvertoning. De volledige wijziging is opgeslagen.",
     "Change history": "Wijzigingsgeschiedenis",
     "New workspace edits only. Earlier edits and other editors are not included.": "Alleen nieuwe wijzigingen in de werkruimte. Eerdere wijzigingen en andere editors zijn niet opgenomen.",
     "No recorded workspace edits.": "Geen vastgelegde wijzigingen in de werkruimte.",
@@ -6495,6 +6501,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    "Long text is shortened in this preview. The complete change is stored.": "Pikk tekst on selles eelvaates lühendatud. Täielik muudatus on salvestatud.",
     "Change history": "Muudatuste ajalugu",
     "New workspace edits only. Earlier edits and other editors are not included.": "Ainult uued tööruumi muudatused. Varasemaid muudatusi ja teisi redaktoreid ei kaasata.",
     "No recorded workspace edits.": "Tööruumi muudatusi pole salvestatud.",
@@ -7636,6 +7643,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    "Long text is shortened in this preview. The complete change is stored.": "Pitkää tekstiä on lyhennetty tässä esikatselussa. Koko muutos on tallennettu.",
     "Change history": "Muutoshistoria",
     "New workspace edits only. Earlier edits and other editors are not included.": "Vain uudet työtilan muutokset. Aiempia muutoksia ja muita muokkaimia ei sisällytetä.",
     "No recorded workspace edits.": "Ei tallennettuja työtilan muutoksia.",
@@ -8777,6 +8785,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    "Long text is shortened in this preview. The complete change is stored.": "Le texte long est abrégé dans cet aperçu. La modification complète est enregistrée.",
     "Change history": "Historique des modifications",
     "New workspace edits only. Earlier edits and other editors are not included.": "Uniquement les nouvelles modifications dans l’espace de travail. Les modifications antérieures et les autres éditeurs ne sont pas inclus.",
     "No recorded workspace edits.": "Aucune modification enregistrée dans l’espace de travail.",
@@ -9918,6 +9927,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    "Long text is shortened in this preview. The complete change is stored.": "Το μεγάλο κείμενο συντομεύεται σε αυτήν την προεπισκόπηση. Η πλήρης αλλαγή έχει αποθηκευτεί.",
     "Change history": "Ιστορικό αλλαγών",
     "New workspace edits only. Earlier edits and other editors are not included.": "Μόνο νέες αλλαγές στον χώρο εργασίας. Δεν περιλαμβάνονται προηγούμενες αλλαγές και άλλοι επεξεργαστές.",
     "No recorded workspace edits.": "Δεν υπάρχουν καταγεγραμμένες αλλαγές στον χώρο εργασίας.",
@@ -11059,6 +11069,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    "Long text is shortened in this preview. The complete change is stored.": "A hosszú szöveg ebben az előnézetben rövidítve jelenik meg. A teljes módosítás el van mentve.",
     "Change history": "Változástörténet",
     "New workspace edits only. Earlier edits and other editors are not included.": "Csak az új munkaterületi módosítások. A korábbi módosítások és más szerkesztők nem szerepelnek benne.",
     "No recorded workspace edits.": "Nincs rögzített munkaterületi módosítás.",
@@ -12200,6 +12211,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    "Long text is shortened in this preview. The complete change is stored.": "Tá téacs fada giorraithe sa réamhamharc seo. Tá an t-athrú iomlán stóráilte.",
     "Change history": "Stair na n-athruithe",
     "New workspace edits only. Earlier edits and other editors are not included.": "Athruithe nua sa spás oibre amháin. Ní áirítear athruithe roimhe seo ná eagarthóirí eile.",
     "No recorded workspace edits.": "Níl aon athruithe sa spás oibre taifeadta.",
@@ -13341,6 +13353,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    "Long text is shortened in this preview. The complete change is stored.": "Il testo lungo è abbreviato in questa anteprima. La modifica completa è salvata.",
     "Change history": "Cronologia delle modifiche",
     "New workspace edits only. Earlier edits and other editors are not included.": "Solo nuove modifiche nell’area di lavoro. Le modifiche precedenti e gli altri editor non sono inclusi.",
     "No recorded workspace edits.": "Nessuna modifica registrata nell’area di lavoro.",
@@ -14482,6 +14495,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    "Long text is shortened in this preview. The complete change is stored.": "Garais teksts šajā priekšskatījumā ir saīsināts. Pilnā izmaiņa ir saglabāta.",
     "Change history": "Izmaiņu vēsture",
     "New workspace edits only. Earlier edits and other editors are not included.": "Tikai jaunas izmaiņas darbvietā. Iepriekšējās izmaiņas un citi redaktori nav iekļauti.",
     "No recorded workspace edits.": "Nav reģistrētu darbvietas izmaiņu.",
@@ -15623,6 +15637,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    "Long text is shortened in this preview. The complete change is stored.": "Ilgas tekstas šioje peržiūroje sutrumpintas. Visas pakeitimas išsaugotas.",
     "Change history": "Pakeitimų istorija",
     "New workspace edits only. Earlier edits and other editors are not included.": "Tik nauji darbo srities pakeitimai. Ankstesni pakeitimai ir kiti redaktoriai neįtraukiami.",
     "No recorded workspace edits.": "Nėra įrašytų darbo srities pakeitimų.",
@@ -16764,6 +16779,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    "Long text is shortened in this preview. The complete change is stored.": "It-test twil huwa mqassar f’din il-previżjoni. Il-bidla sħiħa hija maħżuna.",
     "Change history": "Storja tal-bidliet",
     "New workspace edits only. Earlier edits and other editors are not included.": "Bidliet ġodda fl-ispazju tax-xogħol biss. Bidliet preċedenti u edituri oħra mhumiex inklużi.",
     "No recorded workspace edits.": "Ebda bidliet irreġistrati fl-ispazju tax-xogħol.",
@@ -17905,6 +17921,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    "Long text is shortened in this preview. The complete change is stored.": "Długi tekst jest skrócony w tym podglądzie. Pełna zmiana została zapisana.",
     "Change history": "Historia zmian",
     "New workspace edits only. Earlier edits and other editors are not included.": "Tylko nowe zmiany w obszarze roboczym. Wcześniejsze zmiany i inne edytory nie są uwzględnione.",
     "No recorded workspace edits.": "Brak zapisanych zmian w obszarze roboczym.",
@@ -19046,6 +19063,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    "Long text is shortened in this preview. The complete change is stored.": "O texto longo é abreviado nesta pré-visualização. A alteração completa está guardada.",
     "Change history": "Histórico de alterações",
     "New workspace edits only. Earlier edits and other editors are not included.": "Apenas novas alterações na área de trabalho. Alterações anteriores e outros editores não estão incluídos.",
     "No recorded workspace edits.": "Nenhuma alteração registada na área de trabalho.",
@@ -20187,6 +20205,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    "Long text is shortened in this preview. The complete change is stored.": "Textul lung este scurtat în această previzualizare. Modificarea completă este stocată.",
     "Change history": "Istoricul modificărilor",
     "New workspace edits only. Earlier edits and other editors are not included.": "Doar modificări noi în spațiul de lucru. Modificările anterioare și alte editoare nu sunt incluse.",
     "No recorded workspace edits.": "Nicio modificare înregistrată în spațiul de lucru.",
@@ -21328,6 +21347,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    "Long text is shortened in this preview. The complete change is stored.": "Dlhý text je v tomto náhľade skrátený. Úplná zmena je uložená.",
     "Change history": "História zmien",
     "New workspace edits only. Earlier edits and other editors are not included.": "Iba nové zmeny v pracovnom priestore. Predchádzajúce zmeny a iné editory nie sú zahrnuté.",
     "No recorded workspace edits.": "Žiadne zaznamenané zmeny v pracovnom priestore.",
@@ -22469,6 +22489,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    "Long text is shortened in this preview. The complete change is stored.": "Dolgo besedilo je v tem predogledu skrajšano. Celotna sprememba je shranjena.",
     "Change history": "Zgodovina sprememb",
     "New workspace edits only. Earlier edits and other editors are not included.": "Samo nove spremembe v delovnem prostoru. Prejšnje spremembe in drugi urejevalniki niso vključeni.",
     "No recorded workspace edits.": "Ni zabeleženih sprememb v delovnem prostoru.",
@@ -23610,6 +23631,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    "Long text is shortened in this preview. The complete change is stored.": "El texto largo se acorta en esta vista previa. El cambio completo está guardado.",
     "Change history": "Historial de cambios",
     "New workspace edits only. Earlier edits and other editors are not included.": "Solo cambios nuevos en el espacio de trabajo. No se incluyen cambios anteriores ni otros editores.",
     "No recorded workspace edits.": "No hay cambios registrados en el espacio de trabajo.",
@@ -24751,6 +24773,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    "Long text is shortened in this preview. The complete change is stored.": "Lång text är förkortad i denna förhandsvisning. Hela ändringen är sparad.",
     "Change history": "Ändringshistorik",
     "New workspace edits only. Earlier edits and other editors are not included.": "Endast nya ändringar i arbetsytan. Tidigare ändringar och andra redigerare ingår inte.",
     "No recorded workspace edits.": "Inga registrerade ändringar i arbetsytan.",

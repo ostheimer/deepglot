@@ -6,7 +6,7 @@ import { historyText } from "@/lib/translation-history-copy";
 import type { SiteLocale } from "@/lib/site-locale";
 
 type HistoryPage = {
-  items: Array<{ id: string; beforeText: string; afterText: string; createdAt: string; actor: { name: string | null } | null }>;
+  items: Array<{ id: string; beforeText: string; afterText: string; textTruncated?: boolean; createdAt: string; actor: { name: string | null } | null }>;
   nextCursor: string | null;
 };
 
@@ -46,6 +46,7 @@ export function TranslationHistoryPanel({ projectId, translationId, locale }: {
             <div><dt className="font-medium">{historyText(locale, "before")}</dt><dd className="max-h-64 overflow-auto whitespace-pre-wrap break-words">{item.beforeText}</dd></div>
             <div><dt className="font-medium">{historyText(locale, "after")}</dt><dd className="max-h-64 overflow-auto whitespace-pre-wrap break-words">{item.afterText}</dd></div>
           </dl>
+          {item.textTruncated && <p className="mt-2 text-xs text-gray-500">{historyText(locale, "truncated")}</p>}
         </li>)}
       </ol>
       {error && <p role="alert" className="mt-3 text-red-600">{historyText(locale, "error")}</p>}

@@ -10,7 +10,7 @@ This bounded slice of #257 records new direct text edits made through the centra
 
 GET `/api/projects/{projectId}/translations/{translationId}/history` requires current project access and the segment's allowed target language. Managers can read all project segments; translators retain their target-language scope. Responses are private and not cached. Pagination uses a segment-scoped revision cursor, ordered by creation time and ID descending, with 10 entries by default and a maximum of 20. Cursor ordering is deterministic when timestamps coincide. A deleted or foreign cursor fails rather than changing the requested segment scope.
 
-Long revisions can shorten a page to stay within a 3 MB text payload budget; the returned cursor still resumes immediately after its final item.
+Long revisions can shorten a page to stay within a 3 MB text payload budget; the returned cursor still resumes immediately after its final item. An individual oversized revision (for example, previously imported content) returns at most 100,000 UTF-16 code units per text, without splitting surrogate pairs, with an explicit localized preview notice. The stored revision remains complete.
 
 ## UI and limits
 

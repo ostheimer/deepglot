@@ -29,3 +29,20 @@ test("history copy covers all supported locales and explains its limited scope",
   assert.match(historyText("de", "title"), /Änderung/);
   assert.match(historyText("en", "scope"), /Earlier edits and other editors are not included/);
 });
+
+test("an oversized imported first revision is bounded and pagination resumes after it", () => {
+  const rows = [{ id: "large", beforeText: "🦉".repeat(1_000_000), afterText: "new" }, { id: "older", beforeText: "old", afterText: "older" }];
+  const result = boundHistoryPage(rows, 1);
+  assert.ok(Buffer.byteLength(JSON.stringify(result)) < 3_000_000);
+  assert.equal(result.nextCursor, "large");
+  assert.equal(result.items[0].id, "large");
+  assert.equal(result.items[0].afterText, "new");
+  assert.equal(result.items[0].textTruncated, true);
+  assert.ok(result.items[0].beforeText.length < rows[0].beforeText.length);
+  assert.equal(rows[0].beforeText.length, 2_000_000);
+  assert.equal(boundHistoryPage(rows.slice(1), 1).items[0].id, "older");
+  const escaped = boundHistoryPage([{ id: "escaped", beforeText: "\u0001".repeat(1_000_000), afterText: "\u0001".repeat(1_000_000) }], 1);
+  assert.ok(Buffer.byteLength(JSON.stringify(escaped)) < 3_000_000);
+  const unicode = boundHistoryPage([{ id: "unicode", beforeText: "x" + "🦉".repeat(1_000_000), afterText: "new" }], 1);
+  assert.doesNotMatch(unicode.items[0].beforeText, /[\uD800-\uDBFF]$/);
+});

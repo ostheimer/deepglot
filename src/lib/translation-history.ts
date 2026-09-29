@@ -11,13 +11,20 @@ export const translationHistoryQuerySchema = z.object({
 }).strict();
 
 // Stay below serverless response limits even for long multilingual revisions.
-export function boundHistoryPage<T extends { id: string }>(rows: T[], pageSize: number) {
-  const items: T[] = [];
+export function boundHistoryPage<T extends { id: string; beforeText: string; afterText: string }>(rows: T[], pageSize: number) {
+  const items: Array<T & { textTruncated?: boolean }> = [];
   let bytes = 0;
   for (const row of rows.slice(0, pageSize)) {
-    const size = Buffer.byteLength(JSON.stringify(row), "utf8");
+    // Imported content can exceed the workspace edit limit. Keep its complete
+    // stored revision, but return an explicitly marked preview instead of an
+    // oversized first response. Avoid splitting a UTF-16 surrogate pair.
+    const preview = (text: string) => text.slice(0, 100_000).replace(/[\uD800-\uDBFF]$/, "");
+    const item = Buffer.byteLength(JSON.stringify(row), "utf8") > 3_000_000
+      ? { ...row, beforeText: preview(row.beforeText), afterText: preview(row.afterText), textTruncated: true }
+      : row;
+    const size = Buffer.byteLength(JSON.stringify(item), "utf8");
     if (items.length && bytes + size > 3_000_000) break;
-    items.push(row);
+    items.push(item);
     bytes += size;
   }
   return { items, nextCursor: rows.length > items.length ? items.at(-1)!.id : null };
