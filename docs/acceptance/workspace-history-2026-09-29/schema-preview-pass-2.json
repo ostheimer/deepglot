@@ -1,0 +1,68 @@
+{
+  "scope": "preview",
+  "checkedAt": "2026-09-29T15:33:02.428Z",
+  "sqlApplied": true,
+  "translationsBefore": 730,
+  "translationsAfter": 730,
+  "revisions": 0,
+  "columns": [
+    {
+      "column_name": "id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "translationId",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "actorUserId",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "beforeText",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "afterText",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "createdAt",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "NO"
+    }
+  ],
+  "constraints": [
+    {
+      "conname": "TranslationContentRevision_actorUserId_fkey",
+      "definition": "FOREIGN KEY (\"actorUserId\") REFERENCES \"User\"(id) ON UPDATE CASCADE ON DELETE SET NULL"
+    },
+    {
+      "conname": "TranslationContentRevision_pkey",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "TranslationContentRevision_translationId_fkey",
+      "definition": "FOREIGN KEY (\"translationId\") REFERENCES \"Translation\"(id) ON UPDATE CASCADE ON DELETE CASCADE"
+    }
+  ],
+  "indexes": [
+    {
+      "indexname": "TranslationContentRevision_actorUserId_idx",
+      "indexdef": "CREATE INDEX \"TranslationContentRevision_actorUserId_idx\" ON public.\"TranslationContentRevision\" USING btree (\"actorUserId\")"
+    },
+    {
+      "indexname": "TranslationContentRevision_pkey",
+      "indexdef": "CREATE UNIQUE INDEX \"TranslationContentRevision_pkey\" ON public.\"TranslationContentRevision\" USING btree (id)"
+    },
+    {
+      "indexname": "TranslationContentRevision_translationId_createdAt_id_idx",
+      "indexdef": "CREATE INDEX \"TranslationContentRevision_translationId_createdAt_id_idx\" ON public.\"TranslationContentRevision\" USING btree (\"translationId\", \"createdAt\", id)"
+    }
+  ]
+}

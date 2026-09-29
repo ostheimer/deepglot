@@ -116,6 +116,8 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## Translation workspace
 
+New direct workspace text edits have an atomic, lazy-loaded before/after history with editor attribution and scoped pagination. Earlier edits and writes through other editors are not reconstructed or included. Apply `scripts/sql/translation-history.sql` before deploying; see [workspace history scope and rollout](docs/product-decisions/translation-workspace-history.md).
+
 The project's **Human Review** workspace supports direct manual editing and deletion with role- and language-scoped access checks. Filters combine target language, workflow status, assignee, text search, translation source, manual-edit state and observed page context. Open a segment's context to visit its source page or filter by its exact path.
 
 Context is recorded on successful fresh and cached SaaS translation requests, not inferred from page-view analytics. Existing translations gain context when observed again; missing context does not mean inactive content. Apply the additive `scripts/sql/translation-context.sql` migration before deploying this feature to an existing database. See [context semantics and deployment verification](docs/product-decisions/translation-workspace-context.md).
@@ -126,7 +128,7 @@ Explicit client-reported types are retained for text, media/documents, external 
 
 Segment metadata supports persistent labels, plain-text notes and explicitly selected placeholder variables, with exact-label and saved-variable filters. Annotations have independent concurrency versions and do not alter translation text or approval status. Apply `scripts/sql/translation-metadata.sql` before deploying. See [metadata semantics and limits](docs/product-decisions/translation-workspace-metadata.md).
 
-The workspace supports selecting visible segments on the current page and applying one assignment or review action to at most 100 segments. Each request is atomic: a stale, unauthorized, missing or invalid row leaves the entire selection unchanged. See [bulk workflow semantics](docs/product-decisions/translation-workspace-bulk.md). This slice adds no database schema or translation-content changes. Issue #257 remains open for authoritative inactivity, broader quality and variable rules, history, AI actions and search-and-replace.
+The workspace supports selecting visible segments on the current page and applying one assignment or review action to at most 100 segments. Each request is atomic: a stale, unauthorized, missing or invalid row leaves the entire selection unchanged. See [bulk workflow semantics](docs/product-decisions/translation-workspace-bulk.md). This slice adds no database schema or translation-content changes. Issue #257 remains open for authoritative inactivity, broader quality and variable rules, a complete audit trail, AI actions and search-and-replace.
 
 ## Locale-specific media URL replacements
 

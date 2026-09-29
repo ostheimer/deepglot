@@ -143,6 +143,7 @@ export async function PATCH(
             translationId,
             actor,
             translatedText: parsed.data.translatedText,
+            actorUserId: userId,
             expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
           })
         : await updateProjectTranslationWorkflow({

@@ -300,6 +300,11 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     access: "atomic assignment / review: manager or assigned language translator",
   },
   {
+    path: "/api/projects/[projektId]/translations/[translationId]/history",
+    sourceFile: "src/app/api/projects/[projektId]/translations/[translationId]/history/route.ts",
+    access: "project / language scoped; new workspace edits only",
+  },
+  {
     path: "/api/projects/[projektId]/pdf-translations",
     sourceFile:
       "src/app/api/projects/[projektId]/pdf-translations/route.ts",

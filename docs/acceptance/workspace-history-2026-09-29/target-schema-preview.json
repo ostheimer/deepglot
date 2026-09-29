@@ -1,0 +1,43 @@
+{
+  "name": "Deepglot target schema acceptance",
+  "generatedAt": "2026-09-29T15:31:57.730Z",
+  "checks": [
+    {
+      "name": "Target schema tables",
+      "status": "PASS",
+      "detail": "0 pending table statements on host ep-orange-resonance-agef306d-pooler.c-2.eu-central-1.aws.neon.tech.",
+      "durationMs": 2972
+    },
+    {
+      "name": "Target schema columns",
+      "status": "PASS",
+      "detail": "0 pending column statements on host ep-orange-resonance-agef306d-pooler.c-2.eu-central-1.aws.neon.tech.",
+      "durationMs": 2972
+    },
+    {
+      "name": "Target schema indexes",
+      "status": "PASS",
+      "detail": "0 pending index statements on host ep-orange-resonance-agef306d-pooler.c-2.eu-central-1.aws.neon.tech.",
+      "durationMs": 2972
+    },
+    {
+      "name": "Target schema constraints",
+      "status": "PASS",
+      "detail": "0 pending constraint statements on host ep-orange-resonance-agef306d-pooler.c-2.eu-central-1.aws.neon.tech.",
+      "durationMs": 2972
+    },
+    {
+      "name": "Target schema other statements",
+      "status": "PASS",
+      "detail": "0 pending other statements on host ep-orange-resonance-agef306d-pooler.c-2.eu-central-1.aws.neon.tech.",
+      "durationMs": 2972
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  }
+}

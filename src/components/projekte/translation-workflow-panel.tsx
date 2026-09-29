@@ -34,6 +34,7 @@ import {
 import { planTranslationPaginationAfterDeletion } from "@/lib/translation-workspace-pagination";
 import { translationContextLink } from "@/lib/translation-context";
 import { TranslationMetadataPanel } from "./translation-metadata-panel";
+import { TranslationHistoryPanel } from "./translation-history-panel";
 import type { TranslationMetadataValue } from "@/lib/translation-metadata";
 import { REPORTED_TYPE_GROUPS } from "@/lib/translation-reported-types";
 
@@ -1011,6 +1012,12 @@ export function TranslationWorkflowPanel({
                     canEdit={canEdit}
                     locale={locale}
                     onSaved={() => latestLoadRef.current()}
+                  />
+                  <TranslationHistoryPanel
+                    key={`${translation.id}:${translation.updatedAt}`}
+                    projectId={projectId}
+                    translationId={translation.id}
+                    locale={locale}
                   />
                   <details className="rounded-md bg-gray-50 p-3 text-xs text-gray-600">
                     <summary className="cursor-pointer font-medium">
