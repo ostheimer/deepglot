@@ -497,12 +497,14 @@ export async function updateProjectTranslationContent({
   actor,
   translatedText,
   expectedUpdatedAt,
+  actorUserId,
 }: {
   projectId: string;
   translationId: string;
   actor: TranslationWorkflowActor;
   translatedText: string;
   expectedUpdatedAt: Date;
+  actorUserId?: string;
 }) {
   assertValidTranslationContent(translatedText);
   const { db } = await import("@/lib/db");
@@ -596,6 +598,14 @@ export async function updateProjectTranslationContent({
     const saved = await tx.translation.findUniqueOrThrow({
       where: { id: current.id },
       include: workflowInclude,
+    });
+    await tx.translationContentRevision.create({
+      data: {
+        translationId: current.id,
+        actorUserId: actorUserId ?? null,
+        beforeText: current.translatedText,
+        afterText: saved.translatedText,
+      },
     });
     await recordTranslationBatch(
       {

@@ -28,6 +28,7 @@ model User {
   projectMemberships ProjectMember[]
   sentProjectInvitations ProjectInvitation[]
   activityDigestDeliveries ActivityDigestDelivery[]
+  translationContentRevisions TranslationContentRevision[]
 }
 
 model Account {
@@ -245,11 +246,27 @@ model Translation {
   contexts    TranslationContext[]
   metadata    TranslationMetadata?
   typeObservations TranslationTypeObservation[]
+  contentRevisions TranslationContentRevision[]
 
   @@unique([projectId, originalHash])
   @@index([projectId, langFrom, langTo])
   @@index([projectId, langTo, workflowStatus])
   @@index([assignedToId])
+}
+
+// New direct workspace edits only; not a complete translation audit trail.
+model TranslationContentRevision {
+  id String @id @default(cuid())
+  translationId String
+  actorUserId String?
+  beforeText String
+  afterText String
+  createdAt DateTime @default(now())
+  translation Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([translationId, createdAt, id])
+  @@index([actorUserId])
 }
 
 // Client-reported provenance, not inferred content classification.
