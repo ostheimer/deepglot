@@ -81,8 +81,9 @@ test("setup page keeps a working install path and gates the JS snippet on #121",
     "utf8"
   );
 
-  // The WordPress plugin remains the documented, working install path.
-  assert.match(setupPage, /wordpress-plugin\/deepglot|Deepglot.*[Pp]lugin/);
+  // The dashboard must send visitors to the published installer, not source code.
+  assert.match(setupPage, /wordpress\.org\/plugins\/deepglot\/|wordpressInstaller\.directoryUrl/);
+  assert.doesNotMatch(setupPage, /A built installer ZIP is not published automatically yet/);
 
   // No concrete runtime-script URL until the universal snippet ships (#121).
   assert.doesNotMatch(setupPage, /<script[^>]*src=.*deepglot\.js/);

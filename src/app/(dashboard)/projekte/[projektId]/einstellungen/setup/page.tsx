@@ -8,6 +8,7 @@ import { requireProjectManagement } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import wordpressInstaller from "@/lib/wordpress-installer.json";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -26,9 +27,6 @@ export default async function SetupPage({ params }: PageProps) {
     where: { projectId: projektId, isActive: true },
     orderBy: { createdAt: "desc" },
   });
-  const pluginSourceUrl =
-    "https://github.com/ostheimer/deepglot/tree/main/wordpress-plugin/deepglot";
-
   return (
     <div className="max-w-2xl space-y-5">
       <h2 className="text-xl font-bold text-gray-900">
@@ -92,12 +90,12 @@ export default async function SetupPage({ params }: PageProps) {
             {
               step: 1,
               title: uiText(locale, "Download plugin", "Plugin herunterladen"),
-              desc: uiText(locale, "The plugin source is available in the Deepglot repository. A built installer ZIP is not published automatically yet.", "Der Plugin-Quellcode ist im Deepglot-Repository verfügbar. Ein gebautes Installer-ZIP wird noch nicht automatisch bereitgestellt."),
+              desc: <>{uiText(locale, "Download and install the plugin from WordPress.org", "Plugin von WordPress.org herunterladen und installieren")} (v{wordpressInstaller.version}).</>,
               action: (
                 <Button asChild variant="outline" size="sm">
-                  <Link href={pluginSourceUrl} target="_blank" rel="noreferrer">
+                  <Link href={wordpressInstaller.directoryUrl} target="_blank" rel="noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />
-                    {uiText(locale, "Open plugin source", "Plugin-Quelle öffnen")}
+                    {uiText(locale, "Download and install the plugin from WordPress.org", "Plugin von WordPress.org herunterladen und installieren")}
                   </Link>
                 </Button>
               ),

@@ -1,0 +1,77 @@
+name: WordPress plugin release
+
+on:
+  push:
+    tags:
+      - "wp-plugin-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test plugin
+        run: npm run test:wp
+
+      - name: Verify tag version and build reproducible ZIP
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#wp-plugin-v}"
+          [[ "$RELEASE_TAG" == "wp-plugin-v$version" && "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          python3 - "$version" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          version = sys.argv[1]
+          plugin = Path('wordpress-plugin/deepglot/deepglot.php').read_text()
+          readme = Path('wordpress-plugin/deepglot/readme.txt').read_text()
+          assert re.search(r'^ \* Version: ' + re.escape(version) + r'$', plugin, re.M), 'Plugin header version differs from tag'
+          assert re.search(r"^define\('DEEPGLOT_PLUGIN_VERSION', '" + re.escape(version) + r"'\);$", plugin, re.M), 'Plugin constant differs from tag'
+          assert re.search(r'^Stable tag: ' + re.escape(version) + r'$', readme, re.M), 'Readme stable tag differs from tag'
+          PY
+          commit="$(git rev-parse --verify HEAD)"
+          wordpress-plugin/build-zip.sh "$commit" "$RUNNER_TEMP/build-one"
+          wordpress-plugin/build-zip.sh "$commit" "$RUNNER_TEMP/build-two"
+          cmp "$RUNNER_TEMP/build-one/deepglot-$version.zip" "$RUNNER_TEMP/build-two/deepglot-$version.zip"
+          (cd "$RUNNER_TEMP/build-one" && sha256sum --check "deepglot-$version.zip.sha256")
+          unzip -t "$RUNNER_TEMP/build-one/deepglot-$version.zip"
+          unzip -p "$RUNNER_TEMP/build-one/deepglot-$version.zip" deepglot/deepglot.php | grep -F " * Version: $version"
+          unzip -p "$RUNNER_TEMP/build-one/deepglot-$version.zip" deepglot/readme.txt | grep -F "Stable tag: $version"
+          cp "$RUNNER_TEMP/build-one/deepglot-$version.zip" "$GITHUB_WORKSPACE/"
+          cp "$RUNNER_TEMP/build-one/deepglot-$version.zip.sha256" "$GITHUB_WORKSPACE/"
+
+      - name: Publish GitHub release and read back assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#wp-plugin-v}"
+          gh release create "$RELEASE_TAG" "deepglot-$version.zip" "deepglot-$version.zip.sha256" \
+            --verify-tag --title "Deepglot WordPress Plugin v$version" \
+            --notes "Versioned WordPress installer ZIP and SHA-256 checksum. WordPress.org publication and customer installation are separate steps."
+          mkdir -p "$RUNNER_TEMP/readback"
+          gh release download "$RELEASE_TAG" --dir "$RUNNER_TEMP/readback" --pattern "deepglot-$version.zip*"
+          cmp "deepglot-$version.zip" "$RUNNER_TEMP/readback/deepglot-$version.zip"
+          cmp "deepglot-$version.zip.sha256" "$RUNNER_TEMP/readback/deepglot-$version.zip.sha256"

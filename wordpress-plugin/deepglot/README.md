@@ -285,10 +285,12 @@ misses; null term-language mappings remain untagged.
 
 ## Installation in WordPress
 
-1. Build the versioned ZIP from an explicit commit using the release command below.
-2. Upload it in WordPress under `Plugins -> Add New -> Upload Plugin`.
-3. Activate the plugin.
-4. Create source and target languages in the Deepglot dashboard, then enter the API base URL and API key under `Settings -> Deepglot` and configure the WordPress-owned routing, switcher, and exclusions.
+1. Open [Deepglot in the WordPress plugin directory](https://wordpress.org/plugins/deepglot/) and install it from `Plugins -> Add New` by searching for Deepglot. Alternatively, download its ZIP and upload it under `Plugins -> Add New -> Upload Plugin`.
+2. Activate the plugin.
+3. Create source and target languages in the Deepglot dashboard, then enter the API base URL and API key under `Settings -> Deepglot` and configure the WordPress-owned routing, switcher, and exclusions.
+4. For an existing installation, apply a published update through `Plugins -> Installed Plugins`. Before updating, check the version shown in WordPress against the directory's current version. A GitHub release alone does not update WordPress.org or customer sites.
+
+The verified directory version on 2026-09-29 is **0.12.10**. Its [public ZIP](https://downloads.wordpress.org/plugin/deepglot.0.12.10.zip) has SHA-256 `3d9c01032142c971d150785809534824da5822a8091d11dea0e2b52ba06dae82`. WordPress.org repackages ZIP metadata, so its archive hash differs from the [GitHub release ZIP](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.10/deepglot-0.12.10.zip), whose [checksum sidecar](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.10/deepglot-0.12.10.zip.sha256) records `facec34da6ce40539dbeef2da9754dee2b29d49b5b6b56f60a8625b0a46abb1b`. Both archives contain the same 126 runtime files with identical contents; the release ZIP also matches a fresh build from tag `wp-plugin-v0.12.10`. Run `python3 scripts/verify-wordpress-installer.py` from the repository root to recheck these live links, versions, checksums, and file contents.
 
 ## Current scope
 
@@ -360,6 +362,20 @@ wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/
 For v0.12.10 this creates `deepglot-0.12.10.zip` and
 `deepglot-0.12.10.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
+The `WordPress plugin release` GitHub Actions workflow performs this check on
+`wp-plugin-v*` tags, verifies the tag against the plugin header and stable tag,
+then publishes the ZIP and SHA-256 sidecar to the matching GitHub release.
+Publishing to the WordPress.org directory remains a separate channel; the
+CI installer acceptance guard checks the public directory download against
+the advertised GitHub release before the dashboard link is shipped.
+For the next version, publish the tagged GitHub release first, publish the
+matching package to WordPress.org, then update
+`src/lib/wordpress-installer.json` and ship the dashboard change. The live
+guard intentionally fails while WordPress.org's current version and the
+dashboard's pinned version differ. Stage the manifest update in a branch
+before publishing to keep that interval short; merge it only after both
+public archives pass the guard. Changing the manifest before publication
+also fails CI instead of advertising a missing installer.
 
 ## Test
 
