@@ -1,8 +1,18 @@
-# Deepglot Handoff - 2026-08-10
+# Deepglot Handoff
 
-This file captures the current project state so work can continue in a new chat without relying on previous conversation context.
+## WordPress installer checkpoint (2026-09-29, Issue #273)
 
-## Current repository evidence
+- [PR #364](https://github.com/ostheimer/deepglot/pull/364) merged as `288744f256eed4addca2349daee0821121f38acf`. Both PR CI runs ([push `36622907017`](https://github.com/ostheimer/deepglot/actions/runs/36622907017), [pull request `36622913056`](https://github.com/ostheimer/deepglot/actions/runs/36622913056)) and [main CI `36623971388`](https://github.com/ostheimer/deepglot/actions/runs/36623971388) passed. Vercel production deployment `dpl_FR2FYWWeGfpgxSXQxNEeqabKLvNs` reported READY for that exact merge commit on `deepglot.ai` and `www.deepglot.ai`.
+- The authenticated German production Setup page for the `meinhaushalt.at` project was read after deployment. It visibly showed the WordPress.org installation instruction, `v0.12.10`, and a `WordPress.org` button whose destination is the [live directory entry](https://wordpress.org/plugins/deepglot/). The local rendered Playwright regression at 390 px verified the button and no horizontal overflow. No project API key was copied into this handoff.
+- WordPress.org's plugin API reports `0.12.10` and the [public ZIP](https://downloads.wordpress.org/plugin/deepglot.0.12.10.zip) (SHA-256 `3d9c01032142c971d150785809534824da5822a8091d11dea0e2b52ba06dae82`). The [GitHub release ZIP](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.10/deepglot-0.12.10.zip) and [checksum sidecar](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.10/deepglot-0.12.10.zip.sha256) agree on SHA-256 `facec34da6ce40539dbeef2da9754dee2b29d49b5b6b56f60a8625b0a46abb1b`. A fresh build of existing tag `wp-plugin-v0.12.10` matched the GitHub ZIP byte-for-byte. The public ZIP differs in container metadata but has the same 126 runtime files with identical contents.
+- The setup's pinned manifest is `src/lib/wordpress-installer.json`. `scripts/verify-wordpress-installer.py` checks the public directory, API, ZIP headers/stable tag, release checksum, and every runtime file in CI; five offline cases prove failure on missing, mismatched, or corrupt artifacts. The new `WordPress plugin release` tag workflow was validated with `actionlint` and its existing-tag build steps were exercised locally. It was not triggered with a new tag in this task, and no customer WordPress installation was updated.
+- The [plugin README](wordpress-plugin/deepglot/README.md) documents install and upgrade steps, both hashes, and release order. A future version requires the tagged GitHub release and WordPress.org package before changing the pinned manifest; CI intentionally fails while the public current version and manifest differ. A GitHub release, WordPress.org publication, SaaS deployment, and customer-site installation are separate states.
+
+## Historical handoff (2026-08-10)
+
+The following section records the project state on 2026-08-10. Use current Git, release, directory, deployment, and customer-site evidence for new work.
+
+### Repository evidence at that time
 
 - The original handoff began from `4d649aa` (`feat(wp-plugin): warm translations in the background instead of blocking renders (#276)`); use the current Git history rather than that historical SHA when preparing another deploy.
 - The repository's WordPress plugin source and the primary production install target **v0.12.1**. The bootstrap, README, WordPress.org readme, package expectations, and translation-catalog metadata agree on that version. The customer deployment and live acceptance below do not create a GitHub tag, GitHub release, WordPress.org publication, or automatic update channel; GitHub releases currently go through **v0.11.7**.
