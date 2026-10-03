@@ -74,7 +74,10 @@ export function SwitcherEditor(props: Props) {
 
   if (!config || !instance) return <section className="rounded-xl border bg-white p-6" role="status">
     {message ? <p className="mb-2">{message}</p> : null}
-    {t("WordPress switcher settings have not been synced yet. Sync the current plugin before editing here.", "Die WordPress-Einstellungen für die Sprachauswahl wurden noch nicht abgeglichen. Gleiche zuerst das aktuelle Plugin ab.")}
+    <p>{t("WordPress switcher settings have not been synced yet. Sync the current plugin before editing here.", "Die WordPress-Einstellungen für die Sprachauswahl wurden noch nicht abgeglichen. Gleiche zuerst das aktuelle Plugin ab.")}</p>
+    <a className="mt-2 inline-block underline" href={props.wpSettingsUrl} target="_blank" rel="noopener noreferrer">
+      {t("Open WordPress switcher editor", "WordPress-Editor für Sprachauswahl öffnen")}
+    </a>
   </section>;
 
   const mirrorOld = !props.pluginSyncedAt || Date.now() - new Date(props.pluginSyncedAt).getTime() > 15 * 60 * 1000;

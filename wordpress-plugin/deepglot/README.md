@@ -290,7 +290,7 @@ misses; null term-language mappings remain untagged.
 3. Create source and target languages in the Deepglot dashboard, then enter the API base URL and API key under `Settings -> Deepglot` and configure the WordPress-owned routing, switcher, and exclusions.
 4. For an existing installation, apply a published update through `Plugins -> Installed Plugins`. Before updating, check the version shown in WordPress against the directory's current version. A GitHub release alone does not update WordPress.org or customer sites.
 
-The verified directory version on 2026-09-29 is **0.12.10**. Its [public ZIP](https://downloads.wordpress.org/plugin/deepglot.0.12.10.zip) has SHA-256 `3d9c01032142c971d150785809534824da5822a8091d11dea0e2b52ba06dae82`. WordPress.org repackages ZIP metadata, so its archive hash differs from the [GitHub release ZIP](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.10/deepglot-0.12.10.zip), whose [checksum sidecar](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.10/deepglot-0.12.10.zip.sha256) records `facec34da6ce40539dbeef2da9754dee2b29d49b5b6b56f60a8625b0a46abb1b`. Both archives contain the same 126 runtime files with identical contents; the release ZIP also matches a fresh build from tag `wp-plugin-v0.12.10`. Run `python3 scripts/verify-wordpress-installer.py` from the repository root to recheck these live links, versions, checksums, and file contents.
+The verified directory version on 2026-10-03 is **0.12.11**. Its [public ZIP](https://downloads.wordpress.org/plugin/deepglot.0.12.11.zip) has SHA-256 `171f8ee858a729afaa8834e141b70feb490c5cb4eb0c65684566c5a647bea923`. WordPress.org repackages ZIP metadata, so its archive hash differs from the [GitHub release ZIP](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.11/deepglot-0.12.11.zip), whose [checksum sidecar](https://github.com/ostheimer/deepglot/releases/download/wp-plugin-v0.12.11/deepglot-0.12.11.zip.sha256) records `f4627b8906e41a8ec187961c53d95288f2fb93723bb3c0bb36ad581bf058c0ad`. Both archives contain the same 126 runtime files with identical contents; the release ZIP also matches a fresh build from tag `wp-plugin-v0.12.11`. Run `python3 scripts/verify-wordpress-installer.py` from the repository root to recheck these live links, versions, checksums, and file contents.
 
 ## Current scope
 
@@ -359,8 +359,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For v0.12.10 this creates `deepglot-0.12.10.zip` and
-`deepglot-0.12.10.zip.sha256`. Build the same commit into two empty output
+For v0.12.11 this creates `deepglot-0.12.11.zip` and
+`deepglot-0.12.11.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 The `WordPress plugin release` GitHub Actions workflow performs this check on
 `wp-plugin-v*` tags, verifies the tag against the plugin header and stable tag,
