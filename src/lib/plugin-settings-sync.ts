@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { switcherConfigSchema } from "@/lib/switcher-contract";
 
 export const ROUTING_MODE_VALUES = ["PATH_PREFIX", "SUBDOMAIN"] as const;
 
@@ -25,6 +26,12 @@ export const pluginSettingsSyncSchema = z
         })
       )
       .default([]),
+    switcher: z.object({
+      contractVersion: z.literal(1),
+      appliedRevision: z.number().int().nonnegative().nullable(),
+      localConflict: z.boolean(),
+      config: switcherConfigSchema,
+    }).strict().optional(),
   })
   .transform((payload) => ({
     ...payload,

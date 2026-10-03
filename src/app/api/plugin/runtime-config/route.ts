@@ -172,6 +172,16 @@ export async function GET(request: NextRequest) {
         apiKey.project.settings?.pageViewsEnabled === true &&
         apiKey.project.settings.pageViewsConsentGrantedAt instanceof Date,
       project: buildProjectRuntimeSettings(apiKey.project),
+      switcher: apiKey.project.settings?.switcherOwner === "saas" && apiKey.project.settings.switcherConfig
+        ? {
+            contractVersion: 1,
+            owner: "saas",
+            revision: apiKey.project.settings.switcherRevision,
+            config: apiKey.project.settings.switcherConfig,
+            baseConfig: apiKey.project.settings.switcherBaseConfig,
+            baseRevision: apiKey.project.settings.switcherBaseRevision,
+          }
+        : { contractVersion: 1, owner: "wordpress", revision: apiKey.project.settings?.switcherRevision ?? 0 },
       urlSlugs: buildRuntimeUrlSlugs(urlSlugs),
       syncedAt: new Date().toISOString(),
     });

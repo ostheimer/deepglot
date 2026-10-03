@@ -395,6 +395,17 @@ model ProjectSettings {
   switcherDropdown        Boolean  @default(true)
   switcherFlagsType       String   @default("rectangle_mat")
   switcherCustomCss       String?
+  // Versioned switcher contract. WordPress remains the owner until a manager
+  // explicitly adopts its last reported configuration in the dashboard.
+  switcherOwner           String   @default("wordpress")
+  switcherRevision        Int      @default(0)
+  switcherConfig          Json?
+  switcherBaseConfig      Json?
+  switcherBaseRevision    Int?
+  switcherPluginConfig    Json?
+  switcherPluginRevision  Int?
+  switcherPluginSyncedAt  DateTime?
+  switcherConflict        Boolean  @default(false)
 
   // WordPress-specific
   translateEmails         Boolean  @default(false)

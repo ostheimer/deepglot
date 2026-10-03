@@ -739,6 +739,19 @@ class SettingsPage
                             <?php esc_html_e('Switcher automatisch im Seitenfooter einfügen', 'deepglot'); ?>
                         </label>
                     </div>
+
+                    <div class="dg-field" style="margin-top:14px;">
+                        <label for="dg_switcher_name"><?php esc_html_e('Name', 'deepglot'); ?></label>
+                        <input id="dg_switcher_name" type="text" name="<?php echo esc_attr($optKey); ?>[switcher_name]" value="<?php echo esc_attr((string) ($settings['switcher_name'] ?? 'Standard')); ?>" maxlength="100" />
+                    </div>
+                    <div class="dg-toggle-row" style="margin-top:12px;">
+                        <input id="dg_switcher_enabled" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($optKey); ?>[switcher_enabled]" value="1" <?php checked(!empty($settings['switcher_enabled'])); ?> />
+                        <label for="dg_switcher_enabled"><?php esc_html_e('Instanz aktivieren', 'deepglot'); ?></label>
+                    </div>
+                    <div class="dg-field" style="margin-top:12px;">
+                        <label for="dg_switcher_selector"><?php esc_html_e('DOM-Ziel für automatische Platzierung', 'deepglot'); ?></label>
+                        <input id="dg_switcher_selector" type="text" name="<?php echo esc_attr($optKey); ?>[switcher_selector]" value="<?php echo esc_attr((string) ($settings['switcher_selector'] ?? '')); ?>" maxlength="<?php echo esc_attr((string) Options::SWITCHER_SELECTOR_MAX_LEN); ?>" placeholder="#site-header > nav.primary" />
+                    </div>
                     <p class="description" style="margin-top:4px;">
                         <?php esc_html_e('Alternativ: Shortcode [deepglot_switcher] oder PHP do_action(\'deepglot_language_switcher\') in deinem Theme.', 'deepglot'); ?>
                     </p>
@@ -918,6 +931,16 @@ class SettingsPage
                         <p class="description" style="margin-top:6px; font-size:12px;">
                             <?php esc_html_e('Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt.', 'deepglot'); ?>
                         </p>
+                    </div>
+
+                    <div class="dg-field" style="margin-top:18px;">
+                        <label><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                        <?php foreach ($orderedLangs as $lang) : ?>
+                            <label style="display:block; margin:6px 0;">
+                                <?php echo esc_html(strtoupper($lang)); ?>
+                                <input type="text" name="<?php echo esc_attr($optKey); ?>[switcher_custom_names][<?php echo esc_attr($lang); ?>]" value="<?php echo esc_attr((string) (($settings['switcher_custom_names'][$lang] ?? ''))); ?>" maxlength="80" />
+                            </label>
+                        <?php endforeach; ?>
                     </div>
 
                     <div class="dg-field" style="margin-top:18px;">
@@ -1396,6 +1419,17 @@ class SettingsPage
                 <div class="dg-section-grid">
                     <?php foreach ($configuredLanguages as $language) : ?>
                         <input type="text" name="<?php echo esc_attr($prefix . '[custom_flags][' . $language . ']'); ?>" value="<?php echo esc_attr((string) (($instance['custom_flags'][$language] ?? ''))); ?>" placeholder="<?php echo esc_attr(strtoupper($language) . ': 🇦🇹 oder https://…'); ?>" />
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div class="dg-field">
+                <label><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                <div class="dg-section-grid">
+                    <?php foreach ($configuredLanguages as $language) : ?>
+                        <label><?php echo esc_html(strtoupper($language)); ?>
+                            <input type="text" name="<?php echo esc_attr($prefix . '[custom_names][' . $language . ']'); ?>" value="<?php echo esc_attr((string) (($instance['custom_names'][$language] ?? ''))); ?>" maxlength="80" />
+                        </label>
                     <?php endforeach; ?>
                 </div>
             </div>

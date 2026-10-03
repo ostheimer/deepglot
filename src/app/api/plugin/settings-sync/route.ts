@@ -13,6 +13,7 @@ import {
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
+import { sameSwitcherConfig } from "@/lib/switcher-contract";
 import {
   PLUGIN_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
@@ -138,6 +139,9 @@ async function syncPluginSettings(request: NextRequest) {
                 autoSwitch: true,
                 runtimeSyncSiteHost: true,
                 runtimeSyncConflicts: true,
+                switcherOwner: true,
+                switcherRevision: true,
+                switcherConfig: true,
               },
             },
             languages: {
@@ -192,10 +196,26 @@ async function syncPluginSettings(request: NextRequest) {
         if (siteIdentityConflict) {
           mirrorConflicts.push("siteIdentity");
         }
+        // A plugin may report a switcher that still mentions a language just
+        // removed from the project. Preserve the raw mirror as the adoption
+        // base; the editor filters inactive overrides before a manager saves.
+        const switcherReport = body.switcher && !mirrorConflicts.includes("domain") && !siteIdentityConflict
+          ? {
+              switcherPluginConfig: body.switcher.config,
+              switcherPluginRevision: body.switcher.appliedRevision,
+              switcherPluginSyncedAt: new Date(),
+              switcherConflict: authoritativeProject.settings?.switcherOwner === "saas" && (
+                body.switcher.localConflict ||
+                (body.switcher.appliedRevision === authoritativeProject.settings.switcherRevision &&
+                  !sameSwitcherConfig(body.switcher.config, authoritativeProject.settings.switcherConfig))
+              ),
+            }
+          : {};
         const settingsUpdate = {
           ...buildPluginOwnedSettingsUpdate(body),
           ...buildRuntimeSyncMirrorRecord(body, mirrorConflicts),
           ...syncOrigin,
+          ...switcherReport,
         };
 
         await tx.projectSettings.upsert({

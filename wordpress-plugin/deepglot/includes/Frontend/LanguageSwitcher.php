@@ -184,6 +184,7 @@ class LanguageSwitcher
         $labelFormat   = (string) ($instance['label_format'] ?? $this->options->getSwitcherLabelFormat());
         $showLabel     = (bool) ($instance['show_label'] ?? $this->options->shouldShowSwitcherLabel());
         $languageOrder = is_array($instance['language_order'] ?? null) ? $instance['language_order'] : [];
+        $customNames = is_array($instance['custom_names'] ?? null) ? $instance['custom_names'] : [];
         $position      = (string) ($instance['position'] ?? $this->options->getSwitcherPosition());
         $customCss     = (string) ($instance['custom_css'] ?? $this->options->getSwitcherCustomCss());
         $autoRedirect  = $this->options->shouldAutoRedirect();
@@ -212,7 +213,7 @@ class LanguageSwitcher
         // <label for="{uniqId}"> so clicking it toggles the checkbox
         // that drives the dropdown — no JavaScript required for the
         // open/close interaction.
-        $activeLabelText = $this->labelFor($activeLang, $labelFormat);
+        $activeLabelText = $this->labelFor($activeLang, $labelFormat, $customNames);
         $activeNative    = self::LANGUAGE_LABELS[$activeLang] ?? strtoupper($activeLang);
 
         $labelClass = $showLabel
@@ -244,7 +245,7 @@ class LanguageSwitcher
                 $href = $this->appendExplicitMarker($href);
             }
 
-            $label    = $this->labelFor($lang, $labelFormat);
+            $label    = $this->labelFor($lang, $labelFormat, $customNames);
             $native   = self::LANGUAGE_LABELS[$lang] ?? strtoupper($lang);
             $flagSpan = $this->flagSpan($lang, $flagStyle);
 
@@ -423,8 +424,11 @@ class LanguageSwitcher
         );
     }
 
-    private function labelFor(string $lang, string $format): string
+    private function labelFor(string $lang, string $format, array $customNames = []): string
     {
+        if (isset($customNames[$lang]) && $customNames[$lang] !== '') {
+            return (string) $customNames[$lang];
+        }
         if ($format === 'iso_code') {
             return strtoupper($lang);
         }

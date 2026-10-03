@@ -556,6 +556,13 @@ class Client
             'translateAmp' => !empty($settings['translate_amp']),
             'enableDynamicTranslation' => !empty($settings['enable_dynamic_translation']),
             'domainMappings' => $domainMappings,
+            'switcher' => [
+                'contractVersion' => 1,
+                'appliedRevision' => isset($settings['switcher_contract_revision'])
+                    ? (int) $settings['switcher_contract_revision'] : null,
+                'localConflict' => !empty($settings['switcher_local_conflict']),
+                'config' => $this->options->exportSwitcherContract($settings),
+            ],
         ];
 
         return $this->request(
