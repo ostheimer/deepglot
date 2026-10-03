@@ -6,7 +6,8 @@ name: Schema push (production)
 #   1. Dispatch with apply=false: computes the SQL plan (schema-plan.sql) with
 #      `prisma migrate diff`, prints it, and warns if it contains destructive
 #      statements. Nothing is executed against the database.
-#   2. Dispatch with apply=true and schema_sha=<the commit the plan run used>:
+#   2. Dispatch with apply=true, schema_sha=<the main commit the plan used>,
+#      the same target_schema, and plan_digest=<the plan run's digest>:
 #      recomputes the same plan and, if it is not destructive, executes that
 #      exact schema-plan.sql with `prisma db execute`. A destructive plan
 #      (DROP/TRUNCATE/DELETE/ALTER COLUMN ... TYPE) fails the run instead of
@@ -37,6 +38,10 @@ on:
         options:
           - current
           - predeploy-switcher-262
+      plan_digest:
+        description: "For apply=true: the reviewed target/schema/SQL digest printed by the plan run."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -58,6 +63,7 @@ jobs:
       APPLY: ${{ inputs.apply }}
       SCHEMA_SHA: ${{ inputs.schema_sha }}
       TARGET_SCHEMA_CHOICE: ${{ inputs.target_schema }}
+      PLAN_DIGEST: ${{ inputs.plan_digest }}
     steps:
       - name: Check out main
         uses: actions/checkout@v4
@@ -177,6 +183,9 @@ jobs:
 
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_empty=${empty}\n`);
           '
+
+      - name: Bind apply to the reviewed target and SQL plan
+        run: node --import tsx scripts/schema-plan-attestation.ts
 
       - name: Guard against destructive SQL
         run: |
