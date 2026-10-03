@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { requireProjectManagement } from "@/lib/project-page-access";
 import { getRequestLocale } from "@/lib/request-locale";
-import { getProjectUrl } from "@/lib/project-url";
+import { getWordPressSettingsUrl } from "@/lib/project-url";
 import { RuntimeSyncBanner } from "@/components/projekte/runtime-sync-banner";
 import { SwitcherEditor } from "@/components/projekte/switcher-editor";
 import { normalizeSwitcherConfigLanguages, switcherConfigSchema } from "@/lib/switcher-contract";
@@ -34,7 +34,7 @@ export default async function SwitcherPage({ params }: { params: Promise<{ proje
       projectId={projektId} locale={locale} initialOwner={owner} initialRevision={s?.switcherRevision ?? 0}
       initialConfig={config} pluginSyncedAt={s?.switcherPluginSyncedAt?.toISOString() ?? null}
       pluginRevision={s?.switcherPluginRevision ?? null} conflict={s?.switcherConflict ?? false}
-      languages={languages} wpSettingsUrl={`${getProjectUrl(project.domain)}/wp-admin/options-general.php?page=deepglot`}
+      languages={languages} wpSettingsUrl={getWordPressSettingsUrl(project.domain, s?.runtimeSyncSiteHost)}
     />
   </div>;
 }

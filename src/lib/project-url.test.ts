@@ -1,35 +1,23 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 
-import { getProjectUrl, getVisualEditorUrl } from "@/lib/project-url";
+import { getWordPressSettingsUrl } from "./project-url";
 
-test("builds https URLs for regular project domains", () => {
-  assert.equal(getProjectUrl("example.com"), "https://example.com");
-  assert.equal(getProjectUrl("sub.example.com"), "https://sub.example.com");
-});
-
-test("builds http URLs for localhost-style domains", () => {
-  assert.equal(getProjectUrl("localhost:3000"), "http://localhost:3000");
-  assert.equal(getProjectUrl("127.0.0.1:8787"), "http://127.0.0.1:8787");
-});
-
-test("preserves explicit protocols", () => {
-  assert.equal(getProjectUrl("https://example.com"), "https://example.com");
-  assert.equal(getProjectUrl("http://localhost:3000"), "http://localhost:3000");
-});
-
-test("appends the visual editor flag to project URLs", () => {
+test("WordPress settings link preserves a synced subdirectory installation", () => {
   assert.equal(
-    getVisualEditorUrl("example.com"),
-    "https://example.com/?deepglot_editor=1"
+    getWordPressSettingsUrl("example.com", "example.com/blog"),
+    "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
   );
   assert.equal(
-    getVisualEditorUrl("https://example.com/path"),
-    "https://example.com/path?deepglot_editor=1"
+    getWordPressSettingsUrl("example.com", "other.example/blog"),
+    "https://example.com/wp-admin/options-general.php?page=deepglot",
   );
-});
-
-test("returns null for malformed domains", () => {
-  assert.equal(getVisualEditorUrl(""), null);
-  assert.equal(getVisualEditorUrl("not a domain!@#"), null);
+  assert.equal(
+    getWordPressSettingsUrl("https://example.com/blog/", null),
+    "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
+  );
+  assert.equal(
+    getWordPressSettingsUrl("example.com", "www.example.com/blog"),
+    "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
+  );
 });

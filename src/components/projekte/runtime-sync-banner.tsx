@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DismissSyncOriginButton } from "@/components/projekte/dismiss-sync-origin-button";
 import { Button } from "@/components/ui/button";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
-import { getProjectUrl } from "@/lib/project-url";
+import { getWordPressSettingsUrl } from "@/lib/project-url";
 import { hasRuntimeSyncDomainConflict } from "@/lib/plugin-settings-sync";
 import { withLocalePrefix } from "@/lib/site-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -35,7 +35,7 @@ export function RuntimeSyncBanner({
     syncSiteHost,
     syncConflicts,
   );
-  const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
+  const wpSettingsUrl = getWordPressSettingsUrl(domain, syncSiteHost);
 
   const syncedLabel = runtimeSyncedAt
     ? formatDistanceToNow(runtimeSyncedAt, {
