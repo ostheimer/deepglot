@@ -30,6 +30,13 @@ on:
         description: "For apply=true: the 40-character main commit printed by the plan run. The run fails if main has moved since."
         type: string
         default: ""
+      target_schema:
+        description: "Schema already merged on main to plan/apply (default or issue 262 predeploy data file)."
+        type: choice
+        default: "current"
+        options:
+          - current
+          - predeploy-switcher-262
 
 permissions:
   contents: read
@@ -50,6 +57,7 @@ jobs:
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       APPLY: ${{ inputs.apply }}
       SCHEMA_SHA: ${{ inputs.schema_sha }}
+      TARGET_SCHEMA_CHOICE: ${{ inputs.target_schema }}
     steps:
       - name: Check out main
         uses: actions/checkout@v4
@@ -59,12 +67,20 @@ jobs:
       - name: Resolve schema commit
         run: |
           head="$(git rev-parse HEAD)"
-          echo "Schema: prisma/schema.prisma at main commit $head"
-          echo "::notice title=Schema commit::$head"
+          echo "Workflow code and dependencies: main commit $head"
+          echo "::notice title=Main workflow commit::$head"
           if [ "$APPLY" = "true" ] && [ "$SCHEMA_SHA" != "$head" ]; then
             echo "::error::apply=true needs schema_sha=$head (the commit printed by the plan run); got '$SCHEMA_SHA'. Re-run the plan if main has moved."
             exit 1
           fi
+          case "$TARGET_SCHEMA_CHOICE" in
+            current) target_schema="$GITHUB_WORKSPACE/prisma/schema.prisma" ;;
+            predeploy-switcher-262) target_schema="$GITHUB_WORKSPACE/prisma/predeploy-switcher-262.prisma" ;;
+            *) echo "::error::Unknown target schema choice."; exit 1 ;;
+          esac
+          echo "::notice title=Schema source::$target_schema from reviewed main commit $head"
+          echo "TARGET_SCHEMA=$target_schema" >> "$GITHUB_ENV"
+          sha256sum "$target_schema"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -136,7 +152,7 @@ jobs:
         run: |
           npx prisma migrate diff \
             --from-config-datasource \
-            --to-schema prisma/schema.prisma \
+            --to-schema "$TARGET_SCHEMA" \
             --script \
             -o schema-plan.sql
 
