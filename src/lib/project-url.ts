@@ -31,7 +31,7 @@ export function getWordPressSettingsUrl(domain: string, syncSiteHost?: string | 
 
   if (syncSiteHost) {
     try {
-      const siteUrl = new URL(`https://${syncSiteHost}`);
+      const siteUrl = new URL(`${projectUrl.protocol}//${syncSiteHost}`);
       const comparableHost = (host: string) => host.toLowerCase().replace(/\.+$/, "").replace(/^www\./, "");
       if (comparableHost(siteUrl.hostname) === comparableHost(projectUrl.hostname) && siteUrl.port === projectUrl.port) {
         installPath = siteUrl.pathname;
