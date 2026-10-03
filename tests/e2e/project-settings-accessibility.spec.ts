@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import { signInAndGetProjectId } from "./helpers";
+import { e2eId } from "./helpers";
+import { db } from "../../src/lib/db";
 
 test.describe("project settings accessibility", () => {
   test("labels editable general settings and explains the protected source language", async ({
@@ -159,16 +161,19 @@ test.describe("project settings accessibility", () => {
     }
   });
 
-  test("labels read-only language switcher controls", async ({ page }) => {
-    const projectId = await signInAndGetProjectId(page);
-
-    await page.goto(`/projects/${projectId}/settings/switcher`);
-
-    await expect(page.getByRole("combobox", { name: "Flag style" })).toBeDisabled();
-    await expect(page.getByRole("textbox", { name: "Custom CSS" })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Edit original language appearance" })
-    ).toBeDisabled();
-    await expect(page.getByRole("button", { name: /Edit English appearance/ })).toBeDisabled();
+  test("explains that a switcher needs synced WordPress settings before dashboard adoption", async ({ page }) => {
+    const seededId = await signInAndGetProjectId(page);
+    const seeded = await db.project.findUniqueOrThrow({ where: { id: seededId }, select: { organizationId: true } });
+    const suffix = e2eId("switcher-empty");
+    const project = await db.project.create({ data: {
+      name: suffix, domain: `${suffix}.example.test`, organizationId: seeded.organizationId,
+    } });
+    try {
+      await page.goto(`/projects/${project.id}/settings/switcher`);
+      await expect(page.getByRole("status").filter({ hasText: /WordPress switcher settings have not been synced yet/i })).toBeVisible();
+      await expect(page.getByRole("combobox", { name: "Switcher" })).toHaveCount(0);
+    } finally {
+      await db.project.delete({ where: { id: project.id } });
+    }
   });
 });

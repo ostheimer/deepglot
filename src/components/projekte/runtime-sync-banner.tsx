@@ -15,7 +15,7 @@ type RuntimeSyncBannerProps = {
   locale: SiteLocale;
   domain: string;
   runtimeSyncedAt?: Date | null;
-  source?: "wordpress-runtime" | "saas-general";
+  source?: "wordpress-runtime" | "saas-general" | "switcher-only";
   syncSiteHost?: string | null;
   syncConflicts?: readonly string[] | null;
   projectId?: string;
@@ -88,7 +88,7 @@ export function RuntimeSyncBanner({
         </div>
       </div>
     ) : null}
-    <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
+    {source !== "switcher-only" ? <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:flex-row md:items-center md:justify-between">
       <div>
         <p className="text-sm font-semibold text-blue-900">
           {saasGeneral
@@ -139,7 +139,7 @@ export function RuntimeSyncBanner({
           )}
         </a>
       </Button>
-    </div>
+    </div> : null}
     </div>
   );
 }

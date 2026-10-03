@@ -171,6 +171,8 @@ settingsSyncCheck(
 );
 
 $disabledPayload = settingsSyncPayloadFor(['enable_dynamic_translation' => false]);
+settingsSyncCheck($disabledPayload['switcher']['owner'] === 'wordpress', 'Switcher report must name the WordPress owner.');
+settingsSyncCheck($disabledPayload['switcher']['lastSeenRevision'] === 0, 'Switcher report must include the monotone owner revision.');
 settingsSyncCheck(
     array_key_exists('enableDynamicTranslation', $disabledPayload),
     'Settings sync payload must include the disabled dynamic translation toggle.'

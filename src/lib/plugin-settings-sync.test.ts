@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   buildPluginOwnedSettingsUpdate,
+  canAcceptSwitcherReportAfterReturn,
   buildRuntimeSyncMirrorRecord,
   buildRuntimeSyncOrigin,
   canonicalHost,
@@ -15,6 +16,16 @@ import {
   type PluginSettingsSyncPayload,
   validatePluginDomainMappings,
 } from "@/lib/plugin-settings-sync";
+
+test("return waits for WordPress to acknowledge the owner revision before re-adoption", () => {
+  const returned = { switcherRevision: 2, switcherPluginSyncedAt: null };
+  assert.equal(canAcceptSwitcherReportAfterReturn(returned, { owner: "saas", lastSeenRevision: 1 }), false);
+  assert.equal(canAcceptSwitcherReportAfterReturn(returned, { owner: "wordpress", lastSeenRevision: 1 }), false);
+  assert.equal(canAcceptSwitcherReportAfterReturn(returned, { owner: "wordpress", lastSeenRevision: 2 }), true);
+  assert.equal(canAcceptSwitcherReportAfterReturn({ ...returned, switcherPluginSyncedAt: new Date() },
+    { owner: "saas", lastSeenRevision: 1 }), false);
+  assert.equal(canAcceptSwitcherReportAfterReturn({ switcherRevision: 0, switcherPluginSyncedAt: null }, {}), true);
+});
 
 const basePayload: PluginSettingsSyncPayload = {
   routingMode: "SUBDOMAIN",

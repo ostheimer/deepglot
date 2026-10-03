@@ -1,0 +1,47 @@
+{
+  "first": {
+    "contractVersion": 1,
+    "instances": [{
+      "id": "default", "name": "Sprachauswahl", "enabled": true, "autoInject": false,
+      "style": "dropdown", "flagStyle": "rectangle_mat", "showLabel": true,
+      "labelFormat": "full_name", "languageOrder": ["de", "en"],
+      "customCss": ".deepglot-switcher { color: #123; }", "position": "inline",
+      "responsiveHide": "none", "responsiveBreakpoint": 768,
+      "customFlags": {"en": "🇺🇸", "de": "🇦🇹"},
+      "customNames": {"en": "English", "de": "Österreichisches Deutsch"},
+      "selector": "#site-header > nav.primary"
+    }]
+  },
+  "reordered": {
+    "instances": [{
+      "selector": "#site-header > nav.primary", "customNames": {"de": "Österreichisches Deutsch", "en": "English"},
+      "customFlags": {"de": "🇦🇹", "en": "🇺🇸"},
+      "responsiveBreakpoint": 768, "responsiveHide": "none", "position": "inline",
+      "customCss": ".deepglot-switcher { color: #123; }", "languageOrder": ["de", "en"],
+      "labelFormat": "full_name", "showLabel": true, "flagStyle": "rectangle_mat",
+      "style": "dropdown", "autoInject": false, "enabled": true,
+      "name": "Sprachauswahl", "id": "default"
+    }],
+    "contractVersion": 1
+  },
+  "unicodeSeparators": {
+    "contractVersion": 1,
+    "instances": [{
+      "id": "default", "name": "Zeile Absatz Ende", "enabled": true, "autoInject": false,
+      "style": "list", "flagStyle": "none", "showLabel": false,
+      "labelFormat": "iso_code", "languageOrder": [], "customCss": "",
+      "position": "inline", "responsiveHide": "none", "responsiveBreakpoint": 768,
+      "customFlags": {}, "customNames": {}, "selector": ""
+    }]
+  },
+  "emptyMaps": {
+    "contractVersion": 1,
+    "instances": [{
+      "id": "default", "name": "Standard", "enabled": true, "autoInject": false,
+      "style": "list", "flagStyle": "none", "showLabel": false,
+      "labelFormat": "iso_code", "languageOrder": [], "customCss": "",
+      "position": "inline", "responsiveHide": "none", "responsiveBreakpoint": 768,
+      "customFlags": {}, "customNames": {}, "selector": ""
+    }]
+  }
+}

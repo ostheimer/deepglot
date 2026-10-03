@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.12.10
+Stable tag: 0.12.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -88,9 +88,9 @@ By default, this plugin connects to the Deepglot service at `https://deepglot.ai
 
 For translation requests, the plugin sends the configured API key, text fragments from rendered pages, source and target language codes, the requested page URL, and a bot-classification code. It sends these requests when uncached content needs translation, when an administrator starts URL synchronization, or when an administrator tests the connection. URL synchronization first requests safe internal target pages on the same WordPress site; those pages feed missing segments into the normal translation queue. Dynamic translation requests first pass through the site's same-origin WordPress REST endpoint, so the API key is not exposed to browsers.
 
-Settings synchronization sends the configured API key, site URL, WordPress-owned routing mode and domain mappings, and the feature flags for email translation, search translation, AMP translation, and dynamic translation. It also sends bootstrap mirrors for source language, target languages, and automatic redirect; the authenticated SaaS project remains authoritative for those three project-wide values.
+Settings synchronization sends the configured API key, site URL, WordPress-owned routing mode and domain mappings, and the feature flags for email translation, search translation, AMP translation, and dynamic translation. It also sends bootstrap mirrors for source language, target languages, and automatic redirect; the authenticated SaaS project remains authoritative for those three project-wide values. Version 0.12.11 additionally sends the saved switcher instance configuration, custom labels and flags, CSS, placement selectors, and last applied revision so the dashboard can show drift and conflicts.
 
-Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, translated URL-slug mappings, and active-language media URL replacements scoped to that API key's project. The plugin can also request the public supported-languages list without an API key.
+Runtime refresh sends the configured API key and receives one atomic project snapshot containing its version, source and target languages, automatic redirect, AI disclosure, and automatic-translation policy, plus URL and selector exclusions, regular-expression exclusions, translated URL-slug mappings, and active-language media URL replacements scoped to that API key's project. When a project manager explicitly adopts the switcher in the dashboard, runtime refresh returns a versioned switcher configuration and revision; local WordPress edits are preserved and reported as conflicts. The plugin can also request the public supported-languages list without an API key.
 
 Starting the Visual Editor verifies its token through the project-scoped `editor-sessions/verify` endpoint. Saving a manual translation sends the token, original and translated text, source and target language codes, and the request URL to the project-scoped `manual-translations` endpoint.
 
@@ -100,6 +100,10 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.11 =
+* Added a versioned, opt-in dashboard language-switcher editor while preserving WordPress settings and surfacing local-edit conflicts.
+* Added custom language names, selector placement for the default switcher, and revision acknowledgements.
 
 = 0.12.10 =
 * Added locale-specific PDF, DOCX, XLSX, PPTX, MP4, WebM, YouTube, YouTube-nocookie, and Vimeo URL replacement for server-rendered links and video embeds.
@@ -214,6 +218,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.11 =
+Adds opt-in dashboard ownership for the language switcher. Existing WordPress configurations remain in control until adopted.
 
 = 0.12.10 =
 Adds localized document links and supported video file or embed URLs with safe fallback and cache purging. Publishing the package does not automatically update customer sites.

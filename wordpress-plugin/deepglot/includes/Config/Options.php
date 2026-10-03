@@ -109,6 +109,9 @@ class Options
             // sites keep their shortcode / theme integration untouched until
             // the admin explicitly enables auto-inject or customises styles.
             'switcher_auto_inject' => false,
+            'switcher_name' => 'Standard',
+            'switcher_enabled' => true,
+            'switcher_selector' => '',
             'switcher_default_style' => 'list',
             'switcher_flag_style' => 'rectangle_mat',
             'switcher_show_label' => true,
@@ -123,6 +126,12 @@ class Options
             // per language (e.g. `en` → 🇬🇧). Admin can override for
             // regional audiences (`en` → 🇺🇸).
             'switcher_custom_flags' => [],
+            'switcher_custom_names' => [],
+            'switcher_contract_revision' => null,
+            'switcher_contract_owner' => 'wordpress',
+            'switcher_contract_last_seen' => 0,
+            'switcher_contract_config' => [],
+            'switcher_local_conflict' => false,
             // Versioned multi-switcher storage. Existing installations are
             // migrated lazily from the global switcher_* fields in all().
             'switcher_instances_version' => self::SWITCHER_INSTANCES_VERSION,
@@ -247,6 +256,9 @@ class Options
             'exclude_selectors' => sanitize_textarea_field((string) ($input['exclude_selectors'] ?? '')),
             'runtime_config_synced_at' => max(0, (int) ($input['runtime_config_synced_at'] ?? 0)),
             'switcher_auto_inject' => !empty($input['switcher_auto_inject']),
+            'switcher_name' => sanitize_text_field((string) ($input['switcher_name'] ?? 'Standard')),
+            'switcher_enabled' => !empty($input['switcher_enabled']),
+            'switcher_selector' => $this->sanitizeSwitcherSelector($input['switcher_selector'] ?? ''),
             'switcher_default_style' => $this->sanitizeEnum(
                 (string) ($input['switcher_default_style'] ?? 'list'),
                 self::SWITCHER_STYLES,
@@ -283,6 +295,16 @@ class Options
                 $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de')),
                 $targetLanguages
             ),
+            'switcher_custom_names' => $this->sanitizeCustomNames(
+                $input['switcher_custom_names'] ?? [],
+                $this->sanitizeLanguage((string) ($input['source_language'] ?? 'de')),
+                $targetLanguages
+            ),
+            'switcher_contract_revision' => $sameRuntimeIdentity ? ($storedSettings['switcher_contract_revision'] ?? null) : null,
+            'switcher_contract_owner' => $sameRuntimeIdentity ? ($storedSettings['switcher_contract_owner'] ?? 'wordpress') : 'wordpress',
+            'switcher_contract_last_seen' => $sameRuntimeIdentity ? max(0, (int) ($storedSettings['switcher_contract_last_seen'] ?? 0)) : 0,
+            'switcher_contract_config' => $sameRuntimeIdentity ? ($storedSettings['switcher_contract_config'] ?? []) : [],
+            'switcher_local_conflict' => $sameRuntimeIdentity && !empty($storedSettings['switcher_local_conflict']),
         ];
 
         $sanitized['switcher_instances_version'] = self::SWITCHER_INSTANCES_VERSION;
@@ -290,6 +312,12 @@ class Options
             $input['switcher_instances'] ?? [],
             $sanitized
         );
+
+        if ($sameRuntimeIdentity && $sanitized['switcher_contract_revision'] !== null) {
+            $sanitized['switcher_local_conflict'] = $sanitized['switcher_local_conflict']
+                || $this->switcherConfigHash($this->exportSwitcherContract($sanitized))
+                    !== $this->switcherConfigHash((array) $sanitized['switcher_contract_config']);
+        }
 
         return $sanitized;
     }
@@ -309,7 +337,7 @@ class Options
 
         $selector = preg_replace('/\s+/', ' ', $selector);
         $selector = preg_replace('/\s*>\s*/', ' > ', (string) $selector);
-        $compound = '(?:[#.][A-Za-z_][A-Za-z0-9_-]*|[A-Za-z][A-Za-z0-9-]*(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*)';
+        $compound = '(?:[A-Za-z][A-Za-z0-9-]*|[.#][A-Za-z_][A-Za-z0-9_-]*)(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*';
 
         if (!preg_match('/^' . $compound . '(?:(?:\s*>\s*|\s+)' . $compound . ')*$/D', (string) $selector)) {
             return '';
@@ -396,7 +424,7 @@ class Options
             return substr(sanitize_key((string) $value), 0, 64);
         }
 
-        return substr(trim(strtolower((string) preg_replace('/[^a-z0-9_-]/i', '', (string) $value)), '_-'), 0, 64);
+        return substr(strtolower((string) preg_replace('/[^a-z0-9_-]/i', '', (string) $value)), 0, 64);
     }
 
     /**
@@ -456,6 +484,7 @@ class Options
             'responsive_hide' => $this->sanitizeEnum((string) ($raw['responsive_hide'] ?? 'none'), self::SWITCHER_RESPONSIVE_HIDE_VALUES, 'none'),
             'responsive_breakpoint' => $this->sanitizeBreakpoint($raw['responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT),
             'custom_flags' => $this->sanitizeCustomFlags($raw['custom_flags'] ?? [], $sourceLanguage, $targetLanguages),
+            'custom_names' => $this->sanitizeCustomNames($raw['custom_names'] ?? [], $sourceLanguage, $targetLanguages),
             'selector' => $this->sanitizeSwitcherSelector($raw['selector'] ?? ''),
         ];
     }
@@ -468,10 +497,10 @@ class Options
     {
         return [
             'id' => 'default',
-            'name' => 'Standard',
+            'name' => (string) ($settings['switcher_name'] ?? 'Standard'),
             'template' => 'legacy',
             'template_version' => self::SWITCHER_INSTANCES_VERSION,
-            'enabled' => true,
+            'enabled' => !empty($settings['switcher_enabled']),
             'auto_inject' => !empty($settings['switcher_auto_inject']),
             'style' => $this->sanitizeEnum((string) ($settings['switcher_default_style'] ?? 'list'), self::SWITCHER_STYLES, 'list'),
             'flag_style' => $this->sanitizeEnum((string) ($settings['switcher_flag_style'] ?? 'rectangle_mat'), self::SWITCHER_FLAG_STYLES, 'rectangle_mat'),
@@ -483,7 +512,8 @@ class Options
             'responsive_hide' => $this->sanitizeEnum((string) ($settings['switcher_responsive_hide'] ?? 'none'), self::SWITCHER_RESPONSIVE_HIDE_VALUES, 'none'),
             'responsive_breakpoint' => $this->sanitizeBreakpoint($settings['switcher_responsive_breakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT),
             'custom_flags' => is_array($settings['switcher_custom_flags'] ?? null) ? $settings['switcher_custom_flags'] : [],
-            'selector' => '',
+            'custom_names' => is_array($settings['switcher_custom_names'] ?? null) ? $settings['switcher_custom_names'] : [],
+            'selector' => $this->sanitizeSwitcherSelector($settings['switcher_selector'] ?? ''),
         ];
     }
 
@@ -553,6 +583,82 @@ class Options
         }
 
         return $clean;
+    }
+
+    private function sanitizeCustomNames($value, string $sourceLang, array $targetLangs): array
+    {
+        if (!is_array($value)) return [];
+        $configured = array_flip(array_merge([$sourceLang], $targetLangs));
+        $clean = [];
+        foreach ($value as $lang => $name) {
+            $lang = $this->sanitizeLanguage((string) $lang);
+            if ($lang === '' || !isset($configured[$lang]) || !is_string($name)) continue;
+            $name = trim(sanitize_text_field($name));
+            if ($name !== '') $clean[$lang] = mb_substr($name, 0, 80);
+        }
+        return $clean;
+    }
+
+    /** Stable v1 payload shared by wp-admin, settings-sync and runtime-config. */
+    public function exportSwitcherContract(?array $settings = null): array
+    {
+        $settings = $settings ?? $this->all();
+        $instances = [$this->legacySwitcherInstance($settings)];
+        foreach ((array) ($settings['switcher_instances'] ?? []) as $candidate) {
+            if (is_array($candidate) && ($candidate['id'] ?? '') !== 'default') $instances[] = $candidate;
+        }
+        $result = [];
+        foreach ($instances as $instance) {
+            $result[] = [
+                'id' => (string) $instance['id'],
+                'name' => (string) $instance['name'],
+                'enabled' => !empty($instance['enabled']),
+                'autoInject' => !empty($instance['auto_inject']),
+                'style' => (string) $instance['style'],
+                'flagStyle' => (string) $instance['flag_style'],
+                'showLabel' => !empty($instance['show_label']),
+                'labelFormat' => (string) $instance['label_format'],
+                'languageOrder' => array_values((array) $instance['language_order']),
+                // The renderer strips '<' before emitting CSS. Report that
+                // effective value so legacy CSS remains mirrorable in v1.
+                'customCss' => str_replace('<', '', trim((string) $instance['custom_css'])),
+                'position' => (string) $instance['position'],
+                'responsiveHide' => (string) $instance['responsive_hide'],
+                'responsiveBreakpoint' => (int) $instance['responsive_breakpoint'],
+                'customFlags' => (object) ($instance['custom_flags'] ?? []),
+                'customNames' => (object) ($instance['custom_names'] ?? []),
+                'selector' => (string) $instance['selector'],
+            ];
+        }
+        return ['contractVersion' => 1, 'instances' => $result];
+    }
+
+    /** Canonical SHA-256; instance and language list order remains meaningful. */
+    public function switcherConfigHash(array $config): string
+    {
+        foreach ((array) ($config['instances'] ?? []) as $index => $instance) {
+            foreach (['customFlags', 'customNames'] as $field) {
+                $config['instances'][$index][$field] = (object) ($instance[$field] ?? []);
+            }
+        }
+        return hash('sha256', json_encode($this->canonicalSwitcherValue($config), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_LINE_TERMINATORS));
+    }
+
+    private function canonicalSwitcherValue($value)
+    {
+        if (is_object($value)) {
+            $value = get_object_vars($value);
+            ksort($value, SORT_STRING);
+            return (object) array_map([$this, 'canonicalSwitcherValue'], $value);
+        }
+        if (is_array($value)) {
+            if ($value === [] || array_keys($value) === range(0, count($value) - 1)) {
+                return array_map([$this, 'canonicalSwitcherValue'], $value);
+            }
+            ksort($value, SORT_STRING);
+            return (object) array_map([$this, 'canonicalSwitcherValue'], $value);
+        }
+        return $value;
     }
 
     private function sanitizeEnum(string $value, array $allowed, string $default): string
@@ -867,14 +973,17 @@ class Options
         // started before an admin save would otherwise write its stale
         // snapshot back and silently revert the admin's change (observed
         // live: enable_dynamic_translation flipped off minutes after being
-        // saved). A sub-second write/write race remains theoretically
-        // possible, but the realistic minutes-long window is closed.
+        // saved). v1 switcher updates also compare the persisted option at
+        // write time so a concurrent admin save cannot be replaced.
         if (function_exists('wp_cache_delete')) {
             wp_cache_delete(self::OPTION_KEY, 'options');
             wp_cache_delete('alloptions', 'options');
         }
 
         $settings = $this->all();
+        $storedBeforeMerge = get_option(self::OPTION_KEY, []);
+        $switcherV1 = is_array($runtimeConfig['switcher'] ?? null)
+            && ($runtimeConfig['switcher']['contractVersion'] ?? null) === 1;
 
         // The payload was fetched BEFORE the fresh re-read above. If it was
         // fetched with a different API key (admin switched projects) or from a
@@ -917,14 +1026,14 @@ class Options
             $settings['exclude_selectors'] = implode("\n", $this->normalizeStringList($exclusions['selectors'] ?? []));
         }
 
-        if (array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
+        if (!$switcherV1 && array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
             $this->storeUrlSlugMappings($this->normalizeRuntimeUrlSlugs(
                 $runtimeConfig['urlSlugs'],
                 $this->normalizeLanguageList($settings['target_languages'] ?? [])
             ));
         }
 
-        if (array_key_exists('mediaReplacements', $runtimeConfig)) {
+        if (!$switcherV1 && array_key_exists('mediaReplacements', $runtimeConfig)) {
             $this->storeMediaReplacements($this->normalizeMediaReplacements(
                 $runtimeConfig['mediaReplacements'],
                 $this->normalizeLanguageList($settings['target_languages'] ?? [])
@@ -933,6 +1042,23 @@ class Options
 
         if (array_key_exists('switcher', $runtimeConfig) && is_array($runtimeConfig['switcher'])) {
             $switcher = $runtimeConfig['switcher'];
+            if (($switcher['contractVersion'] ?? null) === 1 && ($switcher['owner'] ?? null) === 'saas') {
+                $revision = $switcher['revision'] ?? null;
+                if (is_int($revision) && $revision > (int) ($settings['switcher_contract_last_seen'] ?? 0)) {
+                    $settings['switcher_contract_owner'] = 'saas';
+                    $settings['switcher_contract_last_seen'] = $revision;
+                    $this->applySwitcherContract($settings, $switcher);
+                }
+            } elseif (($switcher['contractVersion'] ?? null) === 1 && ($switcher['owner'] ?? null) === 'wordpress') {
+                $revision = $switcher['revision'] ?? null;
+                if (is_int($revision) && $revision > (int) ($settings['switcher_contract_last_seen'] ?? 0)) {
+                    $settings['switcher_contract_owner'] = 'wordpress';
+                    $settings['switcher_contract_last_seen'] = $revision;
+                    $settings['switcher_contract_revision'] = null;
+                    $settings['switcher_contract_config'] = [];
+                    $settings['switcher_local_conflict'] = false;
+                }
+            }
 
             if (array_key_exists('autoInject', $switcher)) {
                 $settings['switcher_auto_inject'] = !empty($switcher['autoInject']);
@@ -1006,7 +1132,155 @@ class Options
         $settings['runtime_config_synced_at'] = time();
         unset($settings['url_slug_mappings'], $settings['media_replacements']);
 
-        return $this->updateSettingsOption($settings, true);
+        if (!$switcherV1) return $this->updateSettingsOption($settings, true);
+
+        // Keep the settings CAS and dedicated map writes in one database
+        // transaction. A concurrent wp-admin project/backend change either
+        // wins before the CAS (all old payload writes are rejected) or waits
+        // for these writes to commit. The options row is the serialization
+        // point; WordPress stores all three options in the same table.
+        global $wpdb;
+        if (!isset($wpdb) || $wpdb->query('START TRANSACTION') === false) return false;
+        if (!$this->compareAndUpdateSwitcherOption($storedBeforeMerge, $settings)) {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        $wpdb->last_error = '';
+        if (array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
+            $this->storeUrlSlugMappings($this->normalizeRuntimeUrlSlugs(
+                $runtimeConfig['urlSlugs'], $this->normalizeLanguageList($settings['target_languages'] ?? [])
+            ));
+        }
+        if ($wpdb->last_error !== '') {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        $wpdb->last_error = '';
+        if (array_key_exists('mediaReplacements', $runtimeConfig)) {
+            $this->storeMediaReplacements($this->normalizeMediaReplacements(
+                $runtimeConfig['mediaReplacements'], $this->normalizeLanguageList($settings['target_languages'] ?? [])
+            ));
+        }
+        if ($wpdb->last_error !== '') {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        if ($wpdb->query('COMMIT') === false) {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        $this->clearRuntimeOptionsCache();
+        return true;
+    }
+
+    private function clearRuntimeOptionsCache(): void
+    {
+        if (!function_exists('wp_cache_delete')) return;
+        foreach ([self::OPTION_KEY, self::URL_SLUG_MAPPINGS_OPTION_KEY, self::MEDIA_REPLACEMENTS_OPTION_KEY] as $key) {
+            wp_cache_delete($key, 'options');
+        }
+        wp_cache_delete('alloptions', 'options');
+        wp_cache_delete('notoptions', 'options');
+    }
+
+    /** Atomically reject a v1 payload if wp-admin or another sync wrote first. */
+    private function compareAndUpdateSwitcherOption($expected, array $settings): bool
+    {
+        global $wpdb;
+        if (!isset($wpdb) || !isset($wpdb->options) || !function_exists('maybe_serialize')) return false;
+        $query = $wpdb->prepare(
+            "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND BINARY option_value = BINARY %s",
+            maybe_serialize($settings), self::OPTION_KEY, maybe_serialize($expected)
+        );
+        $updated = $wpdb->query($query);
+        if ($updated !== 1) return false;
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::OPTION_KEY, 'options');
+            wp_cache_delete('alloptions', 'options');
+            wp_cache_delete('notoptions', 'options');
+        }
+        return true;
+    }
+
+    /** Apply only an acknowledged successor to the same local switcher state. */
+    private function applySwitcherContract(array &$settings, array $switcher): void
+    {
+        $revision = $switcher['revision'] ?? null;
+        $config = $switcher['config'] ?? null;
+        if (!is_int($revision) || $revision < 1 || !is_array($config)
+            || ($config['contractVersion'] ?? null) !== 1 || !is_array($config['instances'] ?? null)) return;
+        $applied = $settings['switcher_contract_revision'] ?? null;
+        if ($applied === $revision) return;
+        if ($applied !== null && $revision < $applied) return;
+        $local = $this->exportSwitcherContract($settings);
+        $expected = $applied === ($switcher['baseRevision'] ?? null)
+            ? ($switcher['baseConfig'] ?? null)
+            : ($settings['switcher_contract_config'] ?? null);
+        if (!is_array($expected) || !empty($settings['switcher_local_conflict'])
+            || $this->switcherConfigHash($local) !== $this->switcherConfigHash($expected)) {
+            $settings['switcher_local_conflict'] = true;
+            return;
+        }
+        $previousSettings = $settings;
+        $currentById = [];
+        foreach ((array) ($settings['switcher_instances'] ?? []) as $instance) {
+            if (is_array($instance) && isset($instance['id'])) $currentById[$instance['id']] = $instance;
+        }
+        $newInstances = [];
+        foreach (array_slice($config['instances'], 0, self::SWITCHER_INSTANCES_MAX) as $incoming) {
+            if (!is_array($incoming) || !isset($incoming['id'])) return;
+            $id = $this->sanitizeSwitcherInstanceId($incoming['id']);
+            $raw = array_merge($currentById[$id] ?? [], [
+                'id' => $id,
+                'name' => $incoming['name'] ?? 'Switcher',
+                'enabled' => $incoming['enabled'] ?? false,
+                'auto_inject' => $incoming['autoInject'] ?? false,
+                'style' => $incoming['style'] ?? 'list',
+                'flag_style' => $incoming['flagStyle'] ?? 'rectangle_mat',
+                'show_label' => $incoming['showLabel'] ?? true,
+                'label_format' => $incoming['labelFormat'] ?? 'full_name',
+                'language_order' => $incoming['languageOrder'] ?? [],
+                'custom_css' => $incoming['customCss'] ?? '',
+                'position' => $incoming['position'] ?? 'inline',
+                'responsive_hide' => $incoming['responsiveHide'] ?? 'none',
+                'responsive_breakpoint' => $incoming['responsiveBreakpoint'] ?? self::SWITCHER_BREAKPOINT_DEFAULT,
+                'custom_flags' => $incoming['customFlags'] ?? [],
+                'custom_names' => $incoming['customNames'] ?? [],
+                'selector' => $incoming['selector'] ?? '',
+            ]);
+            if ($id === 'default') {
+                $settings['switcher_name'] = $raw['name'];
+                $settings['switcher_enabled'] = !empty($raw['enabled']);
+                $settings['switcher_selector'] = $raw['selector'];
+                $settings['switcher_auto_inject'] = !empty($raw['auto_inject']);
+                $settings['switcher_default_style'] = $raw['style'];
+                $settings['switcher_flag_style'] = $raw['flag_style'];
+                $settings['switcher_show_label'] = !empty($raw['show_label']);
+                $settings['switcher_label_format'] = $raw['label_format'];
+                $settings['switcher_language_order'] = $raw['language_order'];
+                $settings['switcher_custom_css'] = $raw['custom_css'];
+                $settings['switcher_position'] = $raw['position'];
+                $settings['switcher_responsive_hide'] = $raw['responsive_hide'];
+                $settings['switcher_responsive_breakpoint'] = $raw['responsive_breakpoint'];
+                $settings['switcher_custom_flags'] = $raw['custom_flags'];
+                $settings['switcher_custom_names'] = $raw['custom_names'];
+            } else {
+                $newInstances[] = $this->sanitizeSwitcherInstance($raw, $settings);
+            }
+        }
+        $settings['switcher_instances'] = array_merge([$this->legacySwitcherInstance($settings)], $newInstances);
+        if ($this->switcherConfigHash($this->exportSwitcherContract($settings)) !== $this->switcherConfigHash($config)) {
+            $settings = $previousSettings;
+            $settings['switcher_local_conflict'] = true;
+            return;
+        }
+        $settings['switcher_contract_revision'] = $revision;
+        $settings['switcher_contract_config'] = $config;
+        $settings['switcher_local_conflict'] = false;
     }
 
     public function isUrlExcluded(string $urlOrPath): bool
