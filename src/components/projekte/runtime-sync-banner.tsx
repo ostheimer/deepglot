@@ -5,7 +5,7 @@ import Link from "next/link";
 import { DismissSyncOriginButton } from "@/components/projekte/dismiss-sync-origin-button";
 import { Button } from "@/components/ui/button";
 import { getDateFnsLocale } from "@/lib/locale-formatting";
-import { getProjectUrl } from "@/lib/project-url";
+import { getWordPressSettingsUrl } from "@/lib/project-url";
 import { hasRuntimeSyncDomainConflict } from "@/lib/plugin-settings-sync";
 import { withLocalePrefix } from "@/lib/site-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -35,7 +35,7 @@ export function RuntimeSyncBanner({
     syncSiteHost,
     syncConflicts,
   );
-  const wpSettingsUrl = `${getProjectUrl(domain)}/wp-admin/options-general.php?page=deepglot`;
+  const wpSettingsUrl = getWordPressSettingsUrl(domain, syncSiteHost);
 
   const syncedLabel = runtimeSyncedAt
     ? formatDistanceToNow(runtimeSyncedAt, {
@@ -129,7 +129,7 @@ export function RuntimeSyncBanner({
                 )}
         </p>
       </div>
-      <Button asChild className="bg-brand-600 hover:bg-brand-700">
+      {wpSettingsUrl ? <Button asChild className="bg-brand-600 hover:bg-brand-700">
         <a href={wpSettingsUrl} target="_blank" rel="noreferrer">
           <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
           {uiText(
@@ -138,7 +138,7 @@ export function RuntimeSyncBanner({
             "WordPress-Einstellungen öffnen",
           )}
         </a>
-      </Button>
+      </Button> : null}
     </div> : null}
     </div>
   );

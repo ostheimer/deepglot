@@ -7,7 +7,7 @@ name: Schema push (production)
 #      `prisma migrate diff`, prints it, and warns if it contains destructive
 #      statements. Nothing is executed against the database.
 #   2. Dispatch with apply=true, schema_sha=<the main commit the plan used>,
-#      the same target_schema, and plan_digest=<the plan run's digest>:
+#      target_schema=current, and plan_digest=<the plan run's digest>:
 #      recomputes the same plan and, if it is not destructive, executes that
 #      exact schema-plan.sql with `prisma db execute`. A destructive plan
 #      (DROP/TRUNCATE/DELETE/ALTER COLUMN ... TYPE) fails the run instead of
@@ -32,12 +32,11 @@ on:
         type: string
         default: ""
       target_schema:
-        description: "Schema already merged on main to plan/apply (default or issue 262 predeploy data file)."
+        description: "Schema already merged on main to plan/apply."
         type: choice
         default: "current"
         options:
           - current
-          - predeploy-switcher-262
       plan_digest:
         description: "For apply=true: the reviewed target/schema/SQL digest printed by the plan run."
         type: string
@@ -81,7 +80,6 @@ jobs:
           fi
           case "$TARGET_SCHEMA_CHOICE" in
             current) target_schema="$GITHUB_WORKSPACE/prisma/schema.prisma" ;;
-            predeploy-switcher-262) target_schema="$GITHUB_WORKSPACE/prisma/predeploy-switcher-262.prisma" ;;
             *) echo "::error::Unknown target schema choice."; exit 1 ;;
           esac
           echo "::notice title=Schema source::$target_schema from reviewed main commit $head"

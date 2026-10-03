@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getProjectUrl, getVisualEditorUrl } from "@/lib/project-url";
+import { getProjectUrl, getVisualEditorUrl, getWordPressSettingsUrl } from "@/lib/project-url";
 
 test("builds https URLs for regular project domains", () => {
   assert.equal(getProjectUrl("example.com"), "https://example.com");
@@ -32,4 +32,29 @@ test("appends the visual editor flag to project URLs", () => {
 test("returns null for malformed domains", () => {
   assert.equal(getVisualEditorUrl(""), null);
   assert.equal(getVisualEditorUrl("not a domain!@#"), null);
+});
+
+test("WordPress settings link preserves a synced subdirectory installation", () => {
+  assert.equal(
+    getWordPressSettingsUrl("example.com", "example.com/blog"),
+    "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
+  );
+  assert.equal(
+    getWordPressSettingsUrl("example.com", "other.example/blog"),
+    "https://example.com/wp-admin/options-general.php?page=deepglot",
+  );
+  assert.equal(
+    getWordPressSettingsUrl("https://example.com/blog/", null),
+    "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
+  );
+  assert.equal(
+    getWordPressSettingsUrl("example.com", "www.example.com/blog"),
+    "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
+  );
+  assert.equal(getWordPressSettingsUrl("not a domain!@#", null), null);
+  assert.equal(getWordPressSettingsUrl("", null), null);
+  assert.equal(
+    getWordPressSettingsUrl("localhost:3000", "localhost:3000/blog"),
+    "http://localhost:3000/blog/wp-admin/options-general.php?page=deepglot",
+  );
 });
