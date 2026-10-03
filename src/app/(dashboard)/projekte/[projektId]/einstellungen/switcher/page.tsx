@@ -19,7 +19,8 @@ export default async function SwitcherPage({ params }: { params: Promise<{ proje
   if (!project) notFound();
   const s = project.settings;
   const owner = s?.switcherOwner ?? "wordpress";
-  const parsed = switcherConfigSchema.safeParse(owner === "saas" ? s?.switcherConfig : s?.switcherPluginConfig);
+  const parsed = switcherConfigSchema.safeParse(owner === "saas" ? s?.switcherConfig :
+    s?.switcherPluginSyncedAt ? s.switcherPluginConfig : null);
   const languages = [project.originalLang, ...project.languages.map((language) => language.langCode)];
   const config = parsed.success ? normalizeSwitcherConfigLanguages(parsed.data, languages) : null;
 

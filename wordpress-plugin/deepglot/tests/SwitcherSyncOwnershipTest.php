@@ -3,7 +3,14 @@
 if (!function_exists('get_option')) {
     $GLOBALS['_switcher_options'] = [];
     function get_option($key, $default = false) { return $GLOBALS['_switcher_options'][$key] ?? $default; }
-    function update_option($key, $value) { $GLOBALS['_switcher_options'][$key] = $value; return true; }
+    function update_option($key, $value) {
+        if (($GLOBALS['_switcher_fail_option'] ?? null) === $key) {
+            $GLOBALS['wpdb']->last_error = 'fixture write failure';
+            return false;
+        }
+        $GLOBALS['_switcher_options'][$key] = $value; return true;
+    }
+    function wp_cache_delete($key, $group = '') { $GLOBALS['_switcher_cache_evictions'][] = $key; return true; }
     function wp_parse_args($args, $defaults = []) { return array_merge($defaults, is_array($args) ? $args : []); }
     function sanitize_text_field($value) { return trim((string) $value); }
     function sanitize_textarea_field($value) { return trim((string) $value); }
@@ -15,9 +22,23 @@ if (!function_exists('get_option')) {
 
 class SwitcherCasDatabase {
     public string $options = 'wp_options';
+    public string $last_error = '';
+    private ?array $transactionBefore = null;
+    private bool $casUpdated = false;
     public $beforeQuery = null;
     public function prepare($sql, ...$values) { return $values; }
     public function query($values) {
+        if ($values === 'START TRANSACTION') {
+            $this->transactionBefore = $GLOBALS['_switcher_options'];
+            $this->casUpdated = false;
+            return 0;
+        }
+        if ($values === 'ROLLBACK') {
+            if ($this->casUpdated) $GLOBALS['_switcher_options'] = $this->transactionBefore;
+            $this->transactionBefore = null;
+            return 0;
+        }
+        if ($values === 'COMMIT') { $this->transactionBefore = null; return 0; }
         if ($this->beforeQuery) {
             $callback = $this->beforeQuery;
             $this->beforeQuery = null;
@@ -25,6 +46,7 @@ class SwitcherCasDatabase {
         }
         if (serialize(get_option($values[1], [])) !== $values[2]) return 0;
         update_option($values[1], unserialize($values[0]));
+        $this->casUpdated = true;
         return 1;
     }
 }
@@ -42,6 +64,7 @@ $options = new Options();
 $initial = Options::defaults();
 $initial['enabled'] = true;
 $initial['api_key'] = 'fixture-key';
+$initial['target_languages'] = ['en'];
 update_option(Options::OPTION_KEY, $initial);
 $base = $options->exportSwitcherContract();
 $edited = $base;
@@ -132,6 +155,40 @@ $options->applyRuntimeConfig(['switcher' => [
 ]]);
 ownershipAssert($options->all()['switcher_contract_owner'] === 'wordpress', 'Concurrent newer owner must survive');
 ownershipAssert($options->all()['switcher_contract_last_seen'] === 7, 'Last-seen owner version must not regress');
+
+// A rejected v1 CAS must not leak auxiliary maps from the losing payload.
+update_option(Options::OPTION_KEY, $initial);
+$mapBase = $options->exportSwitcherContract();
+$GLOBALS['wpdb']->beforeQuery = static function () use ($initial) {
+    $newProject = $initial;
+    $newProject['api_key'] = 'other-project-key';
+    update_option(Options::OPTION_KEY, $newProject);
+};
+$mapApplied = $options->applyRuntimeConfig([
+    'urlSlugs' => [['langTo' => 'en', 'originalSlug' => 'old', 'translatedSlug' => 'old-project-slug']],
+    'mediaReplacements' => ['en' => ['/old.png' => '/old-en.png']],
+    'switcher' => ['contractVersion' => 1, 'owner' => 'saas', 'revision' => 8,
+        'baseRevision' => null, 'baseConfig' => $mapBase, 'config' => $mapBase],
+], 'fixture-key');
+ownershipAssert($mapApplied === false, 'Concurrent project change must reject old runtime payload');
+ownershipAssert(get_option(Options::URL_SLUG_MAPPINGS_OPTION_KEY, []) === [], 'Rejected payload must not write URL maps');
+ownershipAssert(get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []) === [], 'Rejected payload must not write media maps');
+
+// A genuine auxiliary SQL failure rolls the accepted main-option CAS back.
+update_option(Options::OPTION_KEY, $initial);
+$GLOBALS['_switcher_fail_option'] = Options::URL_SLUG_MAPPINGS_OPTION_KEY;
+$GLOBALS['_switcher_cache_evictions'] = [];
+$failedMaps = $options->applyRuntimeConfig([
+    'urlSlugs' => [['langTo' => 'en', 'originalSlug' => 'old', 'translatedSlug' => 'new']],
+    'switcher' => ['contractVersion' => 1, 'owner' => 'saas', 'revision' => 8,
+        'baseRevision' => null, 'baseConfig' => $mapBase, 'config' => $mapBase],
+], 'fixture-key');
+unset($GLOBALS['_switcher_fail_option']);
+ownershipAssert($failedMaps === false, 'Auxiliary database failure must reject the whole payload');
+ownershipAssert(($options->all()['switcher_contract_last_seen'] ?? 0) === 0, 'Auxiliary failure must roll back owner revision');
+foreach ([Options::OPTION_KEY, Options::URL_SLUG_MAPPINGS_OPTION_KEY, Options::MEDIA_REPLACEMENTS_OPTION_KEY] as $key) {
+    ownershipAssert(in_array($key, $GLOBALS['_switcher_cache_evictions'], true), 'Rollback must evict ' . $key);
+}
 
 // Adopt both the existing default and a named switcher without losing its target or labels.
 update_option(Options::OPTION_KEY, $initial);

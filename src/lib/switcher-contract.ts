@@ -2,8 +2,13 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 
 const language = z.string().regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/);
+const selectorCompound = "(?:[A-Za-z][A-Za-z0-9-]*|[.#][A-Za-z_][A-Za-z0-9_-]*)(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*";
+const selectorPattern = new RegExp(`^${selectorCompound}(?: (?:> )?${selectorCompound})*$`);
+const unsafeSelectorTag = /(?:^|[ >])([A-Za-z][A-Za-z0-9-]*)/g;
+const unsafeSelectorTags = new Set(["script", "style", "head", "meta", "link", "base", "iframe", "object", "embed"]);
 const selector = z.string().max(200).refine(
-  (value) => value === "" || /^(?:[A-Za-z][\w-]*|#[\w-]+|\.[\w-]+)+(?:\s*(?:>|\s)\s*(?:[A-Za-z][\w-]*|#[\w-]+|\.[\w-]+)+)*$/.test(value),
+  (value) => value === "" || (selectorPattern.test(value) &&
+    ![...value.matchAll(unsafeSelectorTag)].some((match) => unsafeSelectorTags.has(match[1].toLowerCase()))),
   "Use a simple element, class, ID, descendant or child selector.",
 );
 const safeCss = z.string().trim().max(20000).refine((value) => !value.includes("<"), "CSS cannot contain '<'.");
@@ -16,7 +21,7 @@ const customNames = z.record(language, safeName(80).or(z.literal("")))
   .transform((record) => Object.fromEntries(Object.entries(record).filter(([, value]) => value !== "")));
 
 export const switcherInstanceSchema = z.object({
-  id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+  id: z.string().regex(/^[a-z0-9_-]{1,64}$/),
   name: safeName(100),
   enabled: z.boolean(),
   autoInject: z.boolean(),

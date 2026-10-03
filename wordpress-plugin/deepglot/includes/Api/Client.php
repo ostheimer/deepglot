@@ -558,6 +558,8 @@ class Client
             'domainMappings' => $domainMappings,
             'switcher' => [
                 'contractVersion' => 1,
+                'owner' => (string) ($settings['switcher_contract_owner'] ?? 'wordpress'),
+                'lastSeenRevision' => max(0, (int) ($settings['switcher_contract_last_seen'] ?? 0)),
                 'appliedRevision' => isset($settings['switcher_contract_revision'])
                     ? (int) $settings['switcher_contract_revision'] : null,
                 'localConflict' => !empty($settings['switcher_local_conflict']),

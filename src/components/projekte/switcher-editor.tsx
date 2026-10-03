@@ -63,6 +63,7 @@ export function SwitcherEditor(props: Props) {
       const result = await response.json();
       setRevision(result.revision);
       setOwner(action === "save" ? "saas" : "wordpress");
+      if (action === "returnToWordPress") setConfig(null);
       setMessage(action === "save"
         ? t("Saved. WordPress will apply the changes on its next sync.", "Gespeichert. WordPress übernimmt die Änderungen beim nächsten Abgleich.")
         : t("You can now manage the switcher in WordPress.", "Du kannst die Sprachauswahl jetzt in WordPress verwalten."));
@@ -72,6 +73,7 @@ export function SwitcherEditor(props: Props) {
   };
 
   if (!config || !instance) return <section className="rounded-xl border bg-white p-6" role="status">
+    {message ? <p className="mb-2">{message}</p> : null}
     {t("WordPress switcher settings have not been synced yet. Sync the current plugin before editing here.", "Die WordPress-Einstellungen für die Sprachauswahl wurden noch nicht abgeglichen. Gleiche zuerst das aktuelle Plugin ab.")}
   </section>;
 

@@ -28,6 +28,8 @@ export const pluginSettingsSyncSchema = z
       .default([]),
     switcher: z.object({
       contractVersion: z.literal(1),
+      owner: z.enum(["wordpress", "saas"]).optional(),
+      lastSeenRevision: z.number().int().nonnegative().optional(),
       appliedRevision: z.number().int().nonnegative().nullable(),
       localConflict: z.boolean(),
       config: switcherConfigSchema,
@@ -45,6 +47,15 @@ export const pluginSettingsSyncSchema = z
 export type PluginSettingsSyncPayload = z.infer<
   typeof pluginSettingsSyncSchema
 >;
+
+/** A return invalidates the prior mirror until WordPress has seen that revision. */
+export function canAcceptSwitcherReportAfterReturn(
+  settings: { switcherRevision: number; switcherPluginSyncedAt: Date | null },
+  report: { owner?: "wordpress" | "saas"; lastSeenRevision?: number },
+): boolean {
+  return settings.switcherRevision === 0 ||
+    (report.owner === "wordpress" && (report.lastSeenRevision ?? -1) >= settings.switcherRevision);
+}
 
 export type PluginDomainMappingsValidationError = {
   detail: string;

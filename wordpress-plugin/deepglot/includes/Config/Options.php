@@ -337,7 +337,7 @@ class Options
 
         $selector = preg_replace('/\s+/', ' ', $selector);
         $selector = preg_replace('/\s*>\s*/', ' > ', (string) $selector);
-        $compound = '(?:[#.][A-Za-z_][A-Za-z0-9_-]*|[A-Za-z][A-Za-z0-9-]*(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*)';
+        $compound = '(?:[A-Za-z][A-Za-z0-9-]*|[.#][A-Za-z_][A-Za-z0-9_-]*)(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*';
 
         if (!preg_match('/^' . $compound . '(?:(?:\s*>\s*|\s+)' . $compound . ')*$/D', (string) $selector)) {
             return '';
@@ -424,7 +424,7 @@ class Options
             return substr(sanitize_key((string) $value), 0, 64);
         }
 
-        return substr(trim(strtolower((string) preg_replace('/[^a-z0-9_-]/i', '', (string) $value)), '_-'), 0, 64);
+        return substr(strtolower((string) preg_replace('/[^a-z0-9_-]/i', '', (string) $value)), 0, 64);
     }
 
     /**
@@ -1026,14 +1026,14 @@ class Options
             $settings['exclude_selectors'] = implode("\n", $this->normalizeStringList($exclusions['selectors'] ?? []));
         }
 
-        if (array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
+        if (!$switcherV1 && array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
             $this->storeUrlSlugMappings($this->normalizeRuntimeUrlSlugs(
                 $runtimeConfig['urlSlugs'],
                 $this->normalizeLanguageList($settings['target_languages'] ?? [])
             ));
         }
 
-        if (array_key_exists('mediaReplacements', $runtimeConfig)) {
+        if (!$switcherV1 && array_key_exists('mediaReplacements', $runtimeConfig)) {
             $this->storeMediaReplacements($this->normalizeMediaReplacements(
                 $runtimeConfig['mediaReplacements'],
                 $this->normalizeLanguageList($settings['target_languages'] ?? [])
@@ -1132,9 +1132,59 @@ class Options
         $settings['runtime_config_synced_at'] = time();
         unset($settings['url_slug_mappings'], $settings['media_replacements']);
 
-        return $switcherV1
-            ? $this->compareAndUpdateSwitcherOption($storedBeforeMerge, $settings)
-            : $this->updateSettingsOption($settings, true);
+        if (!$switcherV1) return $this->updateSettingsOption($settings, true);
+
+        // Keep the settings CAS and dedicated map writes in one database
+        // transaction. A concurrent wp-admin project/backend change either
+        // wins before the CAS (all old payload writes are rejected) or waits
+        // for these writes to commit. The options row is the serialization
+        // point; WordPress stores all three options in the same table.
+        global $wpdb;
+        if (!isset($wpdb) || $wpdb->query('START TRANSACTION') === false) return false;
+        if (!$this->compareAndUpdateSwitcherOption($storedBeforeMerge, $settings)) {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        $wpdb->last_error = '';
+        if (array_key_exists('urlSlugs', $runtimeConfig) && is_array($runtimeConfig['urlSlugs'])) {
+            $this->storeUrlSlugMappings($this->normalizeRuntimeUrlSlugs(
+                $runtimeConfig['urlSlugs'], $this->normalizeLanguageList($settings['target_languages'] ?? [])
+            ));
+        }
+        if ($wpdb->last_error !== '') {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        $wpdb->last_error = '';
+        if (array_key_exists('mediaReplacements', $runtimeConfig)) {
+            $this->storeMediaReplacements($this->normalizeMediaReplacements(
+                $runtimeConfig['mediaReplacements'], $this->normalizeLanguageList($settings['target_languages'] ?? [])
+            ));
+        }
+        if ($wpdb->last_error !== '') {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        if ($wpdb->query('COMMIT') === false) {
+            $wpdb->query('ROLLBACK');
+            $this->clearRuntimeOptionsCache();
+            return false;
+        }
+        $this->clearRuntimeOptionsCache();
+        return true;
+    }
+
+    private function clearRuntimeOptionsCache(): void
+    {
+        if (!function_exists('wp_cache_delete')) return;
+        foreach ([self::OPTION_KEY, self::URL_SLUG_MAPPINGS_OPTION_KEY, self::MEDIA_REPLACEMENTS_OPTION_KEY] as $key) {
+            wp_cache_delete($key, 'options');
+        }
+        wp_cache_delete('alloptions', 'options');
+        wp_cache_delete('notoptions', 'options');
     }
 
     /** Atomically reject a v1 payload if wp-admin or another sync wrote first. */

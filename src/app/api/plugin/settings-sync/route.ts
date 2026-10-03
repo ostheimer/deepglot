@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { apiProblem, validationProblem } from "@/lib/problem-details";
 import {
   buildPluginOwnedSettingsUpdate,
+  canAcceptSwitcherReportAfterReturn,
   buildRuntimeSyncMirrorRecord,
   findPluginMirrorConflicts,
   resolveRuntimeSyncOrigin,
@@ -141,6 +142,7 @@ async function syncPluginSettings(request: NextRequest) {
                 runtimeSyncConflicts: true,
                 switcherOwner: true,
                 switcherRevision: true,
+                switcherPluginSyncedAt: true,
                 switcherConfig: true,
               },
             },
@@ -199,7 +201,12 @@ async function syncPluginSettings(request: NextRequest) {
         // A plugin may report a switcher that still mentions a language just
         // removed from the project. Preserve the raw mirror as the adoption
         // base; the editor filters inactive overrides before a manager saves.
-        const switcherReport = body.switcher && !mirrorConflicts.includes("domain") && !siteIdentityConflict
+        const switcherReport = body.switcher && !mirrorConflicts.includes("domain") && !siteIdentityConflict &&
+          (authoritativeProject.settings?.switcherOwner !== "wordpress" ||
+            canAcceptSwitcherReportAfterReturn({
+              switcherRevision: authoritativeProject.settings.switcherRevision,
+              switcherPluginSyncedAt: authoritativeProject.settings.switcherPluginSyncedAt,
+            }, body.switcher))
           ? {
               switcherPluginConfig: body.switcher.config,
               switcherPluginRevision: body.switcher.appliedRevision,

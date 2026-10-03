@@ -53,6 +53,7 @@ export async function PATCH(request: Request, context: Context) {
       if (settings?.switcherOwner !== "saas") return { status: 409, code: "already_wordpress" };
       const updated = await tx.projectSettings.update({ where: { projectId: access.projektId }, data: {
         switcherOwner: "wordpress", switcherRevision: { increment: 1 }, switcherConflict: false,
+        switcherPluginSyncedAt: null,
       } });
       return { status: 200, revision: updated.switcherRevision };
     }

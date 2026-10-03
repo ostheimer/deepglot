@@ -42,6 +42,27 @@ test("switcher validation refuses unsafe selectors, flags, CSS and unknown langu
   assert.equal(switcherConfigSchema.safeParse(changed).success, false);
 });
 
+test("selector validation agrees with WordPress on compounds and unsafe targets", () => {
+  for (const value of ["#123", "script", "head > nav"]) {
+    const changed = structuredClone(fixtures.first);
+    changed.instances[0].selector = value;
+    assert.equal(switcherConfigSchema.safeParse(changed).success, false, value);
+  }
+  for (const value of [".menu.primary", "#site-header > nav.primary"]) {
+    const changed = structuredClone(fixtures.first);
+    changed.instances[0].selector = value;
+    assert.equal(switcherConfigSchema.safeParse(changed).success, true, value);
+  }
+});
+
+test("existing WordPress instance IDs remain valid in the SaaS contract", () => {
+  for (const id of ["header_main", "_header"]) {
+    const changed = structuredClone(fixtures.first);
+    changed.instances.push({ ...structuredClone(changed.instances[0]), id });
+    assert.equal(switcherConfigSchema.safeParse(changed).success, true, id);
+  }
+});
+
 test("preserves supported three-letter project languages", () => {
   const withThreeLetterLanguage = structuredClone(fixtures.first);
   withThreeLetterLanguage.instances[0].languageOrder = ["de", "fil", "haw"];
