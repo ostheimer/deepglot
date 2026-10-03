@@ -16,7 +16,7 @@ type Props = {
   pluginRevision: number | null;
   conflict: boolean;
   languages: string[];
-  wpSettingsUrl: string;
+  wpSettingsUrl: string | null;
 };
 
 export function SwitcherEditor(props: Props) {
@@ -75,9 +75,9 @@ export function SwitcherEditor(props: Props) {
   if (!config || !instance) return <section className="rounded-xl border bg-white p-6" role="status">
     {message ? <p className="mb-2">{message}</p> : null}
     <p>{t("WordPress switcher settings have not been synced yet. Sync the current plugin before editing here.", "Die WordPress-Einstellungen für die Sprachauswahl wurden noch nicht abgeglichen. Gleiche zuerst das aktuelle Plugin ab.")}</p>
-    <a className="mt-2 inline-block underline" href={props.wpSettingsUrl} target="_blank" rel="noopener noreferrer">
+    {props.wpSettingsUrl ? <a className="mt-2 inline-block underline" href={props.wpSettingsUrl} target="_blank" rel="noopener noreferrer">
       {t("Open WordPress switcher editor", "WordPress-Editor für Sprachauswahl öffnen")}
-    </a>
+    </a> : null}
   </section>;
 
   const mirrorOld = !props.pluginSyncedAt || Date.now() - new Date(props.pluginSyncedAt).getTime() > 15 * 60 * 1000;
@@ -88,7 +88,7 @@ export function SwitcherEditor(props: Props) {
       <p className="mt-1">{owner === "saas"
         ? t("WordPress remains available. A local edit is kept and reported as a conflict until you resolve ownership.", "WordPress bleibt bedienbar. Eine lokale Änderung bleibt erhalten und wird als Konflikt gemeldet, bis die Zuständigkeit geklärt ist.")
         : t("Saving here explicitly adopts the last reported WordPress configuration.", "Speichern übernimmt ausdrücklich die zuletzt gemeldete WordPress-Konfiguration.")}</p>
-      <a className="underline" href={props.wpSettingsUrl} target="_blank" rel="noopener noreferrer">{t("Open WordPress switcher editor", "WordPress-Editor für Sprachauswahl öffnen")}</a>
+      {props.wpSettingsUrl ? <a className="underline" href={props.wpSettingsUrl} target="_blank" rel="noopener noreferrer">{t("Open WordPress switcher editor", "WordPress-Editor für Sprachauswahl öffnen")}</a> : null}
     </div>
     {props.conflict && owner === "saas" ? <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("WordPress reports local changes that differ from the dashboard version. They were preserved. Review them in WordPress or return ownership there.", "WordPress meldet lokale Änderungen gegenüber der Dashboard-Version. Sie wurden erhalten. Prüfe sie in WordPress oder gib die Zuständigkeit dorthin zurück.")}</div> : null}
     {stale ? <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{t("WordPress has not confirmed these changes yet.", "WordPress hat diese Änderungen noch nicht bestätigt.")}</div> : null}

@@ -51,4 +51,10 @@ test("WordPress settings link preserves a synced subdirectory installation", () 
     getWordPressSettingsUrl("example.com", "www.example.com/blog"),
     "https://example.com/blog/wp-admin/options-general.php?page=deepglot",
   );
+  assert.equal(getWordPressSettingsUrl("not a domain!@#", null), null);
+  assert.equal(getWordPressSettingsUrl("", null), null);
+  assert.equal(
+    getWordPressSettingsUrl("localhost:3000", "localhost:3000/blog"),
+    "http://localhost:3000/blog/wp-admin/options-general.php?page=deepglot",
+  );
 });

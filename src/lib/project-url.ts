@@ -25,8 +25,13 @@ export function getVisualEditorUrl(domain: string): string | null {
 }
 
 /** Keep the plugin-reported install path only when it belongs to this project host. */
-export function getWordPressSettingsUrl(domain: string, syncSiteHost?: string | null): string {
-  const projectUrl = new URL(getProjectUrl(domain));
+export function getWordPressSettingsUrl(domain: string, syncSiteHost?: string | null): string | null {
+  let projectUrl: URL;
+  try {
+    projectUrl = new URL(getProjectUrl(domain));
+  } catch {
+    return null;
+  }
   let installPath = projectUrl.pathname;
 
   if (syncSiteHost) {

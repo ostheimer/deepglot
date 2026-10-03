@@ -129,7 +129,7 @@ export function RuntimeSyncBanner({
                 )}
         </p>
       </div>
-      <Button asChild className="bg-brand-600 hover:bg-brand-700">
+      {wpSettingsUrl ? <Button asChild className="bg-brand-600 hover:bg-brand-700">
         <a href={wpSettingsUrl} target="_blank" rel="noreferrer">
           <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
           {uiText(
@@ -138,7 +138,7 @@ export function RuntimeSyncBanner({
             "WordPress-Einstellungen öffnen",
           )}
         </a>
-      </Button>
+      </Button> : null}
     </div> : null}
     </div>
   );
