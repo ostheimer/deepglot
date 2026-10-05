@@ -15,6 +15,7 @@ import subprocess
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LANG = ROOT / "wordpress-plugin/deepglot/languages"
 BASE = "4dff0de2bb75543920c1eb86ccd9034a67914bb7"
+VERSION = re.search(r"^ \* Version: (\d+\.\d+\.\d+)$", (ROOT / "wordpress-plugin/deepglot/deepglot.php").read_text(), re.M).group(1)
 MAPPING = json.loads((ROOT / "scripts/i18n-wordpress-english-map.json").read_text())
 INVERSE = {english: old for old, english in MAPPING.items()}
 NEW_STRINGS = {
@@ -87,7 +88,7 @@ def quote(value):
 def header(locale):
     return "\n".join([
         'msgid ""', 'msgstr ""',
-        quote("Project-Id-Version: Deepglot 0.12.11\n"),
+        quote(f"Project-Id-Version: Deepglot {VERSION}\n"),
         quote("Report-Msgid-Bugs-To: https://deepglot.ai\n"),
         quote("POT-Creation-Date: 2026-10-05 00:00+0000\n"),
         quote("PO-Revision-Date: 2026-10-05 00:00+0000\n"),
