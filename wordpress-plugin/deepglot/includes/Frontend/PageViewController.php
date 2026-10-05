@@ -63,33 +63,33 @@ class PageViewController
             || !$this->options->isConfigured()
             || !$this->options->shouldTrackPageViews()
         ) {
-            return $this->forbidden(__('Nicht verfügbar.', 'deepglot'));
+            return $this->forbidden(__('Not available.', 'deepglot'));
         }
 
         if (BotDetector::detectCurrentRequest() !== BotDetector::HUMAN) {
-            return $this->forbidden(__('Nicht verfügbar.', 'deepglot'));
+            return $this->forbidden(__('Not available.', 'deepglot'));
         }
 
         if (!$this->isTrustedRequestHost()) {
-            return $this->forbidden(__('Ungültige Herkunft.', 'deepglot'));
+            return $this->forbidden(__('Invalid origin.', 'deepglot'));
         }
 
         $origin = trim((string) $request->get_header('origin'));
         $referer = trim((string) $request->get_header('referer'));
         if ($origin === '' && $referer === '') {
-            return $this->forbidden(__('Ungültige Herkunft.', 'deepglot'));
+            return $this->forbidden(__('Invalid origin.', 'deepglot'));
         }
 
         if (
             ($origin !== '' && !$this->isAllowedOrigin($origin))
             || ($referer !== '' && !$this->isAllowedOrigin($referer))
         ) {
-            return $this->forbidden(__('Ungültige Herkunft.', 'deepglot'));
+            return $this->forbidden(__('Invalid origin.', 'deepglot'));
         }
 
         $fetchSite = strtolower(trim((string) $request->get_header('sec-fetch-site')));
         if ($fetchSite !== '' && $fetchSite !== 'same-origin') {
-            return $this->forbidden(__('Ungültige Herkunft.', 'deepglot'));
+            return $this->forbidden(__('Invalid origin.', 'deepglot'));
         }
 
         return true;

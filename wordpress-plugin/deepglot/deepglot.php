@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Deepglot
  * Plugin URI: https://deepglot.ai
- * Description: Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API.
+ * Description: Translates WordPress content with Deepglot and a compatible translation API.
  * Version: 0.12.11
  * Author: Andreas Ostheimer
  * Author URI: https://www.ostheimer.at

@@ -1,5 +1,5 @@
 {
-    "translation-revision-date": "2026-05-17 00:00+0000",
+    "translation-revision-date": "2026-10-05 00:00+0000",
     "generator": "WP-CLI\/2.12.0",
     "source": "assets\/js\/block-switcher.js",
     "domain": "messages",
@@ -10,19 +10,19 @@
                 "lang": "et",
                 "plural-forms": "nplurals=2; plural=(n != 1);"
             },
-            "Deepglot Sprachschalter": [
+            "Deepglot language switcher": [
                 "Deepglot Keelevahetus"
             ],
-            "Instanz-ID": [
+            "Instance ID": [
                 "Eksemplari ID"
             ],
-            "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
-                "N\u00e4itab Deepglot keele l\u00fclitit. Stiil, m\u00e4rgistus ja j\u00e4rjestus j\u00e4rgige pistikprogrammi s\u00e4tteid."
+            "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings.": [
+                "Kuvab Deepglot keelel\u00fcliti \u2013 stiilid\/Flagge\/Reihenfolge j\u00e4rgivad pistikprogrammi s\u00e4tteid."
             ],
-            "Switcher-Instanz": [
+            "Switcher instance": [
                 "Switcher eksemplar"
             ],
-            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+            "Find the ID under Settings \u2192 Deepglot \u2192 Language switcher.": [
                 "ID leiate jaotisest Seaded \u2192 Deepglot \u2192 Keelevahetaja."
             ]
         }

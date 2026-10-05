@@ -7,8 +7,8 @@ namespace Deepglot\Admin;
  * Deepglot language switcher into any nav menu with a single click.
  *
  * Mirrors the standard WP "Custom Links" UX: the user picks the
- * "Sprachschalter" item, optionally toggles dropdown / hide-current
- * sub-modes, hits "Zum Menü hinzufügen". NavMenuSwitcher then expands
+ * "Language switcher" item, optionally toggles dropdown / hide-current
+ * sub-modes, hits "Add to menu". NavMenuSwitcher then expands
  * that placeholder into one item per configured language at render
  * time.
  */
@@ -23,7 +23,7 @@ class NavMenuMetaBox
     {
         add_meta_box(
             'deepglot-nav-menu',
-            __('Deepglot Sprachschalter', 'deepglot'),
+            __('Deepglot language switcher', 'deepglot'),
             [$this, 'render'],
             'nav-menus',
             'side',
@@ -38,27 +38,27 @@ class NavMenuMetaBox
         ?>
         <div id="deepglot-nav-menu-box" class="posttypediv">
             <p style="margin:6px 0 10px; color:#50575e; font-size:12px;">
-                <?php esc_html_e('Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird.', 'deepglot'); ?>
+                <?php esc_html_e('Adds a language switch entry that automatically expands into one entry per language when viewed.', 'deepglot'); ?>
             </p>
             <p style="margin:10px 0 4px;">
-                <strong><?php esc_html_e('Anzeige-Modus', 'deepglot'); ?></strong>
+                <strong><?php esc_html_e('Display mode', 'deepglot'); ?></strong>
             </p>
             <p style="margin:0 0 4px;">
                 <label>
                     <input type="radio" name="deepglot-nav-mode" value="list" checked>
-                    <?php esc_html_e('Liste (jede Sprache als eigener Menüpunkt)', 'deepglot'); ?>
+                    <?php esc_html_e('List (each language as a separate menu item)', 'deepglot'); ?>
                 </label>
             </p>
             <p style="margin:0 0 4px;">
                 <label>
                     <input type="radio" name="deepglot-nav-mode" value="dropdown">
-                    <?php esc_html_e('Dropdown (aktive Sprache als Parent, Alternativen als Submenu)', 'deepglot'); ?>
+                    <?php esc_html_e('Dropdown (active language as parent, alternatives as submenu)', 'deepglot'); ?>
                 </label>
             </p>
             <p style="margin:10px 0 4px;">
                 <label>
                     <input type="checkbox" id="deepglot-nav-hide-current">
-                    <?php esc_html_e('Aktive Sprache aus der Liste ausblenden', 'deepglot'); ?>
+                    <?php esc_html_e('Hide active language from the list', 'deepglot'); ?>
                 </label>
             </p>
             <p class="button-controls" style="margin-top:12px;">
@@ -68,7 +68,7 @@ class NavMenuMetaBox
                         class="button-secondary submit-add-to-menu right"
                         id="deepglot-nav-submit"
                         <?php disabled($menuId, 0); ?>>
-                        <?php esc_html_e('Zum Menü hinzufügen', 'deepglot'); ?>
+                        <?php esc_html_e('Add to menu', 'deepglot'); ?>
                     </button>
                     <span class="spinner"></span>
                 </span>
@@ -95,7 +95,7 @@ class NavMenuMetaBox
                     // the spinner exactly like a normal Custom Link add.
                     wpNavMenu.addLinkToMenu(
                         '#deepglot-switcher',
-                        <?php echo wp_json_encode(__('Sprachschalter', 'deepglot')); ?>,
+                        <?php echo wp_json_encode(__('Language switcher', 'deepglot')); ?>,
                         'deepglot-nav-menu',
                         function () {
                             // Apply our marker classes to the freshly

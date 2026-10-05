@@ -291,7 +291,7 @@ class LanguageSwitcher
             $instanceId
         );
         /* translators: %s: active language name. */
-        $ariaLabel     = sprintf(__('Sprache: %s', 'deepglot'), $activeNative);
+        $ariaLabel     = sprintf(__('Language: %s', 'deepglot'), $activeNative);
         $marker    = '<!--Deepglot ' . DEEPGLOT_PLUGIN_VERSION . '-->';
 
         // For the dropdown variant the wrapper is an expandable popup

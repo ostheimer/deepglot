@@ -18,8 +18,8 @@ final class SwitcherTemplates
     {
         return [
             'classic-dropdown' => [
-                'name' => __('Klassisches Dropdown', 'deepglot'),
-                'description' => __('Flagge und vollständiger Sprachname in einem kompakten Dropdown.', 'deepglot'),
+                'name' => __('Classic dropdown', 'deepglot'),
+                'description' => __('Flag and full language name in a compact dropdown.', 'deepglot'),
                 'config' => self::baseConfig([
                     'style' => 'dropdown',
                     'flag_style' => 'rectangle_mat',
@@ -28,8 +28,8 @@ final class SwitcherTemplates
                 ]),
             ],
             'minimal-code' => [
-                'name' => __('Minimaler Sprachcode', 'deepglot'),
-                'description' => __('Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz.', 'deepglot'),
+                'name' => __('Minimal language code', 'deepglot'),
+                'description' => __('Simple ISO codes without flags for compact navigation.', 'deepglot'),
                 'config' => self::baseConfig([
                     'style' => 'list',
                     'flag_style' => 'none',
@@ -38,8 +38,8 @@ final class SwitcherTemplates
                 ]),
             ],
             'floating-flags' => [
-                'name' => __('Schwebende Flaggen', 'deepglot'),
-                'description' => __('Runde Flaggen als schwebender Umschalter unten rechts.', 'deepglot'),
+                'name' => __('Floating flags', 'deepglot'),
+                'description' => __('Round flags in a floating switcher at the bottom right.', 'deepglot'),
                 'config' => self::baseConfig([
                     'style' => 'dropdown',
                     'flag_style' => 'circle_glossy',
@@ -112,6 +112,6 @@ final class SwitcherTemplates
             ? sanitize_text_field($value)
             : trim(wp_strip_all_tags($value));
 
-        return $value !== '' ? $value : __('Sprachumschalter', 'deepglot');
+        return $value !== '' ? $value : __('Language switcher', 'deepglot');
     }
 }

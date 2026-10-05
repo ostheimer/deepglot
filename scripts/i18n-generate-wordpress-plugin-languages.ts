@@ -357,6 +357,12 @@ function makeJson() {
 }
 
 async function main() {
+  if (fs.existsSync(path.join(ROOT, "scripts/i18n-wordpress-english-map.json"))) {
+    throw new Error(
+      "This legacy online generator assumes German originals and must not run after #366. " +
+      "Use the offline scripts/i18n-migrate-wordpress-plugin-catalogs.py workflow and review new strings explicitly."
+    );
+  }
   const pluginVersion = readPluginVersion();
   makePot();
   const entries = parsePot(fs.readFileSync(POT_FILE, "utf8"));

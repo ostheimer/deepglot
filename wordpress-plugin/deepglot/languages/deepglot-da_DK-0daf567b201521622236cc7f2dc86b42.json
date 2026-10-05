@@ -1,5 +1,5 @@
 {
-    "translation-revision-date": "2026-05-17 00:00+0000",
+    "translation-revision-date": "2026-10-05 00:00+0000",
     "generator": "WP-CLI\/2.12.0",
     "source": "assets\/js\/block-switcher.js",
     "domain": "messages",
@@ -10,19 +10,19 @@
                 "lang": "da_DK",
                 "plural-forms": "nplurals=2; plural=(n != 1);"
             },
-            "Deepglot Sprachschalter": [
+            "Deepglot language switcher": [
                 "Deepglot Sprogskifte"
             ],
-            "Instanz-ID": [
+            "Instance ID": [
                 "Forekomst-id"
             ],
-            "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.": [
-                "Viser sprogomskifteren Deepglot. Stil, flag og r\u00e6kkef\u00f8lge f\u00f8lger plugin-indstillingerne."
+            "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings.": [
+                "Viser Deepglot sprogomskifteren \u2014 styles\/Flagge\/Reihenfolge f\u00f8lg plugin-indstillingerne."
             ],
-            "Switcher-Instanz": [
+            "Switcher instance": [
                 "Switcher forekomst"
             ],
-            "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter.": [
+            "Find the ID under Settings \u2192 Deepglot \u2192 Language switcher.": [
                 "Du kan finde ID'et under Indstillinger \u2192 Deepglot \u2192 Sprogskifter."
             ]
         }

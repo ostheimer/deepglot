@@ -2,16 +2,16 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Deepglot 0.12.11\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
-"POT-Creation-Date: 2026-05-17 00:00+0000\n"
-"PO-Revision-Date: 2026-05-17 00:00+0000\n"
-"Last-Translator: Deepglot Machine Translation\n"
+"POT-Creation-Date: 2026-10-05 00:00+0000\n"
+"PO-Revision-Date: 2026-10-05 00:00+0000\n"
+"Last-Translator: Deepglot offline catalog migration\n"
 "Language-Team: Deepglot\n"
 "Language: da_DK\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Deepglot i18n generator\n"
+"X-Generator: Deepglot offline catalog migration\n"
 
 #. Plugin Name of the plugin
 #: deepglot.php
@@ -27,7 +27,7 @@ msgstr "https://deepglot.ai"
 
 #. Description of the plugin
 #: deepglot.php
-msgid "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API."
+msgid "Translates WordPress content with Deepglot and a compatible translation API."
 msgstr "Oversætter WordPress indhold ved hjælp af Deepglot og en kompatibel oversættelses-API."
 
 #. Author of the plugin
@@ -41,227 +41,229 @@ msgid "https://www.ostheimer.at"
 msgstr "https://www.ostheimer.at"
 
 #: includes/Admin/NavMenuMetaBox.php:26
-#: includes/Frontend/SwitcherBlock.php:58
+#: includes/Frontend/SwitcherBlock.php:61
 #: includes/Frontend/SwitcherWidget.php:25
 #: assets/js/block-switcher.js:19
-msgid "Deepglot Sprachschalter"
+msgid "Deepglot language switcher"
 msgstr "Deepglot Sprogskifte"
 
 #: includes/Admin/NavMenuMetaBox.php:41
-msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
+msgid "Adds a language switch entry that automatically expands into one entry per language when viewed."
 msgstr "Tilføjer en sprogskiftepost, der automatisk udvides til én post pr. sprog, når den ses."
 
 #: includes/Admin/NavMenuMetaBox.php:44
-msgid "Anzeige-Modus"
+msgid "Display mode"
 msgstr "Visningstilstand"
 
 #: includes/Admin/NavMenuMetaBox.php:49
-msgid "Liste (jede Sprache als eigener Menüpunkt)"
+msgid "List (each language as a separate menu item)"
 msgstr "Liste (hvert sprog som et separat menupunkt)"
 
 #: includes/Admin/NavMenuMetaBox.php:55
-msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
+msgid "Dropdown (active language as parent, alternatives as submenu)"
 msgstr "Dropdown (aktivt sprog som forælder, alternativer som undermenu)"
 
 #: includes/Admin/NavMenuMetaBox.php:61
-msgid "Aktive Sprache aus der Liste ausblenden"
+msgid "Hide active language from the list"
 msgstr "Skjul aktivt sprog fra listen"
 
 #: includes/Admin/NavMenuMetaBox.php:71
-msgid "Zum Menü hinzufügen"
+msgid "Add to menu"
 msgstr "Tilføj til menu"
 
 #: includes/Admin/NavMenuMetaBox.php:98
-msgid "Sprachschalter"
+#: includes/Admin/SettingsPage.php:1341
+#: includes/Config/SwitcherTemplates.php:115
+msgid "Language switcher"
 msgstr "Stemmekontakt"
 
 #: includes/Admin/SettingsPage.php:65
-msgid "Die URL-Vorschau ist bereit. Prüfe die Auswahl und bestätige anschließend den Start."
+msgid "The URL preview is ready. Check the selection and then confirm the start."
 msgstr "URL forhåndsvisningen er klar. Kontroller valget og bekræft derefter starten."
 
 #: includes/Admin/SettingsPage.php:87
-msgid "Die URL-Synchronisierung wurde gestartet."
+msgid "URL synchronization has started."
 msgstr "URL-synkroniseringen er startet."
 
 #: includes/Admin/SettingsPage.php:103
-msgid "Ungültige Aktion."
+msgid "Invalid action."
 msgstr "Ugyldig handling."
 
 #: includes/Admin/SettingsPage.php:110
-msgid "Der Status der URL-Synchronisierung wurde aktualisiert."
+msgid "The status of the URL synchronization has been updated."
 msgstr "Status for URL-synkroniseringen er blevet opdateret."
 
 #: includes/Admin/SettingsPage.php:111
-msgid "Die URL-Synchronisierung konnte in ihrem aktuellen Status nicht geändert werden."
+msgid "The URL synchronization could not be changed in its current state."
 msgstr "URL-synkroniseringen kunne ikke ændres i dens nuværende tilstand."
 
 #: includes/Admin/SettingsPage.php:118
 #: includes/Api/RestApi.php:474
-msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgid "You need administrator rights for this action."
 msgstr "Du skal bruge administratorrettigheder til denne handling."
 
 #: includes/Admin/SettingsPage.php:174
-msgid "Deepglot: API-Key ungültig oder widerrufen."
+msgid "Deepglot: API key invalid or revoked."
 msgstr "Deepglot: API-Key ugyldig eller tilbagekaldt."
 
 #: includes/Admin/SettingsPage.php:175
-msgid "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort."
+msgid "The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API key in the Deepglot settings, then it takes effect immediately."
 msgstr "Deepglot-serveren afviser enhver oversættelsesanmodning (HTTP 401). Indhold, der allerede er blevet cachelagret, vil fortsat blive leveret, men intet nyt vil blive oversat. Gem en gyldig API-Key i indstillingerne for Deepglot, så træder den i kraft med det samme."
 
 #: includes/Admin/SettingsPage.php:177
-msgid "API-Key im Deepglot-Dashboard prüfen"
+msgid "Check API key in the Deepglot dashboard"
 msgstr "Tjek API-Key i Deepglot dashboardet"
 
 #: includes/Admin/SettingsPage.php:204
-msgid "Deepglot: Monatliches Wortlimit erreicht."
+msgid "Deepglot: Monthly word limit reached."
 msgstr "Deepglot: Månedlig ordgrænse nået."
 
 #: includes/Admin/SettingsPage.php:205
-msgid "Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird."
+msgid "Content that has already been translated will continue to be delivered, but new or changed text will remain in the source language until the quota is reset or increased."
 msgstr "Indhold, der allerede er oversat, vil fortsat blive leveret, men ny eller ændret tekst forbliver på kildesproget, indtil kvoten nulstilles eller øges."
 
 #: includes/Admin/SettingsPage.php:207
-msgid "Kontingent im Deepglot-Dashboard prüfen"
+msgid "Check quota in the Deepglot dashboard"
 msgstr "Tjek kvoten i Deepglot dashboardet"
 
 #: includes/Admin/SettingsPage.php:385
-msgid "API-Key ungültig"
+msgid "Invalid API key"
 msgstr "API-Key ugyldig"
 
 #: includes/Admin/SettingsPage.php:388
-msgid "Aktiv"
+msgid "Active"
 msgstr "Aktiv"
 
 #: includes/Admin/SettingsPage.php:391
-msgid "Deaktiviert"
+msgid "Disabled"
 msgstr "Deaktiveret"
 
 #: includes/Admin/SettingsPage.php:394
-msgid "Einrichtung erforderlich"
+msgid "Setup required"
 msgstr "Opsætning påkrævet"
 
 #: includes/Admin/SettingsPage.php:417
-msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
+msgid "Welcome to Deepglot! Follow the three steps below to enable translation on your website."
 msgstr "Velkommen til Deepglot! Følg de tre trin nedenfor for at aktivere oversættelse på dit websted."
 
 #: includes/Admin/SettingsPage.php:428
-msgid "Deepglot einrichten"
+msgid "Set up Deepglot"
 msgstr "Konfigurer Deepglot"
 
 #: includes/Admin/SettingsPage.php:429
-msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
+msgid "You only need an API key from the Deepglot dashboard. Setup takes less than two minutes."
 msgstr "Alt du behøver er en API-Key fra Deepglot dashboardet - det tager mindre end to minutter."
 
 #: includes/Admin/SettingsPage.php:441
-msgid "API-Key eintragen"
+msgid "Enter API key"
 msgstr "Indtast API-Key"
 
 #: includes/Admin/SettingsPage.php:444
-msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
+msgid "The stored API key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save."
 msgstr "Den lagrede API-Key afvises af Deepglot-serveren (HTTP 401). Intet nyt indhold bliver i øjeblikket oversat - indtast en gyldig nøgle og gem."
 
 #: includes/Admin/SettingsPage.php:449
-msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgid "Create a free account on deepglot.ai, create a project for your website and copy the API key."
 msgstr "Opret en gratis konto på deepglot.ai, opret et projekt til dit websted og kopier API-Key."
 
 #: includes/Admin/SettingsPage.php:452
-msgid "Zum Dashboard – API-Key erstellen"
+msgid "Go to dashboard – create API key"
 msgstr "Gå til dashboard – opret API-Key"
 
 #: includes/Admin/SettingsPage.php:457
-msgid "API-Key"
+msgid "API key"
 msgstr "API-Key"
 
 #: includes/Admin/SettingsPage.php:468
-msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
+msgid "You can find the full key under Settings → API keys in your Deepglot project."
 msgstr "Du kan finde den fulde nøgle under Indstillinger → API-Keys i dit Deepglot projekt."
 
 #: includes/Admin/SettingsPage.php:472
-msgid "Backend-URL"
+msgid "Backend URL"
 msgstr "Backend URL"
 
 #: includes/Admin/SettingsPage.php:480
-msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
+msgid "Default: https://deepglot.ai/api – change only for self-hosting."
 msgstr "Standard: https://deepglot.ai/api – ændres kun for Self-Hosting."
 
 #: includes/Admin/SettingsPage.php:492
-msgid "Sprachen konfigurieren"
+msgid "Configure languages"
 msgstr "Konfigurer sprog"
 
 #: includes/Admin/SettingsPage.php:494
-msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
+msgid "Specify the original language and the desired translation languages."
 msgstr "Angiv originalsproget og de ønskede oversættelsessprog."
 
 #: includes/Admin/SettingsPage.php:498
-msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und hier nur angezeigt."
+msgid "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and are only displayed here."
 msgstr "Kildesprog, målsprog og automatisk viderestilling administreres i Deepglot-dashboardet og vises kun her."
 
 #: includes/Admin/SettingsPage.php:500
-msgid "Projekteinstellungen öffnen"
+msgid "Open project settings"
 msgstr "Åbn projektindstillinger"
 
 #: includes/Admin/SettingsPage.php:506
-msgid "Originalsprache"
+msgid "Original language"
 msgstr "Originalsprog"
 
 #: includes/Admin/SettingsPage.php:518
-#: includes/Admin/SettingsPage.php:1252
-msgid "Zielsprachen"
+#: includes/Admin/SettingsPage.php:1275
+msgid "Target languages"
 msgstr "Målsprog"
 
 #: includes/Admin/SettingsPage.php:527
-msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
+msgid "Comma-separated ISO 639-1 codes, such as en, fr, and it"
 msgstr "Kommaseparerede ISO-639-1 koder, f.eks. B. en, fr, it"
 
 #: includes/Admin/SettingsPage.php:539
-msgid "Übersetzung aktivieren"
+msgid "Enable translation"
 msgstr "Aktiver oversættelse"
 
 #: includes/Admin/SettingsPage.php:541
-msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
+msgid "Once API key and languages are saved, enable automatic translation here."
 msgstr "Når API-Key og sprog er gemt, skal du aktivere automatisk oversættelse her."
 
 #: includes/Admin/SettingsPage.php:553
-msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
+msgid "Activate Deepglot for all frontend requests"
 msgstr "Aktiver Deepglot for alle frontend-anmodninger"
 
 #: includes/Admin/SettingsPage.php:558
-msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
+msgid "Translation is enabled but stalled: the API key is rejected."
 msgstr "Oversættelse er slået til, men står stille: API-Key er afvist."
 
 #. translators: %1$s: source language, %2$s: target languages
 #: includes/Admin/SettingsPage.php:566
 #, php-format
-msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
+msgid "Active – pages are translated from %1$s to %2$s at /%3$s/your-page/"
 msgstr "Aktiv – sider er oversat fra %1$s til %2$s under /%3$s/ihre-seite/"
 
 #: includes/Admin/SettingsPage.php:595
-msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
+msgid "Automatically redirect visitors based on browser language (optional)"
 msgstr "Omdiriger automatisk besøgende baseret på browsersprog (valgfrit)"
 
 #: includes/Admin/SettingsPage.php:604
-msgid "Erweiterte Einstellungen ausblenden"
+msgid "Hide advanced settings"
 msgstr "Skjul avancerede indstillinger"
 
 #: includes/Admin/SettingsPage.php:604
 #: includes/Admin/SettingsPage.php:605
-msgid "Erweiterte Einstellungen anzeigen"
+msgid "Show advanced settings"
 msgstr "Vis avancerede indstillinger"
 
 #: includes/Admin/SettingsPage.php:609
-msgid "Ausgeschlossene URLs"
+msgid "Excluded URLs"
 msgstr "Ekskluderede URLs"
 
 #: includes/Admin/SettingsPage.php:611
-msgid "Eine URL oder ein Muster pro Zeile."
+msgid "One URL or pattern per line."
 msgstr "Ét URL eller mønster pr. linje."
 
 #: includes/Admin/SettingsPage.php:614
-msgid "Routing-Modus"
+msgid "Routing mode"
 msgstr "Routing mode"
 
 #: includes/Admin/SettingsPage.php:617
-msgid "Pfad-Präfix (/en/meine-seite)"
+msgid "Path prefix (/en/my-page)"
 msgstr "Stipræfiks (/en/meine-seite)"
 
 #: includes/Admin/SettingsPage.php:620
@@ -269,516 +271,529 @@ msgid "Subdomains (en.example.com)"
 msgstr "Underdomæner (en.example.com)"
 
 #: includes/Admin/SettingsPage.php:623
-msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
+msgid "Path prefix remains the default. For subdomains, each active target language needs a host."
 msgstr "Stipræfiks forbliver standard. For underdomæner skal hvert aktivt målsprog have en vært."
 
 #: includes/Admin/SettingsPage.php:626
-msgid "Domain-Zuordnungen"
+msgid "Domain mappings"
 msgstr "Domænekortlægninger"
 
 #: includes/Admin/SettingsPage.php:634
-msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
+msgid "Format: language-code=host, one mapping per line."
 msgstr "Format: sprachcode=host, én opgave pr. linje."
 
 #: includes/Admin/SettingsPage.php:646
-msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
+msgid "Translate WooCommerce and wp_mail emails"
 msgstr "Oversæt WooCommerce og wp_mail e-mails"
 
 #: includes/Admin/SettingsPage.php:659
-msgid "Suche in der Besuchersprache ausführen"
+msgid "Run searches in the visitor’s language"
 msgstr "Udfør søgning på den besøgendes sprog"
 
 #: includes/Admin/SettingsPage.php:672
-msgid "AMP-Seiten übersetzen"
+msgid "Translate AMP pages"
 msgstr "Oversæt AMP-sider"
 
 #: includes/Admin/SettingsPage.php:685
-msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
+msgid "Translate dynamically loaded content (AJAX, infinite scroll, SPA)"
 msgstr "Oversæt dynamisk genindlæst indhold (AJAX, endeløs rulle, SPA)"
 
 #: includes/Admin/SettingsPage.php:689
-msgid "Ausgeschlossene CSS-Selektoren"
+msgid "Excluded CSS selectors"
 msgstr "Ekskluderede CSS vælgere"
 
 #: includes/Admin/SettingsPage.php:691
-msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
+msgid "One CSS class, ID or selector per line."
 msgstr "Én CSS klasse, ID eller vælger pr. linje."
 
 #: includes/Admin/SettingsPage.php:725
-#: includes/Admin/SettingsPage.php:1318
-#: includes/Config/SwitcherTemplates.php:115
-msgid "Sprachumschalter"
+msgid "Language switcher settings"
 msgstr "Sprogskifter"
 
 #: includes/Admin/SettingsPage.php:726
-msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
+msgid "How and where should the language switcher appear on your website?"
 msgstr "Hvordan og hvor skal Language-Switcher vises på dit websted?"
 
 #: includes/Admin/SettingsPage.php:739
-msgid "Switcher automatisch im Seitenfooter einfügen"
+msgid "Automatically add the language switcher to the page footer"
 msgstr "Indsæt automatisk Switcher i sidefoden"
 
-#: includes/Admin/SettingsPage.php:743
-msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
-msgstr "Alternativt: Shortcode [deepglot_switcher] eller PHP do_action('deepglot_language_switcher') i dit tema."
-
-#: includes/Admin/SettingsPage.php:748
-#: includes/Admin/SettingsPage.php:1337
-msgid "Darstellung"
-msgstr "Præsentation"
-
-#: includes/Admin/SettingsPage.php:751
-#: includes/Admin/SettingsPage.php:1339
-msgid "Inline-Liste"
-msgstr "Inline liste"
-
-#: includes/Admin/SettingsPage.php:754
-#: includes/Admin/SettingsPage.php:1340
-msgid "Dropdown"
-msgstr "Drop ned"
-
-#: includes/Admin/SettingsPage.php:760
-#: includes/Admin/SettingsPage.php:1344
-msgid "Flaggenstil"
-msgstr "Flag stil"
-
-#: includes/Admin/SettingsPage.php:763
-msgid "Rechteckig, matt"
-msgstr "Rektangulær, mat"
-
-#: includes/Admin/SettingsPage.php:766
-msgid "Rechteckig, glänzend"
-msgstr "Rektangulær, skinnende"
-
-#: includes/Admin/SettingsPage.php:769
-msgid "Kreis, matt"
-msgstr "Cirkel, mat"
-
-#: includes/Admin/SettingsPage.php:772
-msgid "Kreis, glänzend"
-msgstr "Cirkel, skinnende"
-
-#: includes/Admin/SettingsPage.php:775
-msgid "Ohne Flagge"
-msgstr "Uden flag"
-
-#: includes/Admin/SettingsPage.php:781
-#: includes/Admin/SettingsPage.php:1352
-msgid "Sprachbezeichnung"
-msgstr "Sprogbetegnelse"
-
-#: includes/Admin/SettingsPage.php:784
-msgid "Volle Bezeichnung („Deutsch\")"
-msgstr "Fulde navn (\"tysk\")"
-
-#: includes/Admin/SettingsPage.php:787
-msgid "ISO-Code („DE\")"
-msgstr "ISO-Code (\"DE\")"
-
-#: includes/Admin/SettingsPage.php:793
-msgid "Anzeigegerät"
-msgstr "Displayenhed"
-
-#: includes/Admin/SettingsPage.php:796
-msgid "Auf allen Geräten zeigen"
-msgstr "Vis på alle enheder"
-
-#: includes/Admin/SettingsPage.php:799
-msgid "Nur Desktop (auf Mobile ausblenden)"
-msgstr "Kun desktop (skjul på mobil)"
-
-#: includes/Admin/SettingsPage.php:802
-msgid "Nur Mobile (auf Desktop ausblenden)"
-msgstr "Kun mobil (skjul på skrivebordet)"
-
-#: includes/Admin/SettingsPage.php:808
-msgid "Mobile-Breakpoint (px)"
-msgstr "Mobile breakpoint (px)"
-
-#: includes/Admin/SettingsPage.php:820
-msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
-msgstr "Standard 768 px. Under denne bredde betragtes en side som \"mobil\"."
-
-#: includes/Admin/SettingsPage.php:825
-msgid "Position auf der Seite"
-msgstr "Position på siden"
-
-#: includes/Admin/SettingsPage.php:828
-msgid "Inline (an der eingebetteten Stelle)"
-msgstr "Inline (på den indlejrede placering)"
-
-#: includes/Admin/SettingsPage.php:831
-msgid "Floating: rechts unten"
-msgstr "Flydende: nederst til højre"
-
-#: includes/Admin/SettingsPage.php:834
-msgid "Floating: links unten"
-msgstr "Flydende: nederst til venstre"
-
-#: includes/Admin/SettingsPage.php:837
-msgid "Floating: rechts oben"
-msgstr "Flydende: øverst til højre"
-
-#: includes/Admin/SettingsPage.php:840
-msgid "Floating: links oben"
-msgstr "Flydende: øverst til venstre"
-
-#: includes/Admin/SettingsPage.php:844
-msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
-msgstr "\"Flydende\" fastgør Switcher til hjørnet med position:fixed og ruller med den. Kombineret med Auto-Inject = Weglot standardadfærd."
-
-#: includes/Admin/SettingsPage.php:859
-msgid "Bezeichnung sichtbar"
-msgstr "Betegnelse synlig"
-
-#: includes/Admin/SettingsPage.php:866
-msgid "Reihenfolge der Sprachen"
-msgstr "Rækkefølgen af sprog"
-
-#: includes/Admin/SettingsPage.php:885
-msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
-msgstr "Omarranger ved hjælp af træk og slip. Virker i både Shortcode og auto-inject."
-
-#: includes/Admin/SettingsPage.php:889
-msgid "Eigene Flaggen pro Sprache (optional)"
-msgstr "Egne flag pr. sprog (valgfrit)"
-
-#: includes/Admin/SettingsPage.php:919
-msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
-msgstr "Lad være tomt = standardflag. Emoji (f.eks. 🇺🇸 for EN→amerikansk marked) eller URL til SVG/PNG. CSS specialtegn fjernes automatisk."
-
-#: includes/Admin/SettingsPage.php:924
-msgid "Eigenes CSS für den Switcher"
-msgstr "Eje CSS til Switcher"
-
-#: includes/Admin/SettingsPage.php:932
-msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
-msgstr "Indsat umiddelbart før Switcher som <style> tag. \"<\" fjernes automatisk, så der ikke kan indsættes et script-tag."
-
-#: includes/Admin/SettingsPage.php:944
-msgid "Weitere Switcher-Instanzen"
-msgstr "Flere Switcher forekomster"
-
-#: includes/Admin/SettingsPage.php:946
-msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
-msgstr "Opret uafhængig Switcher til Shortcode, blok, widget eller automatisk placering. Den eksisterende globale Switcher forbliver som \"standard\"-instansen."
-
-#: includes/Admin/SettingsPage.php:948
-msgid "Switcher-Vorlagen"
-msgstr "Switcher skabeloner"
-
-#: includes/Admin/SettingsPage.php:976
-msgid "Neuer Switcher"
-msgstr "Ny Switcher"
-
-#: includes/Admin/SettingsPage.php:987
-msgid "Einstellungen speichern"
-msgstr "Gem indstillinger"
-
-#. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:998
-#, php-format
-msgid "Hilfe & Dokumentation: %s"
-msgstr "Hjælp og dokumentation: %s"
-
-#: includes/Admin/SettingsPage.php:1132
-msgid "Noch nicht gestartet"
-msgstr "Ikke startet endnu"
-
-#: includes/Admin/SettingsPage.php:1133
-msgid "In Warteschlange"
-msgstr "I kø"
-
-#: includes/Admin/SettingsPage.php:1134
-msgid "Läuft"
-msgstr "Løber"
-
-#: includes/Admin/SettingsPage.php:1135
-msgid "Übersetzungen werden aufgewärmt"
-msgstr "Oversættelser varmes op"
-
-#: includes/Admin/SettingsPage.php:1136
-msgid "Wartet wegen API-Ratenlimit"
-msgstr "Venter på grund af API-hastighedsgrænse"
-
-#: includes/Admin/SettingsPage.php:1137
-msgid "Pausiert"
-msgstr "Pause"
-
-#: includes/Admin/SettingsPage.php:1138
-msgid "Pausiert: Wortkontingent erreicht"
-msgstr "Pause: Ordkvoten er nået"
-
-#: includes/Admin/SettingsPage.php:1139
-msgid "Pausiert: API-Key ungültig"
-msgstr "Pause: API-Key ugyldig"
-
-#: includes/Admin/SettingsPage.php:1140
-msgid "Abgeschlossen"
-msgstr "Afsluttet"
-
-#: includes/Admin/SettingsPage.php:1141
-msgid "Mit Fehlern abgeschlossen"
-msgstr "Fuldført med fejl"
-
-#: includes/Admin/SettingsPage.php:1142
-msgid "Abgebrochen"
-msgstr "Afbrudt"
-
-#: includes/Admin/SettingsPage.php:1163
-msgid "URL-Synchronisierung"
-msgstr "URL synkronisering"
-
-#: includes/Admin/SettingsPage.php:1164
-msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
-msgstr "Åbner udvalgte målsprogssider på en kontrolleret måde i baggrunden. Manglende segmenter ender i den begrænsede oversættelseskø; Bots og en ubegrænset varighed af crawl bruges ikke."
-
-#: includes/Admin/SettingsPage.php:1174
-msgid "Status:"
-msgstr "Status:"
-
-#: includes/Admin/SettingsPage.php:1183
-msgid "URLs gesamt"
-msgstr "URLs i alt"
-
-#: includes/Admin/SettingsPage.php:1184
-msgid "Warteschlange abgearbeitet"
-msgstr "Kø behandlet"
-
-#: includes/Admin/SettingsPage.php:1185
-msgid "Werden aufgewärmt"
-msgstr "Er varmet op"
-
-#: includes/Admin/SettingsPage.php:1186
-msgid "Fehlgeschlagen"
-msgstr "Mislykkedes"
-
-#: includes/Admin/SettingsPage.php:1188
-msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
-msgstr "\"Behandlet\" bekræfter Deepglot-køen ved WordPress-oprindelsen. Når du er færdig, skal du kontrollere den offentlige målsprogsside uden synkroniseringsparametre og manuelt rydde en ikke-understøttet helsides cache."
-
-#: includes/Admin/SettingsPage.php:1193
-msgid "Fehlgeschlagene URLs"
-msgstr "Mislykkedes URLs"
-
-#: includes/Admin/SettingsPage.php:1213
-msgid "Fehlgeschlagene URLs erneut versuchen"
-msgstr "Forsøg igen mislykkedes URLs"
-
-#: includes/Admin/SettingsPage.php:1219
-msgid "URL-Vorschau"
-msgstr "URL forhåndsvisning"
-
-#. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1224
-#, php-format
-msgid "%d Zielseiten werden synchronisiert."
-msgstr "%d Målsider er synkroniserede."
-
-#: includes/Admin/SettingsPage.php:1244
-msgid "Vorschau bestätigen und Synchronisierung starten"
-msgstr "Bekræft forhåndsvisning og start synkronisering"
-
-#: includes/Admin/SettingsPage.php:1263
-msgid "Maximale Anzahl Zielseiten"
-msgstr "Maksimalt antal landingssider"
-
-#: includes/Admin/SettingsPage.php:1265
-msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
-msgstr "For store websteder, start med en lille prøve. Der røres maksimalt to sider pr. kørsel; Hvis oversættelseskøen er fuld, venter synkroniseringen automatisk."
-
-#: includes/Admin/SettingsPage.php:1269
-msgid "Nächsten URL-Batch als Vorschau laden"
-msgstr "Indlæs den næste URL batch som en forhåndsvisning"
-
-#: includes/Admin/SettingsPage.php:1270
-msgid "URL-Vorschau erstellen"
-msgstr "Opret URL forhåndsvisning"
-
-#: includes/Admin/SettingsPage.php:1276
-msgid "Status aktualisieren"
-msgstr "Opdater status"
-
-#: includes/Admin/SettingsPage.php:1281
-msgid "Fortsetzen"
-msgstr "Fortsæt"
-
-#: includes/Admin/SettingsPage.php:1281
-msgid "Pausieren"
-msgstr "Pause"
-
-#: includes/Admin/SettingsPage.php:1290
-msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
-msgstr "Vil du virkelig annullere synkroniseringen? Oversættelser, der allerede er blevet gemt, bevares."
-
-#: includes/Admin/SettingsPage.php:1291
-msgid "Abbrechen"
-msgstr "Annuller"
-
-#: includes/Admin/SettingsPage.php:1320
-msgid "Instanz entfernen"
-msgstr "Fjern forekomst"
-
-#: includes/Admin/SettingsPage.php:1329
-#: assets/js/block-switcher.js:51
-msgid "Instanz-ID"
-msgstr "Forekomst-id"
-
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:744
+#: includes/Admin/SettingsPage.php:1356
 msgid "Name"
 msgstr "navn"
 
-#: includes/Admin/SettingsPage.php:1354
-msgid "Vollständiger Name"
+#: includes/Admin/SettingsPage.php:749
+#: includes/Admin/SettingsPage.php:1405
+msgid "Activate instance"
+msgstr "Aktiver instans"
+
+#: includes/Admin/SettingsPage.php:752
+#: includes/Admin/SettingsPage.php:1444
+msgid "DOM target for automatic placement"
+msgstr "DOM-mål for automatisk placering"
+
+#: includes/Admin/SettingsPage.php:756
+msgid "Alternatively: Shortcode [deepglot_switcher] or PHP do_action('deepglot_language_switcher') in your theme."
+msgstr "Alternativt: Shortcode [deepglot_switcher] eller PHP do_action('deepglot_language_switcher') i dit tema."
+
+#: includes/Admin/SettingsPage.php:761
+#: includes/Admin/SettingsPage.php:1360
+msgid "Presentation"
+msgstr "Præsentation"
+
+#: includes/Admin/SettingsPage.php:764
+#: includes/Admin/SettingsPage.php:1362
+msgid "Inline list"
+msgstr "Inline liste"
+
+#: includes/Admin/SettingsPage.php:767
+#: includes/Admin/SettingsPage.php:1363
+msgid "Dropdown"
+msgstr "Drop ned"
+
+#: includes/Admin/SettingsPage.php:773
+#: includes/Admin/SettingsPage.php:1367
+msgid "Flag style"
+msgstr "Flag stil"
+
+#: includes/Admin/SettingsPage.php:776
+msgid "Rectangular, matte"
+msgstr "Rektangulær, mat"
+
+#: includes/Admin/SettingsPage.php:779
+msgid "Rectangular, shiny"
+msgstr "Rektangulær, skinnende"
+
+#: includes/Admin/SettingsPage.php:782
+msgid "Circle, matte"
+msgstr "Cirkel, mat"
+
+#: includes/Admin/SettingsPage.php:785
+msgid "Circle, shiny"
+msgstr "Cirkel, skinnende"
+
+#: includes/Admin/SettingsPage.php:788
+msgid "Without a flag"
+msgstr "Uden flag"
+
+#: includes/Admin/SettingsPage.php:794
+#: includes/Admin/SettingsPage.php:937
+#: includes/Admin/SettingsPage.php:1375
+#: includes/Admin/SettingsPage.php:1428
+msgid "Language label"
+msgstr "Sprogbetegnelse"
+
+#: includes/Admin/SettingsPage.php:797
+msgid "Full name (\"English\")"
+msgstr "Fulde navn (\"tysk\")"
+
+#: includes/Admin/SettingsPage.php:800
+msgid "ISO code (\"EN\")"
+msgstr "ISO-Code (\"DE\")"
+
+#: includes/Admin/SettingsPage.php:806
+msgid "Display device"
+msgstr "Displayenhed"
+
+#: includes/Admin/SettingsPage.php:809
+msgid "Show on all devices"
+msgstr "Vis på alle enheder"
+
+#: includes/Admin/SettingsPage.php:812
+msgid "Desktop only (hide on mobile)"
+msgstr "Kun desktop (skjul på mobil)"
+
+#: includes/Admin/SettingsPage.php:815
+msgid "Mobile only (hide on desktop)"
+msgstr "Kun mobil (skjul på skrivebordet)"
+
+#: includes/Admin/SettingsPage.php:821
+msgid "Mobile breakpoint (px)"
+msgstr "Mobile breakpoint (px)"
+
+#: includes/Admin/SettingsPage.php:833
+msgid "Default: 768 px. Below this width, a device is treated as mobile."
+msgstr "Standard 768 px. Under denne bredde betragtes en side som \"mobil\"."
+
+#: includes/Admin/SettingsPage.php:838
+msgid "Position on the page"
+msgstr "Position på siden"
+
+#: includes/Admin/SettingsPage.php:841
+msgid "Inline (at the embedded location)"
+msgstr "Inline (på den indlejrede placering)"
+
+#: includes/Admin/SettingsPage.php:844
+msgid "Floating: bottom right"
+msgstr "Flydende: nederst til højre"
+
+#: includes/Admin/SettingsPage.php:847
+msgid "Floating: bottom left"
+msgstr "Flydende: nederst til venstre"
+
+#: includes/Admin/SettingsPage.php:850
+msgid "Floating: top right"
+msgstr "Flydende: øverst til højre"
+
+#: includes/Admin/SettingsPage.php:853
+msgid "Floating: top left"
+msgstr "Flydende: øverst til venstre"
+
+#: includes/Admin/SettingsPage.php:857
+msgid "Floating pins the switcher to a corner using position: fixed. Combined with automatic placement, this matches the default Weglot behavior."
+msgstr "\"Flydende\" fastgør Switcher til hjørnet med position:fixed og ruller med den. Kombineret med Auto-Inject = Weglot standardadfærd."
+
+#: includes/Admin/SettingsPage.php:872
+msgid "Show language label"
+msgstr "Betegnelse synlig"
+
+#: includes/Admin/SettingsPage.php:879
+msgid "Order of languages"
+msgstr "Rækkefølgen af sprog"
+
+#: includes/Admin/SettingsPage.php:898
+msgid "Rearrange using drag & drop. Works in both Shortcode and auto-inject."
+msgstr "Omarranger ved hjælp af træk og slip. Virker i både Shortcode og auto-inject."
+
+#: includes/Admin/SettingsPage.php:902
+msgid "Custom flags by language (optional)"
+msgstr "Egne flag pr. sprog (valgfrit)"
+
+#: includes/Admin/SettingsPage.php:923
+msgid "🇺🇸 or https://example.com/flag.svg"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:932
+msgid "Leave blank to use the default flag. Enter an emoji (for example, 🇺🇸 for English in the US) or an SVG/PNG URL. CSS special characters are removed automatically."
+msgstr "Lad være tomt = standardflag. Emoji (f.eks. 🇺🇸 for EN→amerikansk marked) eller URL til SVG/PNG. CSS specialtegn fjernes automatisk."
+
+#: includes/Admin/SettingsPage.php:947
+msgid "Custom CSS for the switcher"
+msgstr "Eje CSS til Switcher"
+
+#: includes/Admin/SettingsPage.php:955
+msgid "Inserted in a <style> tag immediately before the switcher. The \"<\" character is removed to prevent injection of a script tag."
+msgstr "Indsat umiddelbart før Switcher som <style> tag. \"<\" fjernes automatisk, så der ikke kan indsættes et script-tag."
+
+#: includes/Admin/SettingsPage.php:967
+msgid "More Switcher instances"
+msgstr "Flere Switcher forekomster"
+
+#: includes/Admin/SettingsPage.php:969
+msgid "Create independent switchers for shortcodes, blocks, widgets, or automatic placement. The existing global switcher remains available as the \"default\" instance."
+msgstr "Opret uafhængig Switcher til Shortcode, blok, widget eller automatisk placering. Den eksisterende globale Switcher forbliver som \"standard\"-instansen."
+
+#: includes/Admin/SettingsPage.php:971
+msgid "Switcher templates"
+msgstr "Switcher skabeloner"
+
+#: includes/Admin/SettingsPage.php:999
+msgid "New Switcher"
+msgstr "Ny Switcher"
+
+#: includes/Admin/SettingsPage.php:1010
+msgid "Save settings"
+msgstr "Gem indstillinger"
+
+#. translators: %s: dashboard url
+#: includes/Admin/SettingsPage.php:1021
+#, php-format
+msgid "Help & Documentation: %s"
+msgstr "Hjælp og dokumentation: %s"
+
+#: includes/Admin/SettingsPage.php:1155
+msgid "Not started yet"
+msgstr "Ikke startet endnu"
+
+#: includes/Admin/SettingsPage.php:1156
+msgid "In queue"
+msgstr "I kø"
+
+#: includes/Admin/SettingsPage.php:1157
+msgid "Running"
+msgstr "Løber"
+
+#: includes/Admin/SettingsPage.php:1158
+msgid "Translations are being cached"
+msgstr "Oversættelser varmes op"
+
+#: includes/Admin/SettingsPage.php:1159
+msgid "Waiting due to API rate limit"
+msgstr "Venter på grund af API-hastighedsgrænse"
+
+#: includes/Admin/SettingsPage.php:1160
+msgid "Paused"
+msgstr "Pause"
+
+#: includes/Admin/SettingsPage.php:1161
+msgid "Paused: word quota reached"
+msgstr "Pause: Ordkvoten er nået"
+
+#: includes/Admin/SettingsPage.php:1162
+msgid "Paused: API key invalid"
+msgstr "Pause: API-Key ugyldig"
+
+#: includes/Admin/SettingsPage.php:1163
+msgid "Completed"
+msgstr "Afsluttet"
+
+#: includes/Admin/SettingsPage.php:1164
+msgid "Completed with errors"
+msgstr "Fuldført med fejl"
+
+#: includes/Admin/SettingsPage.php:1165
+msgid "Aborted"
+msgstr "Afbrudt"
+
+#: includes/Admin/SettingsPage.php:1186
+msgid "URL synchronization"
+msgstr "URL synkronisering"
+
+#: includes/Admin/SettingsPage.php:1187
+msgid "Opens selected target language pages in a controlled manner in the background. Missing segments end up in the limited translation queue; Bots and an unlimited duration crawl are not used."
+msgstr "Åbner udvalgte målsprogssider på en kontrolleret måde i baggrunden. Manglende segmenter ender i den begrænsede oversættelseskø; Bots og en ubegrænset varighed af crawl bruges ikke."
+
+#: includes/Admin/SettingsPage.php:1197
+msgid "Status:"
+msgstr "Status:"
+
+#: includes/Admin/SettingsPage.php:1206
+msgid "URLs total"
+msgstr "URLs i alt"
+
+#: includes/Admin/SettingsPage.php:1207
+msgid "Queue processed"
+msgstr "Kø behandlet"
+
+#: includes/Admin/SettingsPage.php:1208
+msgid "Being cached"
+msgstr "Er varmet op"
+
+#: includes/Admin/SettingsPage.php:1209
+msgid "Failed"
+msgstr "Mislykkedes"
+
+#: includes/Admin/SettingsPage.php:1211
+msgid "\"Processed\" confirms completion in the Deepglot queue at the WordPress origin. Afterward, check the public target-language page without sync parameters and manually clear any unsupported full-page cache."
+msgstr "\"Behandlet\" bekræfter Deepglot-køen ved WordPress-oprindelsen. Når du er færdig, skal du kontrollere den offentlige målsprogsside uden synkroniseringsparametre og manuelt rydde en ikke-understøttet helsides cache."
+
+#: includes/Admin/SettingsPage.php:1216
+msgid "Failed URLs"
+msgstr "Mislykkedes URLs"
+
+#: includes/Admin/SettingsPage.php:1236
+msgid "Retry failed URLs"
+msgstr "Forsøg igen mislykkedes URLs"
+
+#: includes/Admin/SettingsPage.php:1242
+msgid "URL preview"
+msgstr "URL forhåndsvisning"
+
+#. translators: %d: number of target-language URLs in the preview.
+#: includes/Admin/SettingsPage.php:1247
+#, php-format
+msgid "%d target pages will be synchronized."
+msgstr "%d Målsider er synkroniserede."
+
+#: includes/Admin/SettingsPage.php:1267
+msgid "Confirm preview and start synchronization"
+msgstr "Bekræft forhåndsvisning og start synkronisering"
+
+#: includes/Admin/SettingsPage.php:1286
+msgid "Maximum number of target pages"
+msgstr "Maksimalt antal landingssider"
+
+#: includes/Admin/SettingsPage.php:1288
+msgid "Start with a small sample on large sites. Each run requests at most two pages; synchronization waits when the translation queue is full."
+msgstr "For store websteder, start med en lille prøve. Der røres maksimalt to sider pr. kørsel; Hvis oversættelseskøen er fuld, venter synkroniseringen automatisk."
+
+#: includes/Admin/SettingsPage.php:1292
+msgid "Load the next URL batch as a preview"
+msgstr "Indlæs den næste URL batch som en forhåndsvisning"
+
+#: includes/Admin/SettingsPage.php:1293
+msgid "Create URL preview"
+msgstr "Opret URL forhåndsvisning"
+
+#: includes/Admin/SettingsPage.php:1299
+msgid "Update status"
+msgstr "Opdater status"
+
+#: includes/Admin/SettingsPage.php:1304
+msgid "Continue"
+msgstr "Fortsæt"
+
+#: includes/Admin/SettingsPage.php:1304
+msgid "Pause"
+msgstr "Pause"
+
+#: includes/Admin/SettingsPage.php:1313
+msgid "Really cancel synchronization? Translations that have already been saved are retained."
+msgstr "Vil du virkelig annullere synkroniseringen? Oversættelser, der allerede er blevet gemt, bevares."
+
+#: includes/Admin/SettingsPage.php:1314
+msgid "Cancel"
+msgstr "Annuller"
+
+#: includes/Admin/SettingsPage.php:1343
+msgid "Remove instance"
+msgstr "Fjern forekomst"
+
+#: includes/Admin/SettingsPage.php:1352
+#: assets/js/block-switcher.js:51
+msgid "Instance ID"
+msgstr "Forekomst-id"
+
+#: includes/Admin/SettingsPage.php:1377
+msgid "Full language name"
 msgstr "Fulde navn"
 
-#: includes/Admin/SettingsPage.php:1355
+#: includes/Admin/SettingsPage.php:1378
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1359
+#: includes/Admin/SettingsPage.php:1382
 msgid "Position"
 msgstr "stilling"
 
-#: includes/Admin/SettingsPage.php:1367
-msgid "Ausblenden auf"
+#: includes/Admin/SettingsPage.php:1390
+msgid "Hide on"
 msgstr "Skjul på"
 
-#: includes/Admin/SettingsPage.php:1369
-msgid "Keinem Gerät"
+#: includes/Admin/SettingsPage.php:1392
+msgid "No device"
 msgstr "Ingen enhed"
 
-#: includes/Admin/SettingsPage.php:1370
-msgid "Mobilgeräten"
+#: includes/Admin/SettingsPage.php:1393
+msgid "Mobile devices"
 msgstr "mobile enheder"
 
-#: includes/Admin/SettingsPage.php:1371
-msgid "Desktop-Geräten"
+#: includes/Admin/SettingsPage.php:1394
+msgid "Desktop devices"
 msgstr "Desktop-enheder"
 
-#: includes/Admin/SettingsPage.php:1375
+#: includes/Admin/SettingsPage.php:1398
 msgid "Breakpoint (px)"
 msgstr "Knækpunkt (px)"
 
-#: includes/Admin/SettingsPage.php:1382
-msgid "Instanz aktivieren"
-msgstr "Aktiver instans"
-
-#: includes/Admin/SettingsPage.php:1384
-msgid "Automatisch platzieren"
+#: includes/Admin/SettingsPage.php:1407
+msgid "Place automatically"
 msgstr "Placer automatisk"
 
-#: includes/Admin/SettingsPage.php:1386
-msgid "Beschriftung anzeigen"
+#: includes/Admin/SettingsPage.php:1409
+msgid "Show label"
 msgstr "Vis billedtekst"
 
-#: includes/Admin/SettingsPage.php:1390
-msgid "Sprachreihenfolge"
+#: includes/Admin/SettingsPage.php:1413
+msgid "Language order"
 msgstr "Sprogrækkefølge"
 
-#: includes/Admin/SettingsPage.php:1395
-msgid "Eigene Flaggen"
+#: includes/Admin/SettingsPage.php:1418
+msgid "Custom flags"
 msgstr "Egne flag"
 
-#: includes/Admin/SettingsPage.php:1404
-msgid "Eigenes CSS"
+#. translators: %s: target language code.
+#: includes/Admin/SettingsPage.php:1422
+#, php-format
+msgid "%s: 🇦🇹 or https://…"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:1439
+msgid "Custom CSS"
 msgstr "Egen CSS"
 
-#: includes/Admin/SettingsPage.php:1409
-msgid "DOM-Ziel für automatische Platzierung"
-msgstr "DOM-mål for automatisk placering"
-
-#: includes/Admin/SettingsPage.php:1412
-msgid "Element in der Vorschau auswählen"
+#: includes/Admin/SettingsPage.php:1447
+msgid "Select element in preview"
 msgstr "Vælg element i forhåndsvisning"
 
-#: includes/Admin/SettingsPage.php:1414
-msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
+#: includes/Admin/SettingsPage.php:1449
+msgid "If the target is missing or invalid, the Switcher will safely remain in the footer."
 msgstr "Hvis målet mangler eller er ugyldigt, forbliver Switcher sikkert i sidefoden."
 
-#: includes/Admin/SettingsPage.php:1418
-msgid "Website-Vorschau für die Switcher-Platzierung"
+#: includes/Admin/SettingsPage.php:1453
+msgid "Website preview for the Switcher placement"
 msgstr "Forhåndsvisning af webstedet for Switcher-placeringen"
 
 #: includes/Api/Client.php:326
-#: includes/Api/Client.php:794
-#: includes/Api/Client.php:862
-#: includes/Api/Client.php:972
-msgid "Deepglot API Fehler."
+#: includes/Api/Client.php:803
+#: includes/Api/Client.php:871
+#: includes/Api/Client.php:981
+msgid "Deepglot API error."
 msgstr "Deepglot API-fejl."
 
 #: includes/Api/Client.php:522
-#: includes/Sync/SettingsSync.php:107
-msgid "Kein API-Key für die Synchronisierung vorhanden."
+#: includes/Sync/SettingsSync.php:115
+msgid "No API key is configured for synchronization."
 msgstr "Der findes ingen API-Key til synkronisering."
 
-#: includes/Api/Client.php:577
-msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+#: includes/Api/Client.php:586
+msgid "No API key is configured for runtime settings."
 msgstr "Der findes ingen API-Key for runtime-konfigurationen."
 
-#: includes/Api/Client.php:603
+#: includes/Api/Client.php:612
 #: includes/Frontend/DynamicTranslationController.php:407
 #: includes/Frontend/PageViewController.php:66
 #: includes/Frontend/PageViewController.php:70
-msgid "Nicht verfügbar."
+msgid "Not available."
 msgstr "Ikke tilgængelig."
 
-#: includes/Api/Client.php:1307
-msgid "Deepglot API-Key ungültig oder widerrufen."
+#: includes/Api/Client.php:1316
+msgid "Deepglot API key invalid or revoked."
 msgstr "Deepglot API-Key ugyldig eller tilbagekaldt."
 
 #: includes/Api/RestApi.php:327
-msgid "Kein API-Key angegeben."
+msgid "No API key specified."
 msgstr "Ingen API-Key angivet."
 
 #: includes/Api/RestApi.php:454
-msgid "URL-Synchronisierung ist nicht verfügbar."
+msgid "URL synchronization is not available."
 msgstr "URL synkronisering er ikke tilgængelig."
 
 #. translators: %d: seconds until reset
 #: includes/Api/RestApi.php:513
 #, php-format
-msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
+msgid "Too many requests. Please wait %d seconds."
 msgstr "For mange anmodninger. Vent venligst %d sekunder."
 
 #: includes/Api/RestApi.php:586
-msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden."
+msgid "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and can only be read through the WordPress REST API."
 msgstr "Kildesprog, målsprog og automatisk viderestilling administreres i Deepglot-dashboardet og kan kun læses via WordPress REST API."
 
 #: includes/Api/RestApi.php:665
-msgid "Monatliches Wortlimit ausgeschöpft."
+msgid "Monthly word limit exhausted."
 msgstr "Månedlig ordgrænse opbrugt."
 
 #: includes/Api/RestApi.php:673
-msgid "API-Key ungültig oder widerrufen."
+msgid "API key invalid or revoked."
 msgstr "API-Key ugyldig eller tilbagekaldt."
 
 #: includes/Config/SwitcherTemplates.php:21
-msgid "Klassisches Dropdown"
+msgid "Classic dropdown"
 msgstr "Klassisk dropdown"
 
 #: includes/Config/SwitcherTemplates.php:22
-msgid "Flagge und vollständiger Sprachname in einem kompakten Dropdown."
+msgid "Flag and full language name in a compact dropdown."
 msgstr "Flag og fulde sprognavn i en kompakt rullemenu."
 
 #: includes/Config/SwitcherTemplates.php:31
-msgid "Minimaler Sprachcode"
+msgid "Minimal language code"
 msgstr "Minimum sprogkode"
 
 #: includes/Config/SwitcherTemplates.php:32
-msgid "Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz."
+msgid "Simple ISO codes without flags for compact navigation."
 msgstr "Simple ISO-Codes uden flag til navigation med lidt plads."
 
 #: includes/Config/SwitcherTemplates.php:41
-msgid "Schwebende Flaggen"
+msgid "Floating flags"
 msgstr "Flydende flag"
 
 #: includes/Config/SwitcherTemplates.php:42
-msgid "Runde Flaggen als schwebender Umschalter unten rechts."
+msgid "Round flags in a floating switcher at the bottom right."
 msgstr "Runde flag som en flydende vippe nederst til højre."
 
 #: includes/Frontend/DynamicTranslationController.php:164
-msgid "Zu viele Anfragen."
+msgid "Too many requests."
 msgstr "For mange anmodninger."
 
 #: includes/Frontend/DynamicTranslationController.php:416
@@ -786,101 +801,145 @@ msgstr "For mange anmodninger."
 #: includes/Frontend/PageViewController.php:80
 #: includes/Frontend/PageViewController.php:87
 #: includes/Frontend/PageViewController.php:92
-msgid "Ungültige Herkunft."
+msgid "Invalid origin."
 msgstr "Ugyldig oprindelse."
 
 #. translators: %s: native language name.
-#: includes/Frontend/LanguageSwitcher.php:273
+#: includes/Frontend/LanguageSwitcher.php:274
 #, php-format
 msgid "Switch language to %s"
 msgstr "Skift sprog til %s"
 
 #. translators: %s: active language name.
-#: includes/Frontend/LanguageSwitcher.php:293
+#: includes/Frontend/LanguageSwitcher.php:294
 #, php-format
-msgid "Sprache: %s"
+msgid "Language: %s"
 msgstr "Sprog: %s"
 
 #: includes/Frontend/NavMenuSwitcher.php:183
-msgid "Sprache wählen"
+msgid "Choose a language"
 msgstr "Vælg sprog"
 
-#: includes/Frontend/SwitcherBlock.php:61
-msgid "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen."
-msgstr "Viser Deepglot sprogomskifteren — styles/Flagge/Reihenfolge følg plugin-indstillingerne."
+#: includes/Frontend/OutputBuffer.php:896
+msgid "Select highlighted text on the page."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:897
+msgid "Original"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:898
+msgid "Translation"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:899
+msgid "Close"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:900
+msgid "Save"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:901
+msgid "Saving…"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:902
+msgid "Could not save the translation."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:903
+msgid "Saved."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:904
+msgid "Invalid editor token."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:905
+msgid "Visual Editor is active. Click highlighted text to edit it."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:906
+msgid "Could not start the Visual Editor."
+msgstr ""
+
+#: includes/Frontend/SwitcherBlock.php:64
+msgid "Shows the Deepglot language switcher. Style, flag, and language order follow the plugin settings."
+msgstr "Viser sprogomskifteren Deepglot. Stil, flag og rækkefølge følger plugin-indstillingerne."
 
 #: includes/Frontend/SwitcherWidget.php:26
-msgid "Sprachumschalter in einer Widget-Area anzeigen."
+msgid "Display the language switcher in a widget area."
 msgstr "Vis sprogskifter i et widgetområde."
 
 #: includes/Frontend/SwitcherWidget.php:87
-msgid "Titel:"
+msgid "Title:"
 msgstr "Titel:"
 
 #: includes/Frontend/SwitcherWidget.php:99
-msgid "Switcher-Instanz:"
+msgid "Switcher instance:"
 msgstr "Switcher forekomst:"
 
 #: includes/Support/UrlTranslationSync.php:91
-msgid "Es wurden keine sicheren internen URLs gefunden."
+msgid "No secure internal URLs were found."
 msgstr "Der blev ikke fundet nogen sikre interne URLs."
 
 #: includes/Support/UrlTranslationSync.php:116
-msgid "Die URL-Vorschau konnte nicht gespeichert werden. Bitte versuche es erneut."
+msgid "The URL preview could not be saved. Please try again."
 msgstr "URL forhåndsvisningen kunne ikke gemmes. Prøv venligst igen."
 
 #: includes/Support/UrlTranslationSync.php:153
-msgid "Bestätige zuerst die URL-Vorschau."
+msgid "First confirm the URL preview."
 msgstr "Bekræft først URL forhåndsvisningen."
 
 #: includes/Support/UrlTranslationSync.php:162
-msgid "Eine URL-Synchronisierung wird gerade verarbeitet."
+msgid "A URL sync is currently processing."
 msgstr "En URL-synkronisering behandles i øjeblikket."
 
 #: includes/Support/UrlTranslationSync.php:171
-msgid "Es läuft bereits eine URL-Synchronisierung."
+msgid "A URL synchronization is already running."
 msgstr "En URL synkronisering kører allerede."
 
 #: includes/Support/UrlTranslationSync.php:180
-msgid "Die URL-Vorschau ist abgelaufen. Erstelle bitte eine neue Vorschau."
+msgid "The URL preview has expired. Please create a new preview."
 msgstr "URL forhåndsvisningen er udløbet. Opret venligst en ny forhåndsvisning."
 
 #: includes/Support/UrlTranslationSync.php:199
-msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
+msgid "The confirmed URL preview no longer matches the selection."
 msgstr "Den bekræftede URL forhåndsvisning passer ikke længere til valget."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
 #: includes/Support/UrlTranslationSync.php:591
 #, php-format
-msgid "Es können höchstens %d URLs synchronisiert werden."
+msgid "A maximum of %d URLs can be synchronized."
 msgstr "Der kan maksimalt synkroniseres %d URLs."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
 #: includes/Support/UrlTranslationSync.php:600
 #, php-format
-msgid "Der URL-Startpunkt darf höchstens %d betragen."
+msgid "The URL starting point must be at most %d."
 msgstr "URL-startpunktet må højst være %d."
 
 #: includes/Support/UrlTranslationSync.php:608
-msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
+msgid "Deepglot must be activated and fully set up."
 msgstr "Deepglot skal være aktiveret og fuldt opsat."
 
 #: includes/Support/UrlTranslationSync.php:623
-msgid "Mindestens eine aktive Zielsprache ist erforderlich."
+msgid "At least one active target language is required."
 msgstr "Der kræves mindst ét aktivt målsprog."
 
-#: includes/Sync/SettingsSync.php:111
-msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
+#: includes/Sync/SettingsSync.php:119
+msgid "No target languages are configured for synchronization."
 msgstr "Ingen målsprog konfigureret til synkronisering."
 
 #: assets/js/block-switcher.js:20
-msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
-msgstr "Viser sprogomskifteren Deepglot. Stil, flag og rækkefølge følger plugin-indstillingerne."
+msgid "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings."
+msgstr "Viser Deepglot sprogomskifteren — styles/Flagge/Reihenfolge følg plugin-indstillingerne."
 
 #: assets/js/block-switcher.js:49
-msgid "Switcher-Instanz"
+msgid "Switcher instance"
 msgstr "Switcher forekomst"
 
 #: assets/js/block-switcher.js:52
-msgid "Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter."
+msgid "Find the ID under Settings → Deepglot → Language switcher."
 msgstr "Du kan finde ID'et under Indstillinger → Deepglot → Sprogskifter."

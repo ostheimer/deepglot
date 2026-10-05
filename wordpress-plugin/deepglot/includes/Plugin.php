@@ -146,6 +146,37 @@ class Plugin
     {
         // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound -- GitHub release installs ship bundled translations outside the WordPress.org language-pack path.
         load_plugin_textdomain('deepglot', false, dirname(plugin_basename(DEEPGLOT_PLUGIN_FILE)) . '/languages');
+        // A previously installed WordPress.org language pack can still contain
+        // the old German originals. Keep approved current translations first,
+        // then use the migrated bundle only for strings the pack cannot resolve.
+        add_filter('gettext', [$this, 'fallbackBundledTranslation'], 10, 3);
+    }
+
+    public function fallbackBundledTranslation(string $translation, string $original, string $domain): string
+    {
+        if ($domain !== 'deepglot' || $translation !== $original) {
+            return $translation;
+        }
+
+        global $wp_locale_switcher;
+        $locale = $wp_locale_switcher instanceof \WP_Locale_Switcher && $wp_locale_switcher->is_switched()
+            ? get_locale()
+            : determine_locale();
+        if ($locale === 'en_US' || !preg_match('/^[a-z]{2,3}(?:_[A-Za-z0-9]{2,8}){0,2}$/', $locale)) {
+            return $translation;
+        }
+
+        $moFile = DEEPGLOT_PLUGIN_DIR . 'languages/deepglot-' . $locale . '.mo';
+        if (!is_readable($moFile)) {
+            return $translation;
+        }
+
+        $fallbackDomain = 'deepglot-bundled-fallback-' . $locale;
+        if (!is_textdomain_loaded($fallbackDomain)) {
+            load_textdomain($fallbackDomain, $moFile);
+        }
+
+        return get_translations_for_domain($fallbackDomain)->translate($original);
     }
 
     public static function activate(): void

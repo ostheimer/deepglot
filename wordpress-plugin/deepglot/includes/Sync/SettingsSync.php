@@ -112,11 +112,11 @@ class SettingsSync
             : $this->options->all();
 
         if (empty($normalized['api_key']) && $apiKeyOverride === null) {
-            return new \WP_Error('deepglot_sync_missing_key', __('Kein API-Key für die Synchronisierung vorhanden.', 'deepglot'));
+            return new \WP_Error('deepglot_sync_missing_key', __('No API key is configured for synchronization.', 'deepglot'));
         }
 
         if (empty($normalized['target_languages'])) {
-            return new \WP_Error('deepglot_sync_missing_languages', __('Keine Zielsprachen für die Synchronisierung konfiguriert.', 'deepglot'));
+            return new \WP_Error('deepglot_sync_missing_languages', __('No target languages are configured for synchronization.', 'deepglot'));
         }
 
         $requestApiKey = $apiKeyOverride !== null

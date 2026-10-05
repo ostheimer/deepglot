@@ -11,7 +11,7 @@ namespace Deepglot\Frontend;
  * markup to drift.
  *
  * Site-owner UX:
- *   - Block inserter → "Deepglot Sprachschalter" → drop into any
+ *   - Block inserter → "Deepglot language switcher" → drop into any
  *     block-themed page / FSE template / Post Content area.
  *   - Editor preview is server-rendered via wp.serverSideRender, so
  *     what the editor shows = what the visitor sees.
@@ -51,14 +51,17 @@ class SwitcherBlock
                 'deepglot',
                 DEEPGLOT_PLUGIN_DIR . 'languages'
             );
+            if (function_exists('add_filter')) {
+                add_filter('pre_load_script_translations', [$this, 'mergeOfficialScriptTranslations'], 10, 4);
+            }
         }
 
         register_block_type('deepglot/switcher', [
             'api_version'     => 3,
-            'title'           => __('Deepglot Sprachschalter', 'deepglot'),
+            'title'           => __('Deepglot language switcher', 'deepglot'),
             'category'        => 'widgets',
             'icon'            => 'translation',
-            'description'     => __('Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen.', 'deepglot'),
+            'description'     => __('Shows the Deepglot language switcher. Style, flag, and language order follow the plugin settings.', 'deepglot'),
             'editor_script'   => 'deepglot-switcher-block',
             'render_callback' => [$this, 'render'],
             'attributes'      => [
@@ -72,6 +75,47 @@ class SwitcherBlock
                 'align' => ['left', 'center', 'right'],
             ],
         ]);
+    }
+
+    /**
+     * Keep newly keyed bundled JS strings when an older system pack exists,
+     * while letting approved system translations of current keys win.
+     */
+    public function mergeOfficialScriptTranslations($translations, $file, $handle, $domain)
+    {
+        if ($translations !== null || $handle !== 'deepglot-switcher-block' || $domain !== 'deepglot' || !is_string($file)) {
+            return $translations;
+        }
+
+        $locale = determine_locale();
+        if (!preg_match('/^[a-z]{2,3}(?:_[A-Za-z0-9]{2,8}){0,2}$/', $locale)) {
+            return null;
+        }
+
+        $filename = 'deepglot-' . $locale . '-' . md5('assets/js/block-switcher.js') . '.json';
+        if (basename($file) !== $filename || realpath(dirname($file)) !== realpath(DEEPGLOT_PLUGIN_DIR . 'languages')) {
+            return null;
+        }
+
+        $officialFile = WP_LANG_DIR . '/plugins/' . $filename;
+        if (!is_readable($file) || !is_readable($officialFile)) {
+            return null;
+        }
+
+        $bundle = json_decode((string) file_get_contents($file), true);
+        $official = json_decode((string) file_get_contents($officialFile), true);
+        if (!is_array($bundle) || !is_array($official)
+            || !isset($bundle['locale_data']['messages'], $official['locale_data']['messages'])
+            || !is_array($bundle['locale_data']['messages']) || !is_array($official['locale_data']['messages'])) {
+            return null;
+        }
+
+        $bundle['locale_data']['messages'] = array_replace(
+            $bundle['locale_data']['messages'],
+            $official['locale_data']['messages']
+        );
+
+        return wp_json_encode($bundle);
     }
 
     /** Valid alignment values declared via `supports.align`. */

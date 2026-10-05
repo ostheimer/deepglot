@@ -725,7 +725,7 @@ class OutputBuffer
 
     private function getEditorBootstrapScript(): string
     {
-        return <<<'JS'
+        $script = <<<'JS'
 (function () {
   const manifestNode = document.getElementById("deepglot-editor-manifest");
   if (!manifestNode) return;
@@ -739,6 +739,7 @@ class OutputBuffer
 
   const { apiBaseUrl, projectId, token, requestUrl, segments = [] } = manifest;
   if (!apiBaseUrl || !projectId || !token) return;
+  const labels = __DEEPGLOT_EDITOR_LABELS__;
 
   const verifyUrl = `${apiBaseUrl}/projects/${encodeURIComponent(projectId)}/editor-sessions/verify?token=${encodeURIComponent(token)}`;
   const saveUrl = `${apiBaseUrl}/projects/${encodeURIComponent(projectId)}/manual-translations`;
@@ -751,24 +752,34 @@ class OutputBuffer
   root.innerHTML = `
     <div class="dg-header">
       <p class="dg-title">Deepglot Visual Editor</p>
-      <p class="dg-subtitle">Wähle einen markierten Text auf der Seite.</p>
+      <p class="dg-subtitle">Select highlighted text on the page.</p>
     </div>
     <div class="dg-body">
       <label>
-        Original
+        <span class="dg-source-label">Original</span>
         <textarea id="dg-editor-source" readonly></textarea>
       </label>
       <label>
-        Übersetzung
+        <span class="dg-translation-label">Translation</span>
         <textarea id="dg-editor-translation"></textarea>
       </label>
       <div class="dg-actions">
-        <button type="button" class="dg-secondary" id="dg-editor-close">Schließen</button>
-        <button type="button" class="dg-primary" id="dg-editor-save">Speichern</button>
+        <button type="button" class="dg-secondary" id="dg-editor-close">Close</button>
+        <button type="button" class="dg-primary" id="dg-editor-save">Save</button>
       </div>
       <div class="dg-status" id="dg-editor-status"></div>
     </div>
   `;
+  for (const [selector, text] of [
+    [".dg-subtitle", labels.subtitle],
+    [".dg-source-label", labels.source],
+    [".dg-translation-label", labels.translation],
+    ["#dg-editor-close", labels.close],
+    ["#dg-editor-save", labels.save],
+  ]) {
+    const element = root.querySelector(selector);
+    if (element) element.textContent = text;
+  }
   document.body.appendChild(root);
 
   const sourceField = root.querySelector("#dg-editor-source");
@@ -815,7 +826,7 @@ class OutputBuffer
     if (!segment) return;
 
     saveButton.disabled = true;
-    setStatus("Speichert …");
+    setStatus(labels.saving);
 
     try {
       const response = await fetch(saveUrl, {
@@ -835,7 +846,7 @@ class OutputBuffer
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.error || "Speichern fehlgeschlagen.");
+        throw new Error(data.error || labels.saveFailed);
       }
 
       segment.translatedText = translationField.value;
@@ -843,9 +854,9 @@ class OutputBuffer
       if (node) {
         node.textContent = translationField.value;
       }
-      setStatus("Gespeichert.");
+      setStatus(labels.saved);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Speichern fehlgeschlagen.");
+      setStatus(error instanceof Error ? error.message : labels.saveFailed);
     } finally {
       saveButton.disabled = false;
     }
@@ -855,7 +866,7 @@ class OutputBuffer
     .then(async (response) => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Editor-Token ungültig.");
+        throw new Error(data.error || labels.invalidToken);
       }
 
       document.querySelectorAll("[data-deepglot-segment-id]").forEach((node) => {
@@ -869,17 +880,36 @@ class OutputBuffer
 
       const banner = document.createElement("div");
       banner.id = "deepglot-editor-banner";
-      banner.textContent = "Visual Editor aktiv. Klicke auf einen markierten Text, um ihn zu bearbeiten.";
+      banner.textContent = labels.active;
       document.body.appendChild(banner);
       window.setTimeout(() => banner.remove(), 5000);
     })
     .catch((error) => {
       const banner = document.createElement("div");
       banner.id = "deepglot-editor-banner";
-      banner.textContent = error instanceof Error ? error.message : "Editor konnte nicht gestartet werden.";
+      banner.textContent = error instanceof Error ? error.message : labels.startFailed;
       document.body.appendChild(banner);
     });
 })();
 JS;
+        $labels = [
+            'subtitle' => __('Select highlighted text on the page.', 'deepglot'),
+            'source' => __('Original', 'deepglot'),
+            'translation' => __('Translation', 'deepglot'),
+            'close' => __('Close', 'deepglot'),
+            'save' => __('Save', 'deepglot'),
+            'saving' => __('Saving…', 'deepglot'),
+            'saveFailed' => __('Could not save the translation.', 'deepglot'),
+            'saved' => __('Saved.', 'deepglot'),
+            'invalidToken' => __('Invalid editor token.', 'deepglot'),
+            'active' => __('Visual Editor is active. Click highlighted text to edit it.', 'deepglot'),
+            'startFailed' => __('Could not start the Visual Editor.', 'deepglot'),
+        ];
+
+        return str_replace(
+            '__DEEPGLOT_EDITOR_LABELS__',
+            json_encode($labels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR),
+            $script
+        );
     }
 }

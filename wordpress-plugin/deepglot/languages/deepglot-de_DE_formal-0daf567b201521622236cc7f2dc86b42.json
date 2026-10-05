@@ -1,0 +1,30 @@
+{
+    "translation-revision-date": "2026-10-05 00:00+0000",
+    "generator": "WP-CLI\/2.12.0",
+    "source": "assets\/js\/block-switcher.js",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "de_DE_formal",
+                "plural-forms": "nplurals=2; plural=(n != 1);"
+            },
+            "Deepglot language switcher": [
+                "Deepglot Sprachschalter"
+            ],
+            "Instance ID": [
+                "Instanz-ID"
+            ],
+            "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings.": [
+                "Zeigt den Deepglot Sprachschalter \u2014 Stile\/Flagge\/Reihenfolge folgen den Plugin-Einstellungen."
+            ],
+            "Switcher instance": [
+                "Switcher-Instanz"
+            ],
+            "Find the ID under Settings \u2192 Deepglot \u2192 Language switcher.": [
+                "Die ID findest du unter Einstellungen \u2192 Deepglot \u2192 Sprachumschalter."
+            ]
+        }
+    }
+}

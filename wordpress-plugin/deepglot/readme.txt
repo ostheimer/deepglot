@@ -187,7 +187,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 = 0.11.2 =
 * Detected a revoked or invalid API key (HTTP 401) and stopped retrying it on every page view.
-* Added a wp-admin error notice and an "API-Key ungültig" settings status instead of a misleading active state.
+* Added a wp-admin error notice and an "Invalid API key" settings status instead of a misleading active state.
 * Cleared the invalid-key state immediately when a new API key or backend URL is saved.
 
 = 0.11.1 =
