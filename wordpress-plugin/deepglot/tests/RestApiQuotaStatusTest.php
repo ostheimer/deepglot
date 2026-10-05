@@ -247,7 +247,7 @@ $statusData = $statusResponse->get_data();
 
 dgstatusCheck($statusData['connected'] === false, 'Quota-exhausted status must not report connected=true.');
 dgstatusCheck($statusData['connection_code'] === 'quota_exhausted', 'Quota-exhausted status must expose a machine-readable code.');
-dgstatusCheck($statusData['connection_error'] === 'Monatliches Wortlimit ausgeschöpft.', 'Quota-exhausted status must show a clear admin message.');
+dgstatusCheck($statusData['connection_error'] === 'Monthly word limit exhausted.', 'Quota-exhausted status must show a clear admin message.');
 dgstatusCheck(
     dgstatus_payload_word_count($GLOBALS['_dgstatus_last_post']['payload']) >= 3,
     'Status ping must use enough words to trip a nearly exhausted quota.'
@@ -278,7 +278,7 @@ $testData = $testResponse->get_data();
 dgstatusCheck($testResponse->get_status() === 422, 'Quota-exhausted test-connection should fail validation.');
 dgstatusCheck($testData['ok'] === false, 'Quota-exhausted test-connection must return ok=false.');
 dgstatusCheck($testData['code'] === 'quota_exhausted', 'Quota-exhausted test-connection must expose a machine-readable code.');
-dgstatusCheck($testData['error'] === 'Monatliches Wortlimit ausgeschöpft.', 'Quota-exhausted test-connection must show a clear admin message.');
+dgstatusCheck($testData['error'] === 'Monthly word limit exhausted.', 'Quota-exhausted test-connection must show a clear admin message.');
 dgstatusCheck($sync->syncCalls === 0, 'Failed quota checks must not sync candidate settings.');
 
 $GLOBALS['_dgstatus_remote_mode'] = 'ok';

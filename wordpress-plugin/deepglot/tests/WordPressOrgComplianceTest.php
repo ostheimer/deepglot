@@ -126,7 +126,7 @@ wporgComplianceAssert(
 );
 wporgComplianceAssert(
     preg_match(
-        "/translators:[^\r\n]*active language[^\r\n]*\R\s*\\x24ariaLabel\s*=\s*sprintf\(__\('Sprache: %s'/",
+        "/translators:[^\r\n]*active language[^\r\n]*\R\s*\\x24ariaLabel\s*=\s*sprintf\(__\('Language: %s'/",
         $languageSwitcher
     ) === 1,
     'Active-language placeholder must have a translators comment'

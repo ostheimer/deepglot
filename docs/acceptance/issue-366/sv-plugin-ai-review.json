@@ -1,0 +1,2797 @@
+{
+  "review_label": "Fully AI-reviewed. This is not WordPress.org approval or human/native-speaker approval.",
+  "catalog_entry_count": 219,
+  "migrated_entry_count": 206,
+  "new_entry_count": 13,
+  "mapping_count": 206,
+  "mapping_collisions": 0,
+  "missing_migrated_entries": 0,
+  "recommendation_count": 9,
+  "english_rephrasing_reviewed_count": 69,
+  "meaning_changes": [
+    {
+      "old_msgid": "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API.",
+      "old_english_equivalent": "Translates WordPress content using Deepglot and a compatible translation API.",
+      "new_msgid": "Translates WordPress content with Deepglot and a compatible translation API."
+    },
+    {
+      "old_msgid": "Deepglot Sprachschalter",
+      "old_english_equivalent": "Deepglot Language switch",
+      "new_msgid": "Deepglot language switcher"
+    },
+    {
+      "old_msgid": "Sprachschalter",
+      "old_english_equivalent": "Voice switch",
+      "new_msgid": "Language switcher"
+    },
+    {
+      "old_msgid": "Die URL-Synchronisierung wurde gestartet.",
+      "old_english_equivalent": "The URL synchronization has started.",
+      "new_msgid": "URL synchronization has started."
+    },
+    {
+      "old_msgid": "Deepglot: API-Key ungültig oder widerrufen.",
+      "old_english_equivalent": "Deepglot: API-Key invalid or revoked.",
+      "new_msgid": "Deepglot: API key invalid or revoked."
+    },
+    {
+      "old_msgid": "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort.",
+      "old_english_equivalent": "The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API-Key in the Deepglot settings, then it takes effect immediately.",
+      "new_msgid": "The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API key in the Deepglot settings, then it takes effect immediately."
+    },
+    {
+      "old_msgid": "API-Key im Deepglot-Dashboard prüfen",
+      "old_english_equivalent": "Check API-Key in the Deepglot dashboard",
+      "new_msgid": "Check API key in the Deepglot dashboard"
+    },
+    {
+      "old_msgid": "API-Key ungültig",
+      "old_english_equivalent": "API-Key invalid",
+      "new_msgid": "Invalid API key"
+    },
+    {
+      "old_msgid": "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten.",
+      "old_english_equivalent": "All you need is a API-Key from the Deepglot dashboard - it takes less than two minutes.",
+      "new_msgid": "You only need an API key from the Deepglot dashboard. Setup takes less than two minutes."
+    },
+    {
+      "old_msgid": "API-Key eintragen",
+      "old_english_equivalent": "Enter API-Key",
+      "new_msgid": "Enter API key"
+    },
+    {
+      "old_msgid": "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere.",
+      "old_english_equivalent": "The stored API-Key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save.",
+      "new_msgid": "The stored API key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save."
+    },
+    {
+      "old_msgid": "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key.",
+      "old_english_equivalent": "Create a free account on deepglot.ai, create a project for your website and copy the API-Key.",
+      "new_msgid": "Create a free account on deepglot.ai, create a project for your website and copy the API key."
+    },
+    {
+      "old_msgid": "Zum Dashboard – API-Key erstellen",
+      "old_english_equivalent": "Go to dashboard – create API-Key",
+      "new_msgid": "Go to dashboard – create API key"
+    },
+    {
+      "old_msgid": "API-Key",
+      "old_english_equivalent": "API-Key",
+      "new_msgid": "API key"
+    },
+    {
+      "old_msgid": "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt.",
+      "old_english_equivalent": "You can find the full key under Settings → API-Keys in your Deepglot project.",
+      "new_msgid": "You can find the full key under Settings → API keys in your Deepglot project."
+    },
+    {
+      "old_msgid": "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting.",
+      "old_english_equivalent": "Default: https://deepglot.ai/api – only change for Self-Hosting.",
+      "new_msgid": "Default: https://deepglot.ai/api – change only for self-hosting."
+    },
+    {
+      "old_msgid": "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it",
+      "old_english_equivalent": "Comma separated ISO-639-1 codes, e.g. B. en, fr, it",
+      "new_msgid": "Comma-separated ISO 639-1 codes, such as en, fr, and it"
+    },
+    {
+      "old_msgid": "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier.",
+      "old_english_equivalent": "Once API-Key and languages are saved, enable automatic translation here.",
+      "new_msgid": "Once API key and languages are saved, enable automatic translation here."
+    },
+    {
+      "old_msgid": "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt.",
+      "old_english_equivalent": "Translation is switched on, but stands still: The API-Key is rejected.",
+      "new_msgid": "Translation is enabled but stalled: the API key is rejected."
+    },
+    {
+      "old_msgid": "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/",
+      "old_english_equivalent": "Active – pages are translated from %1$s to %2$s under /%3$s/ihre-seite/",
+      "new_msgid": "Active – pages are translated from %1$s to %2$s at /%3$s/your-page/"
+    },
+    {
+      "old_msgid": "Pfad-Präfix (/en/meine-seite)",
+      "old_english_equivalent": "Path prefix (/en/meine-seite)",
+      "new_msgid": "Path prefix (/en/my-page)"
+    },
+    {
+      "old_msgid": "Format: sprachcode=host, eine Zuordnung pro Zeile.",
+      "old_english_equivalent": "Format: sprachcode=host, one assignment per line.",
+      "new_msgid": "Format: language-code=host, one mapping per line."
+    },
+    {
+      "old_msgid": "Suche in der Besuchersprache ausführen",
+      "old_english_equivalent": "Execute search in the visitor's language",
+      "new_msgid": "Run searches in the visitor’s language"
+    },
+    {
+      "old_msgid": "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)",
+      "old_english_equivalent": "Translate dynamically reloaded content (AJAX, endless scroll, SPA)",
+      "new_msgid": "Translate dynamically loaded content (AJAX, infinite scroll, SPA)"
+    },
+    {
+      "old_msgid": "Sprachumschalter",
+      "old_english_equivalent": "Language switcher",
+      "new_msgid": "Language switcher settings"
+    },
+    {
+      "old_msgid": "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?",
+      "old_english_equivalent": "How and where should the Language-Switcher appear on your website?",
+      "new_msgid": "How and where should the language switcher appear on your website?"
+    },
+    {
+      "old_msgid": "Switcher automatisch im Seitenfooter einfügen",
+      "old_english_equivalent": "Automatically insert Switcher in the page footer",
+      "new_msgid": "Automatically add the language switcher to the page footer"
+    },
+    {
+      "old_msgid": "Dropdown",
+      "old_english_equivalent": "Drop down",
+      "new_msgid": "Dropdown"
+    },
+    {
+      "old_msgid": "Sprachbezeichnung",
+      "old_english_equivalent": "Language designation",
+      "new_msgid": "Language label"
+    },
+    {
+      "old_msgid": "Volle Bezeichnung („Deutsch\")",
+      "old_english_equivalent": "Full name (“German”)",
+      "new_msgid": "Full name (\"English\")"
+    },
+    {
+      "old_msgid": "ISO-Code („DE\")",
+      "old_english_equivalent": "ISO-Code (“DE”)",
+      "new_msgid": "ISO code (\"EN\")"
+    },
+    {
+      "old_msgid": "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\".",
+      "old_english_equivalent": "Default 768 px. Below this width, a page is considered “mobile”.",
+      "new_msgid": "Default: 768 px. Below this width, a device is treated as mobile."
+    },
+    {
+      "old_msgid": "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten.",
+      "old_english_equivalent": "\"Floating\" pins the Switcher to the corner with position:fixed and scrolls with it. Combined with Auto-Inject = Weglot default behavior.",
+      "new_msgid": "Floating pins the switcher to a corner using position: fixed. Combined with automatic placement, this matches the default Weglot behavior."
+    },
+    {
+      "old_msgid": "Bezeichnung sichtbar",
+      "old_english_equivalent": "Designation visible",
+      "new_msgid": "Show language label"
+    },
+    {
+      "old_msgid": "Eigene Flaggen pro Sprache (optional)",
+      "old_english_equivalent": "Own flags per language (optional)",
+      "new_msgid": "Custom flags by language (optional)"
+    },
+    {
+      "old_msgid": "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt.",
+      "old_english_equivalent": "Leave blank = default flag. Emoji (e.g. 🇺🇸 for EN→US market) or URL to SVG/PNG. CSS special characters are automatically removed.",
+      "new_msgid": "Leave blank to use the default flag. Enter an emoji (for example, 🇺🇸 for English in the US) or an SVG/PNG URL. CSS special characters are removed automatically."
+    },
+    {
+      "old_msgid": "Eigenes CSS für den Switcher",
+      "old_english_equivalent": "Own CSS for the Switcher",
+      "new_msgid": "Custom CSS for the switcher"
+    },
+    {
+      "old_msgid": "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann.",
+      "old_english_equivalent": "Inserted immediately before the Switcher as the <style> tag. \"<\" is automatically removed so that no script tag can be inserted.",
+      "new_msgid": "Inserted in a <style> tag immediately before the switcher. The \"<\" character is removed to prevent injection of a script tag."
+    },
+    {
+      "old_msgid": "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten.",
+      "old_english_equivalent": "Create independent Switcher for Shortcode, block, widget or auto placement. The existing global Switcher remains as the “default” instance.",
+      "new_msgid": "Create independent switchers for shortcodes, blocks, widgets, or automatic placement. The existing global switcher remains available as the \"default\" instance."
+    },
+    {
+      "old_msgid": "Läuft",
+      "old_english_equivalent": "Runs",
+      "new_msgid": "Running"
+    },
+    {
+      "old_msgid": "Übersetzungen werden aufgewärmt",
+      "old_english_equivalent": "Translations are warmed up",
+      "new_msgid": "Translations are being cached"
+    },
+    {
+      "old_msgid": "Pausiert: API-Key ungültig",
+      "old_english_equivalent": "Paused: API-Key invalid",
+      "new_msgid": "Paused: API key invalid"
+    },
+    {
+      "old_msgid": "Werden aufgewärmt",
+      "old_english_equivalent": "Are warmed up",
+      "new_msgid": "Being cached"
+    },
+    {
+      "old_msgid": "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell.",
+      "old_english_equivalent": "“Processed” confirms the Deepglot queue at the WordPress origin. Once finished, check the public target language page without sync parameters and manually clear an unsupported full-page cache.",
+      "new_msgid": "\"Processed\" confirms completion in the Deepglot queue at the WordPress origin. Afterward, check the public target-language page without sync parameters and manually clear any unsupported full-page cache."
+    },
+    {
+      "old_msgid": "%d Zielseiten werden synchronisiert.",
+      "old_english_equivalent": "%d Target pages are synchronized.",
+      "new_msgid": "%d target pages will be synchronized."
+    },
+    {
+      "old_msgid": "Maximale Anzahl Zielseiten",
+      "old_english_equivalent": "Maximum number of landing pages",
+      "new_msgid": "Maximum number of target pages"
+    },
+    {
+      "old_msgid": "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch.",
+      "old_english_equivalent": "For large sites, start with a small sample. A maximum of two pages are touched per run; If the translation queue is full, the sync waits automatically.",
+      "new_msgid": "Start with a small sample on large sites. Each run requests at most two pages; synchronization waits when the translation queue is full."
+    },
+    {
+      "old_msgid": "Name",
+      "old_english_equivalent": "name",
+      "new_msgid": "Name"
+    },
+    {
+      "old_msgid": "Vollständiger Name",
+      "old_english_equivalent": "Full name",
+      "new_msgid": "Full language name"
+    },
+    {
+      "old_msgid": "Position",
+      "old_english_equivalent": "position",
+      "new_msgid": "Position"
+    },
+    {
+      "old_msgid": "Mobilgeräten",
+      "old_english_equivalent": "mobile devices",
+      "new_msgid": "Mobile devices"
+    },
+    {
+      "old_msgid": "Beschriftung anzeigen",
+      "old_english_equivalent": "Show caption",
+      "new_msgid": "Show label"
+    },
+    {
+      "old_msgid": "Eigene Flaggen",
+      "old_english_equivalent": "Own flags",
+      "new_msgid": "Custom flags"
+    },
+    {
+      "old_msgid": "Eigenes CSS",
+      "old_english_equivalent": "Own CSS",
+      "new_msgid": "Custom CSS"
+    },
+    {
+      "old_msgid": "Kein API-Key für die Synchronisierung vorhanden.",
+      "old_english_equivalent": "No API-Key exists for synchronization.",
+      "new_msgid": "No API key is configured for synchronization."
+    },
+    {
+      "old_msgid": "Kein API-Key für die Runtime-Konfiguration vorhanden.",
+      "old_english_equivalent": "No API-Key exists for the runtime configuration.",
+      "new_msgid": "No API key is configured for runtime settings."
+    },
+    {
+      "old_msgid": "Deepglot API-Key ungültig oder widerrufen.",
+      "old_english_equivalent": "Deepglot API-Key invalid or revoked.",
+      "new_msgid": "Deepglot API key invalid or revoked."
+    },
+    {
+      "old_msgid": "Kein API-Key angegeben.",
+      "old_english_equivalent": "No API-Key specified.",
+      "new_msgid": "No API key specified."
+    },
+    {
+      "old_msgid": "API-Key ungültig oder widerrufen.",
+      "old_english_equivalent": "API-Key invalid or revoked.",
+      "new_msgid": "API key invalid or revoked."
+    },
+    {
+      "old_msgid": "Minimaler Sprachcode",
+      "old_english_equivalent": "Minimum language code",
+      "new_msgid": "Minimal language code"
+    },
+    {
+      "old_msgid": "Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz.",
+      "old_english_equivalent": "Simple ISO-Codes without flags for navigation with little space.",
+      "new_msgid": "Simple ISO codes without flags for compact navigation."
+    },
+    {
+      "old_msgid": "Runde Flaggen als schwebender Umschalter unten rechts.",
+      "old_english_equivalent": "Round flags as a floating toggle at the bottom right.",
+      "new_msgid": "Round flags in a floating switcher at the bottom right."
+    },
+    {
+      "old_msgid": "Sprache wählen",
+      "old_english_equivalent": "Choose language",
+      "new_msgid": "Choose a language"
+    },
+    {
+      "old_msgid": "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen.",
+      "old_english_equivalent": "Shows the Deepglot language switch — styles/Flagge/Reihenfolge follow the plugin settings.",
+      "new_msgid": "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings."
+    },
+    {
+      "old_msgid": "Sprachumschalter in einer Widget-Area anzeigen.",
+      "old_english_equivalent": "Show language switcher in a widget area.",
+      "new_msgid": "Display the language switcher in a widget area."
+    },
+    {
+      "old_msgid": "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl.",
+      "old_english_equivalent": "The confirmed URL preview no longer fits the selection.",
+      "new_msgid": "The confirmed URL preview no longer matches the selection."
+    },
+    {
+      "old_msgid": "Keine Zielsprachen für die Synchronisierung konfiguriert.",
+      "old_english_equivalent": "No target languages configured for synchronization.",
+      "new_msgid": "No target languages are configured for synchronization."
+    },
+    {
+      "old_msgid": "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.",
+      "old_english_equivalent": "Shows the Deepglot language switch. Style, flag and order follow the plugin settings.",
+      "new_msgid": "Shows the Deepglot language switcher. Style, flag, and language order follow the plugin settings."
+    },
+    {
+      "old_msgid": "Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter.",
+      "old_english_equivalent": "You can find the ID under Settings → Deepglot → Language switcher.",
+      "new_msgid": "Find the ID under Settings → Deepglot → Language switcher."
+    }
+  ],
+  "entries": [
+    {
+      "old_msgid": "Deepglot",
+      "new_msgid": "Deepglot",
+      "previous_english_equivalent": "Deepglot",
+      "previously_reviewed_sv": "Deepglot",
+      "current_candidate_sv": "Deepglot",
+      "recommended_sv": "Deepglot",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "https://deepglot.ai",
+      "new_msgid": "https://deepglot.ai",
+      "previous_english_equivalent": "https://deepglot.ai",
+      "previously_reviewed_sv": "https://deepglot.ai",
+      "current_candidate_sv": "https://deepglot.ai",
+      "recommended_sv": "https://deepglot.ai",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API.",
+      "new_msgid": "Translates WordPress content with Deepglot and a compatible translation API.",
+      "previous_english_equivalent": "Translates WordPress content using Deepglot and a compatible translation API.",
+      "previously_reviewed_sv": "Översätt innehåll på WordPress-webbplatser med Deepglot och ett kompatibelt översättnings-API.",
+      "current_candidate_sv": "Översätt innehåll på WordPress-webbplatser med Deepglot och ett kompatibelt översättnings-API.",
+      "recommended_sv": "Översätter WordPress-innehåll med Deepglot och ett kompatibelt översättnings-API.",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Deklarativ pluginbeskrivning; korrigerar nuvarande uppmaningsform och ligger nära den engelska betydelsen."
+    },
+    {
+      "old_msgid": "Andreas Ostheimer",
+      "new_msgid": "Andreas Ostheimer",
+      "previous_english_equivalent": "Andreas Ostheimer",
+      "previously_reviewed_sv": "Andreas Ostheimer",
+      "current_candidate_sv": "Andreas Ostheimer",
+      "recommended_sv": "Andreas Ostheimer",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "https://www.ostheimer.at",
+      "new_msgid": "https://www.ostheimer.at",
+      "previous_english_equivalent": "https://www.ostheimer.at",
+      "previously_reviewed_sv": "https://www.ostheimer.at",
+      "current_candidate_sv": "https://www.ostheimer.at",
+      "recommended_sv": "https://www.ostheimer.at",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot Sprachschalter",
+      "new_msgid": "Deepglot language switcher",
+      "previous_english_equivalent": "Deepglot Language switch",
+      "previously_reviewed_sv": "Deepglots språkväljare",
+      "current_candidate_sv": "Deepglots språkväljare",
+      "recommended_sv": "Deepglots språkväljare",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird.",
+      "new_msgid": "Adds a language switch entry that automatically expands into one entry per language when viewed.",
+      "previous_english_equivalent": "Adds a language switch entry that automatically expands into one entry per language when viewed.",
+      "previously_reviewed_sv": "Lägger till ett menyval för språkväljaren. När menyn visas delas det automatiskt upp i ett menyval per språk.",
+      "current_candidate_sv": "Lägger till ett menyval för språkväljaren. När menyn visas delas det automatiskt upp i ett menyval per språk.",
+      "recommended_sv": "Lägger till ett menyval för språkväljaren. När menyn visas delas det automatiskt upp i ett menyval per språk.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Anzeige-Modus",
+      "new_msgid": "Display mode",
+      "previous_english_equivalent": "Display mode",
+      "previously_reviewed_sv": "Visningsläge",
+      "current_candidate_sv": "Visningsläge",
+      "recommended_sv": "Visningsläge",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Liste (jede Sprache als eigener Menüpunkt)",
+      "new_msgid": "List (each language as a separate menu item)",
+      "previous_english_equivalent": "List (each language as a separate menu item)",
+      "previously_reviewed_sv": "Lista (ett menyval per språk)",
+      "current_candidate_sv": "Lista (ett menyval per språk)",
+      "recommended_sv": "Lista (ett menyval per språk)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)",
+      "new_msgid": "Dropdown (active language as parent, alternatives as submenu)",
+      "previous_english_equivalent": "Dropdown (active language as parent, alternatives as submenu)",
+      "previously_reviewed_sv": "Rullgardinsmeny (det aktiva språket som överordnat val, övriga språk i en undermeny)",
+      "current_candidate_sv": "Rullgardinsmeny (det aktiva språket som överordnat val, övriga språk i en undermeny)",
+      "recommended_sv": "Rullgardinsmeny (det aktiva språket som överordnat val, övriga språk i en undermeny)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Aktive Sprache aus der Liste ausblenden",
+      "new_msgid": "Hide active language from the list",
+      "previous_english_equivalent": "Hide active language from the list",
+      "previously_reviewed_sv": "Dölj aktivt språk från listan",
+      "current_candidate_sv": "Dölj aktivt språk från listan",
+      "recommended_sv": "Dölj aktivt språk från listan",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zum Menü hinzufügen",
+      "new_msgid": "Add to menu",
+      "previous_english_equivalent": "Add to menu",
+      "previously_reviewed_sv": "Lägg till i menyn",
+      "current_candidate_sv": "Lägg till i menyn",
+      "recommended_sv": "Lägg till i menyn",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprachschalter",
+      "new_msgid": "Language switcher",
+      "previous_english_equivalent": "Voice switch",
+      "previously_reviewed_sv": "Språkväljare",
+      "current_candidate_sv": "Språkväljare",
+      "recommended_sv": "Språkväljare",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die URL-Vorschau ist bereit. Prüfe die Auswahl und bestätige anschließend den Start.",
+      "new_msgid": "The URL preview is ready. Check the selection and then confirm the start.",
+      "previous_english_equivalent": "The URL preview is ready. Check the selection and then confirm the start.",
+      "previously_reviewed_sv": "URL-förhandsvisningen är klar. Kontrollera urvalet och bekräfta sedan starten.",
+      "current_candidate_sv": "URL-förhandsvisningen är klar. Kontrollera urvalet och bekräfta sedan starten.",
+      "recommended_sv": "URL-förhandsvisningen är klar. Kontrollera urvalet och bekräfta sedan starten.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die URL-Synchronisierung wurde gestartet.",
+      "new_msgid": "URL synchronization has started.",
+      "previous_english_equivalent": "The URL synchronization has started.",
+      "previously_reviewed_sv": "URL-synkroniseringen har startat.",
+      "current_candidate_sv": "URL-synkroniseringen har startat.",
+      "recommended_sv": "URL-synkroniseringen har startat.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ungültige Aktion.",
+      "new_msgid": "Invalid action.",
+      "previous_english_equivalent": "Invalid action.",
+      "previously_reviewed_sv": "Ogiltig åtgärd.",
+      "current_candidate_sv": "Ogiltig åtgärd.",
+      "recommended_sv": "Ogiltig åtgärd.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Der Status der URL-Synchronisierung wurde aktualisiert.",
+      "new_msgid": "The status of the URL synchronization has been updated.",
+      "previous_english_equivalent": "The status of the URL synchronization has been updated.",
+      "previously_reviewed_sv": "Statusen för URL-synkroniseringen har uppdaterats.",
+      "current_candidate_sv": "Statusen för URL-synkroniseringen har uppdaterats.",
+      "recommended_sv": "Statusen för URL-synkroniseringen har uppdaterats.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die URL-Synchronisierung konnte in ihrem aktuellen Status nicht geändert werden.",
+      "new_msgid": "The URL synchronization could not be changed in its current state.",
+      "previous_english_equivalent": "The URL synchronization could not be changed in its current state.",
+      "previously_reviewed_sv": "Det går inte att ändra URL-synkroniseringen i dess nuvarande status.",
+      "current_candidate_sv": "Det går inte att ändra URL-synkroniseringen i dess nuvarande status.",
+      "recommended_sv": "Det går inte att ändra URL-synkroniseringen i dess nuvarande status.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Du benötigst Administrator-Rechte für diese Aktion.",
+      "new_msgid": "You need administrator rights for this action.",
+      "previous_english_equivalent": "You need administrator rights for this action.",
+      "previously_reviewed_sv": "Du behöver administratörsbehörighet för att utföra den här åtgärden.",
+      "current_candidate_sv": "Du behöver administratörsbehörighet för att utföra den här åtgärden.",
+      "recommended_sv": "Du behöver administratörsbehörighet för att utföra den här åtgärden.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot: API-Key ungültig oder widerrufen.",
+      "new_msgid": "Deepglot: API key invalid or revoked.",
+      "previous_english_equivalent": "Deepglot: API-Key invalid or revoked.",
+      "previously_reviewed_sv": "Deepglot: API-nyckeln är ogiltig eller har återkallats.",
+      "current_candidate_sv": "Deepglot: API-nyckeln är ogiltig eller har återkallats.",
+      "recommended_sv": "Deepglot: API-nyckeln är ogiltig eller har återkallats.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort.",
+      "new_msgid": "The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API key in the Deepglot settings, then it takes effect immediately.",
+      "previous_english_equivalent": "The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API-Key in the Deepglot settings, then it takes effect immediately.",
+      "previously_reviewed_sv": "Deepglots server avvisar alla översättningsförfrågningar (HTTP 401). Innehåll som redan finns i cachen visas fortfarande, men inget nytt översätts. Lägg in en giltig API-nyckel i Deepglots inställningar. Den börjar gälla direkt.",
+      "current_candidate_sv": "Deepglots server avvisar alla översättningsförfrågningar (HTTP 401). Innehåll som redan finns i cachen visas fortfarande, men inget nytt översätts. Lägg in en giltig API-nyckel i Deepglots inställningar. Den börjar gälla direkt.",
+      "recommended_sv": "Deepglots server avvisar alla översättningsförfrågningar (HTTP 401). Innehåll som redan finns i cachen visas fortfarande, men inget nytt översätts. Lägg in en giltig API-nyckel i Deepglots inställningar. Den börjar gälla direkt.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "API-Key im Deepglot-Dashboard prüfen",
+      "new_msgid": "Check API key in the Deepglot dashboard",
+      "previous_english_equivalent": "Check API-Key in the Deepglot dashboard",
+      "previously_reviewed_sv": "Kontrollera API-nyckeln i Deepglots kontrollpanel",
+      "current_candidate_sv": "Kontrollera API-nyckeln i Deepglots kontrollpanel",
+      "recommended_sv": "Kontrollera API-nyckeln i Deepglots kontrollpanel",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot: Monatliches Wortlimit erreicht.",
+      "new_msgid": "Deepglot: Monthly word limit reached.",
+      "previous_english_equivalent": "Deepglot: Monthly word limit reached.",
+      "previously_reviewed_sv": "Deepglot: Den månatliga ordgränsen har nåtts.",
+      "current_candidate_sv": "Deepglot: Den månatliga ordgränsen har nåtts.",
+      "recommended_sv": "Deepglot: Den månatliga ordgränsen har nåtts.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird.",
+      "new_msgid": "Content that has already been translated will continue to be delivered, but new or changed text will remain in the source language until the quota is reset or increased.",
+      "previous_english_equivalent": "Content that has already been translated will continue to be delivered, but new or changed text will remain in the source language until the quota is reset or increased.",
+      "previously_reviewed_sv": "Innehåll som redan har översatts visas fortfarande, men nya eller ändrade texter visas på källspråket tills kvoten återställs eller höjs.",
+      "current_candidate_sv": "Innehåll som redan har översatts visas fortfarande, men nya eller ändrade texter visas på källspråket tills kvoten återställs eller höjs.",
+      "recommended_sv": "Innehåll som redan har översatts visas fortfarande, men nya eller ändrade texter visas på källspråket tills kvoten återställs eller höjs.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kontingent im Deepglot-Dashboard prüfen",
+      "new_msgid": "Check quota in the Deepglot dashboard",
+      "previous_english_equivalent": "Check quota in the Deepglot dashboard",
+      "previously_reviewed_sv": "Kontrollera kvoten i Deepglots kontrollpanel",
+      "current_candidate_sv": "Kontrollera kvoten i Deepglots kontrollpanel",
+      "recommended_sv": "Kontrollera kvoten i Deepglots kontrollpanel",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "API-Key ungültig",
+      "new_msgid": "Invalid API key",
+      "previous_english_equivalent": "API-Key invalid",
+      "previously_reviewed_sv": "API-nyckeln är ogiltig",
+      "current_candidate_sv": "API-nyckeln är ogiltig",
+      "recommended_sv": "API-nyckeln är ogiltig",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Aktiv",
+      "new_msgid": "Active",
+      "previous_english_equivalent": "Active",
+      "previously_reviewed_sv": "Aktiv",
+      "current_candidate_sv": "Aktiv",
+      "recommended_sv": "Aktiv",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deaktiviert",
+      "new_msgid": "Disabled",
+      "previous_english_equivalent": "Disabled",
+      "previously_reviewed_sv": "Inaktiverad",
+      "current_candidate_sv": "Inaktiverad",
+      "recommended_sv": "Inaktiverad",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Einrichtung erforderlich",
+      "new_msgid": "Setup required",
+      "previous_english_equivalent": "Setup required",
+      "previously_reviewed_sv": "Konfiguration krävs",
+      "current_candidate_sv": "Konfiguration krävs",
+      "recommended_sv": "Konfiguration krävs",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren.",
+      "new_msgid": "Welcome to Deepglot! Follow the three steps below to enable translation on your website.",
+      "previous_english_equivalent": "Welcome to Deepglot! Follow the three steps below to enable translation on your website.",
+      "previously_reviewed_sv": "Välkommen till Deepglot! Följ de tre stegen nedan för att aktivera översättning på din webbplats.",
+      "current_candidate_sv": "Välkommen till Deepglot! Följ de tre stegen nedan för att aktivera översättning på din webbplats.",
+      "recommended_sv": "Välkommen till Deepglot! Följ de tre stegen nedan för att aktivera översättning på din webbplats.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot einrichten",
+      "new_msgid": "Set up Deepglot",
+      "previous_english_equivalent": "Set up Deepglot",
+      "previously_reviewed_sv": "Konfigurera Deepglot",
+      "current_candidate_sv": "Konfigurera Deepglot",
+      "recommended_sv": "Konfigurera Deepglot",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten.",
+      "new_msgid": "You only need an API key from the Deepglot dashboard. Setup takes less than two minutes.",
+      "previous_english_equivalent": "All you need is a API-Key from the Deepglot dashboard - it takes less than two minutes.",
+      "previously_reviewed_sv": "Du behöver bara en API-nyckel från Deepglots kontrollpanel. Det tar mindre än två minuter.",
+      "current_candidate_sv": "Du behöver bara en API-nyckel från Deepglots kontrollpanel. Det tar mindre än två minuter.",
+      "recommended_sv": "Du behöver bara en API-nyckel från Deepglots kontrollpanel. Det tar mindre än två minuter.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "API-Key eintragen",
+      "new_msgid": "Enter API key",
+      "previous_english_equivalent": "Enter API-Key",
+      "previously_reviewed_sv": "Ange API-nyckeln",
+      "current_candidate_sv": "Ange API-nyckeln",
+      "recommended_sv": "Ange API-nyckeln",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere.",
+      "new_msgid": "The stored API key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save.",
+      "previous_english_equivalent": "The stored API-Key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save.",
+      "previously_reviewed_sv": "Deepglots server avvisar den sparade API-nyckeln (HTTP 401). Inget nytt innehåll översätts just nu. Ange en giltig nyckel och spara.",
+      "current_candidate_sv": "Deepglots server avvisar den sparade API-nyckeln (HTTP 401). Inget nytt innehåll översätts just nu. Ange en giltig nyckel och spara.",
+      "recommended_sv": "Deepglots server avvisar den sparade API-nyckeln (HTTP 401). Inget nytt innehåll översätts just nu. Ange en giltig nyckel och spara.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key.",
+      "new_msgid": "Create a free account on deepglot.ai, create a project for your website and copy the API key.",
+      "previous_english_equivalent": "Create a free account on deepglot.ai, create a project for your website and copy the API-Key.",
+      "previously_reviewed_sv": "Skapa ett kostnadsfritt konto på deepglot.ai, skapa ett projekt för din webbplats och kopiera API-nyckeln.",
+      "current_candidate_sv": "Skapa ett kostnadsfritt konto på deepglot.ai, skapa ett projekt för din webbplats och kopiera API-nyckeln.",
+      "recommended_sv": "Skapa ett kostnadsfritt konto på deepglot.ai, skapa ett projekt för din webbplats och kopiera API-nyckeln.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zum Dashboard – API-Key erstellen",
+      "new_msgid": "Go to dashboard – create API key",
+      "previous_english_equivalent": "Go to dashboard – create API-Key",
+      "previously_reviewed_sv": "Öppna kontrollpanelen och skapa en API-nyckel",
+      "current_candidate_sv": "Öppna kontrollpanelen och skapa en API-nyckel",
+      "recommended_sv": "Öppna kontrollpanelen och skapa en API-nyckel",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "API-Key",
+      "new_msgid": "API key",
+      "previous_english_equivalent": "API-Key",
+      "previously_reviewed_sv": "API-nyckel",
+      "current_candidate_sv": "API-nyckel",
+      "recommended_sv": "API-nyckel",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt.",
+      "new_msgid": "You can find the full key under Settings → API keys in your Deepglot project.",
+      "previous_english_equivalent": "You can find the full key under Settings → API-Keys in your Deepglot project.",
+      "previously_reviewed_sv": "Du hittar hela nyckeln under Inställningar → API-nycklar i ditt Deepglot-projekt.",
+      "current_candidate_sv": "Du hittar hela nyckeln under Inställningar → API-nycklar i ditt Deepglot-projekt.",
+      "recommended_sv": "Du hittar hela nyckeln under Inställningar → API-nycklar i ditt Deepglot-projekt.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Backend-URL",
+      "new_msgid": "Backend URL",
+      "previous_english_equivalent": "Backend URL",
+      "previously_reviewed_sv": "Backend-URL",
+      "current_candidate_sv": "Backend-URL",
+      "recommended_sv": "Backend-URL",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting.",
+      "new_msgid": "Default: https://deepglot.ai/api – change only for self-hosting.",
+      "previous_english_equivalent": "Default: https://deepglot.ai/api – only change for Self-Hosting.",
+      "previously_reviewed_sv": "Standard: https://deepglot.ai/api – ändra bara om du driftar tjänsten själv.",
+      "current_candidate_sv": "Standard: https://deepglot.ai/api – ändra bara om du driftar tjänsten själv.",
+      "recommended_sv": "Standard: https://deepglot.ai/api – ändra bara om du driftar tjänsten själv.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprachen konfigurieren",
+      "new_msgid": "Configure languages",
+      "previous_english_equivalent": "Configure languages",
+      "previously_reviewed_sv": "Konfigurera språk",
+      "current_candidate_sv": "Konfigurera språk",
+      "recommended_sv": "Konfigurera språk",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest.",
+      "new_msgid": "Specify the original language and the desired translation languages.",
+      "previous_english_equivalent": "Specify the original language and the desired translation languages.",
+      "previously_reviewed_sv": "Ange originalspråk och önskade målspråk.",
+      "current_candidate_sv": "Ange originalspråk och önskade målspråk.",
+      "recommended_sv": "Ange originalspråk och önskade målspråk.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und hier nur angezeigt.",
+      "new_msgid": "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and are only displayed here.",
+      "previous_english_equivalent": "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and are only displayed here.",
+      "previously_reviewed_sv": "Originalspråk, målspråk och automatisk omdirigering hanteras i Deepglots kontrollpanel och visas bara här.",
+      "current_candidate_sv": "Originalspråk, målspråk och automatisk omdirigering hanteras i Deepglots kontrollpanel och visas bara här.",
+      "recommended_sv": "Originalspråk, målspråk och automatisk omdirigering hanteras i Deepglots kontrollpanel och visas bara här.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Projekteinstellungen öffnen",
+      "new_msgid": "Open project settings",
+      "previous_english_equivalent": "Open project settings",
+      "previously_reviewed_sv": "Öppna projektinställningar",
+      "current_candidate_sv": "Öppna projektinställningar",
+      "recommended_sv": "Öppna projektinställningar",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Originalsprache",
+      "new_msgid": "Original language",
+      "previous_english_equivalent": "Original language",
+      "previously_reviewed_sv": "Originalspråk",
+      "current_candidate_sv": "Originalspråk",
+      "recommended_sv": "Originalspråk",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zielsprachen",
+      "new_msgid": "Target languages",
+      "previous_english_equivalent": "Target languages",
+      "previously_reviewed_sv": "Målspråk",
+      "current_candidate_sv": "Målspråk",
+      "recommended_sv": "Målspråk",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it",
+      "new_msgid": "Comma-separated ISO 639-1 codes, such as en, fr, and it",
+      "previous_english_equivalent": "Comma separated ISO-639-1 codes, e.g. B. en, fr, it",
+      "previously_reviewed_sv": "Kommaseparerade ISO 639-1-koder, till exempel en, fr, it",
+      "current_candidate_sv": "Kommaseparerade ISO 639-1-koder, till exempel en, fr, it",
+      "recommended_sv": "Kommaseparerade ISO 639-1-koder, till exempel en, fr, it",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Übersetzung aktivieren",
+      "new_msgid": "Enable translation",
+      "previous_english_equivalent": "Enable translation",
+      "previously_reviewed_sv": "Aktivera översättning",
+      "current_candidate_sv": "Aktivera översättning",
+      "recommended_sv": "Aktivera översättning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier.",
+      "new_msgid": "Once API key and languages are saved, enable automatic translation here.",
+      "previous_english_equivalent": "Once API-Key and languages are saved, enable automatic translation here.",
+      "previously_reviewed_sv": "När du har sparat API-nyckeln och språken aktiverar du automatisk översättning här.",
+      "current_candidate_sv": "När du har sparat API-nyckeln och språken aktiverar du automatisk översättning här.",
+      "recommended_sv": "När du har sparat API-nyckeln och språken aktiverar du automatisk översättning här.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot für alle Frontend-Anfragen aktiv schalten",
+      "new_msgid": "Activate Deepglot for all frontend requests",
+      "previous_english_equivalent": "Activate Deepglot for all frontend requests",
+      "previously_reviewed_sv": "Aktivera Deepglot för alla förfrågningar till webbplatsens framsida",
+      "current_candidate_sv": "Aktivera Deepglot för alla förfrågningar till webbplatsens framsida",
+      "recommended_sv": "Aktivera Deepglot för alla förfrågningar till webbplatsens framsida",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt.",
+      "new_msgid": "Translation is enabled but stalled: the API key is rejected.",
+      "previous_english_equivalent": "Translation is switched on, but stands still: The API-Key is rejected.",
+      "previously_reviewed_sv": "Översättningen är aktiverad men har stannat eftersom API-nyckeln avvisas.",
+      "current_candidate_sv": "Översättningen är aktiverad men har stannat eftersom API-nyckeln avvisas.",
+      "recommended_sv": "Översättningen är aktiverad men har stannat eftersom API-nyckeln avvisas.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/",
+      "new_msgid": "Active – pages are translated from %1$s to %2$s at /%3$s/your-page/",
+      "previous_english_equivalent": "Active – pages are translated from %1$s to %2$s under /%3$s/ihre-seite/",
+      "previously_reviewed_sv": "Aktiv – sidor översätts från %1$s till %2$s på /%3$s/ihre-seite/",
+      "current_candidate_sv": "Aktiv – sidor översätts från %1$s till %2$s på /%3$s/ihre-seite/",
+      "recommended_sv": "Aktiv – sidor översätts från %1$s till %2$s på /%3$s/your-page/",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Uppdaterar exempelsökvägen så att den följer det nya engelska URL-exemplet exakt."
+    },
+    {
+      "old_msgid": "Besucher anhand der Browsersprache automatisch weiterleiten (optional)",
+      "new_msgid": "Automatically redirect visitors based on browser language (optional)",
+      "previous_english_equivalent": "Automatically redirect visitors based on browser language (optional)",
+      "previously_reviewed_sv": "Omdirigera besökare automatiskt utifrån webbläsarens språk (valfritt)",
+      "current_candidate_sv": "Omdirigera besökare automatiskt utifrån webbläsarens språk (valfritt)",
+      "recommended_sv": "Omdirigera besökare automatiskt utifrån webbläsarens språk (valfritt)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Erweiterte Einstellungen ausblenden",
+      "new_msgid": "Hide advanced settings",
+      "previous_english_equivalent": "Hide advanced settings",
+      "previously_reviewed_sv": "Dölj avancerade inställningar",
+      "current_candidate_sv": "Dölj avancerade inställningar",
+      "recommended_sv": "Dölj avancerade inställningar",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Erweiterte Einstellungen anzeigen",
+      "new_msgid": "Show advanced settings",
+      "previous_english_equivalent": "Show advanced settings",
+      "previously_reviewed_sv": "Visa avancerade inställningar",
+      "current_candidate_sv": "Visa avancerade inställningar",
+      "recommended_sv": "Visa avancerade inställningar",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ausgeschlossene URLs",
+      "new_msgid": "Excluded URLs",
+      "previous_english_equivalent": "Excluded URLs",
+      "previously_reviewed_sv": "Exkluderade URLs",
+      "current_candidate_sv": "Exkluderade URLs",
+      "recommended_sv": "Exkluderade URLs",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eine URL oder ein Muster pro Zeile.",
+      "new_msgid": "One URL or pattern per line.",
+      "previous_english_equivalent": "One URL or pattern per line.",
+      "previously_reviewed_sv": "Ange en URL eller ett mönster per rad.",
+      "current_candidate_sv": "Ange en URL eller ett mönster per rad.",
+      "recommended_sv": "Ange en URL eller ett mönster per rad.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Routing-Modus",
+      "new_msgid": "Routing mode",
+      "previous_english_equivalent": "Routing mode",
+      "previously_reviewed_sv": "Routningsläge",
+      "current_candidate_sv": "Routningsläge",
+      "recommended_sv": "Routningsläge",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Pfad-Präfix (/en/meine-seite)",
+      "new_msgid": "Path prefix (/en/my-page)",
+      "previous_english_equivalent": "Path prefix (/en/meine-seite)",
+      "previously_reviewed_sv": "Sökvägsprefix (/en/meine-seite)",
+      "current_candidate_sv": "Sökvägsprefix (/en/meine-seite)",
+      "recommended_sv": "Sökvägsprefix (/en/my-page)",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Uppdaterar exempelsökvägen så att den följer det nya engelska URL-exemplet exakt."
+    },
+    {
+      "old_msgid": "Subdomains (en.example.com)",
+      "new_msgid": "Subdomains (en.example.com)",
+      "previous_english_equivalent": "Subdomains (en.example.com)",
+      "previously_reviewed_sv": "Underdomäner (en.example.com)",
+      "current_candidate_sv": "Underdomäner (en.example.com)",
+      "recommended_sv": "Underdomäner (en.example.com)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host.",
+      "new_msgid": "Path prefix remains the default. For subdomains, each active target language needs a host.",
+      "previous_english_equivalent": "Path prefix remains the default. For subdomains, each active target language needs a host.",
+      "previously_reviewed_sv": "Sökvägsprefix är standard. För underdomäner behöver varje aktivt målspråk ett eget värdnamn.",
+      "current_candidate_sv": "Sökvägsprefix är standard. För underdomäner behöver varje aktivt målspråk ett eget värdnamn.",
+      "recommended_sv": "Sökvägsprefix är standard. För underdomäner behöver varje aktivt målspråk ett eget värdnamn.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Domain-Zuordnungen",
+      "new_msgid": "Domain mappings",
+      "previous_english_equivalent": "Domain mappings",
+      "previously_reviewed_sv": "Domänmappningar",
+      "current_candidate_sv": "Domänmappningar",
+      "recommended_sv": "Domänmappningar",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Format: sprachcode=host, eine Zuordnung pro Zeile.",
+      "new_msgid": "Format: language-code=host, one mapping per line.",
+      "previous_english_equivalent": "Format: sprachcode=host, one assignment per line.",
+      "previously_reviewed_sv": "Format: språkkod=värdnamn, en koppling per rad.",
+      "current_candidate_sv": "Format: språkkod=värdnamn, en koppling per rad.",
+      "recommended_sv": "Format: språkkod=värdnamn, en koppling per rad.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "WooCommerce- und wp_mail-E-Mails übersetzen",
+      "new_msgid": "Translate WooCommerce and wp_mail emails",
+      "previous_english_equivalent": "Translate WooCommerce and wp_mail emails",
+      "previously_reviewed_sv": "Översätt e-postmeddelanden från WooCommerce och wp_mail",
+      "current_candidate_sv": "Översätt e-postmeddelanden från WooCommerce och wp_mail",
+      "recommended_sv": "Översätt e-postmeddelanden från WooCommerce och wp_mail",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Suche in der Besuchersprache ausführen",
+      "new_msgid": "Run searches in the visitor’s language",
+      "previous_english_equivalent": "Execute search in the visitor's language",
+      "previously_reviewed_sv": "Utför sökning på besökarens språk",
+      "current_candidate_sv": "Utför sökning på besökarens språk",
+      "recommended_sv": "Utför sökning på besökarens språk",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "AMP-Seiten übersetzen",
+      "new_msgid": "Translate AMP pages",
+      "previous_english_equivalent": "Translate AMP pages",
+      "previously_reviewed_sv": "Översätt AMP-sidor",
+      "current_candidate_sv": "Översätt AMP-sidor",
+      "recommended_sv": "Översätt AMP-sidor",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)",
+      "new_msgid": "Translate dynamically loaded content (AJAX, infinite scroll, SPA)",
+      "previous_english_equivalent": "Translate dynamically reloaded content (AJAX, endless scroll, SPA)",
+      "previously_reviewed_sv": "Översätt innehåll som laddas dynamiskt (AJAX, oändlig rullning, SPA)",
+      "current_candidate_sv": "Översätt innehåll som laddas dynamiskt (AJAX, oändlig rullning, SPA)",
+      "recommended_sv": "Översätt innehåll som laddas dynamiskt (AJAX, oändlig rullning, SPA)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ausgeschlossene CSS-Selektoren",
+      "new_msgid": "Excluded CSS selectors",
+      "previous_english_equivalent": "Excluded CSS selectors",
+      "previously_reviewed_sv": "Exkluderade CSS väljare",
+      "current_candidate_sv": "Exkluderade CSS väljare",
+      "recommended_sv": "Exkluderade CSS väljare",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eine CSS-Klasse, ID oder ein Selektor pro Zeile.",
+      "new_msgid": "One CSS class, ID or selector per line.",
+      "previous_english_equivalent": "One CSS class, ID or selector per line.",
+      "previously_reviewed_sv": "Ange en CSS-klass, ett ID eller en väljare per rad.",
+      "current_candidate_sv": "Ange en CSS-klass, ett ID eller en väljare per rad.",
+      "recommended_sv": "Ange en CSS-klass, ett ID eller en väljare per rad.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprachumschalter",
+      "new_msgid": "Language switcher settings",
+      "previous_english_equivalent": "Language switcher",
+      "previously_reviewed_sv": "Språkväljare",
+      "current_candidate_sv": "Språkväljare",
+      "recommended_sv": "Språkväljare",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?",
+      "new_msgid": "How and where should the language switcher appear on your website?",
+      "previous_english_equivalent": "How and where should the Language-Switcher appear on your website?",
+      "previously_reviewed_sv": "Hur och var ska språkväljaren visas på din webbplats?",
+      "current_candidate_sv": "Hur och var ska språkväljaren visas på din webbplats?",
+      "recommended_sv": "Hur och var ska språkväljaren visas på din webbplats?",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Switcher automatisch im Seitenfooter einfügen",
+      "new_msgid": "Automatically add the language switcher to the page footer",
+      "previous_english_equivalent": "Automatically insert Switcher in the page footer",
+      "previously_reviewed_sv": "Lägg till språkväljaren automatiskt i sidfoten",
+      "current_candidate_sv": "Lägg till språkväljaren automatiskt i sidfoten",
+      "recommended_sv": "Lägg till språkväljaren automatiskt i sidfoten",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme.",
+      "new_msgid": "Alternatively: Shortcode [deepglot_switcher] or PHP do_action('deepglot_language_switcher') in your theme.",
+      "previous_english_equivalent": "Alternatively: Shortcode [deepglot_switcher] or PHP do_action('deepglot_language_switcher') in your theme.",
+      "previously_reviewed_sv": "Alternativ: använd kortkoden [deepglot_switcher] eller PHP-funktionen do_action('deepglot_language_switcher') i ditt tema.",
+      "current_candidate_sv": "Alternativ: använd kortkoden [deepglot_switcher] eller PHP-funktionen do_action('deepglot_language_switcher') i ditt tema.",
+      "recommended_sv": "Alternativ: använd kortkoden [deepglot_switcher] eller PHP-funktionen do_action('deepglot_language_switcher') i ditt tema.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Darstellung",
+      "new_msgid": "Presentation",
+      "previous_english_equivalent": "Presentation",
+      "previously_reviewed_sv": "Presentation",
+      "current_candidate_sv": "Presentation",
+      "recommended_sv": "Presentation",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Inline-Liste",
+      "new_msgid": "Inline list",
+      "previous_english_equivalent": "Inline list",
+      "previously_reviewed_sv": "Lista på samma rad",
+      "current_candidate_sv": "Lista på samma rad",
+      "recommended_sv": "Lista på samma rad",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Dropdown",
+      "new_msgid": "Dropdown",
+      "previous_english_equivalent": "Drop down",
+      "previously_reviewed_sv": "Rullgardinsmeny",
+      "current_candidate_sv": "Rullgardinsmeny",
+      "recommended_sv": "Rullgardinsmeny",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Flaggenstil",
+      "new_msgid": "Flag style",
+      "previous_english_equivalent": "Flag style",
+      "previously_reviewed_sv": "Flaggstil",
+      "current_candidate_sv": "Flaggstil",
+      "recommended_sv": "Flaggstil",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Rechteckig, matt",
+      "new_msgid": "Rectangular, matte",
+      "previous_english_equivalent": "Rectangular, matt",
+      "previously_reviewed_sv": "Rektangulär, matt",
+      "current_candidate_sv": "Rektangulär, matt",
+      "recommended_sv": "Rektangulär, matt",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Rechteckig, glänzend",
+      "new_msgid": "Rectangular, shiny",
+      "previous_english_equivalent": "Rectangular, shiny",
+      "previously_reviewed_sv": "Rektangulär, blank",
+      "current_candidate_sv": "Rektangulär, blank",
+      "recommended_sv": "Rektangulär, blank",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kreis, matt",
+      "new_msgid": "Circle, matte",
+      "previous_english_equivalent": "Circle, matte",
+      "previously_reviewed_sv": "Cirkel, matt",
+      "current_candidate_sv": "Cirkel, matt",
+      "recommended_sv": "Cirkel, matt",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kreis, glänzend",
+      "new_msgid": "Circle, shiny",
+      "previous_english_equivalent": "Circle, shiny",
+      "previously_reviewed_sv": "Cirkel, glänsande",
+      "current_candidate_sv": "Cirkel, glänsande",
+      "recommended_sv": "Cirkel, glänsande",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ohne Flagge",
+      "new_msgid": "Without a flag",
+      "previous_english_equivalent": "Without a flag",
+      "previously_reviewed_sv": "Utan flagga",
+      "current_candidate_sv": "Utan flagga",
+      "recommended_sv": "Utan flagga",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprachbezeichnung",
+      "new_msgid": "Language label",
+      "previous_english_equivalent": "Language designation",
+      "previously_reviewed_sv": "Språknamn",
+      "current_candidate_sv": "Språknamn",
+      "recommended_sv": "Språknamn",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Volle Bezeichnung („Deutsch\")",
+      "new_msgid": "Full name (\"English\")",
+      "previous_english_equivalent": "Full name (“German”)",
+      "previously_reviewed_sv": "Fullständigt namn (”Deutsch”)",
+      "current_candidate_sv": "Fullständigt namn (”Deutsch”)",
+      "recommended_sv": "Fullständigt namn (”engelska”)",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Uppdaterar exempelspråket; svenska språkbenämningar skrivs med gemen."
+    },
+    {
+      "old_msgid": "ISO-Code („DE\")",
+      "new_msgid": "ISO code (\"EN\")",
+      "previous_english_equivalent": "ISO-Code (“DE”)",
+      "previously_reviewed_sv": "ISO-kod (”DE”)",
+      "current_candidate_sv": "ISO-kod (”DE”)",
+      "recommended_sv": "ISO-kod (”EN”)",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Uppdaterar ISO-exemplet från DE till EN enligt det nya engelska originalet."
+    },
+    {
+      "old_msgid": "Anzeigegerät",
+      "new_msgid": "Display device",
+      "previous_english_equivalent": "Display device",
+      "previously_reviewed_sv": "Visningsenhet",
+      "current_candidate_sv": "Visningsenhet",
+      "recommended_sv": "Visningsenhet",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Auf allen Geräten zeigen",
+      "new_msgid": "Show on all devices",
+      "previous_english_equivalent": "Show on all devices",
+      "previously_reviewed_sv": "Visa på alla enheter",
+      "current_candidate_sv": "Visa på alla enheter",
+      "recommended_sv": "Visa på alla enheter",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Nur Desktop (auf Mobile ausblenden)",
+      "new_msgid": "Desktop only (hide on mobile)",
+      "previous_english_equivalent": "Desktop only (hide on mobile)",
+      "previously_reviewed_sv": "Endast dator (dölj på mobil)",
+      "current_candidate_sv": "Endast dator (dölj på mobil)",
+      "recommended_sv": "Endast dator (dölj på mobil)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Nur Mobile (auf Desktop ausblenden)",
+      "new_msgid": "Mobile only (hide on desktop)",
+      "previous_english_equivalent": "Mobile only (hide on desktop)",
+      "previously_reviewed_sv": "Endast mobil (dölj på dator)",
+      "current_candidate_sv": "Endast mobil (dölj på dator)",
+      "recommended_sv": "Endast mobil (dölj på dator)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Mobile-Breakpoint (px)",
+      "new_msgid": "Mobile breakpoint (px)",
+      "previous_english_equivalent": "Mobile breakpoint (px)",
+      "previously_reviewed_sv": "Brytpunkt för mobil (px)",
+      "current_candidate_sv": "Brytpunkt för mobil (px)",
+      "recommended_sv": "Brytpunkt för mobil (px)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\".",
+      "new_msgid": "Default: 768 px. Below this width, a device is treated as mobile.",
+      "previous_english_equivalent": "Default 768 px. Below this width, a page is considered “mobile”.",
+      "previously_reviewed_sv": "Standard 768 px. Under denna bredd anses en sida vara \"mobil\".",
+      "current_candidate_sv": "Standard 768 px. Under denna bredd anses en sida vara \"mobil\".",
+      "recommended_sv": "Standardvärde: 768 px. Under den bredden räknas enheten som mobil.",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Uppdaterar betydelsen från sida till enhet enligt den nya engelska originaltexten."
+    },
+    {
+      "old_msgid": "Position auf der Seite",
+      "new_msgid": "Position on the page",
+      "previous_english_equivalent": "Position on the page",
+      "previously_reviewed_sv": "Position på sidan",
+      "current_candidate_sv": "Position på sidan",
+      "recommended_sv": "Position på sidan",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Inline (an der eingebetteten Stelle)",
+      "new_msgid": "Inline (at the embedded location)",
+      "previous_english_equivalent": "Inline (at the embedded location)",
+      "previously_reviewed_sv": "På samma plats som blocket",
+      "current_candidate_sv": "På samma plats som blocket",
+      "recommended_sv": "På samma plats som blocket",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Floating: rechts unten",
+      "new_msgid": "Floating: bottom right",
+      "previous_english_equivalent": "Floating: bottom right",
+      "previously_reviewed_sv": "Flytande: nere till höger",
+      "current_candidate_sv": "Flytande: nere till höger",
+      "recommended_sv": "Flytande: nere till höger",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Floating: links unten",
+      "new_msgid": "Floating: bottom left",
+      "previous_english_equivalent": "Floating: bottom left",
+      "previously_reviewed_sv": "Flytande: nere till vänster",
+      "current_candidate_sv": "Flytande: nere till vänster",
+      "recommended_sv": "Flytande: nere till vänster",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Floating: rechts oben",
+      "new_msgid": "Floating: top right",
+      "previous_english_equivalent": "Floating: top right",
+      "previously_reviewed_sv": "Flytande: uppe till höger",
+      "current_candidate_sv": "Flytande: uppe till höger",
+      "recommended_sv": "Flytande: uppe till höger",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Floating: links oben",
+      "new_msgid": "Floating: top left",
+      "previous_english_equivalent": "Floating: top left",
+      "previously_reviewed_sv": "Flytande: uppe till vänster",
+      "current_candidate_sv": "Flytande: uppe till vänster",
+      "recommended_sv": "Flytande: uppe till vänster",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten.",
+      "new_msgid": "Floating pins the switcher to a corner using position: fixed. Combined with automatic placement, this matches the default Weglot behavior.",
+      "previous_english_equivalent": "\"Floating\" pins the Switcher to the corner with position:fixed and scrolls with it. Combined with Auto-Inject = Weglot default behavior.",
+      "previously_reviewed_sv": "”Flytande” fäster språkväljaren i hörnet med position:fixed så att den följer med när sidan rullas. I kombination med automatisk placering fungerar den som standard i Weglot.",
+      "current_candidate_sv": "”Flytande” fäster språkväljaren i hörnet med position:fixed så att den följer med när sidan rullas. I kombination med automatisk placering fungerar den som standard i Weglot.",
+      "recommended_sv": "”Flytande” fäster språkväljaren i hörnet med position:fixed så att den följer med när sidan rullas. I kombination med automatisk placering fungerar den som standard i Weglot.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Bezeichnung sichtbar",
+      "new_msgid": "Show language label",
+      "previous_english_equivalent": "Designation visible",
+      "previously_reviewed_sv": "Visa språknamn",
+      "current_candidate_sv": "Visa språknamn",
+      "recommended_sv": "Visa språknamn",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Reihenfolge der Sprachen",
+      "new_msgid": "Order of languages",
+      "previous_english_equivalent": "Order of languages",
+      "previously_reviewed_sv": "Språkens ordning",
+      "current_candidate_sv": "Språkens ordning",
+      "recommended_sv": "Språkens ordning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject.",
+      "new_msgid": "Rearrange using drag & drop. Works in both Shortcode and auto-inject.",
+      "previous_english_equivalent": "Rearrange using drag & drop. Works in both Shortcode and auto-inject.",
+      "previously_reviewed_sv": "Ordna om genom att dra och släppa. Det gäller både kortkoden och den automatiska placeringen.",
+      "current_candidate_sv": "Ordna om genom att dra och släppa. Det gäller både kortkoden och den automatiska placeringen.",
+      "recommended_sv": "Ordna om genom att dra och släppa. Det gäller både kortkoden och den automatiska placeringen.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eigene Flaggen pro Sprache (optional)",
+      "new_msgid": "Custom flags by language (optional)",
+      "previous_english_equivalent": "Own flags per language (optional)",
+      "previously_reviewed_sv": "Egna flaggor per språk (valfritt)",
+      "current_candidate_sv": "Egna flaggor per språk (valfritt)",
+      "recommended_sv": "Egna flaggor per språk (valfritt)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt.",
+      "new_msgid": "Leave blank to use the default flag. Enter an emoji (for example, 🇺🇸 for English in the US) or an SVG/PNG URL. CSS special characters are removed automatically.",
+      "previous_english_equivalent": "Leave blank = default flag. Emoji (e.g. 🇺🇸 for EN→US market) or URL to SVG/PNG. CSS special characters are automatically removed.",
+      "previously_reviewed_sv": "Lämna tomt för att använda standardflaggan. Ange en emoji (till exempel 🇺🇸 för den amerikanska engelska språkversionen) eller en URL till en SVG- eller PNG-fil. Specialtecken i CSS tas bort automatiskt.",
+      "current_candidate_sv": "Lämna tomt för att använda standardflaggan. Ange en emoji (till exempel 🇺🇸 för den amerikanska engelska språkversionen) eller en URL till en SVG- eller PNG-fil. Specialtecken i CSS tas bort automatiskt.",
+      "recommended_sv": "Lämna tomt för att använda standardflaggan. Ange en emoji (till exempel 🇺🇸 för den amerikanska engelska språkversionen) eller en URL till en SVG- eller PNG-fil. Specialtecken i CSS tas bort automatiskt.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eigenes CSS für den Switcher",
+      "new_msgid": "Custom CSS for the switcher",
+      "previous_english_equivalent": "Own CSS for the Switcher",
+      "previously_reviewed_sv": "Egen CSS för språkväljaren",
+      "current_candidate_sv": "Egen CSS för språkväljaren",
+      "recommended_sv": "Egen CSS för språkväljaren",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann.",
+      "new_msgid": "Inserted in a <style> tag immediately before the switcher. The \"<\" character is removed to prevent injection of a script tag.",
+      "previous_english_equivalent": "Inserted immediately before the Switcher as the <style> tag. \"<\" is automatically removed so that no script tag can be inserted.",
+      "previously_reviewed_sv": "Infogas omedelbart före språkväljaren i en <style>-tagg. Tecknet ”<” tas automatiskt bort så att ingen skripttagg kan läggas in.",
+      "current_candidate_sv": "Infogas omedelbart före språkväljaren i en <style>-tagg. Tecknet ”<” tas automatiskt bort så att ingen skripttagg kan läggas in.",
+      "recommended_sv": "Infogas omedelbart före språkväljaren i en <style>-tagg. Tecknet ”<” tas automatiskt bort så att ingen skripttagg kan läggas in.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Weitere Switcher-Instanzen",
+      "new_msgid": "More Switcher instances",
+      "previous_english_equivalent": "More Switcher instances",
+      "previously_reviewed_sv": "Fler instanser av språkväljaren",
+      "current_candidate_sv": "Fler instanser av språkväljaren",
+      "recommended_sv": "Fler instanser av språkväljaren",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten.",
+      "new_msgid": "Create independent switchers for shortcodes, blocks, widgets, or automatic placement. The existing global switcher remains available as the \"default\" instance.",
+      "previous_english_equivalent": "Create independent Switcher for Shortcode, block, widget or auto placement. The existing global Switcher remains as the “default” instance.",
+      "previously_reviewed_sv": "Skapa separata instanser av språkväljaren för kortkod, block, widget eller automatisk placering. Den befintliga globala instansen behålls som ”default”.",
+      "current_candidate_sv": "Skapa separata instanser av språkväljaren för kortkod, block, widget eller automatisk placering. Den befintliga globala instansen behålls som ”default”.",
+      "recommended_sv": "Skapa separata instanser av språkväljaren för kortkod, block, widget eller automatisk placering. Den befintliga globala instansen behålls som ”default”.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Switcher-Vorlagen",
+      "new_msgid": "Switcher templates",
+      "previous_english_equivalent": "Switcher templates",
+      "previously_reviewed_sv": "Mallar för språkväljaren",
+      "current_candidate_sv": "Mallar för språkväljaren",
+      "recommended_sv": "Mallar för språkväljaren",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Neuer Switcher",
+      "new_msgid": "New Switcher",
+      "previous_english_equivalent": "New Switcher",
+      "previously_reviewed_sv": "Ny språkväljare",
+      "current_candidate_sv": "Ny språkväljare",
+      "recommended_sv": "Ny språkväljare",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Einstellungen speichern",
+      "new_msgid": "Save settings",
+      "previous_english_equivalent": "Save settings",
+      "previously_reviewed_sv": "Spara inställningar",
+      "current_candidate_sv": "Spara inställningar",
+      "recommended_sv": "Spara inställningar",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Hilfe & Dokumentation: %s",
+      "new_msgid": "Help & Documentation: %s",
+      "previous_english_equivalent": "Help & Documentation: %s",
+      "previously_reviewed_sv": "Hjälp och dokumentation: %s",
+      "current_candidate_sv": "Hjälp och dokumentation: %s",
+      "recommended_sv": "Hjälp och dokumentation: %s",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Noch nicht gestartet",
+      "new_msgid": "Not started yet",
+      "previous_english_equivalent": "Not started yet",
+      "previously_reviewed_sv": "Inte startad",
+      "current_candidate_sv": "Inte startad",
+      "recommended_sv": "Inte startad",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "In Warteschlange",
+      "new_msgid": "In queue",
+      "previous_english_equivalent": "In queue",
+      "previously_reviewed_sv": "I kö",
+      "current_candidate_sv": "I kö",
+      "recommended_sv": "I kö",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Läuft",
+      "new_msgid": "Running",
+      "previous_english_equivalent": "Runs",
+      "previously_reviewed_sv": "Pågår",
+      "current_candidate_sv": "Pågår",
+      "recommended_sv": "Pågår",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Übersetzungen werden aufgewärmt",
+      "new_msgid": "Translations are being cached",
+      "previous_english_equivalent": "Translations are warmed up",
+      "previously_reviewed_sv": "Översättningarna förbereds",
+      "current_candidate_sv": "Översättningarna förbereds",
+      "recommended_sv": "Översättningarna förbereds",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Wartet wegen API-Ratenlimit",
+      "new_msgid": "Waiting due to API rate limit",
+      "previous_english_equivalent": "Waiting due to API rate limit",
+      "previously_reviewed_sv": "Väntar på grund av API:ets hastighetsbegränsning",
+      "current_candidate_sv": "Väntar på grund av API:ets hastighetsbegränsning",
+      "recommended_sv": "Väntar på grund av API:ets hastighetsbegränsning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Pausiert",
+      "new_msgid": "Paused",
+      "previous_english_equivalent": "Paused",
+      "previously_reviewed_sv": "Pausad",
+      "current_candidate_sv": "Pausad",
+      "recommended_sv": "Pausad",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Pausiert: Wortkontingent erreicht",
+      "new_msgid": "Paused: word quota reached",
+      "previous_english_equivalent": "Paused: word quota reached",
+      "previously_reviewed_sv": "Pausad: ordkvoten har nåtts",
+      "current_candidate_sv": "Pausad: ordkvoten har nåtts",
+      "recommended_sv": "Pausad: ordkvoten har nåtts",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Pausiert: API-Key ungültig",
+      "new_msgid": "Paused: API key invalid",
+      "previous_english_equivalent": "Paused: API-Key invalid",
+      "previously_reviewed_sv": "Pausad: API-nyckeln är ogiltig",
+      "current_candidate_sv": "Pausad: API-nyckeln är ogiltig",
+      "recommended_sv": "Pausad: API-nyckeln är ogiltig",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Abgeschlossen",
+      "new_msgid": "Completed",
+      "previous_english_equivalent": "Completed",
+      "previously_reviewed_sv": "Slutförd",
+      "current_candidate_sv": "Slutförd",
+      "recommended_sv": "Slutförd",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Mit Fehlern abgeschlossen",
+      "new_msgid": "Completed with errors",
+      "previous_english_equivalent": "Completed with errors",
+      "previously_reviewed_sv": "Slutförd med fel",
+      "current_candidate_sv": "Slutförd med fel",
+      "recommended_sv": "Slutförd med fel",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Abgebrochen",
+      "new_msgid": "Aborted",
+      "previous_english_equivalent": "Aborted",
+      "previously_reviewed_sv": "Avbruten",
+      "current_candidate_sv": "Avbruten",
+      "recommended_sv": "Avbruten",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "URL-Synchronisierung",
+      "new_msgid": "URL synchronization",
+      "previous_english_equivalent": "URL synchronization",
+      "previously_reviewed_sv": "URL-synkronisering",
+      "current_candidate_sv": "URL-synkronisering",
+      "recommended_sv": "URL-synkronisering",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet.",
+      "new_msgid": "Opens selected target language pages in a controlled manner in the background. Missing segments end up in the limited translation queue; Bots and an unlimited duration crawl are not used.",
+      "previous_english_equivalent": "Opens selected target language pages in a controlled manner in the background. Missing segments end up in the limited translation queue; Bots and an unlimited duration crawl are not used.",
+      "previously_reviewed_sv": "Hämtar valda sidor på målspråken i bakgrunden, med begränsningar. Saknade textsegment läggs i den begränsade översättningskön. Inga robotar eller obegränsade genomsökningar används.",
+      "current_candidate_sv": "Hämtar valda sidor på målspråken i bakgrunden, med begränsningar. Saknade textsegment läggs i den begränsade översättningskön. Inga robotar eller obegränsade genomsökningar används.",
+      "recommended_sv": "Hämtar valda sidor på målspråken i bakgrunden, med begränsningar. Saknade textsegment läggs i den begränsade översättningskön. Inga robotar eller obegränsade genomsökningar används.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Status:",
+      "new_msgid": "Status:",
+      "previous_english_equivalent": "Status:",
+      "previously_reviewed_sv": "Status:",
+      "current_candidate_sv": "Status:",
+      "recommended_sv": "Status:",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "URLs gesamt",
+      "new_msgid": "URLs total",
+      "previous_english_equivalent": "URLs total",
+      "previously_reviewed_sv": "Totalt antal URL:er",
+      "current_candidate_sv": "Totalt antal URL:er",
+      "recommended_sv": "Totalt antal URL:er",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Warteschlange abgearbeitet",
+      "new_msgid": "Queue processed",
+      "previous_english_equivalent": "Queue processed",
+      "previously_reviewed_sv": "Kö behandlad",
+      "current_candidate_sv": "Kö behandlad",
+      "recommended_sv": "Kö behandlad",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Werden aufgewärmt",
+      "new_msgid": "Being cached",
+      "previous_english_equivalent": "Are warmed up",
+      "previously_reviewed_sv": "Förbereds",
+      "current_candidate_sv": "Förbereds",
+      "recommended_sv": "Förbereds",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Fehlgeschlagen",
+      "new_msgid": "Failed",
+      "previous_english_equivalent": "Failed",
+      "previously_reviewed_sv": "Misslyckades",
+      "current_candidate_sv": "Misslyckades",
+      "recommended_sv": "Misslyckades",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell.",
+      "new_msgid": "\"Processed\" confirms completion in the Deepglot queue at the WordPress origin. Afterward, check the public target-language page without sync parameters and manually clear any unsupported full-page cache.",
+      "previous_english_equivalent": "“Processed” confirms the Deepglot queue at the WordPress origin. Once finished, check the public target language page without sync parameters and manually clear an unsupported full-page cache.",
+      "previously_reviewed_sv": "”Kö behandlad” bekräftar att Deepglots kö på WordPress-servern har behandlats. När körningen är klar kontrollerar du den offentliga sidan på målspråket utan synkroniseringsparametrar. Töm manuellt en cache för hela sidor om den inte stöds.",
+      "current_candidate_sv": "”Kö behandlad” bekräftar att Deepglots kö på WordPress-servern har behandlats. När körningen är klar kontrollerar du den offentliga sidan på målspråket utan synkroniseringsparametrar. Töm manuellt en cache för hela sidor om den inte stöds.",
+      "recommended_sv": "”Kö behandlad” bekräftar att Deepglots kö på WordPress-servern har behandlats. När körningen är klar kontrollerar du den offentliga sidan på målspråket utan synkroniseringsparametrar. Töm manuellt en cache för hela sidor om den inte stöds.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Fehlgeschlagene URLs",
+      "new_msgid": "Failed URLs",
+      "previous_english_equivalent": "Failed URLs",
+      "previously_reviewed_sv": "URL:er som misslyckades",
+      "current_candidate_sv": "URL:er som misslyckades",
+      "recommended_sv": "URL:er som misslyckades",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Fehlgeschlagene URLs erneut versuchen",
+      "new_msgid": "Retry failed URLs",
+      "previous_english_equivalent": "Retry failed URLs",
+      "previously_reviewed_sv": "Försök igen med URL:er som misslyckades",
+      "current_candidate_sv": "Försök igen med URL:er som misslyckades",
+      "recommended_sv": "Försök igen med URL:er som misslyckades",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "URL-Vorschau",
+      "new_msgid": "URL preview",
+      "previous_english_equivalent": "URL preview",
+      "previously_reviewed_sv": "URL-förhandsvisning",
+      "current_candidate_sv": "URL-förhandsvisning",
+      "recommended_sv": "URL-förhandsvisning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "%d Zielseiten werden synchronisiert.",
+      "new_msgid": "%d target pages will be synchronized.",
+      "previous_english_equivalent": "%d Target pages are synchronized.",
+      "previously_reviewed_sv": "%d målsidor synkroniseras.",
+      "current_candidate_sv": "%d målsidor synkroniseras.",
+      "recommended_sv": "%d målsidor synkroniseras.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Vorschau bestätigen und Synchronisierung starten",
+      "new_msgid": "Confirm preview and start synchronization",
+      "previous_english_equivalent": "Confirm preview and start synchronization",
+      "previously_reviewed_sv": "Bekräfta förhandsvisningen och starta synkroniseringen",
+      "current_candidate_sv": "Bekräfta förhandsvisningen och starta synkroniseringen",
+      "recommended_sv": "Bekräfta förhandsvisningen och starta synkroniseringen",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Maximale Anzahl Zielseiten",
+      "new_msgid": "Maximum number of target pages",
+      "previous_english_equivalent": "Maximum number of landing pages",
+      "previously_reviewed_sv": "Maximalt antal målsidor",
+      "current_candidate_sv": "Maximalt antal målsidor",
+      "recommended_sv": "Maximalt antal målsidor",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch.",
+      "new_msgid": "Start with a small sample on large sites. Each run requests at most two pages; synchronization waits when the translation queue is full.",
+      "previous_english_equivalent": "For large sites, start with a small sample. A maximum of two pages are touched per run; If the translation queue is full, the sync waits automatically.",
+      "previously_reviewed_sv": "Börja med ett litet urval på stora webbplatser. Högst två sidor startas per körning. Om översättningskön är full väntar synkroniseringen automatiskt.",
+      "current_candidate_sv": "Börja med ett litet urval på stora webbplatser. Högst två sidor startas per körning. Om översättningskön är full väntar synkroniseringen automatiskt.",
+      "recommended_sv": "Börja med ett litet urval på stora webbplatser. Högst två sidor startas per körning. Om översättningskön är full väntar synkroniseringen automatiskt.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Nächsten URL-Batch als Vorschau laden",
+      "new_msgid": "Load the next URL batch as a preview",
+      "previous_english_equivalent": "Load the next URL batch as a preview",
+      "previously_reviewed_sv": "Förhandsvisa nästa URL-grupp",
+      "current_candidate_sv": "Förhandsvisa nästa URL-grupp",
+      "recommended_sv": "Förhandsvisa nästa URL-grupp",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "URL-Vorschau erstellen",
+      "new_msgid": "Create URL preview",
+      "previous_english_equivalent": "Create URL preview",
+      "previously_reviewed_sv": "Skapa URL-förhandsvisning",
+      "current_candidate_sv": "Skapa URL-förhandsvisning",
+      "recommended_sv": "Skapa URL-förhandsvisning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Status aktualisieren",
+      "new_msgid": "Update status",
+      "previous_english_equivalent": "Update status",
+      "previously_reviewed_sv": "Uppdatera status",
+      "current_candidate_sv": "Uppdatera status",
+      "recommended_sv": "Uppdatera status",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Fortsetzen",
+      "new_msgid": "Continue",
+      "previous_english_equivalent": "Continue",
+      "previously_reviewed_sv": "Fortsätt",
+      "current_candidate_sv": "Fortsätt",
+      "recommended_sv": "Fortsätt",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Pausieren",
+      "new_msgid": "Pause",
+      "previous_english_equivalent": "Pause",
+      "previously_reviewed_sv": "Pausa",
+      "current_candidate_sv": "Pausa",
+      "recommended_sv": "Pausa",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten.",
+      "new_msgid": "Really cancel synchronization? Translations that have already been saved are retained.",
+      "previous_english_equivalent": "Really cancel synchronization? Translations that have already been saved are retained.",
+      "previously_reviewed_sv": "Vill du avbryta synkroniseringen? Översättningar som redan har sparats finns kvar.",
+      "current_candidate_sv": "Vill du avbryta synkroniseringen? Översättningar som redan har sparats finns kvar.",
+      "recommended_sv": "Vill du avbryta synkroniseringen? Översättningar som redan har sparats finns kvar.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Abbrechen",
+      "new_msgid": "Cancel",
+      "previous_english_equivalent": "Cancel",
+      "previously_reviewed_sv": "Avbryt",
+      "current_candidate_sv": "Avbryt",
+      "recommended_sv": "Avbryt",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Instanz entfernen",
+      "new_msgid": "Remove instance",
+      "previous_english_equivalent": "Remove instance",
+      "previously_reviewed_sv": "Ta bort instans",
+      "current_candidate_sv": "Ta bort instans",
+      "recommended_sv": "Ta bort instans",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Instanz-ID",
+      "new_msgid": "Instance ID",
+      "previous_english_equivalent": "Instance ID",
+      "previously_reviewed_sv": "Instans-ID",
+      "current_candidate_sv": "Instans-ID",
+      "recommended_sv": "Instans-ID",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Name",
+      "new_msgid": "Name",
+      "previous_english_equivalent": "name",
+      "previously_reviewed_sv": "Namn",
+      "current_candidate_sv": "Namn",
+      "recommended_sv": "Namn",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Vollständiger Name",
+      "new_msgid": "Full language name",
+      "previous_english_equivalent": "Full name",
+      "previously_reviewed_sv": "Fullständigt namn",
+      "current_candidate_sv": "Fullständigt namn",
+      "recommended_sv": "Fullständigt namn",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "ISO-Code",
+      "new_msgid": "ISO-Code",
+      "previous_english_equivalent": "ISO-Code",
+      "previously_reviewed_sv": "ISO-kod",
+      "current_candidate_sv": "ISO-kod",
+      "recommended_sv": "ISO-kod",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Position",
+      "new_msgid": "Position",
+      "previous_english_equivalent": "position",
+      "previously_reviewed_sv": "Position",
+      "current_candidate_sv": "Position",
+      "recommended_sv": "Position",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ausblenden auf",
+      "new_msgid": "Hide on",
+      "previous_english_equivalent": "Hide on",
+      "previously_reviewed_sv": "Dölj på",
+      "current_candidate_sv": "Dölj på",
+      "recommended_sv": "Dölj på",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Keinem Gerät",
+      "new_msgid": "No device",
+      "previous_english_equivalent": "No device",
+      "previously_reviewed_sv": "Ingen enhet",
+      "current_candidate_sv": "Ingen enhet",
+      "recommended_sv": "Ingen enhet",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Mobilgeräten",
+      "new_msgid": "Mobile devices",
+      "previous_english_equivalent": "mobile devices",
+      "previously_reviewed_sv": "Mobila enheter",
+      "current_candidate_sv": "Mobila enheter",
+      "recommended_sv": "Mobila enheter",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Desktop-Geräten",
+      "new_msgid": "Desktop devices",
+      "previous_english_equivalent": "Desktop devices",
+      "previously_reviewed_sv": "Datorenheter",
+      "current_candidate_sv": "Datorenheter",
+      "recommended_sv": "Datorenheter",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Breakpoint (px)",
+      "new_msgid": "Breakpoint (px)",
+      "previous_english_equivalent": "Breakpoint (px)",
+      "previously_reviewed_sv": "Brytpunkt (px)",
+      "current_candidate_sv": "Brytpunkt (px)",
+      "recommended_sv": "Brytpunkt (px)",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Instanz aktivieren",
+      "new_msgid": "Activate instance",
+      "previous_english_equivalent": "Activate instance",
+      "previously_reviewed_sv": "Aktivera instans",
+      "current_candidate_sv": "Aktivera instans",
+      "recommended_sv": "Aktivera instans",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Automatisch platzieren",
+      "new_msgid": "Place automatically",
+      "previous_english_equivalent": "Place automatically",
+      "previously_reviewed_sv": "Placera automatiskt",
+      "current_candidate_sv": "Placera automatiskt",
+      "recommended_sv": "Placera automatiskt",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Beschriftung anzeigen",
+      "new_msgid": "Show label",
+      "previous_english_equivalent": "Show caption",
+      "previously_reviewed_sv": "Visa etikett",
+      "current_candidate_sv": "Visa etikett",
+      "recommended_sv": "Visa etikett",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprachreihenfolge",
+      "new_msgid": "Language order",
+      "previous_english_equivalent": "Language order",
+      "previously_reviewed_sv": "Språkordning",
+      "current_candidate_sv": "Språkordning",
+      "recommended_sv": "Språkordning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eigene Flaggen",
+      "new_msgid": "Custom flags",
+      "previous_english_equivalent": "Own flags",
+      "previously_reviewed_sv": "Egna flaggor",
+      "current_candidate_sv": "Egna flaggor",
+      "recommended_sv": "Egna flaggor",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eigenes CSS",
+      "new_msgid": "Custom CSS",
+      "previous_english_equivalent": "Own CSS",
+      "previously_reviewed_sv": "Egen CSS",
+      "current_candidate_sv": "Egen CSS",
+      "recommended_sv": "Egen CSS",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "DOM-Ziel für automatische Platzierung",
+      "new_msgid": "DOM target for automatic placement",
+      "previous_english_equivalent": "DOM target for automatic placement",
+      "previously_reviewed_sv": "DOM-mål för automatisk placering",
+      "current_candidate_sv": "DOM-mål för automatisk placering",
+      "recommended_sv": "DOM-mål för automatisk placering",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Element in der Vorschau auswählen",
+      "new_msgid": "Select element in preview",
+      "previous_english_equivalent": "Select element in preview",
+      "previously_reviewed_sv": "Välj ett element i förhandsvisningen",
+      "current_candidate_sv": "Välj ett element i förhandsvisningen",
+      "recommended_sv": "Välj ett element i förhandsvisningen",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer.",
+      "new_msgid": "If the target is missing or invalid, the Switcher will safely remain in the footer.",
+      "previous_english_equivalent": "If the target is missing or invalid, the Switcher will safely remain in the footer.",
+      "previously_reviewed_sv": "Om målet saknas eller är ogiltigt placeras språkväljaren i sidfoten.",
+      "current_candidate_sv": "Om målet saknas eller är ogiltigt placeras språkväljaren i sidfoten.",
+      "recommended_sv": "Om målet saknas eller är ogiltigt placeras språkväljaren i sidfoten.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Website-Vorschau für die Switcher-Platzierung",
+      "new_msgid": "Website preview for the Switcher placement",
+      "previous_english_equivalent": "Website preview for the Switcher placement",
+      "previously_reviewed_sv": "Förhandsvisning av webbplatsen för placering av språkväljaren",
+      "current_candidate_sv": "Förhandsvisning av webbplatsen för placering av språkväljaren",
+      "recommended_sv": "Förhandsvisning av webbplatsen för placering av språkväljaren",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot API Fehler.",
+      "new_msgid": "Deepglot API error.",
+      "previous_english_equivalent": "Deepglot API error.",
+      "previously_reviewed_sv": "Deepglot API-fel.",
+      "current_candidate_sv": "Deepglot API-fel.",
+      "recommended_sv": "Deepglot API-fel.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kein API-Key für die Synchronisierung vorhanden.",
+      "new_msgid": "No API key is configured for synchronization.",
+      "previous_english_equivalent": "No API-Key exists for synchronization.",
+      "previously_reviewed_sv": "Ingen API-nyckel har angetts för synkroniseringen.",
+      "current_candidate_sv": "Ingen API-nyckel har angetts för synkroniseringen.",
+      "recommended_sv": "Ingen API-nyckel har angetts för synkroniseringen.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kein API-Key für die Runtime-Konfiguration vorhanden.",
+      "new_msgid": "No API key is configured for runtime settings.",
+      "previous_english_equivalent": "No API-Key exists for the runtime configuration.",
+      "previously_reviewed_sv": "Ingen API-nyckel har angetts för körningskonfigurationen.",
+      "current_candidate_sv": "Ingen API-nyckel har angetts för körningskonfigurationen.",
+      "recommended_sv": "Ingen API-nyckel har angetts för körningskonfigurationen.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Nicht verfügbar.",
+      "new_msgid": "Not available.",
+      "previous_english_equivalent": "Not available.",
+      "previously_reviewed_sv": "Ej tillgängligt.",
+      "current_candidate_sv": "Ej tillgängligt.",
+      "recommended_sv": "Ej tillgängligt.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot API-Key ungültig oder widerrufen.",
+      "new_msgid": "Deepglot API key invalid or revoked.",
+      "previous_english_equivalent": "Deepglot API-Key invalid or revoked.",
+      "previously_reviewed_sv": "Deepglots API-nyckel är ogiltig eller har återkallats.",
+      "current_candidate_sv": "Deepglots API-nyckel är ogiltig eller har återkallats.",
+      "recommended_sv": "Deepglots API-nyckel är ogiltig eller har återkallats.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Kein API-Key angegeben.",
+      "new_msgid": "No API key specified.",
+      "previous_english_equivalent": "No API-Key specified.",
+      "previously_reviewed_sv": "Ingen API-nyckel har angetts.",
+      "current_candidate_sv": "Ingen API-nyckel har angetts.",
+      "recommended_sv": "Ingen API-nyckel har angetts.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "URL-Synchronisierung ist nicht verfügbar.",
+      "new_msgid": "URL synchronization is not available.",
+      "previous_english_equivalent": "URL synchronization is not available.",
+      "previously_reviewed_sv": "URL-synkronisering är inte tillgänglig.",
+      "current_candidate_sv": "URL-synkronisering är inte tillgänglig.",
+      "recommended_sv": "URL-synkronisering är inte tillgänglig.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zu viele Anfragen. Bitte warte %d Sekunden.",
+      "new_msgid": "Too many requests. Please wait %d seconds.",
+      "previous_english_equivalent": "Too many requests. Please wait %d seconds.",
+      "previously_reviewed_sv": "För många förfrågningar. Vänta %d sekunder.",
+      "current_candidate_sv": "För många förfrågningar. Vänta %d sekunder.",
+      "recommended_sv": "För många förfrågningar. Vänta %d sekunder.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden.",
+      "new_msgid": "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and can only be read through the WordPress REST API.",
+      "previous_english_equivalent": "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and can only be read through the WordPress REST API.",
+      "previously_reviewed_sv": "Originalspråk, målspråk och automatisk omdirigering hanteras i Deepglots kontrollpanel och kan bara läsas via WordPress REST API.",
+      "current_candidate_sv": "Originalspråk, målspråk och automatisk omdirigering hanteras i Deepglots kontrollpanel och kan bara läsas via WordPress REST API.",
+      "recommended_sv": "Originalspråk, målspråk och automatisk omdirigering hanteras i Deepglots kontrollpanel och kan bara läsas via WordPress REST API.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Monatliches Wortlimit ausgeschöpft.",
+      "new_msgid": "Monthly word limit exhausted.",
+      "previous_english_equivalent": "Monthly word limit exhausted.",
+      "previously_reviewed_sv": "Den månatliga ordgränsen har nåtts.",
+      "current_candidate_sv": "Den månatliga ordgränsen har nåtts.",
+      "recommended_sv": "Den månatliga ordgränsen har nåtts.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "API-Key ungültig oder widerrufen.",
+      "new_msgid": "API key invalid or revoked.",
+      "previous_english_equivalent": "API-Key invalid or revoked.",
+      "previously_reviewed_sv": "API-nyckeln är ogiltig eller har återkallats.",
+      "current_candidate_sv": "API-nyckeln är ogiltig eller har återkallats.",
+      "recommended_sv": "API-nyckeln är ogiltig eller har återkallats.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Klassisches Dropdown",
+      "new_msgid": "Classic dropdown",
+      "previous_english_equivalent": "Classic dropdown",
+      "previously_reviewed_sv": "Klassisk rullgardinsmeny",
+      "current_candidate_sv": "Klassisk rullgardinsmeny",
+      "recommended_sv": "Klassisk rullgardinsmeny",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Flagge und vollständiger Sprachname in einem kompakten Dropdown.",
+      "new_msgid": "Flag and full language name in a compact dropdown.",
+      "previous_english_equivalent": "Flag and full language name in a compact dropdown.",
+      "previously_reviewed_sv": "Flagga och fullständigt språknamn i en kompakt rullgardinsmeny.",
+      "current_candidate_sv": "Flagga och fullständigt språknamn i en kompakt rullgardinsmeny.",
+      "recommended_sv": "Flagga och fullständigt språknamn i en kompakt rullgardinsmeny.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Minimaler Sprachcode",
+      "new_msgid": "Minimal language code",
+      "previous_english_equivalent": "Minimum language code",
+      "previously_reviewed_sv": "Minimal språkkod",
+      "current_candidate_sv": "Minimal språkkod",
+      "recommended_sv": "Minimal språkkod",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz.",
+      "new_msgid": "Simple ISO codes without flags for compact navigation.",
+      "previous_english_equivalent": "Simple ISO-Codes without flags for navigation with little space.",
+      "previously_reviewed_sv": "Enkla ISO-koder utan flaggor för navigering med begränsat utrymme.",
+      "current_candidate_sv": "Enkla ISO-koder utan flaggor för navigering med begränsat utrymme.",
+      "recommended_sv": "Enkla ISO-koder utan flaggor för navigering med begränsat utrymme.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Schwebende Flaggen",
+      "new_msgid": "Floating flags",
+      "previous_english_equivalent": "Floating flags",
+      "previously_reviewed_sv": "Flytande flaggor",
+      "current_candidate_sv": "Flytande flaggor",
+      "recommended_sv": "Flytande flaggor",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Runde Flaggen als schwebender Umschalter unten rechts.",
+      "new_msgid": "Round flags in a floating switcher at the bottom right.",
+      "previous_english_equivalent": "Round flags as a floating toggle at the bottom right.",
+      "previously_reviewed_sv": "Runda flaggor i en flytande språkväljare nere till höger.",
+      "current_candidate_sv": "Runda flaggor i en flytande språkväljare nere till höger.",
+      "recommended_sv": "Runda flaggor i en flytande språkväljare nere till höger.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zu viele Anfragen.",
+      "new_msgid": "Too many requests.",
+      "previous_english_equivalent": "Too many requests.",
+      "previously_reviewed_sv": "För många förfrågningar.",
+      "current_candidate_sv": "För många förfrågningar.",
+      "recommended_sv": "För många förfrågningar.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Ungültige Herkunft.",
+      "new_msgid": "Invalid origin.",
+      "previous_english_equivalent": "Invalid origin.",
+      "previously_reviewed_sv": "Ogiltigt ursprung.",
+      "current_candidate_sv": "Ogiltigt ursprung.",
+      "recommended_sv": "Ogiltigt ursprung.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Switch language to %s",
+      "new_msgid": "Switch language to %s",
+      "previous_english_equivalent": "Switch language to %s",
+      "previously_reviewed_sv": "Byt språk till %s",
+      "current_candidate_sv": "Byt språk till %s",
+      "recommended_sv": "Byt språk till %s",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprache: %s",
+      "new_msgid": "Language: %s",
+      "previous_english_equivalent": "Language: %s",
+      "previously_reviewed_sv": "Språk: %s",
+      "current_candidate_sv": "Språk: %s",
+      "recommended_sv": "Språk: %s",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprache wählen",
+      "new_msgid": "Choose a language",
+      "previous_english_equivalent": "Choose language",
+      "previously_reviewed_sv": "Välj språk",
+      "current_candidate_sv": "Välj språk",
+      "recommended_sv": "Välj språk",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen.",
+      "new_msgid": "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings.",
+      "previous_english_equivalent": "Shows the Deepglot language switch — styles/Flagge/Reihenfolge follow the plugin settings.",
+      "previously_reviewed_sv": "Visar Deepglots språkväljare. Stil, flaggor och språkordning följer inställningarna för tillägget.",
+      "current_candidate_sv": "Visar Deepglots språkväljare. Stil, flaggor och språkordning följer inställningarna för tillägget.",
+      "recommended_sv": "Visar Deepglots språkväljare. Stil, flaggor och språkordning följer inställningarna för tillägget.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Sprachumschalter in einer Widget-Area anzeigen.",
+      "new_msgid": "Display the language switcher in a widget area.",
+      "previous_english_equivalent": "Show language switcher in a widget area.",
+      "previously_reviewed_sv": "Visa språkväljaren i ett widgetområde.",
+      "current_candidate_sv": "Visa språkväljaren i ett widgetområde.",
+      "recommended_sv": "Visa språkväljaren i ett widgetområde.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Titel:",
+      "new_msgid": "Title:",
+      "previous_english_equivalent": "Title:",
+      "previously_reviewed_sv": "Titel:",
+      "current_candidate_sv": "Titel:",
+      "recommended_sv": "Titel:",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Switcher-Instanz:",
+      "new_msgid": "Switcher instance:",
+      "previous_english_equivalent": "Switcher instance:",
+      "previously_reviewed_sv": "Instans av språkväljaren:",
+      "current_candidate_sv": "Instans av språkväljaren:",
+      "recommended_sv": "Instans av språkväljaren:",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Es wurden keine sicheren internen URLs gefunden.",
+      "new_msgid": "No secure internal URLs were found.",
+      "previous_english_equivalent": "No secure internal URLs were found.",
+      "previously_reviewed_sv": "Inga säkra interna URL:er hittades.",
+      "current_candidate_sv": "Inga säkra interna URL:er hittades.",
+      "recommended_sv": "Inga säkra interna URL:er hittades.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die URL-Vorschau konnte nicht gespeichert werden. Bitte versuche es erneut.",
+      "new_msgid": "The URL preview could not be saved. Please try again.",
+      "previous_english_equivalent": "The URL preview could not be saved. Please try again.",
+      "previously_reviewed_sv": "Det gick inte att spara URL-förhandsvisningen. Försök igen.",
+      "current_candidate_sv": "Det gick inte att spara URL-förhandsvisningen. Försök igen.",
+      "recommended_sv": "Det gick inte att spara URL-förhandsvisningen. Försök igen.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Bestätige zuerst die URL-Vorschau.",
+      "new_msgid": "First confirm the URL preview.",
+      "previous_english_equivalent": "First confirm the URL preview.",
+      "previously_reviewed_sv": "Bekräfta URL-förhandsvisningen först.",
+      "current_candidate_sv": "Bekräfta URL-förhandsvisningen först.",
+      "recommended_sv": "Bekräfta URL-förhandsvisningen först.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Eine URL-Synchronisierung wird gerade verarbeitet.",
+      "new_msgid": "A URL sync is currently processing.",
+      "previous_english_equivalent": "A URL sync is currently processing.",
+      "previously_reviewed_sv": "En URL-synkronisering pågår.",
+      "current_candidate_sv": "En URL-synkronisering pågår.",
+      "recommended_sv": "En URL-synkronisering pågår.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Es läuft bereits eine URL-Synchronisierung.",
+      "new_msgid": "A URL synchronization is already running.",
+      "previous_english_equivalent": "A URL synchronization is already running.",
+      "previously_reviewed_sv": "En URL-synkronisering pågår redan.",
+      "current_candidate_sv": "En URL-synkronisering pågår redan.",
+      "recommended_sv": "En URL-synkronisering pågår redan.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die URL-Vorschau ist abgelaufen. Erstelle bitte eine neue Vorschau.",
+      "new_msgid": "The URL preview has expired. Please create a new preview.",
+      "previous_english_equivalent": "The URL preview has expired. Please create a new preview.",
+      "previously_reviewed_sv": "URL-förhandsvisningen har löpt ut. Skapa en ny förhandsvisning.",
+      "current_candidate_sv": "URL-förhandsvisningen har löpt ut. Skapa en ny förhandsvisning.",
+      "recommended_sv": "URL-förhandsvisningen har löpt ut. Skapa en ny förhandsvisning.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl.",
+      "new_msgid": "The confirmed URL preview no longer matches the selection.",
+      "previous_english_equivalent": "The confirmed URL preview no longer fits the selection.",
+      "previously_reviewed_sv": "Den bekräftade URL-förhandsvisningen stämmer inte längre med urvalet.",
+      "current_candidate_sv": "Den bekräftade URL-förhandsvisningen stämmer inte längre med urvalet.",
+      "recommended_sv": "Den bekräftade URL-förhandsvisningen stämmer inte längre med urvalet.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Es können höchstens %d URLs synchronisiert werden.",
+      "new_msgid": "A maximum of %d URLs can be synchronized.",
+      "previous_english_equivalent": "A maximum of %d URLs can be synchronized.",
+      "previously_reviewed_sv": "Högst %d URL:er kan synkroniseras.",
+      "current_candidate_sv": "Högst %d URL:er kan synkroniseras.",
+      "recommended_sv": "Högst %d URL:er kan synkroniseras.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Der URL-Startpunkt darf höchstens %d betragen.",
+      "new_msgid": "The URL starting point must be at most %d.",
+      "previous_english_equivalent": "The URL starting point must be at most %d.",
+      "previously_reviewed_sv": "URL-startpositionen får vara högst %d.",
+      "current_candidate_sv": "URL-startpositionen får vara högst %d.",
+      "recommended_sv": "URL-startpositionen får vara högst %d.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Deepglot muss aktiviert und vollständig eingerichtet sein.",
+      "new_msgid": "Deepglot must be activated and fully set up.",
+      "previous_english_equivalent": "Deepglot must be activated and fully set up.",
+      "previously_reviewed_sv": "Deepglot måste vara aktiverat och fullständigt konfigurerat.",
+      "current_candidate_sv": "Deepglot måste vara aktiverat och fullständigt konfigurerat.",
+      "recommended_sv": "Deepglot måste vara aktiverat och fullständigt konfigurerat.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Mindestens eine aktive Zielsprache ist erforderlich.",
+      "new_msgid": "At least one active target language is required.",
+      "previous_english_equivalent": "At least one active target language is required.",
+      "previously_reviewed_sv": "Du måste ha minst ett aktivt målspråk.",
+      "current_candidate_sv": "Du måste ha minst ett aktivt målspråk.",
+      "recommended_sv": "Du måste ha minst ett aktivt målspråk.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Keine Zielsprachen für die Synchronisierung konfiguriert.",
+      "new_msgid": "No target languages are configured for synchronization.",
+      "previous_english_equivalent": "No target languages configured for synchronization.",
+      "previously_reviewed_sv": "Inga målspråk har konfigurerats för synkronisering.",
+      "current_candidate_sv": "Inga målspråk har konfigurerats för synkronisering.",
+      "recommended_sv": "Inga målspråk har konfigurerats för synkronisering.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.",
+      "new_msgid": "Shows the Deepglot language switcher. Style, flag, and language order follow the plugin settings.",
+      "previous_english_equivalent": "Shows the Deepglot language switch. Style, flag and order follow the plugin settings.",
+      "previously_reviewed_sv": "Visar Deepglots språkväljare. Stil, flaggor och språkordning följer inställningarna för tillägget.",
+      "current_candidate_sv": "Visar Deepglots språkväljare. Stil, flaggor och språkordning följer inställningarna för tillägget.",
+      "recommended_sv": "Visar Deepglots språkväljare. Stil, flaggor och språkordning följer inställningarna för tillägget.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Switcher-Instanz",
+      "new_msgid": "Switcher instance",
+      "previous_english_equivalent": "Switcher instance",
+      "previously_reviewed_sv": "Instans av språkväljaren",
+      "current_candidate_sv": "Instans av språkväljaren",
+      "recommended_sv": "Instans av språkväljaren",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": false,
+      "reason": ""
+    },
+    {
+      "old_msgid": "Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter.",
+      "new_msgid": "Find the ID under Settings → Deepglot → Language switcher.",
+      "previous_english_equivalent": "You can find the ID under Settings → Deepglot → Language switcher.",
+      "previously_reviewed_sv": "Du hittar ID:t under Inställningar → Deepglot → Språkväljare.",
+      "current_candidate_sv": "Du hittar ID:t under Inställningar → Deepglot → Språkväljare.",
+      "recommended_sv": "Du hittar ID:t under Inställningar → Deepglot → Språkväljare.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": ""
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Select highlighted text on the page.",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Välj markerad text på sidan.",
+      "recommended_sv": "Välj den markerade texten på sidan.",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:896"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Original",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Original",
+      "recommended_sv": "Original",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:897"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Translation",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Översättning",
+      "recommended_sv": "Översättning",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:898"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Close",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Stäng",
+      "recommended_sv": "Stäng",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:899"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Save",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Spara",
+      "recommended_sv": "Spara",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:900"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Saving…",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Sparar…",
+      "recommended_sv": "Sparar…",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:901"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Could not save the translation.",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Det gick inte att spara översättningen.",
+      "recommended_sv": "Det gick inte att spara översättningen.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:902"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Saved.",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Sparat.",
+      "recommended_sv": "Sparat.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:903"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Invalid editor token.",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Ogiltig token för redigeraren.",
+      "recommended_sv": "Ogiltig redigerartoken.",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Kompounderar redigerare och token; den nuvarande frasen var begriplig men onaturlig.",
+      "reference": "includes/Frontend/OutputBuffer.php:904",
+      "current_sv": "Ogiltig token för redigeraren."
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Visual Editor is active. Click highlighted text to edit it.",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Den visuella redigeraren är aktiv. Klicka på markerad text för att redigera den.",
+      "recommended_sv": "Den visuella redigeraren är aktiv. Klicka på den markerade texten för att redigera den.",
+      "status": "correction_recommended",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:905"
+    },
+    {
+      "old_msgid": null,
+      "new_msgid": "Could not start the Visual Editor.",
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "current_candidate_sv": "Det gick inte att starta den visuella redigeraren.",
+      "recommended_sv": "Det gick inte att starta den visuella redigeraren.",
+      "status": "checked_unchanged",
+      "meaning_change_reviewed": true,
+      "reason": "Bedeutung und UI-Kontext geprüft; Formulierung ist passend.",
+      "reference": "includes/Frontend/OutputBuffer.php:906"
+    },
+    {
+      "old_msgid": null,
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "meaning_change_reviewed": true,
+      "new_msgid": "🇺🇸 or https://example.com/flag.svg",
+      "current_candidate_sv": "🇺🇸 eller https://example.com/flag.svg",
+      "recommended_sv": "🇺🇸 eller https://example.com/flag.svg",
+      "status": "checked_unchanged",
+      "reference": "includes/Admin/SettingsPage.php:923",
+      "reason": "Förklarande platshållare för flagg-URL; korrekt och naturlig svenska, URL bevarad exakt."
+    },
+    {
+      "old_msgid": null,
+      "previous_english_equivalent": null,
+      "previously_reviewed_sv": null,
+      "meaning_change_reviewed": true,
+      "new_msgid": "%s: 🇦🇹 or https://…",
+      "current_candidate_sv": "%s: 🇦🇹 eller https://…",
+      "recommended_sv": "%s: 🇦🇹 eller https://…",
+      "status": "checked_unchanged",
+      "reference": "includes/Admin/SettingsPage.php:1422",
+      "reason": "Platshållaren %s, flagga och exempel-URL bevaras; svensk konjunktion är korrekt."
+    }
+  ],
+  "post_review_english_copy_adjustments": [
+    {
+      "reviewed_msgid": "Translation is switched on, but stands still: The API key is rejected.",
+      "final_msgid": "Translation is enabled but stalled: the API key is rejected.",
+      "translation": "Översättningen är aktiverad men har stannat eftersom API-nyckeln avvisas.",
+      "note": "English copy edit after the AI Swedish review; Swedish meaning and translation unchanged."
+    },
+    {
+      "reviewed_msgid": "Rectangular, matt",
+      "final_msgid": "Rectangular, matte",
+      "translation": "Rektangulär, matt",
+      "note": "English copy edit after the AI Swedish review; Swedish meaning and translation unchanged."
+    }
+  ]
+}

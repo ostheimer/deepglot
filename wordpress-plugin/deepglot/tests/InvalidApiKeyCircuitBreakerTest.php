@@ -1292,7 +1292,7 @@ dgkeyAssert(
     'The invalid-key notice must use the error level — nothing is being translated at all.'
 );
 dgkeyAssert(
-    str_contains($notice, 'API-Key'),
+    str_contains($notice, 'API key'),
     'The invalid-key notice must name the API key as the cause.'
 );
 dgkeyAssert(
@@ -1327,7 +1327,7 @@ dgkeyAssert(
     'A healthy configuration must still show the active status badge.'
 );
 dgkeyAssert(
-    str_contains($healthy, 'Aktiv – Seiten werden von'),
+    str_contains($healthy, 'Active – pages are translated from'),
     'A healthy configuration must still confirm the translation direction.'
 );
 
@@ -1340,11 +1340,11 @@ dgkeyAssert(
     'A revoked API key must not keep the green "Aktiv" badge.'
 );
 dgkeyAssert(
-    !str_contains($broken, 'Aktiv – Seiten werden von'),
+    !str_contains($broken, 'Active – pages are translated from'),
     'A revoked API key must not keep claiming that pages are being translated.'
 );
 dgkeyAssert(
-    str_contains($broken, 'API-Key ungültig'),
+    str_contains($broken, 'Invalid API key'),
     'The settings page must state that the API key is invalid.'
 );
 
@@ -1366,7 +1366,7 @@ $managedRedirect = dgkeyInputMarkup($managed, 'dg_auto_redirect');
 $managedRedirectMirror = dgkeyInputMarkup($managed, 'dg_auto_redirect_mirror');
 
 dgkeyAssert(
-    str_contains($managed, 'Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet'),
+    str_contains($managed, 'The source language, target languages, and automatic redirect are managed in the Deepglot dashboard'),
     'A runtime-backed project must clearly name the dashboard as owner of source, targets and auto redirect.'
 );
 dgkeyAssert(

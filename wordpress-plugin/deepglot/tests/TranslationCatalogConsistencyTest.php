@@ -363,6 +363,14 @@ foreach ($poFiles as $poPath) {
     // GNU msgfmt intentionally omits this source-template timestamp from MO
     // headers while preserving every runtime-relevant header field.
     $po[''] = preg_replace('/^POT-Creation-Date:.*\n/m', '', $po[''] ?? '') ?? '';
+    // New English originals can be intentionally untranslated in locales that
+    // have no reviewed copy yet. GNU msgfmt omits those empty entries so the
+    // runtime falls back to the English original.
+    foreach ($po as $key => $translation) {
+        if ($key !== '' && $translation === '') {
+            unset($po[$key]);
+        }
+    }
     ksort($po);
     ksort($mo);
     $missingMoKeys = array_keys(array_diff_key($po, $mo));

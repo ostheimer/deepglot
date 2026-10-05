@@ -324,7 +324,7 @@ class RestApi
 
         if (empty($apiKey)) {
             return $this->errorResponse(
-                new WP_Error('missing_api_key', __('Kein API-Key angegeben.', 'deepglot'), ['status' => 400])
+                new WP_Error('missing_api_key', __('No API key specified.', 'deepglot'), ['status' => 400])
             );
         }
 
@@ -451,7 +451,7 @@ class RestApi
         if ($this->urlSync === null) {
             return new WP_REST_Response([
                 'code' => 'deepglot_url_sync_unavailable',
-                'message' => __('URL-Synchronisierung ist nicht verfügbar.', 'deepglot'),
+                'message' => __('URL synchronization is not available.', 'deepglot'),
             ], 501);
         }
 
@@ -471,7 +471,7 @@ class RestApi
         if (!current_user_can('manage_options')) {
             return new WP_Error(
                 'rest_forbidden',
-                __('Du benötigst Administrator-Rechte für diese Aktion.', 'deepglot'),
+                __('You need administrator rights for this action.', 'deepglot'),
                 ['status' => 403]
             );
         }
@@ -510,7 +510,7 @@ class RestApi
                 'rate_limited',
                 sprintf(
                     /* translators: %d: seconds until reset */
-                    __('Zu viele Anfragen. Bitte warte %d Sekunden.', 'deepglot'),
+                    __('Too many requests. Please wait %d seconds.', 'deepglot'),
                     $retryAfter
                 ),
                 ['status' => 429, 'retry_after' => $retryAfter]
@@ -584,7 +584,7 @@ class RestApi
         return new WP_Error(
             'deepglot_saas_managed_settings',
             __(
-                'Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden.',
+                'The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and can only be read through the WordPress REST API.',
                 'deepglot'
             ),
             [
@@ -662,7 +662,7 @@ class RestApi
         if ($code === 402) {
             return [
                 false,
-                __('Monatliches Wortlimit ausgeschöpft.', 'deepglot'),
+                __('Monthly word limit exhausted.', 'deepglot'),
                 'quota_exhausted',
             ];
         }
@@ -670,7 +670,7 @@ class RestApi
         if ($code === 401) {
             return [
                 false,
-                __('API-Key ungültig oder widerrufen.', 'deepglot'),
+                __('API key invalid or revoked.', 'deepglot'),
                 'invalid_api_key',
             ];
         }

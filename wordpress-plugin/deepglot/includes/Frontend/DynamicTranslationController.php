@@ -161,7 +161,7 @@ class DynamicTranslationController
         if (!$this->withinRateLimit()) {
             return new WP_REST_Response([
                 'code'    => 'rate_limited',
-                'message' => __('Zu viele Anfragen.', 'deepglot'),
+                'message' => __('Too many requests.', 'deepglot'),
             ], 429);
         }
 
@@ -404,7 +404,7 @@ class DynamicTranslationController
     public function permissionCheck(WP_REST_Request $request): bool|WP_Error
     {
         if ($this->isBot(RequestInput::server('HTTP_USER_AGENT'))) {
-            return new WP_Error('rest_forbidden', __('Nicht verfügbar.', 'deepglot'), ['status' => 403]);
+            return new WP_Error('rest_forbidden', __('Not available.', 'deepglot'), ['status' => 403]);
         }
 
         $referer = (string) $request->get_header('referer');
@@ -413,7 +413,7 @@ class DynamicTranslationController
             $refererHost = wp_parse_url($referer, PHP_URL_HOST);
 
             if (is_string($refererHost) && !$this->isAllowedHost($refererHost)) {
-                return new WP_Error('rest_forbidden', __('Ungültige Herkunft.', 'deepglot'), ['status' => 403]);
+                return new WP_Error('rest_forbidden', __('Invalid origin.', 'deepglot'), ['status' => 403]);
             }
         }
 

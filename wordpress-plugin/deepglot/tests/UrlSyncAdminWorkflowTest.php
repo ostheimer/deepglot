@@ -27,7 +27,7 @@ urlSyncAdminAssert(
 );
 urlSyncAdminAssert(
     str_contains($settings, 'name="source_offset"')
-        && str_contains($settings, 'Nächsten URL-Batch als Vorschau laden'),
+        && str_contains($settings, 'Load the next URL batch as a preview'),
     'Admin must carry the confirmed offset and expose the next bounded batch.'
 );
 urlSyncAdminAssert(

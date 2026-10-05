@@ -88,7 +88,7 @@ class UrlTranslationSync
         if ($items === []) {
             return new \WP_Error(
                 'deepglot_url_sync_empty',
-                __('Es wurden keine sicheren internen URLs gefunden.', 'deepglot'),
+                __('No secure internal URLs were found.', 'deepglot'),
                 ['status' => 422]
             );
         }
@@ -113,7 +113,7 @@ class UrlTranslationSync
         if (!set_transient($this->previewTransientKey($token), $preview, self::PREVIEW_TTL)) {
             return new \WP_Error(
                 'deepglot_url_sync_preview_unavailable',
-                __('Die URL-Vorschau konnte nicht gespeichert werden. Bitte versuche es erneut.', 'deepglot'),
+                __('The URL preview could not be saved. Please try again.', 'deepglot'),
                 ['status' => 500]
             );
         }
@@ -150,7 +150,7 @@ class UrlTranslationSync
         if ($previewToken === '') {
             return new \WP_Error(
                 'deepglot_url_sync_preview_required',
-                __('Bestätige zuerst die URL-Vorschau.', 'deepglot'),
+                __('First confirm the URL preview.', 'deepglot'),
                 ['status' => 409]
             );
         }
@@ -159,7 +159,7 @@ class UrlTranslationSync
         if ($lockOwner === null) {
             return new \WP_Error(
                 'deepglot_url_sync_busy',
-                __('Eine URL-Synchronisierung wird gerade verarbeitet.', 'deepglot')
+                __('A URL sync is currently processing.', 'deepglot')
             );
         }
 
@@ -168,7 +168,7 @@ class UrlTranslationSync
             if ($existing !== null && $this->isActiveStatus((string) ($existing['status'] ?? ''))) {
                 return new \WP_Error(
                     'deepglot_url_sync_active',
-                    __('Es läuft bereits eine URL-Synchronisierung.', 'deepglot')
+                    __('A URL synchronization is already running.', 'deepglot')
                 );
             }
 
@@ -177,7 +177,7 @@ class UrlTranslationSync
             if (!is_array($preview) || (int) ($preview['expires_at'] ?? 0) < time()) {
                 return new \WP_Error(
                     'deepglot_url_sync_preview_expired',
-                    __('Die URL-Vorschau ist abgelaufen. Erstelle bitte eine neue Vorschau.', 'deepglot'),
+                    __('The URL preview has expired. Please create a new preview.', 'deepglot'),
                     ['status' => 409]
                 );
             }
@@ -196,7 +196,7 @@ class UrlTranslationSync
             if (!$matchesSelection || !$matchesSnapshot || $items === []) {
                 return new \WP_Error(
                     'deepglot_url_sync_preview_mismatch',
-                    __('Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl.', 'deepglot'),
+                    __('The confirmed URL preview no longer matches the selection.', 'deepglot'),
                     ['status' => 409]
                 );
             }
@@ -588,7 +588,7 @@ class UrlTranslationSync
             return new \WP_Error(
                 'deepglot_url_sync_limit',
                 /* translators: %d: maximum number of URLs accepted by one synchronization job. */
-                sprintf(__('Es können höchstens %d URLs synchronisiert werden.', 'deepglot'), self::MAX_URLS),
+                sprintf(__('A maximum of %d URLs can be synchronized.', 'deepglot'), self::MAX_URLS),
                 ['status' => 400]
             );
         }
@@ -597,7 +597,7 @@ class UrlTranslationSync
             return new \WP_Error(
                 'deepglot_url_sync_offset',
                 /* translators: %d: maximum target-URL offset accepted for batched synchronization. */
-                sprintf(__('Der URL-Startpunkt darf höchstens %d betragen.', 'deepglot'), self::MAX_SOURCE_OFFSET),
+                sprintf(__('The URL starting point must be at most %d.', 'deepglot'), self::MAX_SOURCE_OFFSET),
                 ['status' => 400]
             );
         }
@@ -605,7 +605,7 @@ class UrlTranslationSync
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
             return new \WP_Error(
                 'deepglot_url_sync_unconfigured',
-                __('Deepglot muss aktiviert und vollständig eingerichtet sein.', 'deepglot'),
+                __('Deepglot must be activated and fully set up.', 'deepglot'),
                 ['status' => 409]
             );
         }
@@ -620,7 +620,7 @@ class UrlTranslationSync
         if ($languages === [] || array_diff($languages, $activeLanguages) !== []) {
             return new \WP_Error(
                 'deepglot_url_sync_language',
-                __('Mindestens eine aktive Zielsprache ist erforderlich.', 'deepglot'),
+                __('At least one active target language is required.', 'deepglot'),
                 ['status' => 400]
             );
         }

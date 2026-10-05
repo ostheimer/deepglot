@@ -1,5 +1,5 @@
 /**
- * Deepglot "Sprachschalter" block (editor side).
+ * Deepglot "Language switcher" block (editor side).
  *
  * Tiny wrapper around `wp.serverSideRender` so the block preview inside
  * the editor matches exactly what visitors see — no second copy of the
@@ -16,9 +16,9 @@
 
     blocks.registerBlockType( 'deepglot/switcher', {
         apiVersion: 3,
-        title: __( 'Deepglot Sprachschalter', 'deepglot' ),
+        title: __( 'Deepglot language switcher', 'deepglot' ),
         description: __(
-            'Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen.',
+            'Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings.',
             'deepglot'
         ),
         category: 'widgets',
@@ -46,10 +46,10 @@
 
             return el( element.Fragment, {},
                 el( blockEditor.InspectorControls, {},
-                    el( components.PanelBody, { title: __( 'Switcher-Instanz', 'deepglot' ) },
+                    el( components.PanelBody, { title: __( 'Switcher instance', 'deepglot' ) },
                         el( components.TextControl, {
-                            label: __( 'Instanz-ID', 'deepglot' ),
-                            help: __( 'Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter.', 'deepglot' ),
+                            label: __( 'Instance ID', 'deepglot' ),
+                            help: __( 'Find the ID under Settings → Deepglot → Language switcher.', 'deepglot' ),
                             value: props.attributes.instanceId || 'default',
                             onChange: function ( value ) {
                                 props.setAttributes( { instanceId: value } );

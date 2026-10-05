@@ -7,7 +7,7 @@ use Deepglot\Support\RequestInput;
 use Deepglot\Support\SiteRouting;
 
 /**
- * Expands a placeholder "Sprachschalter" entry inside any WP nav menu
+ * Expands a placeholder "Language switcher" entry inside any WP nav menu
  * into one menu item per configured language. Mirrors Weglot's
  * `wp_get_nav_menu_items`-filter pattern so theme renderers (classic
  * Walker_Nav_Menu, FSE Navigation block, Avada / Divi / Astra megamenu)
@@ -93,7 +93,7 @@ class NavMenuSwitcher
         }
 
         // Plugin disabled or missing API key → swallow the marker so
-        // visitors don't see an orphan "Sprachschalter" entry.
+        // visitors don't see an orphan "Language switcher" entry.
         if (!$this->options->isEnabled() || !$this->options->isConfigured()) {
             return array_values(array_filter($items, fn($item) => !$this->isMarker($item)));
         }
@@ -180,7 +180,7 @@ class NavMenuSwitcher
                 'menu_item_parent' => $markerParentId,
                 'menu_order'       => $baseOrder,
                 'title'            => $hideCurrent
-                    ? __('Sprache wählen', 'deepglot')
+                    ? __('Choose a language', 'deepglot')
                     : $this->labelFor($activeLang, $labelFormat),
                 'url'              => '#',
                 'type'             => 'custom',

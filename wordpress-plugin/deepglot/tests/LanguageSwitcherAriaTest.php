@@ -288,8 +288,8 @@ $liveRouter->lang = 'en';        // what RequestRouter detected before stripping
 $liveSwitcher = makeAriaSwitcher([], $liveRouter);
 $liveHtml = $liveSwitcher->renderShortcode([]);
 ariaAssert(
-    preg_match('/aria-label="Sprache: English"/', $liveHtml) === 1,
-    'When RequestRouter says active=en, aria-label must say "Sprache: English" even if $_SERVER[REQUEST_URI] was stripped to "/"'
+    preg_match('/aria-label="Language: English"/', $liveHtml) === 1,
+    'When RequestRouter says active=en, aria-label must say "Language: English" even if $_SERVER[REQUEST_URI] was stripped to "/"'
 );
 ariaAssert(
     preg_match('/<li[^>]*\bdata-l="en"[^>]*\bdeepglot-active\b/', $liveHtml) === 1
@@ -310,8 +310,8 @@ $sourceRouter->lang = null;
 $sourceSwitcher = makeAriaSwitcher([], $sourceRouter);
 $sourceHtml = $sourceSwitcher->renderShortcode([]);
 ariaAssert(
-    preg_match('/aria-label="Sprache: Deutsch"/', $sourceHtml) === 1,
-    'RequestRouter null = source language request → aria-label "Sprache: Deutsch"'
+    preg_match('/aria-label="Language: Deutsch"/', $sourceHtml) === 1,
+    'RequestRouter null = source language request → aria-label "Language: Deutsch"'
 );
 
 fwrite(STDOUT, "LanguageSwitcherAriaTest: OK\n");

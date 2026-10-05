@@ -62,7 +62,7 @@ class SettingsPage
         );
         $this->redirectAfterUrlSync(
             'success',
-            __('Die URL-Vorschau ist bereit. Prüfe die Auswahl und bestätige anschließend den Start.', 'deepglot')
+            __('The URL preview is ready. Check the selection and then confirm the start.', 'deepglot')
         );
     }
 
@@ -84,7 +84,7 @@ class SettingsPage
         delete_transient($this->urlSyncAdminPreviewKey());
         $this->redirectAfterUrlSync(
             'success',
-            __('Die URL-Synchronisierung wurde gestartet.', 'deepglot')
+            __('URL synchronization has started.', 'deepglot')
         );
     }
 
@@ -100,22 +100,22 @@ class SettingsPage
         ];
 
         if (!isset($methods[$action])) {
-            $this->redirectAfterUrlSync('error', __('Ungültige Aktion.', 'deepglot'));
+            $this->redirectAfterUrlSync('error', __('Invalid action.', 'deepglot'));
         }
 
         $changed = $this->urlSync->{$methods[$action]}();
         $this->redirectAfterUrlSync(
             $changed ? 'success' : 'error',
             $changed
-                ? __('Der Status der URL-Synchronisierung wurde aktualisiert.', 'deepglot')
-                : __('Die URL-Synchronisierung konnte in ihrem aktuellen Status nicht geändert werden.', 'deepglot')
+                ? __('The status of the URL synchronization has been updated.', 'deepglot')
+                : __('The URL synchronization could not be changed in its current state.', 'deepglot')
         );
     }
 
     private function requireUrlSyncAdminRequest(string $nonceAction): void
     {
         if (!current_user_can('manage_options') || $this->urlSync === null) {
-            wp_die(esc_html__('Du benötigst Administrator-Rechte für diese Aktion.', 'deepglot'));
+            wp_die(esc_html__('You need administrator rights for this action.', 'deepglot'));
         }
 
         check_admin_referer($nonceAction);
@@ -171,10 +171,10 @@ class SettingsPage
         ?>
         <div class="notice notice-error">
             <p>
-                <strong><?php esc_html_e('Deepglot: API-Key ungültig oder widerrufen.', 'deepglot'); ?></strong>
-                <?php esc_html_e('Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort.', 'deepglot'); ?>
+                <strong><?php esc_html_e('Deepglot: API key invalid or revoked.', 'deepglot'); ?></strong>
+                <?php esc_html_e('The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API key in the Deepglot settings, then it takes effect immediately.', 'deepglot'); ?>
                 <a href="<?php echo esc_url($settingsUrl); ?>" target="_blank" rel="noopener noreferrer">
-                    <?php esc_html_e('API-Key im Deepglot-Dashboard prüfen', 'deepglot'); ?>
+                    <?php esc_html_e('Check API key in the Deepglot dashboard', 'deepglot'); ?>
                 </a>
             </p>
         </div>
@@ -201,10 +201,10 @@ class SettingsPage
         ?>
         <div class="notice notice-warning">
             <p>
-                <strong><?php esc_html_e('Deepglot: Monatliches Wortlimit erreicht.', 'deepglot'); ?></strong>
-                <?php esc_html_e('Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird.', 'deepglot'); ?>
+                <strong><?php esc_html_e('Deepglot: Monthly word limit reached.', 'deepglot'); ?></strong>
+                <?php esc_html_e('Content that has already been translated will continue to be delivered, but new or changed text will remain in the source language until the quota is reset or increased.', 'deepglot'); ?>
                 <a href="<?php echo esc_url($dashboardUrl); ?>" target="_blank" rel="noopener noreferrer">
-                    <?php esc_html_e('Kontingent im Deepglot-Dashboard prüfen', 'deepglot'); ?>
+                    <?php esc_html_e('Check quota in the Deepglot dashboard', 'deepglot'); ?>
                 </a>
             </p>
         </div>
@@ -369,7 +369,7 @@ class SettingsPage
 
         $settings   = $this->options->all();
         // A key the backend rejects with 401 is not a working setup, however
-        // complete the form looks — reporting "Aktiv" here is what hid a live
+        // complete the form looks — reporting "Active" here is what hid a live
         // outage from the operator on jobspot.at (#245). $isSetup keeps
         // meaning "a key is stored", so an existing site stays on the compact
         // form instead of dropping back into first-time onboarding copy.
@@ -382,16 +382,16 @@ class SettingsPage
 
         if ($keyInvalid) {
             $statusClass = 'invalid';
-            $statusLabel = __('API-Key ungültig', 'deepglot');
+            $statusLabel = __('Invalid API key', 'deepglot');
         } elseif ($isEnabled && $isSetup) {
             $statusClass = 'active';
-            $statusLabel = __('Aktiv', 'deepglot');
+            $statusLabel = __('Active', 'deepglot');
         } elseif ($isSetup) {
             $statusClass = 'inactive';
-            $statusLabel = __('Deaktiviert', 'deepglot');
+            $statusLabel = __('Disabled', 'deepglot');
         } else {
             $statusClass = 'unconfigured';
-            $statusLabel = __('Einrichtung erforderlich', 'deepglot');
+            $statusLabel = __('Setup required', 'deepglot');
         }
         ?>
         <div class="wrap" id="deepglot-wrap">
@@ -414,7 +414,7 @@ class SettingsPage
             <?php if (!$isSetup) : ?>
                 <!-- ── SETUP WIZARD (first-time) ── -->
                 <div class="dg-alert info" style="margin-top:16px;">
-                    <?php esc_html_e('Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren.', 'deepglot'); ?>
+                    <?php esc_html_e('Welcome to Deepglot! Follow the three steps below to enable translation on your website.', 'deepglot'); ?>
                 </div>
             <?php endif; ?>
 
@@ -425,8 +425,8 @@ class SettingsPage
 
                     <?php if (!$isSetup) : ?>
                     <div class="dg-wizard-header">
-                        <h2><?php esc_html_e('Deepglot einrichten', 'deepglot'); ?></h2>
-                        <p><?php esc_html_e('Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten.', 'deepglot'); ?></p>
+                        <h2><?php esc_html_e('Set up Deepglot', 'deepglot'); ?></h2>
+                        <p><?php esc_html_e('You only need an API key from the Deepglot dashboard. Setup takes less than two minutes.', 'deepglot'); ?></p>
                     </div>
                     <?php endif; ?>
 
@@ -438,23 +438,23 @@ class SettingsPage
                                 <?php echo $isSetup && !$keyInvalid ? '✓' : '1'; ?>
                             </div>
                             <div class="dg-step-body">
-                                <h3><?php esc_html_e('API-Key eintragen', 'deepglot'); ?></h3>
+                                <h3><?php esc_html_e('Enter API key', 'deepglot'); ?></h3>
                                 <?php if ($keyInvalid) : ?>
                                 <p style="margin:0 0 12px; font-size:12px; color:#991b1b; font-weight:600;">
-                                    <?php esc_html_e('Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere.', 'deepglot'); ?>
+                                    <?php esc_html_e('The stored API key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save.', 'deepglot'); ?>
                                 </p>
                                 <?php endif; ?>
                                 <?php if (!$isSetup) : ?>
                                 <p>
-                                    <?php esc_html_e('Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key.', 'deepglot'); ?>
+                                    <?php esc_html_e('Create a free account on deepglot.ai, create a project for your website and copy the API key.', 'deepglot'); ?>
                                     <br>
                                     <a href="<?php echo esc_url($dashUrl . '/projects/new'); ?>" target="_blank" rel="noopener" class="dg-btn-outline" style="margin-top:10px; display:inline-flex;">
-                                        ↗ <?php esc_html_e('Zum Dashboard – API-Key erstellen', 'deepglot'); ?>
+                                        ↗ <?php esc_html_e('Go to dashboard – create API key', 'deepglot'); ?>
                                     </a>
                                 </p>
                                 <?php endif; ?>
                                 <div class="dg-field">
-                                    <label for="dg_api_key"><?php esc_html_e('API-Key', 'deepglot'); ?></label>
+                                    <label for="dg_api_key"><?php esc_html_e('API key', 'deepglot'); ?></label>
                                     <input
                                         id="dg_api_key"
                                         type="text"
@@ -465,11 +465,11 @@ class SettingsPage
                                         spellcheck="false"
                                     />
                                     <p class="description">
-                                        <?php esc_html_e('Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt.', 'deepglot'); ?>
+                                        <?php esc_html_e('You can find the full key under Settings → API keys in your Deepglot project.', 'deepglot'); ?>
                                     </p>
                                 </div>
                                 <div class="dg-field">
-                                    <label for="dg_api_base_url"><?php esc_html_e('Backend-URL', 'deepglot'); ?></label>
+                                    <label for="dg_api_base_url"><?php esc_html_e('Backend URL', 'deepglot'); ?></label>
                                     <input
                                         id="dg_api_base_url"
                                         type="url"
@@ -477,7 +477,7 @@ class SettingsPage
                                         value="<?php echo esc_attr($settings['api_base_url']); ?>"
                                     />
                                     <p class="description">
-                                        <?php esc_html_e('Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting.', 'deepglot'); ?>
+                                        <?php esc_html_e('Default: https://deepglot.ai/api – change only for self-hosting.', 'deepglot'); ?>
                                     </p>
                                 </div>
                             </div>
@@ -489,21 +489,21 @@ class SettingsPage
                                 <?php echo $isSetup ? '✓' : '2'; ?>
                             </div>
                             <div class="dg-step-body">
-                                <h3><?php esc_html_e('Sprachen konfigurieren', 'deepglot'); ?></h3>
+                                <h3><?php esc_html_e('Configure languages', 'deepglot'); ?></h3>
                                 <?php if (!$isSetup) : ?>
-                                <p><?php esc_html_e('Lege die Originalsprache und die gewünschten Übersetzungssprachen fest.', 'deepglot'); ?></p>
+                                <p><?php esc_html_e('Specify the original language and the desired translation languages.', 'deepglot'); ?></p>
                                 <?php endif; ?>
                                 <?php if ($hasSaasProjectSnapshot) : ?>
                                 <p id="dg_saas_project_ownership" class="description">
-                                    <?php esc_html_e('Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und hier nur angezeigt.', 'deepglot'); ?>
+                                    <?php esc_html_e('The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and are only displayed here.', 'deepglot'); ?>
                                     <a href="<?php echo esc_url($dashUrl . '/projekte'); ?>" target="_blank" rel="noopener">
-                                        <?php esc_html_e('Projekteinstellungen öffnen', 'deepglot'); ?>
+                                        <?php esc_html_e('Open project settings', 'deepglot'); ?>
                                     </a>
                                 </p>
                                 <?php endif; ?>
                                 <div class="dg-lang-row">
                                     <div class="dg-field">
-                                        <label for="dg_source_lang"><?php esc_html_e('Originalsprache', 'deepglot'); ?></label>
+                                        <label for="dg_source_lang"><?php esc_html_e('Original language', 'deepglot'); ?></label>
                                         <input
                                             id="dg_source_lang"
                                             type="text"
@@ -515,7 +515,7 @@ class SettingsPage
                                         />
                                     </div>
                                     <div class="dg-field" style="flex:2;">
-                                        <label for="dg_target_langs"><?php esc_html_e('Zielsprachen', 'deepglot'); ?></label>
+                                        <label for="dg_target_langs"><?php esc_html_e('Target languages', 'deepglot'); ?></label>
                                         <input
                                             id="dg_target_langs"
                                             type="text"
@@ -524,7 +524,7 @@ class SettingsPage
                                             placeholder="en, fr, es"
                                             <?php if ($hasSaasProjectSnapshot) : ?>readonly aria-readonly="true"<?php endif; ?>
                                         />
-                                        <p class="description"><?php esc_html_e('Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it', 'deepglot'); ?></p>
+                                        <p class="description"><?php esc_html_e('Comma-separated ISO 639-1 codes, such as en, fr, and it', 'deepglot'); ?></p>
                                     </div>
                                 </div>
                             </div>
@@ -536,9 +536,9 @@ class SettingsPage
                                 <?php echo $isEnabled ? '✓' : '3'; ?>
                             </div>
                             <div class="dg-step-body">
-                                <h3><?php esc_html_e('Übersetzung aktivieren', 'deepglot'); ?></h3>
+                                <h3><?php esc_html_e('Enable translation', 'deepglot'); ?></h3>
                                 <?php if (!$isSetup) : ?>
-                                <p><?php esc_html_e('Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier.', 'deepglot'); ?></p>
+                                <p><?php esc_html_e('Once API key and languages are saved, enable automatic translation here.', 'deepglot'); ?></p>
                                 <?php endif; ?>
                                 <div class="dg-toggle-row">
                                     <input
@@ -550,12 +550,12 @@ class SettingsPage
                                         <?php checked(!empty($settings['enabled'])); ?>
                                     />
                                     <label for="dg_enabled">
-                                        <?php esc_html_e('Deepglot für alle Frontend-Anfragen aktiv schalten', 'deepglot'); ?>
+                                        <?php esc_html_e('Activate Deepglot for all frontend requests', 'deepglot'); ?>
                                     </label>
                                 </div>
                                 <?php if ($isEnabled && $keyInvalid) : ?>
                                     <p style="margin:10px 0 0; font-size:12px; color:#991b1b; font-weight:600;">
-                                        <?php esc_html_e('Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt.', 'deepglot'); ?>
+                                        <?php esc_html_e('Translation is enabled but stalled: the API key is rejected.', 'deepglot'); ?>
                                     </p>
                                 <?php elseif ($isEnabled) : ?>
                                     <p style="margin:10px 0 0; font-size:12px; color:#16a34a; font-weight:600;">
@@ -563,7 +563,7 @@ class SettingsPage
                                             $langList = implode(', ', array_map('strtoupper', (array) $settings['target_languages']));
                                             printf(
                                                 /* translators: %1$s: source language, %2$s: target languages */
-                                                esc_html__('Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/', 'deepglot'),
+                                                esc_html__('Active – pages are translated from %1$s to %2$s at /%3$s/your-page/', 'deepglot'),
                                                 esc_html(strtoupper($settings['source_language'])),
                                                 esc_html($langList),
                                                 esc_html($settings['target_languages'][0] ?? 'en')
@@ -592,7 +592,7 @@ class SettingsPage
                                     />
                                     <?php endif; ?>
                                     <label for="dg_auto_redirect">
-                                        <?php esc_html_e('Besucher anhand der Browsersprache automatisch weiterleiten (optional)', 'deepglot'); ?>
+                                        <?php esc_html_e('Automatically redirect visitors based on browser language (optional)', 'deepglot'); ?>
                                     </label>
                                 </div>
                             </div>
@@ -601,29 +601,29 @@ class SettingsPage
                     </div><!-- /.dg-steps -->
 
                     <!-- Advanced / Exclusions -->
-                    <span class="dg-advanced-toggle" onclick="var el=document.getElementById('dg-advanced');el.classList.toggle('open');this.textContent=el.classList.contains('open')?'▲ <?php echo esc_js(__('Erweiterte Einstellungen ausblenden', 'deepglot')); ?>':'▼ <?php echo esc_js(__('Erweiterte Einstellungen anzeigen', 'deepglot')); ?>';">
-                        ▼ <?php esc_html_e('Erweiterte Einstellungen anzeigen', 'deepglot'); ?>
+                    <span class="dg-advanced-toggle" onclick="var el=document.getElementById('dg-advanced');el.classList.toggle('open');this.textContent=el.classList.contains('open')?'▲ <?php echo esc_js(__('Hide advanced settings', 'deepglot')); ?>':'▼ <?php echo esc_js(__('Show advanced settings', 'deepglot')); ?>';">
+                        ▼ <?php esc_html_e('Show advanced settings', 'deepglot'); ?>
                     </span>
                     <div id="dg-advanced" class="dg-advanced">
                         <div class="dg-field">
-                            <label for="dg_exclude_urls"><?php esc_html_e('Ausgeschlossene URLs', 'deepglot'); ?></label>
+                            <label for="dg_exclude_urls"><?php esc_html_e('Excluded URLs', 'deepglot'); ?></label>
                             <textarea id="dg_exclude_urls" name="<?php echo esc_attr($optKey); ?>[exclude_urls]" rows="4" placeholder="/kontakt&#10;/impressum"><?php echo esc_textarea($settings['exclude_urls']); ?></textarea>
-                            <p class="description"><?php esc_html_e('Eine URL oder ein Muster pro Zeile.', 'deepglot'); ?></p>
+                            <p class="description"><?php esc_html_e('One URL or pattern per line.', 'deepglot'); ?></p>
                         </div>
                         <div class="dg-field">
-                            <label for="dg_routing_mode"><?php esc_html_e('Routing-Modus', 'deepglot'); ?></label>
+                            <label for="dg_routing_mode"><?php esc_html_e('Routing mode', 'deepglot'); ?></label>
                             <select id="dg_routing_mode" name="<?php echo esc_attr($optKey); ?>[routing_mode]" style="min-width:220px;">
                                 <option value="PATH_PREFIX" <?php selected(($settings['routing_mode'] ?? 'PATH_PREFIX'), 'PATH_PREFIX'); ?>>
-                                    <?php esc_html_e('Pfad-Präfix (/en/meine-seite)', 'deepglot'); ?>
+                                    <?php esc_html_e('Path prefix (/en/my-page)', 'deepglot'); ?>
                                 </option>
                                 <option value="SUBDOMAIN" <?php selected(($settings['routing_mode'] ?? 'PATH_PREFIX'), 'SUBDOMAIN'); ?>>
                                     <?php esc_html_e('Subdomains (en.example.com)', 'deepglot'); ?>
                                 </option>
                             </select>
-                            <p class="description"><?php esc_html_e('Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host.', 'deepglot'); ?></p>
+                            <p class="description"><?php esc_html_e('Path prefix remains the default. For subdomains, each active target language needs a host.', 'deepglot'); ?></p>
                         </div>
                         <div class="dg-field">
-                            <label for="dg_domain_mappings"><?php esc_html_e('Domain-Zuordnungen', 'deepglot'); ?></label>
+                            <label for="dg_domain_mappings"><?php esc_html_e('Domain mappings', 'deepglot'); ?></label>
                             <textarea id="dg_domain_mappings" name="<?php echo esc_attr($optKey); ?>[domain_mappings]" rows="4" placeholder="en=en.example.com&#10;fr=fr.example.com"><?php
                                 $mappingLines = [];
                                 foreach ((array) ($settings['domain_mappings'] ?? []) as $lang => $host) {
@@ -631,7 +631,7 @@ class SettingsPage
                                 }
                                 echo esc_textarea(implode("\n", $mappingLines));
                             ?></textarea>
-                            <p class="description"><?php esc_html_e('Format: sprachcode=host, eine Zuordnung pro Zeile.', 'deepglot'); ?></p>
+                            <p class="description"><?php esc_html_e('Format: language-code=host, one mapping per line.', 'deepglot'); ?></p>
                         </div>
                         <div class="dg-toggle-row" style="margin-top:14px;">
                             <input
@@ -643,7 +643,7 @@ class SettingsPage
                                 <?php checked(!empty($settings['translate_emails'])); ?>
                             />
                             <label for="dg_translate_emails">
-                                <?php esc_html_e('WooCommerce- und wp_mail-E-Mails übersetzen', 'deepglot'); ?>
+                                <?php esc_html_e('Translate WooCommerce and wp_mail emails', 'deepglot'); ?>
                             </label>
                         </div>
                         <div class="dg-toggle-row" style="margin-top:14px;">
@@ -656,7 +656,7 @@ class SettingsPage
                                 <?php checked(!empty($settings['translate_search'])); ?>
                             />
                             <label for="dg_translate_search">
-                                <?php esc_html_e('Suche in der Besuchersprache ausführen', 'deepglot'); ?>
+                                <?php esc_html_e('Run searches in the visitor’s language', 'deepglot'); ?>
                             </label>
                         </div>
                         <div class="dg-toggle-row" style="margin-top:14px;">
@@ -669,7 +669,7 @@ class SettingsPage
                                 <?php checked(!empty($settings['translate_amp'])); ?>
                             />
                             <label for="dg_translate_amp">
-                                <?php esc_html_e('AMP-Seiten übersetzen', 'deepglot'); ?>
+                                <?php esc_html_e('Translate AMP pages', 'deepglot'); ?>
                             </label>
                         </div>
                         <div class="dg-toggle-row" style="margin-top:14px;">
@@ -682,13 +682,13 @@ class SettingsPage
                                 <?php checked(!empty($settings['enable_dynamic_translation'])); ?>
                             />
                             <label for="dg_enable_dynamic_translation">
-                                <?php esc_html_e('Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)', 'deepglot'); ?>
+                                <?php esc_html_e('Translate dynamically loaded content (AJAX, infinite scroll, SPA)', 'deepglot'); ?>
                             </label>
                         </div>
                         <div class="dg-field">
-                            <label for="dg_exclude_selectors"><?php esc_html_e('Ausgeschlossene CSS-Selektoren', 'deepglot'); ?></label>
+                            <label for="dg_exclude_selectors"><?php esc_html_e('Excluded CSS selectors', 'deepglot'); ?></label>
                             <textarea id="dg_exclude_selectors" name="<?php echo esc_attr($optKey); ?>[exclude_selectors]" rows="4" placeholder=".no-translate&#10;#sidebar"><?php echo esc_textarea($settings['exclude_selectors']); ?></textarea>
-                            <p class="description"><?php esc_html_e('Eine CSS-Klasse, ID oder ein Selektor pro Zeile.', 'deepglot'); ?></p>
+                            <p class="description"><?php esc_html_e('One CSS class, ID or selector per line.', 'deepglot'); ?></p>
                         </div>
                     </div>
 
@@ -722,8 +722,8 @@ class SettingsPage
                 ?>
                 <div class="dg-wizard" style="margin-top:20px;">
                     <div class="dg-wizard-header">
-                        <h2><?php esc_html_e('Sprachumschalter', 'deepglot'); ?></h2>
-                        <p><?php esc_html_e('Wie und wo soll der Language-Switcher auf deiner Website erscheinen?', 'deepglot'); ?></p>
+                        <h2><?php esc_html_e('Language switcher settings', 'deepglot'); ?></h2>
+                        <p><?php esc_html_e('How and where should the language switcher appear on your website?', 'deepglot'); ?></p>
                     </div>
 
                     <div class="dg-toggle-row">
@@ -736,7 +736,7 @@ class SettingsPage
                             <?php checked(!empty($settings['switcher_auto_inject'])); ?>
                         />
                         <label for="dg_switcher_auto_inject">
-                            <?php esc_html_e('Switcher automatisch im Seitenfooter einfügen', 'deepglot'); ?>
+                            <?php esc_html_e('Automatically add the language switcher to the page footer', 'deepglot'); ?>
                         </label>
                     </div>
 
@@ -746,22 +746,22 @@ class SettingsPage
                     </div>
                     <div class="dg-toggle-row" style="margin-top:12px;">
                         <input id="dg_switcher_enabled" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($optKey); ?>[switcher_enabled]" value="1" <?php checked(!empty($settings['switcher_enabled'])); ?> />
-                        <label for="dg_switcher_enabled"><?php esc_html_e('Instanz aktivieren', 'deepglot'); ?></label>
+                        <label for="dg_switcher_enabled"><?php esc_html_e('Activate instance', 'deepglot'); ?></label>
                     </div>
                     <div class="dg-field" style="margin-top:12px;">
-                        <label for="dg_switcher_selector"><?php esc_html_e('DOM-Ziel für automatische Platzierung', 'deepglot'); ?></label>
+                        <label for="dg_switcher_selector"><?php esc_html_e('DOM target for automatic placement', 'deepglot'); ?></label>
                         <input id="dg_switcher_selector" type="text" name="<?php echo esc_attr($optKey); ?>[switcher_selector]" value="<?php echo esc_attr((string) ($settings['switcher_selector'] ?? '')); ?>" maxlength="<?php echo esc_attr((string) Options::SWITCHER_SELECTOR_MAX_LEN); ?>" placeholder="#site-header > nav.primary" />
                     </div>
                     <p class="description" style="margin-top:4px;">
-                        <?php esc_html_e('Alternativ: Shortcode [deepglot_switcher] oder PHP do_action(\'deepglot_language_switcher\') in deinem Theme.', 'deepglot'); ?>
+                        <?php esc_html_e('Alternatively: Shortcode [deepglot_switcher] or PHP do_action(\'deepglot_language_switcher\') in your theme.', 'deepglot'); ?>
                     </p>
 
                     <div class="dg-section-grid" style="margin-top:18px;">
                         <div class="dg-field">
-                            <label for="dg_switcher_style"><?php esc_html_e('Darstellung', 'deepglot'); ?></label>
+                            <label for="dg_switcher_style"><?php esc_html_e('Presentation', 'deepglot'); ?></label>
                             <select id="dg_switcher_style" name="<?php echo esc_attr($optKey); ?>[switcher_default_style]">
                                 <option value="list" <?php selected(($settings['switcher_default_style'] ?? 'list'), 'list'); ?>>
-                                    <?php esc_html_e('Inline-Liste', 'deepglot'); ?>
+                                    <?php esc_html_e('Inline list', 'deepglot'); ?>
                                 </option>
                                 <option value="dropdown" <?php selected(($settings['switcher_default_style'] ?? 'list'), 'dropdown'); ?>>
                                     <?php esc_html_e('Dropdown', 'deepglot'); ?>
@@ -770,55 +770,55 @@ class SettingsPage
                         </div>
 
                         <div class="dg-field">
-                            <label for="dg_switcher_flag"><?php esc_html_e('Flaggenstil', 'deepglot'); ?></label>
+                            <label for="dg_switcher_flag"><?php esc_html_e('Flag style', 'deepglot'); ?></label>
                             <select id="dg_switcher_flag" name="<?php echo esc_attr($optKey); ?>[switcher_flag_style]">
                                 <option value="rectangle_mat" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'rectangle_mat'); ?>>
-                                    <?php esc_html_e('Rechteckig, matt', 'deepglot'); ?>
+                                    <?php esc_html_e('Rectangular, matte', 'deepglot'); ?>
                                 </option>
                                 <option value="rectangle_glossy" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'rectangle_glossy'); ?>>
-                                    <?php esc_html_e('Rechteckig, glänzend', 'deepglot'); ?>
+                                    <?php esc_html_e('Rectangular, shiny', 'deepglot'); ?>
                                 </option>
                                 <option value="circle_mat" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'circle_mat'); ?>>
-                                    <?php esc_html_e('Kreis, matt', 'deepglot'); ?>
+                                    <?php esc_html_e('Circle, matte', 'deepglot'); ?>
                                 </option>
                                 <option value="circle_glossy" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'circle_glossy'); ?>>
-                                    <?php esc_html_e('Kreis, glänzend', 'deepglot'); ?>
+                                    <?php esc_html_e('Circle, shiny', 'deepglot'); ?>
                                 </option>
                                 <option value="none" <?php selected(($settings['switcher_flag_style'] ?? 'rectangle_mat'), 'none'); ?>>
-                                    <?php esc_html_e('Ohne Flagge', 'deepglot'); ?>
+                                    <?php esc_html_e('Without a flag', 'deepglot'); ?>
                                 </option>
                             </select>
                         </div>
 
                         <div class="dg-field">
-                            <label for="dg_switcher_label_format"><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                            <label for="dg_switcher_label_format"><?php esc_html_e('Language label', 'deepglot'); ?></label>
                             <select id="dg_switcher_label_format" name="<?php echo esc_attr($optKey); ?>[switcher_label_format]">
                                 <option value="full_name" <?php selected(($settings['switcher_label_format'] ?? 'full_name'), 'full_name'); ?>>
-                                    <?php esc_html_e('Volle Bezeichnung („Deutsch")', 'deepglot'); ?>
+                                    <?php esc_html_e('Full name ("English")', 'deepglot'); ?>
                                 </option>
                                 <option value="iso_code" <?php selected(($settings['switcher_label_format'] ?? 'full_name'), 'iso_code'); ?>>
-                                    <?php esc_html_e('ISO-Code („DE")', 'deepglot'); ?>
+                                    <?php esc_html_e('ISO code ("EN")', 'deepglot'); ?>
                                 </option>
                             </select>
                         </div>
 
                         <div class="dg-field">
-                            <label for="dg_switcher_responsive"><?php esc_html_e('Anzeigegerät', 'deepglot'); ?></label>
+                            <label for="dg_switcher_responsive"><?php esc_html_e('Display device', 'deepglot'); ?></label>
                             <select id="dg_switcher_responsive" name="<?php echo esc_attr($optKey); ?>[switcher_responsive_hide]">
                                 <option value="none" <?php selected(($settings['switcher_responsive_hide'] ?? 'none'), 'none'); ?>>
-                                    <?php esc_html_e('Auf allen Geräten zeigen', 'deepglot'); ?>
+                                    <?php esc_html_e('Show on all devices', 'deepglot'); ?>
                                 </option>
                                 <option value="mobile" <?php selected(($settings['switcher_responsive_hide'] ?? 'none'), 'mobile'); ?>>
-                                    <?php esc_html_e('Nur Desktop (auf Mobile ausblenden)', 'deepglot'); ?>
+                                    <?php esc_html_e('Desktop only (hide on mobile)', 'deepglot'); ?>
                                 </option>
                                 <option value="desktop" <?php selected(($settings['switcher_responsive_hide'] ?? 'none'), 'desktop'); ?>>
-                                    <?php esc_html_e('Nur Mobile (auf Desktop ausblenden)', 'deepglot'); ?>
+                                    <?php esc_html_e('Mobile only (hide on desktop)', 'deepglot'); ?>
                                 </option>
                             </select>
                         </div>
 
                         <div class="dg-field">
-                            <label for="dg_switcher_breakpoint"><?php esc_html_e('Mobile-Breakpoint (px)', 'deepglot'); ?></label>
+                            <label for="dg_switcher_breakpoint"><?php esc_html_e('Mobile breakpoint (px)', 'deepglot'); ?></label>
                             <input
                                 id="dg_switcher_breakpoint"
                                 type="number"
@@ -830,31 +830,31 @@ class SettingsPage
                                 style="width:120px; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"
                             />
                             <p class="description" style="margin-top:4px; font-size:12px;">
-                                <?php esc_html_e('Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile".', 'deepglot'); ?>
+                                <?php esc_html_e('Default: 768 px. Below this width, a device is treated as mobile.', 'deepglot'); ?>
                             </p>
                         </div>
 
                         <div class="dg-field">
-                            <label for="dg_switcher_position"><?php esc_html_e('Position auf der Seite', 'deepglot'); ?></label>
+                            <label for="dg_switcher_position"><?php esc_html_e('Position on the page', 'deepglot'); ?></label>
                             <select id="dg_switcher_position" name="<?php echo esc_attr($optKey); ?>[switcher_position]">
                                 <option value="inline" <?php selected(($settings['switcher_position'] ?? 'inline'), 'inline'); ?>>
-                                    <?php esc_html_e('Inline (an der eingebetteten Stelle)', 'deepglot'); ?>
+                                    <?php esc_html_e('Inline (at the embedded location)', 'deepglot'); ?>
                                 </option>
                                 <option value="fixed-bottom-right" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-bottom-right'); ?>>
-                                    <?php esc_html_e('Floating: rechts unten', 'deepglot'); ?>
+                                    <?php esc_html_e('Floating: bottom right', 'deepglot'); ?>
                                 </option>
                                 <option value="fixed-bottom-left" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-bottom-left'); ?>>
-                                    <?php esc_html_e('Floating: links unten', 'deepglot'); ?>
+                                    <?php esc_html_e('Floating: bottom left', 'deepglot'); ?>
                                 </option>
                                 <option value="fixed-top-right" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-top-right'); ?>>
-                                    <?php esc_html_e('Floating: rechts oben', 'deepglot'); ?>
+                                    <?php esc_html_e('Floating: top right', 'deepglot'); ?>
                                 </option>
                                 <option value="fixed-top-left" <?php selected(($settings['switcher_position'] ?? 'inline'), 'fixed-top-left'); ?>>
-                                    <?php esc_html_e('Floating: links oben', 'deepglot'); ?>
+                                    <?php esc_html_e('Floating: top left', 'deepglot'); ?>
                                 </option>
                             </select>
                             <p class="description" style="margin-top:4px; font-size:12px;">
-                                <?php esc_html_e('„Floating" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten.', 'deepglot'); ?>
+                                <?php esc_html_e('Floating pins the switcher to a corner using position: fixed. Combined with automatic placement, this matches the default Weglot behavior.', 'deepglot'); ?>
                             </p>
                         </div>
 
@@ -869,14 +869,14 @@ class SettingsPage
                                     <?php checked(!empty($settings['switcher_show_label'])); ?>
                                 />
                                 <label for="dg_switcher_show_label">
-                                    <?php esc_html_e('Bezeichnung sichtbar', 'deepglot'); ?>
+                                    <?php esc_html_e('Show language label', 'deepglot'); ?>
                                 </label>
                             </div>
                         </div>
                     </div>
 
                     <div class="dg-field" style="margin-top:18px;">
-                        <label><?php esc_html_e('Reihenfolge der Sprachen', 'deepglot'); ?></label>
+                        <label><?php esc_html_e('Order of languages', 'deepglot'); ?></label>
                         <ul id="dg-switcher-order" class="dg-sortable">
                             <?php foreach ($orderedLangs as $lang) :
                                 $native = $nativeLabels[$lang] ?? '';
@@ -895,11 +895,11 @@ class SettingsPage
                                 </li>
                             <?php endforeach; ?>
                         </ul>
-                        <p class="description"><?php esc_html_e('Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject.', 'deepglot'); ?></p>
+                        <p class="description"><?php esc_html_e('Rearrange using drag & drop. Works in both Shortcode and auto-inject.', 'deepglot'); ?></p>
                     </div>
 
                     <div class="dg-field" style="margin-top:18px;">
-                        <label><?php esc_html_e('Eigene Flaggen pro Sprache (optional)', 'deepglot'); ?></label>
+                        <label><?php esc_html_e('Custom flags by language (optional)', 'deepglot'); ?></label>
                         <?php
                         $customFlags = (array) ($settings['switcher_custom_flags'] ?? []);
                         ?>
@@ -920,7 +920,7 @@ class SettingsPage
                                             type="text"
                                             name="<?php echo esc_attr($optKey); ?>[switcher_custom_flags][<?php echo esc_attr($lang); ?>]"
                                             value="<?php echo esc_attr($value); ?>"
-                                            placeholder="🇺🇸  oder  https://example.com/flag.svg"
+                                            placeholder="<?php echo esc_attr(__('🇺🇸 or https://example.com/flag.svg', 'deepglot')); ?>"
                                             maxlength="256"
                                             style="width:100%; padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px;"
                                         />
@@ -929,12 +929,12 @@ class SettingsPage
                             <?php endforeach; ?>
                         </table>
                         <p class="description" style="margin-top:6px; font-size:12px;">
-                            <?php esc_html_e('Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt.', 'deepglot'); ?>
+                            <?php esc_html_e('Leave blank to use the default flag. Enter an emoji (for example, 🇺🇸 for English in the US) or an SVG/PNG URL. CSS special characters are removed automatically.', 'deepglot'); ?>
                         </p>
                     </div>
 
                     <div class="dg-field" style="margin-top:18px;">
-                        <label><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                        <label><?php esc_html_e('Language label', 'deepglot'); ?></label>
                         <?php foreach ($orderedLangs as $lang) : ?>
                             <label style="display:block; margin:6px 0;">
                                 <?php echo esc_html(strtoupper($lang)); ?>
@@ -944,7 +944,7 @@ class SettingsPage
                     </div>
 
                     <div class="dg-field" style="margin-top:18px;">
-                        <label for="dg_switcher_custom_css"><?php esc_html_e('Eigenes CSS für den Switcher', 'deepglot'); ?></label>
+                        <label for="dg_switcher_custom_css"><?php esc_html_e('Custom CSS for the switcher', 'deepglot'); ?></label>
                         <textarea
                             id="dg_switcher_custom_css"
                             name="<?php echo esc_attr($optKey); ?>[switcher_custom_css]"
@@ -952,7 +952,7 @@ class SettingsPage
                             style="width:100%; max-width:460px; font-family:monospace; font-size:12px;"
                             placeholder=".deepglot-switcher li a { color: #333; }"
                         ><?php echo esc_textarea((string) ($settings['switcher_custom_css'] ?? '')); ?></textarea>
-                        <p class="description"><?php esc_html_e('Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann.', 'deepglot'); ?></p>
+                        <p class="description"><?php esc_html_e('Inserted in a <style> tag immediately before the switcher. The "<" character is removed to prevent injection of a script tag.', 'deepglot'); ?></p>
                     </div>
 
                     <?php
@@ -964,11 +964,11 @@ class SettingsPage
                     $templateRegistry = SwitcherTemplates::registry();
                     ?>
                     <div class="dg-field" style="margin-top:24px; padding-top:20px; border-top:1px solid #e5e7eb;">
-                        <h3><?php esc_html_e('Weitere Switcher-Instanzen', 'deepglot'); ?></h3>
+                        <h3><?php esc_html_e('More Switcher instances', 'deepglot'); ?></h3>
                         <p class="description">
-                            <?php esc_html_e('Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default" erhalten.', 'deepglot'); ?>
+                            <?php esc_html_e('Create independent switchers for shortcodes, blocks, widgets, or automatic placement. The existing global switcher remains available as the "default" instance.', 'deepglot'); ?>
                         </p>
-                        <div class="dg-switcher-templates" aria-label="<?php esc_attr_e('Switcher-Vorlagen', 'deepglot'); ?>">
+                        <div class="dg-switcher-templates" aria-label="<?php esc_attr_e('Switcher templates', 'deepglot'); ?>">
                             <?php foreach ($templateRegistry as $templateId => $template) :
                                 $templateConfig = SwitcherTemplates::createInstance(
                                     (string) $templateId,
@@ -996,7 +996,7 @@ class SettingsPage
                         <template id="deepglot-switcher-instance-template">
                             <?php
                             $this->renderSwitcherInstanceEditor(
-                                SwitcherTemplates::createInstance('classic-dropdown', 'new-switcher', __('Neuer Switcher', 'deepglot')),
+                                SwitcherTemplates::createInstance('classic-dropdown', 'new-switcher', __('New Switcher', 'deepglot')),
                                 '__INDEX__',
                                 $optKey,
                                 $previewUrl
@@ -1007,7 +1007,7 @@ class SettingsPage
 
                 <div class="dg-actions" style="margin-top:24px;">
                         <button type="submit" class="dg-btn-primary">
-                            <?php esc_html_e('Einstellungen speichern', 'deepglot'); ?>
+                            <?php esc_html_e('Save settings', 'deepglot'); ?>
                         </button>
                         <a href="<?php echo esc_url($dashUrl); ?>" target="_blank" rel="noopener" class="dg-btn-outline">
                             ↗ Dashboard
@@ -1018,7 +1018,7 @@ class SettingsPage
                         <?php
                         printf(
                             /* translators: %s: dashboard url */
-                            esc_html__('Hilfe & Dokumentation: %s', 'deepglot'),
+                            esc_html__('Help & Documentation: %s', 'deepglot'),
                             '<a href="' . esc_url($dashUrl) . '" target="_blank" rel="noopener">' . esc_html($dashUrl) . '</a>'
                         );
                         ?>
@@ -1152,17 +1152,17 @@ class SettingsPage
         ], true);
         $paused = in_array($state, ['paused', 'paused_quota', 'paused_invalid_key'], true);
         $labels = [
-            'idle' => __('Noch nicht gestartet', 'deepglot'),
-            'queued' => __('In Warteschlange', 'deepglot'),
-            'running' => __('Läuft', 'deepglot'),
-            'warming' => __('Übersetzungen werden aufgewärmt', 'deepglot'),
-            'backoff_rate_limit' => __('Wartet wegen API-Ratenlimit', 'deepglot'),
-            'paused' => __('Pausiert', 'deepglot'),
-            'paused_quota' => __('Pausiert: Wortkontingent erreicht', 'deepglot'),
-            'paused_invalid_key' => __('Pausiert: API-Key ungültig', 'deepglot'),
-            'completed' => __('Abgeschlossen', 'deepglot'),
-            'completed_with_errors' => __('Mit Fehlern abgeschlossen', 'deepglot'),
-            'cancelled' => __('Abgebrochen', 'deepglot'),
+            'idle' => __('Not started yet', 'deepglot'),
+            'queued' => __('In queue', 'deepglot'),
+            'running' => __('Running', 'deepglot'),
+            'warming' => __('Translations are being cached', 'deepglot'),
+            'backoff_rate_limit' => __('Waiting due to API rate limit', 'deepglot'),
+            'paused' => __('Paused', 'deepglot'),
+            'paused_quota' => __('Paused: word quota reached', 'deepglot'),
+            'paused_invalid_key' => __('Paused: API key invalid', 'deepglot'),
+            'completed' => __('Completed', 'deepglot'),
+            'completed_with_errors' => __('Completed with errors', 'deepglot'),
+            'cancelled' => __('Aborted', 'deepglot'),
         ];
         $noticeKey = 'deepglot_url_sync_notice_' . get_current_user_id();
         $notice = get_transient($noticeKey);
@@ -1183,8 +1183,8 @@ class SettingsPage
         ?>
         <section class="dg-wizard" id="deepglot-url-sync" aria-labelledby="deepglot-url-sync-title">
             <div class="dg-wizard-header">
-                <h2 id="deepglot-url-sync-title"><?php esc_html_e('URL-Synchronisierung', 'deepglot'); ?></h2>
-                <p><?php esc_html_e('Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet.', 'deepglot'); ?></p>
+                <h2 id="deepglot-url-sync-title"><?php esc_html_e('URL synchronization', 'deepglot'); ?></h2>
+                <p><?php esc_html_e('Opens selected target language pages in a controlled manner in the background. Missing segments end up in the limited translation queue; Bots and an unlimited duration crawl are not used.', 'deepglot'); ?></p>
             </div>
 
             <?php if (is_array($notice) && !empty($notice['message'])) : ?>
@@ -1203,17 +1203,17 @@ class SettingsPage
 
             <?php if ($total > 0) : ?>
                 <div class="dg-sync-grid">
-                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($total)); ?></strong><span><?php esc_html_e('URLs gesamt', 'deepglot'); ?></span></div>
-                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($completed)); ?></strong><span><?php esc_html_e('Warteschlange abgearbeitet', 'deepglot'); ?></span></div>
-                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($warming)); ?></strong><span><?php esc_html_e('Werden aufgewärmt', 'deepglot'); ?></span></div>
-                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($failed)); ?></strong><span><?php esc_html_e('Fehlgeschlagen', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($total)); ?></strong><span><?php esc_html_e('URLs total', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($completed)); ?></strong><span><?php esc_html_e('Queue processed', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($warming)); ?></strong><span><?php esc_html_e('Being cached', 'deepglot'); ?></span></div>
+                    <div class="dg-sync-metric"><strong><?php echo esc_html(number_format_i18n($failed)); ?></strong><span><?php esc_html_e('Failed', 'deepglot'); ?></span></div>
                 </div>
-                <p class="description"><?php esc_html_e('„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell.', 'deepglot'); ?></p>
+                <p class="description"><?php esc_html_e('"Processed" confirms completion in the Deepglot queue at the WordPress origin. Afterward, check the public target-language page without sync parameters and manually clear any unsupported full-page cache.', 'deepglot'); ?></p>
             <?php endif; ?>
 
             <?php if ($failedUrls !== []) : ?>
                 <div class="dg-alert warning">
-                    <strong><?php esc_html_e('Fehlgeschlagene URLs', 'deepglot'); ?></strong>
+                    <strong><?php esc_html_e('Failed URLs', 'deepglot'); ?></strong>
                     <ul>
                         <?php foreach ($failedUrls as $failedUrl) : ?>
                             <li>
@@ -1233,18 +1233,18 @@ class SettingsPage
                         <input type="hidden" name="action" value="deepglot_url_sync_control" />
                         <input type="hidden" name="sync_action" value="retry_failed" />
                         <?php wp_nonce_field('deepglot_url_sync_control'); ?>
-                        <button type="submit" class="dg-btn-outline"><?php esc_html_e('Fehlgeschlagene URLs erneut versuchen', 'deepglot'); ?></button>
+                        <button type="submit" class="dg-btn-outline"><?php esc_html_e('Retry failed URLs', 'deepglot'); ?></button>
                     </form>
                 <?php endif; ?>
 
                 <?php if (is_array($preview)) : ?>
                     <div class="dg-alert info">
-                        <strong><?php esc_html_e('URL-Vorschau', 'deepglot'); ?></strong>
+                        <strong><?php esc_html_e('URL preview', 'deepglot'); ?></strong>
                         <p>
                             <?php
                             printf(
                                 /* translators: %d: number of target-language URLs in the preview. */
-                                esc_html__('%d Zielseiten werden synchronisiert.', 'deepglot'),
+                                esc_html__('%d target pages will be synchronized.', 'deepglot'),
                                 (int) ($preview['total'] ?? 0)
                             );
                             ?>
@@ -1264,7 +1264,7 @@ class SettingsPage
                             <input type="hidden" name="target_languages[]" value="<?php echo esc_attr((string) $language); ?>" />
                         <?php endforeach; ?>
                         <?php wp_nonce_field('deepglot_url_sync_start'); ?>
-                        <button type="submit" class="dg-btn-primary"><?php esc_html_e('Vorschau bestätigen und Synchronisierung starten', 'deepglot'); ?></button>
+                        <button type="submit" class="dg-btn-primary"><?php esc_html_e('Confirm preview and start synchronization', 'deepglot'); ?></button>
                     </form>
                 <?php else : ?>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -1272,7 +1272,7 @@ class SettingsPage
                         <input type="hidden" name="source_offset" value="<?php echo esc_attr((string) $nextSourceOffset); ?>" />
                         <?php wp_nonce_field('deepglot_url_sync_preview'); ?>
                         <div class="dg-field">
-                            <label><?php esc_html_e('Zielsprachen', 'deepglot'); ?></label>
+                            <label><?php esc_html_e('Target languages', 'deepglot'); ?></label>
                             <div class="dg-lang-row">
                                 <?php foreach ($this->options->getTargetLanguages() as $language) : ?>
                                     <label>
@@ -1283,25 +1283,25 @@ class SettingsPage
                             </div>
                         </div>
                         <div class="dg-field">
-                            <label for="dg_sync_max_urls"><?php esc_html_e('Maximale Anzahl Zielseiten', 'deepglot'); ?></label>
+                            <label for="dg_sync_max_urls"><?php esc_html_e('Maximum number of target pages', 'deepglot'); ?></label>
                             <input id="dg_sync_max_urls" type="number" name="max_urls" min="1" max="<?php echo esc_attr((string) UrlTranslationSync::MAX_URLS); ?>" value="100" />
-                            <p class="description"><?php esc_html_e('Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch.', 'deepglot'); ?></p>
+                            <p class="description"><?php esc_html_e('Start with a small sample on large sites. Each run requests at most two pages; synchronization waits when the translation queue is full.', 'deepglot'); ?></p>
                         </div>
                         <button type="submit" class="dg-btn-primary">
                             <?php echo esc_html($nextSourceOffset > 0
-                                ? __('Nächsten URL-Batch als Vorschau laden', 'deepglot')
-                                : __('URL-Vorschau erstellen', 'deepglot')); ?>
+                                ? __('Load the next URL batch as a preview', 'deepglot')
+                                : __('Create URL preview', 'deepglot')); ?>
                         </button>
                     </form>
                 <?php endif; ?>
             <?php else : ?>
                 <div class="dg-actions">
-                    <a class="dg-btn-outline" href="<?php echo esc_url(admin_url('options-general.php?page=deepglot#deepglot-url-sync')); ?>"><?php esc_html_e('Status aktualisieren', 'deepglot'); ?></a>
+                    <a class="dg-btn-outline" href="<?php echo esc_url(admin_url('options-general.php?page=deepglot#deepglot-url-sync')); ?>"><?php esc_html_e('Update status', 'deepglot'); ?></a>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="deepglot_url_sync_control" />
                         <input type="hidden" name="sync_action" value="<?php echo esc_attr($paused ? 'resume' : 'pause'); ?>" />
                         <?php wp_nonce_field('deepglot_url_sync_control'); ?>
-                        <button type="submit" class="dg-btn-outline"><?php echo esc_html($paused ? __('Fortsetzen', 'deepglot') : __('Pausieren', 'deepglot')); ?></button>
+                        <button type="submit" class="dg-btn-outline"><?php echo esc_html($paused ? __('Continue', 'deepglot') : __('Pause', 'deepglot')); ?></button>
                     </form>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <input type="hidden" name="action" value="deepglot_url_sync_control" />
@@ -1310,8 +1310,8 @@ class SettingsPage
                         <button
                             type="submit"
                             class="dg-btn-outline"
-                            onclick="return window.confirm('<?php echo esc_js(__('Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten.', 'deepglot')); ?>');"
-                        ><?php esc_html_e('Abbrechen', 'deepglot'); ?></button>
+                            onclick="return window.confirm('<?php echo esc_js(__('Really cancel synchronization? Translations that have already been saved are retained.', 'deepglot')); ?>');"
+                        ><?php esc_html_e('Cancel', 'deepglot'); ?></button>
                     </form>
                 </div>
             <?php endif; ?>
@@ -1338,9 +1338,9 @@ class SettingsPage
         ?>
         <section class="dg-switcher-instance" data-deepglot-instance-editor>
             <div class="dg-switcher-instance__header">
-                <strong><?php echo esc_html((string) ($instance['name'] ?? __('Sprachumschalter', 'deepglot'))); ?></strong>
+                <strong><?php echo esc_html((string) ($instance['name'] ?? __('Language switcher', 'deepglot'))); ?></strong>
                 <button type="button" class="button-link-delete" data-deepglot-remove>
-                    <?php esc_html_e('Instanz entfernen', 'deepglot'); ?>
+                    <?php esc_html_e('Remove instance', 'deepglot'); ?>
                 </button>
             </div>
 
@@ -1349,7 +1349,7 @@ class SettingsPage
 
             <div class="dg-section-grid">
                 <div class="dg-field">
-                    <label for="<?php echo esc_attr($idPrefix . '-id'); ?>"><?php esc_html_e('Instanz-ID', 'deepglot'); ?></label>
+                    <label for="<?php echo esc_attr($idPrefix . '-id'); ?>"><?php esc_html_e('Instance ID', 'deepglot'); ?></label>
                     <input id="<?php echo esc_attr($idPrefix . '-id'); ?>" type="text" name="<?php echo esc_attr($prefix . '[id]'); ?>" value="<?php echo esc_attr((string) ($instance['id'] ?? '')); ?>" maxlength="64" data-switcher-field="id" />
                 </div>
                 <div class="dg-field">
@@ -1357,14 +1357,14 @@ class SettingsPage
                     <input id="<?php echo esc_attr($idPrefix . '-name'); ?>" type="text" name="<?php echo esc_attr($prefix . '[name]'); ?>" value="<?php echo esc_attr((string) ($instance['name'] ?? '')); ?>" data-switcher-field="name" />
                 </div>
                 <div class="dg-field">
-                    <label for="<?php echo esc_attr($idPrefix . '-style'); ?>"><?php esc_html_e('Darstellung', 'deepglot'); ?></label>
+                    <label for="<?php echo esc_attr($idPrefix . '-style'); ?>"><?php esc_html_e('Presentation', 'deepglot'); ?></label>
                     <select id="<?php echo esc_attr($idPrefix . '-style'); ?>" name="<?php echo esc_attr($prefix . '[style]'); ?>" data-switcher-field="style">
-                        <option value="list" <?php selected(($instance['style'] ?? 'list'), 'list'); ?>><?php esc_html_e('Inline-Liste', 'deepglot'); ?></option>
+                        <option value="list" <?php selected(($instance['style'] ?? 'list'), 'list'); ?>><?php esc_html_e('Inline list', 'deepglot'); ?></option>
                         <option value="dropdown" <?php selected(($instance['style'] ?? 'list'), 'dropdown'); ?>><?php esc_html_e('Dropdown', 'deepglot'); ?></option>
                     </select>
                 </div>
                 <div class="dg-field">
-                    <label for="<?php echo esc_attr($idPrefix . '-flag'); ?>"><?php esc_html_e('Flaggenstil', 'deepglot'); ?></label>
+                    <label for="<?php echo esc_attr($idPrefix . '-flag'); ?>"><?php esc_html_e('Flag style', 'deepglot'); ?></label>
                     <select id="<?php echo esc_attr($idPrefix . '-flag'); ?>" name="<?php echo esc_attr($prefix . '[flag_style]'); ?>" data-switcher-field="flag_style">
                         <?php foreach (Options::SWITCHER_FLAG_STYLES as $flagStyle) : ?>
                             <option value="<?php echo esc_attr($flagStyle); ?>" <?php selected(($instance['flag_style'] ?? 'rectangle_mat'), $flagStyle); ?>><?php echo esc_html($flagStyle); ?></option>
@@ -1372,9 +1372,9 @@ class SettingsPage
                     </select>
                 </div>
                 <div class="dg-field">
-                    <label for="<?php echo esc_attr($idPrefix . '-label'); ?>"><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                    <label for="<?php echo esc_attr($idPrefix . '-label'); ?>"><?php esc_html_e('Language label', 'deepglot'); ?></label>
                     <select id="<?php echo esc_attr($idPrefix . '-label'); ?>" name="<?php echo esc_attr($prefix . '[label_format]'); ?>" data-switcher-field="label_format">
-                        <option value="full_name" <?php selected(($instance['label_format'] ?? 'full_name'), 'full_name'); ?>><?php esc_html_e('Vollständiger Name', 'deepglot'); ?></option>
+                        <option value="full_name" <?php selected(($instance['label_format'] ?? 'full_name'), 'full_name'); ?>><?php esc_html_e('Full language name', 'deepglot'); ?></option>
                         <option value="iso_code" <?php selected(($instance['label_format'] ?? 'full_name'), 'iso_code'); ?>><?php esc_html_e('ISO-Code', 'deepglot'); ?></option>
                     </select>
                 </div>
@@ -1387,11 +1387,11 @@ class SettingsPage
                     </select>
                 </div>
                 <div class="dg-field">
-                    <label for="<?php echo esc_attr($idPrefix . '-responsive'); ?>"><?php esc_html_e('Ausblenden auf', 'deepglot'); ?></label>
+                    <label for="<?php echo esc_attr($idPrefix . '-responsive'); ?>"><?php esc_html_e('Hide on', 'deepglot'); ?></label>
                     <select id="<?php echo esc_attr($idPrefix . '-responsive'); ?>" name="<?php echo esc_attr($prefix . '[responsive_hide]'); ?>" data-switcher-field="responsive_hide">
-                        <option value="none" <?php selected(($instance['responsive_hide'] ?? 'none'), 'none'); ?>><?php esc_html_e('Keinem Gerät', 'deepglot'); ?></option>
-                        <option value="mobile" <?php selected(($instance['responsive_hide'] ?? 'none'), 'mobile'); ?>><?php esc_html_e('Mobilgeräten', 'deepglot'); ?></option>
-                        <option value="desktop" <?php selected(($instance['responsive_hide'] ?? 'none'), 'desktop'); ?>><?php esc_html_e('Desktop-Geräten', 'deepglot'); ?></option>
+                        <option value="none" <?php selected(($instance['responsive_hide'] ?? 'none'), 'none'); ?>><?php esc_html_e('No device', 'deepglot'); ?></option>
+                        <option value="mobile" <?php selected(($instance['responsive_hide'] ?? 'none'), 'mobile'); ?>><?php esc_html_e('Mobile devices', 'deepglot'); ?></option>
+                        <option value="desktop" <?php selected(($instance['responsive_hide'] ?? 'none'), 'desktop'); ?>><?php esc_html_e('Desktop devices', 'deepglot'); ?></option>
                     </select>
                 </div>
                 <div class="dg-field">
@@ -1402,29 +1402,30 @@ class SettingsPage
 
             <div class="dg-toggle-row" style="margin-top:14px;">
                 <input id="<?php echo esc_attr($idPrefix . '-enabled'); ?>" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($prefix . '[enabled]'); ?>" value="1" <?php checked(!empty($instance['enabled'])); ?> data-switcher-field="enabled" />
-                <label for="<?php echo esc_attr($idPrefix . '-enabled'); ?>"><?php esc_html_e('Instanz aktivieren', 'deepglot'); ?></label>
+                <label for="<?php echo esc_attr($idPrefix . '-enabled'); ?>"><?php esc_html_e('Activate instance', 'deepglot'); ?></label>
                 <input id="<?php echo esc_attr($idPrefix . '-auto'); ?>" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($prefix . '[auto_inject]'); ?>" value="1" <?php checked(!empty($instance['auto_inject'])); ?> data-switcher-field="auto_inject" />
-                <label for="<?php echo esc_attr($idPrefix . '-auto'); ?>"><?php esc_html_e('Automatisch platzieren', 'deepglot'); ?></label>
+                <label for="<?php echo esc_attr($idPrefix . '-auto'); ?>"><?php esc_html_e('Place automatically', 'deepglot'); ?></label>
                 <input id="<?php echo esc_attr($idPrefix . '-show-label'); ?>" type="checkbox" class="dg-toggle" name="<?php echo esc_attr($prefix . '[show_label]'); ?>" value="1" <?php checked(!empty($instance['show_label'])); ?> data-switcher-field="show_label" />
-                <label for="<?php echo esc_attr($idPrefix . '-show-label'); ?>"><?php esc_html_e('Beschriftung anzeigen', 'deepglot'); ?></label>
+                <label for="<?php echo esc_attr($idPrefix . '-show-label'); ?>"><?php esc_html_e('Show label', 'deepglot'); ?></label>
             </div>
 
             <div class="dg-field" style="margin-top:14px;">
-                <label for="<?php echo esc_attr($idPrefix . '-order'); ?>"><?php esc_html_e('Sprachreihenfolge', 'deepglot'); ?></label>
+                <label for="<?php echo esc_attr($idPrefix . '-order'); ?>"><?php esc_html_e('Language order', 'deepglot'); ?></label>
                 <input id="<?php echo esc_attr($idPrefix . '-order'); ?>" type="text" name="<?php echo esc_attr($prefix . '[language_order]'); ?>" value="<?php echo esc_attr(implode(', ', (array) ($instance['language_order'] ?? []))); ?>" placeholder="de, en, fr" data-switcher-field="language_order" />
             </div>
 
             <div class="dg-field">
-                <label><?php esc_html_e('Eigene Flaggen', 'deepglot'); ?></label>
+                <label><?php esc_html_e('Custom flags', 'deepglot'); ?></label>
                 <div class="dg-section-grid">
                     <?php foreach ($configuredLanguages as $language) : ?>
-                        <input type="text" name="<?php echo esc_attr($prefix . '[custom_flags][' . $language . ']'); ?>" value="<?php echo esc_attr((string) (($instance['custom_flags'][$language] ?? ''))); ?>" placeholder="<?php echo esc_attr(strtoupper($language) . ': 🇦🇹 oder https://…'); ?>" />
+                        <?php /* translators: %s: target language code. */ ?>
+                        <input type="text" name="<?php echo esc_attr($prefix . '[custom_flags][' . $language . ']'); ?>" value="<?php echo esc_attr((string) (($instance['custom_flags'][$language] ?? ''))); ?>" placeholder="<?php echo esc_attr(sprintf(__('%s: 🇦🇹 or https://…', 'deepglot'), strtoupper($language))); ?>" />
                     <?php endforeach; ?>
                 </div>
             </div>
 
             <div class="dg-field">
-                <label><?php esc_html_e('Sprachbezeichnung', 'deepglot'); ?></label>
+                <label><?php esc_html_e('Language label', 'deepglot'); ?></label>
                 <div class="dg-section-grid">
                     <?php foreach ($configuredLanguages as $language) : ?>
                         <label><?php echo esc_html(strtoupper($language)); ?>
@@ -1435,21 +1436,21 @@ class SettingsPage
             </div>
 
             <div class="dg-field">
-                <label for="<?php echo esc_attr($idPrefix . '-css'); ?>"><?php esc_html_e('Eigenes CSS', 'deepglot'); ?></label>
+                <label for="<?php echo esc_attr($idPrefix . '-css'); ?>"><?php esc_html_e('Custom CSS', 'deepglot'); ?></label>
                 <textarea id="<?php echo esc_attr($idPrefix . '-css'); ?>" name="<?php echo esc_attr($prefix . '[custom_css]'); ?>" data-switcher-field="custom_css"><?php echo esc_textarea((string) ($instance['custom_css'] ?? '')); ?></textarea>
             </div>
 
             <div class="dg-field">
-                <label for="<?php echo esc_attr($idPrefix . '-selector'); ?>"><?php esc_html_e('DOM-Ziel für automatische Platzierung', 'deepglot'); ?></label>
+                <label for="<?php echo esc_attr($idPrefix . '-selector'); ?>"><?php esc_html_e('DOM target for automatic placement', 'deepglot'); ?></label>
                 <input id="<?php echo esc_attr($idPrefix . '-selector'); ?>" type="text" name="<?php echo esc_attr($prefix . '[selector]'); ?>" value="<?php echo esc_attr((string) ($instance['selector'] ?? '')); ?>" maxlength="<?php echo esc_attr((string) Options::SWITCHER_SELECTOR_MAX_LEN); ?>" placeholder="#site-header > nav.primary" data-deepglot-selector data-switcher-field="selector" />
                 <button type="button" class="button" data-deepglot-pick aria-pressed="false" style="margin-top:8px;">
-                    <?php esc_html_e('Element in der Vorschau auswählen', 'deepglot'); ?>
+                    <?php esc_html_e('Select element in preview', 'deepglot'); ?>
                 </button>
-                <p class="description"><?php esc_html_e('Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer.', 'deepglot'); ?></p>
+                <p class="description"><?php esc_html_e('If the target is missing or invalid, the Switcher will safely remain in the footer.', 'deepglot'); ?></p>
                 <iframe
                     class="dg-switcher-preview"
                     src="<?php echo esc_url($previewUrl); ?>"
-                    title="<?php esc_attr_e('Website-Vorschau für die Switcher-Platzierung', 'deepglot'); ?>"
+                    title="<?php esc_attr_e('Website preview for the Switcher placement', 'deepglot'); ?>"
                     sandbox="allow-same-origin"
                     loading="lazy"
                     data-deepglot-preview

@@ -323,7 +323,7 @@ class Client
             if ($remainingTimeout <= 0) {
                 $results[$key] = new \WP_Error(
                     'deepglot_api_timeout',
-                    __('Deepglot API Fehler.', 'deepglot')
+                    __('Deepglot API error.', 'deepglot')
                 );
                 continue;
             }
@@ -519,7 +519,7 @@ class Client
             : untrailingslashit((string) ($settings['api_base_url'] ?? $this->options->getApiBaseUrl()));
 
         if ($apiKey === '') {
-            return new \WP_Error('deepglot_sync_missing_key', __('Kein API-Key für die Synchronisierung vorhanden.', 'deepglot'));
+            return new \WP_Error('deepglot_sync_missing_key', __('No API key is configured for synchronization.', 'deepglot'));
         }
 
         $targetLanguages = array_values(array_map(
@@ -583,7 +583,7 @@ class Client
             : $this->options->getApiBaseUrl();
 
         if ($apiKey === '') {
-            return new \WP_Error('deepglot_runtime_config_missing_key', __('Kein API-Key für die Runtime-Konfiguration vorhanden.', 'deepglot'));
+            return new \WP_Error('deepglot_runtime_config_missing_key', __('No API key is configured for runtime settings.', 'deepglot'));
         }
 
         return $this->request(
@@ -609,7 +609,7 @@ class Client
         ) {
             return new \WP_Error(
                 'deepglot_page_views_disabled',
-                __('Nicht verfügbar.', 'deepglot'),
+                __('Not available.', 'deepglot'),
                 ['status' => 403]
             );
         }
@@ -800,7 +800,7 @@ class Client
     {
         return new \WP_Error(
             'deepglot_rate_limited',
-            __('Deepglot API Fehler.', 'deepglot'),
+            __('Deepglot API error.', 'deepglot'),
             array_merge(['status' => 429], $backoff)
         );
     }
@@ -868,7 +868,7 @@ class Client
             return $decoded['error'];
         }
 
-        return __('Deepglot API Fehler.', 'deepglot');
+        return __('Deepglot API error.', 'deepglot');
     }
 
     /**
@@ -978,7 +978,7 @@ class Client
     {
         return new \WP_Error(
             'deepglot_configuration_changed',
-            __('Deepglot API Fehler.', 'deepglot'),
+            __('Deepglot API error.', 'deepglot'),
             ['status' => 409, 'api_code' => 'configuration_changed']
         );
     }
@@ -1313,7 +1313,7 @@ class Client
     {
         return new \WP_Error(
             'deepglot_invalid_api_key',
-            __('Deepglot API-Key ungültig oder widerrufen.', 'deepglot'),
+            __('Deepglot API key invalid or revoked.', 'deepglot'),
             ['status' => 401]
         );
     }

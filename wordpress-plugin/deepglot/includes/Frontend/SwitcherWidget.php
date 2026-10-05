@@ -22,8 +22,8 @@ class SwitcherWidget extends WP_Widget
     {
         parent::__construct(
             'deepglot_switcher',
-            __('Deepglot Sprachschalter', 'deepglot'),
-            ['description' => __('Sprachumschalter in einer Widget-Area anzeigen.', 'deepglot')]
+            __('Deepglot language switcher', 'deepglot'),
+            ['description' => __('Display the language switcher in a widget area.', 'deepglot')]
         );
     }
 
@@ -84,7 +84,7 @@ class SwitcherWidget extends WP_Widget
         ?>
         <p>
             <label for="<?php echo esc_attr($this->get_field_id('title')); ?>">
-                <?php esc_html_e('Titel:', 'deepglot'); ?>
+                <?php esc_html_e('Title:', 'deepglot'); ?>
             </label>
             <input
                 class="widefat"
@@ -96,7 +96,7 @@ class SwitcherWidget extends WP_Widget
         </p>
         <p>
             <label for="<?php echo esc_attr($this->get_field_id('instance_id')); ?>">
-                <?php esc_html_e('Switcher-Instanz:', 'deepglot'); ?>
+                <?php esc_html_e('Switcher instance:', 'deepglot'); ?>
             </label>
             <select
                 class="widefat"

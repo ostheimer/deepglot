@@ -2,16 +2,16 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Deepglot 0.12.11\n"
 "Report-Msgid-Bugs-To: https://deepglot.ai\n"
-"POT-Creation-Date: 2026-05-17 00:00+0000\n"
-"PO-Revision-Date: 2026-05-17 00:00+0000\n"
-"Last-Translator: Deepglot Machine Translation\n"
+"POT-Creation-Date: 2026-10-05 00:00+0000\n"
+"PO-Revision-Date: 2026-10-05 00:00+0000\n"
+"Last-Translator: Deepglot offline catalog migration\n"
 "Language-Team: Deepglot\n"
 "Language: cs_CZ\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Deepglot i18n generator\n"
+"X-Generator: Deepglot offline catalog migration\n"
 
 #. Plugin Name of the plugin
 #: deepglot.php
@@ -27,7 +27,7 @@ msgstr "https://deepglot.ai"
 
 #. Description of the plugin
 #: deepglot.php
-msgid "Übersetzt WordPress-Inhalte mit Deepglot und einer kompatiblen Übersetzungs-API."
+msgid "Translates WordPress content with Deepglot and a compatible translation API."
 msgstr "Překládá obsah WordPress pomocí Deepglot a kompatibilního překladového rozhraní API."
 
 #. Author of the plugin
@@ -41,227 +41,229 @@ msgid "https://www.ostheimer.at"
 msgstr "https://www.ostheimer.at"
 
 #: includes/Admin/NavMenuMetaBox.php:26
-#: includes/Frontend/SwitcherBlock.php:58
+#: includes/Frontend/SwitcherBlock.php:61
 #: includes/Frontend/SwitcherWidget.php:25
 #: assets/js/block-switcher.js:19
-msgid "Deepglot Sprachschalter"
+msgid "Deepglot language switcher"
 msgstr "Deepglot Přepínač jazyka"
 
 #: includes/Admin/NavMenuMetaBox.php:41
-msgid "Fügt einen Sprachschalter-Eintrag hinzu, der beim Anzeigen automatisch in einen Eintrag pro Sprache aufgeklappt wird."
+msgid "Adds a language switch entry that automatically expands into one entry per language when viewed."
 msgstr "Přidá položku přepínání jazyků, která se při prohlížení automaticky rozšíří na jednu položku pro každý jazyk."
 
 #: includes/Admin/NavMenuMetaBox.php:44
-msgid "Anzeige-Modus"
+msgid "Display mode"
 msgstr "Režim zobrazení"
 
 #: includes/Admin/NavMenuMetaBox.php:49
-msgid "Liste (jede Sprache als eigener Menüpunkt)"
+msgid "List (each language as a separate menu item)"
 msgstr "Seznam (každý jazyk jako samostatná položka nabídky)"
 
 #: includes/Admin/NavMenuMetaBox.php:55
-msgid "Dropdown (aktive Sprache als Parent, Alternativen als Submenu)"
+msgid "Dropdown (active language as parent, alternatives as submenu)"
 msgstr "Rozbalovací nabídka (aktivní jazyk jako nadřazený, alternativy jako podnabídka)"
 
 #: includes/Admin/NavMenuMetaBox.php:61
-msgid "Aktive Sprache aus der Liste ausblenden"
+msgid "Hide active language from the list"
 msgstr "Skrýt aktivní jazyk ze seznamu"
 
 #: includes/Admin/NavMenuMetaBox.php:71
-msgid "Zum Menü hinzufügen"
+msgid "Add to menu"
 msgstr "Přidat do menu"
 
 #: includes/Admin/NavMenuMetaBox.php:98
-msgid "Sprachschalter"
+#: includes/Admin/SettingsPage.php:1341
+#: includes/Config/SwitcherTemplates.php:115
+msgid "Language switcher"
 msgstr "Hlasový spínač"
 
 #: includes/Admin/SettingsPage.php:65
-msgid "Die URL-Vorschau ist bereit. Prüfe die Auswahl und bestätige anschließend den Start."
+msgid "The URL preview is ready. Check the selection and then confirm the start."
 msgstr "Náhled URL je připraven. Zkontrolujte výběr a poté potvrďte start."
 
 #: includes/Admin/SettingsPage.php:87
-msgid "Die URL-Synchronisierung wurde gestartet."
+msgid "URL synchronization has started."
 msgstr "Synchronizace URL byla zahájena."
 
 #: includes/Admin/SettingsPage.php:103
-msgid "Ungültige Aktion."
+msgid "Invalid action."
 msgstr "Neplatná akce."
 
 #: includes/Admin/SettingsPage.php:110
-msgid "Der Status der URL-Synchronisierung wurde aktualisiert."
+msgid "The status of the URL synchronization has been updated."
 msgstr "Stav synchronizace URL byl aktualizován."
 
 #: includes/Admin/SettingsPage.php:111
-msgid "Die URL-Synchronisierung konnte in ihrem aktuellen Status nicht geändert werden."
+msgid "The URL synchronization could not be changed in its current state."
 msgstr "Synchronizaci URL nebylo možné v aktuálním stavu změnit."
 
 #: includes/Admin/SettingsPage.php:118
 #: includes/Api/RestApi.php:474
-msgid "Du benötigst Administrator-Rechte für diese Aktion."
+msgid "You need administrator rights for this action."
 msgstr "Pro tuto akci potřebujete administrátorská práva."
 
 #: includes/Admin/SettingsPage.php:174
-msgid "Deepglot: API-Key ungültig oder widerrufen."
+msgid "Deepglot: API key invalid or revoked."
 msgstr "Deepglot: API-Key neplatné nebo odvolané."
 
 #: includes/Admin/SettingsPage.php:175
-msgid "Der Deepglot-Server lehnt jede Übersetzungsanfrage ab (HTTP 401). Bereits zwischengespeicherte Inhalte werden weiterhin ausgeliefert, aber es wird nichts Neues mehr übersetzt. Hinterlege einen gültigen API-Key in den Deepglot-Einstellungen, danach greift er sofort."
+msgid "The Deepglot server rejects any translation request (HTTP 401). Content that has already been cached will continue to be delivered, but nothing new will be translated. Store a valid API key in the Deepglot settings, then it takes effect immediately."
 msgstr "Server Deepglot odmítá jakýkoli požadavek na překlad (HTTP 401). Obsah, který již byl uložen do mezipaměti, bude nadále doručován, ale nebude přeloženo nic nového. Uložte platné API-Key do nastavení Deepglot, poté se okamžitě projeví."
 
 #: includes/Admin/SettingsPage.php:177
-msgid "API-Key im Deepglot-Dashboard prüfen"
+msgid "Check API key in the Deepglot dashboard"
 msgstr "Zkontrolujte API-Key na řídicím panelu Deepglot"
 
 #: includes/Admin/SettingsPage.php:204
-msgid "Deepglot: Monatliches Wortlimit erreicht."
+msgid "Deepglot: Monthly word limit reached."
 msgstr "Deepglot: Bylo dosaženo měsíčního limitu slov."
 
 #: includes/Admin/SettingsPage.php:205
-msgid "Bereits übersetzte Inhalte werden weiterhin ausgeliefert, aber neue oder geänderte Texte bleiben in der Ausgangssprache, bis das Kontingent zurückgesetzt oder erhöht wird."
+msgid "Content that has already been translated will continue to be delivered, but new or changed text will remain in the source language until the quota is reset or increased."
 msgstr "Obsah, který již byl přeložen, bude i nadále doručován, ale nový nebo změněný text zůstane ve zdrojovém jazyce, dokud nebude kvóta resetována nebo zvýšena."
 
 #: includes/Admin/SettingsPage.php:207
-msgid "Kontingent im Deepglot-Dashboard prüfen"
+msgid "Check quota in the Deepglot dashboard"
 msgstr "Zkontrolujte kvótu na hlavním panelu Deepglot"
 
 #: includes/Admin/SettingsPage.php:385
-msgid "API-Key ungültig"
+msgid "Invalid API key"
 msgstr "API-Key je neplatný"
 
 #: includes/Admin/SettingsPage.php:388
-msgid "Aktiv"
+msgid "Active"
 msgstr "Aktivní"
 
 #: includes/Admin/SettingsPage.php:391
-msgid "Deaktiviert"
+msgid "Disabled"
 msgstr "Zakázáno"
 
 #: includes/Admin/SettingsPage.php:394
-msgid "Einrichtung erforderlich"
+msgid "Setup required"
 msgstr "Je vyžadováno nastavení"
 
 #: includes/Admin/SettingsPage.php:417
-msgid "Willkommen bei Deepglot! Folge den drei Schritten unten, um die Übersetzung deiner Website zu aktivieren."
+msgid "Welcome to Deepglot! Follow the three steps below to enable translation on your website."
 msgstr "Vítejte v Deepglot! Chcete-li na svém webu povolit překlad, postupujte podle tří kroků níže."
 
 #: includes/Admin/SettingsPage.php:428
-msgid "Deepglot einrichten"
+msgid "Set up Deepglot"
 msgstr "Nastavit Deepglot"
 
 #: includes/Admin/SettingsPage.php:429
-msgid "Du benötigst nur einen API-Key aus dem Deepglot-Dashboard – das dauert weniger als zwei Minuten."
+msgid "You only need an API key from the Deepglot dashboard. Setup takes less than two minutes."
 msgstr "Vše, co potřebujete, je API-Key z řídicího panelu Deepglot – trvá to méně než dvě minuty."
 
 #: includes/Admin/SettingsPage.php:441
-msgid "API-Key eintragen"
+msgid "Enter API key"
 msgstr "Zadejte API-Key"
 
 #: includes/Admin/SettingsPage.php:444
-msgid "Der hinterlegte API-Key wird vom Deepglot-Server abgelehnt (HTTP 401). Es werden derzeit keine neuen Inhalte übersetzt – trage einen gültigen Key ein und speichere."
+msgid "The stored API key is rejected by the Deepglot server (HTTP 401). No new content is currently being translated - enter a valid key and save."
 msgstr "Uložené API-Key je odmítnuto serverem Deepglot (HTTP 401). Momentálně se nepřekládá žádný nový obsah – zadejte platný klíč a uložte."
 
 #: includes/Admin/SettingsPage.php:449
-msgid "Erstelle ein kostenloses Konto auf deepglot.ai, lege ein Projekt für deine Website an und kopiere den API-Key."
+msgid "Create a free account on deepglot.ai, create a project for your website and copy the API key."
 msgstr "Vytvořte si bezplatný účet na deepglot.ai, vytvořte projekt pro svůj web a zkopírujte API-Key."
 
 #: includes/Admin/SettingsPage.php:452
-msgid "Zum Dashboard – API-Key erstellen"
+msgid "Go to dashboard – create API key"
 msgstr "Přejít na řídicí panel – vytvořit API-Key"
 
 #: includes/Admin/SettingsPage.php:457
-msgid "API-Key"
+msgid "API key"
 msgstr "API-Key"
 
 #: includes/Admin/SettingsPage.php:468
-msgid "Den vollständigen Schlüssel findest du unter Einstellungen → API-Keys in deinem Deepglot-Projekt."
+msgid "You can find the full key under Settings → API keys in your Deepglot project."
 msgstr "Úplný klíč naleznete v části Nastavení → API-Keys ve svém projektu Deepglot."
 
 #: includes/Admin/SettingsPage.php:472
-msgid "Backend-URL"
+msgid "Backend URL"
 msgstr "Backend URL"
 
 #: includes/Admin/SettingsPage.php:480
-msgid "Standard: https://deepglot.ai/api – nur ändern bei Self-Hosting."
+msgid "Default: https://deepglot.ai/api – change only for self-hosting."
 msgstr "Výchozí: https://deepglot.ai/api – změna pouze pro Self-Hosting."
 
 #: includes/Admin/SettingsPage.php:492
-msgid "Sprachen konfigurieren"
+msgid "Configure languages"
 msgstr "Konfigurace jazyků"
 
 #: includes/Admin/SettingsPage.php:494
-msgid "Lege die Originalsprache und die gewünschten Übersetzungssprachen fest."
+msgid "Specify the original language and the desired translation languages."
 msgstr "Zadejte původní jazyk a požadované jazyky překladu."
 
 #: includes/Admin/SettingsPage.php:498
-msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und hier nur angezeigt."
+msgid "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and are only displayed here."
 msgstr "Zdrojový jazyk, cílové jazyky a automatické přesměrování se spravují v ovládacím panelu Deepglot a zde se pouze zobrazují."
 
 #: includes/Admin/SettingsPage.php:500
-msgid "Projekteinstellungen öffnen"
+msgid "Open project settings"
 msgstr "Otevřít nastavení projektu"
 
 #: includes/Admin/SettingsPage.php:506
-msgid "Originalsprache"
+msgid "Original language"
 msgstr "Původní jazyk"
 
 #: includes/Admin/SettingsPage.php:518
-#: includes/Admin/SettingsPage.php:1252
-msgid "Zielsprachen"
+#: includes/Admin/SettingsPage.php:1275
+msgid "Target languages"
 msgstr "Cílové jazyky"
 
 #: includes/Admin/SettingsPage.php:527
-msgid "Kommagetrennte ISO-639-1-Codes, z. B. en, fr, it"
+msgid "Comma-separated ISO 639-1 codes, such as en, fr, and it"
 msgstr "Čárkami oddělené kódy ISO-639-1, např. B. en, fr, it"
 
 #: includes/Admin/SettingsPage.php:539
-msgid "Übersetzung aktivieren"
+msgid "Enable translation"
 msgstr "Povolit překlad"
 
 #: includes/Admin/SettingsPage.php:541
-msgid "Sobald API-Key und Sprachen gespeichert sind, aktiviere die automatische Übersetzung hier."
+msgid "Once API key and languages are saved, enable automatic translation here."
 msgstr "Po uložení API-Key a jazyků zde povolte automatický překlad."
 
 #: includes/Admin/SettingsPage.php:553
-msgid "Deepglot für alle Frontend-Anfragen aktiv schalten"
+msgid "Activate Deepglot for all frontend requests"
 msgstr "Aktivujte Deepglot pro všechny požadavky frontendu"
 
 #: includes/Admin/SettingsPage.php:558
-msgid "Übersetzung ist eingeschaltet, steht aber still: Der API-Key wird abgelehnt."
+msgid "Translation is enabled but stalled: the API key is rejected."
 msgstr "Překlad je zapnutý, ale stojí: API-Key je zamítnuto."
 
 #. translators: %1$s: source language, %2$s: target languages
 #: includes/Admin/SettingsPage.php:566
 #, php-format
-msgid "Aktiv – Seiten werden von %1$s nach %2$s übersetzt unter /%3$s/ihre-seite/"
+msgid "Active – pages are translated from %1$s to %2$s at /%3$s/your-page/"
 msgstr "Aktivní – stránky jsou přeloženy z %1$s do %2$s pod /%3$s/ihre-seite/"
 
 #: includes/Admin/SettingsPage.php:595
-msgid "Besucher anhand der Browsersprache automatisch weiterleiten (optional)"
+msgid "Automatically redirect visitors based on browser language (optional)"
 msgstr "Automaticky přesměrovávat návštěvníky na základě jazyka prohlížeče (volitelné)"
 
 #: includes/Admin/SettingsPage.php:604
-msgid "Erweiterte Einstellungen ausblenden"
+msgid "Hide advanced settings"
 msgstr "Skrýt pokročilá nastavení"
 
 #: includes/Admin/SettingsPage.php:604
 #: includes/Admin/SettingsPage.php:605
-msgid "Erweiterte Einstellungen anzeigen"
+msgid "Show advanced settings"
 msgstr "Zobrazit pokročilá nastavení"
 
 #: includes/Admin/SettingsPage.php:609
-msgid "Ausgeschlossene URLs"
+msgid "Excluded URLs"
 msgstr "Vyloučeno URLs"
 
 #: includes/Admin/SettingsPage.php:611
-msgid "Eine URL oder ein Muster pro Zeile."
+msgid "One URL or pattern per line."
 msgstr "Jeden URL nebo vzor na řádek."
 
 #: includes/Admin/SettingsPage.php:614
-msgid "Routing-Modus"
+msgid "Routing mode"
 msgstr "Režim směrování"
 
 #: includes/Admin/SettingsPage.php:617
-msgid "Pfad-Präfix (/en/meine-seite)"
+msgid "Path prefix (/en/my-page)"
 msgstr "Předpona cesty (/en/meine-seite)"
 
 #: includes/Admin/SettingsPage.php:620
@@ -269,516 +271,529 @@ msgid "Subdomains (en.example.com)"
 msgstr "Subdomény (en.example.com)"
 
 #: includes/Admin/SettingsPage.php:623
-msgid "Pfad-Präfix bleibt der Standard. Für Subdomains braucht jede aktive Zielsprache einen Host."
+msgid "Path prefix remains the default. For subdomains, each active target language needs a host."
 msgstr "Předpona cesty zůstává výchozí. Pro subdomény potřebuje každý aktivní cílový jazyk hostitele."
 
 #: includes/Admin/SettingsPage.php:626
-msgid "Domain-Zuordnungen"
+msgid "Domain mappings"
 msgstr "Mapování domén"
 
 #: includes/Admin/SettingsPage.php:634
-msgid "Format: sprachcode=host, eine Zuordnung pro Zeile."
+msgid "Format: language-code=host, one mapping per line."
 msgstr "Formát: sprachcode=host, jedno přiřazení na řádek."
 
 #: includes/Admin/SettingsPage.php:646
-msgid "WooCommerce- und wp_mail-E-Mails übersetzen"
+msgid "Translate WooCommerce and wp_mail emails"
 msgstr "Přeložte e-maily WooCommerce a wp_mail"
 
 #: includes/Admin/SettingsPage.php:659
-msgid "Suche in der Besuchersprache ausführen"
+msgid "Run searches in the visitor’s language"
 msgstr "Proveďte vyhledávání v jazyce návštěvníka"
 
 #: includes/Admin/SettingsPage.php:672
-msgid "AMP-Seiten übersetzen"
+msgid "Translate AMP pages"
 msgstr "Přeložte stránky AMP"
 
 #: includes/Admin/SettingsPage.php:685
-msgid "Dynamisch nachgeladene Inhalte übersetzen (AJAX, Endless-Scroll, SPA)"
+msgid "Translate dynamically loaded content (AJAX, infinite scroll, SPA)"
 msgstr "Překládejte dynamicky znovu načítaný obsah (AJAX, nekonečné posouvání, SPA)"
 
 #: includes/Admin/SettingsPage.php:689
-msgid "Ausgeschlossene CSS-Selektoren"
+msgid "Excluded CSS selectors"
 msgstr "Vyloučené selektory CSS"
 
 #: includes/Admin/SettingsPage.php:691
-msgid "Eine CSS-Klasse, ID oder ein Selektor pro Zeile."
+msgid "One CSS class, ID or selector per line."
 msgstr "Jedna třída CSS, ID nebo selektor na řádek."
 
 #: includes/Admin/SettingsPage.php:725
-#: includes/Admin/SettingsPage.php:1318
-#: includes/Config/SwitcherTemplates.php:115
-msgid "Sprachumschalter"
+msgid "Language switcher settings"
 msgstr "Přepínač jazyků"
 
 #: includes/Admin/SettingsPage.php:726
-msgid "Wie und wo soll der Language-Switcher auf deiner Website erscheinen?"
+msgid "How and where should the language switcher appear on your website?"
 msgstr "Jak a kde by se mělo na vašem webu objevit Language-Switcher?"
 
 #: includes/Admin/SettingsPage.php:739
-msgid "Switcher automatisch im Seitenfooter einfügen"
+msgid "Automatically add the language switcher to the page footer"
 msgstr "Automaticky vložit Switcher do zápatí stránky"
 
-#: includes/Admin/SettingsPage.php:743
-msgid "Alternativ: Shortcode [deepglot_switcher] oder PHP do_action('deepglot_language_switcher') in deinem Theme."
-msgstr "Případně: Shortcode [deepglot_switcher] nebo PHP do_action('deepglot_language_switcher') ve vašem motivu."
-
-#: includes/Admin/SettingsPage.php:748
-#: includes/Admin/SettingsPage.php:1337
-msgid "Darstellung"
-msgstr "Prezentace"
-
-#: includes/Admin/SettingsPage.php:751
-#: includes/Admin/SettingsPage.php:1339
-msgid "Inline-Liste"
-msgstr "Vložený seznam"
-
-#: includes/Admin/SettingsPage.php:754
-#: includes/Admin/SettingsPage.php:1340
-msgid "Dropdown"
-msgstr "Spusťte dolů"
-
-#: includes/Admin/SettingsPage.php:760
-#: includes/Admin/SettingsPage.php:1344
-msgid "Flaggenstil"
-msgstr "Styl vlajky"
-
-#: includes/Admin/SettingsPage.php:763
-msgid "Rechteckig, matt"
-msgstr "Obdélníkový, matný"
-
-#: includes/Admin/SettingsPage.php:766
-msgid "Rechteckig, glänzend"
-msgstr "Obdélníkový, lesklý"
-
-#: includes/Admin/SettingsPage.php:769
-msgid "Kreis, matt"
-msgstr "Kruh, matný"
-
-#: includes/Admin/SettingsPage.php:772
-msgid "Kreis, glänzend"
-msgstr "Kruh, lesklý"
-
-#: includes/Admin/SettingsPage.php:775
-msgid "Ohne Flagge"
-msgstr "Bez vlajky"
-
-#: includes/Admin/SettingsPage.php:781
-#: includes/Admin/SettingsPage.php:1352
-msgid "Sprachbezeichnung"
-msgstr "Označení jazyka"
-
-#: includes/Admin/SettingsPage.php:784
-msgid "Volle Bezeichnung („Deutsch\")"
-msgstr "Celé jméno (\"německy\")"
-
-#: includes/Admin/SettingsPage.php:787
-msgid "ISO-Code („DE\")"
-msgstr "ISO-Code (“DE”)"
-
-#: includes/Admin/SettingsPage.php:793
-msgid "Anzeigegerät"
-msgstr "Zobrazovací zařízení"
-
-#: includes/Admin/SettingsPage.php:796
-msgid "Auf allen Geräten zeigen"
-msgstr "Zobrazit na všech zařízeních"
-
-#: includes/Admin/SettingsPage.php:799
-msgid "Nur Desktop (auf Mobile ausblenden)"
-msgstr "Pouze počítač (skrýt na mobilu)"
-
-#: includes/Admin/SettingsPage.php:802
-msgid "Nur Mobile (auf Desktop ausblenden)"
-msgstr "Pouze mobilní (skrýt na počítači)"
-
-#: includes/Admin/SettingsPage.php:808
-msgid "Mobile-Breakpoint (px)"
-msgstr "Bod přerušení pro mobilní zařízení (px)"
-
-#: includes/Admin/SettingsPage.php:820
-msgid "Standard 768 px. Unter dieser Breite gilt eine Seite als „Mobile\"."
-msgstr "Výchozí 768 px. Pod touto šířkou je stránka považována za „mobilní“."
-
-#: includes/Admin/SettingsPage.php:825
-msgid "Position auf der Seite"
-msgstr "Pozice na stránce"
-
-#: includes/Admin/SettingsPage.php:828
-msgid "Inline (an der eingebetteten Stelle)"
-msgstr "Inline (na vloženém místě)"
-
-#: includes/Admin/SettingsPage.php:831
-msgid "Floating: rechts unten"
-msgstr "Plovoucí: vpravo dole"
-
-#: includes/Admin/SettingsPage.php:834
-msgid "Floating: links unten"
-msgstr "Plovoucí: vlevo dole"
-
-#: includes/Admin/SettingsPage.php:837
-msgid "Floating: rechts oben"
-msgstr "Plovoucí: vpravo nahoře"
-
-#: includes/Admin/SettingsPage.php:840
-msgid "Floating: links oben"
-msgstr "Plovoucí: vlevo nahoře"
-
-#: includes/Admin/SettingsPage.php:844
-msgid "„Floating\" pinnt den Switcher mit position:fixed an die Ecke und scrollt mit. Kombiniert mit Auto-Inject = Weglot-Default-Verhalten."
-msgstr "\"Plovoucí\" připne Switcher do rohu s position:fixed a posouvá se s ním. V kombinaci s Auto-Inject = výchozí chování Weglot."
-
-#: includes/Admin/SettingsPage.php:859
-msgid "Bezeichnung sichtbar"
-msgstr "Označení viditelné"
-
-#: includes/Admin/SettingsPage.php:866
-msgid "Reihenfolge der Sprachen"
-msgstr "Pořadí jazyků"
-
-#: includes/Admin/SettingsPage.php:885
-msgid "Per Drag-&-Drop neu anordnen. Greift sowohl im Shortcode als auch beim Auto-Inject."
-msgstr "Uspořádejte pomocí drag & drop. Funguje jak v Shortcode, tak v automatickém vstřikování."
-
-#: includes/Admin/SettingsPage.php:889
-msgid "Eigene Flaggen pro Sprache (optional)"
-msgstr "Vlastní příznaky pro jazyk (volitelné)"
-
-#: includes/Admin/SettingsPage.php:919
-msgid "Leer lassen = Default-Flagge. Emoji (z. B. 🇺🇸 für EN→US-Markt) oder URL zu SVG/PNG. CSS-Sonderzeichen werden automatisch entfernt."
-msgstr "Ponechte prázdné = výchozí příznak. Emoji (např. 🇺🇸 pro EN→US trh) nebo speciální znaky URL až SVG/PNG. CSS se automaticky odstraní."
-
-#: includes/Admin/SettingsPage.php:924
-msgid "Eigenes CSS für den Switcher"
-msgstr "Vlastní CSS pro Switcher"
-
-#: includes/Admin/SettingsPage.php:932
-msgid "Wird unmittelbar vor dem Switcher als <style>-Tag eingefügt. „<\" wird automatisch entfernt, damit kein Script-Tag eingeschleust werden kann."
-msgstr "Vloženo bezprostředně před značku Switcher jako značka <style>. \"<\" se automaticky odstraní, takže nelze vložit žádnou značku skriptu."
-
-#: includes/Admin/SettingsPage.php:944
-msgid "Weitere Switcher-Instanzen"
-msgstr "Další instance Switcher"
-
-#: includes/Admin/SettingsPage.php:946
-msgid "Erstelle unabhängige Switcher für Shortcode, Block, Widget oder automatische Platzierung. Der bestehende globale Switcher bleibt als Instanz „default\" erhalten."
-msgstr "Vytvořte nezávislé Switcher pro Shortcode, blok, widget nebo automatické umístění. Stávající globální Switcher zůstává jako „výchozí“ instance."
-
-#: includes/Admin/SettingsPage.php:948
-msgid "Switcher-Vorlagen"
-msgstr "Switcher šablony"
-
-#: includes/Admin/SettingsPage.php:976
-msgid "Neuer Switcher"
-msgstr "Nové Switcher"
-
-#: includes/Admin/SettingsPage.php:987
-msgid "Einstellungen speichern"
-msgstr "Uložte nastavení"
-
-#. translators: %s: dashboard url
-#: includes/Admin/SettingsPage.php:998
-#, php-format
-msgid "Hilfe & Dokumentation: %s"
-msgstr "Nápověda a dokumentace: %s"
-
-#: includes/Admin/SettingsPage.php:1132
-msgid "Noch nicht gestartet"
-msgstr "Ještě nezahájeno"
-
-#: includes/Admin/SettingsPage.php:1133
-msgid "In Warteschlange"
-msgstr "Ve frontě"
-
-#: includes/Admin/SettingsPage.php:1134
-msgid "Läuft"
-msgstr "Běží"
-
-#: includes/Admin/SettingsPage.php:1135
-msgid "Übersetzungen werden aufgewärmt"
-msgstr "Překlady jsou zahřáté"
-
-#: includes/Admin/SettingsPage.php:1136
-msgid "Wartet wegen API-Ratenlimit"
-msgstr "Čekání kvůli limitu rychlosti API"
-
-#: includes/Admin/SettingsPage.php:1137
-msgid "Pausiert"
-msgstr "Pozastaveno"
-
-#: includes/Admin/SettingsPage.php:1138
-msgid "Pausiert: Wortkontingent erreicht"
-msgstr "Pozastaveno: dosaženo kvóty slov"
-
-#: includes/Admin/SettingsPage.php:1139
-msgid "Pausiert: API-Key ungültig"
-msgstr "Pozastaveno: API-Key neplatné"
-
-#: includes/Admin/SettingsPage.php:1140
-msgid "Abgeschlossen"
-msgstr "Dokončeno"
-
-#: includes/Admin/SettingsPage.php:1141
-msgid "Mit Fehlern abgeschlossen"
-msgstr "Dokončeno s chybami"
-
-#: includes/Admin/SettingsPage.php:1142
-msgid "Abgebrochen"
-msgstr "Přerušeno"
-
-#: includes/Admin/SettingsPage.php:1163
-msgid "URL-Synchronisierung"
-msgstr "URL synchronizace"
-
-#: includes/Admin/SettingsPage.php:1164
-msgid "Ruft ausgewählte Zielsprachseiten kontrolliert im Hintergrund auf. Fehlende Segmente landen in der begrenzten Übersetzungs-Warteschlange; Bots und ein unbegrenzter Dauer-Crawl werden nicht verwendet."
-msgstr "Kontrolovaným způsobem na pozadí otevře stránky vybraného cílového jazyka. Chybějící segmenty skončí v omezené frontě překladu; Roboti a neomezené procházení se nepoužívají."
-
-#: includes/Admin/SettingsPage.php:1174
-msgid "Status:"
-msgstr "Stav:"
-
-#: includes/Admin/SettingsPage.php:1183
-msgid "URLs gesamt"
-msgstr "Celkem URLs"
-
-#: includes/Admin/SettingsPage.php:1184
-msgid "Warteschlange abgearbeitet"
-msgstr "Fronta zpracována"
-
-#: includes/Admin/SettingsPage.php:1185
-msgid "Werden aufgewärmt"
-msgstr "Jsou zahřáté"
-
-#: includes/Admin/SettingsPage.php:1186
-msgid "Fehlgeschlagen"
-msgstr "Nepodařilo se"
-
-#: includes/Admin/SettingsPage.php:1188
-msgid "„Abgearbeitet“ bestätigt die Deepglot-Warteschlange am WordPress-Ursprung. Prüfe nach Abschluss die öffentliche Zielsprachseite ohne Sync-Parameter und leere einen nicht unterstützten Full-Page-Cache manuell."
-msgstr "„Zpracováno“ potvrzuje frontu Deepglot na počátku WordPress. Po dokončení zkontrolujte veřejnou stránku cílového jazyka bez parametrů synchronizace a ručně vymažte nepodporovanou mezipaměť celé stránky."
-
-#: includes/Admin/SettingsPage.php:1193
-msgid "Fehlgeschlagene URLs"
-msgstr "Neúspěšné URLs"
-
-#: includes/Admin/SettingsPage.php:1213
-msgid "Fehlgeschlagene URLs erneut versuchen"
-msgstr "Opakovaný pokus se nezdařil URLs"
-
-#: includes/Admin/SettingsPage.php:1219
-msgid "URL-Vorschau"
-msgstr "URL náhled"
-
-#. translators: %d: number of target-language URLs in the preview.
-#: includes/Admin/SettingsPage.php:1224
-#, php-format
-msgid "%d Zielseiten werden synchronisiert."
-msgstr "%d Cílové stránky jsou synchronizovány."
-
-#: includes/Admin/SettingsPage.php:1244
-msgid "Vorschau bestätigen und Synchronisierung starten"
-msgstr "Potvrďte náhled a spusťte synchronizaci"
-
-#: includes/Admin/SettingsPage.php:1263
-msgid "Maximale Anzahl Zielseiten"
-msgstr "Maximální počet vstupních stránek"
-
-#: includes/Admin/SettingsPage.php:1265
-msgid "Starte bei großen Websites mit einer kleinen Stichprobe. Pro Lauf werden höchstens zwei Seiten angestoßen; bei voller Übersetzungs-Warteschlange wartet der Sync automatisch."
-msgstr "U velkých webů začněte s malým vzorkem. V jednom cyklu se dotknou maximálně dvou stránek; Pokud je fronta překladu plná, synchronizace automaticky čeká."
-
-#: includes/Admin/SettingsPage.php:1269
-msgid "Nächsten URL-Batch als Vorschau laden"
-msgstr "Načtěte další dávku URL jako náhled"
-
-#: includes/Admin/SettingsPage.php:1270
-msgid "URL-Vorschau erstellen"
-msgstr "Vytvořit náhled URL"
-
-#: includes/Admin/SettingsPage.php:1276
-msgid "Status aktualisieren"
-msgstr "Aktualizovat stav"
-
-#: includes/Admin/SettingsPage.php:1281
-msgid "Fortsetzen"
-msgstr "Pokračovat"
-
-#: includes/Admin/SettingsPage.php:1281
-msgid "Pausieren"
-msgstr "Pauza"
-
-#: includes/Admin/SettingsPage.php:1290
-msgid "Synchronisierung wirklich abbrechen? Bereits gespeicherte Übersetzungen bleiben erhalten."
-msgstr "Opravdu zrušit synchronizaci? Překlady, které již byly uloženy, zůstanou zachovány."
-
-#: includes/Admin/SettingsPage.php:1291
-msgid "Abbrechen"
-msgstr "Zrušit"
-
-#: includes/Admin/SettingsPage.php:1320
-msgid "Instanz entfernen"
-msgstr "Odebrat instanci"
-
-#: includes/Admin/SettingsPage.php:1329
-#: assets/js/block-switcher.js:51
-msgid "Instanz-ID"
-msgstr "ID instance"
-
-#: includes/Admin/SettingsPage.php:1333
+#: includes/Admin/SettingsPage.php:744
+#: includes/Admin/SettingsPage.php:1356
 msgid "Name"
 msgstr "jméno"
 
-#: includes/Admin/SettingsPage.php:1354
-msgid "Vollständiger Name"
+#: includes/Admin/SettingsPage.php:749
+#: includes/Admin/SettingsPage.php:1405
+msgid "Activate instance"
+msgstr "Aktivujte instanci"
+
+#: includes/Admin/SettingsPage.php:752
+#: includes/Admin/SettingsPage.php:1444
+msgid "DOM target for automatic placement"
+msgstr "Cíl DOM pro automatické umístění"
+
+#: includes/Admin/SettingsPage.php:756
+msgid "Alternatively: Shortcode [deepglot_switcher] or PHP do_action('deepglot_language_switcher') in your theme."
+msgstr "Případně: Shortcode [deepglot_switcher] nebo PHP do_action('deepglot_language_switcher') ve vašem motivu."
+
+#: includes/Admin/SettingsPage.php:761
+#: includes/Admin/SettingsPage.php:1360
+msgid "Presentation"
+msgstr "Prezentace"
+
+#: includes/Admin/SettingsPage.php:764
+#: includes/Admin/SettingsPage.php:1362
+msgid "Inline list"
+msgstr "Vložený seznam"
+
+#: includes/Admin/SettingsPage.php:767
+#: includes/Admin/SettingsPage.php:1363
+msgid "Dropdown"
+msgstr "Spusťte dolů"
+
+#: includes/Admin/SettingsPage.php:773
+#: includes/Admin/SettingsPage.php:1367
+msgid "Flag style"
+msgstr "Styl vlajky"
+
+#: includes/Admin/SettingsPage.php:776
+msgid "Rectangular, matte"
+msgstr "Obdélníkový, matný"
+
+#: includes/Admin/SettingsPage.php:779
+msgid "Rectangular, shiny"
+msgstr "Obdélníkový, lesklý"
+
+#: includes/Admin/SettingsPage.php:782
+msgid "Circle, matte"
+msgstr "Kruh, matný"
+
+#: includes/Admin/SettingsPage.php:785
+msgid "Circle, shiny"
+msgstr "Kruh, lesklý"
+
+#: includes/Admin/SettingsPage.php:788
+msgid "Without a flag"
+msgstr "Bez vlajky"
+
+#: includes/Admin/SettingsPage.php:794
+#: includes/Admin/SettingsPage.php:937
+#: includes/Admin/SettingsPage.php:1375
+#: includes/Admin/SettingsPage.php:1428
+msgid "Language label"
+msgstr "Označení jazyka"
+
+#: includes/Admin/SettingsPage.php:797
+msgid "Full name (\"English\")"
+msgstr "Celé jméno (\"německy\")"
+
+#: includes/Admin/SettingsPage.php:800
+msgid "ISO code (\"EN\")"
+msgstr "ISO-Code (“DE”)"
+
+#: includes/Admin/SettingsPage.php:806
+msgid "Display device"
+msgstr "Zobrazovací zařízení"
+
+#: includes/Admin/SettingsPage.php:809
+msgid "Show on all devices"
+msgstr "Zobrazit na všech zařízeních"
+
+#: includes/Admin/SettingsPage.php:812
+msgid "Desktop only (hide on mobile)"
+msgstr "Pouze počítač (skrýt na mobilu)"
+
+#: includes/Admin/SettingsPage.php:815
+msgid "Mobile only (hide on desktop)"
+msgstr "Pouze mobilní (skrýt na počítači)"
+
+#: includes/Admin/SettingsPage.php:821
+msgid "Mobile breakpoint (px)"
+msgstr "Bod přerušení pro mobilní zařízení (px)"
+
+#: includes/Admin/SettingsPage.php:833
+msgid "Default: 768 px. Below this width, a device is treated as mobile."
+msgstr "Výchozí 768 px. Pod touto šířkou je stránka považována za „mobilní“."
+
+#: includes/Admin/SettingsPage.php:838
+msgid "Position on the page"
+msgstr "Pozice na stránce"
+
+#: includes/Admin/SettingsPage.php:841
+msgid "Inline (at the embedded location)"
+msgstr "Inline (na vloženém místě)"
+
+#: includes/Admin/SettingsPage.php:844
+msgid "Floating: bottom right"
+msgstr "Plovoucí: vpravo dole"
+
+#: includes/Admin/SettingsPage.php:847
+msgid "Floating: bottom left"
+msgstr "Plovoucí: vlevo dole"
+
+#: includes/Admin/SettingsPage.php:850
+msgid "Floating: top right"
+msgstr "Plovoucí: vpravo nahoře"
+
+#: includes/Admin/SettingsPage.php:853
+msgid "Floating: top left"
+msgstr "Plovoucí: vlevo nahoře"
+
+#: includes/Admin/SettingsPage.php:857
+msgid "Floating pins the switcher to a corner using position: fixed. Combined with automatic placement, this matches the default Weglot behavior."
+msgstr "\"Plovoucí\" připne Switcher do rohu s position:fixed a posouvá se s ním. V kombinaci s Auto-Inject = výchozí chování Weglot."
+
+#: includes/Admin/SettingsPage.php:872
+msgid "Show language label"
+msgstr "Označení viditelné"
+
+#: includes/Admin/SettingsPage.php:879
+msgid "Order of languages"
+msgstr "Pořadí jazyků"
+
+#: includes/Admin/SettingsPage.php:898
+msgid "Rearrange using drag & drop. Works in both Shortcode and auto-inject."
+msgstr "Uspořádejte pomocí drag & drop. Funguje jak v Shortcode, tak v automatickém vstřikování."
+
+#: includes/Admin/SettingsPage.php:902
+msgid "Custom flags by language (optional)"
+msgstr "Vlastní příznaky pro jazyk (volitelné)"
+
+#: includes/Admin/SettingsPage.php:923
+msgid "🇺🇸 or https://example.com/flag.svg"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:932
+msgid "Leave blank to use the default flag. Enter an emoji (for example, 🇺🇸 for English in the US) or an SVG/PNG URL. CSS special characters are removed automatically."
+msgstr "Ponechte prázdné = výchozí příznak. Emoji (např. 🇺🇸 pro EN→US trh) nebo speciální znaky URL až SVG/PNG. CSS se automaticky odstraní."
+
+#: includes/Admin/SettingsPage.php:947
+msgid "Custom CSS for the switcher"
+msgstr "Vlastní CSS pro Switcher"
+
+#: includes/Admin/SettingsPage.php:955
+msgid "Inserted in a <style> tag immediately before the switcher. The \"<\" character is removed to prevent injection of a script tag."
+msgstr "Vloženo bezprostředně před značku Switcher jako značka <style>. \"<\" se automaticky odstraní, takže nelze vložit žádnou značku skriptu."
+
+#: includes/Admin/SettingsPage.php:967
+msgid "More Switcher instances"
+msgstr "Další instance Switcher"
+
+#: includes/Admin/SettingsPage.php:969
+msgid "Create independent switchers for shortcodes, blocks, widgets, or automatic placement. The existing global switcher remains available as the \"default\" instance."
+msgstr "Vytvořte nezávislé Switcher pro Shortcode, blok, widget nebo automatické umístění. Stávající globální Switcher zůstává jako „výchozí“ instance."
+
+#: includes/Admin/SettingsPage.php:971
+msgid "Switcher templates"
+msgstr "Switcher šablony"
+
+#: includes/Admin/SettingsPage.php:999
+msgid "New Switcher"
+msgstr "Nové Switcher"
+
+#: includes/Admin/SettingsPage.php:1010
+msgid "Save settings"
+msgstr "Uložte nastavení"
+
+#. translators: %s: dashboard url
+#: includes/Admin/SettingsPage.php:1021
+#, php-format
+msgid "Help & Documentation: %s"
+msgstr "Nápověda a dokumentace: %s"
+
+#: includes/Admin/SettingsPage.php:1155
+msgid "Not started yet"
+msgstr "Ještě nezahájeno"
+
+#: includes/Admin/SettingsPage.php:1156
+msgid "In queue"
+msgstr "Ve frontě"
+
+#: includes/Admin/SettingsPage.php:1157
+msgid "Running"
+msgstr "Běží"
+
+#: includes/Admin/SettingsPage.php:1158
+msgid "Translations are being cached"
+msgstr "Překlady jsou zahřáté"
+
+#: includes/Admin/SettingsPage.php:1159
+msgid "Waiting due to API rate limit"
+msgstr "Čekání kvůli limitu rychlosti API"
+
+#: includes/Admin/SettingsPage.php:1160
+msgid "Paused"
+msgstr "Pozastaveno"
+
+#: includes/Admin/SettingsPage.php:1161
+msgid "Paused: word quota reached"
+msgstr "Pozastaveno: dosaženo kvóty slov"
+
+#: includes/Admin/SettingsPage.php:1162
+msgid "Paused: API key invalid"
+msgstr "Pozastaveno: API-Key neplatné"
+
+#: includes/Admin/SettingsPage.php:1163
+msgid "Completed"
+msgstr "Dokončeno"
+
+#: includes/Admin/SettingsPage.php:1164
+msgid "Completed with errors"
+msgstr "Dokončeno s chybami"
+
+#: includes/Admin/SettingsPage.php:1165
+msgid "Aborted"
+msgstr "Přerušeno"
+
+#: includes/Admin/SettingsPage.php:1186
+msgid "URL synchronization"
+msgstr "URL synchronizace"
+
+#: includes/Admin/SettingsPage.php:1187
+msgid "Opens selected target language pages in a controlled manner in the background. Missing segments end up in the limited translation queue; Bots and an unlimited duration crawl are not used."
+msgstr "Kontrolovaným způsobem na pozadí otevře stránky vybraného cílového jazyka. Chybějící segmenty skončí v omezené frontě překladu; Roboti a neomezené procházení se nepoužívají."
+
+#: includes/Admin/SettingsPage.php:1197
+msgid "Status:"
+msgstr "Stav:"
+
+#: includes/Admin/SettingsPage.php:1206
+msgid "URLs total"
+msgstr "Celkem URLs"
+
+#: includes/Admin/SettingsPage.php:1207
+msgid "Queue processed"
+msgstr "Fronta zpracována"
+
+#: includes/Admin/SettingsPage.php:1208
+msgid "Being cached"
+msgstr "Jsou zahřáté"
+
+#: includes/Admin/SettingsPage.php:1209
+msgid "Failed"
+msgstr "Nepodařilo se"
+
+#: includes/Admin/SettingsPage.php:1211
+msgid "\"Processed\" confirms completion in the Deepglot queue at the WordPress origin. Afterward, check the public target-language page without sync parameters and manually clear any unsupported full-page cache."
+msgstr "„Zpracováno“ potvrzuje frontu Deepglot na počátku WordPress. Po dokončení zkontrolujte veřejnou stránku cílového jazyka bez parametrů synchronizace a ručně vymažte nepodporovanou mezipaměť celé stránky."
+
+#: includes/Admin/SettingsPage.php:1216
+msgid "Failed URLs"
+msgstr "Neúspěšné URLs"
+
+#: includes/Admin/SettingsPage.php:1236
+msgid "Retry failed URLs"
+msgstr "Opakovaný pokus se nezdařil URLs"
+
+#: includes/Admin/SettingsPage.php:1242
+msgid "URL preview"
+msgstr "URL náhled"
+
+#. translators: %d: number of target-language URLs in the preview.
+#: includes/Admin/SettingsPage.php:1247
+#, php-format
+msgid "%d target pages will be synchronized."
+msgstr "%d Cílové stránky jsou synchronizovány."
+
+#: includes/Admin/SettingsPage.php:1267
+msgid "Confirm preview and start synchronization"
+msgstr "Potvrďte náhled a spusťte synchronizaci"
+
+#: includes/Admin/SettingsPage.php:1286
+msgid "Maximum number of target pages"
+msgstr "Maximální počet vstupních stránek"
+
+#: includes/Admin/SettingsPage.php:1288
+msgid "Start with a small sample on large sites. Each run requests at most two pages; synchronization waits when the translation queue is full."
+msgstr "U velkých webů začněte s malým vzorkem. V jednom cyklu se dotknou maximálně dvou stránek; Pokud je fronta překladu plná, synchronizace automaticky čeká."
+
+#: includes/Admin/SettingsPage.php:1292
+msgid "Load the next URL batch as a preview"
+msgstr "Načtěte další dávku URL jako náhled"
+
+#: includes/Admin/SettingsPage.php:1293
+msgid "Create URL preview"
+msgstr "Vytvořit náhled URL"
+
+#: includes/Admin/SettingsPage.php:1299
+msgid "Update status"
+msgstr "Aktualizovat stav"
+
+#: includes/Admin/SettingsPage.php:1304
+msgid "Continue"
+msgstr "Pokračovat"
+
+#: includes/Admin/SettingsPage.php:1304
+msgid "Pause"
+msgstr "Pauza"
+
+#: includes/Admin/SettingsPage.php:1313
+msgid "Really cancel synchronization? Translations that have already been saved are retained."
+msgstr "Opravdu zrušit synchronizaci? Překlady, které již byly uloženy, zůstanou zachovány."
+
+#: includes/Admin/SettingsPage.php:1314
+msgid "Cancel"
+msgstr "Zrušit"
+
+#: includes/Admin/SettingsPage.php:1343
+msgid "Remove instance"
+msgstr "Odebrat instanci"
+
+#: includes/Admin/SettingsPage.php:1352
+#: assets/js/block-switcher.js:51
+msgid "Instance ID"
+msgstr "ID instance"
+
+#: includes/Admin/SettingsPage.php:1377
+msgid "Full language name"
 msgstr "Celé jméno"
 
-#: includes/Admin/SettingsPage.php:1355
+#: includes/Admin/SettingsPage.php:1378
 msgid "ISO-Code"
 msgstr "ISO-Code"
 
-#: includes/Admin/SettingsPage.php:1359
+#: includes/Admin/SettingsPage.php:1382
 msgid "Position"
 msgstr "pozici"
 
-#: includes/Admin/SettingsPage.php:1367
-msgid "Ausblenden auf"
+#: includes/Admin/SettingsPage.php:1390
+msgid "Hide on"
 msgstr "Schovej se"
 
-#: includes/Admin/SettingsPage.php:1369
-msgid "Keinem Gerät"
+#: includes/Admin/SettingsPage.php:1392
+msgid "No device"
 msgstr "Žádné zařízení"
 
-#: includes/Admin/SettingsPage.php:1370
-msgid "Mobilgeräten"
+#: includes/Admin/SettingsPage.php:1393
+msgid "Mobile devices"
 msgstr "mobilní zařízení"
 
-#: includes/Admin/SettingsPage.php:1371
-msgid "Desktop-Geräten"
+#: includes/Admin/SettingsPage.php:1394
+msgid "Desktop devices"
 msgstr "Stolní zařízení"
 
-#: includes/Admin/SettingsPage.php:1375
+#: includes/Admin/SettingsPage.php:1398
 msgid "Breakpoint (px)"
 msgstr "Bod zlomu (px)"
 
-#: includes/Admin/SettingsPage.php:1382
-msgid "Instanz aktivieren"
-msgstr "Aktivujte instanci"
-
-#: includes/Admin/SettingsPage.php:1384
-msgid "Automatisch platzieren"
+#: includes/Admin/SettingsPage.php:1407
+msgid "Place automatically"
 msgstr "Umístěte automaticky"
 
-#: includes/Admin/SettingsPage.php:1386
-msgid "Beschriftung anzeigen"
+#: includes/Admin/SettingsPage.php:1409
+msgid "Show label"
 msgstr "Zobrazit popisek"
 
-#: includes/Admin/SettingsPage.php:1390
-msgid "Sprachreihenfolge"
+#: includes/Admin/SettingsPage.php:1413
+msgid "Language order"
 msgstr "Jazykové pořadí"
 
-#: includes/Admin/SettingsPage.php:1395
-msgid "Eigene Flaggen"
+#: includes/Admin/SettingsPage.php:1418
+msgid "Custom flags"
 msgstr "Vlastní vlajky"
 
-#: includes/Admin/SettingsPage.php:1404
-msgid "Eigenes CSS"
+#. translators: %s: target language code.
+#: includes/Admin/SettingsPage.php:1422
+#, php-format
+msgid "%s: 🇦🇹 or https://…"
+msgstr ""
+
+#: includes/Admin/SettingsPage.php:1439
+msgid "Custom CSS"
 msgstr "Vlastní CSS"
 
-#: includes/Admin/SettingsPage.php:1409
-msgid "DOM-Ziel für automatische Platzierung"
-msgstr "Cíl DOM pro automatické umístění"
-
-#: includes/Admin/SettingsPage.php:1412
-msgid "Element in der Vorschau auswählen"
+#: includes/Admin/SettingsPage.php:1447
+msgid "Select element in preview"
 msgstr "Vyberte prvek v náhledu"
 
-#: includes/Admin/SettingsPage.php:1414
-msgid "Wenn das Ziel fehlt oder ungültig ist, bleibt der Switcher sicher im Footer."
+#: includes/Admin/SettingsPage.php:1449
+msgid "If the target is missing or invalid, the Switcher will safely remain in the footer."
 msgstr "Pokud cíl chybí nebo je neplatný, Switcher bezpečně zůstane v zápatí."
 
-#: includes/Admin/SettingsPage.php:1418
-msgid "Website-Vorschau für die Switcher-Platzierung"
+#: includes/Admin/SettingsPage.php:1453
+msgid "Website preview for the Switcher placement"
 msgstr "Náhled webu pro umístění Switcher"
 
 #: includes/Api/Client.php:326
-#: includes/Api/Client.php:794
-#: includes/Api/Client.php:862
-#: includes/Api/Client.php:972
-msgid "Deepglot API Fehler."
+#: includes/Api/Client.php:803
+#: includes/Api/Client.php:871
+#: includes/Api/Client.php:981
+msgid "Deepglot API error."
 msgstr "Chyba Deepglot API."
 
 #: includes/Api/Client.php:522
-#: includes/Sync/SettingsSync.php:107
-msgid "Kein API-Key für die Synchronisierung vorhanden."
+#: includes/Sync/SettingsSync.php:115
+msgid "No API key is configured for synchronization."
 msgstr "Pro synchronizaci neexistuje žádný API-Key."
 
-#: includes/Api/Client.php:577
-msgid "Kein API-Key für die Runtime-Konfiguration vorhanden."
+#: includes/Api/Client.php:586
+msgid "No API key is configured for runtime settings."
 msgstr "Pro konfiguraci runtime neexistuje žádný API-Key."
 
-#: includes/Api/Client.php:603
+#: includes/Api/Client.php:612
 #: includes/Frontend/DynamicTranslationController.php:407
 #: includes/Frontend/PageViewController.php:66
 #: includes/Frontend/PageViewController.php:70
-msgid "Nicht verfügbar."
+msgid "Not available."
 msgstr "Není k dispozici."
 
-#: includes/Api/Client.php:1307
-msgid "Deepglot API-Key ungültig oder widerrufen."
+#: includes/Api/Client.php:1316
+msgid "Deepglot API key invalid or revoked."
 msgstr "Deepglot API-Key neplatné nebo odvolané."
 
 #: includes/Api/RestApi.php:327
-msgid "Kein API-Key angegeben."
+msgid "No API key specified."
 msgstr "Nebylo zadáno žádné API-Key."
 
 #: includes/Api/RestApi.php:454
-msgid "URL-Synchronisierung ist nicht verfügbar."
+msgid "URL synchronization is not available."
 msgstr "URL synchronizace není k dispozici."
 
 #. translators: %d: seconds until reset
 #: includes/Api/RestApi.php:513
 #, php-format
-msgid "Zu viele Anfragen. Bitte warte %d Sekunden."
+msgid "Too many requests. Please wait %d seconds."
 msgstr "Příliš mnoho požadavků. Počkejte prosím %d sekund."
 
 #: includes/Api/RestApi.php:586
-msgid "Originalsprache, Zielsprachen und Auto-Weiterleitung werden im Deepglot-Dashboard verwaltet und können über die WordPress-REST-API nur gelesen werden."
+msgid "The source language, target languages, and automatic redirect are managed in the Deepglot dashboard and can only be read through the WordPress REST API."
 msgstr "Zdrojový jazyk, cílové jazyky a automatické přesměrování se spravují v ovládacím panelu Deepglot a prostřednictvím WordPress REST API je lze pouze číst."
 
 #: includes/Api/RestApi.php:665
-msgid "Monatliches Wortlimit ausgeschöpft."
+msgid "Monthly word limit exhausted."
 msgstr "Měsíční limit slov byl vyčerpán."
 
 #: includes/Api/RestApi.php:673
-msgid "API-Key ungültig oder widerrufen."
+msgid "API key invalid or revoked."
 msgstr "API-Key neplatné nebo odvolané."
 
 #: includes/Config/SwitcherTemplates.php:21
-msgid "Klassisches Dropdown"
+msgid "Classic dropdown"
 msgstr "Klasický rozbalovací seznam"
 
 #: includes/Config/SwitcherTemplates.php:22
-msgid "Flagge und vollständiger Sprachname in einem kompakten Dropdown."
+msgid "Flag and full language name in a compact dropdown."
 msgstr "Příznak a celý název jazyka v kompaktní rozbalovací nabídce."
 
 #: includes/Config/SwitcherTemplates.php:31
-msgid "Minimaler Sprachcode"
+msgid "Minimal language code"
 msgstr "Minimální kód jazyka"
 
 #: includes/Config/SwitcherTemplates.php:32
-msgid "Schlichte ISO-Codes ohne Flaggen für Navigationen mit wenig Platz."
+msgid "Simple ISO codes without flags for compact navigation."
 msgstr "Jednoduché ISO-Codes bez vlajek pro navigaci s malým prostorem."
 
 #: includes/Config/SwitcherTemplates.php:41
-msgid "Schwebende Flaggen"
+msgid "Floating flags"
 msgstr "Plovoucí vlajky"
 
 #: includes/Config/SwitcherTemplates.php:42
-msgid "Runde Flaggen als schwebender Umschalter unten rechts."
+msgid "Round flags in a floating switcher at the bottom right."
 msgstr "Kulaté vlajky jako plovoucí přepínač vpravo dole."
 
 #: includes/Frontend/DynamicTranslationController.php:164
-msgid "Zu viele Anfragen."
+msgid "Too many requests."
 msgstr "Příliš mnoho požadavků."
 
 #: includes/Frontend/DynamicTranslationController.php:416
@@ -786,101 +801,145 @@ msgstr "Příliš mnoho požadavků."
 #: includes/Frontend/PageViewController.php:80
 #: includes/Frontend/PageViewController.php:87
 #: includes/Frontend/PageViewController.php:92
-msgid "Ungültige Herkunft."
+msgid "Invalid origin."
 msgstr "Neplatný původ."
 
 #. translators: %s: native language name.
-#: includes/Frontend/LanguageSwitcher.php:273
+#: includes/Frontend/LanguageSwitcher.php:274
 #, php-format
 msgid "Switch language to %s"
 msgstr "Přepnout jazyk na %s"
 
 #. translators: %s: active language name.
-#: includes/Frontend/LanguageSwitcher.php:293
+#: includes/Frontend/LanguageSwitcher.php:294
 #, php-format
-msgid "Sprache: %s"
+msgid "Language: %s"
 msgstr "Jazyk: %s"
 
 #: includes/Frontend/NavMenuSwitcher.php:183
-msgid "Sprache wählen"
+msgid "Choose a language"
 msgstr "Vyberte jazyk"
 
-#: includes/Frontend/SwitcherBlock.php:61
-msgid "Zeigt den Deepglot Sprachschalter — Stile/Flagge/Reihenfolge folgen den Plugin-Einstellungen."
-msgstr "Zobrazuje přepínač jazyka Deepglot — styly/Flagge/Reihenfolge se řídí nastavením pluginu."
+#: includes/Frontend/OutputBuffer.php:896
+msgid "Select highlighted text on the page."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:897
+msgid "Original"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:898
+msgid "Translation"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:899
+msgid "Close"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:900
+msgid "Save"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:901
+msgid "Saving…"
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:902
+msgid "Could not save the translation."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:903
+msgid "Saved."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:904
+msgid "Invalid editor token."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:905
+msgid "Visual Editor is active. Click highlighted text to edit it."
+msgstr ""
+
+#: includes/Frontend/OutputBuffer.php:906
+msgid "Could not start the Visual Editor."
+msgstr ""
+
+#: includes/Frontend/SwitcherBlock.php:64
+msgid "Shows the Deepglot language switcher. Style, flag, and language order follow the plugin settings."
+msgstr "Zobrazuje přepínač jazyka Deepglot. Styl, příznak a pořadí se řídí nastavením pluginu."
 
 #: includes/Frontend/SwitcherWidget.php:26
-msgid "Sprachumschalter in einer Widget-Area anzeigen."
+msgid "Display the language switcher in a widget area."
 msgstr "Zobrazit přepínač jazyků v oblasti widgetů."
 
 #: includes/Frontend/SwitcherWidget.php:87
-msgid "Titel:"
+msgid "Title:"
 msgstr "Název:"
 
 #: includes/Frontend/SwitcherWidget.php:99
-msgid "Switcher-Instanz:"
+msgid "Switcher instance:"
 msgstr "Switcher instance:"
 
 #: includes/Support/UrlTranslationSync.php:91
-msgid "Es wurden keine sicheren internen URLs gefunden."
+msgid "No secure internal URLs were found."
 msgstr "Nebyly nalezeny žádné zabezpečené interní URLs."
 
 #: includes/Support/UrlTranslationSync.php:116
-msgid "Die URL-Vorschau konnte nicht gespeichert werden. Bitte versuche es erneut."
+msgid "The URL preview could not be saved. Please try again."
 msgstr "Náhled URL nelze uložit. Zkuste to prosím znovu."
 
 #: includes/Support/UrlTranslationSync.php:153
-msgid "Bestätige zuerst die URL-Vorschau."
+msgid "First confirm the URL preview."
 msgstr "Nejprve potvrďte náhled URL."
 
 #: includes/Support/UrlTranslationSync.php:162
-msgid "Eine URL-Synchronisierung wird gerade verarbeitet."
+msgid "A URL sync is currently processing."
 msgstr "Aktuálně se zpracovává synchronizace URL."
 
 #: includes/Support/UrlTranslationSync.php:171
-msgid "Es läuft bereits eine URL-Synchronisierung."
+msgid "A URL synchronization is already running."
 msgstr "URL synchronizace již běží."
 
 #: includes/Support/UrlTranslationSync.php:180
-msgid "Die URL-Vorschau ist abgelaufen. Erstelle bitte eine neue Vorschau."
+msgid "The URL preview has expired. Please create a new preview."
 msgstr "Platnost náhledu URL vypršela. Vytvořte prosím nový náhled."
 
 #: includes/Support/UrlTranslationSync.php:199
-msgid "Die bestätigte URL-Vorschau passt nicht mehr zur Auswahl."
+msgid "The confirmed URL preview no longer matches the selection."
 msgstr "Potvrzený náhled URL již neodpovídá výběru."
 
 #. translators: %d: maximum number of URLs accepted by one synchronization job.
 #: includes/Support/UrlTranslationSync.php:591
 #, php-format
-msgid "Es können höchstens %d URLs synchronisiert werden."
+msgid "A maximum of %d URLs can be synchronized."
 msgstr "Maximálně lze synchronizovat %d URLs."
 
 #. translators: %d: maximum target-URL offset accepted for batched synchronization.
 #: includes/Support/UrlTranslationSync.php:600
 #, php-format
-msgid "Der URL-Startpunkt darf höchstens %d betragen."
+msgid "The URL starting point must be at most %d."
 msgstr "Počáteční bod URL musí být nejvýše %d."
 
 #: includes/Support/UrlTranslationSync.php:608
-msgid "Deepglot muss aktiviert und vollständig eingerichtet sein."
+msgid "Deepglot must be activated and fully set up."
 msgstr "Deepglot musí být aktivován a plně nastaven."
 
 #: includes/Support/UrlTranslationSync.php:623
-msgid "Mindestens eine aktive Zielsprache ist erforderlich."
+msgid "At least one active target language is required."
 msgstr "Je vyžadován alespoň jeden aktivní cílový jazyk."
 
-#: includes/Sync/SettingsSync.php:111
-msgid "Keine Zielsprachen für die Synchronisierung konfiguriert."
+#: includes/Sync/SettingsSync.php:119
+msgid "No target languages are configured for synchronization."
 msgstr "Pro synchronizaci nejsou nakonfigurovány žádné cílové jazyky."
 
 #: assets/js/block-switcher.js:20
-msgid "Zeigt den Deepglot Sprachschalter. Stil, Flagge und Reihenfolge folgen den Plugin-Einstellungen."
-msgstr "Zobrazuje přepínač jazyka Deepglot. Styl, příznak a pořadí se řídí nastavením pluginu."
+msgid "Displays the Deepglot language switcher. Style, flag, and language order follow the plugin settings."
+msgstr "Zobrazuje přepínač jazyka Deepglot — styly/Flagge/Reihenfolge se řídí nastavením pluginu."
 
 #: assets/js/block-switcher.js:49
-msgid "Switcher-Instanz"
+msgid "Switcher instance"
 msgstr "Switcher instance"
 
 #: assets/js/block-switcher.js:52
-msgid "Die ID findest du unter Einstellungen → Deepglot → Sprachumschalter."
+msgid "Find the ID under Settings → Deepglot → Language switcher."
 msgstr "ID najdete v Nastavení → Deepglot → Přepínač jazyků."
