@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { exclusionCsvText } from "@/lib/exclusion-csv-copy";
 import {
   MAX_EXCLUSION_CSV_BYTES,
   parseExclusionCsv,
@@ -50,25 +51,25 @@ export async function POST(
 
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_MULTIPART_BYTES) {
-    return NextResponse.json({ error: uiText(locale, "Upload exceeds size limit", "Upload überschreitet die Größengrenze") }, { status: 413 });
+    return NextResponse.json({ error: exclusionCsvText(locale, "Upload exceeds size limit", "Upload überschreitet die Größengrenze") }, { status: 413 });
   }
 
   const formData = await readBoundedFormData(request);
   if (formData === "too-large") {
-    return NextResponse.json({ error: uiText(locale, "Upload exceeds size limit", "Upload überschreitet die Größengrenze") }, { status: 413 });
+    return NextResponse.json({ error: exclusionCsvText(locale, "Upload exceeds size limit", "Upload überschreitet die Größengrenze") }, { status: 413 });
   }
   const file = formData?.get("file");
   const dryRun = formData?.get("dryRun") === "true";
-  if (!(file instanceof File)) return NextResponse.json({ error: uiText(locale, "Choose a CSV file", "CSV-Datei auswählen") }, { status: 400 });
+  if (!(file instanceof File)) return NextResponse.json({ error: exclusionCsvText(locale, "Choose a CSV file", "CSV-Datei auswählen") }, { status: 400 });
   if (file.size > MAX_EXCLUSION_CSV_BYTES) {
-    return NextResponse.json({ error: uiText(locale, "CSV file exceeds 128 KiB", "CSV-Datei überschreitet 128 KiB") }, { status: 413 });
+    return NextResponse.json({ error: exclusionCsvText(locale, "CSV file exceeds 128 KiB", "CSV-Datei überschreitet 128 KiB") }, { status: 413 });
   }
 
   let content: string;
   try {
     content = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
   } catch {
-    return NextResponse.json({ error: uiText(locale, "CSV must be valid UTF-8", "CSV muss gültiges UTF-8 sein") }, { status: 400 });
+    return NextResponse.json({ error: exclusionCsvText(locale, "CSV must be valid UTF-8", "CSV muss gültiges UTF-8 sein") }, { status: 400 });
   }
   const parsed = parseExclusionCsv(content);
   const existing = await db.translationExclusion.findMany({
@@ -101,7 +102,7 @@ export async function POST(
     return NextResponse.json({ dryRun: false, summary: committed, issues: [], importedRows: committed.creates });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ error: uiText(locale, "Rules changed during import. Preview again.", "Regeln wurden während des Imports geändert. Bitte erneut prüfen.") }, { status: 409 });
+      return NextResponse.json({ error: exclusionCsvText(locale, "Rules changed during import. Preview again.", "Regeln wurden während des Imports geändert. Bitte erneut prüfen.") }, { status: 409 });
     }
     console.error("[POST exclusions/import] Failed:", error);
     return NextResponse.json({ error: uiText(locale, "Import failed", "Import fehlgeschlagen") }, { status: 500 });

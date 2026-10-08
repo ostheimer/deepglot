@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
+import { exclusionCsvText } from "@/lib/exclusion-csv-copy";
 import { getLanguageName } from "@/lib/language-names";
 import { uiText } from "@/lib/static-copy";
 
@@ -169,7 +170,7 @@ export function ImportExportPanel({
       };
       if (generation !== exclusionGenerationRef.current) {
         if (!dryRun && response.ok) {
-          toast.success(uiText(locale, "Exclusion import complete", "Ausnahmen importiert"));
+          toast.success(exclusionCsvText(locale, "Exclusion import complete", "Ausnahmen importiert"));
           router.refresh();
         }
         return;
@@ -177,7 +178,7 @@ export function ImportExportPanel({
       if (data.summary) setExclusionReport({ dryRun, summary: data.summary, issues: data.issues ?? [] });
       if (!response.ok) toast.error(data.error ?? uiText(locale, "Import failed", "Import fehlgeschlagen"));
       else if (!dryRun) {
-        toast.success(uiText(locale, "Exclusion import complete", "Ausnahmen importiert"));
+        toast.success(exclusionCsvText(locale, "Exclusion import complete", "Ausnahmen importiert"));
         router.refresh();
       }
     } catch {
@@ -267,14 +268,14 @@ export function ImportExportPanel({
       </div>
 
       {canManageExclusions && <section className="rounded-xl border border-gray-200 bg-white p-5">
-        <h3 className="text-base font-semibold text-gray-900">{uiText(locale, "Exclusion rules CSV", "Ausnahmeregeln als CSV")}</h3>
+        <h3 className="text-base font-semibold text-gray-900">{exclusionCsvText(locale, "Exclusion rules CSV", "Ausnahmeregeln als CSV")}</h3>
         <p className="mt-1 text-sm text-gray-500">
-          {uiText(locale, "Import URL, regex, CSS class, and CSS ID rules. Preview changes before importing. Existing rules are skipped.", "URL-, Regex-, CSS-Klassen- und CSS-ID-Regeln importieren. Änderungen vor dem Import prüfen. Vorhandene Regeln werden übersprungen.")}
+          {exclusionCsvText(locale, "Import URL, regex, CSS class, and CSS ID rules. Preview changes before importing. Existing rules are skipped.", "URL-, Regex-, CSS-Klassen- und CSS-ID-Regeln importieren. Änderungen vor dem Import prüfen. Vorhandene Regeln werden übersprungen.")}
         </p>
-        <p className="mt-3 text-xs text-gray-400">{uiText(locale, "CSV columns: type,value. Imports accept up to 100 rows and 128 KiB; split larger exports before importing.", "CSV-Spalten: type,value. Der Import akzeptiert höchstens 100 Zeilen und 128 KiB; größere Exporte vor dem Import aufteilen.")}</p>
+        <p className="mt-3 text-xs text-gray-400">{exclusionCsvText(locale, "CSV columns: type,value. Imports accept up to 100 rows and 128 KiB; split larger exports before importing.", "CSV-Spalten: type,value. Der Import akzeptiert höchstens 100 Zeilen und 128 KiB; größere Exporte vor dem Import aufteilen.")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <input
-            aria-label={uiText(locale, "Choose exclusion CSV", "Ausnahmen-CSV auswählen")}
+            aria-label={exclusionCsvText(locale, "Choose exclusion CSV", "Ausnahmen-CSV auswählen")}
             type="file"
             accept=".csv,text/csv"
             disabled={exclusionWriting}
@@ -287,10 +288,10 @@ export function ImportExportPanel({
             className="max-w-full text-sm"
           />
           <Button type="button" variant="outline" disabled={!exclusionFile || exclusionPending} onClick={() => void runExclusionImport(true)}>
-            {uiText(locale, "Preview import", "Importvorschau")}
+            {exclusionCsvText(locale, "Preview import", "Importvorschau")}
           </Button>
           <Button type="button" disabled={!exclusionFile || exclusionPending || !exclusionReport?.dryRun || exclusionReport.summary.conflicts > 0} onClick={() => void runExclusionImport(false)}>
-            {uiText(locale, "Import rules", "Regeln importieren")}
+            {exclusionCsvText(locale, "Import rules", "Regeln importieren")}
           </Button>
           <Button asChild variant="outline"><a href={`/api/projects/${projectId}/exclusions/export`}><Download className="mr-2 h-4 w-4" />{uiText(locale, "Export", "Exportieren")}</a></Button>
         </div>
@@ -301,7 +302,7 @@ export function ImportExportPanel({
               : `${exclusionReport.summary.creates} new, ${exclusionReport.summary.skips} existing, ${exclusionReport.summary.conflicts} conflicts`}</p>
             {exclusionReport.issues.length > 0 && <ul className="mt-2 list-disc pl-5 text-red-700">
               {exclusionReport.issues.map((issue, index) => <li key={`${issue.line}-${index}`}>
-                {uiText(locale, `Row ${issue.line}`, `Zeile ${issue.line}`)}: {exclusionIssueCopy(locale, issue.message)}
+                {exclusionCsvText(locale, `Row ${issue.line}`, `Zeile ${issue.line}`)}: {exclusionIssueCopy(locale, issue.message)}
               </li>)}
             </ul>}
           </div>
