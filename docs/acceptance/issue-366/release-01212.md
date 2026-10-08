@@ -1,0 +1,7 @@
+# Deepglot 0.12.12 release readback
+
+Checked on 2026-10-08. Pull requests [#370](https://github.com/ostheimer/deepglot/pull/370) and [#371](https://github.com/ostheimer/deepglot/pull/371) are merged. The annotated `wp-plugin-v0.12.12` tag and [GitHub release](https://github.com/ostheimer/deepglot/releases/tag/wp-plugin-v0.12.12) point to main commit `65a14624ce9b02e5d88646621a1ecfd3f41f97b4`. The GitHub release ZIP SHA-256 is `be29ab795ba8585ddd0384bf412ecca76a0b35bb005e48d3a895bf0c707b314e` and matches its published checksum sidecar.
+
+WordPress.org SVN revision `3729553` published tag `0.12.12` on 2026-10-05. The [WordPress.org plugin API](https://api.wordpress.org/plugins/info/1.2/?action=plugin_information&request%5Bslug%5D=deepglot) reports version `0.12.12` and the versioned [public ZIP](https://downloads.wordpress.org/plugin/deepglot.0.12.12.zip). On 2026-10-08, `python3 scripts/verify-wordpress-installer.py` verified the directory page, API, ZIP headers, GitHub checksum sidecar, and content-hash parity of all 129 runtime files between the public WordPress.org ZIP and GitHub release ZIP. The public ZIP SHA-256 is `6f2c17374982d043eabe8a09d57c3f6f3a0054202d4b3cf8f2e3a75566d083be`.
+
+The companion installer manifest change in this branch pins the SaaS installer to that verified 0.12.12 package. This readback establishes package publication and file parity; GlotPress catalog status and the installer deployment require separate acceptance.
