@@ -1,5 +1,7 @@
 # Issue 366: English originals and Swedish catalog acceptance
 
+The 0.12.12 package is now public and the updated GlotPress candidates have been submitted. See the [release and catalog readback](release-01212.md) for the separate GitHub, WordPress.org, installer, and translation statuses. The historical assessment below describes the state before publication.
+
 Checked on 2026-10-05 against plugin source based on GitHub `main` commit `4dff0de2bb75543920c1eb86ccd9034a67914bb7` (the last public WordPress.org plugin release was 0.12.11). This change is a proposed source/catalog update, not a WordPress.org release or GlotPress import. The issue is referenced, not automatically closed.
 
 The historical [Swedish Polyglots rejection](https://sv.wordpress.org/team/2026/08/20/message-to-helpstring-weve-rejected/) reported German source strings and unsuitable Swedish suggestions. The published 0.12.11 plugin still had German PHP/JS originals and an English Readme. At the time of the review, public `sv/default` Stable and Development showed 0/206 approved plugin strings, 0 waiting, and Readme 0/115 approved, 0 waiting. The [review snapshot](https://translate.wordpress.org/projects/wp-plugins/deepglot/) is distinct from this unpublished branch.

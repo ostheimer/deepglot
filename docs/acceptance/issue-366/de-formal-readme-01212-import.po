@@ -1,0 +1,1401 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Plugins - Deepglot - Stable Readme (latest release)\n"
+"PO-Revision-Date: 2026-10-09 00:00+0000\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Deepglot issue 366 offline re-key; AI-reviewed candidates\n"
+
+#. Short description.
+#, gp-priority: high
+msgid ""
+"AI-powered website translation with SEO-friendly URLs, hreflang tags, and a "
+"customizable language switcher."
+msgstr ""
+"KI-gestützte Website-Übersetzung mit SEO-freundlichen URLs, hreflang-Tags "
+"und einem individuell einstellbaren Sprachschalter."
+
+#. Plugin name.
+#, gp-priority: high
+msgid "Deepglot"
+msgstr "Deepglot"
+
+#. Found in faq paragraph.
+msgid ""
+"Yes. A project manager can create, search, edit, and delete an original-to-"
+"localized media mapping under Project → Translations → Media, or use the "
+"authenticated Deepglot project management API. Mappings apply to individual "
+"active target languages. The plugin updates <code>src</code>, "
+"<code>srcset</code>, <code>data-src</code>, and <code>data-srcset</code> on "
+"translated image elements, including responsive <code>picture</code> "
+"sources. Source-language pages and excluded content are unchanged."
+msgstr ""
+
+#. Found in description paragraph.
+msgid ""
+"Runtime refresh sends the configured API key and receives one atomic project"
+" snapshot containing its version, source and target languages, automatic "
+"redirect, AI disclosure, and automatic-translation policy, plus URL and "
+"selector exclusions, regular-expression exclusions, translated URL-slug "
+"mappings, and active-language media URL replacements scoped to that API "
+"key's project. When a project manager explicitly adopts the switcher in the "
+"dashboard, runtime refresh returns a versioned switcher configuration and "
+"revision; local WordPress edits are preserved and reported as conflicts. The"
+" plugin can also request the public supported-languages list without an API "
+"key."
+msgstr ""
+
+#. Found in description paragraph.
+msgid ""
+"Settings synchronization sends the configured API key, site URL, WordPress-"
+"owned routing mode and domain mappings, and the feature flags for email "
+"translation, search translation, AMP translation, and dynamic translation. "
+"It also sends bootstrap mirrors for source language, target languages, and "
+"automatic redirect; the authenticated SaaS project remains authoritative for"
+" those three project-wide values. Version 0.12.11 additionally sends the "
+"saved switcher instance configuration, custom labels and flags, CSS, "
+"placement selectors, and last applied revision so the dashboard can show "
+"drift and conflicts."
+msgstr ""
+
+#. Found in faq paragraph.
+msgid ""
+"The plugin refreshes runtime mappings at most every 300 seconds when a "
+"request reaches WordPress and stores them in a dedicated non-autoloaded "
+"option. On a changed snapshot it purges known WP Rocket, W3 Total Cache, "
+"LiteSpeed Cache, and WP Super Cache page caches. An upstream CDN or page "
+"cache that prevents WordPress from receiving a refresh request needs an "
+"operator purge and public readback. Missing or deleted mappings leave the "
+"original URL in place."
+msgstr ""
+"Das Plugin aktualisiert die Laufzeit-Zuordnungen höchstens alle 300 "
+"Sekunden, sobald eine Anfrage WordPress erreicht. Es speichert sie in einer "
+"eigenen Option, die nicht automatisch geladen wird. Bei einem geänderten "
+"Konfigurationsstand leert es die bekannten Seiten-Caches von WP Rocket, W3 "
+"Total Cache, LiteSpeed Cache und WP Super Cache. Verhindert ein "
+"vorgeschaltetes CDN oder ein Seiten-Cache, dass eine Aktualisierungsanfrage "
+"WordPress erreicht, muss der Betreiber den Cache leeren und das öffentlich "
+"ausgelieferte Ergebnis prüfen. Bei fehlenden oder gelöschten Zuordnungen "
+"bleibt die ursprüngliche URL erhalten."
+
+#. Found in faq paragraph.
+msgid ""
+"Each project supports at most 500 mappings in total. Same-site image formats"
+" are PNG, JPG, JPEG, WebP, AVIF, and GIF. Document links support PDF, DOCX, "
+"XLSX, and PPTX; self-hosted video supports MP4 and WebM. File URLs must be "
+"root-relative or HTTPS on the project host. Video embeds support only exact "
+"HTTPS <code>www.youtube.com/embed/ID</code>, <code>www.youtube-"
+"nocookie.com/embed/ID</code>, and <code>player.vimeo.com/video/ID</code> "
+"endpoints, with an unchanged provider host and no query or fragment. "
+"Documents and self-hosted videos must retain their file extension. External "
+"CDN images, SVG, other iframe providers, uploads, AI-generated assets, "
+"subtitles, and dynamically inserted AJAX media are unsupported. Project "
+"managers are responsible for all file and video usage, publication, and "
+"redistribution rights; Deepglot does not verify licenses, file existence, or"
+" content type."
+msgstr ""
+"Jedes Projekt unterstützt insgesamt höchstens 500 Zuordnungen. Unterstützte "
+"Bildformate auf derselben Website sind PNG, JPG, JPEG, WebP, AVIF und GIF. "
+"Dokument-Links unterstützen PDF, DOCX, XLSX und PPTX; selbst gehostete "
+"Videos unterstützen MP4 und WebM. Datei-URLs müssen relativ zum "
+"Stammverzeichnis sein oder HTTPS auf dem Host des Projekts verwenden. Video-"
+"Einbettungen unterstützen ausschließlich die exakten HTTPS-Endpunkte "
+"<code>www.youtube.com/embed/ID</code>, <code>www.youtube-"
+"nocookie.com/embed/ID</code> und <code>player.vimeo.com/video/ID</code>. Der"
+" Host des Anbieters muss unverändert bleiben; Abfrageparameter und Fragmente"
+" sind nicht zulässig. Dokumente und selbst gehostete Videos müssen ihre "
+"Dateiendung behalten. Externe CDN-Bilder, SVG, andere iframe-Anbieter, "
+"Uploads, KI-generierte Medien, Untertitel und dynamisch per AJAX eingefügte "
+"Medien werden nicht unterstützt. Projektmanager sind für alle Nutzungs-, "
+"Veröffentlichungs- und Weiterverbreitungsrechte an Dateien und Videos "
+"verantwortlich. Deepglot prüft weder Lizenzen noch das Vorhandensein von "
+"Dateien oder den Inhaltstyp."
+
+#. Found in faq header.
+msgid "Can translated pages use different images?"
+msgstr "Können übersetzte Seiten andere Bilder verwenden?"
+
+#. Found in description list item.
+msgid ""
+"Replaces explicitly mapped same-site images, document links, self-hosted "
+"video files, and supported video embeds for active target languages."
+msgstr ""
+"Ersetzt ausdrücklich zugeordnete Bilder auf derselben Website, Dokument-"
+"Links, selbst gehostete Videodateien und unterstützte Video-Einbettungen für"
+" aktive Zielsprachen."
+
+#. Found in faq paragraph.
+msgid ""
+"Under <code>Settings -&gt; Deepglot</code>, create a URL preview with a "
+"small limit and the required target languages, review the sample URLs, and "
+"explicitly confirm the immutable snapshot. When WordPress recognizes a safe "
+"HTTPS request on the same host as an internal target still stored with HTTP,"
+" the preview changes only that target's scheme to HTTPS; semantic query "
+"parameters and fragments are preserved. It never copies a foreign request "
+"host. One absolute, query-free redirect on the exact same origin and in the "
+"requested target language is verified through separate public and origin "
+"probes while automatic redirect following stays disabled. Other redirects "
+"remain bounded failures; unsafe targets do too. One batch contains at most "
+"250 safe internal entries from the multilingual sitemap and opens at most "
+"two target pages per cron run. The job reports aggregate progress and can be"
+" paused, resumed, cancelled, or retried for failed URLs. It pauses when the "
+"quota is exhausted or the API key is invalid and automatically backs off on "
+"API rate limits. Continue large sites with the next bounded batch. This is "
+"an explicit administrator action, not a permanent crawler."
+msgstr ""
+"Erstellen Sie unter <code>Einstellungen -&gt; Deepglot</code> eine URL-"
+"Vorschau mit einer kleinen Obergrenze und den benötigten Zielsprachen. "
+"Prüfen Sie die Beispiel-URLs und bestätigen Sie den unveränderlichen "
+"Konfigurationsstand ausdrücklich. Erkennt WordPress eine sichere HTTPS-"
+"Anfrage auf demselben Host wie ein noch mit HTTP gespeichertes internes "
+"Ziel, ändert die Vorschau nur das Schema dieses Ziels zu HTTPS. "
+"Bedeutungsrelevante Abfrageparameter und Fragmente bleiben erhalten. Ein "
+"fremder Anfrage-Host wird niemals übernommen. Eine absolute Weiterleitung "
+"ohne Abfrageparameter auf exakt demselben Ursprung und in der angeforderten "
+"Zielsprache wird durch getrennte öffentliche und direkte Prüfungen am "
+"Ursprungsserver verifiziert. Das automatische Folgen von Weiterleitungen "
+"bleibt deaktiviert. Andere Weiterleitungen und unsichere Ziele führen "
+"innerhalb der festgelegten Grenzen zum Fehlschlagen der Prüfung. Ein Stapel "
+"enthält höchstens 250 sichere interne Einträge aus der mehrsprachigen "
+"Sitemap und ruft höchstens zwei Zielseiten pro Cron-Durchlauf auf. Der "
+"Auftrag meldet den Gesamtfortschritt und lässt sich pausieren, fortsetzen "
+"oder abbrechen; fehlgeschlagene URLs lassen sich erneut versuchen. Bei "
+"ausgeschöpftem Kontingent oder ungültigem API-Schlüssel pausiert er. Bei "
+"API-Anfragelimits verlängert er automatisch die Wartezeit. Setzen Sie große "
+"Websites mit dem nächsten begrenzten Stapel fort. Dies ist eine ausdrücklich"
+" ausgelöste Administrator-Aktion, kein dauerhaft laufender Crawler."
+
+#. Found in faq paragraph.
+msgid ""
+"Deepglot finishes all bounded root-chunk attempts before starting singleton "
+"work. It collects only roots whose complete provider chains produced count "
+"mismatches; any other terminal error still aborts siblings immediately. "
+"Before calibration, Deepglot compares the remaining deadline with a "
+"conservative one-wave reserve: the fastest elapsed duration among the "
+"completed full count-mismatch root chains. If that reserve cannot fit, no "
+"singleton provider call starts. This root-derived reserve is used only for "
+"calibration admission and is never extrapolated across later work. It then "
+"runs one global calibration wave containing the first <code>min(request-wide"
+" concurrency, total mismatched texts)</code> real singletons through their "
+"full provider fallback chains and retains its results. If the shared "
+"deadline expires during any admitted singleton wave despite the admission "
+"checks, Deepglot returns the same typed deadline error instead of a generic "
+"timeout. The remaining work is split into request-wide bounded waves. Before"
+" each later wave, Deepglot compares <code>waves still pending × duration of "
+"the immediately preceding observed singleton wave</code> with the remaining "
+"shared deadline and remeasures after every completed wave. That deadline is "
+"the earlier of the local provider-work ceiling and the caller's monotonic "
+"absolute deadline; the PDF route passes its route-entry 40-second deadline "
+"so authentication, upload handling, and preparation consume the same budget."
+" If the pending work cannot fit, Deepglot stops after the last retained wave"
+" and before any further singleton call. <code>/api/translate</code> and PDF "
+"return the stable 503 code <code>translation_count_mismatch_deadline</code>;"
+" once provider work has started, the API conservatively keeps the velocity "
+"reservation and retains an idempotent same-key 503 for at most 60 seconds. "
+"Otherwise, the remaining affected texts continue through the same globally "
+"bounded singleton queue, preserving result order and each text's full "
+"provider fallback chain."
+msgstr ""
+"Deepglot schließt alle begrenzten Versuche mit ursprünglichen Textblöcken "
+"ab, bevor die Verarbeitung einzelner Texte beginnt. Es sammelt nur Blöcke, "
+"deren vollständige Anbieterketten eine abweichende Ergebnisanzahl geliefert "
+"haben. Jeder andere endgültige Fehler bricht parallele Verarbeitung "
+"weiterhin sofort ab. Vor der Kalibrierung vergleicht Deepglot die "
+"verbleibende Zeit mit einer vorsichtigen Reserve für eine "
+"Verarbeitungsrunde: der kürzesten gemessenen Dauer unter den abgeschlossenen"
+" vollständigen Anbieterketten der ursprünglichen Blöcke mit abweichender "
+"Ergebnisanzahl. Reicht die Zeit für diese Reserve nicht aus, startet kein "
+"Anbieteraufruf für einen einzelnen Text. Diese aus den ursprünglichen "
+"Blöcken abgeleitete Reserve dient ausschließlich dazu, den Start der "
+"Kalibrierung zu prüfen, und wird nicht auf spätere Verarbeitungsschritte "
+"hochgerechnet. Anschließend durchläuft eine globale Kalibrierungsrunde mit "
+"den ersten <code>min(request-wide concurrency, total mismatched "
+"texts)</code> tatsächlichen Einzeltexten deren vollständige Anbieter-"
+"Ausweichketten. Ihre Ergebnisse bleiben erhalten. Läuft die gemeinsame Frist"
+" trotz der Startprüfungen während einer zugelassenen Einzeltext-Runde ab, "
+"gibt Deepglot denselben typisierten Fristfehler statt einer allgemeinen "
+"Zeitüberschreitung zurück. Die verbleibende Arbeit wird in über die gesamte "
+"Anfrage begrenzte Runden aufgeteilt. Vor jeder weiteren Runde vergleicht "
+"Deepglot <code>waves still pending × duration of the immediately preceding "
+"observed singleton wave</code> mit der verbleibenden gemeinsamen Zeit und "
+"misst nach jeder abgeschlossenen Runde erneut. Es gilt die frühere Frist aus"
+" der lokalen Obergrenze für die Anbieterverarbeitung und der monotonen "
+"absoluten Frist des Aufrufers. Die PDF-Route übergibt ihre ab Eintritt in "
+"die Route laufende 40-Sekunden-Frist, sodass Authentifizierung, Upload-"
+"Verarbeitung und Vorbereitung dasselbe Zeitbudget verbrauchen. Reicht die "
+"Zeit nicht für die ausstehende Arbeit, stoppt Deepglot nach der letzten "
+"Runde mit gespeicherten Ergebnissen und vor jedem weiteren Einzeltext-"
+"Aufruf. <code>/api/translate</code> und PDF geben den stabilen 503-Code "
+"<code>translation_count_mismatch_deadline</code> zurück. Sobald die "
+"Anbieterverarbeitung begonnen hat, behält die API vorsichtshalber die "
+"Reservierung für das Übersetzungsratenlimit bei und speichert eine "
+"idempotente 503-Antwort für denselben Schlüssel höchstens 60 Sekunden lang. "
+"Andernfalls werden die verbleibenden betroffenen Texte über dieselbe global "
+"begrenzte Einzeltext-Warteschlange verarbeitet. Die Ergebnisreihenfolge und "
+"die vollständige Anbieter-Ausweichkette jedes Textes bleiben erhalten."
+
+#. Found in faq paragraph.
+msgid ""
+"When every attempted SaaS provider returns only a count mismatch for the "
+"same multi-text root chunk, Deepglot starts direct singleton isolation. It "
+"skips redundant binary intermediate shapes and retries each original text "
+"through the configured provider chain in input order. The provider-call "
+"ceiling is chain length × (chunk size + 1) for a multi-text root, while an "
+"original singleton gets one chain; a default eight-text chunk with two "
+"providers therefore allows at most 18 provider calls. All root chunks and "
+"isolated singletons share the request-wide provider-call concurrency cap "
+"(default 12) and a 100-second provider-work deadline. A failing parallel "
+"chunk stops new sibling provider calls, while the WordPress warmer keeps any"
+" terminal remainder queued. Singleton, call-budget, and deadline mismatches "
+"remain terminal; timeouts, authentication failures, rate limits, U+0000 "
+"output, and other malformed responses never enter this extra isolation path."
+msgstr ""
+"Wenn jeder versuchte SaaS-Anbieter für denselben ursprünglichen Block mit "
+"mehreren Texten ausschließlich eine abweichende Ergebnisanzahl zurückgibt, "
+"beginnt Deepglot direkt mit der getrennten Verarbeitung einzelner Texte. Es "
+"überspringt überflüssige binäre Zwischenaufteilungen und versucht jeden "
+"ursprünglichen Text in der Eingabereihenfolge erneut über die konfigurierte "
+"Anbieterkette. Für einen ursprünglichen Block mit mehreren Texten beträgt "
+"die Obergrenze der Anbieteraufrufe Kettenlänge × (Blockgröße + 1). Ein "
+"ursprünglich einzelner Text durchläuft eine Kette. Ein Standardblock mit "
+"acht Texten und zwei Anbietern erlaubt somit höchstens 18 Anbieteraufrufe. "
+"Alle ursprünglichen Blöcke und getrennt verarbeiteten Einzeltexte teilen "
+"sich die Obergrenze gleichzeitig laufender Anbieteraufrufe für die gesamte "
+"Anfrage (standardmäßig 12) und eine Frist von 100 Sekunden für die "
+"Anbieterverarbeitung. Schlägt ein paralleler Block fehl, starten keine neuen"
+" Anbieteraufrufe für andere Blöcke mehr. Die WordPress-"
+"Hintergrundverarbeitung lässt endgültig fehlgeschlagene Resttexte in der "
+"Warteschlange. Abweichungen bei Einzeltexten sowie beim Aufruf- oder "
+"Zeitbudget bleiben endgültige Fehler. Zeitüberschreitungen, "
+"Authentifizierungsfehler, Anfragelimits, U+0000-Ausgaben und andere "
+"fehlerhafte Antworten durchlaufen diesen zusätzlichen Verarbeitungspfad "
+"niemals."
+
+#. Found in faq paragraph.
+msgid ""
+"Since version 0.12.5, configured cookie-consent widgets that already exist "
+"before the footer observer starts are translated through the same bounded "
+"dynamic endpoint without rescanning the server-rendered page. Their internal"
+" page links are localized with the server-side routing rules and are never "
+"sent to the translation provider. Version 0.12.6 follows WordPress core "
+"viewability for public post types, so built-in pages remain in the "
+"multilingual sitemap while non-viewable builder content types stay excluded."
+" Public taxonomies must still be publicly queryable. Version 0.12.7 reads "
+"project-wide language, redirect, disclosure, and automatic-translation "
+"settings from one authenticated, versioned SaaS snapshot. WordPress keeps "
+"valid cached translations available when automatic generation is off, prunes"
+" obsolete warm-up work after a language change, and prevents source-language"
+" cache-only fallbacks from entering full-page caches under a target URL. "
+"Version 0.12.8 translates generic ARIA labels in the page body, image title "
+"tooltips, and human-readable RSS or Atom feed titles while excluding "
+"ordinary link metadata from provider requests, and rejects blank "
+"translation-cache values. Version 0.12.9 adds locale-specific, same-site "
+"image replacements for server-rendered responsive and lazy-loaded images "
+"while preserving excluded and unsafe content. Version 0.12.10 adds document "
+"links and supported video URLs and embeds."
+msgstr ""
+"Seit Version 0.12.5 werden konfigurierte Widgets zur Cookie-Einwilligung, "
+"die bereits vor dem Start der Überwachung im Footer vorhanden sind, über "
+"denselben begrenzten dynamischen Endpunkt übersetzt. Die serverseitig "
+"gerenderte Seite wird dabei nicht erneut durchsucht. Ihre internen Seiten-"
+"Links werden nach den serverseitigen Routing-Regeln lokalisiert und niemals "
+"an den Übersetzungsanbieter gesendet. Version 0.12.6 berücksichtigt bei "
+"öffentlichen Inhaltstypen deren Anzeigeeignung gemäß WordPress-Core. "
+"Integrierte Seiten bleiben dadurch in der mehrsprachigen Sitemap; nicht "
+"anzeigbare Inhaltstypen von Page-Buildern bleiben ausgeschlossen. "
+"Öffentliche Taxonomien müssen weiterhin öffentlich abfragbar sein. Version "
+"0.12.7 liest projektweite Einstellungen zu Sprachen, Weiterleitungen, KI-"
+"Kennzeichnung und automatischer Übersetzung aus einem einzigen "
+"authentifizierten, versionierten SaaS-Konfigurationsstand. WordPress stellt "
+"gültige zwischengespeicherte Übersetzungen weiterhin bereit, wenn die "
+"automatische Erzeugung deaktiviert ist. Nach einem Sprachwechsel entfernt es"
+" überholte Vorbereitungsaufträge und verhindert, dass Rückfälle auf "
+"ausschließlich zwischengespeicherte Inhalte in der Ausgangssprache unter "
+"einer Ziel-URL in vollständige Seiten-Caches gelangen. Version 0.12.8 "
+"übersetzt allgemeine ARIA-Beschriftungen im Seiteninhalt, Titel-Tooltips von"
+" Bildern und lesbare RSS- oder Atom-Feed-Titel. Gewöhnliche Link-Metadaten "
+"werden dabei nicht an Anbieter gesendet, und leere Werte im Übersetzungs-"
+"Cache werden zurückgewiesen. Version 0.12.9 ergänzt sprachspezifische "
+"Bildersetzungen auf derselben Website für serverseitig gerenderte responsive"
+" und verzögert geladene Bilder. Ausgeschlossene und unsichere Inhalte "
+"bleiben erhalten. Version 0.12.10 ergänzt Dokument-Links sowie unterstützte "
+"Video-URLs und Video-Einbettungen."
+
+#. Found in faq paragraph.
+msgid ""
+"Since version 0.12.4, translated cache values also use a separate versioned,"
+" checksummed ASCII-safe key space. Existing non-empty plain-string cache "
+"entries remain readable. A cache write counts as complete only after an "
+"exact readback; failed writes stay queued, their page cache is not purged, "
+"and inline responses remain non-cacheable until the translation is durable. "
+"Version 0.12.8 rejects empty and whitespace-only translations on both cache "
+"writes and reads, including legacy cache values."
+msgstr ""
+"Seit Version 0.12.4 verwenden auch übersetzte Cache-Werte einen eigenen "
+"versionierten, durch Prüfsummen abgesicherten und ASCII-kompatiblen "
+"Schlüsselraum. Vorhandene nicht leere Cache-Einträge als einfache "
+"Zeichenketten bleiben lesbar. Ein Schreibvorgang im Cache gilt erst nach "
+"exakt übereinstimmendem Zurücklesen als abgeschlossen. Fehlgeschlagene "
+"Schreibvorgänge bleiben in der Warteschlange, ihr Seiten-Cache wird nicht "
+"geleert, und direkt erzeugte Antworten bleiben vom Caching ausgeschlossen, "
+"bis die Übersetzung dauerhaft gespeichert ist. Version 0.12.8 weist beim "
+"Schreiben und Lesen des Caches leere oder ausschließlich aus Leerraum "
+"bestehende Übersetzungen zurück, einschließlich älterer Cache-Werte."
+
+#. Found in faq paragraph.
+msgid ""
+"Since version 0.12.3, the text and URL queues use a versioned, checksummed "
+"ASCII-safe storage envelope. This preserves valid Unicode, including emoji, "
+"even on legacy WordPress option tables that cannot store four-byte UTF-8 "
+"directly. Existing queue arrays migrate automatically; damaged queue data is"
+" rejected without being overwritten or deleted during disabled cleanup. A "
+"separate short atomic lock couples text and URL queue reconciliation with "
+"cache purging, and lease fencing stops stale owners from committing only one"
+" side. Translation-provider requests remain outside that lock. If a cold "
+"render cannot durably enqueue both sides, its source-language response is "
+"marked non-cacheable so a later request can retry."
+msgstr ""
+"Seit Version 0.12.3 verwenden die Text- und URL-Warteschlangen eine "
+"versionierte, durch Prüfsummen abgesicherte und ASCII-kompatible "
+"Speicherhülle. Sie erhält gültiges Unicode einschließlich Emojis auch in "
+"älteren WordPress-Optionstabellen, die Vier-Byte-UTF-8 nicht direkt "
+"speichern können. Vorhandene Warteschlangen-Arrays werden automatisch "
+"migriert. Beschädigte Warteschlangendaten werden zurückgewiesen, ohne bei "
+"deaktivierter Bereinigung überschrieben oder gelöscht zu werden. Eine "
+"separate kurze atomare Sperre verbindet den Abgleich der Text- und URL-"
+"Warteschlangen mit dem Leeren der Caches. Die Absicherung der "
+"Sperrberechtigung verhindert, dass veraltete Besitzer nur eine Seite "
+"festschreiben. Anfragen an Übersetzungsanbieter erfolgen außerhalb dieser "
+"Sperre. Kann ein erstmaliges Rendern beide Seiten nicht dauerhaft in die "
+"Warteschlange aufnehmen, wird seine Antwort in der Ausgangssprache als nicht"
+" cachebar markiert, damit eine spätere Anfrage es erneut versuchen kann."
+
+#. Found in faq paragraph.
+msgid ""
+"Since version 0.12.0, ordinary page requests do not wait for a slow "
+"translation provider. The first view queues uncached text for an immediately"
+" due WP-Cron job and, once both are stored, makes one non-blocking WP-Cron "
+"nudge in the same request. The nudge is skipped for DISABLE_WP_CRON and "
+"while cron is already running. After the job succeeds, Deepglot stores the "
+"translations locally and purges completed URLs in WP Rocket, W3 Total Cache,"
+" and LiteSpeed Cache. Because WP Super Cache exposes only a global purge, "
+"Deepglot waits until the tracked queue is empty so pending pages stay "
+"cached. If later views remain in the source language, verify that WP-Cron or"
+" the host's system cron is running and purge any other page-cache plugin "
+"manually."
+msgstr ""
+"Seit Version 0.12.0 warten gewöhnliche Seitenanfragen nicht auf einen "
+"langsamen Übersetzungsanbieter. Beim ersten Aufruf wird nicht "
+"zwischengespeicherter Text für einen sofort fälligen WP-Cron-Auftrag in die "
+"Warteschlange aufgenommen. Sobald beides gespeichert ist, wird innerhalb "
+"derselben Anfrage ein nicht blockierender WP-Cron-Anstoß ausgelöst. Bei "
+"DISABLE_WP_CRON und während Cron bereits läuft, entfällt dieser Anstoß. Nach"
+" erfolgreichem Abschluss speichert Deepglot die Übersetzungen lokal und "
+"leert die Caches abgeschlossener URLs in WP Rocket, W3 Total Cache und "
+"LiteSpeed Cache. Da WP Super Cache nur ein vollständiges Leeren anbietet, "
+"wartet Deepglot, bis die erfasste Warteschlange leer ist. Noch ausstehende "
+"Seiten bleiben so im Cache. Zeigen spätere Aufrufe weiterhin die "
+"Ausgangssprache, prüfen Sie, ob WP-Cron oder der System-Cron des Hosts "
+"läuft, und leeren Sie andere Seiten-Cache-Plugins manuell."
+
+#. Found in faq paragraph.
+msgid ""
+"A permanent <code>422 velocity_request_too_large</code> means one request "
+"cannot fit the hourly policy even in an empty window. The WordPress warmer "
+"automatically splits a multi-text 422 batch under its existing six-batch run"
+" budget. Every 422 batch shape is tracked for up to one hour by a "
+"configuration-bound HMAC fingerprint to drive bounded splitting; only a text"
+" that still returns 422 alone is blocked from automatic resend. The marker "
+"stores no raw translation text, API key, or URL. Normal following batches "
+"continue, and an API key or backend change heals the marker immediately. The"
+" plugin keeps source language content available and does not schedule an "
+"automatic timer retry for that singleton response. API requests and PDFs "
+"must still be split into smaller inputs by clients."
+msgstr ""
+"Ein dauerhafter Fehler <code>422 velocity_request_too_large</code> bedeutet,"
+" dass eine einzelne Anfrage selbst in einem leeren Zeitfenster nicht in das "
+"stündliche Limit passt. Die WordPress-Hintergrundverarbeitung teilt einen "
+"422-Stapel mit mehreren Texten automatisch auf. Dabei gilt weiterhin ihr "
+"bestehendes Budget von sechs Stapeln pro Durchlauf. Jede "
+"422-Stapelzusammensetzung wird bis zu einer Stunde lang anhand eines an die "
+"Konfiguration gebundenen HMAC-Fingerabdrucks erfasst, um die begrenzte "
+"Aufteilung zu steuern. Nur ein Text, der auch allein noch 422 zurückgibt, "
+"wird vom automatischen erneuten Senden ausgeschlossen. Die Markierung "
+"speichert weder unverschlüsselten Übersetzungstext noch API-Schlüssel oder "
+"URL. Reguläre nachfolgende Stapel werden weiterverarbeitet. Ein Wechsel des "
+"API-Schlüssels oder Backends hebt die Markierung sofort auf. Das Plugin hält"
+" Inhalte in der Ausgangssprache verfügbar und plant für diese Einzeltext-"
+"Antwort keinen automatischen zeitgesteuerten Wiederholungsversuch. API-"
+"Anfragen und PDFs müssen weiterhin durch die Clients in kleinere Eingaben "
+"aufgeteilt werden."
+
+#. Found in faq paragraph.
+msgid ""
+"The plugin respects Retry-After as delta seconds or a strict RFC HTTP date, "
+"using a bounded delay of one second to one hour and a 60-second fallback for"
+" missing, relative, or invalid values. The first 429 stops the remaining "
+"sequential batches; parallel batches already in flight keep their own "
+"responses and the browser keeps the longest delay. An active 429 marker "
+"locally stops synchronous visual-editor and WooCommerce email calls and "
+"already-due warmer runs until <code>retry_at</code>. Only translation 429 "
+"responses set the active marker; configuration and synchronization 429 "
+"responses do not. The marker and warmer backoff are bound to the API key and"
+" backend. Configuration changes, late responses from the previous "
+"configuration, and legacy or unbound markers do not block new translations. "
+"Background warming waits for the bounded delay, and dynamic visitor requests"
+" are not immediately retried. Cached translations remain available while "
+"uncached content stays in the source language."
+msgstr ""
+"Das Plugin berücksichtigt Retry-After als Zeitspanne in Sekunden oder als "
+"HTTP-Datum im strikten RFC-Format. Die Wartezeit liegt zwischen einer "
+"Sekunde und einer Stunde; bei fehlenden, relativen oder ungültigen Werten "
+"beträgt sie 60 Sekunden. Die erste 429-Antwort stoppt die verbleibenden "
+"aufeinanderfolgenden Stapel. Bereits laufende parallele Stapel behalten ihre"
+" eigenen Antworten, und der Browser verwendet die längste Wartezeit. Eine "
+"aktive 429-Markierung stoppt lokal synchrone Aufrufe des visuellen Editors "
+"und für WooCommerce-E-Mails sowie bereits fällige Hintergrunddurchläufe bis "
+"<code>retry_at</code>. Nur 429-Antworten für Übersetzungen setzen diese "
+"aktive Markierung. 429-Antworten für Konfiguration und Synchronisierung tun "
+"dies nicht. Die Markierung und die Wartezeit der Hintergrundverarbeitung "
+"sind an API-Schlüssel und Backend gebunden. Konfigurationsänderungen, "
+"verspätete Antworten der vorherigen Konfiguration sowie ältere oder "
+"ungebundene Markierungen blockieren keine neuen Übersetzungen. Die Cache-"
+"Vorbereitung im Hintergrund wartet die begrenzte Zeit ab; dynamische "
+"Besucheranfragen werden nicht sofort wiederholt. Zwischengespeicherte "
+"Übersetzungen bleiben verfügbar, während nicht zwischengespeicherte Inhalte "
+"in der Ausgangssprache bleiben."
+
+#. Found in faq paragraph.
+msgid ""
+"Change these project-wide values in the Deepglot dashboard. After the plugin"
+" receives an authenticated, versioned runtime snapshot, WordPress displays "
+"them as read-only mirrors. Entering a different API key or backend "
+"temporarily unlocks the mirror values for a valid bootstrap request; the new"
+" project's runtime snapshot then replaces them."
+msgstr ""
+"Ändern Sie diese projektweiten Werte im Deepglot-Dashboard. Nachdem das "
+"Plugin einen authentifizierten, versionierten Laufzeit-Konfigurationsstand "
+"erhalten hat, zeigt WordPress die Werte als schreibgeschützte Kopien an. Die"
+" Eingabe eines anderen API-Schlüssels oder Backends entsperrt diese Werte "
+"vorübergehend für eine gültige Initialisierungsanfrage. Der Laufzeit-"
+"Konfigurationsstand des neuen Projekts ersetzt sie anschließend."
+
+#. Found in faq header.
+msgid "How do I translate existing pages without opening every URL?"
+msgstr "Wie übersetze ich vorhandene Seiten, ohne jede URL aufzurufen?"
+
+#. Found in faq header.
+msgid "What happens when Deepglot returns HTTP 429?"
+msgstr "Was geschieht, wenn Deepglot HTTP 429 zurückgibt?"
+
+#. Found in faq header.
+msgid ""
+"Where do I change the source language, target languages, and automatic "
+"redirect?"
+msgstr ""
+"Wo ändere ich die Ausgangssprache, Zielsprachen und automatische "
+"Weiterleitung?"
+
+#. Found in installation list item.
+msgid ""
+"Open <code>Settings -&gt; Deepglot</code>, enter the API base URL and API "
+"key, then configure WordPress-owned routing, switcher, and exclusion "
+"settings."
+msgstr ""
+"Öffnen Sie <code>Einstellungen -&gt; Deepglot</code>, geben Sie die API-"
+"Basis-URL und den API-Schlüssel ein und konfigurieren Sie anschließend die "
+"von WordPress verwalteten Einstellungen für Routing, Sprachschalter und "
+"Ausschlüsse."
+
+#. Found in installation list item.
+msgid ""
+"Create the project and its source and target languages in the Deepglot "
+"dashboard."
+msgstr ""
+"Erstellen Sie das Projekt mit seiner Ausgangssprache und seinen Zielsprachen"
+" im Deepglot-Dashboard."
+
+#. Found in description paragraph.
+msgid ""
+"For translation requests, the plugin sends the configured API key, text "
+"fragments from rendered pages, source and target language codes, the "
+"requested page URL, and a bot-classification code. It sends these requests "
+"when uncached content needs translation, when an administrator starts URL "
+"synchronization, or when an administrator tests the connection. URL "
+"synchronization first requests safe internal target pages on the same "
+"WordPress site; those pages feed missing segments into the normal "
+"translation queue. Dynamic translation requests first pass through the "
+"site's same-origin WordPress REST endpoint, so the API key is not exposed to"
+" browsers."
+msgstr ""
+"Bei Übersetzungsanfragen sendet das Plugin den konfigurierten API-Schlüssel,"
+" Textfragmente gerenderter Seiten, die Sprachcodes der Ausgangs- und "
+"Zielsprache, die URL der angeforderten Seite und einen Code zur Bot-"
+"Klassifizierung. Es sendet diese Anfragen, wenn nicht zwischengespeicherte "
+"Inhalte übersetzt werden müssen, ein Administrator die URL-Synchronisierung "
+"startet oder ein Administrator die Verbindung testet. Die URL-"
+"Synchronisierung ruft zunächst sichere interne Zielseiten auf derselben "
+"WordPress-Website ab. Diese Seiten speisen fehlende Segmente in die reguläre"
+" Übersetzungswarteschlange ein. Dynamische Übersetzungsanfragen laufen "
+"zuerst über den WordPress-REST-Endpunkt der Website mit demselben Ursprung, "
+"sodass der API-Schlüssel nicht im Browser offengelegt wird."
+
+#. Found in description list item.
+msgid ""
+"Lets administrators synchronize a bounded sitemap URL snapshot through the "
+"existing background translation queue."
+msgstr ""
+"Ermöglicht Administratoren, einen begrenzten Stand der Sitemap-URLs über die"
+" vorhandene Übersetzungswarteschlange im Hintergrund zu synchronisieren."
+
+#. Found in faq paragraph.
+msgid ""
+"Cached translations remain available. Uncached content falls back to the "
+"source language, and administrators see a quota notice."
+msgstr ""
+"Zwischengespeicherte Übersetzungen bleiben verfügbar. Nicht "
+"zwischengespeicherte Inhalte werden in der Ausgangssprache angezeigt, und "
+"Administratoren erhalten einen Hinweis zum Kontingent."
+
+#. Found in faq paragraph.
+msgid ""
+"No. Translation happens on rendered output. Source content remains in the "
+"original WordPress posts and pages."
+msgstr ""
+"Nein. Übersetzt wird die gerenderte Ausgabe. Die Ausgangsinhalte bleiben in "
+"den ursprünglichen WordPress-Beiträgen und -Seiten erhalten."
+
+#. Found in faq paragraph.
+msgid ""
+"Yes. Use an account at https://deepglot.ai or configure a compatible self-"
+"hosted Deepglot service."
+msgstr ""
+"Ja. Verwenden Sie ein Konto auf https://deepglot.ai oder konfigurieren Sie "
+"einen kompatiblen selbst gehosteten Deepglot-Dienst."
+
+#. Found in faq header.
+msgid "Why can the first translated page view still show the source language?"
+msgstr ""
+"Warum kann der erste Aufruf einer übersetzten Seite noch die Ausgangssprache"
+" anzeigen?"
+
+#. Found in faq header.
+msgid "What happens when the quota is exhausted?"
+msgstr "Was geschieht, wenn das Kontingent ausgeschöpft ist?"
+
+#. Found in faq header.
+msgid "Does the plugin duplicate posts?"
+msgstr "Dupliziert das Plugin Beiträge?"
+
+#. Found in faq header.
+msgid "Do I need a Deepglot account?"
+msgstr "Benötige ich ein Deepglot-Konto?"
+
+#. Found in installation list item.
+msgid "Activate Deepglot."
+msgstr "Aktivieren Sie Deepglot."
+
+#. Found in installation list item.
+msgid ""
+"Upload the release ZIP under <code>Plugins -&gt; Add New -&gt; Upload "
+"Plugin</code>."
+msgstr ""
+"Laden Sie die ZIP-Datei der Veröffentlichung unter <code>Plugins -&gt; Neues"
+" Plugin hinzufügen -&gt; Plugin hochladen</code> hoch."
+
+#. Found in description paragraph.
+msgid ""
+"Deepglot returns translated text, language and quota status, and the "
+"synchronized project configuration described above. Review the service "
+"policies before enabling the hosted service:"
+msgstr ""
+"Deepglot gibt übersetzten Text, den Sprach- und Kontingentstatus sowie die "
+"oben beschriebene synchronisierte Projektkonfiguration zurück. Prüfen Sie "
+"die Richtlinien des Dienstes, bevor Sie den gehosteten Dienst aktivieren:"
+
+#. Found in description paragraph.
+msgid ""
+"Starting the Visual Editor verifies its token through the project-scoped "
+"<code>editor-sessions/verify</code> endpoint. Saving a manual translation "
+"sends the token, original and translated text, source and target language "
+"codes, and the request URL to the project-scoped <code>manual-"
+"translations</code> endpoint."
+msgstr ""
+"Beim Start des visuellen Editors wird dessen Token über den auf das Projekt "
+"beschränkten Endpunkt <code>editor-sessions/verify</code> geprüft. Beim "
+"Speichern einer manuellen Übersetzung werden das Token, der ursprüngliche "
+"und der übersetzte Text, die Sprachcodes der Ausgangs- und Zielsprache sowie"
+" die Anfrage-URL an den auf das Projekt beschränkten Endpunkt <code>manual-"
+"translations</code> gesendet."
+
+#. Found in description paragraph.
+msgid ""
+"By default, this plugin connects to the Deepglot service at "
+"<code>https://deepglot.ai/api/</code>. A compatible self-hosted API base URL"
+" can be selected in the settings."
+msgstr ""
+"Standardmäßig verbindet sich dieses Plugin mit dem Deepglot-Dienst unter "
+"<code>https://deepglot.ai/api/</code>. In den Einstellungen lässt sich eine "
+"kompatible selbst gehostete API-Basis-URL auswählen."
+
+#. Found in description paragraph.
+msgid ""
+"Development source and release build instructions are available at "
+"https://github.com/ostheimer/deepglot."
+msgstr ""
+"Der Quellcode und die Anleitung zum Erstellen von Veröffentlichungen sind "
+"unter https://github.com/ostheimer/deepglot verfügbar."
+
+#. Found in description paragraph.
+msgid ""
+"Deepglot translates rendered WordPress pages through the Deepglot "
+"translation API and serves each visitor a localized site without duplicating"
+" posts."
+msgstr ""
+"Deepglot übersetzt gerenderte WordPress-Seiten über die Deepglot-"
+"Übersetzungs-API und stellt jedem Besucher eine lokalisierte Website bereit,"
+" ohne Beiträge zu duplizieren."
+
+#. Found in description list item.
+msgid "Privacy policy: https://deepglot.ai/privacy"
+msgstr "Datenschutzerklärung: https://deepglot.ai/privacy"
+
+#. Found in description list item.
+msgid "Terms of service: https://deepglot.ai/terms"
+msgstr "Nutzungsbedingungen: https://deepglot.ai/terms"
+
+#. Found in description list item.
+msgid ""
+"Optionally translates dynamically loaded content through a same-origin "
+"WordPress REST endpoint."
+msgstr ""
+"Übersetzt auf Wunsch dynamisch geladene Inhalte über einen WordPress-REST-"
+"Endpunkt mit demselben Ursprung."
+
+#. Found in description list item.
+msgid ""
+"Caches translations locally and serves cached translations to crawlers "
+"without spending quota."
+msgstr ""
+"Speichert Übersetzungen lokal im Cache und stellt sie Crawlern ohne "
+"Verbrauch des Kontingents bereit."
+
+#. Found in description list item.
+msgid ""
+"Provides shortcode, block, widget, nav-menu, and automatic language "
+"switchers."
+msgstr ""
+"Bietet Sprachschalter als Shortcode, Block, Widget, Menüeintrag und "
+"automatische Einblendung."
+
+#. Found in description list item.
+msgid ""
+"Adds canonical and <code>hreflang</code> tags plus a multilingual sitemap."
+msgstr ""
+"Ergänzt Canonical- und <code>hreflang</code>-Tags sowie eine mehrsprachige "
+"Sitemap."
+
+#. Found in description list item.
+msgid ""
+"Rewrites internal links and SaaS-managed translated URL slugs for path-"
+"prefix or subdomain routing."
+msgstr ""
+"Schreibt interne Links und SaaS-verwaltete übersetzte URL-Titelformen für "
+"Routing mit Sprachpräfixen oder Subdomains um."
+
+#. Found in description list item.
+msgid ""
+"Translates text, metadata, accessibility attributes, and JSON-LD structured "
+"data."
+msgstr ""
+"Übersetzt Text, Metadaten, Attribute zur Barrierefreiheit und strukturierte "
+"JSON-LD-Daten."
+
+#. Found in description header.
+msgid "External services"
+msgstr "Externe Dienste"
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Migrated bundled language catalogs, corrected Swedish UI translations, and "
+"preserved German and formal German output when older WordPress.org language "
+"packs are installed."
+msgstr ""
+"Mitgelieferte Sprachkataloge migriert, schwedische Oberflächentexte "
+"korrigiert und deutsche sowie formelle deutsche Ausgaben auch bei "
+"installierten älteren WordPress.org-Sprachpaketen erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Changed plugin interface and block-editor source strings to US English and "
+"extracted previously hardcoded Visual Editor and flag-label text for "
+"translation."
+msgstr ""
+"Plugin-Oberflächentexte und Quelltexte des Block-Editors auf US-Englisch "
+"umgestellt und zuvor fest codierte Texte im visuellen Editor und "
+"Flaggenbeschriftungen für Übersetzungen zugänglich gemacht."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added custom language names, selector placement for the default switcher, "
+"and revision acknowledgements."
+msgstr ""
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added a versioned, opt-in dashboard language-switcher editor while "
+"preserving WordPress settings and surfacing local-edit conflicts."
+msgstr ""
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Translated Recipe ingredients and instruction text in JSON-LD, and localized"
+" internal page and breadcrumb identities plus their exact graph references "
+"without changing shared entity, media, or external identifiers."
+msgstr ""
+"Zutaten und Anweisungstexte von Recipe in JSON-LD übersetzt und interne "
+"Seiten- und Navigationspfad-Identitäten samt ihren exakten Graph-Verweisen "
+"lokalisiert, ohne gemeinsame Entitäts-, Medien- oder externe Kennungen zu "
+"ändern."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Supported plain-text Recipe instructions, cross-script page references, "
+"padded page URLs, and compact schema type IRIs in JSON-LD localization."
+msgstr ""
+"Recipe-Anweisungen als Klartext, scriptübergreifende Seitenverweise, Seiten-"
+"URLs mit umgebendem Leerraum und kompakte Schema-Typ-IRIs bei der JSON-LD-"
+"Lokalisierung unterstützt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved JSON-LD context definitions while resolving local Schema.org "
+"aliases, enriched page references, and URL/reference arrays with consistent "
+"context-aware traversal."
+msgstr ""
+"JSON-LD-Kontextdefinitionen beim Auflösen lokaler Schema.org-Aliasse "
+"erhalten und angereicherte Seitenverweise sowie URL- und Verweis-Arrays "
+"konsistent unter Berücksichtigung des Kontexts durchlaufen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Resolved ordinary JSON-LD class aliases and localized Article subtypes and "
+"generic typed breadcrumb targets while preserving shared/media entities."
+msgstr ""
+"Gewöhnliche JSON-LD-Klassenaliase aufgelöst und Article-Untertypen sowie "
+"allgemein typisierte Navigationspfad-Ziele lokalisiert; gemeinsame Entitäten"
+" und Medienentitäten bleiben erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Supported local JSON-LD type/id keyword aliases and restricted relationship "
+"and graph-ID inference to untyped or exclusively generic Thing references."
+msgstr ""
+"Lokale JSON-LD-Aliasse für Typ- und ID-Schlüsselwörter unterstützt und das "
+"Ableiten von Beziehungen und Graph-IDs auf untypisierte oder ausschließlich "
+"allgemein als Thing typisierte Verweise beschränkt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Resolved supported Schema.org property aliases, matched scalar page "
+"references, and translated simple language-tagged value objects through the "
+"shared local context."
+msgstr ""
+"Unterstützte Schema.org-Eigenschaftsaliase aufgelöst, skalare Seitenverweise"
+" zugeordnet und einfache Wertobjekte mit Sprachkennzeichnung über den "
+"gemeinsamen lokalen Kontext übersetzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Collected relationship-established page IDs, recognized the official "
+"Schema.org context URL locally, and expanded internal compact page IRIs "
+"before routing."
+msgstr ""
+"Durch Beziehungen bestimmte Seiten-IDs gesammelt, die offizielle Schema.org-"
+"Kontext-URL lokal erkannt und interne kompakte Seiten-IRIs vor dem Routing "
+"erweitert."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Canonicalized equivalent internal graph identities, propagated page "
+"reachability with a work queue, and preserved IRI-coerced language values."
+msgstr ""
+"Gleichwertige interne Graph-Identitäten vereinheitlicht, die Erreichbarkeit "
+"von Seiten über eine Arbeitswarteschlange weitergegeben und durch IRI-"
+"Typumwandlung bestimmte Sprachwerte erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved raw ampersands, quotes, and literal entity text in translated "
+"metadata and accessibility attributes on fresh and cached renders, including"
+" the visual editor."
+msgstr ""
+"Unverarbeitete kaufmännische Und-Zeichen, Anführungszeichen und wörtlichen "
+"Entitätstext in übersetzten Metadaten und Attributen zur Barrierefreiheit "
+"bei frischen und zwischengespeicherten Ausgaben erhalten, einschließlich des"
+" visuellen Editors."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Fixed source URL checks with URL synchronization configured and preserved "
+"canonical source exclusions when validating signed localized sync requests."
+msgstr ""
+"Prüfungen der Ausgangs-URL bei konfigurierter URL-Synchronisierung "
+"korrigiert und kanonische Ausschlüsse der Ausgangssprache beim Validieren "
+"signierter lokalisierter Synchronisierungsanfragen erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Honored no-translate subtrees and configured class or ID exclusions for "
+"media replacements."
+msgstr ""
+"Von der Übersetzung ausgeschlossene Teilbäume und konfigurierte Klassen- "
+"oder ID-Ausschlüsse bei Medienersetzungen berücksichtigt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Safely rewrote regular, responsive, and lazy-loaded image URLs while "
+"preserving malformed or unsafe values and keeping picture-source MIME hints "
+"consistent."
+msgstr ""
+"URLs regulärer, responsiver und verzögert geladener Bilder sicher "
+"umgeschrieben, fehlerhafte oder unsichere Werte erhalten und MIME-Hinweise "
+"von picture-Quellen konsistent gehalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added project- and target-language-specific same-site image replacements for"
+" server-rendered media."
+msgstr ""
+"Projekt- und zielsprachenspezifische Bildersetzungen auf derselben Website "
+"für serverseitig gerenderte Medien ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved file URLs through language routing and purged known page caches "
+"when a media mapping snapshot changes."
+msgstr ""
+"Datei-URLs beim Sprachrouting erhalten und bekannte Seiten-Caches bei "
+"Änderungen des Konfigurationsstands der Medienzuordnungen geleert."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added locale-specific PDF, DOCX, XLSX, PPTX, MP4, WebM, YouTube, YouTube-"
+"nocookie, and Vimeo URL replacement for server-rendered links and video "
+"embeds."
+msgstr ""
+"Sprachspezifische URL-Ersetzungen für PDF, DOCX, XLSX, PPTX, MP4, WebM, "
+"YouTube, YouTube-nocookie und Vimeo in serverseitig gerenderten Links und "
+"Video-Einbettungen ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added administrator-triggered URL synchronization from a bounded internal "
+"sitemap snapshot, with progress, pause, resume, cancel, backpressure, retry,"
+" quota, and invalid-key controls."
+msgstr ""
+"Durch Administratoren ausgelöste URL-Synchronisierung aus einem begrenzten "
+"internen Sitemap-Stand ergänzt, einschließlich Fortschritt, Pausieren, "
+"Fortsetzen, Abbrechen, Lastbegrenzung, Wiederholungsversuchen und Steuerung "
+"bei ausgeschöpftem Kontingent oder ungültigem Schlüssel."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Corrected stale same-host HTTP targets to HTTPS during URL-sync preview when"
+" WordPress recognizes the current request as HTTPS, while preserving "
+"semantic query parameters and fragments and never copying a foreign request "
+"host."
+msgstr ""
+"Veraltete HTTP-Ziele auf demselben Host während der URL-"
+"Synchronisierungsvorschau zu HTTPS korrigiert, wenn WordPress die aktuelle "
+"Anfrage als HTTPS erkennt. Bedeutungsrelevante Abfrageparameter und "
+"Fragmente bleiben erhalten; ein fremder Anfrage-Host wird niemals "
+"übernommen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved bounded Retry-After signals on HTTP 429, stopped later sequential "
+"batches, and delayed warm and dynamic follow-up requests instead of "
+"immediately retrying."
+msgstr ""
+"Begrenzte Retry-After-Signale bei HTTP 429 erhalten, spätere "
+"aufeinanderfolgende Stapel gestoppt und Folgeanfragen der "
+"Hintergrundvorbereitung und dynamischen Übersetzung verzögert, statt sie "
+"sofort zu wiederholen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Assigned a new public asset version to the Retry-After-aware dynamic "
+"translator so WordPress and intermediary caches do not keep serving the "
+"older browser behavior."
+msgstr ""
+"Dem dynamischen Übersetzer mit Retry-After-Unterstützung eine neue "
+"öffentliche Dateiversion zugewiesen, damit WordPress und zwischengeschaltete"
+" Caches nicht weiter das ältere Browserverhalten ausliefern."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Verified one safe same-origin canonical redirect in the requested target "
+"language during URL synchronization without enabling automatic redirect "
+"following."
+msgstr ""
+"Bei der URL-Synchronisierung eine sichere kanonische Weiterleitung mit "
+"demselben Ursprung in der angeforderten Zielsprache geprüft, ohne das "
+"automatische Folgen von Weiterleitungen zu aktivieren."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Coupled text and purge-target mutations with a short atomic lock while "
+"keeping translation-provider work outside the lock."
+msgstr ""
+"Änderungen an Texten und Zielen der Cache-Leerung über eine kurze atomare "
+"Sperre verbunden; die Verarbeitung durch Übersetzungsanbieter bleibt "
+"außerhalb der Sperre."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Kept existing queue arrays backward compatible and rejected damaged queue "
+"persistence without silently replacing it."
+msgstr ""
+"Vorhandene Warteschlangen-Arrays abwärtskompatibel gehalten und beschädigte "
+"dauerhaft gespeicherte Warteschlangen zurückgewiesen, ohne sie "
+"stillschweigend zu ersetzen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved background text and URL queues containing emoji or other four-byte"
+" Unicode on legacy WordPress option tables through an ASCII-safe, "
+"checksummed storage envelope."
+msgstr ""
+"Text- und URL-Warteschlangen im Hintergrund mit Emojis oder anderem Vier-"
+"Byte-Unicode in älteren WordPress-Optionstabellen durch eine ASCII-"
+"kompatible Speicherhülle mit Prüfsumme erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Retained failed cache writes in the background text and URL queues and "
+"prevented incomplete inline results from entering full-page caches."
+msgstr ""
+"Fehlgeschlagene Cache-Schreibvorgänge in den Text- und URL-Warteschlangen im"
+" Hintergrund belassen und verhindert, dass unvollständige direkt erzeugte "
+"Ergebnisse in vollständige Seiten-Caches gelangen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Kept existing plain-string cache entries readable through a separate "
+"versioned key space with canonical Base64URL and key-bound integrity checks."
+msgstr ""
+"Vorhandene Cache-Einträge als einfache Zeichenketten durch einen separaten "
+"versionierten Schlüsselraum mit kanonischem Base64URL und "
+"schlüsselgebundenen Integritätsprüfungen lesbar gehalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved translated cache values containing emoji or other four-byte "
+"Unicode on legacy three-byte WordPress option tables."
+msgstr ""
+"Übersetzte Cache-Werte mit Emojis oder anderem Vier-Byte-Unicode in älteren "
+"WordPress-Optionstabellen mit Drei-Byte-Zeichensatz erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Excluded public but non-queryable builder content types and taxonomies from "
+"the multilingual sitemap and URL synchronization inventory."
+msgstr ""
+"Öffentliche, aber nicht abfragbare Inhaltstypen von Page-Buildern und "
+"Taxonomien aus der mehrsprachigen Sitemap und dem URL-"
+"Synchronisierungsbestand ausgeschlossen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Localized internal links inside dynamic widgets with the server-side routing"
+" rules while keeping URLs out of translation-provider requests."
+msgstr ""
+"Interne Links in dynamischen Widgets nach den serverseitigen Routing-Regeln "
+"lokalisiert und URLs aus Anfragen an Übersetzungsanbieter herausgehalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Translated configured cookie-consent widgets that render before the dynamic "
+"footer observer starts without rescanning the normal server-rendered page."
+msgstr ""
+"Konfigurierte Widgets zur Cookie-Einwilligung übersetzt, die vor dem Start "
+"der dynamischen Footer-Überwachung gerendert werden, ohne die reguläre "
+"serverseitig gerenderte Seite erneut zu durchsuchen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Kept non-viewable builder content types, attachments, and non-queryable "
+"taxonomies out of multilingual discovery."
+msgstr ""
+"Nicht anzeigbare Inhaltstypen von Page-Buildern, Anhänge und nicht "
+"abfragbare Taxonomien von der mehrsprachigen Erfassung ausgeschlossen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Restored built-in public pages to the multilingual sitemap and URL "
+"synchronization inventory by following WordPress core post-type viewability."
+msgstr ""
+"Integrierte öffentliche Seiten durch Berücksichtigung der Anzeigeeignung von"
+" Inhaltstypen gemäß WordPress-Core wieder in die mehrsprachige Sitemap und "
+"den URL-Synchronisierungsbestand aufgenommen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved key-switch bootstrap values until the new project snapshot "
+"arrives, reconciled obsolete language warm-up state, kept cache hits "
+"available when fresh generation is disabled, and prevented target-URL "
+"caching of source-language fallbacks."
+msgstr ""
+"Initialisierungswerte beim Schlüsselwechsel bis zum Eintreffen des neuen "
+"Projekt-Konfigurationsstands erhalten, überholte Sprachvorbereitungsdaten "
+"abgeglichen, Cache-Treffer bei deaktivierter neuer Erzeugung verfügbar "
+"gehalten und das Caching von Rückfällen auf die Ausgangssprache unter Ziel-"
+"URLs verhindert."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Displayed SaaS-owned project settings as explicit read-only mirrors in wp-"
+"admin and rejected WordPress REST writes to source language, target "
+"languages, and automatic redirect."
+msgstr ""
+"Von SaaS verwaltete Projekteinstellungen in wp-admin ausdrücklich als "
+"schreibgeschützte Kopien angezeigt und WordPress-REST-Schreibzugriffe auf "
+"Ausgangssprache, Zielsprachen und automatische Weiterleitung zurückgewiesen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Made the authenticated Deepglot project authoritative for source language, "
+"target languages, automatic redirect, AI disclosure, and automatic-"
+"translation policy through one versioned runtime snapshot."
+msgstr ""
+"Das authentifizierte Deepglot-Projekt durch einen einzigen versionierten "
+"Laufzeit-Konfigurationsstand für Ausgangssprache, Zielsprachen, automatische"
+" Weiterleitung, KI-Kennzeichnung und Richtlinie zur automatischen "
+"Übersetzung maßgeblich gemacht."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Rejected empty and whitespace-only translations on cache writes and reads, "
+"including legacy plain-string values."
+msgstr ""
+"Leere und ausschließlich aus Leerraum bestehende Übersetzungen beim "
+"Schreiben und Lesen des Caches zurückgewiesen, einschließlich älterer "
+"einfacher Zeichenketten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Translated human-readable RSS and Atom feed titles without sending ordinary "
+"link metadata to the translation provider."
+msgstr ""
+"Lesbare RSS- und Atom-Feed-Titel übersetzt, ohne gewöhnliche Link-Metadaten "
+"an den Übersetzungsanbieter zu senden."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Translated generic ARIA labels in page content and image title tooltips on "
+"both the server and the bounded dynamic-content pass."
+msgstr ""
+"Allgemeine ARIA-Beschriftungen im Seiteninhalt und Titel-Tooltips von "
+"Bildern sowohl auf dem Server als auch im begrenzten Durchlauf für "
+"dynamische Inhalte übersetzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added independent switcher instances, templates, visual placement, AMP "
+"handling, and a multilingual sitemap."
+msgstr ""
+"Unabhängige Sprachschalter-Instanzen, Templates, visuelle Platzierung, AMP-"
+"Verarbeitung und eine mehrsprachige Sitemap ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Excluded switcher CSS from WP Rocket used-CSS and minification pipelines."
+msgstr ""
+"Sprachschalter-CSS von den WP-Rocket-Verarbeitungsschritten für verwendetes "
+"CSS und Minifizierung ausgeschlossen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved raw UTF-8 through DOM serialization, including emoji and umlauts "
+"in scripts and styles."
+msgstr ""
+"Unverarbeitetes UTF-8 bei der DOM-Serialisierung erhalten, einschließlich "
+"Emojis und Umlauten in Scripts und Styles."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Kept multilingual sitemap discovery when late renderers such as Yoast SEO "
+"replace <code>robots.txt</code> output."
+msgstr ""
+"Die Erfassung der mehrsprachigen Sitemap erhalten, wenn spät ausgeführte "
+"Renderer wie Yoast SEO die Ausgabe von <code>robots.txt</code> ersetzen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Prevented intermediary caches from preserving stale virtual "
+"<code>robots.txt</code> responses."
+msgstr ""
+"Verhindert, dass zwischengeschaltete Caches veraltete virtuelle "
+"<code>robots.txt</code>-Antworten behalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Updated dashboard links and localized setup copy from deepglot.app to "
+"deepglot.ai."
+msgstr ""
+"Dashboard-Links und lokalisierte Einrichtungstexte von deepglot.app auf "
+"deepglot.ai aktualisiert."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added the refreshed Deepglot admin branding, packaged logo, and orange "
+"visual-editor accents."
+msgstr ""
+"Die erneuerte Deepglot-Gestaltung im Administrationsbereich, das "
+"mitgelieferte Logo und orangefarbene Akzente des visuellen Editors ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid "Excluded WordPress infrastructure paths from translation routing."
+msgstr "WordPress-Infrastrukturpfade vom Übersetzungsrouting ausgeschlossen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added bounded runtime-config refresh and dedicated persisted slug mappings."
+msgstr ""
+"Begrenzte Aktualisierung der Laufzeitkonfiguration und eigene dauerhaft "
+"gespeicherte Zuordnungen von Titelformen ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added SaaS-managed translated URL slugs for forward and reverse request "
+"routing."
+msgstr ""
+"SaaS-verwaltete übersetzte URL-Titelformen für vorwärts und rückwärts "
+"gerichtetes Anfragerouting ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Cleared WordPress.org Plugin Check errors for URL parsing, direct access, "
+"escaping, and translator comments."
+msgstr ""
+"WordPress.org-Plugin-Check-Fehler beim URL-Parsing, direkten Zugriff, "
+"Escaping und bei Übersetzerkommentaren behoben."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Restored full-language descriptions when the switcher displays ISO-code "
+"labels."
+msgstr ""
+"Vollständige Sprachbeschreibungen wiederhergestellt, wenn der Sprachschalter"
+" ISO-Code-Beschriftungen anzeigt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved whitespace-prefixed <code>mailto:</code> and <code>tel:</code> "
+"action links during URL rewriting."
+msgstr ""
+"Aktionslinks mit <code>mailto:</code> und <code>tel:</code> mit "
+"vorangestelltem Leerraum beim Umschreiben von URLs erhalten."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Cleared the invalid-key state immediately when a new API key or backend URL "
+"is saved."
+msgstr ""
+"Den Status für ungültige Schlüssel sofort zurückgesetzt, sobald ein neuer "
+"API-Schlüssel oder eine neue Backend-URL gespeichert wird."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added a wp-admin error notice and an \"Invalid API key\" settings status "
+"instead of a misleading active state."
+msgstr ""
+"Einen Fehlerhinweis in wp-admin und den Einstellungsstatus „API-Key "
+"ungültig“ anstelle eines irreführenden aktiven Status ergänzt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Detected a revoked or invalid API key (HTTP 401) and stopped retrying it on "
+"every page view."
+msgstr ""
+"Einen widerrufenen oder ungültigen API-Schlüssel (HTTP 401) erkannt und "
+"erneute Versuche bei jedem Seitenaufruf gestoppt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Allowed 30 seconds for translation batches and rejected malformed provider "
+"responses instead of accepting partial results."
+msgstr ""
+"Für Übersetzungsstapel 30 Sekunden eingeräumt und fehlerhafte "
+"Anbieterantworten zurückgewiesen, statt Teilergebnisse zu akzeptieren."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Redirected stale translated slugs to current localized URLs, preserved "
+"semantic query routing, and suppressed source-only Avada AJAX suggestions on"
+" target-language pages."
+msgstr ""
+"Veraltete übersetzte Titelformen auf aktuelle lokalisierte URLs "
+"weitergeleitet, Routing mit bedeutungsrelevanten Abfrageparametern erhalten "
+"und Avada-AJAX-Vorschläge, die ausschließlich in der Ausgangssprache "
+"vorliegen, auf Seiten in der Zielsprache unterdrückt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Hardened reciprocal canonical, hreflang, and multilingual sitemap output "
+"across source and translated routes."
+msgstr ""
+"Wechselseitige Canonical- und hreflang-Angaben sowie die Ausgabe der "
+"mehrsprachigen Sitemap über Ausgangs- und übersetzte Routen hinweg "
+"abgesichert."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Preserved numeric-looking source-slug mappings after persistence so existing"
+" translated routes remain resolvable."
+msgstr ""
+"Numerisch aussehende Zuordnungen von Ausgangs-Titelformen nach dem Speichern"
+" erhalten, damit vorhandene übersetzte Routen weiter aufgelöst werden "
+"können."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Extended the bounded translation request window to 60 seconds so valid cold "
+"large-page batches do not fall back to untranslated content."
+msgstr ""
+"Das begrenzte Zeitfenster für Übersetzungsanfragen auf 60 Sekunden "
+"erweitert, damit gültige erstmalige Stapel großer Seiten nicht auf "
+"unübersetzte Inhalte zurückfallen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Split content-heavy cold pages into ordered parallel requests bounded by "
+"2,000 UTF-8 source bytes and 200 strings."
+msgstr ""
+"Inhaltsreiche erstmalig aufgerufene Seiten in geordnete parallele Anfragen "
+"mit höchstens 2.000 UTF-8-Bytes Ausgangstext und 200 Zeichenketten "
+"aufgeteilt."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added a fail-safe final translated-HTML filter for trusted site-specific "
+"localization such as language-specific media embeds."
+msgstr ""
+"Einen abschließenden ausfallsicheren Filter für übersetztes HTML zur "
+"vertrauenswürdigen websitespezifischen Lokalisierung ergänzt, etwa für "
+"sprachspezifische Medien-Einbettungen."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added the <code>deepglot_max_sync_batches</code> filter to translate inline "
+"again on fast providers, and <code>deepglot_api_timeout</code> to tune the "
+"request budget."
+msgstr ""
+"Den Filter <code>deepglot_max_sync_batches</code> ergänzt, um bei schnellen "
+"Anbietern wieder direkt zu übersetzen, sowie "
+"<code>deepglot_api_timeout</code> zur Anpassung des Anfragebudgets."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Kept visual-editor previews and WooCommerce HTML emails synchronous because "
+"those one-off outputs cannot converge on a later page request."
+msgstr ""
+"Vorschauen des visuellen Editors und WooCommerce-HTML-E-Mails synchron "
+"gehalten, da diese einmaligen Ausgaben nicht durch eine spätere "
+"Seitenanfrage vervollständigt werden können."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Added bounded, atomically locked background cache warming. Failed and "
+"partial results remain queued, and supported full-page caches are purged "
+"after warming completes."
+msgstr ""
+"Begrenzte, atomar gesperrte Cache-Vorbereitung im Hintergrund ergänzt. "
+"Fehlgeschlagene und teilweise Ergebnisse bleiben in der Warteschlange; "
+"unterstützte vollständige Seiten-Caches werden nach Abschluss der "
+"Vorbereitung geleert."
+
+#. Found in changelog list item.
+#, gp-priority: low
+msgid ""
+"Ordinary page rendering no longer waits for fresh translations. Uncached "
+"segments are translated by a background job, so the first cold view is fast "
+"and later views converge after WP-Cron succeeds."
+msgstr ""
+"Die gewöhnliche Seitenausgabe wartet nicht mehr auf neue Übersetzungen. "
+"Nicht zwischengespeicherte Segmente werden durch einen Hintergrundauftrag "
+"übersetzt. Der erste Aufruf ohne Cache bleibt dadurch schnell; spätere "
+"Aufrufe liefern nach erfolgreichem WP-Cron-Durchlauf die vervollständigte "
+"Übersetzung."
