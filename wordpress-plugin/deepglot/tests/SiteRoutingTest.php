@@ -137,6 +137,41 @@ assertSameRouting(
     'Root PATH_PREFIX href generation must remain unchanged.'
 );
 
+// A direct edit replaces the active mapping after the next plugin sync.
+// The previous translated path has no history entry and is not reverse-mapped.
+$editedSlugRouting = new SiteRouting(
+    $resolver,
+    'https://example.com',
+    'PATH_PREFIX',
+    [],
+    ['en' => ['ueber-uns' => 'about', 'artikel' => '1279']]
+);
+assertSameRouting(
+    'https://example.com/en/about/',
+    $editedSlugRouting->buildUrlForLanguage('/ueber-uns/', 'en'),
+    'Changed mappings must produce the new target URL.'
+);
+assertSameRouting(
+    '/ueber-uns/',
+    $editedSlugRouting->getCanonicalPath('/en/about/'),
+    'Changed mappings must resolve the current target back to the source.'
+);
+assertSameRouting(
+    '/about-us/',
+    $editedSlugRouting->getCanonicalPath('/en/about-us/'),
+    'An old translated path must not be reverse-mapped without redirect history.'
+);
+assertSameRouting(
+    '/artikel/',
+    $editedSlugRouting->getCanonicalPath('/en/1279/'),
+    'A numeric translated slug is a valid content segment.'
+);
+assertSameRouting(
+    '/wp-content/uploads/photo.jpg/',
+    $editedSlugRouting->getCanonicalPath('/en/wp-content/uploads/photo.jpg/'),
+    'WordPress media paths must continue to bypass slug mapping.'
+);
+
 $subdirectoryTranslatedPathRouting = new SiteRouting(
     $resolver,
     'https://example.com/blog',

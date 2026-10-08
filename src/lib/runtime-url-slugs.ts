@@ -38,7 +38,7 @@ export type RuntimeUrlSlug = {
   langTo: string;
 };
 
-function normalizeSegmentForCollision(value: string): string | null {
+export function normalizeRuntimeSlugCollisionKey(value: string): string | null {
   const trimmed = value.trim();
   // PHP rawurldecode() decodes every valid %HH byte while preserving malformed
   // percent signs. Escape only malformed signs before decodeURIComponent() so
@@ -71,7 +71,7 @@ export function buildRuntimeUrlSlugs(rows: RuntimeUrlSlugRow[]): RuntimeUrlSlug[
 
   for (const row of rows) {
     const language = row.langTo.trim().toLowerCase();
-    const original = normalizeSegmentForCollision(row.originalSlug);
+    const original = normalizeRuntimeSlugCollisionKey(row.originalSlug);
     if (
       !language
       || !original
@@ -88,7 +88,7 @@ export function buildRuntimeUrlSlugs(rows: RuntimeUrlSlugRow[]): RuntimeUrlSlug[
       continue;
     }
 
-    const translated = normalizeSegmentForCollision(translatedSlug);
+    const translated = normalizeRuntimeSlugCollisionKey(translatedSlug);
     if (!translated || isReservedWordPressSegment(translated)) {
       continue;
     }
@@ -101,13 +101,13 @@ export function buildRuntimeUrlSlugs(rows: RuntimeUrlSlugRow[]): RuntimeUrlSlug[
 
   return rows.flatMap((row) => {
     const language = row.langTo.trim().toLowerCase();
-    const original = normalizeSegmentForCollision(row.originalSlug);
+    const original = normalizeRuntimeSlugCollisionKey(row.originalSlug);
     const translatedSlug = row.translatedSlug?.trim();
     if (!language || !original || !translatedSlug) {
       return [];
     }
 
-    const translated = normalizeSegmentForCollision(translatedSlug);
+    const translated = normalizeRuntimeSlugCollisionKey(translatedSlug);
     if (!translated) {
       return [];
     }
