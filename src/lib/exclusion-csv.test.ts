@@ -67,3 +67,9 @@ test("exclusion CSV row cap is bounded", () => {
   assert.equal(parsed.rows.length, MAX_EXCLUSION_CSV_ROWS);
   assert.deepEqual(parsed.issues.at(-1), { line: MAX_EXCLUSION_CSV_ROWS + 2, message: `Maximum ${MAX_EXCLUSION_CSV_ROWS} rows per import` });
 });
+
+test("malformed quotes cannot produce an unbounded error report", () => {
+  const parsed = parseExclusionCsv(`type,value\nURL,a${'"'.repeat(3000)}`);
+  assert.equal(parsed.issues.length, 101);
+  assert.deepEqual(parsed.issues.at(-1), { line: 2, message: "Too many CSV errors; fix the first 100" });
+});

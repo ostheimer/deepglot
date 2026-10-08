@@ -2,6 +2,7 @@ import { normalizeExclusionInput, type NormalizedExclusion } from "@/lib/exclusi
 
 export const MAX_EXCLUSION_CSV_BYTES = 128 * 1024;
 export const MAX_EXCLUSION_CSV_ROWS = 100;
+const MAX_EXCLUSION_CSV_ISSUES = 100;
 
 export type ExclusionCsvRow = NormalizedExclusion & { line: number };
 export type ExclusionCsvIssue = { line: number; message: string };
@@ -26,6 +27,12 @@ export function parseExclusionCsv(content: string): { rows: ExclusionCsvRow[]; i
   let line = 1;
   let recordLine = 1;
   const issues: ExclusionCsvIssue[] = [];
+  const addIssue = (issue: ExclusionCsvIssue) => {
+    if (issues.length < MAX_EXCLUSION_CSV_ISSUES) issues.push(issue);
+    else if (issues.length === MAX_EXCLUSION_CSV_ISSUES) {
+      issues.push({ line: issue.line, message: "Too many CSV errors; fix the first 100" });
+    }
+  };
   const finish = () => {
     fields.push(field);
     if (fields.some((value) => value.trim() !== "")) records.push({ line: recordLine, fields });
@@ -38,27 +45,27 @@ export function parseExclusionCsv(content: string): { rows: ExclusionCsvRow[]; i
       else if (char === '"') { quoted = false; closedQuote = true; }
       else { field += char; if (char === "\n") line++; }
     } else if (char === '"') {
-      if (field !== "" || closedQuote) issues.push({ line, message: "Unexpected quote" });
+      if (field !== "" || closedQuote) addIssue({ line, message: "Unexpected quote" });
       else quoted = true;
     } else if (char === ",") { fields.push(field); field = ""; closedQuote = false; }
     else if (char === "\n" || char === "\r") {
       if (char === "\r" && content[i + 1] === "\n") i++;
       finish(); line++;
     } else {
-      if (closedQuote && char !== " " && char !== "\t") issues.push({ line, message: "Unexpected text after quote" });
+      if (closedQuote && char !== " " && char !== "\t") addIssue({ line, message: "Unexpected text after quote" });
       field += char;
     }
   }
-  if (quoted) issues.push({ line: recordLine, message: "Unclosed quoted value" });
+  if (quoted) addIssue({ line: recordLine, message: "Unclosed quoted value" });
   if (field !== "" || fields.length) finish();
   if (records[0]?.fields[0]?.replace(/^\uFEFF/u, "") !== "type" || records[0]?.fields[1] !== "value" || records[0]?.fields.length !== 2) {
-    issues.push({ line: 1, message: "Expected CSV header: type,value" });
+    addIssue({ line: 1, message: "Expected CSV header: type,value" });
   }
   const data = records.slice(1);
-  if (data.length > MAX_EXCLUSION_CSV_ROWS) issues.push({ line: data[MAX_EXCLUSION_CSV_ROWS].line, message: `Maximum ${MAX_EXCLUSION_CSV_ROWS} rows per import` });
+  if (data.length > MAX_EXCLUSION_CSV_ROWS) addIssue({ line: data[MAX_EXCLUSION_CSV_ROWS].line, message: `Maximum ${MAX_EXCLUSION_CSV_ROWS} rows per import` });
   const rows: ExclusionCsvRow[] = [];
   for (const record of data.slice(0, MAX_EXCLUSION_CSV_ROWS)) {
-    if (record.fields.length !== 2) { issues.push({ line: record.line, message: "Expected exactly two columns" }); continue; }
+    if (record.fields.length !== 2) { addIssue({ line: record.line, message: "Expected exactly two columns" }); continue; }
     try {
       const rawValue = record.fields[1];
       const value = rawValue.startsWith("'") && /^['=+\-@\t]/u.test(rawValue.slice(1))
@@ -66,9 +73,9 @@ export function parseExclusionCsv(content: string): { rows: ExclusionCsvRow[]; i
         : rawValue;
       const normalized = normalizeExclusionInput({ type: record.fields[0], value });
       const issue = validRule(normalized);
-      if (issue) issues.push({ line: record.line, message: issue });
+      if (issue) addIssue({ line: record.line, message: issue });
       else rows.push({ line: record.line, ...normalized });
-    } catch { issues.push({ line: record.line, message: "Invalid exclusion type or empty value" }); }
+    } catch { addIssue({ line: record.line, message: "Invalid exclusion type or empty value" }); }
   }
   return { rows, issues };
 }

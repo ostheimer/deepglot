@@ -37,6 +37,7 @@ function exclusionIssueCopy(locale: string, message: string): string {
     "Invalid exclusion type or empty value": "Ungültiger Ausnahmetyp oder leerer Wert",
     "Duplicate rule in CSV": "Doppelte Regel in der CSV-Datei",
     "Maximum 100 rows per import": "Höchstens 100 Zeilen pro Import",
+    "Too many CSV errors; fix the first 100": "Zu viele CSV-Fehler; bitte zuerst die ersten 100 beheben",
   };
   return translations[message] ?? message;
 }
