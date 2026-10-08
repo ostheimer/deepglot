@@ -88,7 +88,12 @@ test("a late preview for another file cannot authorize import", async ({ page })
   await card.getByRole("button", { name: "Preview import" }).click();
   await requestSeen;
   await input.setInputFiles({ name: "b.csv", mimeType: "text/csv", buffer: Buffer.from("type,value\nURL,/b") });
+  const oldResponsePromise = page.waitForResponse((response) => response.url().endsWith(`/api/projects/${projectId}/exclusions/import`));
   finishResponse?.();
+  const oldResponse = await oldResponsePromise;
+  await oldResponse.finished();
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect(card.getByRole("status")).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Import rules" })).toBeDisabled();
 });
 
