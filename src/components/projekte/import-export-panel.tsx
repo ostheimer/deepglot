@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
+import { exclusionCsvText } from "@/lib/exclusion-csv-copy";
 import { getLanguageName } from "@/lib/language-names";
 import { uiText } from "@/lib/static-copy";
 
@@ -20,17 +21,46 @@ type ImportExportPanelProps = {
   projectId: string;
   originalLang: string;
   languages: Array<{ id: string; langCode: string }>;
+  canManageExclusions: boolean;
 };
+
+function exclusionIssueCopy(locale: string, message: string): string {
+  if (locale !== "de") return message;
+  const translations: Record<string, string> = {
+    "Value exceeds 2000 characters": "Wert überschreitet 2000 Zeichen",
+    "Control characters are not allowed": "Steuerzeichen sind nicht erlaubt",
+    "Unexpected quote": "Unerwartetes Anführungszeichen",
+    "Unexpected text after quote": "Unerwarteter Text nach Anführungszeichen",
+    "Unclosed quoted value": "Wert mit nicht geschlossenem Anführungszeichen",
+    "Expected CSV header: type,value": "CSV-Kopfzeile type,value erwartet",
+    "Expected exactly two columns": "Genau zwei Spalten erwartet",
+    "Invalid exclusion type or empty value": "Ungültiger Ausnahmetyp oder leerer Wert",
+    "Duplicate rule in CSV": "Doppelte Regel in der CSV-Datei",
+    "Maximum 100 rows per import": "Höchstens 100 Zeilen pro Import",
+    "Too many CSV errors; fix the first 100": "Zu viele CSV-Fehler; bitte zuerst die ersten 100 beheben",
+  };
+  return translations[message] ?? message;
+}
 
 export function ImportExportPanel({
   projectId,
   originalLang,
   languages,
+  canManageExclusions,
 }: ImportExportPanelProps) {
   const locale = useLocale();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [poLanguage, setPoLanguage] = useState(languages[0]?.langCode ?? "");
+  const [exclusionFile, setExclusionFile] = useState<File | null>(null);
+  const [exclusionReport, setExclusionReport] = useState<{
+    dryRun: boolean;
+    summary: { creates: number; updates: number; skips: number; conflicts: number };
+    issues: Array<{ line: number; message: string }>;
+  } | null>(null);
+  const [exclusionPending, setExclusionPending] = useState(false);
+  const [exclusionWriting, setExclusionWriting] = useState(false);
+  const exclusionGenerationRef = useRef(0);
   const pendingImportRef = useRef<ImportConfig | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasPoLanguages = languages.length > 0;
@@ -121,6 +151,45 @@ export function ImportExportPanel({
     });
   }
 
+  async function runExclusionImport(dryRun: boolean) {
+    if (!exclusionFile) return;
+    const generation = ++exclusionGenerationRef.current;
+    setExclusionPending(true);
+    if (!dryRun) setExclusionWriting(true);
+    const formData = new FormData();
+    formData.set("file", exclusionFile);
+    formData.set("dryRun", String(dryRun));
+    try {
+      const response = await fetch(`/api/projects/${projectId}/exclusions/import`, { method: "POST", body: formData });
+      const data = (await response.json()) as {
+        error?: string;
+        dryRun?: boolean;
+        summary?: { creates: number; updates: number; skips: number; conflicts: number };
+        issues?: Array<{ line: number; message: string }>;
+      };
+      if (generation !== exclusionGenerationRef.current) {
+        if (!dryRun && response.ok) {
+          toast.success(exclusionCsvText(locale, "Exclusion import complete", "Ausnahmen importiert"));
+          router.refresh();
+        }
+        return;
+      }
+      if (data.summary) setExclusionReport({ dryRun, summary: data.summary, issues: data.issues ?? [] });
+      else if (!dryRun) setExclusionReport(null);
+      if (!response.ok) toast.error(data.error ?? uiText(locale, "Import failed", "Import fehlgeschlagen"));
+      else if (!dryRun) {
+        toast.success(exclusionCsvText(locale, "Exclusion import complete", "Ausnahmen importiert"));
+        router.refresh();
+      }
+    } catch {
+      if (!dryRun || generation === exclusionGenerationRef.current) toast.error(uiText(locale, "Import failed", "Import fehlgeschlagen"));
+      if (!dryRun) setExclusionReport(null);
+    } finally {
+      if (!dryRun) setExclusionWriting(false);
+      if (generation === exclusionGenerationRef.current) setExclusionPending(false);
+    }
+  }
+
   const cards = [
     {
       title: `${copy.translations} CSV`,
@@ -198,6 +267,48 @@ export function ImportExportPanel({
           </section>
         ))}
       </div>
+
+      {canManageExclusions && <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold text-gray-900">{exclusionCsvText(locale, "Exclusion rules CSV", "Ausnahmeregeln als CSV")}</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          {exclusionCsvText(locale, "Import URL, regex, CSS class, and CSS ID rules. Preview changes before importing. Existing rules are skipped.", "URL-, Regex-, CSS-Klassen- und CSS-ID-Regeln importieren. Änderungen vor dem Import prüfen. Vorhandene Regeln werden übersprungen.")}
+        </p>
+        <p className="mt-3 text-xs text-gray-400">{exclusionCsvText(locale, "CSV columns: type,value. Imports accept up to 100 rows and 128 KiB; split larger exports before importing.", "CSV-Spalten: type,value. Der Import akzeptiert höchstens 100 Zeilen und 128 KiB; größere Exporte vor dem Import aufteilen.")}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <input
+            aria-label={exclusionCsvText(locale, "Choose exclusion CSV", "Ausnahmen-CSV auswählen")}
+            type="file"
+            accept=".csv,text/csv"
+            disabled={exclusionWriting}
+            onChange={(event) => {
+              exclusionGenerationRef.current++;
+              setExclusionFile(event.target.files?.[0] ?? null);
+              setExclusionReport(null);
+              setExclusionPending(false);
+            }}
+            className="max-w-full text-sm"
+          />
+          <Button type="button" variant="outline" disabled={!exclusionFile || exclusionPending} onClick={() => void runExclusionImport(true)}>
+            {exclusionCsvText(locale, "Preview import", "Importvorschau")}
+          </Button>
+          <Button type="button" disabled={!exclusionFile || exclusionPending || !exclusionReport?.dryRun || exclusionReport.summary.conflicts > 0} onClick={() => void runExclusionImport(false)}>
+            {exclusionCsvText(locale, "Import rules", "Regeln importieren")}
+          </Button>
+          <Button asChild variant="outline"><a href={`/api/projects/${projectId}/exclusions/export`}><Download className="mr-2 h-4 w-4" />{uiText(locale, "Export", "Exportieren")}</a></Button>
+        </div>
+        {exclusionReport && (
+          <div className="mt-4 text-sm" role="status">
+            <p>{locale === "de"
+              ? `${exclusionReport.summary.creates} neu, ${exclusionReport.summary.skips} vorhanden, ${exclusionReport.summary.conflicts} Konflikte`
+              : `${exclusionReport.summary.creates} new, ${exclusionReport.summary.skips} existing, ${exclusionReport.summary.conflicts} conflicts`}</p>
+            {exclusionReport.issues.length > 0 && <ul className="mt-2 list-disc pl-5 text-red-700">
+              {exclusionReport.issues.map((issue, index) => <li key={`${issue.line}-${index}`}>
+                {exclusionCsvText(locale, `Row ${issue.line}`, `Zeile ${issue.line}`)}: {exclusionIssueCopy(locale, issue.message)}
+              </li>)}
+            </ul>}
+          </div>
+        )}
+      </section>}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
