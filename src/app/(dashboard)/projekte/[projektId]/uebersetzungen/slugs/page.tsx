@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { canManageProject, getProjectAccess } from "@/lib/project-access";
+import { selectReadableSlugLanguages } from "@/lib/url-slug-access";
+import { SlugRowEditor } from "@/components/projekte/slug-row-editor";
 import Link from "next/link";
 import {
   buildProjectQueryHref,
@@ -32,10 +36,17 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
 
   if (!project) notFound();
 
+  const session = await auth();
+  const access = session?.user?.id ? await getProjectAccess(session.user.id, projektId) : null;
+  if (!access) notFound();
+  const readableLanguages = selectReadableSlugLanguages(access, project.languages);
+  if (readableLanguages.length === 0) notFound();
+  if (lang && !readableLanguages.some((language) => language.langCode.toLowerCase() === lang.toLowerCase())) notFound();
   const activeLang = normalizeProjectLang(
     lang,
-    project.languages.map((language) => language.langCode)
+    readableLanguages.map((language) => language.langCode)
   );
+  const canEdit = canManageProject(access);
 
   const where = {
     projectId: projektId,
@@ -67,12 +78,14 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
       </div>
 
       <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {uiText(locale, "Slug editing is not available here yet. The plugin detects slugs automatically; import and export remain the safe path for manual slug changes.", "Slug-Bearbeitung ist hier noch nicht verfügbar. Das Plugin erkennt Slugs automatisch; Import und Export bleiben der sichere Weg für manuelle Slug-Änderungen.")}
+        {locale === "de"
+          ? "Die Änderung wird beim nächsten Abgleich des WordPress-Plugins aktiv. Für den bisherigen übersetzten Pfad wird keine Weiterleitung erstellt."
+          : "The change becomes active after the next WordPress plugin sync. No redirect is created for the previous translated path."}
       </p>
 
       {/* Language selector */}
       <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white w-fit mb-4">
-        {project.languages.map((l) => (
+        {readableLanguages.map((l) => (
           <Button
             key={l.id}
             asChild
@@ -129,13 +142,17 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                 ? locale === "de"
                   ? `Keine Slugs gefunden für "${q}"`
                   : `No slugs found for "${q}"`
-                : uiText(locale, "No URL slugs found. The plugin extracts slugs automatically the first time a page is opened.", "Keine URL-Slugs gefunden. Das Plugin extrahiert Slugs automatisch beim ersten Seitenaufruf.")}
+                : locale === "de"
+                    ? "Keine URL-Slugs vorhanden. Mappings können per CSV importiert werden."
+                    : "No URL slugs yet. Mappings can be imported by CSV."}
             </p>
           </div>
         ) : (
           slugs.map((slug) => (
             <div
               key={slug.id}
+              data-slug-id={slug.id}
+              data-slug-updated-at={slug.updatedAt.toISOString()}
               className="grid grid-cols-[2fr_2fr] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
             >
               <div>
@@ -150,12 +167,12 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
               </div>
 
               <div>
-                {slug.translatedSlug ? (
+                {canEdit ? (
+                  <SlugRowEditor projectId={projektId} initialSlug={{ id: slug.id, originalSlug: slug.originalSlug, translatedSlug: slug.translatedSlug, updatedAt: slug.updatedAt.toISOString() }} locale={locale} />
+                ) : slug.translatedSlug ? (
                   <p className="text-sm font-medium text-gray-900">{slug.translatedSlug}</p>
                 ) : (
-                  <p className="text-sm text-gray-400">
-                    {uiText(locale, "Generated automatically", "Wird automatisch generiert")}
-                  </p>
+                  <p className="text-sm text-gray-400">{locale === "de" ? "Kein Mapping" : "No mapping"}</p>
                 )}
               </div>
             </div>
