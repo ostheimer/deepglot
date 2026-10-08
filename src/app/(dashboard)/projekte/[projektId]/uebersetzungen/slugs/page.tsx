@@ -142,7 +142,9 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
                 ? locale === "de"
                   ? `Keine Slugs gefunden für "${q}"`
                   : `No slugs found for "${q}"`
-                : uiText(locale, "No URL slugs found. The plugin extracts slugs automatically the first time a page is opened.", "Keine URL-Slugs gefunden. Das Plugin extrahiert Slugs automatisch beim ersten Seitenaufruf.")}
+                : locale === "de"
+                    ? "Keine URL-Slugs vorhanden. Mappings können per CSV importiert werden."
+                    : "No URL slugs yet. Mappings can be imported by CSV."}
             </p>
           </div>
         ) : (

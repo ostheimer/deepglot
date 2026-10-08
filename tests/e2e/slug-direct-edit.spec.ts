@@ -72,6 +72,23 @@ test("manager edits and resets one slug while CSV and CAS stay consistent", asyn
       document.documentElement.scrollWidth > window.innerWidth + 1,
     );
     expect(hasHorizontalOverflow).toBe(false);
+    const card = page.locator("div.rounded-xl.overflow-hidden").filter({ hasText: "ORIGINAL SLUG" }).first();
+    const mobileRow = page.locator("div.group").filter({ hasText: "preise" }).first();
+    await mobileRow.getByRole("button", { name: "Edit" }).click();
+    const cardBox = await card.boundingBox();
+    expect(cardBox).toBeTruthy();
+    for (const control of [
+      mobileRow.getByRole("textbox", { name: "Translated slug for preise" }),
+      mobileRow.getByRole("button", { name: "Save" }),
+      mobileRow.getByRole("button", { name: "Cancel" }),
+    ]) {
+      const box = await control.boundingBox();
+      expect(box).toBeTruthy();
+      expect(box!.x).toBeGreaterThanOrEqual(cardBox!.x - 1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1);
+      expect(box!.y).toBeGreaterThanOrEqual(cardBox!.y - 1);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(cardBox!.y + cardBox!.height + 1);
+    }
   } finally {
     const restore = await page.request.post(`/api/projects/${projectId}/import`, {
       multipart: {
