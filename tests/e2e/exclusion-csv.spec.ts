@@ -11,11 +11,11 @@ test("previews, imports, exports and repeats exclusion CSV without changing exis
     await page.goto(`/projects/${projectId}/translations/import-export`);
     const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Exclusion rules CSV" }) });
     await card.getByLabel("Choose exclusion CSV").setInputFiles({
-      name: "invalid.csv", mimeType: "text/csv", buffer: Buffer.from(`type,value\nURL,${value}\nCSS_CLASS,has space`),
+      name: "invalid.csv", mimeType: "text/csv", buffer: Buffer.from(`type,value\nURL,${value}\nCSS_CLASS,`),
     });
     await card.getByRole("button", { name: "Preview import" }).click();
     await expect(card.getByRole("status")).toContainText("1 new, 0 existing, 1 conflicts");
-    await expect(card.getByRole("status")).toContainText("Row 3: Use one CSS class or ID name");
+    await expect(card.getByRole("status")).toContainText("Row 3: Invalid exclusion type or empty value");
     await expect(card.getByRole("button", { name: "Import rules" })).toBeDisabled();
     expect(await db.translationExclusion.count({ where: { projectId, type: "URL", value } })).toBe(0);
 
@@ -97,6 +97,32 @@ test("a late preview for another file cannot authorize import", async ({ page })
   await expect(card.getByRole("button", { name: "Import rules" })).toBeDisabled();
 });
 
+test("a failed write clears the successful preview before another import", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  let requests = 0;
+  await page.route(`**/api/projects/${projectId}/exclusions/import`, async (route) => {
+    requests++;
+    await route.fulfill({
+      status: requests === 1 ? 200 : 409,
+      contentType: "application/json",
+      body: requests === 1
+        ? JSON.stringify({ dryRun: true, summary: { creates: 1, updates: 0, skips: 0, conflicts: 0 }, issues: [] })
+        : JSON.stringify({ error: "Rules changed during import. Preview again." }),
+    });
+  });
+  await page.goto(`/projects/${projectId}/translations/import-export`);
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Exclusion rules CSV" }) });
+  await card.getByLabel("Choose exclusion CSV").setInputFiles({ name: "race.csv", mimeType: "text/csv", buffer: Buffer.from("type,value\nURL,/race") });
+  await card.getByRole("button", { name: "Preview import" }).click();
+  await expect(card.getByRole("button", { name: "Import rules" })).toBeEnabled();
+  const writeResponse = page.waitForResponse((response) => response.url().endsWith(`/api/projects/${projectId}/exclusions/import`) && response.status() === 409);
+  await card.getByRole("button", { name: "Import rules" }).click();
+  const failedWrite = await writeResponse;
+  await failedWrite.finished();
+  await expect(page.getByText("Rules changed during import. Preview again.")).toBeVisible();
+  await expect(card.getByRole("button", { name: "Import rules" })).toBeDisabled();
+});
+
 test("CSV controls are visible to managers and hidden from translators", async ({ page }) => {
   const projectId = await signInAndGetProjectId(page);
   const project = await db.project.findUniqueOrThrow({ where: { id: projectId }, select: { organizationId: true } });
@@ -110,9 +136,9 @@ test("CSV controls are visible to managers and hidden from translators", async (
   try {
     await db.organizationMember.update({ where: { id: owner.id }, data: { role: "MEMBER" } });
     if (existingMember) {
-      await db.projectMember.update({ where: { id: existingMember.id }, data: { role: "TRANSLATOR" } });
+      await db.projectMember.update({ where: { id: existingMember.id }, data: { role: "TRANSLATOR", langCode: "en" } });
     } else {
-      await db.projectMember.create({ data: { projectId, userId: owner.userId, email: owner.user.email, role: "TRANSLATOR" } });
+      await db.projectMember.create({ data: { projectId, userId: owner.userId, email: owner.user.email, role: "TRANSLATOR", langCode: "en" } });
     }
     await page.reload();
     await expect(page.getByRole("heading", { name: "Import & export" })).toBeVisible();
@@ -122,7 +148,7 @@ test("CSV controls are visible to managers and hidden from translators", async (
   } finally {
     await db.organizationMember.update({ where: { id: owner.id }, data: { role: owner.role } });
     if (existingMember) {
-      await db.projectMember.update({ where: { id: existingMember.id }, data: { role: existingMember.role } });
+      await db.projectMember.update({ where: { id: existingMember.id }, data: { role: existingMember.role, langCode: existingMember.langCode } });
     } else {
       await db.projectMember.deleteMany({ where: { projectId, userId: owner.userId } });
     }

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import {
+  canAccessProject,
   canAccessProjectArea,
   canManageProject,
   getProjectAccess,
@@ -24,6 +25,22 @@ export async function requireProjectAreaAccess(
 
   const access = await getProjectAccess(session.user.id, projectId);
   if (!canAccessProjectArea(access, area, langCode)) {
+    notFound();
+  }
+
+  return access;
+}
+
+export async function requireProjectAccess(projectId: string) {
+  const locale = await getRequestLocale();
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect(withLocalePrefix("/login", locale));
+  }
+
+  const access = await getProjectAccess(session.user.id, projectId);
+  if (!canAccessProject(access)) {
     notFound();
   }
 

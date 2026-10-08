@@ -38,8 +38,8 @@ test("exclusion CSV reports row errors and never plans invalid rows", () => {
     "BOGUS,foo",
     "URL,/x,unexpected",
   ].join("\r\n"));
-  assert.deepEqual(parsed.rows.map((row) => row.line), [2, 4, 5]);
-  assert.deepEqual(parsed.issues.map((issue) => issue.line), [3, 6, 7, 8]);
+  assert.deepEqual(parsed.rows.map((row) => row.line), [2, 3, 4, 5]);
+  assert.deepEqual(parsed.issues.map((issue) => issue.line), [6, 7, 8]);
   assert.equal(parseExclusionCsv('type,value\nURL,"unfinished').issues[0].message, "Unclosed quoted value");
   assert.equal(parseExclusionCsv("wrong,value\nURL,/x").issues[0].line, 1);
   assert.equal(parseExclusionCsv(`type,value\nURL,${"x".repeat(2001)}`).issues[0].line, 2);
@@ -59,6 +59,16 @@ test("exclusion import plan skips existing rules and reports duplicate CSV rows"
   ]);
   assert.equal(repeated.creates.length, 0);
   assert.equal(repeated.skips.length, 2);
+});
+
+test("an exported legacy CSS rule can be reimported into its existing project", () => {
+  const existing = [{ type: "CSS_CLASS" as const, value: "foo bar" }];
+  const parsed = parseExclusionCsv(serializeExclusionCsv(existing));
+  const plan = planExclusionImport(parsed.rows, existing);
+  assert.deepEqual(parsed.issues, []);
+  assert.equal(plan.skips.length, 1);
+  assert.deepEqual(plan.conflicts, []);
+  assert.equal(planExclusionImport(parsed.rows, []).creates.length, 1);
 });
 
 test("exclusion CSV row cap is bounded", () => {

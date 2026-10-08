@@ -29,7 +29,6 @@ function exclusionIssueCopy(locale: string, message: string): string {
   const translations: Record<string, string> = {
     "Value exceeds 2000 characters": "Wert überschreitet 2000 Zeichen",
     "Control characters are not allowed": "Steuerzeichen sind nicht erlaubt",
-    "Use one CSS class or ID name": "Eine einzelne CSS-Klasse oder ID angeben",
     "Unexpected quote": "Unerwartetes Anführungszeichen",
     "Unexpected text after quote": "Unerwarteter Text nach Anführungszeichen",
     "Unclosed quoted value": "Wert mit nicht geschlossenem Anführungszeichen",
@@ -176,6 +175,7 @@ export function ImportExportPanel({
         return;
       }
       if (data.summary) setExclusionReport({ dryRun, summary: data.summary, issues: data.issues ?? [] });
+      else if (!dryRun) setExclusionReport(null);
       if (!response.ok) toast.error(data.error ?? uiText(locale, "Import failed", "Import fehlgeschlagen"));
       else if (!dryRun) {
         toast.success(exclusionCsvText(locale, "Exclusion import complete", "Ausnahmen importiert"));
@@ -183,6 +183,7 @@ export function ImportExportPanel({
       }
     } catch {
       if (!dryRun || generation === exclusionGenerationRef.current) toast.error(uiText(locale, "Import failed", "Import fehlgeschlagen"));
+      if (!dryRun) setExclusionReport(null);
     } finally {
       if (!dryRun) setExclusionWriting(false);
       if (generation === exclusionGenerationRef.current) setExclusionPending(false);

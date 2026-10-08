@@ -10,10 +10,6 @@ export type ExclusionCsvIssue = { line: number; message: string };
 function validRule(rule: NormalizedExclusion): string | null {
   if (rule.value.length > 2000) return "Value exceeds 2000 characters";
   if (/[\u0000-\u001f\u007f]/u.test(rule.value)) return "Control characters are not allowed";
-  if (rule.type === "CSS_CLASS" || rule.type === "CSS_ID") {
-    // The WordPress PHP and JS runtimes compare one literal class/ID token.
-    if (/\s/u.test(rule.value)) return "Use one CSS class or ID name";
-  }
   return null;
 }
 
