@@ -108,7 +108,7 @@ export async function importTranslationsXliff(input: {
             ${item.source}::"TranslationSource", ${item.workflowStatus}::"TranslationWorkflowStatus")`));
           const changed = await tx.$executeRaw(Prisma.sql`
             UPDATE "Translation" AS translation SET
-              "translatedText" = incoming.text, "isManual" = incoming.manual,
+              "translatedText" = incoming.text, "isManual" = incoming.manual::boolean,
               "source" = incoming.source, "workflowStatus" = incoming.workflow,
               "updatedAt" = NOW()
             FROM (VALUES ${values}) AS incoming(id, text, manual, source, workflow)
