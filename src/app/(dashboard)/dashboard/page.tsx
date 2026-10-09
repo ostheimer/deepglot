@@ -20,6 +20,7 @@ import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { auditActionLabel } from "@/lib/audit-labels";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Overview", "Übersicht");
@@ -134,7 +135,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activityItems = recentAuditEvents.map((event) => ({
     id: event.id,
     project: event.project?.name ?? event.projectIdSnapshot ?? org?.name ?? "",
-    message: `${event.actor?.name || event.actor?.email || uiText(locale, "System", "System")}: ${event.action}`,
+    message: `${event.actor?.name || event.actor?.email || uiText(locale, "System", "System")}: ${auditActionLabel(event.action, locale)}`,
     date: event.createdAt,
   }));
 

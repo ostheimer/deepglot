@@ -306,6 +306,7 @@ model AuditEvent {
   @@index([organizationId, category, createdAt(sort: Desc)])
   @@index([organizationId, actorUserId, createdAt(sort: Desc)])
   @@index([organizationId, projectIdSnapshot, createdAt(sort: Desc)])
+  @@index([createdAt])
 }
 
 /// Approval is explicit. A missing row is a deny, including for legacy tenants.

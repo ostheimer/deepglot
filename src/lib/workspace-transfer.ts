@@ -221,6 +221,10 @@ export async function commitWorkspaceTransfer(input: {
     // approve a new project policy. Sparse spend rows and approval events keep
     // their immutable original organization and project attribution.
     await tx.aiBudget.deleteMany({ where: { projectId: input.projectId } });
+    // Source events keep their opaque project snapshot, but must not follow
+    // the live relation into the destination tenant.
+    await tx.auditEvent.updateMany({ where: { organizationId: state.sourceId, projectId: input.projectId },
+      data: { projectId: null } });
     await tx.project.update({ where: { id: input.projectId }, data: { organizationId: input.destinationId } });
     const audit = await tx.projectTransferAudit.create({ data: {
       projectId: input.projectId, actorUserId: input.actorUserId,

@@ -20,6 +20,8 @@ const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
   "Export displayed events as CSV": "Export displayed events as CSV",
   "Back to overview": "Back to overview",
   "Saved changes will appear here.": "Saved changes will appear here.",
+  "Former member": "Former member",
+  "Former project": "Former project",
   "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.": "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.",
   "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.": "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.",
   "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.": "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.",

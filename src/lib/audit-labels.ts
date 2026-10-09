@@ -23,6 +23,7 @@ const germanActions: Record<string, string> = {
   "project.deleted": "Projekt gelöscht",
   "project.language_model_updated": "Sprachmodell geändert",
   "project.language_removed": "Zielsprache entfernt",
+  "project.language_updated": "Zielsprache geändert",
   "project.languages_added": "Zielsprachen hinzugefügt",
   "project.page_views_disabled": "Seitenaufrufe deaktiviert",
   "project.page_views_enabled": "Seitenaufrufe aktiviert",
@@ -41,6 +42,7 @@ const germanActions: Record<string, string> = {
   "translation.manual_created": "Manuelle Übersetzung erstellt",
   "translation.manual_updated": "Manuelle Übersetzung geändert",
   "translation.metadata_updated": "Übersetzungsmetadaten geändert",
+  "translation.search_replaced": "Übersetzungen gesucht und ersetzt",
   "translation.url_retranslated": "URL erneut übersetzt",
   "translation.workflow_bulk_updated": "Übersetzungsstatus gesammelt geändert",
   "translation.workflow_updated": "Übersetzungsstatus geändert",
@@ -65,4 +67,18 @@ export function auditCategoryLabel(category: string, locale: SiteLocale) {
   return ({ project: "Projekt", member: "Mitglied", translation: "Übersetzung",
     glossary: "Glossar", exclusion: "Ausnahme", api_key: "API-Schlüssel",
     webhook: "Webhook", billing: "Abrechnung", workspace: "Arbeitsbereich" } as Record<string, string>)[category] ?? category;
+}
+
+const metadataLabels: Record<string, [string, string]> = {
+  count: ["Count", "Anzahl"], language: ["Language", "Sprache"],
+  role: ["Role", "Rolle"], status: ["Status", "Status"],
+  kind: ["Kind", "Typ"], source: ["Source", "Quelle"],
+  targetId: ["Target ID", "Ziel-ID"], affectedId: ["Affected ID", "Betroffene ID"],
+};
+
+export function auditMetadataLabel(metadata: unknown, locale: SiteLocale) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
+  return Object.entries(metadata).filter(([key, value]) =>
+    Object.hasOwn(metadataLabels, key) && (typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+  ).map(([key, value]) => `${metadataLabels[key][locale === "de" ? 1 : 0]}: ${value}`).join(" · ");
 }

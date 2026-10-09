@@ -4,7 +4,7 @@ import { resolveDatabaseUrl } from "@/lib/database-url";
 import { appendProjectAuditEvent, appendWorkspaceAuditEvent } from "@/lib/audit-events";
 import { listAuditEvents } from "@/lib/audit-query";
 import { deleteExpiredAuditEvents } from "@/lib/audit-retention";
-import { addProjectTargetLanguages } from "@/lib/project-language-mutations";
+import { addProjectTargetLanguages, updateProjectTargetLanguage } from "@/lib/project-language-mutations";
 
 const url = resolveDatabaseUrl();
 const localOnly = url && ["localhost", "127.0.0.1"].includes(new URL(url).hostname);
@@ -73,10 +73,11 @@ test("a real language mutation commits its audit row in the same workspace", { s
   const project = await db.project.create({ data: { organizationId: organization.id, name: "Language audit", domain: `language-${suffix}.example.test` } });
 
   assert.deepEqual(await addProjectTargetLanguages(db, { projectId: project.id, languages: ["fr"], actorUserId: actor.id }), { kind: "updated" });
+  assert.equal(await updateProjectTargetLanguage(db, { projectId: project.id, langCode: "fr", isVisible: false, actorUserId: actor.id }), true);
   const events = await listAuditEvents(db, { organizationId: organization.id, readerUserId: actor.id,
     filters: { projectId: project.id, actorUserId: actor.id } });
-  assert.equal(events?.length, 1);
-  assert.equal(events?.[0].action, "project.languages_added");
+  assert.equal(events?.length, 2);
+  assert.deepEqual(new Set(events?.map((event) => event.action)), new Set(["project.languages_added", "project.language_updated"]));
   assert.equal(await db.projectLanguage.count({ where: { projectId: project.id, langCode: "fr" } }), 1);
 });
 

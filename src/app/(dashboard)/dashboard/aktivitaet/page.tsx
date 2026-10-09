@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AUDIT_CATEGORIES } from "@/lib/audit-events";
-import { auditActionLabel, auditCategoryLabel } from "@/lib/audit-labels";
-import { listAuditEvents, parseAuditFilters } from "@/lib/audit-query";
+import { auditActionLabel, auditCategoryLabel, auditMetadataLabel } from "@/lib/audit-labels";
+import { listAuditEvents, parseAuditFilters, type AuditFilters } from "@/lib/audit-query";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -36,23 +36,35 @@ export default async function ActivityPage({ searchParams }: Props) {
   for (const key of ["from", "to", "actor", "project", "category"]) {
     if (one(key)) params.set(key, one(key));
   }
-  let events: Awaited<ReturnType<typeof listAuditEvents>> = [];
+  let filters: AuditFilters = {};
   let invalid = false;
   try {
-    events = await listAuditEvents(db, {
-      organizationId, readerUserId: user.id, filters: parseAuditFilters(params), limit: 100,
-    });
+    filters = parseAuditFilters(params);
   } catch { invalid = true; }
-  const [actors, projects] = await Promise.all([
+  const events = invalid ? [] : await listAuditEvents(db, {
+    organizationId, readerUserId: user.id, filters, limit: 100,
+  });
+  const [actors, projects, historicalActors, historicalProjects] = await Promise.all([
     db.organizationMember.findMany({
       where: { organizationId }, select: { user: { select: { id: true, name: true, email: true } } },
     }),
     db.project.findMany({ where: { organizationId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.auditEvent.groupBy({ by: ["actorUserId"], where: { organizationId, actorUserId: { not: null } } }),
+    db.auditEvent.groupBy({ by: ["projectIdSnapshot"], where: { organizationId, projectIdSnapshot: { not: null } } }),
   ]);
+  const actorOptions = new Map(actors.map(({ user: actor }) => [actor.id, actor.name || actor.email || actor.id]));
+  for (const row of historicalActors) if (row.actorUserId && !actorOptions.has(row.actorUserId)) {
+    actorOptions.set(row.actorUserId, `${uiText(locale, "Former member", "Ehemaliges Mitglied")} (${row.actorUserId})`);
+  }
+  const projectOptions = new Map(projects.map((project) => [project.id, project.name]));
+  for (const row of historicalProjects) if (row.projectIdSnapshot && !projectOptions.has(row.projectIdSnapshot)) {
+    projectOptions.set(row.projectIdSnapshot, `${uiText(locale, "Former project", "Früheres Projekt")} (${row.projectIdSnapshot})`);
+  }
   const path = withLocalePrefix("/dashboard/aktivitaet", locale);
-  const csvRows = ["timestamp,actor,project,category,action", ...(events ?? []).map((event) => [
+  const csvRows = ["timestamp,actor,project,category,action,metadata", ...(events ?? []).map((event) => [
     event.createdAt.toISOString(), event.actor?.name || event.actor?.email || "System",
     event.project?.name || event.projectIdSnapshot || "", event.category, event.action,
+    auditMetadataLabel(event.metadata, locale),
   ].map(csvCell).join(","))];
   const csvHref = `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${csvRows.join("\r\n")}\r\n`)}`;
   return <div className="space-y-6">
@@ -67,11 +79,11 @@ export default async function ActivityPage({ searchParams }: Props) {
       <label className="text-sm">{uiText(locale, "To", "Bis")}<input type="date" name="to" defaultValue={one("to")} className="mt-1 w-full rounded border p-2" /></label>
       <label className="text-sm">{uiText(locale, "Actor", "Person")}
         <select name="actor" defaultValue={one("actor")} className="mt-1 w-full rounded border p-2"><option value="">{uiText(locale, "All", "Alle")}</option>
-          {actors.map(({ user: actor }) => <option key={actor.id} value={actor.id}>{actor.name || actor.email}</option>)}
+          {[...actorOptions].map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select></label>
       <label className="text-sm">{uiText(locale, "Project", "Projekt")}
         <select name="project" defaultValue={one("project")} className="mt-1 w-full rounded border p-2"><option value="">{uiText(locale, "All", "Alle")}</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          {[...projectOptions].map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select></label>
       <label className="text-sm">{uiText(locale, "Category", "Kategorie")}
         <select name="category" defaultValue={one("category")} className="mt-1 w-full rounded border p-2"><option value="">{uiText(locale, "All", "Alle")}</option>
@@ -87,7 +99,8 @@ export default async function ActivityPage({ searchParams }: Props) {
         <td className="whitespace-nowrap p-3">{new Intl.DateTimeFormat(locale === "de" ? "de-AT" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Vienna" }).format(event.createdAt)}</td>
         <td className="p-3">{event.actor?.name || event.actor?.email || uiText(locale, "System", "System")}</td>
         <td className="p-3">{event.project?.name || event.projectIdSnapshot || "—"}</td>
-        <td className="p-3"><span className="text-gray-500">{auditCategoryLabel(event.category, locale)}</span><br />{auditActionLabel(event.action, locale)}</td>
+        <td className="p-3"><span className="text-gray-500">{auditCategoryLabel(event.category, locale)}</span><br />{auditActionLabel(event.action, locale)}
+          {auditMetadataLabel(event.metadata, locale) && <p className="text-xs text-gray-500">{auditMetadataLabel(event.metadata, locale)}</p>}</td>
       </tr>)}</tbody></table>
       {!events?.length && !invalid ? <p className="p-6 text-sm text-gray-500">{uiText(locale, "No saved activity matches these filters.", "Keine gespeicherte Aktivität passt zu diesen Filtern.")}</p> : null}
     </div>

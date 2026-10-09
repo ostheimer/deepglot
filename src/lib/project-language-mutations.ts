@@ -159,6 +159,13 @@ export async function updateProjectTargetLanguage(
     });
     if (versionWrite.count !== 1) throw new ProjectLanguageMutationConflictError();
 
+    if (actorUserId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId,
+        action: "project.language_updated", category: "project",
+        metadata: { language: langCode } });
+    }
+
     return true;
   });
 }

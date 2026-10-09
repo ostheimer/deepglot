@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
+import { appendProjectAuditEvent } from "./audit-events";
 import { canAccessProject, canManageProject } from "./project-access-policy";
 import { lockAndValidateProjectLanguageWrite } from "./project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "./project-webhook-delivery";
@@ -145,6 +146,9 @@ export async function applyWorkspaceReplacement(input: {
         } }, tx);
     }
     await recordTranslationCacheInvalidations(tx, input.projectId, planned.map(({ row }) => row));
+    if (planned.length > 0) await appendProjectAuditEvent(tx, { projectId: input.projectId,
+      actorUserId: input.userId, action: "translation.search_replaced", category: "translation",
+      metadata: { count: planned.length } });
     return { updated: planned.length };
   }, { timeout: 15_000 });
 }
