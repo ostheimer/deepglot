@@ -93,7 +93,7 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
             </div>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3"><Button size="sm" variant="outline" disabled={busy} onClick={() => open("retranslate", [record.id])}>{de ? "Neu übersetzen" : "Retranslate"}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => open("delete", [record.id])}>{de ? "Löschen" : "Delete"}</Button>{record.operationState === "sync_failed" && wordpressSyncUrl && <a className="self-center text-sm underline" href={`${wordpressSyncUrl}#deepglot-url-sync`} target="_blank" rel="noreferrer">{de ? "Im WordPress-Admin erneut versuchen" : "Retry in WordPress admin"}</a>}</div>
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3"><Button size="sm" variant="outline" disabled={busy} onClick={() => open("retranslate", [record.id])}>{de ? "Neu übersetzen" : "Retranslate"}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => open("delete", [record.id])}>{de ? "Löschen" : "Delete"}</Button>{record.operationState === "sync_failed" && wordpressSyncUrl && <a className="self-center text-sm underline" href={`${wordpressSyncUrl}#deepglot-url-sync`} target="_blank" rel="noreferrer">{de ? "WordPress öffnen und Wiederholung bestätigen" : "Open WordPress to confirm retry"}</a>}</div>
       </article>)}
       {records.length === 0 && <p className="rounded-xl border bg-white p-8 text-center text-gray-500">{de ? "Keine URL-Einträge gefunden." : "No URL records found."}</p>}
     </div>
