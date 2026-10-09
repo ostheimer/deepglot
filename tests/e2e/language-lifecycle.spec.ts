@@ -7,14 +7,18 @@ import { computeTranslationHash } from "../../src/lib/translation-hash";
 import { e2eId, signInAndGetProjectId } from "./helpers";
 
 test("manager controls a regional target independently and removes only confirmed target data", async ({ page, request }) => {
-  const projectId = await signInAndGetProjectId(page);
+  const seededId = await signInAndGetProjectId(page);
+  const seeded = await db.project.findUniqueOrThrow({ where: { id: seededId }, select: { organizationId: true } });
+  const project = await db.project.create({ data: {
+    name: "Lifecycle fixture", domain: `lifecycle-${crypto.randomUUID()}.example.test`,
+    originalLang: "de", organizationId: seeded.organizationId,
+  } });
+  const projectId = project.id;
   const path = `/api/projects/${projectId}/languages`;
   const langCode = "en-at";
   const marker = e2eId("Lifecycle fixture");
-  const originalProject = await db.project.findUniqueOrThrow({ where: { id: projectId }, select: { domain: true } });
-  await db.project.update({ where: { id: projectId }, data: { domain: `lifecycle-${crypto.randomUUID()}.example.test` } });
   const rawKey = `dg_live_lifecycle_${crypto.randomUUID()}`;
-  const key = await db.apiKey.create({ data: {
+  await db.apiKey.create({ data: {
     projectId, name: "Lifecycle fixture", key: createHash("sha256").update(rawKey).digest("hex"), keyPrefix: rawKey.slice(0, 12),
   } });
   try {
@@ -115,14 +119,7 @@ test("manager controls a regional target independently and removes only confirme
       { langCode: "pt-br", status: "removed" }, { langCode: "pt-pt", status: "removed" },
     ]);
   } finally {
-    await db.projectMediaReplacement.deleteMany({ where: { projectId, langTo: langCode, originalUrl: "/uploads/lifecycle-source.png" } });
-    await db.translatedUrl.deleteMany({ where: { projectId, langTo: langCode, urlPath: { contains: marker } } });
-    await db.urlSlug.deleteMany({ where: { projectId, langTo: langCode, originalSlug: { startsWith: marker } } });
-    await db.translation.deleteMany({ where: { projectId, originalText: { startsWith: marker } } });
-    await db.projectLanguage.deleteMany({ where: { projectId, langCode } });
-    await db.projectLanguage.deleteMany({ where: { projectId, langCode: { in: ["pt-br", "pt-pt"] } } });
-    await db.apiKey.delete({ where: { id: key.id } });
-    await db.project.update({ where: { id: projectId }, data: { domain: originalProject.domain } });
+    await db.project.delete({ where: { id: projectId } });
     await db.$disconnect();
   }
 });
