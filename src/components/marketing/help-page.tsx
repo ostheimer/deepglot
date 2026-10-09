@@ -147,6 +147,11 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                   ? "Der Wochenrückblick ist eine freiwillige E-Mail pro Benutzer und Workspace. Er zeigt neue Übersetzungen und Wörter, manuelle Bearbeitungen und Laufzeit-Übersetzungsanfragen aus der letzten vollständigen UTC-Woche."
                   : "The weekly digest is an opt-in email per user and workspace. It reports new translations and words, manual edits, and runtime translation requests from the previous complete UTC week."}
               </p>
+              <p className="mt-3 text-base leading-7 text-[#58636d]">
+                {de
+                  ? "Unter Konto-Einstellungen kannst du je Workspace zusätzliche optionale Kategorien für Produktneuigkeiten, Projekthinweise und Abrechnungsübersichten speichern. Sie sind zunächst aus; Aus meldet dich von der jeweiligen Kategorie ab. Diese neuen E-Mail-Dienste sind noch nicht aktiviert. Konto- und Sicherheitshinweise bleiben aktiv."
+                  : "In account settings, you can save optional product update, project notice, and billing summary preferences for each workspace. They start off; Off unsubscribes from that category. These new email services are not active yet. Account and security notices remain active."}
+              </p>
             </div>
 
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

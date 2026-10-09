@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   buildActivityDigestEmailPayload,
+  EmailNotAcceptedError,
+  EmailPermanentBounceError,
   sendActivityDigestEmail,
 } from "@/lib/email";
 import { SITE_LOCALES } from "@/lib/site-locale";
@@ -54,6 +56,40 @@ test("builds a localized German weekly activity digest", () => {
   assert.match(payload.html, /Jugend &amp; &lt;Med&gt;/);
   assert.doesNotMatch(payload.html, /Jugend & <Med>/);
   assert.match(payload.html, /https:\/\/deepglot\.ai\/de\/settings/);
+});
+
+test("distinguishes explicit provider rejection from unknown post-request failure", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalEnv = {
+    CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+    CLOUDFLARE_EMAIL_API_TOKEN: process.env.CLOUDFLARE_EMAIL_API_TOKEN,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+  };
+  process.env.CLOUDFLARE_ACCOUNT_ID = "account";
+  process.env.CLOUDFLARE_EMAIL_API_TOKEN = "token";
+  process.env.EMAIL_FROM = "noreply@example.invalid";
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const input = { to: "owner@example.invalid", locale: "en" as const, summary, dashboardUrl: "https://example.invalid/projects", settingsUrl: "https://example.invalid/settings" };
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: false, errors: [{ code: 10001, message: "email.sending.error.invalid_request_schema" }] }), { status: 400 });
+  await assert.rejects(sendActivityDigestEmail(input), EmailNotAcceptedError);
+  globalThis.fetch = async () => new Response("<html>error</html>", { status: 500 });
+  await assert.rejects(sendActivityDigestEmail(input), (error: unknown) => error instanceof Error && !(error instanceof EmailNotAcceptedError));
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: false, errors: [{ code: 99999 }] }), { status: 400 });
+  await assert.rejects(sendActivityDigestEmail(input), (error: unknown) => error instanceof Error && !(error instanceof EmailNotAcceptedError));
+  globalThis.fetch = async () => { throw new Error("timeout after possible acceptance"); };
+  await assert.rejects(sendActivityDigestEmail(input), (error: unknown) => error instanceof Error && !(error instanceof EmailNotAcceptedError));
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, result: { delivered: [], queued: [], permanent_bounces: ["owner@example.invalid"] } }), { status: 200 });
+  await assert.rejects(sendActivityDigestEmail(input), EmailPermanentBounceError);
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, result: { delivered: [], queued: ["someone-else@example.invalid"], permanent_bounces: [] } }), { status: 200 });
+  await assert.rejects(sendActivityDigestEmail(input), (error: unknown) => error instanceof Error && !(error instanceof EmailNotAcceptedError));
+  globalThis.fetch = async () => new Response(JSON.stringify({ success: true, result: { delivered: [], queued: ["OWNER@example.invalid"], permanent_bounces: [] } }), { status: 200 });
+  assert.equal((await sendActivityDigestEmail(input)).sent, true);
 });
 
 test("keeps the digest metric cards within narrow Outlook reading panes", () => {

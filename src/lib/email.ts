@@ -40,6 +40,24 @@ export function canSendEmail(env: Record<string, string | undefined> = process.e
   return Boolean(getCloudflareEmailConfig(env));
 }
 
+/** Provider explicitly rejected the request before accepting a message. */
+export class EmailNotAcceptedError extends Error {}
+export class EmailPermanentBounceError extends Error {}
+
+/** Status/code pairs documented for the Email Service REST endpoint. */
+function isConfirmedEmailRejection(status: number, data: CloudflareEmailResponse | null): boolean {
+  const codes: Record<number, readonly number[]> = {
+    400: [10001, 10200, 10201, 10202],
+    401: [10101, 10103],
+    403: [10102, 10105, 10203],
+    404: [10000],
+    429: [10004],
+  };
+  return data?.success === false && Boolean(data.errors?.some((error) =>
+    typeof error.code === "number" && codes[status]?.includes(error.code)
+  ));
+}
+
 export function buildCloudflareEmailApiUrl(accountId: string) {
   return `${CLOUDFLARE_EMAIL_API_BASE_URL}/${encodeURIComponent(accountId)}/email/sending/send`;
 }
@@ -893,12 +911,24 @@ export async function sendActivityDigestEmail({
     | CloudflareEmailResponse
     | null;
 
-  if (!response.ok || !data?.success) {
-    throw new Error(
+  if (isConfirmedEmailRejection(response.status, data)) {
+    throw new EmailNotAcceptedError(
       `Cloudflare Email Sending failed: ${
         data ? formatCloudflareEmailError(data) : response.statusText
       }`
     );
+  }
+  if (!response.ok || !data?.success) {
+    throw new Error("Cloudflare email acceptance is unknown: unclassified response");
+  }
+  const recipient = to.trim().toLowerCase();
+  const matchesRecipient = (addresses: string[] | undefined) =>
+    addresses?.some((address) => address.trim().toLowerCase() === recipient) ?? false;
+  if (matchesRecipient(data.result?.permanent_bounces)) {
+    throw new EmailPermanentBounceError("Cloudflare reported a permanent bounce for the recipient");
+  }
+  if (!matchesRecipient(data.result?.delivered) && !matchesRecipient(data.result?.queued)) {
+    throw new Error("Cloudflare did not report delivered or queued status for the recipient");
   }
 
   return {

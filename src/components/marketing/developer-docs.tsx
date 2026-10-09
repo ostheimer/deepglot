@@ -243,6 +243,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
               ? "Der Wochenrückblick ist ein Opt-in pro Benutzer und Workspace. Die Einstellung wird in den Kontoeinstellungen gespeichert; die PATCH-Route aktualisiert sowohl den Aktivierungsstatus als auch die gewünschte E-Mail-Sprache."
               : "The weekly digest is opt-in per user and workspace. The preference is stored in account settings; the PATCH route updates both the enabled state and the requested email locale."}
           </p>
+          <p className="mt-3 max-w-4xl leading-7 text-gray-700">
+            {de
+              ? "Weitere optionale Kategorien werden je Benutzer und Workspace unter /api/user/notification-preferences gelesen und gespeichert. GET liest unabhängig aus der Datenbank; PATCH akzeptiert nur eigene Workspace-Mitgliedschaften. Produktneuigkeiten und Abrechnungsübersichten bieten monatlich oder aus, Projekthinweise wöchentlich oder aus. Ein künftiger Versand muss Rollen, Projektzugriff und Einstellung unmittelbar vor Zustellung erneut prüfen. Derzeit gibt es für diese Kategorien keine Event-Produzenten. Pflichtnachrichten bleiben unabhängig davon."
+              : "Additional optional categories are read and saved per user and workspace at /api/user/notification-preferences. GET reads independently from the database; PATCH accepts only the current user's workspace memberships. Product updates and billing summaries offer monthly or off, project notices weekly or off. Future delivery must recheck role, project access, and preference immediately before sending. These categories currently have no event producers. Mandatory notices are independent."}
+          </p>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
               {
