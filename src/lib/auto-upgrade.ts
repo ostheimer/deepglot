@@ -159,9 +159,13 @@ export async function maybeAutoUpgradeAfterUsage(organizationId: string, month: 
     const verified = await validateStripeBillingContext({ client: stripeClient, subscriptionId: row.stripeSubscriptionId,
       customerId: subscription.stripeCustomerId, fromPriceId, toPriceId, fromPlan: decision.from, toPlan: decision.to, interval });
     if (!verified || (row.stripeItemId && row.stripeItemId !== verified.items.data[0].id)) {
-      await client.autoUpgradeAttempt.updateMany({ where: { id: row.id, status: { in: ["CLAIMED", "DISPATCHING"] } }, data: { status: "CANCELED" } });
-      await notifyOwners(client, row.id, organizationId, "FAILED");
-      return "canceled" as const;
+      const terminal = row.status === "DISPATCHING" ? "UNKNOWN" : "CANCELED";
+      const held = await client.autoUpgradeAttempt.updateMany({ where: { id: row.id,
+        status: row.status, claimedAt: row.claimedAt }, data: {
+        status: terminal, errorCode: "STRIPE_VALIDATION_CHANGED" } });
+      if (held.count === 0) return "already_claimed" as const;
+      await notifyOwners(client, row.id, organizationId, terminal === "UNKNOWN" ? "RECONCILE_REQUIRED" : "FAILED");
+      return terminal === "UNKNOWN" ? "unknown" as const : "canceled" as const;
     }
     // Linearization point: the owner preference and usage are reread under the
     // organization lock, then DISPATCHING is committed. No database lock spans HTTP.

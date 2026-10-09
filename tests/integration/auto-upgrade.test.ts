@@ -250,3 +250,52 @@ test("opt-out holds a dispatched unknown Stripe outcome for review without anoth
     await db.user.delete({ where: { id: owner.id } });
   }
 });
+
+test("failed second Stripe validation holds dispatched attempts and respects a competing lease", async () => {
+  for (const competingLease of [false, true]) {
+    const suffix = randomUUID();
+    const owner = await db.user.create({ data: { email: `auto269-validate-${suffix}@example.invalid` } });
+    const org = await db.organization.create({ data: { name: "Validation race", slug: `auto269-validate-${suffix}`, plan: "STARTER" } });
+    const customerId = `cus_${suffix.replaceAll("-", "")}`;
+    const subId = `sub_${suffix.replaceAll("-", "")}`;
+    let retrieves = 0;
+    let updates = 0;
+    try {
+      await db.organizationMember.create({ data: { userId: owner.id, organizationId: org.id, role: "OWNER" } });
+      const project = await db.project.create({ data: { name: "Validation project", domain: `auto269-validate-${suffix}.invalid`, organizationId: org.id } });
+      await db.subscription.create({ data: { organizationId: org.id, stripeCustomerId: customerId, stripeSubscriptionId: subId,
+        stripePriceId: env.STRIPE_PRICE_STARTER_MONTHLY, status: "ACTIVE", plan: "STARTER", wordsLimit: 25000 } });
+      await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true,
+        maxPlan: "BUSINESS", maxPriceCents: 2500, updatedByUserId: owner.id } });
+      await db.usageRecord.create({ data: { organizationId: org.id, projectId: project.id, month: 202610, words: 23000 } });
+      const command = await db.billingCommand.create({ data: { workspaceId: org.id, actorUserId: owner.id,
+        actorRole: "OWNER", action: "AUTO_UPGRADE", targetRef: env.STRIPE_PRICE_BUSINESS_MONTHLY } });
+      const attemptedAt = new Date(Date.now() - 11 * 60_000);
+      const attempt = await db.autoUpgradeAttempt.create({ data: { organizationId: org.id, month: 202610,
+        fromPlan: "STARTER", toPlan: "BUSINESS", fromPriceId: env.STRIPE_PRICE_STARTER_MONTHLY,
+        toPriceId: env.STRIPE_PRICE_BUSINESS_MONTHLY, interval: "monthly", maxPriceCents: 2500,
+        usedWords: 23000, status: "DISPATCHING", stripeSubscriptionId: subId, stripeItemId: "si_original",
+        billingCommandId: command.id, claimedAt: attemptedAt } });
+      const stripeClient = { subscriptions: { retrieve: async () => {
+        retrieves++;
+        if (retrieves === 2 && competingLease) await db.autoUpgradeAttempt.update({ where: { id: attempt.id },
+          data: { claimedAt: new Date() } });
+        return { id: subId, status: "active", customer: customerId, collection_method: "charge_automatically",
+          cancel_at_period_end: false, cancel_at: null, pending_update: null, schedule: null,
+          items: { data: [{ id: retrieves === 1 ? "si_original" : "si_replaced", quantity: 1,
+            price: { id: env.STRIPE_PRICE_STARTER_MONTHLY } }] } };
+      }, update: async () => { updates++; throw new Error("must not dispatch"); } },
+      prices: { retrieve: async (id: string) => price(id, id === env.STRIPE_PRICE_STARTER_MONTHLY ? 1300 : 2500) } } as unknown as AutoUpgradeStripe;
+      const result = await maybeAutoUpgradeAfterUsage(org.id, 202610, { stripeClient, env });
+      assert.equal(result, competingLease ? "already_claimed" : "unknown");
+      assert.equal(updates, 0);
+      assert.equal((await db.autoUpgradeAttempt.findUniqueOrThrow({ where: { id: attempt.id } })).status,
+        competingLease ? "DISPATCHING" : "UNKNOWN");
+      assert.equal(await db.autoUpgradeNotification.count({ where: { attemptId: attempt.id, kind: "RECONCILE_REQUIRED" } }),
+        competingLease ? 0 : 1);
+    } finally {
+      await db.organization.delete({ where: { id: org.id } });
+      await db.user.delete({ where: { id: owner.id } });
+    }
+  }
+});
