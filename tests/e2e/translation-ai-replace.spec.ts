@@ -135,6 +135,8 @@ test("active AI editor previews, runs one local provider call, then saves sugges
     await page.getByRole("button", { name: "Check provider and quota" }).click();
     await expect(page.getByText(/openai-compatible · fixture/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Run AI now" })).toBeEnabled();
+    expect(providerCalls).toBe(0);
+    expect(await db.aiSpendReservation.count({ where: { projectId: project.id } })).toBe(0);
     await page.getByRole("button", { name: "Run AI now" }).click();
     await expect(page.getByRole("button", { name: "Use suggestion in editor" })).toBeVisible();
     expect(providerCalls).toBe(1);
