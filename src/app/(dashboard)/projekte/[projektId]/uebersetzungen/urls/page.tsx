@@ -7,7 +7,7 @@ import Link from "next/link";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
 import { getProjectUrl, getWordPressSettingsUrl } from "@/lib/project-url";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { canAccessProjectArea, canManageProject, getAuthenticatedUserId, getProjectAccess } from "@/lib/project-access";
 import { UrlOperations } from "@/components/projekte/url-operations";
 import {
   buildProjectQueryHref,
@@ -25,7 +25,8 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
   const { q, lang, seite, status } = await searchParams;
   const locale = await getRequestLocale();
   const userId = await getAuthenticatedUserId();
-  if (!userId || !(await userCanManageProject(userId, projektId))) notFound();
+  const access = userId ? await getProjectAccess(userId, projektId) : null;
+  if (!access) notFound();
 
   const page = Math.max(1, parseInt(seite ?? "1", 10));
   const pageSize = 20;
@@ -37,10 +38,15 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
 
   if (!project) notFound();
 
+  const readableLanguages = project.languages.filter((language) => canAccessProjectArea(access, "translations", language.langCode));
+  if (readableLanguages.length === 0) notFound();
+  if (lang && !readableLanguages.some((language) => language.langCode.toLowerCase() === lang.toLowerCase())) notFound();
+
   const activeLang = normalizeProjectLang(
     lang,
-    project.languages.map((language) => language.langCode)
+    readableLanguages.map((language) => language.langCode)
   );
+  const canManage = canManageProject(access);
 
   const where = {
     projectId: projektId,
@@ -71,7 +77,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
         <div className="flex gap-2 items-center">
           {/* Language filter */}
           <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white">
-            {project.languages.map((l) => (
+            {readableLanguages.map((l) => (
               <Button
                 key={l.id}
                 asChild
@@ -119,7 +125,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
         </div>
       </div>
 
-      <UrlOperations projectId={projektId} locale={locale} wordpressSyncUrl={wordpressSyncUrl} records={urlRecords.map((record) => ({ ...record, targetUrl: new URL(record.urlPath, getProjectUrl(project.domainMappings.find((mapping) => mapping.langCode === record.langTo)?.host ?? project.domain)).toString(), lastSeenAt: record.lastSeenAt.toISOString(), lastOperationAt: record.lastOperationAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString() }))} />
+      <UrlOperations projectId={projektId} locale={locale} canManage={canManage} wordpressSyncUrl={canManage ? wordpressSyncUrl : null} records={urlRecords.map((record) => ({ ...record, targetUrl: new URL(record.urlPath, getProjectUrl(project.domainMappings.find((mapping) => mapping.langCode === record.langTo)?.host ?? project.domain)).toString(), lastSeenAt: record.lastSeenAt.toISOString(), lastOperationAt: record.lastOperationAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString() }))} />
 
       {/* Pagination */}
       {totalPages > 1 && (

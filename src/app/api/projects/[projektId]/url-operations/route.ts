@@ -6,7 +6,7 @@ import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
 import { countWords } from "@/lib/translation";
 import { getProjectUrl } from "@/lib/project-url";
-import { classifyUrlTranslation, createUrlOperationFingerprint, managerProviderOutcome, wordpressCacheKey } from "@/lib/url-operations";
+import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "@/lib/url-operations";
 import { executeAuthenticatedTranslateRequest } from "@/app/api/translate/route";
 import { executeIdempotently, PrismaApiIdempotencyStore, validateApiIdempotencyKey } from "@/lib/api-idempotency";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
@@ -39,6 +39,7 @@ async function snapshot(projectId: string, id: string, action: "retranslate" | "
     where: { projectId, langFrom: project.originalLang, langTo: record.langTo },
     orderBy: [{ originalTerm: "desc" }, { updatedAt: "desc" }],
   });
+  const glossaryVersion = glossaryRuleVersion(glossaryRules);
   if (translations.length > 10_000) throw new Error("This URL exceeds the 10,000-segment inventory limit; use a narrower URL inventory before operating.");
   const classified = translations.map((item) => ({
     item,
@@ -55,7 +56,7 @@ async function snapshot(projectId: string, id: string, action: "retranslate" | "
   }
   const remainingEligible = allEligible.filter((item) => !afterId || item.id > afterId);
   const eligible = remainingEligible.slice(0, 250);
-  const nextAfterId = remainingEligible.length > 250 ? eligible.at(-1)?.id : null;
+  const nextAfterId = remainingEligible.length > 250 ? eligible.at(-1)?.id ?? null : null;
   const billableWords = eligible.reduce((sum, item) => sum + countWords(item.originalText), 0);
   const month = getUsageMonthKey();
   const usage = await db.usageRecord.aggregate({ where: { organizationId: project.organizationId, month }, _sum: { words: true } });
@@ -69,11 +70,11 @@ async function snapshot(projectId: string, id: string, action: "retranslate" | "
     originalLang: project.originalLang, active, targetHost: project.domainMappings.find((mapping) => mapping.langCode === record.langTo)?.host,
     automaticTranslation: project.settings?.automaticTranslation,
     settingsUpdatedAt: project.settings?.updatedAt.toISOString(), month, wordsLimit,
-    glossary: glossaryRules.map((rule) => [rule.id, rule.updatedAt.toISOString()]),
+    glossaryVersion,
     segments: translations.map((item) => [item.id, item.originalHash, item.originalText, item.updatedAt.toISOString(), item.isManual, item.workflowStatus, item.contexts.map((context) => context.urlPath).sort()]),
   });
   return {
-    project, record, translations, eligible, fingerprint, nextAfterId,
+    project, record, translations, eligible, fingerprint, nextAfterId, glossaryVersion,
     preview: {
       id, urlPath: record.urlPath, langTo: record.langTo, action, confirmation: fingerprint,
       affectedSegments: eligible.length,
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const receiptUrl = receipt ? await db.translatedUrl.findFirst({ where: { id, projectId: projektId } }) : null;
         if (receipt?.projectId === projektId && receipt.urlId === id && receipt.actorId === actorId && receipt.id === confirmation && receiptUrl?.operationToken === confirmation && receiptUrl.urlPath === receipt.urlPath && receiptUrl.langTo === receipt.langTo) {
           await db.translatedUrl.updateMany({ where: { id, projectId: projektId, operationState: "provider_pending" }, data: { operationState: "completed", lastResult: "retranslated", lastError: null, lastOperationAt: new Date() } });
-          return { status: 200, headers: {}, body: { id, action, affectedSegments: receipt.segmentCount, billedWords: receipt.billedWords, result: "completed", reconciledFromReceipt: true } };
+          return { status: 200, headers: {}, body: { id, action, affectedSegments: receipt.segmentCount, totalEligibleSegments: receipt.totalEligibleSegments, remainingSegments: receipt.remainingSegments, nextAfterId: receipt.nextAfterId, billedWords: receipt.billedWords, result: "completed", reconciledFromReceipt: true } };
         }
       }
       const fresh = await snapshot(projektId, id, action, afterId);
@@ -135,6 +136,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const ids = fresh.translations.map((item) => item.id);
         try { await db.$transaction(async (tx) => {
           if (!(await lockProjectRuntimeConfiguration(tx, projektId))) throw new Error("STALE_URL");
+          const currentRules = await tx.glossaryRule.findMany({ where: { projectId: projektId, langFrom: fresh.project.originalLang, langTo: fresh.record.langTo }, select: { id: true, updatedAt: true } });
+          if (glossaryRuleVersion(currentRules) !== fresh.glossaryVersion) throw new Error("STALE_URL");
           await tx.$queryRaw`SELECT id FROM "TranslatedUrl" WHERE id = ${id} AND "projectId" = ${projektId} FOR UPDATE`;
           const row = await tx.translatedUrl.findFirst({ where: { id, projectId: projektId } });
           if (!row || row.lastSeenAt.getTime() !== fresh.record.lastSeenAt.getTime() || row.lastOperationAt?.getTime() !== fresh.record.lastOperationAt?.getTime() || row.operationState !== fresh.record.operationState || row.lastResult !== fresh.record.lastResult) throw new Error("STALE_URL");
@@ -190,8 +193,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         response = await executeAuthenticatedTranslateRequest(fakeRequest, { id: `manager:${projektId}`, project: fresh.project }, undefined, {
           hashes: new Set(fresh.eligible.map((item) => item.originalHash)),
           versions: new Map(fresh.eligible.map((item) => [item.originalHash, item.updatedAt.toISOString()])),
+          glossaryVersion: fresh.glossaryVersion,
           onProviderDispatch: () => { providerDispatched = true; },
-          receipt: { id: confirmation, projectId: projektId, urlId: id, actorId, urlPath: fresh.record.urlPath, langTo: fresh.record.langTo },
+          receipt: { id: confirmation, projectId: projektId, urlId: id, actorId, urlPath: fresh.record.urlPath, langTo: fresh.record.langTo, totalEligibleSegments: fresh.preview.totalEligibleSegments, remainingSegments: fresh.preview.remainingSegments, nextAfterId: fresh.nextAfterId },
         });
       } catch (error) {
         if (!providerDispatched) await db.translatedUrl.updateMany({ where: { id, projectId: projektId, operationState: "provider_pending" }, data: { operationState: "failed", lastResult: "pre_provider_failed", lastError: "pre_provider_failed", lastOperationAt: new Date() } });
@@ -205,7 +209,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       } else if (outcome === "rejected_before_provider") {
         await db.translatedUrl.updateMany({ where: { id, projectId: projektId }, data: { operationState: "failed", lastResult: "retranslate_failed", lastHttpStatus: null, origin: "dashboard", lastOperationAt: new Date(), lastError: String(responseBody.code ?? "operation_failed").slice(0, 80) } });
       }
-      return { status: outcome === "completed" ? 200 : outcome === "rejected_before_provider" ? response.status : 409, headers: {}, body: { id, action, affectedSegments: fresh.eligible.length, ...(outcome === "completed" ? { billedWords: receipt!.billedWords } : outcome === "rejected_before_provider" ? { billedWords: 0 } : { providerCostUnknown: true }), result: outcome === "completed" ? "completed" : outcome === "rejected_before_provider" ? "failed" : "unknown", nextAfterId: outcome === "completed" ? fresh.nextAfterId : null, ...(outcome === "completed" ? {} : { error: outcome === "rejected_before_provider" ? responseBody.code ?? "operation_failed" : "provider_outcome_unknown" }) } };
+      return { status: outcome === "completed" ? 200 : outcome === "rejected_before_provider" ? response.status : 409, headers: {}, body: { id, action, affectedSegments: fresh.eligible.length, totalEligibleSegments: fresh.preview.totalEligibleSegments, remainingSegments: outcome === "completed" ? fresh.preview.remainingSegments : null, ...(outcome === "completed" ? { billedWords: receipt!.billedWords } : outcome === "rejected_before_provider" ? { billedWords: 0 } : { providerCostUnknown: true }), result: outcome === "completed" ? "completed" : outcome === "rejected_before_provider" ? "failed" : "unknown", nextAfterId: outcome === "completed" ? fresh.nextAfterId : null, ...(outcome === "completed" ? {} : { error: outcome === "rejected_before_provider" ? responseBody.code ?? "operation_failed" : "provider_outcome_unknown" }) } };
     },
   });
   if (result.kind === "conflict") return NextResponse.json({ error: "Idempotency key used for another request" }, { status: 409 });

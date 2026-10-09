@@ -15,7 +15,7 @@ type Preview = {
 
 type UrlRecord = { id: string; urlPath: string; targetUrl: string; langTo: string; wordCount: number; requestCount: number; lastSeenAt: string; operationState: string | null; lastResult: string | null; lastHttpStatus: number | null; origin: string | null; lastOperationAt: string | null; lastError: string | null };
 
-export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: { projectId: string; records: UrlRecord[]; wordpressSyncUrl: string | null; locale: string }) {
+export function UrlOperations({ projectId, records, wordpressSyncUrl, locale, canManage }: { projectId: string; records: UrlRecord[]; wordpressSyncUrl: string | null; locale: string; canManage: boolean }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [previews, setPreviews] = useState<Preview[]>([]);
@@ -34,6 +34,17 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
   };
   const ids = records.map((record) => record.id);
   const endpoint = `/api/projects/${encodeURIComponent(projectId)}/url-operations`;
+  const resultText = (result: string, remaining?: number) => {
+    const labels: Record<string, [string, string]> = {
+      completed: ["Neuübersetzung abgeschlossen", "Retranslation completed"],
+      deleted: ["URL-Daten gelöscht", "URL data deleted"],
+      partial: ["Schritt abgeschlossen", "Step completed"],
+      failed: ["Aktion fehlgeschlagen", "Action failed"],
+      unknown: ["Provider-Ausgang ungeklärt; vor weiteren Aktionen abgleichen", "Provider outcome unresolved; reconcile before further actions"],
+    };
+    const label = labels[result]?.[de ? 0 : 1] ?? result;
+    return remaining && remaining > 0 ? `${label}; ${remaining} ${de ? "geeignete Segmente verbleiben" : "eligible segments remain"}` : label;
+  };
 
   async function open(action: Action, targetIds: string[], afterId?: string) {
     setBusy(true); if (!afterId) setResults([]);
@@ -66,7 +77,7 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
           body: JSON.stringify({ action: preview.action, id: preview.id, afterId: preview.afterId, confirmation: preview.confirmation }),
         });
         const payload = await response.json();
-        output.push({ id: preview.id, urlPath: preview.urlPath, ok: response.ok && payload.result !== "failed", detail: response.ok ? (payload.result ?? `${payload.deletedSegments} ${de ? "Segmente gelöscht" : "segments deleted"}`) : String(payload.error ?? response.status), action: preview.action, nextAfterId: payload.nextAfterId ?? null });
+        output.push({ id: preview.id, urlPath: preview.urlPath, ok: response.ok && payload.result !== "failed" && payload.result !== "unknown", detail: response.ok ? resultText(payload.result ?? (preview.action === "delete" ? "deleted" : "completed"), payload.remainingSegments) : String(payload.error ?? response.status), action: preview.action, nextAfterId: payload.nextAfterId ?? null });
       } catch { output.push({ id: preview.id, urlPath: preview.urlPath, ok: false, detail: de ? "Netzwerkfehler; Ergebnis vor erneutem Versuch prüfen" : "Network error; check result before retrying" }); }
       setResults([...output]);
     }
@@ -74,16 +85,16 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
   }
 
   return <div className="space-y-3">
-    <div className="flex flex-wrap items-center gap-2">
+    {canManage && <div className="flex flex-wrap items-center gap-2">
       <label className="text-sm"><input type="checkbox" checked={ids.length > 0 && selected.length === Math.min(ids.length, 10)} onChange={(event) => setSelected(event.target.checked ? ids.slice(0, 10) : [])} /> {de ? "Bis zu 10 sichtbare auswählen" : "Select up to 10 visible"}</label>
       <Button size="sm" variant="outline" disabled={busy || selected.length === 0} onClick={() => open("retranslate", selected)}>{de ? "Auswahl neu übersetzen" : "Retranslate selected"}</Button>
       <Button size="sm" variant="outline" disabled={busy || selected.length === 0} onClick={() => open("delete", selected)}>{de ? "Auswahl löschen" : "Delete selected"}</Button>
       <span className="text-xs text-gray-500">{selected.length}/10 {de ? "ausgewählt (max. 10)" : "selected (max 10)"}</span>
-    </div>
+    </div>}
     <div className="space-y-3">
       {records.map((record) => <article key={record.id} className="rounded-xl border border-gray-200 bg-white p-4 text-sm">
         <div className="flex items-start gap-3">
-          <input type="checkbox" className="mt-1" aria-label={`${de ? "URL auswählen" : "Select URL"} ${record.urlPath}`} checked={selected.includes(record.id)} onChange={(event) => setSelected((old) => event.target.checked ? [...old, record.id].slice(0, 10) : old.filter((value) => value !== record.id))} />
+          {canManage && <input type="checkbox" className="mt-1" aria-label={`${de ? "URL auswählen" : "Select URL"} ${record.urlPath}`} checked={selected.includes(record.id)} onChange={(event) => setSelected((old) => event.target.checked ? [...old, record.id].slice(0, 10) : old.filter((value) => value !== record.id))} />}
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-2 font-semibold text-gray-900"><span className="min-w-0 break-all">{record.urlPath}</span><a href={record.targetUrl} target="_blank" rel="noreferrer" aria-label={de ? "URL öffnen" : "Open URL"} className="shrink-0 text-gray-500"><ExternalLink className="h-4 w-4" /></a></div>
             <div className="mt-3 grid gap-3 text-xs text-gray-600 sm:grid-cols-3">
@@ -93,11 +104,11 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
             </div>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3"><Button size="sm" variant="outline" disabled={busy} onClick={() => open("retranslate", [record.id])}>{de ? "Neu übersetzen" : "Retranslate"}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => open("delete", [record.id])}>{de ? "Löschen" : "Delete"}</Button>{record.operationState === "sync_failed" && wordpressSyncUrl && <a className="self-center text-sm underline" href={`${wordpressSyncUrl}#deepglot-url-sync`} target="_blank" rel="noreferrer">{de ? "WordPress öffnen und Wiederholung bestätigen" : "Open WordPress to confirm retry"}</a>}</div>
+        {canManage && <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3"><Button size="sm" variant="outline" disabled={busy} onClick={() => open("retranslate", [record.id])}>{de ? "Neu übersetzen" : "Retranslate"}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => open("delete", [record.id])}>{de ? "Löschen" : "Delete"}</Button>{record.operationState === "sync_failed" && wordpressSyncUrl && <a className="self-center text-sm underline" href={`${wordpressSyncUrl}#deepglot-url-sync`} target="_blank" rel="noreferrer">{de ? "WordPress öffnen und Wiederholung bestätigen" : "Open WordPress to confirm retry"}</a>}</div>}
       </article>)}
       {records.length === 0 && <p className="rounded-xl border bg-white p-8 text-center text-gray-500">{de ? "Keine URL-Einträge gefunden." : "No URL records found."}</p>}
     </div>
-    {previews.length > 0 && <div role="dialog" aria-modal="true" aria-label={de ? "URL-Aktion bestätigen" : "Confirm URL action"} className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm space-y-3">
+    {canManage && previews.length > 0 && <div role="dialog" aria-modal="true" aria-label={de ? "URL-Aktion bestätigen" : "Confirm URL action"} className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm space-y-3">
       <p className="font-semibold">{de ? "Aktuelle Vorschau bestätigen" : "Confirm current preview"}</p>
       {previews.some((preview) => preview.action === "retranslate") && <p>{de ? "Diese Auswahl umfasst" : "This selection includes"} <strong>{previews.filter((preview) => preview.action === "retranslate" && preview.canRetranslate).reduce((sum, preview) => sum + preview.billableWords, 0)}</strong> {de ? "abrechenbare Wörter in diesem Schritt. Jede URL erhält ein eigenes Ergebnis; bei ausgeschöpftem Kontingent wird die betroffene URL nicht neu übersetzt." : "billable words in this step. Each URL gets its own result; a URL is skipped if quota runs out."}</p>}
       {previews.map((preview) => <div key={preview.id} className="border-t border-amber-200 pt-2">
@@ -106,6 +117,6 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
       </div>)}
       <div className="flex gap-2"><Button size="sm" disabled={busy || previews.every((preview) => preview.action === "retranslate" ? !preview.canRetranslate : !preview.canDelete)} onClick={confirm}>{de ? "Endgültig bestätigen" : "Confirm permanently"}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => setPreviews([])}>{de ? "Abbrechen" : "Cancel"}</Button></div>
     </div>}
-    {results.length > 0 && <div role="status" className="rounded border p-3 text-sm"><strong>{de ? "Einzelergebnisse" : "Individual results"}</strong><ul>{results.map((result, index) => <li key={`${result.id}-${index}`}>{result.urlPath}: {result.ok ? "✓" : "✗"} {result.detail} {result.nextAfterId && result.action && <Button size="sm" variant="outline" disabled={busy} onClick={() => open(result.action!, [result.id], result.nextAfterId!)}>{de ? "Nächste 250 prüfen" : "Review next 250"}</Button>}</li>)}</ul></div>}
+    {canManage && results.length > 0 && <div role="status" className="rounded border p-3 text-sm"><strong>{de ? "Einzelergebnisse" : "Individual results"}</strong><ul>{results.map((result, index) => <li key={`${result.id}-${index}`}>{result.urlPath}: {result.ok ? "✓" : "✗"} {result.detail} {result.nextAfterId && result.action && <Button size="sm" variant="outline" disabled={busy} onClick={() => open(result.action!, [result.id], result.nextAfterId!)}>{de ? "Nächste 250 prüfen" : "Review next 250"}</Button>}</li>)}</ul></div>}
   </div>;
 }

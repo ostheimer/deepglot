@@ -19,6 +19,11 @@ export function createUrlOperationFingerprint(snapshot: unknown) {
   return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
 
+/** Compare rule revisions under the same project lock as URL mutations. */
+export function glossaryRuleVersion(rules: ReadonlyArray<{ id: string; updatedAt: Date }>) {
+  return createUrlOperationFingerprint(rules.map((rule) => [rule.id, rule.updatedAt.toISOString()]).sort((a, b) => a[0].localeCompare(b[0])));
+}
+
 /** HTTP status alone never proves that an accepted provider request was free. */
 export function managerProviderOutcome(input: { providerDispatched: boolean; receiptPersisted: boolean; responseStatus: number }) {
   if (input.receiptPersisted) return "completed" as const;

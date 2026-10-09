@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordTranslationContexts } from "@/lib/translation-context";
+import { glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
 import { buildTranslationContext } from "@/lib/translation-context-settings";
 import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
@@ -25,7 +26,6 @@ import {
   upsertTranslatedUrlHit,
 } from "@/lib/translation-batches";
 import { computeTranslationHash } from "@/lib/translation-hash";
-import { wordpressCacheKey } from "@/lib/url-operations";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import {
   TRANSLATE_RATE_LIMIT_SCOPE,
@@ -129,8 +129,9 @@ export async function executeAuthenticatedTranslateRequest(
   forceRetranslate?: {
     hashes: ReadonlySet<string>;
     versions: ReadonlyMap<string, string>;
+    glossaryVersion: string;
     onProviderDispatch?: () => void;
-    receipt?: { id: string; projectId: string; urlId: string; actorId: string; urlPath: string; langTo: string };
+    receipt?: { id: string; projectId: string; urlId: string; actorId: string; urlPath: string; langTo: string; totalEligibleSegments: number; remainingSegments: number; nextAfterId: string | null };
   },
 ) {
   try {
@@ -776,6 +777,13 @@ export async function executeAuthenticatedTranslateRequest(
             }
 
             if (forceRetranslate) {
+              const currentRules = await tx.glossaryRule.findMany({
+                where: { projectId: project.id, langFrom: l_from, langTo: l_to },
+                select: { id: true, updatedAt: true },
+              });
+              if (glossaryRuleVersion(currentRules) !== forceRetranslate.glossaryVersion) {
+                return { kind: "stale_url_preview" } as const;
+              }
               const current = await tx.translation.findMany({
                 where: { projectId: project.id, originalHash: { in: [...forceRetranslate.hashes] } },
                 include: { contexts: { select: { urlPath: true } } },
@@ -925,6 +933,9 @@ export async function executeAuthenticatedTranslateRequest(
                 langTo: forceRetranslate.receipt.langTo,
                 billedWords: translatedWords,
                 segmentCount: pendingTranslations.length,
+                totalEligibleSegments: forceRetranslate.receipt.totalEligibleSegments,
+                remainingSegments: forceRetranslate.receipt.remainingSegments,
+                nextAfterId: forceRetranslate.receipt.nextAfterId,
               } });
             }
 

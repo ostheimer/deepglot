@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS "UrlOperationReceipt" (
   "langTo" TEXT NOT NULL,
   "billedWords" INTEGER NOT NULL,
   "segmentCount" INTEGER NOT NULL,
+  "totalEligibleSegments" INTEGER NOT NULL,
+  "remainingSegments" INTEGER NOT NULL,
+  "nextAfterId" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS "UrlOperationReceipt_projectId_urlId_idx" ON "UrlOperationReceipt"("projectId", "urlId");

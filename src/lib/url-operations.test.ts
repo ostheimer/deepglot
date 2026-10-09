@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyUrlTranslation, createUrlOperationFingerprint, managerProviderOutcome, wordpressCacheKey } from "./url-operations";
+import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "./url-operations";
 
 test("URL deletion protects shared, manual, and reviewed segments", () => {
   assert.equal(classifyUrlTranslation({ isManual: false, workflowStatus: "MACHINE", paths: ["/one"] }, "/one"), "delete");
@@ -28,4 +28,12 @@ test("a provider-dispatched error stays unresolved regardless of HTTP 4xx or 5xx
   }
   assert.equal(managerProviderOutcome({ providerDispatched: false, receiptPersisted: false, responseStatus: 429 }), "rejected_before_provider");
   assert.equal(managerProviderOutcome({ providerDispatched: true, receiptPersisted: true, responseStatus: 500 }), "completed");
+});
+
+test("glossary revisions are order-independent but reject a new matching rule", () => {
+  const first = { id: "a", updatedAt: new Date("2026-10-09T00:00:00Z") };
+  const second = { id: "b", updatedAt: new Date("2026-10-09T00:00:01Z") };
+  assert.equal(glossaryRuleVersion([first, second]), glossaryRuleVersion([second, first]));
+  assert.notEqual(glossaryRuleVersion([first]), glossaryRuleVersion([first, second]));
+  assert.notEqual(glossaryRuleVersion([first]), glossaryRuleVersion([{ ...first, updatedAt: second.updatedAt }]));
 });

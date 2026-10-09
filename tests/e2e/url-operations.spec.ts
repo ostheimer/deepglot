@@ -1,9 +1,57 @@
 import { createHash } from "node:crypto";
+import bcrypt from "bcryptjs";
 import { expect, test } from "@playwright/test";
 import { db } from "../../src/lib/db";
 import { computeTranslationHash } from "../../src/lib/translation-hash";
 import { hashApiIdempotencyKey } from "../../src/lib/api-idempotency";
 import { e2eId, signInAndGetProjectId } from "./helpers";
+
+async function waitForBlockedProjectLock() {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const rows = await db.$queryRaw<Array<{ waiting: bigint }>>`
+      SELECT count(*)::bigint AS waiting FROM pg_stat_activity
+      WHERE pid <> pg_backend_pid() AND wait_event_type = 'Lock'
+        AND query LIKE '%FROM "Project"%' AND query LIKE '%FOR UPDATE%'
+    `;
+    if (rows[0]?.waiting > BigInt(0)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("Timed out waiting for the URL operation to reach the project write lock");
+}
+
+test("language-bound translator reads URL inventory without manager controls", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const email = `${e2eId("url-translator")}@example.test`;
+  const password = e2eId("password");
+  const user = await db.user.create({ data: { email, password: await bcrypt.hash(password, 10) } });
+  const member = await db.projectMember.create({ data: { projectId, userId: user.id, email, role: "TRANSLATOR", langCode: "en" } });
+  const path = `/${e2eId("translator-url")}`;
+  const english = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const french = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "fr" } });
+  try {
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.waitForURL(/\/dashboard$/);
+    const inventory = await page.goto(`/projects/${projectId}/translations/urls?lang=en`);
+    expect(inventory?.status()).toBe(200);
+    await expect(page.getByText(path, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retranslate" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.getByText("Open WordPress to confirm retry")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "FR" })).toHaveCount(0);
+    expect((await page.goto(`/projects/${projectId}/translations/urls?lang=fr`))?.status()).toBe(404);
+    const denied = await page.request.post(`/api/projects/${projectId}/url-operations`, { data: { action: "delete", id: english.id } });
+    expect(denied.status()).toBe(404);
+  } finally {
+    await db.translatedUrl.deleteMany({ where: { id: { in: [english.id, french.id] } } });
+    await db.projectMember.delete({ where: { id: member.id } });
+    await db.user.delete({ where: { id: user.id } });
+  }
+});
 
 test("manager preview, provider charge, idempotent replay, scoped deletion and observed sync error", async ({ page, playwright }) => {
   const projectId = await signInAndGetProjectId(page);
@@ -223,6 +271,119 @@ test("an unknown provider outcome blocks replay and delete without another charg
     await db.apiKey.delete({ where: { id: key.id } });
     await db.translation.delete({ where: { id: translation.id } });
     await db.translatedUrl.delete({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("a 251-segment retranslation receipt restores its cursor and bills the final step once", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const actorId = (await db.user.findUniqueOrThrow({ where: { email: "preview@deepglot.local" } })).id;
+  const path = `/${e2eId("large-retranslate")}`;
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const texts = Array.from({ length: 251 }, (_, index) => e2eId(`refresh${index}`));
+  const hashes = texts.map((text) => computeTranslationHash(text, "de", "en"));
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  try {
+    await db.translation.createMany({ data: texts.map((text, index) => ({ projectId, originalHash: hashes[index], originalText: text, translatedText: `old ${text}`, langFrom: "de", langTo: "en", source: "MOCK" })) });
+    const translations = await db.translation.findMany({ where: { projectId, originalHash: { in: hashes } }, select: { id: true } });
+    await db.translationContext.createMany({ data: translations.map(({ id }) => ({ translationId: id, urlPath: path })) });
+    const first = await (await post({ action: "retranslate", id: url.id })).json();
+    expect(first).toMatchObject({ affectedSegments: 250, remainingSegments: 1 });
+    const firstData = { action: "retranslate", id: url.id, confirmation: first.confirmation };
+    const before = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words ?? 0;
+    const done = await post(firstData, first.confirmation);
+    expect(done.status(), await done.text()).toBe(200);
+    const firstResult = await done.json();
+    expect(firstResult.nextAfterId).toBe(first.nextAfterId);
+    expect(firstResult.remainingSegments).toBe(1);
+    const afterFirst = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words ?? 0;
+    expect(afterFirst - before).toBe(first.billableWords);
+    await db.apiIdempotencyRecord.delete({ where: { scope_keyHash: { scope: `manager:url-operation:${projectId}:${actorId}`, keyHash: hashApiIdempotencyKey(first.confirmation) } } });
+    await db.translatedUrl.update({ where: { id: url.id }, data: { operationState: "provider_pending", lastResult: "provider_outcome_unknown", operationToken: first.confirmation } });
+    const recovered = await post(firstData, first.confirmation);
+    expect(recovered.status(), await recovered.text()).toBe(200);
+    expect(await recovered.json()).toMatchObject({ billedWords: first.billableWords, nextAfterId: first.nextAfterId, remainingSegments: 1, reconciledFromReceipt: true });
+    expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(afterFirst);
+    const second = await (await post({ action: "retranslate", id: url.id, afterId: first.nextAfterId })).json();
+    expect(second).toMatchObject({ affectedSegments: 1, remainingSegments: 0 });
+    const secondData = { action: "retranslate", id: url.id, afterId: first.nextAfterId, confirmation: second.confirmation };
+    const last = await post(secondData, second.confirmation);
+    expect(last.status(), await last.text()).toBe(200);
+    expect((await last.json()).billedWords).toBe(second.billableWords);
+    const replay = await post(secondData, second.confirmation);
+    expect(replay.status()).toBe(200);
+    const afterAll = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words ?? 0;
+    expect(afterAll - before).toBe(first.billableWords + second.billableWords);
+  } finally {
+    await db.urlCacheInvalidation.deleteMany({ where: { projectId, urlPath: path } });
+    await db.urlOperationReceipt.deleteMany({ where: { projectId, urlId: url.id } });
+    await db.translation.deleteMany({ where: { projectId, originalHash: { in: hashes } } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("a glossary rule committed while delete waits for its lock protects the segment", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const path = `/${e2eId("glossary-delete")}`;
+  const text = e2eId("Glossary deletion guard");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  let ruleId: string | null = null;
+  try {
+    const preview = await (await post({ action: "delete", id: url.id })).json();
+    let pending: ReturnType<typeof post>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id" = ${projectId} FOR UPDATE`;
+      pending = post({ action: "delete", id: url.id, confirmation: preview.confirmation }, preview.confirmation);
+      await waitForBlockedProjectLock();
+      const rule = await tx.glossaryRule.create({ data: { projectId, originalTerm: text, translatedTerm: "protected", langFrom: "de", langTo: "en" } });
+      ruleId = rule.id;
+    }, { timeout: 15_000 });
+    const result = await pending!;
+    expect(result.status(), await result.text()).toBe(409);
+    expect(await db.translation.findUnique({ where: { id: translation.id } })).not.toBeNull();
+    expect(await db.translatedUrl.findUnique({ where: { id: url.id } })).not.toBeNull();
+  } finally {
+    if (ruleId) await db.glossaryRule.deleteMany({ where: { id: ruleId } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("a glossary rule committed during provider work blocks stale persistence and usage", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const path = `/${e2eId("glossary-provider")}`;
+  const text = e2eId("Glossary provider guard");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  let ruleId: string | null = null;
+  try {
+    const preview = await (await post({ action: "retranslate", id: url.id })).json();
+    const usageBefore = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words;
+    let pending: ReturnType<typeof post>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id" = ${projectId} FOR UPDATE`;
+      pending = post({ action: "retranslate", id: url.id, confirmation: preview.confirmation }, preview.confirmation);
+      await waitForBlockedProjectLock();
+      const rule = await tx.glossaryRule.create({ data: { projectId, originalTerm: text, translatedTerm: "protected", langFrom: "de", langTo: "en" } });
+      ruleId = rule.id;
+    }, { timeout: 15_000 });
+    const result = await pending!;
+    expect(result.status(), await result.text()).toBe(409);
+    expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
+    expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
+    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("provider_pending");
+  } finally {
+    if (ruleId) await db.glossaryRule.deleteMany({ where: { id: ruleId } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
     await db.$disconnect();
   }
 });
