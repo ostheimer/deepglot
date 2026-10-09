@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           : await adoptProfessionalDelivery({ orderId, projectId: projektId, actorId: userId, itemId: action.itemId, expectedUpdatedAt: new Date(action.expectedUpdatedAt) });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    if (error instanceof ProfessionalOrderError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.code === "DISABLED" || error.code === "NOT_FOUND" ? 404 : error.code === "CONFLICT" ? 409 : 400 });
+    if (error instanceof ProfessionalOrderError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.code === "DISABLED" || error.code === "NOT_FOUND" ? 404 : error.code === "FORBIDDEN" ? 403 : error.code === "CONFLICT" ? 409 : 400 });
     console.error("[professional-orders] action failed");
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
-import { createProfessionalOrder, expireProfessionalQuotes } from "@/lib/professional-order-service";
+import { createProfessionalOrder } from "@/lib/professional-order-service";
+import { lockProfessionalOrderManagerScope } from "@/lib/professional-order-access";
 import { ProfessionalOrderError, requireProfessionalOrdersEnabled } from "@/lib/professional-orders";
 
 export const runtime = "nodejs";
 const createSchema = z.object({ targetLanguage: z.string().min(2).max(16), translationIds: z.array(z.string().min(1)).min(1).max(100) }).strict();
 
 function failure(error: unknown) {
-  if (error instanceof ProfessionalOrderError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.code === "DISABLED" ? 404 : error.code === "CONFLICT" ? 409 : error.code === "NOT_FOUND" ? 404 : 400 });
+  if (error instanceof ProfessionalOrderError) return NextResponse.json({ error: error.message, code: error.code }, { status: error.code === "DISABLED" || error.code === "NOT_FOUND" ? 404 : error.code === "FORBIDDEN" ? 403 : error.code === "CONFLICT" ? 409 : 400 });
   // Translation content and vendor payloads must never appear in logs.
   console.error("[professional-orders] request failed");
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -28,10 +29,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (actor.error) return actor.error;
   try {
     requireProfessionalOrdersEnabled();
-    await expireProfessionalQuotes(projektId);
-    const orders = await db.professionalTranslationOrder.findMany({
-      where: { projectId: projektId }, take: 50, orderBy: { createdAt: "desc" },
-      select: { id: true, status: true, sourceLanguage: true, targetLanguage: true, wordCount: true, scopeDigest: true, quoteAmountMinor: true, quoteCurrency: true, quoteTurnaroundDays: true, quoteExpiresAt: true, quoteReference: true, createdAt: true, items: { select: { id: true, translationId: true, originalText: true, originalHash: true, sourceUpdatedAt: true, proposedText: true, deliveredAt: true, adoptedAt: true } } },
+    const orders = await db.$transaction(async (tx) => {
+      await lockProfessionalOrderManagerScope(tx, { projectId: projektId, actorId: actor.userId! });
+      await tx.professionalTranslationOrder.updateMany({ where: { projectId: projektId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
+      return tx.professionalTranslationOrder.findMany({
+        where: { projectId: projektId }, take: 50, orderBy: { createdAt: "desc" },
+        select: { id: true, status: true, sourceLanguage: true, targetLanguage: true, wordCount: true, scopeDigest: true, quoteAmountMinor: true, quoteCurrency: true, quoteTurnaroundDays: true, quoteExpiresAt: true, quoteReference: true, createdAt: true, items: { select: { id: true, translationId: true, originalText: true, originalHash: true, sourceUpdatedAt: true, proposedText: true, deliveredAt: true, adoptedAt: true } } },
+      });
     });
     return NextResponse.json({ orders }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }

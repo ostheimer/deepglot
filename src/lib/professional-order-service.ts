@@ -5,6 +5,7 @@ import { assertValidTranslationContent } from "@/lib/translation-workflow";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { recordTranslationBatch } from "@/lib/translation-batches";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
+import { assertProfessionalOrderLanguage, lockProfessionalOrderManagerScope } from "@/lib/professional-order-access";
 import {
   assertOrderTransition, assertQuote, countOrderWords, hashVendorToken,
   MAX_ORDER_SEGMENTS, MAX_VENDOR_TOKEN_DAYS, ProfessionalOrderError,
@@ -28,13 +29,10 @@ export async function createProfessionalOrder(input: { projectId: string; reques
     throw new ProfessionalOrderError("INVALID", "Select between 1 and 100 distinct segments.");
   }
   return db.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({
-      where: { id: input.projectId },
-      select: { originalLang: true, languages: { where: { langCode: input.targetLanguage, isActive: true }, select: { id: true } } },
-    });
-    if (!project || project.languages.length !== 1) throw new ProfessionalOrderError("INVALID", "Target language is not active.");
+    const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.requesterId });
+    assertProfessionalOrderLanguage(scope, scope.sourceLanguage, input.targetLanguage);
     const translations = await tx.translation.findMany({
-      where: { id: { in: ids }, projectId: input.projectId, langFrom: project.originalLang, langTo: input.targetLanguage },
+      where: { id: { in: ids }, projectId: input.projectId, langFrom: scope.sourceLanguage, langTo: input.targetLanguage },
       select: { id: true, originalHash: true, originalText: true, updatedAt: true },
     });
     if (translations.length !== ids.length) throw new ProfessionalOrderError("INVALID", "Segments must belong to the selected project and language.");
@@ -46,8 +44,8 @@ export async function createProfessionalOrder(input: { projectId: string; reques
     return tx.professionalTranslationOrder.create({
       data: {
         projectId: input.projectId, requesterId: input.requesterId,
-        sourceLanguage: project.originalLang, targetLanguage: input.targetLanguage,
-        scopeDigest: scopeDigest(snapshots, project.originalLang, input.targetLanguage), wordCount,
+        sourceLanguage: scope.sourceLanguage, targetLanguage: input.targetLanguage,
+        scopeDigest: scopeDigest(snapshots, scope.sourceLanguage, input.targetLanguage), wordCount,
         items: { create: snapshots.map((item) => ({ translationId: item.translationId, originalHash: item.originalHash, originalText: item.originalText, sourceUpdatedAt: item.sourceUpdatedAt })) },
         events: { create: { kind: "quote_requested", actorType: "manager", actorId: input.requesterId } },
       },
@@ -61,8 +59,10 @@ export async function issueVendorGrant(input: { orderId: string; projectId: stri
   const token = `dgpo_${randomBytes(32).toString("hex")}`;
   const expiresAt = new Date(Date.now() + MAX_VENDOR_TOKEN_DAYS * 86_400_000);
   await db.$transaction(async (tx) => {
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true } });
+    const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, sourceLanguage: true, targetLanguage: true } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
+    assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     if (order.status !== "QUOTE_REQUESTED") throw changed();
     await tx.professionalTranslationVendorGrant.create({ data: { orderId: input.orderId, tokenHash: hashVendorToken(token), expiresAt } });
     await tx.professionalTranslationOrderEvent.create({ data: { orderId: input.orderId, kind: "vendor_grant_issued", actorType: "manager", actorId: input.actorId } });
@@ -89,10 +89,12 @@ export async function vendorQuote(input: { orderId: string; amountMinor: number;
 
 export async function acceptProfessionalQuote(input: { orderId: string; projectId: string; actorId: string; expectedScopeDigest: string; expectedQuoteReference: string }) {
   requireProfessionalOrdersEnabled();
-  await expireProfessionalQuotes(input.projectId);
+  await expireProfessionalQuotes(input.projectId, input.actorId);
   return db.$transaction(async (tx) => {
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, quoteExpiresAt: true, scopeDigest: true, quoteReference: true, items: { select: { translationId: true, originalHash: true, sourceUpdatedAt: true } } } });
+    const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, sourceLanguage: true, targetLanguage: true, quoteExpiresAt: true, scopeDigest: true, quoteReference: true, items: { select: { translationId: true, originalHash: true, sourceUpdatedAt: true } } } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
+    assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     if (order.scopeDigest !== input.expectedScopeDigest || order.quoteReference !== input.expectedQuoteReference) throw changed();
     if (!quoteIsCurrent(order.status, order.quoteExpiresAt)) {
       throw new ProfessionalOrderError("CONFLICT", "Quote expired or is no longer available.");
@@ -108,9 +110,12 @@ export async function acceptProfessionalQuote(input: { orderId: string; projectI
   }, txOptions);
 }
 
-export async function expireProfessionalQuotes(projectId: string) {
+export async function expireProfessionalQuotes(projectId: string, actorId: string) {
   requireProfessionalOrdersEnabled();
-  return db.professionalTranslationOrder.updateMany({ where: { projectId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
+  return db.$transaction(async (tx) => {
+    await lockProfessionalOrderManagerScope(tx, { projectId, actorId });
+    return tx.professionalTranslationOrder.updateMany({ where: { projectId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
+  }, txOptions);
 }
 
 // Called only by a verified payment adapter. A redirect/success URL is never payment proof.
@@ -192,6 +197,10 @@ export async function startProfessionalOrder(input: { orderId: string; vendorGra
 export async function adoptProfessionalDelivery(input: { orderId: string; projectId: string; itemId: string; actorId: string; expectedUpdatedAt: Date }) {
   requireProfessionalOrdersEnabled();
   return db.$transaction(async (tx) => {
+    const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, status: "DELIVERED" }, select: { sourceLanguage: true, targetLanguage: true } });
+    if (!order) throw changed();
+    assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     const item = await tx.professionalTranslationOrderItem.findFirst({
       where: { id: input.itemId, orderId: input.orderId, order: { projectId: input.projectId, status: "DELIVERED" }, proposedText: { not: null }, adoptedAt: null },
       select: { translationId: true, proposedText: true, originalHash: true, sourceUpdatedAt: true },
@@ -199,7 +208,7 @@ export async function adoptProfessionalDelivery(input: { orderId: string; projec
     if (!item || !item.proposedText) throw changed();
     const translation = await tx.translation.findFirst({
       where: { id: item.translationId, projectId: input.projectId },
-      select: { id: true, originalHash: true, originalText: true, translatedText: true, langFrom: true, langTo: true, workflowStatus: true, assignedToId: true, updatedAt: true, wordCount: true, project: { select: { organizationId: true } } },
+      select: { id: true, originalHash: true, originalText: true, translatedText: true, langFrom: true, langTo: true, workflowStatus: true, assignedToId: true, updatedAt: true, wordCount: true },
     });
     if (!translation || translation.originalHash !== item.originalHash || translation.updatedAt.getTime() !== input.expectedUpdatedAt.getTime() || item.sourceUpdatedAt.getTime() !== input.expectedUpdatedAt.getTime()) throw changed();
     const languageCurrent = await lockAndValidateProjectLanguageWrite(tx, { projectId: input.projectId, sourceLanguages: [translation.langFrom], targetLanguages: [translation.langTo] });
@@ -215,7 +224,7 @@ export async function adoptProfessionalDelivery(input: { orderId: string; projec
     if (adoption.count !== 1) throw changed();
     if (translation.translatedText !== item.proposedText) {
       await tx.translationContentRevision.create({ data: { translationId: translation.id, actorUserId: input.actorId, beforeText: translation.translatedText, afterText: item.proposedText } });
-      await recordTranslationBatch({ organizationId: translation.project.organizationId, projectId: input.projectId, langFrom: translation.langFrom, langTo: translation.langTo, provider: "manual", totalWords: translation.wordCount, cachedWords: 0, manualWords: translation.wordCount, glossaryWords: 0, translatedWords: 0 }, tx);
+      await recordTranslationBatch({ organizationId: scope.organizationId, projectId: input.projectId, langFrom: translation.langFrom, langTo: translation.langTo, provider: "manual", totalWords: translation.wordCount, cachedWords: 0, manualWords: translation.wordCount, glossaryWords: 0, translatedWords: 0 }, tx);
       await queueProjectWebhookEvent({ projectId: input.projectId, eventType: "translation.manual_updated", payload: { type: "translation.manual_updated", translationId: translation.id, originalText: translation.originalText, translatedText: item.proposedText, langFrom: translation.langFrom, langTo: translation.langTo, created: false } }, tx);
     }
     await tx.professionalTranslationOrderEvent.create({ data: { orderId: input.orderId, kind: "delivery_adopted", actorType: "manager", actorId: input.actorId, reference: input.itemId } });
@@ -226,8 +235,10 @@ export async function adoptProfessionalDelivery(input: { orderId: string; projec
 export async function cancelProfessionalOrder(input: { orderId: string; projectId: string; actorId: string }) {
   requireProfessionalOrdersEnabled();
   return db.$transaction(async (tx) => {
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true } });
+    const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, sourceLanguage: true, targetLanguage: true } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
+    assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     const next: ProfessionalTranslationOrderStatus = ["QUOTE_REQUESTED", "QUOTED", "PAYMENT_PENDING"].includes(order.status) ? "CANCELED" : "REFUND_PENDING";
     assertOrderTransition(order.status, next);
     const updated = await tx.professionalTranslationOrder.updateMany({ where: { id: input.orderId, status: order.status }, data: { status: next, ...(next === "CANCELED" ? { canceledAt: new Date() } : {}) } });

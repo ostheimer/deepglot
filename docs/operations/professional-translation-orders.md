@@ -11,7 +11,10 @@ Only a project manager can create an order from 1–100 existing segments in one
 active target language. The server rechecks project ownership and language,
 copies the original text, hash and update timestamp into an order item, records
 the scope digest and word count, and never reprices an accepted snapshot. The
-quote is supplied by a specifically authorized vendor; it records minor-unit
+manager's role, current workspace owner and active language are rechecked
+inside every write transaction under Organization → Project row locks; a
+revocation or transfer after the API gate therefore cannot authorize a write.
+The quote is supplied by a specifically authorized vendor; it records minor-unit
 price, ISO currency, turnaround days, vendor reference, terms version and an
 expiry no more than 30 days away. An expired quote cannot be accepted.
 
@@ -45,13 +48,13 @@ Other members' assignments and existing import/export behavior are untouched.
 
 | Decision | Owner must record | Acceptance evidence |
 | --- | --- | --- |
-| Merchant and vendor model | Seller of record, vendor contract party, whether platform sells a service or intermediates it, payout and liability model | Signed business decision and approved vendor agreement |
+| Merchant and vendor model | Seller of record, vendor contract party, whether platform sells a service or intermediates it, payout and liability model | Recorded owner decision and approved vendor agreement |
 | Pricing and terms | Currency/rounding, minimum price, revisions, quote validity, turnaround start, cancellation windows, vendor service level | Versioned customer and vendor terms tied to quote terms version |
 | Payment | Merchant account, one-time Checkout integration, asynchronous success/failure webhooks, idempotency, duplicate/late payment and refund handling | Isolated sandbox payment, replay, late payment, refund and dispute acceptance |
-| Tax and invoice | Tax registration jurisdictions, seller/invoice issuer, tax code, reverse-charge treatment where applicable, invoice/credit-note ownership | Qualified tax review and example invoices/credit notes; no assumed Stripe Tax registration |
+| Tax and invoice | Tax registration jurisdictions, seller/invoice issuer, tax code, reverse-charge treatment where applicable, invoice/credit-note ownership | Recorded tax determination and example invoices/credit notes; obtain specialist review only where the actual decision requires it, and do not assume Stripe Tax registration |
 | Disputes and failures | Who handles chargebacks, vendor non-delivery, partial delivery, rework, refund decisions and support response times | Named operational owner and exercised failure runbook |
 | Privacy | Vendor role/processor agreement, permitted content, sensitive data exclusions, data location, retention/deletion, access logs and breach contact | Approved privacy notice, DPA and least-privilege review |
-| Production | Schema/trigger installation, monitoring, rate limits, abuse limits, backup/restore, browser/device and bilingual QA | Signed production acceptance and live environment smoke evidence |
+| Production | Schema/trigger installation, monitoring, rate limits, abuse limits, backup/restore, browser/device and bilingual QA | Recorded production decision supported by AI-run technical QA and live environment smoke evidence |
 
 ## Deployment gate and developer verification
 
