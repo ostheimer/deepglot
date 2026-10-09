@@ -118,9 +118,9 @@ class TranslationCache
         }
         foreach ([self::ENVELOPE_KEY_PREFIX, self::LEGACY_PREFIX] as $prefix) {
             $key = $prefix . $digest;
-            if (get_transient($key) !== false && !delete_transient($key) && get_transient($key) !== false) {
-                return false;
-            }
+            if (get_transient($key) === false) continue;
+            delete_transient($key);
+            if (get_transient($key) !== false) return false;
         }
         return true;
     }

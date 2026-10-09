@@ -77,7 +77,8 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale, ca
           body: JSON.stringify({ action: preview.action, id: preview.id, afterId: preview.afterId, confirmation: preview.confirmation }),
         });
         const payload = await response.json();
-        output.push({ id: preview.id, urlPath: preview.urlPath, ok: response.ok && payload.result !== "failed" && payload.result !== "unknown", detail: response.ok ? resultText(payload.result ?? (preview.action === "delete" ? "deleted" : "completed"), payload.remainingSegments) : String(payload.error ?? response.status), action: preview.action, nextAfterId: payload.nextAfterId ?? null });
+        const unresolved = payload.result === "unknown" || payload.error === "provider_outcome_unknown" || payload.code === "provider_outcome_unknown";
+        output.push({ id: preview.id, urlPath: preview.urlPath, ok: response.ok && !unresolved && payload.result !== "failed", detail: unresolved ? resultText("unknown") : response.ok ? resultText(payload.result ?? (preview.action === "delete" ? "deleted" : "completed"), payload.remainingSegments) : String(payload.error ?? response.status), action: preview.action, nextAfterId: payload.nextAfterId ?? null });
       } catch { output.push({ id: preview.id, urlPath: preview.urlPath, ok: false, detail: de ? "Netzwerkfehler; Ergebnis vor erneutem Versuch prüfen" : "Network error; check result before retrying" }); }
       setResults([...output]);
     }

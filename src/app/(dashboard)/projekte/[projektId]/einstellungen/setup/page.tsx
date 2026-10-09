@@ -113,7 +113,7 @@ export default async function SetupPage({ params }: PageProps) {
             {
               step: 4,
               title: uiText(locale, "Configure languages", "Sprachen konfigurieren"),
-              desc: uiText(locale, "Choose target languages and save your settings. Your website will be translated automatically.", "Wähle die Zielsprachen aus und speichere die Einstellungen. Deine Website wird automatisch übersetzt."),
+              desc: uiText(locale, "Choose target languages under Translations → Languages in the Deepglot dashboard. WordPress receives them when it synchronizes settings.", "Wähle die Zielsprachen im Deepglot-Dashboard unter Übersetzungen → Sprachen. WordPress übernimmt sie bei der Einstellungssynchronisierung."),
             },
           ].map((item) => (
             <li key={item.step} className="flex gap-4">

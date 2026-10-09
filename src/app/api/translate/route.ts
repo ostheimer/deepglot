@@ -643,6 +643,16 @@ export async function executeAuthenticatedTranslateRequest(
             return { kind: "language_configuration_changed" } as const;
           }
 
+          if (forceRetranslate) {
+            const currentRules = await tx.glossaryRule.findMany({
+              where: { projectId: project.id, langFrom: l_from, langTo: l_to },
+              select: { id: true, updatedAt: true },
+            });
+            if (glossaryRuleVersion(currentRules) !== forceRetranslate.glossaryVersion) {
+              return { kind: "stale_url_preview" } as const;
+            }
+          }
+
           const settings = await tx.projectSettings.findUnique({
             where: { projectId: project.id },
           });
@@ -661,6 +671,11 @@ export async function executeAuthenticatedTranslateRequest(
             code: "project_language_configuration_changed",
             instance: "/api/translate",
           });
+        }
+
+        if (dispatchConfiguration.kind === "stale_url_preview") {
+          await refundBeforeProvider();
+          return apiProblem({ status: 409, title: "URL preview expired", detail: "Glossary rules changed before provider dispatch. No provider work started.", code: "stale_url_preview", instance: "/api/translate" });
         }
 
         providerSettings = dispatchConfiguration.settings;

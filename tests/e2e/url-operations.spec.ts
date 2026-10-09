@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import bcrypt from "bcryptjs";
 import { expect, test } from "@playwright/test";
 import { db } from "../../src/lib/db";
@@ -17,6 +19,29 @@ async function waitForBlockedProjectLock() {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("Timed out waiting for the URL operation to reach the project write lock");
+}
+
+async function startBarrierProvider() {
+  let calls = 0;
+  let signalStarted!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+  const barrier = new Promise<void>((resolve) => { release = resolve; });
+  const server = createServer(async (_request, response) => {
+    calls++;
+    signalStarted();
+    await barrier;
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ translations: [{ text: "new mock translation", detectedSourceLanguage: "DE" }] }) } }] }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return {
+    baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
+    started,
+    release,
+    calls: () => calls,
+    close: async () => { release(); await new Promise<void>((resolve) => server.close(() => resolve())); },
+  };
 }
 
 test("language-bound translator reads URL inventory without manager controls", async ({ page }) => {
@@ -53,10 +78,29 @@ test("language-bound translator reads URL inventory without manager controls", a
   }
 });
 
+test("WordPress sync result accepts a canonical script and region locale", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+  const language = await db.projectLanguage.create({ data: { projectId, langCode: "yue-hant-hk" } });
+  const rawKey = `dg_live_urlops_${crypto.randomUUID()}`;
+  const key = await db.apiKey.create({ data: { projectId, name: "Locale URL sync fixture", key: createHash("sha256").update(rawKey).digest("hex"), keyPrefix: rawKey.slice(0, 16) } });
+  const path = `/${e2eId("locale-sync")}`;
+  try {
+    const response = await page.request.post("/api/plugin/url-sync-result", { headers: { Authorization: `Bearer ${rawKey}` }, data: { url: `http://${project.domain}${path}`, language: "YUE_HANT_HK", state: "failed", result: "http_503", httpStatus: 503 } });
+    expect(response.status(), await response.text()).toBe(200);
+    expect(await db.translatedUrl.findUnique({ where: { projectId_urlPath_langTo: { projectId, urlPath: path, langTo: "yue-hant-hk" } } })).toMatchObject({ operationState: "sync_failed", lastHttpStatus: 503 });
+  } finally {
+    await db.translatedUrl.deleteMany({ where: { projectId, urlPath: path, langTo: "yue-hant-hk" } });
+    await db.apiKey.delete({ where: { id: key.id } });
+    await db.projectLanguage.delete({ where: { id: language.id } });
+  }
+});
+
 test("manager preview, provider charge, idempotent replay, scoped deletion and observed sync error", async ({ page, playwright }) => {
   const projectId = await signInAndGetProjectId(page);
   const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
   const path = `/${e2eId("url-operation")}`;
+  const canonicalPath = `${path}-canonical`;
   const oldPath = `${path}-other`;
   const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en", wordCount: 4, requestCount: 2 } });
   const marker = e2eId("Unique source");
@@ -129,12 +173,24 @@ test("manager preview, provider charge, idempotent replay, scoped deletion and o
     await page.goto(`/projects/${projectId}/translations/urls?lang=en&status=failed`);
     await expect(page.getByText(path, { exact: true })).toBeVisible();
     await expect(page.getByText("HTTP 503")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open WordPress to confirm retry" })).toBeVisible();
+    expect(await db.translatedUrl.findUnique({ where: { projectId_urlPath_langTo: { projectId, urlPath: path, langTo: "en" } } })).toMatchObject({ operationState: "sync_failed", lastResult: "http_503", lastHttpStatus: 503, origin: `http://${project.domain}` });
     await page.screenshot({ path: "output/playwright/url-operations-error-report.png", fullPage: true });
+    const canonical = await page.request.post("/api/plugin/url-sync-result", { headers: { Authorization: `Bearer ${rawKey}` }, data: { url: `http://${project.domain}${canonicalPath}`, language: "en", state: "completed", result: "canonical_redirect_completed", httpStatus: 200 } });
+    expect(canonical.status(), await canonical.text()).toBe(200);
+    expect(await db.translatedUrl.findUnique({ where: { projectId_urlPath_langTo: { projectId, urlPath: canonicalPath, langTo: "en" } } })).toMatchObject({ operationState: "sync_completed", lastResult: "canonical_redirect_completed", lastHttpStatus: 200, origin: `http://${project.domain}` });
+    await page.goto(`/projects/${projectId}/translations/urls?lang=en&q=${encodeURIComponent(canonicalPath)}`);
+    await expect(page.getByText(canonicalPath, { exact: true })).toBeVisible();
+    await expect(page.getByText("HTTP 200")).toBeVisible();
+    await page.locator("article").filter({ hasText: canonicalPath }).getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByRole("dialog", { name: "Confirm URL action" })).toBeVisible();
+    await page.getByRole("button", { name: "Confirm permanently" }).click();
+    await expect(page.getByRole("status")).toContainText("URL data deleted");
   } finally {
     await db.urlCacheInvalidation.deleteMany({ where: { projectId, urlPath: path } });
     await db.urlOperationReceipt.deleteMany({ where: { projectId, urlId: url.id } });
     await db.apiKey.delete({ where: { id: key.id } });
-    await db.translatedUrl.deleteMany({ where: { projectId, urlPath: path } });
+    await db.translatedUrl.deleteMany({ where: { projectId, urlPath: { in: [path, canonicalPath] } } });
     await db.translation.deleteMany({ where: { id: { in: [exclusive.id, shared.id, manual.id, approved.id] } } });
     await db.$disconnect();
   }
@@ -355,10 +411,13 @@ test("a glossary rule committed while delete waits for its lock protects the seg
   }
 });
 
-test("a glossary rule committed during provider work blocks stale persistence and usage", async ({ page }) => {
+test("a glossary rule committed before dispatch prevents the provider call and usage", async ({ page }) => {
   test.setTimeout(120_000);
   const projectId = await signInAndGetProjectId(page);
-  const path = `/${e2eId("glossary-provider")}`;
+  const provider = await startBarrierProvider();
+  const previousSettings = await db.projectSettings.findUniqueOrThrow({ where: { projectId } });
+  await db.projectSettings.update({ where: { projectId }, data: { translationProvider: "ollama", translationBaseUrl: provider.baseUrl, translationModel: "local-mock" } });
+  const path = `/${e2eId("glossary-pre-dispatch")}`;
   const text = e2eId("Glossary provider guard");
   const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
   const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
@@ -379,8 +438,51 @@ test("a glossary rule committed during provider work blocks stale persistence an
     expect(result.status(), await result.text()).toBe(409);
     expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
     expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
-    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("provider_pending");
+    expect(provider.calls()).toBe(0);
+    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("failed");
   } finally {
+    await provider.close();
+    await db.projectSettings.update({ where: { projectId }, data: { translationProvider: previousSettings.translationProvider, translationBaseUrl: previousSettings.translationBaseUrl, translationModel: previousSettings.translationModel } });
+    if (ruleId) await db.glossaryRule.deleteMany({ where: { id: ruleId } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("a glossary rule committed after a local provider starts holds the unknown outcome", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const provider = await startBarrierProvider();
+  const previousSettings = await db.projectSettings.findUniqueOrThrow({ where: { projectId } });
+  await db.projectSettings.update({ where: { projectId }, data: { translationProvider: "ollama", translationBaseUrl: provider.baseUrl, translationModel: "local-mock" } });
+  const path = `/${e2eId("glossary-post-dispatch")}`;
+  const text = e2eId("Glossary provider started");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  let ruleId: string | null = null;
+  try {
+    const preview = await (await post({ action: "retranslate", id: url.id })).json();
+    const usageBefore = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words;
+    const action = { action: "retranslate", id: url.id, confirmation: preview.confirmation };
+    const pending = post(action, preview.confirmation);
+    await Promise.race([provider.started, new Promise((_, reject) => setTimeout(() => reject(new Error("Provider did not start")), 15_000))]);
+    expect(provider.calls()).toBe(1);
+    const rule = await db.glossaryRule.create({ data: { projectId, originalTerm: text, translatedTerm: "protected", langFrom: "de", langTo: "en" } });
+    ruleId = rule.id;
+    provider.release();
+    const result = await pending;
+    expect(result.status(), await result.text()).toBe(409);
+    expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
+    expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
+    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("provider_pending");
+    const replay = await post(action, preview.confirmation);
+    expect(replay.status()).toBe(409);
+    expect(provider.calls()).toBe(1);
+  } finally {
+    await provider.close();
+    await db.projectSettings.update({ where: { projectId }, data: { translationProvider: previousSettings.translationProvider, translationBaseUrl: previousSettings.translationBaseUrl, translationModel: previousSettings.translationModel } });
     if (ruleId) await db.glossaryRule.deleteMany({ where: { id: ruleId } });
     await db.translation.deleteMany({ where: { id: translation.id } });
     await db.translatedUrl.deleteMany({ where: { id: url.id } });

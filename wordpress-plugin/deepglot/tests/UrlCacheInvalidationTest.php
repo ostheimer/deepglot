@@ -6,7 +6,7 @@ $GLOBALS['_dg_url_cache_transients'] = [];
 $GLOBALS['_dg_url_cache_options'] = [];
 function get_transient(string $key) { return $GLOBALS['_dg_url_cache_transients'][$key] ?? false; }
 function set_transient(string $key, $value, int $ttl = 0): bool { $GLOBALS['_dg_url_cache_transients'][$key] = $value; return true; }
-function delete_transient(string $key): bool { unset($GLOBALS['_dg_url_cache_transients'][$key]); return true; }
+function delete_transient(string $key): bool { if (($GLOBALS['_dg_url_cache_stubborn'] ?? '') === $key) return true; unset($GLOBALS['_dg_url_cache_transients'][$key]); return true; }
 function get_option(string $key, $default = false) { return $GLOBALS['_dg_url_cache_options'][$key] ?? $default; }
 function update_option(string $key, $value, $autoload = null): bool { $GLOBALS['_dg_url_cache_options'][$key] = $value; return true; }
 
@@ -34,5 +34,13 @@ $apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
 ]]]], 'test-identity', '1');
 if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] !== $cursor) {
     throw new RuntimeException('Malformed entries must not advance the cursor.');
+}
+$stubborn = 'dgv1_' . sha1('de|en|Anders');
+$GLOBALS['_dg_url_cache_stubborn'] = $stubborn;
+$apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
+    'id' => '3', 'urlPath' => '/en/test', 'cacheKey' => sha1('de|en|Anders'),
+]]]], 'test-identity', '1');
+if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] !== $cursor) {
+    throw new RuntimeException('A reported successful deletion without transient readback must not advance the cursor.');
 }
 echo "UrlCacheInvalidationTest: OK\n";
