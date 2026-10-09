@@ -75,6 +75,14 @@ export async function changeWorkspaceMember(input: {
       if (input.action === "ROLE") {
         await tx.organizationMember.update({ where: { id: target.id }, data: { role: input.role! } });
       } else {
+        // A project ADMIN grant would otherwise outlive workspace removal and
+        // continue authorizing writes through canManageProject(). Pending
+        // invitations for this account could recreate that grant as well.
+        const user = await tx.user.findUnique({ where: { id: input.targetUserId }, select: { email: true } });
+        await tx.projectMember.deleteMany({ where: { userId: input.targetUserId,
+          project: { organizationId: input.workspaceId } } });
+        if (user?.email) await tx.projectInvitation.deleteMany({ where: { email: user.email,
+          acceptedAt: null, project: { organizationId: input.workspaceId } } });
         await tx.organizationMember.delete({ where: { id: target.id } });
       }
     }
