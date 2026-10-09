@@ -9,7 +9,7 @@ ALTER TABLE "TranslatedUrl" ADD COLUMN IF NOT EXISTS "operationToken" TEXT;
 
 CREATE TABLE IF NOT EXISTS "UrlCacheInvalidation" (
   "id" BIGSERIAL PRIMARY KEY,
-  "projectId" TEXT NOT NULL REFERENCES "Project"("id") ON DELETE CASCADE,
+  "projectId" TEXT NOT NULL REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   "urlPath" TEXT NOT NULL,
   "cacheKey" TEXT NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS "UrlCacheInvalidation_projectId_id_idx" ON "UrlCacheI
 
 CREATE TABLE IF NOT EXISTS "UrlOperationReceipt" (
   "id" TEXT PRIMARY KEY,
-  "projectId" TEXT NOT NULL REFERENCES "Project"("id") ON DELETE CASCADE,
+  "projectId" TEXT NOT NULL REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   "urlId" TEXT NOT NULL,
   "actorId" TEXT NOT NULL,
   "urlPath" TEXT NOT NULL,
