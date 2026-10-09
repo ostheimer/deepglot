@@ -576,6 +576,13 @@ syncAssert(
         && $GLOBALS['_dg_sync_requests'][3]['url'] === 'https://example.com/en/canonical/',
     'The canonical redirect target must receive bounded public and origin probes after the original public probe.'
 );
+$canonicalReport = json_decode((string) ($GLOBALS['_dg_sync_reports'][0]['args']['body'] ?? ''), true);
+syncAssert(
+    ($canonicalReport['url'] ?? '') === 'https://example.com/en/canonical/'
+        && ($canonicalReport['result'] ?? '') === 'canonical_redirect_completed'
+        && ($canonicalReport['httpStatus'] ?? null) === 200,
+    'The SaaS success report must identify the URL whose public and origin probes actually returned HTTP 200.'
+);
 syncAssert(
     count(array_filter(
         $GLOBALS['_dg_sync_requests'],

@@ -50,6 +50,9 @@ async function snapshot(projectId: string, id: string, action: "retranslate" | "
     }, record.urlPath),
   }));
   const allEligible = classified.filter(({ classification }) => classification === "delete").map(({ item }) => item);
+  if (action === "delete" && afterId && allEligible.some((item) => item.id <= afterId)) {
+    throw new Error("Delete continuation is not complete; review the first remaining URL step.");
+  }
   const remainingEligible = allEligible.filter((item) => !afterId || item.id > afterId);
   const eligible = remainingEligible.slice(0, 250);
   const nextAfterId = remainingEligible.length > 250 ? eligible.at(-1)?.id : null;

@@ -159,6 +159,8 @@ test("a URL with 251 eligible segments reports the full scope and continues in b
     const shared = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(sharedText, "de", "en"), originalText: sharedText, translatedText: "shared", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }, { urlPath: otherPath }] } } });
     sharedId = shared.id;
     const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+    const skipped = await post({ action: "delete", id: url.id, afterId: "zzzzzzzzzz" });
+    expect(skipped.status()).toBe(422);
     const first = await (await post({ action: "delete", id: url.id })).json();
     expect(first).toMatchObject({ affectedSegments: 250, totalEligibleSegments: 251, remainingSegments: 1, protectedSegments: 1, sharedSegments: 1 });
     expect(first.nextAfterId).toBeTruthy();

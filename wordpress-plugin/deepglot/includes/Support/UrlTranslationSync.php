@@ -1023,7 +1023,14 @@ class UrlTranslationSync
             $job['updated_at'] = $now;
             $job['last_error'] = null;
             if ($this->storeJobIfUnchanged($expectedJob, $job)) {
-                $this->reportResult($item, 'completed', 'completed', 200);
+                $reportedItem = $item;
+                $reportedItem['url'] = $completionUrl;
+                $this->reportResult(
+                    $reportedItem,
+                    'completed',
+                    $completionUrl === (string) ($item['url'] ?? '') ? 'completed' : 'canonical_redirect_completed',
+                    200
+                );
             }
             return;
         }
