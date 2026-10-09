@@ -6,7 +6,7 @@ import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
 import { countWords } from "@/lib/translation";
 import { getProjectUrl } from "@/lib/project-url";
-import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, urlProviderConfiguration, wordpressCacheKey } from "@/lib/url-operations";
+import { classifyUrlTranslation, createUrlOperationFingerprint, encodeWordpressCacheInvalidationKey, glossaryRuleVersion, managerProviderOutcome, urlProviderConfiguration } from "@/lib/url-operations";
 import { executeAuthenticatedTranslateRequest } from "@/app/api/translate/route";
 import { executeIdempotently, PrismaApiIdempotencyStore, validateApiIdempotencyKey } from "@/lib/api-idempotency";
 import { buildGlossaryProtection, hasGlossaryProtection } from "@/lib/glossary";
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           })) throw new Error("STALE_URL");
           if (fresh.eligible.length > 0) await tx.urlCacheInvalidation.createMany({ data: fresh.eligible.map((item) => ({
             projectId: projektId, urlPath: fresh.record.urlPath,
-            cacheKey: wordpressCacheKey(item.langFrom, item.langTo, item.originalText),
+            cacheKey: encodeWordpressCacheInvalidationKey(item.langFrom, item.langTo, item.originalText),
           })) });
           await tx.translation.deleteMany({ where: { id: { in: fresh.eligible.map((item) => item.id) }, projectId: projektId } });
           if (!fresh.nextAfterId) {

@@ -82,6 +82,15 @@ test("rejects entity expansion, external entities and processing instructions", 
   assert.throws(() => parse(valid().replace("<source>", "<source>&x;")), XliffError);
 });
 
+test("treats declaration-like tokens inside CDATA as literal segment text", () => {
+  const literal = "<!DOCTYPE html> <?xml version='1.0'?>";
+  const xml = serializeXliff({ ...project, segments: [{ ...segment, originalText: literal, translatedText: literal }] });
+  const withCdata = xml.replace(/<source>[\s\S]*?<\/source>/, `<source><![CDATA[${literal}]]></source>`)
+    .replace(/<target>[\s\S]*?<\/target>/, `<target><![CDATA[${literal}]]></target>`);
+  assert.equal(parse(withCdata)[0].source, literal);
+  assert.throws(() => parse(xml.replace("</body>", "<?xml extra?></body>")), /forbidden/);
+});
+
 test("preflight rejects all writes for protected text or unconfirmed approvals", () => {
   const row = parse(valid())[0];
   assert.deepEqual(planXliffImport([row], [], false), [

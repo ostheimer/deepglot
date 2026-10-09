@@ -398,12 +398,21 @@ class SettingsSync
             return false;
         }
         $nextCursor = $cursor;
+        $targetLanguages = [];
+        $hasLegacyTarget = false;
         foreach ($batch['entries'] as $entry) {
             if (!is_array($entry)) return false;
             $id = (string) ($entry['id'] ?? '');
             $digest = (string) ($entry['cacheKey'] ?? '');
             if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $nextCursor) {
                 return false;
+            }
+            if (!array_key_exists('targetLang', $entry) || $entry['targetLang'] === null) {
+                $hasLegacyTarget = true;
+            } elseif (!is_string($entry['targetLang']) || preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/D', $entry['targetLang']) !== 1) {
+                return false;
+            } else {
+                $targetLanguages[$entry['targetLang']] = true;
             }
             $nextCursor = $id;
         }
@@ -412,7 +421,7 @@ class SettingsSync
             $digest = (string) $entry['cacheKey'];
             if (!$cache->deleteByDigest($digest)) return false;
         }
-        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs()) return false;
+        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs($hasLegacyTarget ? null : array_keys($targetLanguages))) return false;
         if ($nextCursor !== $cursor) {
             update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $nextCursor], false);
             if (get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []) !== ['identity' => $identity, 'cursor' => $nextCursor]) return false;

@@ -144,8 +144,11 @@ export async function importTranslationsXliff(input: {
                 translatedText: item.translatedText, langFrom: item.langFrom, langTo: item.langTo, imported: true } })));
           for (const slice of chunk(deliveries, 100)) await tx.webhookDelivery.createMany({ data: slice });
         }
-        const words = rows.reduce((sum, row) => sum + row.source.trim().split(/\s+/).filter(Boolean).length, 0);
-        if (rows.length) await recordTranslationBatch({ organizationId: lockedProject.organizationId, projectId: project.id,
+        const contentChanges = [...created, ...updates.filter((item) =>
+          current.get(item.originalHash)?.translatedText !== item.translatedText)];
+        const words = contentChanges.reduce((sum, item) =>
+          sum + item.originalText.trim().split(/\s+/).filter(Boolean).length, 0);
+        if (contentChanges.length) await recordTranslationBatch({ organizationId: lockedProject.organizationId, projectId: project.id,
           langFrom: project.originalLang, langTo, provider: "import", totalWords: words,
           cachedWords: 0, manualWords: words, glossaryWords: 0, translatedWords: 0 }, tx);
         await queueProjectWebhookEvent({ projectId: project.id, eventType: "import.completed",

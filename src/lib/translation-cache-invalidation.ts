@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { wordpressCacheKey } from "@/lib/url-operations";
+import { encodeWordpressCacheInvalidationKey } from "@/lib/url-operations";
 
 /** Commit digest-only transient invalidations with the authoritative edit. */
 export async function recordTranslationCacheInvalidations(tx: Prisma.TransactionClient,
@@ -14,6 +14,6 @@ export async function recordTranslationCacheInvalidations(tx: Prisma.Transaction
   const firstPath = new Map(contexts.map((context) => [context.translationId, context.urlPath]));
   await tx.urlCacheInvalidation.createMany({ data: rows.map((row) => ({
     projectId, urlPath: firstPath.get(row.id) ?? "",
-    cacheKey: wordpressCacheKey(row.langFrom, row.langTo, row.originalText),
+    cacheKey: encodeWordpressCacheInvalidationKey(row.langFrom, row.langTo, row.originalText),
   })) });
 }

@@ -26,7 +26,7 @@ $sync = (new ReflectionClass(\Deepglot\Sync\SettingsSync::class))->newInstanceWi
 $apply = new ReflectionMethod($sync, 'applyCacheInvalidations');
 $digest = sha1('de|en|Änderung');
 $apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
-    'id' => '1', 'urlPath' => '/en/test', 'cacheKey' => $digest,
+    'id' => '1', 'urlPath' => '/en/test', 'cacheKey' => $digest, 'targetLang' => 'en',
 ]]]], 'test-identity', '0');
 if ($cache->get('Änderung', 'de', 'en') !== null || $cache->get('Anders', 'de', 'en') !== 'Keep') {
     throw new RuntimeException('Only the requested translation transient may be deleted.');
@@ -43,14 +43,14 @@ if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] 
 }
 $stubborn = 'dgv1_' . sha1('de|en|Anders');
 $GLOBALS['_dg_url_cache_stubborn'] = $stubborn;
-$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = ['en' => 2];
+$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = ['en' => 2, 'fr' => 3];
 $apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
-    'id' => '3', 'urlPath' => '/en/test', 'cacheKey' => sha1('de|en|Anders'),
+    'id' => '3', 'urlPath' => '/en/test', 'cacheKey' => sha1('de|en|Anders'), 'targetLang' => 'en',
 ]]]], 'test-identity', '1');
 if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] !== $cursor) {
     throw new RuntimeException('A reported successful deletion without transient readback must not advance the cursor.');
 }
-if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 2]) {
+if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 2, 'fr' => 3]) {
     throw new RuntimeException('A failed deletion must not rotate cache epochs.');
 }
 
@@ -68,7 +68,7 @@ class CacheDrainClient extends \Deepglot\Api\Client {
         $after = (int) ($record['cursor'] ?? 0);
         $entries = [];
         for ($id = $after + 1; $id <= min($after + 250, $this->total); $id++) {
-            $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $this->digest];
+            $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $this->digest, 'targetLang' => 'en'];
         }
         return ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => $after + 250 < $this->total]];
     }
@@ -84,7 +84,7 @@ $drainSync = new \Deepglot\Sync\SettingsSync($drainOptions, $drainClient);
 $identity = \Deepglot\Api\Client::configurationIdentityFor($drainOptions->getApiKey(), $drainOptions->getApiBaseUrl());
 $entries = [];
 for ($id = 1; $id <= 250; $id++) {
-    $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $digest];
+    $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $digest, 'targetLang' => 'en'];
 }
 $apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => true]], $identity, '0');
 if ($drainClient->calls !== 0 || (get_option('deepglot_url_cache_invalidation_cursor', [])['cursor'] ?? '') !== '250') {
@@ -109,16 +109,22 @@ if (($drained['cursor'] ?? '') !== '751' || $drainClient->calls !== 3
     || $cache->get('Änderung', 'de', 'en') !== null) {
     throw new RuntimeException('A 751-entry feed must complete in background without waiting for settings refresh.');
 }
-$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = ['en' => 2];
+$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = ['en' => 2, 'fr' => 3];
 $cache->set('Änderung', 'de', 'en', 'Stale at epoch two');
 if ($cache->get('Änderung', 'de', 'en') !== 'Stale at epoch two') {
     throw new RuntimeException('Epoch-scoped cache fixture was not stored.');
 }
 $apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
-    'id' => '752', 'urlPath' => '/en/test', 'cacheKey' => $digest,
+    'id' => '752', 'urlPath' => '/en/test', 'cacheKey' => $digest, 'targetLang' => 'en',
 ]]]], $identity, '751');
-if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 3]
+if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 3, 'fr' => 3]
     || $cache->get('Änderung', 'de', 'en') !== null) {
-    throw new RuntimeException('Digest invalidation must also retire epoch-scoped cache entries.');
+    throw new RuntimeException('Digest invalidation must retire only matching language epoch-scoped entries.');
+}
+$apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
+    'id' => '753', 'urlPath' => '/en/test', 'cacheKey' => $digest,
+]]]], $identity, '752');
+if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 4, 'fr' => 4]) {
+    throw new RuntimeException('Legacy feed entries must retire all positive language epochs.');
 }
 echo "UrlCacheInvalidationTest: OK\n";

@@ -112,7 +112,9 @@ export function parseXliff(bytes: Uint8Array, expected: {
     const encoding = declaration[1].match(/\bencoding\s*=\s*["']([^"']+)["']/i)?.[1];
     if (encoding && !/^utf-8$/i.test(encoding)) throw new XliffError("XML declaration must specify UTF-8");
   }
-  if (/\0|<!\s*(?:DOCTYPE|ENTITY)\b|<\?(?!xml\s)/i.test(xml)) {
+  const structuralMarkup = xml.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "");
+  const afterDeclaration = declaration ? structuralMarkup.slice(declaration[0].length) : structuralMarkup;
+  if (/\0/.test(xml) || /<!\s*(?:DOCTYPE|ENTITY)\b|<\?/i.test(afterDeclaration)) {
     throw new XliffError("DTD, entities, processing instructions, and NUL are forbidden");
   }
   const errors: string[] = [];

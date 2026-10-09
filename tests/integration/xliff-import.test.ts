@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { resolveDatabaseUrl } from "@/lib/database-url";
 import { computeTranslationHash } from "@/lib/translation-hash";
-import { wordpressCacheKey } from "@/lib/url-operations";
+import { encodeWordpressCacheInvalidationKey } from "@/lib/url-operations";
 import { serializeXliff } from "@/lib/xliff";
 
 const databaseUrl = resolveDatabaseUrl();
@@ -122,7 +122,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal(legacyAfter.langFrom, "DE");
     assert.equal(legacyAfter.langTo, "EN");
     const legacyInvalidation = await db.urlCacheInvalidation.findFirstOrThrow({ where: { projectId: project.id }, orderBy: { id: "desc" } });
-    assert.equal(legacyInvalidation.cacheKey, wordpressCacheKey("DE", "EN", legacySource));
+    assert.equal(legacyInvalidation.cacheKey, encodeWordpressCacheInvalidationKey("DE", "EN", legacySource));
 
     await db.organizationMember.delete({ where: { userId_organizationId: { userId: user.id, organizationId: organization.id } } });
     await assert.rejects(() => importTranslationsXliff({ bytes: bytes(segments), project, access, userId: user.id,
