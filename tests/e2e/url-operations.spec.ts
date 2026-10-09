@@ -6,6 +6,7 @@ import { expect, test } from "@playwright/test";
 import { db } from "../../src/lib/db";
 import { computeTranslationHash } from "../../src/lib/translation-hash";
 import { hashApiIdempotencyKey } from "../../src/lib/api-idempotency";
+import { getProjectUrl } from "../../src/lib/project-url";
 import { e2eId, signInAndGetProjectId } from "./helpers";
 
 async function waitForBlockedProjectLock() {
@@ -118,9 +119,14 @@ test("manager preview, provider charge, idempotent replay, scoped deletion and o
   const endpoint = `/api/projects/${projectId}/url-operations`;
   const post = (data: unknown, key?: string) => page.request.post(endpoint, { data, headers: key ? { "Idempotency-Key": key } : {} });
   try {
-    const anonymous = await playwright.request.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:31563" });
+    const anonymous = await playwright.request.newContext({ baseURL: new URL(page.url()).origin });
     expect((await anonymous.post(endpoint, { data: { action: "delete", id: url.id } })).status()).toBe(401);
     await anonymous.dispose();
+    await page.goto(`/projects/${projectId}/translations/urls?lang=en&q=${encodeURIComponent(path)}`);
+    await expect(page.getByRole("link", { name: `Open ${path}` })).toHaveAttribute(
+      "href",
+      new URL(path, getProjectUrl(project.domain)).toString()
+    );
 
     const beforeUsage = await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } });
     const stalePreview = await (await post({ action: "retranslate", id: url.id })).json();

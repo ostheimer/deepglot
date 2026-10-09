@@ -125,7 +125,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
         </div>
       </div>
 
-      <UrlOperations projectId={projektId} locale={locale} canManage={canManage} wordpressSyncUrl={canManage ? wordpressSyncUrl : null} records={urlRecords.map((record) => ({ ...record, targetUrl: new URL(record.urlPath, getProjectUrl(project.domainMappings.find((mapping) => mapping.langCode === record.langTo)?.host ?? project.domain)).toString(), lastSeenAt: record.lastSeenAt.toISOString(), lastOperationAt: record.lastOperationAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString() }))} />
+      <UrlOperations projectId={projektId} locale={locale} canManage={canManage} wordpressSyncUrl={canManage ? wordpressSyncUrl : null} records={urlRecords.map((record) => ({ ...record, sourceUrl: new URL(record.urlPath, getProjectUrl(project.domain)).toString(), lastSeenAt: record.lastSeenAt.toISOString(), lastOperationAt: record.lastOperationAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString() }))} />
 
       {/* Pagination */}
       {totalPages > 1 && (
