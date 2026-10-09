@@ -27,6 +27,7 @@ export async function translateWithDeepL(
     targetLang,
     websiteType,
     industryType,
+    projectContext,
   }: TranslateTextsInput,
   env: TranslationEnv = process.env,
   signal: AbortSignal = providerAbortSignal(env)
@@ -41,6 +42,7 @@ export async function translateWithDeepL(
   const context = [
     websiteType ? `Website type: ${websiteType}.` : "",
     industryType ? `Industry: ${industryType}.` : "",
+    projectContext ?? "",
   ]
     .filter(Boolean)
     .join(" ");

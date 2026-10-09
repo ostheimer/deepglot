@@ -3,6 +3,55 @@ import { expect, test } from "@playwright/test";
 import { signInAndGetProjectId } from "./helpers";
 
 test.describe("provider settings", () => {
+  test("rejects anonymous description suggestions", async ({ request }) => {
+    const response = await request.post("/api/projects/unknown/language-model");
+    expect(response.status()).toBe(401);
+  });
+
+  test("suggests only on click, then persists context and switches on explicit save", async ({ page }) => {
+    const projectId = await signInAndGetProjectId(page);
+    const settingsUrl = `/api/projects/${projectId}/language-model`;
+    const originalResponse = await page.request.get(settingsUrl);
+    expect(originalResponse.ok()).toBeTruthy();
+    const { settings: original } = await originalResponse.json();
+    try {
+      const partial = await page.request.patch(settingsUrl, { data: { translationTone: "temporary" } });
+      expect(partial.ok()).toBeTruthy();
+      expect((await partial.json()).settings).toMatchObject({ provider: original.provider, model: original.model });
+      await page.goto(`/projects/${projectId}/settings/language-model`);
+      await expect(page.getByLabel("Website description")).toHaveValue(original.websiteDescription ?? "");
+      await page.getByRole("button", { name: "Suggest from project details" }).click();
+      await expect(page.getByLabel("Website description")).not.toHaveValue("");
+      const afterSuggestion = await page.request.get(settingsUrl);
+      expect((await afterSuggestion.json()).settings.websiteDescription).toBe(original.websiteDescription);
+
+      await page.getByLabel("Tone").fill("calm");
+      await page.getByLabel("Audience").fill("new visitors");
+      await page.getByLabel("Additional instructions").fill("Use short sentences.");
+      await page.getByLabel("Use glossary rules as model context").check();
+      await page.getByLabel("Use approved and manual translations as model context").check();
+      await page.getByRole("button", { name: "Save settings" }).click();
+      await expect(page.getByText("Language model settings saved.")).toBeVisible();
+      const saved = await page.request.get(settingsUrl);
+      expect((await saved.json()).settings).toMatchObject({
+        translationTone: "calm",
+        translationAudience: "new visitors",
+        translationInstructions: "Use short sentences.",
+        useGlossaryAsContext: true,
+        useApprovedTranslationsAsContext: true,
+      });
+      await page.reload();
+      await expect(page.getByLabel("Tone")).toHaveValue("calm");
+      await expect(page.getByLabel("Use glossary rules as model context")).toBeChecked();
+      await page.goto(`/de/projekte/${projectId}/einstellungen/sprachmodell`);
+      await expect(page.getByLabel("Websitebeschreibung")).not.toHaveValue("");
+      await expect(page.getByLabel("Tonalität")).toHaveValue("calm");
+    } finally {
+      const restored = await page.request.patch(settingsUrl, { data: { ...original, apiKeyAction: "keep" } });
+      expect(restored.ok()).toBeTruthy();
+    }
+  });
+
   test("saves the mock translation provider without real provider secrets", async ({
     page,
   }) => {

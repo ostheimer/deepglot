@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { encryptSecret } from "@/lib/secret-encryption";
+import { suggestWebsiteDescription } from "@/lib/translation-context-settings";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import {
@@ -61,7 +62,58 @@ const patchSchema = z.object({
   baseUrl: z.string().trim().max(300).nullable().optional(),
   apiKey: z.string().trim().max(1000).optional(),
   apiKeyAction: z.enum(["keep", "clear"]).optional(),
+  websiteDescription: z.string().trim().max(1200).nullable().optional(),
+  translationTone: z.string().trim().max(160).nullable().optional(),
+  translationAudience: z.string().trim().max(300).nullable().optional(),
+  translationInstructions: z.string().trim().max(1000).nullable().optional(),
+  useGlossaryAsContext: z.boolean().optional(),
+  useApprovedTranslationsAsContext: z.boolean().optional(),
 });
+
+// A user-triggered local suggestion only. No provider call and no database write.
+export async function POST(
+  _request: NextRequest,
+  { params }: { params: Promise<{ projektId: string }> }
+) {
+  const locale = await getCookieLocale();
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { error: t(locale, "Nicht authentifiziert", "Not authenticated") },
+      { status: 401 }
+    );
+  }
+  const { projektId } = await params;
+  if (!(await userCanManageProject(session.user.id, projektId))) {
+    return NextResponse.json(
+      { error: t(locale, "Projekt nicht gefunden", "Project not found") },
+      { status: 404 }
+    );
+  }
+  const project = await db.project.findUnique({
+    where: { id: projektId },
+    select: {
+      name: true,
+      domain: true,
+      settings: { select: { websiteType: true, industryType: true } },
+    },
+  });
+  if (!project) {
+    return NextResponse.json(
+      { error: t(locale, "Projekt nicht gefunden", "Project not found") },
+      { status: 404 }
+    );
+  }
+  return NextResponse.json({
+    suggestion: suggestWebsiteDescription({
+      name: project.name,
+      domain: project.domain,
+      websiteType: project.settings?.websiteType,
+      industryType: project.settings?.industryType,
+      locale: locale === "de" ? "de" : "en",
+    }),
+  });
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -107,20 +159,38 @@ export async function PATCH(
     );
   }
 
-  const nextProvider = provider ?? null;
-  const nextModel = body.model || null;
-  const nextBaseUrl = body.baseUrl || null;
   const data: {
-    translationProvider: string | null;
-    translationModel: string | null;
-    translationBaseUrl: string | null;
+    translationProvider?: string | null;
+    translationModel?: string | null;
+    translationBaseUrl?: string | null;
     translationApiKeyEncrypted?: string | null;
     translationApiKeyUpdatedAt?: Date | null;
-  } = {
-    translationProvider: nextProvider,
-    translationModel: nextModel,
-    translationBaseUrl: nextBaseUrl,
-  };
+    websiteDescription?: string | null;
+    translationTone?: string | null;
+    translationAudience?: string | null;
+    translationInstructions?: string | null;
+    useGlossaryAsContext?: boolean;
+    useApprovedTranslationsAsContext?: boolean;
+  } = {};
+
+  if (body.provider !== undefined) data.translationProvider = provider;
+  if (body.model !== undefined) data.translationModel = body.model || null;
+  if (body.baseUrl !== undefined) data.translationBaseUrl = body.baseUrl || null;
+
+  for (const field of [
+    "websiteDescription",
+    "translationTone",
+    "translationAudience",
+    "translationInstructions",
+  ] as const) {
+    if (body[field] !== undefined) data[field] = body[field] || null;
+  }
+  if (body.useGlossaryAsContext !== undefined) {
+    data.useGlossaryAsContext = body.useGlossaryAsContext;
+  }
+  if (body.useApprovedTranslationsAsContext !== undefined) {
+    data.useApprovedTranslationsAsContext = body.useApprovedTranslationsAsContext;
+  }
 
   if (body.apiKey) {
     data.translationApiKeyEncrypted = encryptSecret(body.apiKey);

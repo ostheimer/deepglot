@@ -21,6 +21,12 @@ type LanguageModelSettings = {
   model: string | null;
   baseUrl: string | null;
   hasProjectApiKey: boolean;
+  websiteDescription?: string | null;
+  translationTone?: string | null;
+  translationAudience?: string | null;
+  translationInstructions?: string | null;
+  useGlossaryAsContext?: boolean;
+  useApprovedTranslationsAsContext?: boolean;
 };
 
 type EffectiveSettings = {
@@ -48,6 +54,17 @@ const COPY = {
     saving: "Saving...",
     saved: "Language model settings saved.",
     failed: "Could not save language model settings.",
+    contextTitle: "Translation context",
+    websiteDescription: "Website description",
+    suggestDescription: "Suggest from project details",
+    suggestionFailed: "Could not suggest a description.",
+    suggestionHint: "Review the suggestion, then save to use it. Suggestions are never saved automatically.",
+    tone: "Tone",
+    audience: "Audience",
+    instructions: "Additional instructions",
+    glossaryContext: "Use glossary rules as model context",
+    approvedContext: "Use approved and manual translations as model context",
+    precedence: "Placeholders and variables are preserved first; protected glossary rules and exact manual translations take precedence. Project instructions guide new translations within those limits.",
     currentRuntime: "Current runtime",
     hasKey: "API key available",
     missingKey: "API key missing",
@@ -79,6 +96,17 @@ const COPY = {
     saving: "Wird gespeichert...",
     saved: "Sprachmodell-Einstellungen gespeichert.",
     failed: "Sprachmodell-Einstellungen konnten nicht gespeichert werden.",
+    contextTitle: "Übersetzungskontext",
+    websiteDescription: "Websitebeschreibung",
+    suggestDescription: "Aus Projektdaten vorschlagen",
+    suggestionFailed: "Beschreibung konnte nicht vorgeschlagen werden.",
+    suggestionHint: "Prüfe den Vorschlag und speichere ihn dann. Vorschläge werden nie automatisch gespeichert.",
+    tone: "Tonalität",
+    audience: "Zielgruppe",
+    instructions: "Zusätzliche Anweisungen",
+    glossaryContext: "Glossarregeln als Modellkontext verwenden",
+    approvedContext: "Freigegebene und manuelle Übersetzungen als Modellkontext verwenden",
+    precedence: "Platzhalter und Variablen bleiben vorrangig erhalten; geschützte Glossarregeln und exakte manuelle Übersetzungen haben Vorrang. Projektanweisungen leiten neue Übersetzungen innerhalb dieser Grenzen.",
     currentRuntime: "Aktive Laufzeit",
     hasKey: "API-Key verfügbar",
     missingKey: "API-Key fehlt",
@@ -128,6 +156,13 @@ export function LanguageModelSettingsCard({
   const [model, setModel] = useState(initialSettings.model ?? "");
   const [baseUrl, setBaseUrl] = useState(initialSettings.baseUrl ?? "");
   const [apiKey, setApiKey] = useState("");
+  const [websiteDescription, setWebsiteDescription] = useState(initialSettings.websiteDescription ?? "");
+  const [translationTone, setTranslationTone] = useState(initialSettings.translationTone ?? "");
+  const [translationAudience, setTranslationAudience] = useState(initialSettings.translationAudience ?? "");
+  const [translationInstructions, setTranslationInstructions] = useState(initialSettings.translationInstructions ?? "");
+  const [useGlossaryAsContext, setUseGlossaryAsContext] = useState(initialSettings.useGlossaryAsContext ?? false);
+  const [useApprovedTranslationsAsContext, setUseApprovedTranslationsAsContext] = useState(initialSettings.useApprovedTranslationsAsContext ?? false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const [clearApiKey, setClearApiKey] = useState(false);
   const [effective, setEffective] = useState(initialEffective);
   const [hasProjectApiKey, setHasProjectApiKey] = useState(
@@ -136,6 +171,20 @@ export function LanguageModelSettingsCard({
   const [isSaving, setIsSaving] = useState(false);
   const selectedProvider = provider || null;
   const selectedProviderOption = providers.find((item) => item.id === selectedProvider);
+
+  async function suggestDescription() {
+    setIsSuggesting(true);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/language-model`, { method: "POST" });
+      const data = (await response.json()) as { suggestion?: string };
+      if (!response.ok || !data.suggestion) throw new Error();
+      setWebsiteDescription(data.suggestion);
+    } catch {
+      toast.error(copy.suggestionFailed);
+    } finally {
+      setIsSuggesting(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,6 +200,12 @@ export function LanguageModelSettingsCard({
           baseUrl: baseUrl || null,
           apiKey: apiKey || undefined,
           apiKeyAction: clearApiKey ? "clear" : "keep",
+          websiteDescription,
+          translationTone,
+          translationAudience,
+          translationInstructions,
+          useGlossaryAsContext,
+          useApprovedTranslationsAsContext,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as {
@@ -272,6 +327,22 @@ export function LanguageModelSettingsCard({
             )}
           </div>
         )}
+
+        <div className="space-y-4 border-t border-gray-100 pt-5">
+          <h4 className="font-semibold text-gray-900">{copy.contextTitle}</h4>
+          <div className="grid gap-2">
+            <Label htmlFor="websiteDescription">{copy.websiteDescription}</Label>
+            <textarea id="websiteDescription" className="min-h-24 rounded-md border border-input px-3 py-2 text-sm" maxLength={1200} value={websiteDescription} onChange={(event) => setWebsiteDescription(event.target.value)} />
+            <div><Button type="button" variant="outline" disabled={isSuggesting || isSaving} onClick={suggestDescription}>{copy.suggestDescription}</Button></div>
+            <p className="text-xs text-gray-500">{copy.suggestionHint}</p>
+          </div>
+          <div className="grid gap-2"><Label htmlFor="translationTone">{copy.tone}</Label><Input id="translationTone" maxLength={160} value={translationTone} onChange={(event) => setTranslationTone(event.target.value)} /></div>
+          <div className="grid gap-2"><Label htmlFor="translationAudience">{copy.audience}</Label><Input id="translationAudience" maxLength={300} value={translationAudience} onChange={(event) => setTranslationAudience(event.target.value)} /></div>
+          <div className="grid gap-2"><Label htmlFor="translationInstructions">{copy.instructions}</Label><textarea id="translationInstructions" className="min-h-24 rounded-md border border-input px-3 py-2 text-sm" maxLength={1000} value={translationInstructions} onChange={(event) => setTranslationInstructions(event.target.value)} /></div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={useGlossaryAsContext} onChange={(event) => setUseGlossaryAsContext(event.target.checked)} />{copy.glossaryContext}</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={useApprovedTranslationsAsContext} onChange={(event) => setUseApprovedTranslationsAsContext(event.target.checked)} />{copy.approvedContext}</label>
+          <p className="text-xs text-gray-500">{copy.precedence}</p>
+        </div>
 
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
           <p className="font-semibold text-gray-900">{copy.currentRuntime}</p>

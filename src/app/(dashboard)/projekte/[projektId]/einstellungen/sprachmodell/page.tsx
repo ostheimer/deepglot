@@ -94,6 +94,12 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
           model: project.settings?.translationModel ?? null,
           baseUrl: project.settings?.translationBaseUrl ?? null,
           hasProjectApiKey: Boolean(project.settings?.translationApiKeyEncrypted),
+          websiteDescription: project.settings?.websiteDescription ?? null,
+          translationTone: project.settings?.translationTone ?? null,
+          translationAudience: project.settings?.translationAudience ?? null,
+          translationInstructions: project.settings?.translationInstructions ?? null,
+          useGlossaryAsContext: project.settings?.useGlossaryAsContext ?? false,
+          useApprovedTranslationsAsContext: project.settings?.useApprovedTranslationsAsContext ?? false,
         }}
         initialEffective={{
           provider: effective.provider,
