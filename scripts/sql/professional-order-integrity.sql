@@ -20,7 +20,7 @@ LANGUAGE sql STABLE AS $$
     (o."status" = 'COMPLETED' AND o."checkoutRequestKey" IS NOT NULL AND
      o."checkoutAttemptedAt" IS NOT NULL AND
      o."stripeCheckoutSessionId" IS NOT NULL AND o."stripePaymentIntentId" IS NOT NULL AND
-     o."paymentProvider" = 'stripe' AND o."quoteAmountMinor" > 0 AND o."quoteCurrency" IS NOT NULL AND
+     o."paymentProvider" = 'stripe_checkout' AND o."quoteAmountMinor" > 0 AND o."quoteCurrency" IS NOT NULL AND
      o."paymentReference" = o."stripePaymentIntentId" AND
      o."paidAt" IS NOT NULL AND o."completedAt" IS NOT NULL AND o."completedById" IS NOT NULL AND
      EXISTS (SELECT 1 FROM "ProfessionalTranslationOrderItem" i WHERE i."orderId" = o."id") AND
@@ -46,7 +46,8 @@ BEGIN
      (OLD."quoteAmountMinor", OLD."quoteCurrency", OLD."quoteTurnaroundDays", OLD."quoteExpiresAt", OLD."quoteReference", OLD."quoteTermsVersion", OLD."selectedVendorGrantId") THEN
     RAISE EXCEPTION 'professional order quote is immutable';
   END IF;
-  IF (OLD."checkoutRequestKey" IS NOT NULL AND NEW."checkoutRequestKey" IS DISTINCT FROM OLD."checkoutRequestKey") OR
+  IF (OLD."paymentProvider" IS NOT NULL AND NEW."paymentProvider" IS DISTINCT FROM OLD."paymentProvider") OR
+     (OLD."checkoutRequestKey" IS NOT NULL AND NEW."checkoutRequestKey" IS DISTINCT FROM OLD."checkoutRequestKey") OR
      (OLD."checkoutAttemptedAt" IS NOT NULL AND NEW."checkoutAttemptedAt" IS DISTINCT FROM OLD."checkoutAttemptedAt") OR
      (OLD."stripeCheckoutSessionId" IS NOT NULL AND NEW."stripeCheckoutSessionId" IS DISTINCT FROM OLD."stripeCheckoutSessionId") OR
      (OLD."stripePaymentIntentId" IS NOT NULL AND NEW."stripePaymentIntentId" IS DISTINCT FROM OLD."stripePaymentIntentId") OR

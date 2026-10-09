@@ -256,7 +256,7 @@ export async function completeProfessionalOrder(input: { orderId: string; projec
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     if (order.status !== "DELIVERED" || !order.checkoutRequestKey || !order.checkoutAttemptedAt ||
       !order.stripeCheckoutSessionId || !order.stripePaymentIntentId ||
-      order.paymentProvider !== "stripe" || order.paymentReference !== order.stripePaymentIntentId ||
+      order.paymentProvider !== "stripe_checkout" || order.paymentReference !== order.stripePaymentIntentId ||
       !order.paidAt || !order.quoteAmountMinor || !order.quoteCurrency ||
       order.items.length === 0 || order.items.some((item) => !item.adoptedAt || !item.proposedText)) throw changed();
     const ids = order.items.map((item) => item.translationId).sort();

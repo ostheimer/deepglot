@@ -39,7 +39,7 @@ export async function professionalOrderLifecycleState(client: Client, projectId:
       row.stripeCheckoutSessionId && row.stripePaymentIntentId && row.paymentReference &&
       row.paidAt && row.refundReference) return false;
     if (row.status === "COMPLETED" && row.checkoutRequestKey && row.checkoutAttemptedAt &&
-      row.stripeCheckoutSessionId && row.stripePaymentIntentId && row.paymentProvider === "stripe" &&
+      row.stripeCheckoutSessionId && row.stripePaymentIntentId && row.paymentProvider === "stripe_checkout" &&
       row.quoteAmountMinor !== null && row.quoteAmountMinor > 0 && row.quoteCurrency &&
       row.paymentReference === row.stripePaymentIntentId && row.paidAt && row.completedAt &&
       row.completedById && row.itemsComplete) return false;

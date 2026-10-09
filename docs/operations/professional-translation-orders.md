@@ -85,7 +85,10 @@ parameters or webhook metadata alone cannot mark payment. A synthetic
 subscription customer is omitted; a real `cus_` customer is reused only from
 the same organization. Checkout responses expose only the Stripe URL, no
 customer identifier or billing profile. No credit purchase or plan upgrade is
-started. Partial refunds remain pending merchant review; full refunds and
+started. The verified Checkout receipt stores the immutable provider marker
+`stripe_checkout`; completion and safe historical detachment require that
+exact marker plus matching Session, PaymentIntent, amount and quote evidence.
+Partial refunds remain pending merchant review; full refunds and
 chargeback openings are recorded from separately verified Stripe objects.
 
 Delivery must contain exactly the quoted items and preserve recognized
