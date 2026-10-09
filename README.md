@@ -128,7 +128,8 @@ Issue #272 adds a separate manager-only ordering candidate alongside the
 existing member review and export → vendor → import paths. It snapshots an
 authorized segment/language scope, accepts a vendor quote with price,
 turnaround and expiry, records durable payment/fulfillment states, and holds
-delivery as a review draft until the manager explicitly approves adoption.
+delivery as a review draft until the manager explicitly adopts it into the
+existing assignment and approval workflow.
 The feature is disabled by default. One-time Stripe Checkout and a separate
 signed payment/refund/dispute webhook are implemented behind the gate; no
 live payment or vendor call has been made.

@@ -54,9 +54,11 @@ workspace's later transfer or project deletion. An unmarked missing live
 reference remains fail-closed because its detachment provenance is unknown.
 
 This is a reference-detachment path, **not** a retention period or permission
-to erase historical translation/payment content. Before release, integrate
-the hold with #267's fresh Organization → Project transfer contract on merged
-main and record the actual privacy/retention policy. Never move a late-payment
+to erase historical translation/payment content. The merged #267 transfer
+preview and commit now include the live/unmarked order hold and its state in
+the signed fingerprint; project deletion checks the same state under the
+Organization → Project lock. The database trigger remains the final guard.
+Record the actual privacy/retention policy before release. Never move a late-payment
 or refund obligation to the destination workspace. Detached history is not
 available through a new manager/vendor project capability; only provider
 reconciliation may update its financial state. The source organization's own
@@ -81,14 +83,17 @@ customer identifier or billing profile. No credit purchase or plan upgrade is
 started. Partial refunds remain pending merchant review; full refunds and
 chargeback openings are recorded from separately verified Stripe objects.
 
-Delivery must contain exactly the quoted items. It writes proposed text only
-to order item drafts, leaving the authoritative translation cache unchanged.
-The manager sees source and proposal side by side. A separate explicit approve
-action checks that the source translation and language are still current, then
-atomically adopts one proposed text, marks its workflow `APPROVED`, stores a
-content revision, and queues the existing translation webhook. A stale source
-requires a new order/reconciliation; the vendor cannot force an overwrite.
-Other members' assignments and existing import/export behavior are untouched.
+Delivery must contain exactly the quoted items and preserve recognized
+placeholders and saved variables. It writes proposed text only to order item
+drafts, leaving the authoritative translation cache unchanged. The manager
+sees source and proposal side by side. A separate explicit adoption checks
+that the source translation and language are still current, then uses the
+normal translation-content transaction for CAS, review-status reset, content
+revision, manual usage, digest-only cache invalidation and webhook. Adoption
+does **not** approve the text: the existing assignment → in-review → manager
+approval flow remains necessary. A stale source requires a new
+order/reconciliation; the vendor cannot force an overwrite. Existing
+import/export behavior remains available.
 
 ## Ownership decisions required before launch
 

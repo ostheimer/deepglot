@@ -1,10 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { Prisma, type ProfessionalTranslationOrderStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { assertValidTranslationContent } from "@/lib/translation-workflow";
-import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
-import { recordTranslationBatch } from "@/lib/translation-batches";
-import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
+import { assertValidTranslationContent, updateProjectTranslationContentInTransaction } from "@/lib/translation-workflow";
+import { allPlaceholderQuality, savedVariableQuality } from "@/lib/translation-quality";
 import { assertProfessionalOrderLanguage, assertProfessionalOrderOwner, lockProfessionalOrderManagerScope } from "@/lib/professional-order-access";
 import {
   assertOrderTransition, assertQuote, countOrderWords, hashVendorToken,
@@ -172,10 +170,17 @@ export async function deliverProfessionalOrder(input: { orderId: string; vendorG
   for (const item of input.items) assertValidTranslationContent(item.proposedText);
   return db.$transaction(async (tx) => {
     await assertActiveVendorGrant(tx, input.orderId, input.vendorGrantId);
-    const order = await tx.professionalTranslationOrder.findUnique({ where: { id: input.orderId }, include: { items: { select: { id: true, proposedText: true } } } });
+    const order = await tx.professionalTranslationOrder.findUnique({ where: { id: input.orderId }, include: { items: { select: { id: true, translationId: true, originalText: true, proposedText: true } } } });
     if (!order || !["PAID", "IN_PROGRESS"].includes(order.status) || order.selectedVendorGrantId !== input.vendorGrantId) throw changed();
     if (order.items.length !== input.items.length || order.items.some((item) => !input.items.some((given) => given.itemId === item.id && item.proposedText === null))) throw new ProfessionalOrderError("INVALID", "Delivery must include every scoped item exactly once.");
+    const metadata = await tx.translationMetadata.findMany({ where: { translationId: { in: order.items.map((item) => item.translationId) } }, select: { translationId: true, variables: true } });
+    const variables = new Map(metadata.map((row) => [row.translationId, row.variables]));
     for (const item of input.items) {
+      const snapshot = order.items.find((row) => row.id === item.itemId);
+      if (!snapshot || allPlaceholderQuality(snapshot.originalText, item.proposedText) === "mismatch" ||
+          savedVariableQuality(snapshot.originalText, item.proposedText, variables.get(snapshot.translationId) ?? []) === "mismatch") {
+        throw new ProfessionalOrderError("INVALID", "Delivered text must preserve the scoped placeholders and saved variables.");
+      }
       const updated = await tx.professionalTranslationOrderItem.updateMany({ where: { id: item.itemId, orderId: input.orderId, proposedText: null }, data: { proposedText: item.proposedText, deliveredAt: new Date() } });
       if (updated.count !== 1) throw changed();
     }
@@ -208,30 +213,25 @@ export async function adoptProfessionalDelivery(input: { orderId: string; projec
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     const item = await tx.professionalTranslationOrderItem.findFirst({
       where: { id: input.itemId, orderId: input.orderId, order: { projectId: input.projectId, activeProjectId: input.projectId, status: "DELIVERED" }, proposedText: { not: null }, adoptedAt: null },
-      select: { translationId: true, proposedText: true, originalHash: true, sourceUpdatedAt: true },
+      select: { translationId: true, proposedText: true, originalHash: true, originalText: true, sourceUpdatedAt: true },
     });
     if (!item || !item.proposedText) throw changed();
     const translation = await tx.translation.findFirst({
       where: { id: item.translationId, projectId: input.projectId },
-      select: { id: true, originalHash: true, originalText: true, translatedText: true, langFrom: true, langTo: true, workflowStatus: true, assignedToId: true, updatedAt: true, wordCount: true },
+      select: { id: true, originalHash: true, originalText: true, langFrom: true, langTo: true, updatedAt: true, metadata: { select: { variables: true } } },
     });
     if (!translation || translation.originalHash !== item.originalHash || translation.updatedAt.getTime() !== input.expectedUpdatedAt.getTime() || item.sourceUpdatedAt.getTime() !== input.expectedUpdatedAt.getTime()) throw changed();
-    const languageCurrent = await lockAndValidateProjectLanguageWrite(tx, { projectId: input.projectId, sourceLanguages: [translation.langFrom], targetLanguages: [translation.langTo] });
-    if (!languageCurrent) throw changed();
-    const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Translation" WHERE "id" = ${translation.id} AND "projectId" = ${input.projectId} AND "updatedAt" = ${input.expectedUpdatedAt} FOR UPDATE`;
-    if (locked.length !== 1) throw changed();
-    const updated = await tx.translation.updateMany({
-      where: { id: translation.id, projectId: input.projectId, updatedAt: input.expectedUpdatedAt },
-      data: { translatedText: item.proposedText, isManual: true, source: "MANUAL", workflowStatus: "APPROVED", assignedToId: null },
+    if (allPlaceholderQuality(item.originalText, item.proposedText) === "mismatch" ||
+        savedVariableQuality(item.originalText, item.proposedText, translation.metadata?.variables ?? []) === "mismatch") {
+      throw new ProfessionalOrderError("CONFLICT", "Delivered text no longer meets placeholder or variable checks.");
+    }
+    await updateProjectTranslationContentInTransaction(tx, {
+      projectId: input.projectId, translationId: translation.id, actorUserId: input.actorId,
+      actor: { canManage: true, projectMemberId: null, langCode: null },
+      translatedText: item.proposedText, expectedUpdatedAt: input.expectedUpdatedAt,
     });
-    if (updated.count !== 1) throw changed();
     const adoption = await tx.professionalTranslationOrderItem.updateMany({ where: { id: input.itemId, orderId: input.orderId, adoptedAt: null }, data: { adoptedAt: new Date(), adoptedById: input.actorId } });
     if (adoption.count !== 1) throw changed();
-    if (translation.translatedText !== item.proposedText) {
-      await tx.translationContentRevision.create({ data: { translationId: translation.id, actorUserId: input.actorId, beforeText: translation.translatedText, afterText: item.proposedText } });
-      await recordTranslationBatch({ organizationId: scope.organizationId, projectId: input.projectId, langFrom: translation.langFrom, langTo: translation.langTo, provider: "manual", totalWords: translation.wordCount, cachedWords: 0, manualWords: translation.wordCount, glossaryWords: 0, translatedWords: 0 }, tx);
-      await queueProjectWebhookEvent({ projectId: input.projectId, eventType: "translation.manual_updated", payload: { type: "translation.manual_updated", translationId: translation.id, originalText: translation.originalText, translatedText: item.proposedText, langFrom: translation.langFrom, langTo: translation.langTo, created: false } }, tx);
-    }
     await tx.professionalTranslationOrderEvent.create({ data: { orderId: input.orderId, kind: "delivery_adopted", actorType: "manager", actorId: input.actorId, reference: input.itemId } });
     return { adopted: true };
   }, txOptions);

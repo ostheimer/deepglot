@@ -3,6 +3,7 @@ import { Prisma, type OrganizationRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { BILLING_PLANS, getEffectiveWordsLimit, getEffectiveWorkspacePlanKey } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
+import { professionalOrderLifecycleState } from "@/lib/professional-order-lifecycle";
 
 type Client = typeof db | Prisma.TransactionClient;
 
@@ -56,6 +57,8 @@ async function transferState(client: Client, actorUserId: string, projectId: str
   if (await client.translatedUrl.count({ where: { projectId, operationState: "provider_pending" } })) {
     throw new WorkspaceTransferError("PENDING", 409);
   }
+  const orderState = await professionalOrderLifecycleState(client, projectId);
+  if (orderState.pendingCount) throw new WorkspaceTransferError("PENDING", 409);
   // AI spend is bound to its originating organization. An in-flight or
   // unknown provider outcome cannot move across the credential-purge boundary.
   // Commit repeats this after locking both organizations and the project.
@@ -136,6 +139,7 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     disabledWebhookEndpoints: project.webhookEndpoints.filter((endpoint) => endpoint.enabled).length,
     retainedWebhookDeliveries: deliveryCount, retainedHistoricalBatches: batchCount,
     retainedAiSpendReservations: aiSpendState[0]?.settledCount ?? 0,
+    retainedHistoricalProfessionalOrders: orderState.liveCount,
     clearedAiProjectBudget: Boolean(projectAiBudget),
     clearedProviderKey: Boolean(project.settings?.translationApiKeyEncrypted),
     providerReconnectRequiredAfterTransfer: Boolean(
@@ -149,6 +153,7 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     translationVersion: translations.version, mutableVersion: mutableVersion[0]?.version,
     receiptVersion: receiptState[0]?.version,
     aiSpendVersion: aiSpendState[0]?.version,
+    professionalOrderVersion: orderState.version,
     projectAiBudget,
   });
   return { details, version, removedMemberIds, sourceId: source.id };

@@ -57,7 +57,7 @@ export function ProfessionalOrderPanel({ projectId, languages, locale }: { proje
   return <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
     <div>
       <h2 className="text-lg font-semibold">{de ? "Professionelle Übersetzungen bestellen" : "Order professional translations"}</h2>
-      <p className="text-sm text-gray-600">{de ? "Wähle Segmente und eine Zielsprache. Preis und Lieferzeit werden vor der Annahme verbindlich angezeigt. Gelieferte Texte bleiben bis zu deiner ausdrücklichen Freigabe Entwürfe." : "Select segments and a target language. Review price and turnaround before accepting. Delivered text stays a draft until you explicitly approve it."}</p>
+      <p className="text-sm text-gray-600">{de ? "Wähle Segmente und eine Zielsprache. Prüfe Preis und Lieferzeit vor der Annahme. Gelieferte Texte bleiben bis zur ausdrücklichen Übernahme Entwürfe und durchlaufen danach den normalen Review." : "Select segments and a target language. Review price and turnaround before accepting. Delivered text remains a draft until explicit adoption, then follows normal review."}</p>
     </div>
     <label className="block text-sm font-medium">{de ? "Zielsprache" : "Target language"}
       <select className="ml-2 rounded border p-2" value={language} onChange={(event) => { setLanguage(event.target.value); setSelected([]); }}>
@@ -95,7 +95,7 @@ export function ProfessionalOrderPanel({ projectId, languages, locale }: { proje
           {order.items.filter((item) => item.proposedText !== null).map((item) => <div key={item.id} className="rounded bg-gray-50 p-3">
             <p><strong>{de ? "Quelle:" : "Source:"}</strong> {item.originalText}</p>
             <p><strong>{de ? "Lieferung:" : "Delivery:"}</strong> {item.proposedText}</p>
-            {item.adoptedAt ? <span>{de ? "Freigegeben" : "Approved"}</span> : <Button className="mt-2" size="sm" disabled={busy} onClick={() => void action(`${base}/${order.id}`, { action: "adopt_delivery", itemId: item.id, expectedUpdatedAt: item.sourceUpdatedAt })}>{de ? "Prüfen und ausdrücklich freigeben" : "Review and explicitly approve"}</Button>}
+            {item.adoptedAt ? <span>{de ? "In den Review-Workflow übernommen" : "Adopted into the review workflow"}</span> : <Button className="mt-2" size="sm" disabled={busy} onClick={() => void action(`${base}/${order.id}`, { action: "adopt_delivery", itemId: item.id, expectedUpdatedAt: item.sourceUpdatedAt })}>{de ? "Entwurf ausdrücklich übernehmen" : "Explicitly adopt draft"}</Button>}
           </div>)}
         </div>}
       </article>)}

@@ -12,11 +12,14 @@ test("local professional order lifecycle retains a draft until explicit adoption
   const { db } = await import("../../src/lib/db");
   const { hashVendorToken } = await import("../../src/lib/professional-orders");
   const { createProfessionalOrder, issueVendorGrant, vendorQuote, acceptProfessionalQuote, recordProfessionalPayment, deliverProfessionalOrder, adoptProfessionalDelivery } = await import("../../src/lib/professional-order-service");
+  const { updateProjectTranslationWorkflow } = await import("../../src/lib/translation-workflow");
   const suffix = randomUUID();
   const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
+  const reviewer = await db.user.create({ data: { email: `reviewer-${suffix}@example.invalid` } });
   const organization = await db.organization.create({ data: { name: "Order fixture", slug: suffix, members: { create: { userId: user.id, role: "OWNER" } } } });
   const project = await db.project.create({ data: { name: "Order fixture", domain: `${suffix}.example.invalid`, originalLang: "en", organizationId: organization.id, languages: { create: { langCode: "de" } } } });
-  const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello world", translatedText: "Hallo Welt", langFrom: "en", langTo: "de", source: "MOCK" } });
+  const reviewerMember = await db.projectMember.create({ data: { projectId: project.id, userId: reviewer.id, email: reviewer.email, role: "TRANSLATOR", langCode: "de" } });
+  const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello {{name}} world", translatedText: "Hallo {{name}} Welt", langFrom: "en", langTo: "de", source: "MOCK", metadata: { create: { variables: ["{{name}}"] } } } });
   const order = await createProfessionalOrder({ projectId: project.id, requesterId: user.id, targetLanguage: "de", translationIds: [translation.id] });
   assert.equal(order.status, "QUOTE_REQUESTED");
   await assert.rejects(() => db.professionalTranslationOrder.update({ where: { id: order.id }, data: { wordCount: 999 } }));
@@ -38,14 +41,27 @@ test("local professional order lifecycle retains a draft until explicit adoption
   await recordProfessionalPayment({ orderId: order.id, provider: "local_fixture", reference: `payment-${suffix}`, amountMinor: 1200, currency: "EUR", paid: true });
   const item = await db.professionalTranslationOrderItem.findFirstOrThrow({ where: { orderId: order.id } });
   await assert.rejects(() => db.professionalTranslationOrderItem.update({ where: { id: item.id }, data: { originalText: "tampered" } }));
-  await deliverProfessionalOrder({ orderId: order.id, vendorGrantId: savedGrant.id, items: [{ itemId: item.id, proposedText: "Guten Tag, Welt" }] });
-  assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText, "Hallo Welt");
-  assert.equal((await db.professionalTranslationOrderItem.findUniqueOrThrow({ where: { id: item.id } })).proposedText, "Guten Tag, Welt");
+  await assert.rejects(() => deliverProfessionalOrder({ orderId: order.id, vendorGrantId: savedGrant.id, items: [{ itemId: item.id, proposedText: "Guten Tag, Welt" }] }));
+  await deliverProfessionalOrder({ orderId: order.id, vendorGrantId: savedGrant.id, items: [{ itemId: item.id, proposedText: "Guten Tag, {{name}} Welt" }] });
+  assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText, "Hallo {{name}} Welt");
+  assert.equal((await db.professionalTranslationOrderItem.findUniqueOrThrow({ where: { id: item.id } })).proposedText, "Guten Tag, {{name}} Welt");
   await adoptProfessionalDelivery({ orderId: order.id, projectId: project.id, itemId: item.id, actorId: user.id, expectedUpdatedAt: translation.updatedAt });
   const adopted = await db.translation.findUniqueOrThrow({ where: { id: translation.id } });
-  assert.equal(adopted.translatedText, "Guten Tag, Welt");
-  assert.equal(adopted.workflowStatus, "APPROVED");
+  assert.equal(adopted.translatedText, "Guten Tag, {{name}} Welt");
+  assert.equal(adopted.workflowStatus, "MACHINE"); // Adoption cannot approve its own review.
+  assert.equal(await db.translationContentRevision.count({ where: { translationId: translation.id } }), 1);
+  assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), 1);
   assert.equal((await db.professionalTranslationOrderItem.findUniqueOrThrow({ where: { id: item.id } })).adoptedById, user.id);
+  const manager = { canManage: true, projectMemberId: null, langCode: null };
+  await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id, actor: manager,
+    actorUserId: user.id, patch: { status: "ASSIGNED", assignedToId: reviewerMember.id } });
+  await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id,
+    actor: { canManage: false, projectMemberId: reviewerMember.id, langCode: "de" }, actorUserId: reviewer.id,
+    patch: { status: "IN_REVIEW" } });
+  assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).workflowStatus, "IN_REVIEW");
+  await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id, actor: manager,
+    actorUserId: user.id, patch: { status: "APPROVED" } });
+  assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).workflowStatus, "APPROVED");
   await db.$disconnect();
 });
 

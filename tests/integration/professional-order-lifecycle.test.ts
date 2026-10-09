@@ -15,10 +15,13 @@ test("completed historical order keeps provenance while its project transfers an
   const { hashVendorToken } = await import("../../src/lib/professional-orders");
   const { createProfessionalOrder, issueVendorGrant, vendorQuote, acceptProfessionalQuote, cancelProfessionalOrder } = await import("../../src/lib/professional-order-service");
   const { applyProfessionalStripeEvent } = await import("../../src/lib/professional-order-stripe");
+  const { previewWorkspaceTransfer, commitWorkspaceTransfer } = await import("../../src/lib/workspace-transfer");
+  const { deleteProjectWithAiSpendGuard } = await import("../../src/lib/ai-budget-project-deletion");
+  process.env.AUTH_SECRET = "local-disposable-transfer-fixture-only";
   const suffix = randomUUID();
   const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
   const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source`, members: { create: { userId: user.id, role: "OWNER" } } } });
-  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target` } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target`, members: { create: { userId: user.id, role: "OWNER" } } } });
   const project = await db.project.create({ data: { name: "Lifecycle fixture", domain: `${suffix}.example.invalid`, originalLang: "en", organizationId: source.id, languages: { create: { langCode: "de" } } } });
   const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello world", translatedText: "Hallo Welt", langFrom: "en", langTo: "de", source: "MOCK" } });
   const order = await createProfessionalOrder({ projectId: project.id, requesterId: user.id, targetLanguage: "de", translationIds: [translation.id] });
@@ -26,6 +29,10 @@ test("completed historical order keeps provenance while its project transfers an
   const savedGrant = await db.professionalTranslationVendorGrant.findUniqueOrThrow({ where: { tokenHash: hashVendorToken(grant.token) } });
   await vendorQuote({ orderId: order.id, vendorGrantId: savedGrant.id, amountMinor: 1200, currency: "EUR", turnaroundDays: 3, expiresAt: new Date(Date.now() + 86_400_000), reference: `quote-${suffix}`, termsVersion: "fixture-v1" });
   await acceptProfessionalQuote({ orderId: order.id, projectId: project.id, actorId: user.id, expectedScopeDigest: order.scopeDigest, expectedQuoteReference: `quote-${suffix}` });
+  await assert.rejects(() => previewWorkspaceTransfer(user.id, project.id, target.id),
+    (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "PENDING");
+  await assert.rejects(() => deleteProjectWithAiSpendGuard(project.id, user.id),
+    (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "professional_order_pending");
   await cancelProfessionalOrder({ orderId: order.id, projectId: project.id, actorId: user.id });
   assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).status, "CANCELED");
   const metadata = { orderId: order.id, projectId: project.id, organizationId: source.id, scopeDigest: order.scopeDigest, quoteReference: `quote-${suffix}`, amountMinor: "1200", currency: "EUR" };
@@ -34,8 +41,18 @@ test("completed historical order keeps provenance while its project transfers an
   const fakeStripe = { checkout: { sessions: { retrieve: async () => session } }, paymentIntents: { retrieve: async () => intent } } as unknown as ProfessionalOrderStripe;
   const unexpected = { id: `evt_unexpected_${suffix}`, type: "checkout.session.completed", data: { object: session } } as Stripe.Event;
   await assert.rejects(() => applyProfessionalStripeEvent(unexpected, fakeStripe)); // no durable Checkout dispatch
-  await db.project.update({ where: { id: project.id }, data: { organizationId: target.id } });
-  await db.project.delete({ where: { id: project.id } });
+  let preview = await previewWorkspaceTransfer(user.id, project.id, target.id);
+  const competing = await db.professionalTranslationOrder.create({ data: { projectId: project.id,
+    activeProjectId: project.id, organizationId: source.id, requesterId: user.id,
+    status: "PAYMENT_PENDING", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "d".repeat(64), wordCount: 1 } });
+  await assert.rejects(() => commitWorkspaceTransfer({ actorUserId: user.id, projectId: project.id, destinationId: target.id,
+    fingerprint: preview.fingerprint, issuedAt: preview.issuedAt, confirmationToken: preview.confirmationToken }),
+  (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "PENDING");
+  await db.professionalTranslationOrder.update({ where: { id: competing.id }, data: { status: "CANCELED" } });
+  preview = await previewWorkspaceTransfer(user.id, project.id, target.id);
+  await commitWorkspaceTransfer({ actorUserId: user.id, projectId: project.id, destinationId: target.id,
+    fingerprint: preview.fingerprint, issuedAt: preview.issuedAt, confirmationToken: preview.confirmationToken });
+  await deleteProjectWithAiSpendGuard(project.id, user.id);
   const evidence = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id }, include: { items: true, events: true } });
   assert.equal(evidence.organizationId, source.id);
   assert.equal(evidence.projectId, project.id);

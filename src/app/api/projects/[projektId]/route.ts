@@ -58,6 +58,14 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof AiBudgetError) {
+      if (error.code === "professional_order_pending") {
+        const de = request.headers.get("accept-language")?.toLowerCase().startsWith("de") ?? false;
+        return NextResponse.json({ code: error.code,
+          error: de
+            ? "Dieses Projekt hat eine offene Übersetzungsbestellung oder ungeklärte Zahlung. Kläre die Verpflichtung vor dem Löschen."
+            : "This project has an open professional translation order or unresolved payment. Reconcile it before deletion." },
+        { status: 409 });
+      }
       if (error.code === "ai_spend_pending") {
         const de = request.headers.get("accept-language")?.toLowerCase().startsWith("de") ?? false;
         return NextResponse.json({ code: error.code,

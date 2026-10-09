@@ -515,7 +515,7 @@ export async function updateProjectTranslationWorkflow({
   });
 }
 
-export async function updateProjectTranslationContent({
+export async function updateProjectTranslationContentInTransaction(tx: Prisma.TransactionClient, {
   projectId,
   translationId,
   actor,
@@ -531,11 +531,9 @@ export async function updateProjectTranslationContent({
   actorUserId?: string;
 }) {
   assertValidTranslationContent(translatedText);
-  const { db } = await import("@/lib/db");
   const { queueProjectWebhookEvent } =
     await import("@/lib/project-webhook-delivery");
   const { recordTranslationBatch } = await import("@/lib/translation-batches");
-  return db.$transaction(async (tx) => {
     const writeActor = await actorForCurrentWorkspace(tx, projectId, actorUserId, actor);
     const current = await tx.translation.findFirst({
       where: { id: translationId, projectId },
@@ -666,7 +664,11 @@ export async function updateProjectTranslationContent({
     );
 
     return saved;
-  });
+}
+
+export async function updateProjectTranslationContent(input: Parameters<typeof updateProjectTranslationContentInTransaction>[1]) {
+  const { db } = await import("@/lib/db");
+  return db.$transaction((tx) => updateProjectTranslationContentInTransaction(tx, input));
 }
 
 export async function deleteProjectTranslation({

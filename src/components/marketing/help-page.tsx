@@ -168,6 +168,7 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
               ? "Bei aktiver Durchsetzung erscheinen Warnschwellen und erreichte Limits für Workspace-Inhaber und -Admins in der Übersicht mit reserviertem oder abgeglichenem Kostenhöchstbetrag. Erst nach unabhängig geprüftem Anbieterbeleg oder Gutschrift kann ein Inhaber eine unbekannte Reservierung im Projekt ausdrücklich und protokolliert auflösen. Das ist keine tatsächlich abgerechnete Summe; eine E-Mail-Zustellung wird nicht behauptet."
               : "During active enforcement, threshold and cap alerts appear for workspace owners and admins on the overview with reserved or reconciled cost ceilings. Only after independently checking a provider receipt or credit can an owner explicitly resolve an unknown hold in the project with an audit record. This is not an invoiced amount and does not imply an email was sent."}</p>
+          </section>
           <section id="professional-orders" className="scroll-mt-8 pt-20">
             <h2 className="text-3xl font-bold">{de ? "Professionelle Übersetzungen" : "Professional translations"}</h2>
             <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">
@@ -177,8 +178,8 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             </p>
             <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">
               {de
-                ? "Nach der Freischaltung wählen Projektverantwortliche Segmente und Zielsprache aus, prüfen Preis und Lieferzeit und nehmen ein Angebot ausdrücklich an. Gelieferte Texte bleiben zunächst Entwürfe und werden erst nach einer weiteren ausdrücklichen Freigabe übernommen."
-                : "After launch, project managers will select segments and a target language, review price and turnaround, and explicitly accept a quote. Delivered text remains a draft until a separate explicit approval adopts it."}
+                ? "Nach der Freischaltung wählen Projektverantwortliche Segmente und Zielsprache aus, prüfen Preis und Lieferzeit und nehmen ein Angebot ausdrücklich an. Gelieferte Texte bleiben zunächst Entwürfe. Nach der ausdrücklichen Übernahme durchlaufen sie den normalen Review- und Freigabeprozess."
+                : "After launch, project managers will select segments and a target language, review price and turnaround, and explicitly accept a quote. Delivered text remains a draft. After explicit adoption it follows the normal review and approval flow."}
             </p>
           </section>
 
