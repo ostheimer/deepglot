@@ -62,8 +62,8 @@ export async function preflightAiSpend(input: {
   const projectQuote = quotedMicros(projectPrice, input.inputUnits, input.outputUnits, now);
   const estimatedMaxMicros = orgQuote > projectQuote ? orgQuote : projectQuote;
   const periodKey = utcPeriodKey(now);
-  const orgCommitted = await committedMicros(db, input.organizationId, periodKey);
-  const projectCommitted = await committedMicros(db, input.organizationId, periodKey, input.projectId);
+  const { organizationMicros: orgCommitted, projectMicros: projectCommitted } =
+    await readAiSpendTotals(db, input.organizationId, input.projectId, periodKey, organizationBudget.currency);
   const allowed = estimatedMaxMicros <= organizationBudget.perCallCapMicros &&
     estimatedMaxMicros <= projectBudget.perCallCapMicros &&
     spendWithinCap(orgCommitted, estimatedMaxMicros, organizationBudget.capMicros) &&
@@ -99,16 +99,34 @@ function approvedPrice(budget: BudgetWithModels, provider: string, model: string
   };
 }
 
-async function committedMicros(tx: Prisma.TransactionClient, organizationId: string, periodKey: number, projectId?: string) {
-  const rows = await tx.$queryRaw<Array<{ total: bigint }>>`
+type SpendReader = Pick<typeof db, "$queryRaw">;
+
+/** No FX exists: every current-period reservation must use the policy currency. */
+export async function readAiSpendTotals(tx: SpendReader, organizationId: string, projectId: string,
+  periodKey: number, currency: string | null) {
+  const rows = await tx.$queryRaw<Array<{ total: bigint; projectTotal: bigint; incompatible: bigint; rowCount: bigint }>>`
     SELECT COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
       THEN COALESCE("reconciledCeilingMicros", "reservedMicros")
-      ELSE "reservedMicros" END), 0)::bigint AS total
+      ELSE "reservedMicros" END), 0)::bigint AS total,
+      COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
+        THEN COALESCE("reconciledCeilingMicros", "reservedMicros")
+        ELSE "reservedMicros" END) FILTER (WHERE "projectId" = ${projectId}), 0)::bigint AS "projectTotal",
+      COUNT(*) FILTER (WHERE "currency" IS DISTINCT FROM ${currency})::bigint AS incompatible,
+      COUNT(*)::bigint AS "rowCount"
     FROM "AiSpendReservation"
     WHERE "organizationId" = ${organizationId} AND "periodKey" = ${periodKey}
-      AND (${projectId ?? null}::text IS NULL OR "projectId" = ${projectId ?? null})
   `;
-  return rows[0]?.total ?? BigInt(0);
+  const totals = rows[0];
+  if (totals?.incompatible && totals.incompatible > BigInt(0)) {
+    throw new AiBudgetError("budget_currency_conflict", "Current-period spend has another currency; no FX conversion is approved.");
+  }
+  return { organizationMicros: totals?.total ?? BigInt(0),
+    projectMicros: totals?.projectTotal ?? BigInt(0), rowCount: totals?.rowCount ?? BigInt(0) };
+}
+
+export async function assertAiSpendLedgerCurrency(tx: SpendReader, organizationId: string,
+  periodKey: number, currency: string) {
+  await readAiSpendTotals(tx, organizationId, "", periodKey, currency);
 }
 
 /** The Organization→Project row order matches workspace transfer and role guards. */
@@ -210,10 +228,9 @@ export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendAp
     if (reservedMicros > organizationBudget.perCallCapMicros || reservedMicros > projectBudget.perCallCapMicros) {
       throw new AiBudgetError("per_call_cap_exceeded", "The provider attempt exceeds an approved per-call ceiling.");
     }
-    const [orgCommitted, projectCommitted] = await Promise.all([
-      committedMicros(tx, attempt.organizationId, periodKey),
-      committedMicros(tx, attempt.organizationId, periodKey, attempt.projectId),
-    ]);
+    const { organizationMicros: orgCommitted, projectMicros: projectCommitted } =
+      await readAiSpendTotals(tx, attempt.organizationId, attempt.projectId, periodKey,
+        organizationBudget.currency);
     if (!spendWithinCap(orgCommitted, reservedMicros, organizationBudget.capMicros) ||
         !spendWithinCap(projectCommitted, reservedMicros, projectBudget.capMicros)) {
       throw new AiBudgetError("budget_exhausted", "The approved AI budget has no room for this attempt.");

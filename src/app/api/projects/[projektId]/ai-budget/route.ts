@@ -4,7 +4,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { aiBudgetPolicyInput } from "@/lib/ai-budget-policy";
 import { currentAiBudgetEnforcementState } from "@/lib/ai-budget-enforcement";
-import { lockAiSpendScope, preflightAiSpend, resolveUnknownAiSpend } from "@/lib/ai-budget";
+import { assertAiSpendLedgerCurrency, lockAiSpendScope, preflightAiSpend,
+  readAiSpendTotals, resolveUnknownAiSpend } from "@/lib/ai-budget";
 import { AiBudgetError, utcPeriodKey } from "@/lib/ai-budget-math";
 import { userCanManageProject } from "@/lib/project-access";
 import { z } from "zod";
@@ -29,16 +30,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     include: { models: true },
   });
   const periodKey = utcPeriodKey(new Date());
-  const spend = await db.$queryRaw<Array<{ organizationMicros: bigint; projectMicros: bigint }>>`
-    SELECT
-      COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
-        THEN COALESCE("reconciledCeilingMicros", "reservedMicros") ELSE "reservedMicros" END), 0)::bigint AS "organizationMicros",
-      COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
-        THEN COALESCE("reconciledCeilingMicros", "reservedMicros") ELSE "reservedMicros" END)
-        FILTER (WHERE "projectId" = ${projektId}), 0)::bigint AS "projectMicros"
-    FROM "AiSpendReservation"
-    WHERE "organizationId" = ${access.organizationId} AND "periodKey" = ${periodKey}
-  `;
+  const organizationBudget = budgets.find((item) => item.projectId === null);
+  const projectBudget = budgets.find((item) => item.projectId === projektId);
+  let spend: Awaited<ReturnType<typeof readAiSpendTotals>>;
+  try {
+    spend = await readAiSpendTotals(db, access.organizationId, projektId, periodKey,
+      organizationBudget?.currency ?? projectBudget?.currency ?? null);
+    if (spend.rowCount > BigInt(0) && organizationBudget && projectBudget &&
+        organizationBudget.currency !== projectBudget.currency) {
+      throw new AiBudgetError("budget_currency_conflict", "Current-period spend cannot be shown under conflicting policy currencies.");
+    }
+  } catch (error) {
+    if (error instanceof AiBudgetError) return NextResponse.json({ code: error.code,
+      detail: error.message, enforcementState }, { status: 409 });
+    return NextResponse.json({ code: "budget_unavailable" }, { status: 503 });
+  }
   const events = await db.aiBudgetEvent.findMany({
     where: { organizationId: access.organizationId, OR: [{ projectId: null }, { projectId: projektId }] },
     orderBy: { createdAt: "desc" }, take: 20,
@@ -73,8 +79,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   };
   return NextResponse.json({
     organization: serialize(null), project: serialize(projektId), periodKey, enforcementState,
-    organizationCommittedMicros: enforcementState === "active" ? (spend[0]?.organizationMicros ?? BigInt(0)).toString() : null,
-    projectCommittedMicros: enforcementState === "active" ? (spend[0]?.projectMicros ?? BigInt(0)).toString() : null,
+    organizationCommittedMicros: enforcementState === "active" ? spend.organizationMicros.toString() : null,
+    projectCommittedMicros: enforcementState === "active" ? spend.projectMicros.toString() : null,
     events,
     recentSpend: recentSpend.map((item) => ({ ...item,
       reservedMicros: item.reservedMicros.toString(),
@@ -135,6 +141,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         select: { role: true },
       });
       if (membership?.role !== "OWNER") return { kind: "forbidden" } as const;
+      // The organization row lock serializes this approval against dispatch.
+      // An existing current-month reservation has immutable currency and no
+      // approved exchange rate, even when both policies are changed together.
+      await assertAiSpendLedgerCurrency(tx, access.organizationId, utcPeriodKey(new Date()), input.currency);
       const projectId = input.scope === "project" ? projektId : null;
       const existing = await tx.aiBudget.findFirst({ where: { organizationId: access.organizationId, projectId } });
       const approvedAt = new Date();
@@ -171,7 +181,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
     if (result.kind === "forbidden") return NextResponse.json({ code: "owner_required" }, { status: 403 });
     return NextResponse.json(result);
-  } catch {
+  } catch (error) {
+    if (error instanceof AiBudgetError) return NextResponse.json({ code: error.code,
+      detail: error.message }, { status: 409 });
     return NextResponse.json({ code: "budget_unavailable" }, { status: 503 });
   }
 }

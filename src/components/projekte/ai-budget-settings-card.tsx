@@ -56,8 +56,19 @@ const PROVIDERS = ["openai", "gemini", "openrouter", "ollama", "openai-compatibl
 
 async function fetchBudgetReadback(projectId: string): Promise<Readback> {
   const response = await fetch(`/api/projects/${projectId}/ai-budget`, { cache: "no-store" });
-  if (!response.ok) throw new Error("readback_failed");
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { code?: string };
+    throw new Error(result.code ?? "readback_failed");
+  }
   return response.json() as Promise<Readback>;
+}
+
+function budgetStatusError(error: unknown, de: boolean) {
+  const code = error instanceof Error ? error.message : "unknown";
+  if (code === "budget_currency_conflict") return de
+    ? "Währungskonflikt: Reservierungen dieses UTC-Monats haben eine andere Währung. Es wird kein Budgetbetrag als gültig angezeigt. Ein Währungswechsel ist erst in einem Monat ohne widersprechende Reservierungen möglich; die bestehenden Belege bleiben unverändert."
+    : "Currency conflict: reservations in this UTC month use another currency. No budget amount is shown as valid. A currency change is possible only in a month without conflicting reservations; existing receipts remain unchanged.";
+  return de ? "Budgetdaten sind derzeit nicht verfügbar." : "Budget data is currently unavailable.";
 }
 
 export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
@@ -77,7 +88,9 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
   const [actualOutputUnits, setActualOutputUnits] = useState("");
 
   async function refresh(initializeDraft = false) {
-    const data = await fetchBudgetReadback(projectId);
+    let data: Readback;
+    try { data = await fetchBudgetReadback(projectId); }
+    catch (error) { setReadback(null); throw error; }
     if (initializeDraft) {
       setDraft(data[scope] ?? blankPolicy(scope));
       setDraftResetVersion((version) => version + 1);
@@ -94,8 +107,8 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
       setDraft(data.project ?? blankPolicy("project"));
       setDraftResetVersion((version) => version + 1);
       setReadback(data);
-    }).catch(() => {
-      if (!cancelled) setStatus(de ? "Budgetdaten sind derzeit nicht verfügbar." : "Budget data is currently unavailable.");
+    }).catch((error) => {
+      if (!cancelled) setStatus(budgetStatusError(error, de));
     });
     return () => { cancelled = true; };
   }, [projectId, de]);
@@ -135,7 +148,9 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
       await refresh(true);
       setStatus(de ? "Freigabe gespeichert und unabhängig aus der Datenbank gelesen." : "Approval saved and independently read from the database.");
     } catch (error) {
-      setStatus(`${de ? "Freigabe fehlgeschlagen" : "Approval failed"}: ${error instanceof Error ? error.message : "unknown"}`);
+      setStatus(error instanceof Error && error.message === "budget_currency_conflict"
+        ? budgetStatusError(error, de)
+        : `${de ? "Freigabe fehlgeschlagen" : "Approval failed"}: ${error instanceof Error ? error.message : "unknown"}`);
     } finally { setLoading(false); }
   }
 
@@ -178,7 +193,7 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
     <Button className="mt-3" type="button" variant="outline" disabled={!readback || loading} onClick={() => {
       setLoading(true);
       void refresh(true).then(() => setStatus(de ? "Budgetstatus neu gelesen." : "Budget status refreshed."))
-        .catch(() => setStatus(de ? "Budgetdaten sind derzeit nicht verfügbar." : "Budget data is currently unavailable."))
+        .catch((error) => setStatus(budgetStatusError(error, de)))
         .finally(() => setLoading(false));
     }}>{de ? "Budgetstatus neu laden" : "Refresh budget status"}</Button>
     <div className="mt-4 rounded-md bg-gray-50 p-3 text-sm" data-testid="ai-budget-readback">

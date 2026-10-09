@@ -120,6 +120,45 @@ test("parallel good then malformed settlement cannot reduce an UNKNOWN hold", { 
   }
 });
 
+test("current-month foreign-currency UNKNOWN hold cannot be reinterpreted by new policy currency", { skip: !databaseUrl }, async () => {
+  const id = crypto.randomUUID();
+  await db.organization.create({ data: { id, name: "Currency fixture", slug: `currency-${id}` } });
+  try {
+    const project = await db.project.create({ data: { organizationId: id,
+      name: "Currency project", domain: `currency-${id}.invalid` } });
+    await db.projectLanguage.create({ data: { projectId: project.id, langCode: "en" } });
+    const key = await db.apiKey.create({ data: { projectId: project.id, name: "fixture",
+      key: crypto.randomBytes(32).toString("hex"), keyPrefix: "fixture" } });
+    for (const projectId of [null, project.id]) await db.aiBudget.create({ data: {
+      organizationId: id, projectId, currency: "USD", capMicros: BigInt(10000),
+      perCallCapMicros: BigInt(5000), warningPercent: 80, period: "MONTHLY_UTC",
+      approvedByUserId: "fixture-owner", models: { create: [{ provider: "mock", model: "mock",
+        unit: "ZERO_COST", inputMicrosPerMillion: BigInt(0), outputMicrosPerMillion: BigInt(0),
+        maxInputUnits: 10000, maxOutputUnits: 0, priceExpiresAt: new Date(Date.now() + 86400000) }] },
+    } });
+    const periodKey = new Date().getUTCFullYear() * 100 + new Date().getUTCMonth() + 1;
+    const reservation = await db.aiSpendReservation.create({ data: {
+      organizationId: id, projectId: project.id,
+      requestKeyHash: `currency-${id}`, requestGroupHash: `currency-group-${id}`,
+      dispatchId: id, actorKind: "API_KEY", actorId: key.id,
+      action: "TRANSLATION", provider: "openai", model: "fixture", currency: "USD",
+      periodKey, state: "UNKNOWN", reservedMicros: BigInt(4000),
+      estimatedInputUnits: 1000, maxOutputUnits: 100, unit: "TOKEN",
+      orgInputMicrosPerMillion: BigInt(1000000), orgOutputMicrosPerMillion: BigInt(1000000),
+      projectInputMicrosPerMillion: BigInt(1000000), projectOutputMicrosPerMillion: BigInt(1000000),
+    } });
+    await db.aiBudget.updateMany({ where: { organizationId: id }, data: { currency: "EUR" } });
+    await assert.rejects(() => preflightAiSpend({ organizationId: id, projectId: project.id,
+      provider: "mock", model: "mock", inputUnits: 1, outputUnits: 0 }), { code: "budget_currency_conflict" });
+    await assert.rejects(() => reserveAiSpend({ organizationId: id, projectId: project.id,
+      requestGroupKey: `${id}:new-request`, requestKey: `${id}:new-attempt`, dispatchId: crypto.randomUUID(),
+      actorKind: "API_KEY", actorId: key.id, action: "TRANSLATION", sourceLang: "de", targetLang: "en",
+      expectedSettingsUpdatedAt: null, provider: "mock", model: "mock", input: { texts: ["Hallo"] } }),
+    { code: "budget_currency_conflict" });
+    assert.equal((await db.aiSpendReservation.findUniqueOrThrow({ where: { id: reservation.id } })).currency, "USD");
+  } finally { await db.organization.delete({ where: { id } }); }
+});
+
 test("PostgreSQL budget admission is atomic across projects, retries and unknown receipts", { skip: !databaseUrl }, async () => {
   const id = crypto.randomUUID();
   const organization = await db.organization.create({ data: { id, name: "AI budget fixture", slug: `ai-budget-${id}` } });
