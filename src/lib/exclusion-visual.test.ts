@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { projectPreviewUrl, VisualPreviewError } from "@/lib/exclusion-visual";
-import { stableVisualToken } from "@/lib/exclusion-visual-selector";
+import { chooseVisualSelector, stableVisualToken } from "@/lib/exclusion-visual-selector";
 
 test("visual preview path cannot change project origin or reach an internal host", () => {
   assert.equal(projectPreviewUrl("example.com", "/products?x=1").href, "https://example.com/products?x=1");
@@ -19,4 +19,12 @@ test("visual selector accepts semantic tokens and rejects volatile or generic ru
   for (const value of ["body", "row", "open", "wp-block-group", "menu", "x", "item-abcdef123456", "user_session_42", "a:b", "a b"]) {
     assert.equal(stableVisualToken(value), false, value);
   }
+});
+
+test("visual picker refuses structural roots and majority-page subtrees", () => {
+  const document = { body: { textContent: "x".repeat(100) }, documentElement: {} } as unknown as Document;
+  const main = { tagName: "MAIN", id: "unique-main", querySelectorAll: () => ({ length: 3 }), textContent: "x".repeat(70) } as unknown as Element;
+  const largeSection = { tagName: "DIV", id: "unique-section", querySelectorAll: () => ({ length: 3 }), textContent: "x".repeat(70) } as unknown as Element;
+  assert.equal(chooseVisualSelector(main, document), null);
+  assert.equal(chooseVisualSelector(largeSection, document), null);
 });

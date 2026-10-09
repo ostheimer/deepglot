@@ -10,7 +10,7 @@ test("manager selects unique ID and class in a script-free page preview and save
   await page.route(`**/api/projects/${projectId}/exclusions/visual-preview`, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       url: "https://example.com/fixture-271/",
-      html: `<html><body><main><p id="${id}">Keep ID</p><p class="${className}">Keep class</p><p class="content">Generic</p><script>window.__visualFixtureExecuted = true</script></main></body></html>`,
+      html: `<html><body><main id="fixture-visual-271-main"><p id="${id}">Keep ID</p><p class="${className}">Keep class</p><p class="content">Generic</p><script>window.__visualFixtureExecuted = true</script></main></body></html>`,
     }) });
   });
   try {
@@ -29,6 +29,8 @@ test("manager selects unique ID and class in a script-free page preview and save
 
     await page.getByRole("button", { name: "Select on page" }).click();
     await page.getByRole("button", { name: "Load page" }).click();
+    await frame.locator("main").dispatchEvent("click");
+    await expect(page.getByRole("button", { name: "Save exclusion" })).toBeDisabled();
     await frame.locator(".content").click();
     await expect(page.getByRole("button", { name: "Save exclusion" })).toBeDisabled();
     await frame.locator(`.${className}`).click();

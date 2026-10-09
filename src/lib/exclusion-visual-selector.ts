@@ -13,8 +13,11 @@ export function stableVisualToken(token: string): boolean {
 export type VisualSelection = { type: Extract<ExclusionType, "CSS_ID" | "CSS_CLASS">; value: string; selector: string; count: number };
 
 export function chooseVisualSelector(element: Element, document: Document): VisualSelection | null {
-  if (element === document.body || element === document.documentElement || ["SCRIPT", "STYLE", "HEAD", "META", "LINK", "IFRAME", "FORM"].includes(element.tagName)) return null;
-  if (element.querySelectorAll("*").length > 100 || (element.textContent?.length ?? 0) > 3000) return null;
+  if (element === document.body || element === document.documentElement || ["SCRIPT", "STYLE", "HEAD", "META", "LINK", "IFRAME", "FORM", "MAIN", "HEADER", "FOOTER", "NAV"].includes(element.tagName)) return null;
+  const descendants = element.querySelectorAll("*").length;
+  const textLength = (element.textContent?.trim() ?? "").length;
+  const bodyTextLength = (document.body?.textContent?.trim() ?? "").length;
+  if (descendants > 100 || textLength > 3000 || (descendants >= 2 && bodyTextLength > 0 && textLength / bodyTextLength > 0.5)) return null;
   const candidates: Array<{ type: VisualSelection["type"]; value: string; selector: string }> = [];
   if (stableVisualToken(element.id)) candidates.push({ type: "CSS_ID", value: element.id, selector: `#${CSS.escape(element.id)}` });
   for (const name of element.classList) {
