@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { translationContextPath } from "@/lib/translation-context";
 import { PLUGIN_RATE_LIMIT_SCOPE, consumeRateLimit, getRateLimitConfig } from "@/lib/rate-limit";
 import { normalizeTargetLocale } from "@/lib/project-language-lifecycle";
+import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 
 export const runtime = "nodejs";
 
@@ -29,16 +30,24 @@ export async function POST(request: NextRequest) {
   const { url, state, result, httpStatus } = parsed.data;
   const language = normalizeTargetLocale(parsed.data.language);
   if (!language) return NextResponse.json({ error: "Invalid target locale" }, { status: 400 });
-  const mappings = await db.projectDomainMapping.findMany({ where: { projectId: key.projectId, langCode: language }, select: { host: true } });
-  const path = translationContextPath(url, key.project.domain, mappings.map((item) => item.host));
-  const active = key.project.languages.some((item) => item.langCode === language && item.isActive);
-  if (!path || !active) return NextResponse.json({ error: "URL or language does not belong to project" }, { status: 422 });
-  const origin = new URL(url).origin;
-  await db.translatedUrl.createMany({ data: [{ projectId: key.projectId, urlPath: path, langTo: language, lastSeenAt: new Date() }], skipDuplicates: true });
-  const saved = await db.translatedUrl.updateMany({
-    where: { projectId: key.projectId, urlPath: path, langTo: language, OR: [{ operationState: null }, { operationState: { not: "provider_pending" } }] },
-    data: { operationState: `sync_${state}`, lastResult: result, lastHttpStatus: httpStatus, origin, lastOperationAt: new Date(), lastError: state === "completed" ? null : result },
+  const outcome = await db.$transaction(async (tx) => {
+    if (!(await lockProjectRuntimeConfiguration(tx, key.projectId))) return "invalid_key" as const;
+    const currentKey = await tx.apiKey.findFirst({ where: { id: key.id, projectId: key.projectId, isActive: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, select: { id: true } });
+    if (!currentKey) return "invalid_key" as const;
+    const project = await tx.project.findUnique({ where: { id: key.projectId }, select: { domain: true, languages: { where: { langCode: language, isActive: true }, select: { id: true } }, domainMappings: { where: { langCode: language }, select: { host: true } } } });
+    if (!project) return "invalid_key" as const;
+    const path = translationContextPath(url, project.domain, project.domainMappings.map((item) => item.host));
+    if (!path || project.languages.length === 0) return "invalid_url" as const;
+    const origin = new URL(url).origin;
+    await tx.translatedUrl.createMany({ data: [{ projectId: key.projectId, urlPath: path, langTo: language, lastSeenAt: new Date() }], skipDuplicates: true });
+    const saved = await tx.translatedUrl.updateMany({
+      where: { projectId: key.projectId, urlPath: path, langTo: language, OR: [{ operationState: null }, { operationState: { not: "provider_pending" } }] },
+      data: { operationState: `sync_${state}`, lastResult: result, lastHttpStatus: httpStatus, origin, lastOperationAt: new Date(), lastError: state === "completed" ? null : result },
+    });
+    return saved.count === 1 ? "saved" as const : "provider_pending" as const;
   });
-  if (saved.count !== 1) return NextResponse.json({ error: "Provider outcome must be reconciled first", code: "provider_outcome_unknown" }, { status: 409 });
+  if (outcome === "invalid_key") return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+  if (outcome === "invalid_url") return NextResponse.json({ error: "URL or language does not belong to project" }, { status: 422 });
+  if (outcome === "provider_pending") return NextResponse.json({ error: "Provider outcome must be reconciled first", code: "provider_outcome_unknown" }, { status: 409 });
   return NextResponse.json({ ok: true });
 }

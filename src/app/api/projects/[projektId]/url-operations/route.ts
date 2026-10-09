@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
 import { countWords } from "@/lib/translation";
@@ -9,7 +9,6 @@ import { getProjectUrl } from "@/lib/project-url";
 import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "@/lib/url-operations";
 import { executeAuthenticatedTranslateRequest } from "@/app/api/translate/route";
 import { executeIdempotently, PrismaApiIdempotencyStore, validateApiIdempotencyKey } from "@/lib/api-idempotency";
-import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { buildGlossaryProtection, hasGlossaryProtection } from "@/lib/glossary";
 
 export const runtime = "nodejs";
@@ -122,10 +121,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     store: new PrismaApiIdempotencyStore(),
     execute: async () => {
       if (action === "retranslate") {
-        const receipt = await db.urlOperationReceipt.findUnique({ where: { id: confirmation } });
-        const receiptUrl = receipt ? await db.translatedUrl.findFirst({ where: { id, projectId: projektId } }) : null;
-        if (receipt?.projectId === projektId && receipt.urlId === id && receipt.actorId === actorId && receipt.id === confirmation && receiptUrl?.operationToken === confirmation && receiptUrl.urlPath === receipt.urlPath && receiptUrl.langTo === receipt.langTo) {
-          await db.translatedUrl.updateMany({ where: { id, projectId: projektId, operationState: "provider_pending" }, data: { operationState: "completed", lastResult: "retranslated", lastError: null, lastOperationAt: new Date() } });
+        const recovered = await db.$transaction(async (tx) => {
+          if (!(await canManageProjectForWrite(tx, actorId, projektId))) return { denied: true } as const;
+          const receipt = await tx.urlOperationReceipt.findUnique({ where: { id: confirmation } });
+          const receiptUrl = receipt ? await tx.translatedUrl.findFirst({ where: { id, projectId: projektId } }) : null;
+          if (receipt?.projectId !== projektId || receipt.urlId !== id || receipt.actorId !== actorId || receipt.id !== confirmation || receiptUrl?.operationToken !== confirmation || receiptUrl.urlPath !== receipt.urlPath || receiptUrl.langTo !== receipt.langTo) return null;
+          await tx.translatedUrl.updateMany({ where: { id, projectId: projektId, operationState: "provider_pending" }, data: { operationState: "completed", lastResult: "retranslated", lastError: null, lastOperationAt: new Date() } });
+          return { receipt } as const;
+        });
+        if (recovered?.denied) return { status: 404, headers: {}, body: { error: "Project not found" } };
+        if (recovered?.receipt) {
+          const { receipt } = recovered;
           return { status: 200, headers: {}, body: { id, action, affectedSegments: receipt.segmentCount, totalEligibleSegments: receipt.totalEligibleSegments, remainingSegments: receipt.remainingSegments, nextAfterId: receipt.nextAfterId, billedWords: receipt.billedWords, result: "completed", reconciledFromReceipt: true } };
         }
       }
@@ -135,7 +141,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (action === "delete") {
         const ids = fresh.translations.map((item) => item.id);
         try { await db.$transaction(async (tx) => {
-          if (!(await lockProjectRuntimeConfiguration(tx, projektId))) throw new Error("STALE_URL");
+          if (!(await canManageProjectForWrite(tx, actorId, projektId))) throw new Error("ACCESS_REVOKED");
           const currentRules = await tx.glossaryRule.findMany({ where: { projectId: projektId, langFrom: fresh.project.originalLang, langTo: fresh.record.langTo }, select: { id: true, updatedAt: true } });
           if (glossaryRuleVersion(currentRules) !== fresh.glossaryVersion) throw new Error("STALE_URL");
           await tx.$queryRaw`SELECT id FROM "TranslatedUrl" WHERE id = ${id} AND "projectId" = ${projektId} FOR UPDATE`;
@@ -162,6 +168,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             await tx.translatedUrl.delete({ where: { id } });
           }
         }); } catch (error) {
+          if (error instanceof Error && error.message === "ACCESS_REVOKED") return { status: 404, headers: {}, body: { error: "Project not found" } };
           if (error instanceof Error && error.message === "STALE_URL") return { status: 409, headers: {}, body: { error: "URL changed during deletion", code: "stale_preview" } };
           throw error;
         }
@@ -171,7 +178,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // A durable compare-and-set prevents a second confirmation or an expired
       // idempotency lease from starting provider work with the same URL snapshot.
       // An unknown outcome remains blocked until an operator reconciles it.
-      const claimed = await db.translatedUrl.updateMany({
+      const claimed = await db.$transaction(async (tx) => {
+        if (!(await canManageProjectForWrite(tx, actorId, projektId))) return { denied: true, count: 0 };
+        return tx.translatedUrl.updateMany({
         where: {
           id, projectId: projektId,
           lastSeenAt: fresh.record.lastSeenAt,
@@ -179,7 +188,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           lastOperationAt: fresh.record.lastOperationAt,
         },
         data: { operationState: "provider_pending", lastResult: "provider_outcome_unknown", lastHttpStatus: null, origin: "dashboard", lastOperationAt: new Date(), lastError: "provider_outcome_unknown", operationToken: confirmation },
+        });
       });
+      if ("denied" in claimed) return { status: 404, headers: {}, body: { error: "Project not found" } };
       if (claimed.count !== 1) return { status: 409, headers: {}, body: { error: "URL changed before provider work", code: "stale_preview" } };
       const targetHost = fresh.project.domainMappings.find((mapping) => mapping.langCode === fresh.record.langTo)?.host ?? fresh.project.domain;
       const url = new URL(fresh.record.urlPath, getProjectUrl(targetHost)).toString();
@@ -194,6 +205,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           hashes: new Set(fresh.eligible.map((item) => item.originalHash)),
           versions: new Map(fresh.eligible.map((item) => [item.originalHash, item.updatedAt.toISOString()])),
           glossaryVersion: fresh.glossaryVersion,
+          actorId,
           onProviderDispatch: () => { providerDispatched = true; },
           receipt: { id: confirmation, projectId: projektId, urlId: id, actorId, urlPath: fresh.record.urlPath, langTo: fresh.record.langTo, totalEligibleSegments: fresh.preview.totalEligibleSegments, remainingSegments: fresh.preview.remainingSegments, nextAfterId: fresh.nextAfterId },
         });

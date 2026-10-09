@@ -3,6 +3,7 @@ import {
   canManageProject,
   type ProjectAccessContext,
 } from "@/lib/project-access-policy";
+import type { Prisma } from "@prisma/client";
 
 export {
   canAccessProject,
@@ -61,4 +62,25 @@ export async function userCanManageProject(userId: string, projectId: string) {
   const access = await getProjectAccess(userId, projectId);
 
   return canManageProject(access);
+}
+
+/** Serialize membership-dependent writes with workspace role changes and transfers. */
+export async function lockProjectMembershipScope(tx: Prisma.TransactionClient, projectId: string) {
+  const candidate = await tx.project.findUnique({ where: { id: projectId }, select: { organizationId: true } });
+  if (!candidate) return null;
+  await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${candidate.organizationId} FOR UPDATE`;
+  const rows = await tx.$queryRaw<Array<{ organizationId: string }>>`
+    SELECT "organizationId" FROM "Project" WHERE id = ${projectId} FOR UPDATE`;
+  return rows[0]?.organizationId === candidate.organizationId ? candidate.organizationId : null;
+}
+
+/** Re-read the actor's current management role while both scope rows are locked. */
+export async function canManageProjectForWrite(tx: Prisma.TransactionClient, userId: string, projectId: string) {
+  const organizationId = await lockProjectMembershipScope(tx, projectId);
+  if (!organizationId) return false;
+  const membership = await tx.organizationMember.findUnique({ where: { userId_organizationId: {
+    userId, organizationId } }, select: { role: true } });
+  const projectMember = await tx.projectMember.findFirst({ where: { projectId, userId }, select: { role: true } });
+  return canManageProject({ organizationRole: membership?.role ?? null,
+    projectRole: projectMember?.role ?? null });
 }

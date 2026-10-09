@@ -60,6 +60,7 @@ import {
   lockAndValidateProjectLanguageWrite,
   lockProjectRuntimeConfiguration,
 } from "@/lib/project-runtime-configuration-lock";
+import { canManageProjectForWrite } from "@/lib/project-access";
 
 export const runtime = "nodejs";
 
@@ -127,6 +128,7 @@ export async function executeAuthenticatedTranslateRequest(
   apiKeyRecord: Pick<ValidatedApiKeyRecord, "id" | "project">,
   parsedBodyOverride?: unknown,
   forceRetranslate?: {
+    actorId: string;
     hashes: ReadonlySet<string>;
     versions: ReadonlyMap<string, string>;
     glossaryVersion: string;
@@ -643,6 +645,10 @@ export async function executeAuthenticatedTranslateRequest(
             return { kind: "language_configuration_changed" } as const;
           }
 
+          if (forceRetranslate && !(await canManageProjectForWrite(tx, forceRetranslate.actorId, project.id))) {
+            return { kind: "manager_access_revoked" } as const;
+          }
+
           if (forceRetranslate) {
             const currentRules = await tx.glossaryRule.findMany({
               where: { projectId: project.id, langFrom: l_from, langTo: l_to },
@@ -671,6 +677,11 @@ export async function executeAuthenticatedTranslateRequest(
             code: "project_language_configuration_changed",
             instance: "/api/translate",
           });
+        }
+
+        if (dispatchConfiguration.kind === "manager_access_revoked") {
+          await refundBeforeProvider();
+          return apiProblem({ status: 403, title: "Manager access revoked", detail: "Current project management access is required for this URL operation.", code: "manager_access_revoked", instance: "/api/translate" });
         }
 
         if (dispatchConfiguration.kind === "stale_url_preview") {
@@ -758,6 +769,10 @@ export async function executeAuthenticatedTranslateRequest(
           async (tx) => {
             if (!(await lockProjectRuntimeConfiguration(tx, project.id))) {
               return { kind: "language_configuration_changed" } as const;
+            }
+
+            if (forceRetranslate && !(await canManageProjectForWrite(tx, forceRetranslate.actorId, project.id))) {
+              return { kind: "manager_access_revoked" } as const;
             }
 
             const currentLanguageConfiguration = await tx.project.findUnique({
@@ -994,6 +1009,9 @@ export async function executeAuthenticatedTranslateRequest(
             code: "project_language_configuration_changed",
             instance: "/api/translate",
           });
+        }
+        if (persistenceResult.kind === "manager_access_revoked") {
+          return apiProblem({ status: 409, title: "Manager access revoked", detail: "Manager access changed after provider dispatch. No result was stored; provider cost may have occurred.", code: "manager_access_revoked_during_provider_work", instance: "/api/translate" });
         }
         if (persistenceResult.kind === "automatic_translation_disabled") {
           return apiProblem({

@@ -22,6 +22,19 @@ async function waitForBlockedProjectLock() {
   throw new Error("Timed out waiting for the URL operation to reach the project write lock");
 }
 
+async function waitForBlockedOrganizationLock() {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const rows = await db.$queryRaw<Array<{ waiting: bigint }>>`
+      SELECT count(*)::bigint AS waiting FROM pg_stat_activity
+      WHERE pid <> pg_backend_pid() AND wait_event_type = 'Lock'
+        AND query LIKE '%FROM "Organization"%' AND query LIKE '%FOR UPDATE%'
+    `;
+    if (rows[0]?.waiting > BigInt(0)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("Timed out waiting for the URL action to reach the organization write lock");
+}
+
 async function startBarrierProvider() {
   let calls = 0;
   let signalStarted!: () => void;
@@ -56,7 +69,8 @@ test("language-bound translator reads URL inventory without manager controls", a
   const french = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "fr" } });
   try {
     await page.context().clearCookies();
-    await page.goto("/login");
+    await page.goto("/en/login");
+    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -76,6 +90,66 @@ test("language-bound translator reads URL inventory without manager controls", a
     await db.translatedUrl.deleteMany({ where: { id: { in: [english.id, french.id] } } });
     await db.projectMember.delete({ where: { id: member.id } });
     await db.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("manager revocation before URL claim and delete write denies both actions", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+  const actor = await db.user.findUniqueOrThrow({ where: { email: "preview@deepglot.local" } });
+  const membership = await db.organizationMember.findUniqueOrThrow({ where: { userId_organizationId: { userId: actor.id, organizationId: project.organizationId } } });
+  const path = `/${e2eId("revoked-manager")}`;
+  const text = e2eId("Revoked manager segment");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: `old ${text}`, langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const endpoint = `/api/projects/${projectId}/url-operations`;
+  try {
+    for (const action of ["retranslate", "delete"] as const) {
+      const previewResponse = await page.request.post(endpoint, { data: { action, id: url.id } });
+      expect(previewResponse.status()).toBe(200);
+      const preview = await previewResponse.json();
+      const beforeUsage = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words;
+      let pending!: ReturnType<typeof page.request.post>;
+      await db.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${project.organizationId} FOR UPDATE`;
+        pending = page.request.post(endpoint, { data: { action, id: url.id, confirmation: preview.confirmation }, headers: { "Idempotency-Key": preview.confirmation } });
+        await waitForBlockedOrganizationLock();
+        await tx.organizationMember.update({ where: { id: membership.id }, data: { role: "MEMBER" } });
+      }, { timeout: 15_000 });
+      const denied = await pending;
+      expect(denied.status(), await denied.text()).toBe(404);
+      expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe(`old ${text}`);
+      expect(await db.translatedUrl.findUnique({ where: { id: url.id } })).not.toBeNull();
+      expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(beforeUsage);
+      await db.organizationMember.update({ where: { id: membership.id }, data: { role: membership.role } });
+    }
+  } finally {
+    await db.organizationMember.update({ where: { id: membership.id }, data: { role: membership.role } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+  }
+});
+
+test("revoked API key cannot record a WordPress URL status after validation", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+  const rawKey = `dg_live_urlops_${crypto.randomUUID()}`;
+  const key = await db.apiKey.create({ data: { projectId, name: "Revocation URL sync fixture", key: createHash("sha256").update(rawKey).digest("hex"), keyPrefix: rawKey.slice(0, 16) } });
+  const path = `/${e2eId("revoked-key")}`;
+  try {
+    let pending!: ReturnType<typeof page.request.post>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${project.organizationId} FOR UPDATE`;
+      pending = page.request.post("/api/plugin/url-sync-result", { headers: { Authorization: `Bearer ${rawKey}` }, data: { url: `http://${project.domain}${path}`, language: "en", state: "failed", result: "http_503", httpStatus: 503 } });
+      await waitForBlockedOrganizationLock();
+      await tx.apiKey.update({ where: { id: key.id }, data: { isActive: false } });
+    }, { timeout: 15_000 });
+    const denied = await pending;
+    expect(denied.status(), await denied.text()).toBe(401);
+    expect(await db.translatedUrl.findUnique({ where: { projectId_urlPath_langTo: { projectId, urlPath: path, langTo: "en" } } })).toBeNull();
+  } finally {
+    await db.translatedUrl.deleteMany({ where: { projectId, urlPath: path, langTo: "en" } });
+    await db.apiKey.delete({ where: { id: key.id } });
   }
 });
 
@@ -445,7 +519,9 @@ test("a glossary rule committed before dispatch prevents the provider call and u
     expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
     expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
     expect(provider.calls()).toBe(0);
-    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("failed");
+    // The receipt/claim now takes the same project lock, so the new rule can
+    // invalidate the preview before a pending provider state is ever claimed.
+    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBeNull();
   } finally {
     await provider.close();
     await db.projectSettings.update({ where: { projectId }, data: { translationProvider: previousSettings.translationProvider, translationBaseUrl: previousSettings.translationBaseUrl, translationModel: previousSettings.translationModel } });
@@ -490,6 +566,47 @@ test("a glossary rule committed after a local provider starts holds the unknown 
     await provider.close();
     await db.projectSettings.update({ where: { projectId }, data: { translationProvider: previousSettings.translationProvider, translationBaseUrl: previousSettings.translationBaseUrl, translationModel: previousSettings.translationModel } });
     if (ruleId) await db.glossaryRule.deleteMany({ where: { id: ruleId } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("manager revoked after mock provider dispatch leaves no receipt and holds the unknown outcome", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+  const actor = await db.user.findUniqueOrThrow({ where: { email: "preview@deepglot.local" } });
+  const membership = await db.organizationMember.findUniqueOrThrow({ where: { userId_organizationId: { userId: actor.id, organizationId: project.organizationId } } });
+  const provider = await startBarrierProvider();
+  const previousSettings = await db.projectSettings.findUniqueOrThrow({ where: { projectId } });
+  await db.projectSettings.update({ where: { projectId }, data: { translationProvider: "ollama", translationBaseUrl: provider.baseUrl, translationModel: "local-mock" } });
+  const path = `/${e2eId("manager-post-dispatch")}`;
+  const text = e2eId("Manager revoked after provider starts");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  try {
+    const preview = await (await post({ action: "retranslate", id: url.id })).json();
+    const usageBefore = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words;
+    const pending = post({ action: "retranslate", id: url.id, confirmation: preview.confirmation }, preview.confirmation);
+    await Promise.race([provider.started, new Promise((_, reject) => setTimeout(() => reject(new Error("Mock provider did not start")), 15_000))]);
+    expect(provider.calls()).toBe(1);
+    await db.organizationMember.update({ where: { id: membership.id }, data: { role: "MEMBER" } });
+    provider.release();
+    const result = await pending;
+    expect(result.status(), await result.text()).toBe(409);
+    expect((await result.json()).providerCostUnknown).toBe(true);
+    expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
+    expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
+    expect(await db.urlOperationReceipt.findUnique({ where: { id: preview.confirmation } })).toBeNull();
+    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("provider_pending");
+  } finally {
+    provider.release();
+    await provider.close();
+    await db.organizationMember.update({ where: { id: membership.id }, data: { role: membership.role } });
+    await db.projectSettings.update({ where: { projectId }, data: { translationProvider: previousSettings.translationProvider, translationBaseUrl: previousSettings.translationBaseUrl, translationModel: previousSettings.translationModel } });
+    await db.urlOperationReceipt.deleteMany({ where: { urlId: url.id } });
     await db.translation.deleteMany({ where: { id: translation.id } });
     await db.translatedUrl.deleteMany({ where: { id: url.id } });
     await db.$disconnect();
