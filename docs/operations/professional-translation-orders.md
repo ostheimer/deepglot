@@ -45,8 +45,9 @@ PaymentIntent, payment and full-refund references. An unbound Checkout attempt
 remains unresolved even after its retry window expires; age never silently
 proves that no payment happened. Transfer and deletion clear only the live
 reference, never the immutable origin, quote, item, event or payment evidence.
-The integrity script backfills legacy live references once and marks detached
-receipts so reruns cannot reattach them. A later verified dispute on a detached
+The integrity script marks detached receipts so reruns cannot reattach them;
+it does not silently backfill legacy live references. Existing legacy order
+rows require a separately reviewed migration decision. A later verified dispute on a detached
 refunded receipt still maps to its originating merchant. The resulting
 `DISPUTED` source receipt has no live-project capability: it remains a source
 merchant reconciliation obligation and does **not** block the destination
@@ -126,18 +127,28 @@ endpoint for `checkout.session.completed`, `checkout.session.async_payment_succe
 subscription webhook secret for this endpoint. No real Stripe requests, keys,
 customer writes or vendor calls were used during this candidate's QA.
 
-For a disposable local PostgreSQL database only: apply `npx prisma db push`,
-then run `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f
-scripts/sql/professional-order-integrity.sql` twice. The script is additive
-and idempotent and creates DB triggers preventing scope/quote/delivery/event
-mutation, holding unresolved project lifecycle changes and detaching terminal
-receipts. The triggers are required for launch because Prisma schema push does
-not create them. Verify `pg_trigger` names and that attempts to update order
-scope and order item source text fail. Also verify that an unresolved Checkout
-blocks transfer/deletion and terminal receipts retain their immutable origin
-after detachment. Run the focused unit and local integration
-tests using `DEEPGLOT_ORDER_TEST_DATABASE_URL` pointed only at the disposable
-instance. Never point that variable at Neon or a customer database.
+For a **reviewed first installation**, compare the exact target with
+`scripts/sql/professional-orders-schema.sql`: one enum, four new tables, 13
+indexes and five foreign keys, with no existing order tables or rows. Confirm
+that `professional_order_*` triggers are absent and other project triggers
+will remain untouched. Do not use `prisma db push` on a shared target. After
+the target and both SQL artifact hashes have been approved, run both files in
+**one** externally controlled transaction with `psql -X -v ON_ERROR_STOP=1
+--single-transaction -f scripts/sql/professional-orders-schema.sql -f
+scripts/sql/professional-order-integrity.sql`. The integrity file contains no
+internal `BEGIN` or `COMMIT` and no backfill DML. It installs uniquely named
+triggers preventing scope/quote/delivery/event mutation, holding unresolved
+project lifecycle changes and detaching terminal receipts. Verify the target
+schema is 5/5 after commit, the four trigger names in `pg_trigger`, and that
+scope mutation and unresolved transfer/delete attempts fail. If any order
+table or legacy row already exists, stop: this first-install artifact is not
+the correct migration path.
+
+For a disposable local PostgreSQL database, `npx prisma db push` may prepare
+the fixture; apply `professional-order-integrity.sql` with `psql
+--single-transaction` and rerun it to prove idempotency. Run focused unit and
+integration tests using `DEEPGLOT_ORDER_TEST_DATABASE_URL` pointed only at the
+disposable instance. Never point that test variable at Neon or customer data.
 
 Before activation, record merchant, invoice issuer, tax treatment, credit-note
 ownership, vendor agreement and refund execution policy. The Checkout adapter

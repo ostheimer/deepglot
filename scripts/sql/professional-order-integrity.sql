@@ -1,6 +1,6 @@
--- Apply after prisma db push, before enabling professional orders. Safe to rerun.
+-- Apply after professional-orders-schema.sql, in the same externally controlled
+-- transaction. No customer rows are migrated by this first-install artifact.
 -- Financial/order evidence is retained; operational cancellation is a state change.
-BEGIN;
 -- A terminal historical receipt can outlive its live project. A Checkout
 -- dispatch with an unknown outcome is never considered terminal by age alone.
 CREATE OR REPLACE FUNCTION deepglot_professional_order_unresolved(o "ProfessionalTranslationOrder") RETURNS boolean
@@ -18,13 +18,6 @@ LANGUAGE sql STABLE AS $$
      o."refundReference" IS NOT NULL)
   ))
 $$;
-
--- Backfill only rows from the pre-detachment schema. An intentionally
--- detached row is marked and is never reattached on rerun.
-UPDATE "ProfessionalTranslationOrder" o
-SET "activeProjectId" = o."projectId"
-WHERE o."activeProjectId" IS NULL AND o."projectDetachedAt" IS NULL
-  AND EXISTS (SELECT 1 FROM "Project" p WHERE p."id" = o."projectId");
 
 CREATE OR REPLACE FUNCTION deepglot_professional_order_immutable() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -137,5 +130,3 @@ $$;
 DROP TRIGGER IF EXISTS professional_order_event_immutable ON "ProfessionalTranslationOrderEvent";
 CREATE TRIGGER professional_order_event_immutable BEFORE UPDATE OR DELETE ON "ProfessionalTranslationOrderEvent"
 FOR EACH ROW EXECUTE FUNCTION deepglot_professional_order_event_immutable();
-
-COMMIT;
