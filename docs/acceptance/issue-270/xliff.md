@@ -11,7 +11,8 @@
 
 ## Verification on the feature branch
 
-- `node --import tsx --test src/lib/xliff.test.ts`: 7 passed, including fixture files for external entity and expansion payloads, machine marker validation, and carriage-return preservation.
+- `node --import tsx --test src/lib/xliff.test.ts`: 8 passed, including fixture files for external entity and expansion payloads, machine marker validation, carriage-return preservation, and the 4 MB transport boundary.
+- `npm run test:wp`: passed. The cache invalidation regression covers 751 events: one page applied during settings refresh, then bounded WP-Cron runs for the remaining pages. The visitor request performs no follow-up runtime fetches.
 - `node --import tsx --test src/lib/public-design-regressions.test.ts`: 8 passed.
 - `npm test` against the isolated local PostgreSQL cluster: 846 passed, 0 failed.
 - `npx tsc --noEmit --incremental false`: passed after regenerating Prisma Client for current `origin/main`.
