@@ -1,6 +1,39 @@
 import { expect, test } from "@playwright/test";
+import { createHash } from "node:crypto";
 import { signInAndGetProjectId } from "./helpers";
 import { db } from "@/lib/db";
+
+test("rollout switch preserves fresh mock translation when off and rejects it before provider work when on", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const rawKey = `dg_live_budget_rollout_${crypto.randomUUID()}`;
+  const key = await db.apiKey.create({ data: { projectId, name: "Budget rollout fixture",
+    key: createHash("sha256").update(rawKey).digest("hex"), keyPrefix: rawKey.slice(0, 16) } });
+  const marker = `Budget rollout ${crypto.randomUUID()}`;
+  try {
+    const before = await db.aiSpendReservation.count({ where: { projectId } });
+    const response = await page.request.post("/api/translate", {
+      headers: { Authorization: `Bearer ${rawKey}` },
+      data: { l_from: "de", l_to: "en", words: [{ w: marker, t: 1 }] },
+    });
+    if (process.env.AI_BUDGET_ENFORCEMENT === "on") {
+      expect(response.status(), await response.text()).toBe(409);
+      expect((await response.json()).code).toBe("budget_unapproved");
+      expect(await db.translation.count({ where: { projectId, originalText: marker } })).toBe(0);
+    } else {
+      expect(response.status(), await response.text()).toBe(200);
+      expect(await db.translation.count({ where: { projectId, originalText: marker } })).toBe(1);
+    }
+    expect(await db.aiSpendReservation.count({ where: { projectId } })).toBe(before);
+    const readback = await page.request.get(`/api/projects/${projectId}/ai-budget`);
+    expect((await readback.json()).enforcementState).toBe(process.env.AI_BUDGET_ENFORCEMENT === "on" ? "active" : "inactive");
+    await page.goto(`/projects/${projectId}/settings/language-model`);
+    await expect(page.getByTestId("ai-budget-readback")).toContainText(process.env.AI_BUDGET_ENFORCEMENT === "on"
+      ? "Enforcement active" : "Enforcement inactive");
+  } finally {
+    await db.translation.deleteMany({ where: { projectId, originalText: marker } });
+    await db.apiKey.delete({ where: { id: key.id } });
+  }
+});
 
 test("AI budget setup is independently readable and localized before any approval", async ({ page, request }) => {
   const anonymous = await request.get("/api/projects/unknown/ai-budget");
@@ -8,19 +41,24 @@ test("AI budget setup is independently readable and localized before any approva
   const projectId = await signInAndGetProjectId(page);
   const readback = await page.request.get(`/api/projects/${projectId}/ai-budget`);
   expect(readback.ok()).toBeTruthy();
-  const policy = await readback.json() as { organization: unknown; project: unknown; wordQuotaIsSeparate: boolean };
+  const policy = await readback.json() as { organization: unknown; project: unknown; wordQuotaIsSeparate: boolean;
+    enforcementState: string; organizationCommittedMicros: string | null };
   expect(policy.organization).toBeNull();
   expect(policy.project).toBeNull();
   expect(policy.wordQuotaIsSeparate).toBe(true);
+  expect(policy.enforcementState).toBe("inactive");
+  expect(policy.organizationCommittedMicros).toBeNull();
 
   await page.goto(`/projects/${projectId}/settings/language-model`);
   await expect(page.getByTestId("ai-budget-panel")).toBeVisible();
-  await expect(page.getByTestId("ai-budget-readback")).toContainText("No approval. Provider calls are blocked.");
+  await expect(page.getByTestId("ai-budget-readback")).toContainText("Enforcement inactive");
+  await expect(page.getByTestId("ai-budget-readback")).toContainText("No approval saved");
   await expect(page.getByRole("button", { name: "Explicitly approve budget" })).toBeVisible();
 
   await page.goto(`/de/projekte/${projectId}/einstellungen/sprachmodell`);
   await expect(page.getByTestId("ai-budget-panel")).toBeVisible();
-  await expect(page.getByTestId("ai-budget-readback")).toContainText("Keine Freigabe. Anbieteraufrufe sind gesperrt.");
+  await expect(page.getByTestId("ai-budget-readback")).toContainText("Durchsetzung inaktiv");
+  await expect(page.getByTestId("ai-budget-readback")).toContainText("Keine Freigabe gespeichert");
   await expect(page.getByRole("button", { name: "Budget ausdrücklich freigeben" })).toBeVisible();
 });
 

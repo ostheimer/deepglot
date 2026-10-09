@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { aiBudgetPolicyInput } from "@/lib/ai-budget-policy";
+import { currentAiBudgetEnforcementState } from "@/lib/ai-budget-enforcement";
 import { lockAiSpendScope, preflightAiSpend, resolveUnknownAiSpend } from "@/lib/ai-budget";
 import { AiBudgetError, utcPeriodKey } from "@/lib/ai-budget-math";
 import { userCanManageProject } from "@/lib/project-access";
@@ -22,6 +23,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const { projektId } = await params;
   const access = await context(projektId);
   if (!access) return NextResponse.json({ code: "not_found" }, { status: 404 });
+  const enforcementState = currentAiBudgetEnforcementState();
   const budgets = await db.aiBudget.findMany({
     where: { organizationId: access.organizationId, OR: [{ projectId: null }, { projectId: projektId }] },
     include: { models: true },
@@ -70,9 +72,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     };
   };
   return NextResponse.json({
-    organization: serialize(null), project: serialize(projektId), periodKey,
-    organizationCommittedMicros: (spend[0]?.organizationMicros ?? BigInt(0)).toString(),
-    projectCommittedMicros: (spend[0]?.projectMicros ?? BigInt(0)).toString(),
+    organization: serialize(null), project: serialize(projektId), periodKey, enforcementState,
+    organizationCommittedMicros: enforcementState === "active" ? (spend[0]?.organizationMicros ?? BigInt(0)).toString() : null,
+    projectCommittedMicros: enforcementState === "active" ? (spend[0]?.projectMicros ?? BigInt(0)).toString() : null,
     events,
     recentSpend: recentSpend.map((item) => ({ ...item,
       reservedMicros: item.reservedMicros.toString(),
@@ -186,6 +188,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { projektId } = await params;
   const access = await context(projektId);
   if (!access) return NextResponse.json({ code: "not_found" }, { status: 404 });
+  const enforcementState = currentAiBudgetEnforcementState();
   const parsed = preflightInput.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ code: "invalid_preflight" }, { status: 400 });
   try {
@@ -194,9 +197,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       provider: parsed.data.provider, model: parsed.data.model,
       inputUnits: parsed.data.inputUnits, outputUnits: parsed.data.outputUnits,
     });
-    return NextResponse.json({ ...result, action: parsed.data.action });
+    return NextResponse.json({ ...result,
+      allowed: enforcementState === "active" ? result.allowed : null,
+      wouldBeAllowedIfActivated: result.allowed,
+      code: enforcementState === "active" ? result.code : "preparation_estimate",
+      note: enforcementState === "inactive"
+        ? "Preparation estimate only. AI budget enforcement is inactive; current provider calls do not reserve against this policy."
+        : result.note,
+      action: parsed.data.action, enforcementState,
+      previewOnly: enforcementState === "inactive" });
   } catch (error) {
-    if (error instanceof AiBudgetError) return NextResponse.json({ code: error.code, detail: error.message }, { status: 409 });
+    if (error instanceof AiBudgetError) return NextResponse.json({ code: error.code, detail: error.message,
+      enforcementState, previewOnly: enforcementState === "inactive" }, { status: 409 });
     return NextResponse.json({ code: "budget_unavailable" }, { status: 503 });
   }
 }

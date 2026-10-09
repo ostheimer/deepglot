@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { AiBudgetError } from "@/lib/ai-budget-math";
 import { reserveAiSpend, settleAiSpend } from "@/lib/ai-budget";
+import { currentAiBudgetEnforcementState, selectAiBudgetSpendControl } from "@/lib/ai-budget-enforcement";
 import { validateTranslationProviderConfig } from "@/lib/translation-config";
 import { recordTranslationContexts } from "@/lib/translation-context";
 import { glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
@@ -744,7 +745,8 @@ export async function executeAuthenticatedTranslateRequest(
       // the only refund handle before dispatch so no later error path can undo
       // the conservative velocity charge.
       velocityReservation = null;
-      forceRetranslate?.onProviderDispatch?.();
+      const aiBudgetEnforcement = currentAiBudgetEnforcementState();
+      if (aiBudgetEnforcement === "inactive") forceRetranslate?.onProviderDispatch?.();
       const requestGroupKey = `${apiKeyRecord.id}:${req.headers.get("Idempotency-Key")?.trim() || crypto.randomUUID()}`;
       const dispatchId = crypto.randomUUID();
       let attemptNumber = 0;
@@ -759,7 +761,7 @@ export async function executeAuthenticatedTranslateRequest(
           undefined,
           providerSettings,
           {
-            spendControl: {
+            spendControl: selectAiBudgetSpendControl(aiBudgetEnforcement, {
               beforeAttempt: async (candidate, input) => {
                 validateTranslationProviderConfig(candidate);
                 const sequence = attemptNumber++;
@@ -779,6 +781,9 @@ export async function executeAuthenticatedTranslateRequest(
                   model: candidate.model || candidate.provider,
                   input,
                 });
+                // The URL receipt must not claim provider dispatch when the
+                // budget rejected this attempt before the HTTP boundary.
+                forceRetranslate?.onProviderDispatch?.();
                 return {
                   maxOutputUnits: approval.maxOutputUnits,
                   settle: async (usage?: { inputUnits: number; outputUnits: number }) => {
@@ -786,7 +791,7 @@ export async function executeAuthenticatedTranslateRequest(
                   },
                 };
               },
-            },
+            }),
           },
         );
 

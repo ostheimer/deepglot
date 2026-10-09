@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { currentAiBudgetEnforcementState } from "@/lib/ai-budget-enforcement";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Mandatory, in-app budget alerts are scoped to current org managers. The
   // optional email preferences have no budget category or producer.
   const canReadBudgetAlerts = memberships[0]?.role === "OWNER" || memberships[0]?.role === "ADMIN";
-  const budgetEvents = org && canReadBudgetAlerts ? await db.aiBudgetEvent.findMany({
+  const budgetEvents = org && canReadBudgetAlerts && currentAiBudgetEnforcementState() === "active" ? await db.aiBudgetEvent.findMany({
     where: { organizationId: org.id, periodKey: currentMonth,
       kind: { in: ["WARNING_REACHED", "CAP_REACHED"] },
       OR: [{ projectId: null }, { projectId: { in: org.projects.map((project) => project.id) } }] },

@@ -19,7 +19,8 @@ type Policy = {
 };
 type Readback = {
   organization: Policy | null; project: Policy | null; periodKey: number;
-  organizationCommittedMicros: string; projectCommittedMicros: string;
+  enforcementState: "inactive" | "active";
+  organizationCommittedMicros: string | null; projectCommittedMicros: string | null;
   events: Array<{ id: string; kind: string; threshold: number | null; createdAt: string }>;
   recentSpend: Array<{ id: string; action: string; provider: string; model: string;
     state: string; currency: string; reservedMicros: string; reconciledCeilingMicros: string | null;
@@ -148,17 +149,24 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
   return <section className="rounded-xl border border-gray-200 bg-white p-6" data-testid="ai-budget-panel">
     <h3 className="text-lg font-semibold text-gray-900">{de ? "KI-Budget und Kostenfreigabe" : "AI budget and cost approval"}</h3>
     <p className="mt-2 text-sm text-gray-600">{de
-      ? "Wortkontingent, Plattform-Credits, Abonnement und externe Anbieterkosten sind getrennt. Ohne Organisations- und Projektfreigabe wird kein neuer Anbieteraufruf ausgeführt. Preise unten sind Ihre konservativen Obergrenzen, keine Live-Preise."
-      : "Word quota, platform credits, subscription and external provider cost are separate. Both organization and project approval are required before a new provider call. Prices below are your conservative ceilings, not live prices."}</p>
+      ? "Wortkontingent, Plattform-Credits, Abonnement und externe Anbieterkosten sind getrennt. Bereiten Sie Organisations- und Projektfreigabe vor. Erst nach gesonderter Aktivierung werden neue Anbieteraufrufe an diese Budgets gebunden. Preise unten sind Ihre konservativen Obergrenzen, keine Live-Preise."
+      : "Word quota, platform credits, subscription and external provider cost are separate. Prepare both organization and project approvals. New provider calls use these budgets only after separate activation. Prices below are your conservative ceilings, not live prices."}</p>
     <div className="mt-4 flex gap-2" role="group" aria-label={de ? "Budgetbereich" : "Budget scope"}>
       {(["organization", "project"] as const).map((item) => <Button key={item} type="button" disabled={!readback || loading} variant={scope === item ? "default" : "outline"} onClick={() => chooseScope(item)}>
         {item === "organization" ? (de ? "Organisation" : "Organization") : (de ? "Projekt" : "Project")}
       </Button>)}
     </div>
     <div className="mt-4 rounded-md bg-gray-50 p-3 text-sm" data-testid="ai-budget-readback">
-      <p>{approved ? `${de ? "Freigegeben" : "Approved"}: ${approved.currency} ${microsToMajor(approved.capMicros)} · ${de ? "Revision" : "Revision"} ${approved.revision}` : (de ? "Keine Freigabe. Anbieteraufrufe sind gesperrt." : "No approval. Provider calls are blocked.")}</p>
-      <p>{de ? "Reservierte oder aus Usage berechnete Kostenobergrenze in UTC-Periode" : "Reserved or usage-based cost ceiling in UTC period"} {readback?.periodKey ?? "—"}: {committed !== undefined ? microsToMajor(committed) : "—"}</p>
-      <p>{de ? "Rücksetzung am ersten UTC-Monatstag; kein Übertrag. Unbekannte Usage behält die volle Reservierung." : "Resets on the first UTC day of each month; no rollover. Unknown usage retains the full reservation."}</p>
+      <p className="font-medium">{!readback
+        ? (de ? "Lade Durchsetzungsstatus…" : "Loading enforcement status…")
+        : readback.enforcementState === "active"
+        ? (de ? "Durchsetzung aktiv: freigegebene Limits gelten für neue Anbieteraufrufe." : "Enforcement active: approved limits apply to new provider calls.")
+        : (de ? "Durchsetzung inaktiv: Übersetzungen laufen wie bisher. Diese Budgets begrenzen oder erfassen aktuelle Anbieteraufrufe nicht." : "Enforcement inactive: translation continues as before. These budgets do not limit or meter current provider calls.")}</p>
+      {readback && <p>{approved ? `${de ? "Freigabe gespeichert" : "Approval saved"}: ${approved.currency} ${microsToMajor(approved.capMicros)} · ${de ? "Revision" : "Revision"} ${approved.revision}` : (de ? "Keine Freigabe gespeichert." : "No approval saved.")}</p>}
+      {readback?.enforcementState === "active" && <>
+        <p>{de ? "Reservierte oder aus Nutzung berechnete Kostenobergrenze in UTC-Periode" : "Reserved or usage-based cost ceiling in UTC period"} {readback.periodKey}: {committed !== null && committed !== undefined ? microsToMajor(committed) : "—"}</p>
+        <p>{de ? "Rücksetzung am ersten UTC-Monatstag; kein Übertrag. Unbekannte Nutzung behält die volle Reservierung." : "Resets on the first UTC day of each month; no rollover. Unknown usage retains the full reservation."}</p>
+      </>}
     </div>
     {isOwner && readback && <form className="mt-5 space-y-4" onSubmit={save}>
       <p className="text-sm font-medium">{de ? "Owner-Freigabe" : "Owner approval"}</p>
@@ -197,7 +205,7 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
       {resolutionKind === "VERIFIED_USAGE" && <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">{de ? "Belegte Input-Einheiten" : "Verified input units"}<Input required type="number" min={0} value={actualInputUnits} onChange={(event) => setActualInputUnits(event.target.value)} /></label><label className="text-sm">{de ? "Belegte Output-Einheiten" : "Verified output units"}<Input required type="number" min={0} value={actualOutputUnits} onChange={(event) => setActualOutputUnits(event.target.value)} /></label></div>}
       <Button type="submit" disabled={loading}>{de ? "Prüfung ausdrücklich protokollieren" : "Record verified resolution"}</Button>
     </form>}
-    {readback?.events && readback.events.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{de ? "Budgetereignisse" : "Budget events"}</h4><ul className="mt-2 space-y-1">{readback.events.slice(0, 8).map((event) => <li key={event.id}>{event.createdAt.slice(0, 16).replace("T", " ")} UTC · {event.kind === "APPROVED" ? (de ? "Freigabe" : "Approval") : event.kind === "CAP_REACHED" ? (de ? "Limit erreicht" : "Cap reached") : event.kind === "MANUAL_SETTLEMENT" ? (de ? "Manuelle Prüfung" : "Manual review") : (de ? "Warnschwelle erreicht" : "Warning threshold reached")}{event.threshold ? ` (${event.threshold}%)` : ""}</li>)}</ul></div>}
-    {readback?.recentSpend && readback.recentSpend.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{de ? "Letzte Anbieteraufrufe" : "Recent provider attempts"}</h4><ul className="mt-2 space-y-1">{readback.recentSpend.slice(0, 8).map((item) => <li key={item.id}>{item.dispatchedAt.slice(0, 16).replace("T", " ")} UTC · {item.provider}/{item.model} · {item.state === "SETTLED" ? (de ? "Kostenobergrenze aus Usage" : "Usage-based cost ceiling") : (de ? "Volle Reservierung" : "Full hold")} {item.currency} {microsToMajor(item.state === "SETTLED" ? (item.reconciledCeilingMicros ?? item.reservedMicros) : item.reservedMicros)}</li>)}</ul></div>}
+    {readback?.events && readback.events.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{readback.enforcementState === "active" ? (de ? "Budgetereignisse" : "Budget events") : (de ? "Budgetereignisse aus früherer Durchsetzung" : "Budget events from previous enforcement")}</h4><ul className="mt-2 space-y-1">{readback.events.slice(0, 8).map((event) => <li key={event.id}>{event.createdAt.slice(0, 16).replace("T", " ")} UTC · {event.kind === "APPROVED" ? (de ? "Freigabe" : "Approval") : event.kind === "CAP_REACHED" ? (de ? "Limit erreicht" : "Cap reached") : event.kind === "MANUAL_SETTLEMENT" ? (de ? "Manuelle Prüfung" : "Manual review") : (de ? "Warnschwelle erreicht" : "Warning threshold reached")}{event.threshold ? ` (${event.threshold}%)` : ""}</li>)}</ul></div>}
+    {readback?.recentSpend && readback.recentSpend.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{readback.enforcementState === "active" ? (de ? "Letzte Anbieteraufrufe" : "Recent provider attempts") : (de ? "Frühere Budgetreservierungen" : "Previous budget reservations")}</h4><ul className="mt-2 space-y-1">{readback.recentSpend.slice(0, 8).map((item) => <li key={item.id}>{item.dispatchedAt.slice(0, 16).replace("T", " ")} UTC · {item.provider}/{item.model} · {item.state === "SETTLED" ? (de ? "Abgeglichene Kostenobergrenze" : "Reconciled cost ceiling") : (de ? "Volle Reservierung" : "Full hold")} {item.currency} {microsToMajor(item.state === "SETTLED" ? (item.reconciledCeilingMicros ?? item.reservedMicros) : item.reservedMicros)}</li>)}</ul></div>}
   </section>;
 }
