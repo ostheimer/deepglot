@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Edit2, Plus, Search, Trash2 } from "lucide-react";
 
 import { useLocale } from "@/components/providers/locale-provider";
+import { VisualExclusionBuilder } from "@/components/projekte/visual-exclusion-builder";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -271,14 +272,20 @@ export function ExclusionsManager({
             {copy.description}
           </p>
         </div>
-        <Button
-          type="button"
-          className="bg-brand-600 hover:bg-brand-700"
-          onClick={openCreateDialog}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {copy.add}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <VisualExclusionBuilder projectId={projectId} onSaved={(exclusion) => {
+            setExclusions((current) => [exclusion, ...current]);
+            router.refresh();
+          }} />
+          <Button
+            type="button"
+            className="bg-brand-600 hover:bg-brand-700"
+            onClick={openCreateDialog}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {copy.add}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white">
