@@ -34,11 +34,17 @@ A late payment after cancellation also becomes `REFUND_PENDING`. Verified
 provider callbacks alone may mark `PAID`, `REFUNDED` or `DISPUTED`; failure is
 tracked as `FAILED`. All financial and fulfillment events carry provider
 references and are idempotent. Work does not start on a checkout redirect.
-The originating organization remains immutable. Project deletion is blocked by
-the order foreign key, and the integrity trigger blocks project transfer when
-order evidence exists. Integrate this guard with #267's workspace transfer
-contract on the merged main before release; reconcile paid/refund/dispute
-obligations with the original merchant rather than silently moving them.
+The originating organization remains immutable. This checkpoint is deliberately
+conservative: the order foreign key blocks physical project deletion and the
+integrity trigger blocks project transfer for **every** order row, including
+`CANCELED`, `EXPIRED` and `REFUNDED`. That is a temporary fail-closed gate,
+not a finished retention/lifecycle policy. Before release, integrate with #267's
+fresh Organization → Project transfer hold and billing fingerprint on the
+merged main. Define which pending/paid/refund/dispute obligations require a
+hard hold, how completed historical orders retain immutable original project
+and merchant attribution after project lifecycle changes, and a reviewed
+archival/retention path for completed evidence. Never erase paid history or
+silently transfer a late-payment/refund obligation to the new workspace.
 
 One-time Stripe Checkout uses the accepted quote's amount and currency only.
 The server reserves a durable idempotency key in a short transaction, calls
