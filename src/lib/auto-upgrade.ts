@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
-import { BILLING_PLANS, getStripePriceIdFromEnv, type BillingInterval, type BillingPlanKey } from "@/lib/billing-plans";
+import { BILLING_PLANS, getStripePriceIdFromEnv, resolveBillingPlanKey, type BillingInterval, type BillingPlanKey } from "@/lib/billing-plans";
 import { isRealStripeCustomerId } from "@/lib/billing";
 import { chooseAutoUpgrade } from "@/lib/auto-upgrade-policy";
 import { paidInvoiceMatchesAttempt, type UpgradeInvoiceProof, type UpgradeRemoteSubscription } from "@/lib/auto-upgrade-invoice";
@@ -247,7 +247,7 @@ export async function verifyAndApplyPaidAutoUpgrade(subscriptionId: string, invo
     if (!freshAttempt || !["AWAIT_INVOICE", "PAYMENT_PENDING"].includes(freshAttempt.status) ||
         freshAttempt.stripeInvoiceId !== invoiceId || freshAttempt.toPriceId !== remoteProof.priceId ||
         !freshSub || freshSub.organizationId !== attempt.organizationId || freshSub.stripeCustomerId !== invoiceCustomer ||
-        freshSub.plan !== freshAttempt.fromPlan || freshSub.stripePriceId !== freshAttempt.fromPriceId) return false;
+        resolveBillingPlanKey(freshSub.plan) !== freshAttempt.fromPlan || freshSub.stripePriceId !== freshAttempt.fromPriceId) return false;
     await tx.subscription.update({ where: { id: freshSub.id }, data: { status: "ACTIVE", plan: freshAttempt.toPlan,
       wordsLimit: BILLING_PLANS[freshAttempt.toPlan as BillingPlanKey].wordsLimit, stripePriceId: freshAttempt.toPriceId,
       stripeCurrentPeriodEnd: remote.items.data[0]?.current_period_end ? new Date(remote.items.data[0].current_period_end * 1000) : null } });
