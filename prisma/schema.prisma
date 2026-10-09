@@ -726,7 +726,7 @@ model UrlCacheInvalidation {
 model UrlOperationReceipt {
   id String @id // SHA-256 confirmation token
   projectId String
-  originatingOrganizationId String // immutable billed workspace at persistence
+  originatingOrganizationId String? // new writers capture billed workspace; legacy null blocks transfer
   urlId String
   actorId String
   urlPath String

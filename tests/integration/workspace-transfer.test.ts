@@ -224,11 +224,52 @@ test("a provider-pending URL operation blocks transfer preview and a previously 
       billedWords: 7, segmentCount: 1, totalEligibleSegments: 1,
       remainingSegments: 0,
     } });
-    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
+    await assert.rejects(commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
       destinationId: destination.id, fingerprint: reconciled.fingerprint, issuedAt: reconciled.issuedAt,
-      confirmationToken: reconciled.confirmationToken });
+      confirmationToken: reconciled.confirmationToken }), { code: "STALE" });
+    const attributed = await previewWorkspaceTransfer(actor.id, project.id, destination.id);
+    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
+      destinationId: destination.id, fingerprint: attributed.fingerprint, issuedAt: attributed.issuedAt,
+      confirmationToken: attributed.confirmationToken });
     assert.equal((await db.urlOperationReceipt.findUniqueOrThrow({ where: { id: historicalReceipt.id } }))
       .originatingOrganizationId, source.id);
+  } finally {
+    await db.organization.deleteMany({ where: { id: { in: [source.id, destination.id] } } });
+    await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });
+    await db.user.delete({ where: { id: actor.id } });
+    await db.$disconnect();
+  }
+});
+
+test("a legacy URL receipt written during schema expansion blocks transfer until billing origin is evidenced", async () => {
+  const suffix = randomUUID();
+  const actor = await db.user.create({ data: { email: `legacy-receipt-${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `legacy-source-${suffix}` } });
+  const destination = await db.organization.create({ data: { name: "Destination", slug: `legacy-dest-${suffix}`,
+    plan: "STARTER", subscription: { create: { stripeCustomerId: `fixture-legacy-${suffix}`,
+      status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } } } });
+  const project = await db.project.create({ data: { organizationId: source.id, name: "Legacy receipt",
+    domain: `legacy-${suffix}.invalid` } });
+  try {
+    await db.organizationMember.createMany({ data: [source, destination].map((workspace) => ({
+      userId: actor.id, organizationId: workspace.id, role: "OWNER" as const,
+    })) });
+    const url = await db.translatedUrl.create({ data: { projectId: project.id, urlPath: "/legacy", langTo: "en" } });
+    const preview = await previewWorkspaceTransfer(actor.id, project.id, destination.id);
+    const receiptId = suffix.replaceAll("-", "").padEnd(64, "0");
+    // Mirrors a still-running #263 writer: it does not know the new column.
+    await db.$executeRaw`INSERT INTO "UrlOperationReceipt"
+      (id, "projectId", "urlId", "actorId", "urlPath", "langTo", "billedWords",
+       "segmentCount", "totalEligibleSegments", "remainingSegments")
+      VALUES (${receiptId}, ${project.id}, ${url.id}, ${actor.id}, ${url.urlPath}, ${url.langTo},
+        7, 1, 1, 0)`;
+    assert.equal((await db.urlOperationReceipt.findUniqueOrThrow({ where: { id: receiptId } }))
+      .originatingOrganizationId, null);
+    await assert.rejects(previewWorkspaceTransfer(actor.id, project.id, destination.id), { code: "UNATTRIBUTED" });
+    await assert.rejects(commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
+      destinationId: destination.id, fingerprint: preview.fingerprint, issuedAt: preview.issuedAt,
+      confirmationToken: preview.confirmationToken }), { code: "UNATTRIBUTED" });
+    assert.equal((await db.project.findUniqueOrThrow({ where: { id: project.id } })).organizationId, source.id);
   } finally {
     await db.organization.deleteMany({ where: { id: { in: [source.id, destination.id] } } });
     await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });

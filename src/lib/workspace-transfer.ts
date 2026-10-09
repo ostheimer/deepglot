@@ -7,7 +7,7 @@ import { getUsageMonthKey } from "@/lib/translation-batches";
 type Client = typeof db | Prisma.TransactionClient;
 
 export class WorkspaceTransferError extends Error {
-  constructor(public code: "NOT_FOUND" | "FORBIDDEN" | "LIMIT" | "STALE" | "PENDING", public status: number) {
+  constructor(public code: "NOT_FOUND" | "FORBIDDEN" | "LIMIT" | "STALE" | "PENDING" | "UNATTRIBUTED", public status: number) {
     super(code);
   }
 }
@@ -55,6 +55,18 @@ async function transferState(client: Client, actorUserId: string, projectId: str
   // locks, which also serialize the provider_pending claim.
   if (await client.translatedUrl.count({ where: { projectId, operationState: "provider_pending" } })) {
     throw new WorkspaceTransferError("PENDING", 409);
+  }
+  // A #263 writer can still persist a receipt without this newly expanded
+  // column while old and new deployments overlap. Its billing owner cannot be
+  // inferred from current project ownership, even if the URL is completed.
+  // Commit repeats this check under the same Org -> Project locks as writers.
+  const receiptState = await client.$queryRaw<Array<{ unattributedCount: number; version: string }>>`
+    SELECT COUNT(*) FILTER (WHERE "originatingOrganizationId" IS NULL)::int AS "unattributedCount",
+      COALESCE(md5(string_agg(id || ':' || COALESCE("originatingOrganizationId", '') || ':' || "createdAt"::text,
+        '|' ORDER BY id)), '') AS version
+    FROM "UrlOperationReceipt" WHERE "projectId" = ${projectId}`;
+  if (receiptState[0]?.unattributedCount) {
+    throw new WorkspaceTransferError("UNATTRIBUTED", 409);
   }
   const plan = BILLING_PLANS[getEffectiveWorkspacePlanKey(destination.plan, destination.subscription)];
   const destinationWordsLimit = getEffectiveWordsLimit(destination.subscription);
@@ -120,6 +132,7 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     apiKeys: project.apiKeys, webhookEndpoints: project.webhookEndpoints,
     settingsUpdatedAt: project.settings?.updatedAt,
     translationVersion: translations.version, mutableVersion: mutableVersion[0]?.version,
+    receiptVersion: receiptState[0]?.version,
   });
   return { details, version, removedMemberIds, sourceId: source.id };
 }
