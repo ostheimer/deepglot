@@ -169,6 +169,8 @@ export async function commitWorkspaceTransfer(input: {
   const alreadyCommitted = await finishedReceipt();
   if (alreadyCommitted) return alreadyCommitted;
   try {
+    // Each read after the sorted organization/project locks must see writes that
+    // committed while the transfer waited for those locks.
     return await db.$transaction(async (tx) => {
     // Serialize transfers and workspace capacity changes against the organization rows.
     await tx.$queryRaw`SELECT id FROM "Organization" WHERE id IN (${input.destinationId},
@@ -199,7 +201,7 @@ export async function commitWorkspaceTransfer(input: {
       previewFingerprint: state.version, projectVersion: new Date(state.details.projectVersion),
     } });
     return { auditId: audit.id, projectId: input.projectId };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30_000 });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 });
   } catch (error) {
     const concurrentReceipt = await finishedReceipt();
     if (concurrentReceipt) return concurrentReceipt;
