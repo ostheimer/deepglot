@@ -101,6 +101,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 == Changelog ==
 
+= 0.12.14 =
+* Report observed bounded URL synchronization attempts, results, and HTTP status to the SaaS URL inventory. The WordPress job remains authoritative if reporting fails.
+
 = 0.12.13 =
 * Synchronizes independent target-language visibility and automatic-translation controls from the dashboard.
 * Removes hidden targets from switchers, browser redirects, hreflang and sitemap output while direct routes remain public with noindex.

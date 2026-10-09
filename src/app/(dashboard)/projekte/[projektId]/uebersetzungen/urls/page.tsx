@@ -2,11 +2,13 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ExternalLink } from "lucide-react";
+import { Search } from "lucide-react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/locale-formatting";
 import { getRequestLocale } from "@/lib/request-locale";
-import { getProjectUrl } from "@/lib/project-url";
+import { getProjectUrl, getWordPressSettingsUrl } from "@/lib/project-url";
+import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { UrlOperations } from "@/components/projekte/url-operations";
 import {
   buildProjectQueryHref,
   normalizeProjectLang,
@@ -15,20 +17,22 @@ import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
-  searchParams: Promise<{ q?: string; lang?: string; seite?: string }>;
+  searchParams: Promise<{ q?: string; lang?: string; seite?: string; status?: string }>;
 }
 
 export default async function UrlsPage({ params, searchParams }: PageProps) {
   const { projektId } = await params;
-  const { q, lang, seite } = await searchParams;
+  const { q, lang, seite, status } = await searchParams;
   const locale = await getRequestLocale();
+  const userId = await getAuthenticatedUserId();
+  if (!userId || !(await userCanManageProject(userId, projektId))) notFound();
 
   const page = Math.max(1, parseInt(seite ?? "1", 10));
   const pageSize = 20;
 
   const project = await db.project.findUnique({
     where: { id: projektId },
-    include: { languages: true },
+    include: { languages: true, settings: true, domainMappings: true },
   });
 
   if (!project) notFound();
@@ -41,6 +45,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
   const where = {
     projectId: projektId,
     langTo: activeLang,
+    ...(status === "failed" ? { operationState: { in: ["failed", "sync_failed", "provider_pending"] } } : {}),
     ...(q ? { urlPath: { contains: q, mode: "insensitive" as const } } : {}),
   };
 
@@ -55,7 +60,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
-  const projectBaseUrl = getProjectUrl(project.domain);
+  const wordpressSyncUrl = getWordPressSettingsUrl(project.domain, project.settings?.runtimeSyncSiteHost);
 
   return (
     <div>
@@ -79,7 +84,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                 }`}
               >
                 <Link
-                  href={buildProjectQueryHref({ lang: l.langCode, q })}
+                  href={buildProjectQueryHref({ lang: l.langCode, q }) + (status === "failed" ? "&status=failed" : "")}
                   aria-current={activeLang === l.langCode ? "page" : undefined}
                 >
                   {l.langCode.toUpperCase()}
@@ -90,9 +95,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
         </div>
       </div>
 
-      <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {uiText(locale, "Retranslate and delete actions are not available here yet. Open the URL to inspect the current site output.", "Neu übersetzen und Löschen sind hier noch nicht verfügbar. Öffne die URL, um die aktuelle Ausgabe auf der Website zu prüfen.")}
-      </p>
+      <p className="mb-4 text-sm text-gray-600">{locale === "de" ? "Nur neue Aktionen erfassen ein Ergebnis. Ältere Aufrufe belegen weder einen HTTP-Status noch die Herkunft einer Synchronisierung." : "Only new actions record an operation result. Older visits do not prove HTTP status or synchronization origin."}</p>
 
       {/* Search */}
       <div className="flex items-center gap-3 mb-4">
@@ -105,80 +108,18 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
             className="pl-9 h-9"
           />
           <input type="hidden" name="lang" value={activeLang} />
+          {status === "failed" && <input type="hidden" name="status" value="failed" />}
         </form>
         <span className="text-sm text-gray-500">
           {formatNumber(total, locale)} {uiText(locale, "results", "Ergebnisse")}
         </span>
         <div className="ml-auto flex items-center gap-2 text-sm text-gray-500">
+          <Link href={buildProjectQueryHref({ lang: activeLang, q }) + (status === "failed" ? "" : "&status=failed")} className="underline">{status === "failed" ? (locale === "de" ? "Alle URLs" : "All URLs") : (locale === "de" ? "Fehlerbericht" : "Error report")}</Link>
           <span>{uiText(locale, "Sorted by: most requests", "Sortiert nach: Meiste Anfragen")}</span>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">URL</span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-            🇬🇧 {activeLang.toUpperCase()}
-          </span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {locale === "de" ? "MANUELL" : "MANUAL"}
-          </span>
-          <span></span>
-        </div>
-
-        {urlRecords.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <p className="text-gray-500 text-sm">
-              {q
-                ? locale === "de"
-                  ? `Keine URLs gefunden für "${q}"`
-                  : `No URLs found for "${q}"`
-                : uiText(locale, "No URL translation requests yet. Set up the WordPress plugin to get started.", "Noch keine URL-Übersetzungsanfragen. Richte das WordPress-Plugin ein, um anzufangen.")}
-            </p>
-          </div>
-        ) : (
-          urlRecords.map((record) => {
-            const recordUrl = new URL(record.urlPath, projectBaseUrl).toString();
-
-            return (
-              <div
-                key={record.id}
-                className="grid grid-cols-[2fr_1fr_1fr_auto] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
-              >
-                {/* URL */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm text-gray-900 truncate font-medium">
-                    {record.urlPath}
-                  </span>
-                  <Link
-                    href={recordUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex text-gray-400 transition-colors hover:text-brand-600"
-                    title={uiText(locale, "Open URL", "URL öffnen")}
-                    aria-label={locale === "de" ? `${record.urlPath} öffnen` : `Open ${record.urlPath}`}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-
-                {/* Word count */}
-                <span className="text-sm text-gray-700">
-                  0/{formatNumber(record.wordCount, locale)}
-                </span>
-
-                {/* Manual % */}
-                <span className="text-sm text-brand-600 font-medium">0%</span>
-
-                <span className="text-xs text-gray-400">
-                  {uiText(locale, "Read-only", "Nur Ansicht")}
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
+      <UrlOperations projectId={projektId} locale={locale} wordpressSyncUrl={wordpressSyncUrl} records={urlRecords.map((record) => ({ ...record, targetUrl: new URL(record.urlPath, getProjectUrl(project.domainMappings.find((mapping) => mapping.langCode === record.langTo)?.host ?? project.domain)).toString(), lastSeenAt: record.lastSeenAt.toISOString(), lastOperationAt: record.lastOperationAt?.toISOString() ?? null, createdAt: record.createdAt.toISOString() }))} />
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -194,7 +135,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                     lang: activeLang,
                     page: page - 1,
                     q,
-                  })}
+                  }) + (status === "failed" ? "&status=failed" : "")}
                 >
                   {uiText(locale, "Previous", "Zurück")}
                 </Link>
@@ -207,7 +148,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                     lang: activeLang,
                     page: page + 1,
                     q,
-                  })}
+                  }) + (status === "failed" ? "&status=failed" : "")}
                 >
                   {uiText(locale, "Next", "Weiter")}
                 </Link>

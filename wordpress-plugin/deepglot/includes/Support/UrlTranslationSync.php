@@ -1022,7 +1022,9 @@ class UrlTranslationSync
             $job['urls'][$index] = $item;
             $job['updated_at'] = $now;
             $job['last_error'] = null;
-            $this->storeJobIfUnchanged($expectedJob, $job);
+            if ($this->storeJobIfUnchanged($expectedJob, $job)) {
+                $this->reportResult($item, 'completed', 'completed', 200);
+            }
             return;
         }
 
@@ -1042,7 +1044,9 @@ class UrlTranslationSync
         $job['status'] = 'running';
         $job['updated_at'] = $now;
         $job['next_run_at'] = $item['next_attempt_at'];
-        $this->storeJobIfUnchanged($expectedJob, $job);
+        if ($this->storeJobIfUnchanged($expectedJob, $job) && $item['state'] === 'failed') {
+            $this->reportResult($item, 'failed', 'warm_round_limit', 200);
+        }
         $this->ensureWarmerScheduled();
     }
 
@@ -1224,7 +1228,38 @@ class UrlTranslationSync
         $item['last_error'] = $error;
         $job['urls'][$index] = $item;
         $job['next_run_at'] = (int) $item['next_attempt_at'];
-        $this->storeJobIfUnchanged($expectedJob, $job);
+        if ($this->storeJobIfUnchanged($expectedJob, $job)) {
+            $httpStatus = preg_match('/(?:^|_)http_(\d{3})$/', $error, $matches)
+                ? (int) $matches[1]
+                : (preg_match('/(?:^|_)redirect_(\d{3})$/', $error, $matches) ? (int) $matches[1] : null);
+            $this->reportResult($item, (string) $item['state'], $error, $httpStatus);
+        }
+    }
+
+    /** Report only observed attempts; dashboard history is never synthesized. */
+    private function reportResult(array $item, string $state, string $result, ?int $httpStatus): void
+    {
+        $apiKey = trim($this->options->getApiKey());
+        if ($apiKey === '' || !in_array($state, ['retry', 'failed', 'completed'], true)) {
+            return;
+        }
+
+        wp_safe_remote_post(untrailingslashit($this->options->getApiBaseUrl()) . '/plugin/url-sync-result', [
+            'timeout' => 3,
+            'redirection' => 0,
+            'sslverify' => true,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $apiKey,
+                'Content-Type' => 'application/json',
+            ],
+            'body' => wp_json_encode([
+                'url' => (string) ($item['url'] ?? ''),
+                'language' => (string) ($item['language'] ?? ''),
+                'state' => $state,
+                'result' => $result,
+                'httpStatus' => $httpStatus,
+            ]),
+        ]);
     }
 
     private function retryDelay(int $attempt): int

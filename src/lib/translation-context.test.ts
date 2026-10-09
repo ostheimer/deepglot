@@ -35,6 +35,11 @@ test("page context removes query strings and fragments", () => {
   );
 });
 
+test("context accepts only the configured target-language host for subdomain routing", () => {
+  assert.equal(translationContextPath("https://en.example.test/prices", "example.test", ["en.example.test"]), "/prices");
+  assert.equal(translationContextPath("https://evil.example.test/prices", "example.test", ["en.example.test"]), null);
+});
+
 test("page links cannot change the site origin or retain private query data", () => {
   assert.equal(
     translationContextLink("example.test", "/prices"),

@@ -110,6 +110,21 @@ class TranslationCache
         return $results;
     }
 
+    /** Delete both current and legacy transients for one SaaS-provided digest. */
+    public function deleteByDigest(string $digest): bool
+    {
+        if (preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1) {
+            return false;
+        }
+        foreach ([self::ENVELOPE_KEY_PREFIX, self::LEGACY_PREFIX] as $prefix) {
+            $key = $prefix . $digest;
+            if (get_transient($key) !== false && !delete_transient($key) && get_transient($key) !== false) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Invalidates all Deepglot transients.
      * Note: WordPress does not support wildcard deletion; we tag keys in options instead.

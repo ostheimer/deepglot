@@ -104,6 +104,9 @@ const rateLimitQuery = test.mock.fn(async () => [
   projectMediaReplacement: {
     findMany: mediaFindMany,
   },
+  urlCacheInvalidation: {
+    findMany: async () => [],
+  },
   $queryRaw: rateLimitQuery,
 };
 

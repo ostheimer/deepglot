@@ -586,9 +586,16 @@ class Client
             return new \WP_Error('deepglot_runtime_config_missing_key', __('No API key is configured for runtime settings.', 'deepglot'));
         }
 
+        $cursorRecord = get_option('deepglot_url_cache_invalidation_cursor', []);
+        $identity = self::configurationIdentityFor($apiKey, $baseUrl);
+        $cacheAfter = is_array($cursorRecord)
+            && ($cursorRecord['identity'] ?? '') === $identity
+            && preg_match('/^\d{1,20}$/D', (string) ($cursorRecord['cursor'] ?? '')) === 1
+                ? (string) $cursorRecord['cursor'] : '0';
+
         return $this->request(
             'GET',
-            '/plugin/runtime-config?api_key=' . rawurlencode($apiKey),
+            '/plugin/runtime-config?api_key=' . rawurlencode($apiKey) . '&cache_after=' . rawurlencode($cacheAfter),
             null,
             $baseUrl
         );

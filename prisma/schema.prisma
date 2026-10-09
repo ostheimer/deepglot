@@ -256,6 +256,8 @@ model Project {
   mediaReplacements ProjectMediaReplacement[]
   exclusions     TranslationExclusion[]
   translatedUrls TranslatedUrl[]
+  urlCacheInvalidations UrlCacheInvalidation[]
+  urlOperationReceipts UrlOperationReceipt[]
   pageViews      PageView[]
   settings       ProjectSettings?
   members        ProjectMember[]
@@ -637,6 +639,14 @@ model TranslatedUrl {
   requestCount Int     @default(0) // how often this URL was translated
   lastSeenAt  DateTime @default(now())
   createdAt   DateTime @default(now())
+  // Nullable: older request analytics cannot prove a crawl result or HTTP code.
+  operationState String?
+  lastResult String?
+  lastHttpStatus Int?
+  origin String?
+  lastOperationAt DateTime?
+  lastError String?
+  operationToken String?
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -644,6 +654,35 @@ model TranslatedUrl {
   @@unique([projectId, urlPath, langTo])
   @@index([projectId, langTo])
   @@index([projectId, requestCount(sort: Desc)])
+}
+
+// Durable, digest-only invalidation feed for WordPress translation transients.
+model UrlCacheInvalidation {
+  id        BigInt   @id @default(autoincrement())
+  projectId String
+  urlPath   String
+  cacheKey  String   // SHA-1 of source language, target language and original text
+  createdAt DateTime @default(now())
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, id])
+}
+
+// A persistence receipt is committed with billed usage after provider work.
+// It resolves a manager response/status crash without sending the provider twice.
+model UrlOperationReceipt {
+  id String @id // SHA-256 confirmation token
+  projectId String
+  urlId String
+  actorId String
+  urlPath String
+  langTo String
+  billedWords Int
+  segmentCount Int
+  createdAt DateTime @default(now())
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, urlId])
 }
 
 // Opt-in visitor events. Query strings, fragments, IP addresses, user agents,

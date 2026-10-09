@@ -42,6 +42,7 @@ $GLOBALS['_dg_sync_scheduled_args'] = [];
 $GLOBALS['_dg_sync_scheduled_event_log'] = [];
 $GLOBALS['_dg_sync_actions'] = [];
 $GLOBALS['_dg_sync_requests'] = [];
+$GLOBALS['_dg_sync_reports'] = [];
 $GLOBALS['_dg_sync_safe_requests'] = 0;
 $GLOBALS['_dg_sync_responses'] = [];
 $GLOBALS['_dg_sync_during_request'] = null;
@@ -140,6 +141,11 @@ function wp_safe_remote_get(string $url, array $args = [])
     $GLOBALS['_dg_sync_lock_seen'] = get_option(\Deepglot\Support\UrlTranslationSync::LOCK_OPTION, null);
     return wp_remote_get($url, $args);
 }
+function wp_safe_remote_post(string $url, array $args = [])
+{
+    $GLOBALS['_dg_sync_reports'][] = ['url' => $url, 'args' => $args];
+    return ['response' => ['code' => 200]];
+}
 function wp_remote_retrieve_response_code($response): int { return (int) ($response['response']['code'] ?? 0); }
 function wp_remote_retrieve_header($response, string $name): string
 {
@@ -226,6 +232,7 @@ function syncReset(): void
     $GLOBALS['_dg_sync_scheduled_event_log'] = [];
     $GLOBALS['_dg_sync_actions'] = [];
     $GLOBALS['_dg_sync_requests'] = [];
+    $GLOBALS['_dg_sync_reports'] = [];
     $GLOBALS['_dg_sync_safe_requests'] = 0;
     $GLOBALS['_dg_sync_responses'] = [];
     $GLOBALS['_dg_sync_during_request'] = null;
@@ -513,6 +520,11 @@ $signedRequests = array_values(array_filter(
     )
 ));
 syncAssert(count($signedRequests) === 2, 'One cron run must open at most two signed target URLs.');
+syncAssert(count($GLOBALS['_dg_sync_reports']) === 2, 'Only actual completed URL attempts are reported to SaaS.');
+foreach ($GLOBALS['_dg_sync_reports'] as $report) {
+    $payload = json_decode((string) ($report['args']['body'] ?? ''), true);
+    syncAssert(($payload['state'] ?? '') === 'completed' && ($payload['httpStatus'] ?? null) === 200, 'The reported HTTP result must come from the completed probes.');
+}
 syncAssert(
     count($GLOBALS['_dg_sync_requests']) === 6,
     'Each completed target must add bounded public-cache and origin-bypass status probes.'
