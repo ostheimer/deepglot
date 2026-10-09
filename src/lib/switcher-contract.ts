@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createHash } from "node:crypto";
+import { isCanonicalTargetLocale } from "@/lib/project-language-lifecycle";
 
-const language = z.string().regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/);
+const language = z.string().refine(isCanonicalTargetLocale);
 const selectorCompound = "(?:[A-Za-z][A-Za-z0-9-]*|[.#][A-Za-z_][A-Za-z0-9_-]*)(?:[.#][A-Za-z_][A-Za-z0-9_-]*)*";
 const selectorPattern = new RegExp(`^${selectorCompound}(?: (?:> )?${selectorCompound})*$`);
 const unsafeSelectorTag = /(?:^|[ >])([A-Za-z][A-Za-z0-9-]*)/g;

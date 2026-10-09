@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { isCanonicalTargetLocale } from "@/lib/project-language-lifecycle";
 
 export const MAX_RUNTIME_MEDIA_REPLACEMENTS = 500;
 export const MAX_MEDIA_IMAGE_URL_LENGTH = 2048;
@@ -8,7 +9,6 @@ const SAFE_DOCUMENT_EXTENSION = /\.(?:pdf|docx|xlsx|pptx)$/i;
 const SAFE_VIDEO_EXTENSION = /\.(?:mp4|webm)$/i;
 const YOUTUBE_EMBED = /^https:\/\/(www\.youtube\.com|www\.youtube-nocookie\.com)\/embed\/([a-zA-Z0-9_-]{11})$/;
 const VIMEO_EMBED = /^https:\/\/player\.vimeo\.com\/video\/([0-9]+)$/;
-const SAFE_LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const ENCODED_UNSAFE_CHARACTER = /%(?:0[0-9a-f]|1[0-9a-f]|2f|5c|7f)/i;
 const RECURSIVELY_ENCODED_PATH_DELIMITER = /%(?:2e|2f|5c)/i;
@@ -331,7 +331,7 @@ export function buildRuntimeMediaReplacements(
 
   for (const row of rows) {
     const language = row.langTo.trim().toLowerCase();
-    if (!SAFE_LANGUAGE_CODE.test(language)) {
+    if (!isCanonicalTargetLocale(language)) {
       throw new MediaReplacementError(
         "The media mapping contains an invalid target language.",
         "INVALID_TARGET_LANGUAGE"

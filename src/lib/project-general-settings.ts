@@ -115,7 +115,7 @@ type ProjectRuntimeSettingsSource = {
   domain: string;
   originalLang: string;
   updatedAt: Date;
-  languages: Array<{ langCode: string; isActive: boolean; isVisible?: boolean; automaticTranslation?: boolean }>;
+  languages: Array<{ id?: string; langCode: string; isActive: boolean; isVisible?: boolean; automaticTranslation?: boolean }>;
   settings: {
     autoSwitch: boolean;
     displayAiNotice: boolean;
@@ -133,6 +133,7 @@ export type ProjectRuntimeSettings = {
   targetLanguages: string[];
   visibleTargetLanguages: string[];
   automaticTargetLanguages: string[];
+  targetLanguageGenerations: Record<string, string>;
   autoRedirect: boolean;
   displayAiNotice: boolean;
   automaticTranslation: boolean;
@@ -160,6 +161,9 @@ export function buildProjectRuntimeSettings(
       .filter((language) => language.isActive && language.automaticTranslation !== false)
       .map((language) => language.langCode.toLowerCase())
       .sort(),
+    targetLanguageGenerations: Object.fromEntries(project.languages
+      .filter((language) => language.isActive && language.id)
+      .map((language) => [language.langCode.toLowerCase(), language.id!])),
     autoRedirect: project.settings?.autoSwitch ?? false,
     displayAiNotice: project.settings?.displayAiNotice ?? false,
     automaticTranslation: project.settings?.automaticTranslation ?? true,

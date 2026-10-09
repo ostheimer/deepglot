@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 import { db } from "../../src/lib/db";
@@ -10,6 +11,8 @@ test("manager controls a regional target independently and removes only confirme
   const path = `/api/projects/${projectId}/languages`;
   const langCode = "en-at";
   const marker = e2eId("Lifecycle fixture");
+  const originalProject = await db.project.findUniqueOrThrow({ where: { id: projectId }, select: { domain: true } });
+  await db.project.update({ where: { id: projectId }, data: { domain: `lifecycle-${crypto.randomUUID()}.example.test` } });
   const rawKey = `dg_live_lifecycle_${crypto.randomUUID()}`;
   const key = await db.apiKey.create({ data: {
     projectId, name: "Lifecycle fixture", key: createHash("sha256").update(rawKey).digest("hex"), keyPrefix: rawKey.slice(0, 12),
@@ -19,6 +22,10 @@ test("manager controls a regional target independently and removes only confirme
     expect((await page.request.post(path, { data: { languages: ["EN_at"] } })).status()).toBe(200);
     const row = await db.projectLanguage.findUniqueOrThrow({ where: { projectId_langCode: { projectId, langCode } } });
     expect(row).toMatchObject({ isActive: true, isVisible: true, automaticTranslation: true });
+    const mediaSave = await page.request.post(`/api/projects/${projectId}/media`, { data: {
+      langTo: langCode, originalUrl: "/uploads/lifecycle-source.png", localizedUrl: "/uploads/lifecycle-region.png",
+    } });
+    expect(mediaSave.status(), await mediaSave.text()).toBe(201);
 
     const baseText = `${marker} base`;
     await db.translation.create({ data: {
@@ -39,6 +46,7 @@ test("manager controls a regional target independently and removes only confirme
       targetLanguages: expect.arrayContaining([langCode]),
       visibleTargetLanguages: expect.not.arrayContaining([langCode]),
       automaticTargetLanguages: expect.not.arrayContaining([langCode]),
+      targetLanguageGenerations: { [langCode]: row.id },
     });
 
     const translate = (text: string) => page.request.post("/api/translate", {
@@ -58,11 +66,12 @@ test("manager controls a regional target independently and removes only confirme
     expect((await bulk.json()).results).toEqual([{ langCode, status: "updated" }, { langCode: "pt-br", status: "not_found" }]);
     expect((await translate(baseText)).status()).toBe(400);
     expect((await page.request.put(path, { data: { action: "enable", languages: [{ langCode }] } })).status()).toBe(200);
+    expect((await db.projectLanguage.findUniqueOrThrow({ where: { projectId_langCode: { projectId, langCode } } })).id).toBe(row.id);
 
     const before = await page.request.get(`${path}?langCode=${langCode}`);
     expect(before.status()).toBe(200);
     const preview = (await before.json()).preview;
-    expect(preview).toMatchObject({ translations: 1, urls: 1, slugs: 1 });
+    expect(preview).toMatchObject({ translations: 1, urls: 1, slugs: 1, mediaReplacements: 1 });
     await db.urlSlug.create({ data: { projectId, langTo: langCode, originalSlug: `${marker}-second` } });
     const stale = await page.request.delete(path, { data: { langCode, confirmationToken: preview.confirmationToken } });
     expect(stale.status()).toBe(409);
@@ -86,6 +95,14 @@ test("manager controls a regional target independently and removes only confirme
     expect(removedImport.status()).toBe(409);
     expect(await db.urlSlug.count({ where: { projectId, langTo: langCode, originalSlug: `${marker}-import` } })).toBe(0);
 
+    expect((await page.request.post(path, { data: { languages: [langCode] } })).status()).toBe(200);
+    const readded = await db.projectLanguage.findUniqueOrThrow({ where: { projectId_langCode: { projectId, langCode } } });
+    expect(readded.id).not.toBe(row.id);
+    const readdedRuntime = await request.get("/api/plugin/runtime-config", { headers: { Authorization: `Bearer ${rawKey}` } });
+    expect((await readdedRuntime.json()).project.targetLanguageGenerations[langCode]).toBe(readded.id);
+    const readdedPreview = (await (await page.request.get(`${path}?langCode=${langCode}`)).json()).preview;
+    expect((await page.request.delete(path, { data: { langCode, confirmationToken: readdedPreview.confirmationToken } })).status()).toBe(200);
+
     expect((await page.request.post(path, { data: { languages: ["pt-br", "pt-pt"] } })).status()).toBe(200);
     const first = (await (await page.request.get(`${path}?langCode=pt-br`)).json()).preview;
     const second = (await (await page.request.get(`${path}?langCode=pt-pt`)).json()).preview;
@@ -98,12 +115,46 @@ test("manager controls a regional target independently and removes only confirme
       { langCode: "pt-br", status: "removed" }, { langCode: "pt-pt", status: "removed" },
     ]);
   } finally {
+    await db.projectMediaReplacement.deleteMany({ where: { projectId, langTo: langCode, originalUrl: "/uploads/lifecycle-source.png" } });
     await db.translatedUrl.deleteMany({ where: { projectId, langTo: langCode, urlPath: { contains: marker } } });
     await db.urlSlug.deleteMany({ where: { projectId, langTo: langCode, originalSlug: { startsWith: marker } } });
     await db.translation.deleteMany({ where: { projectId, originalText: { startsWith: marker } } });
     await db.projectLanguage.deleteMany({ where: { projectId, langCode } });
     await db.projectLanguage.deleteMany({ where: { projectId, langCode: { in: ["pt-br", "pt-pt"] } } });
     await db.apiKey.delete({ where: { id: key.id } });
+    await db.project.update({ where: { id: projectId }, data: { domain: originalProject.domain } });
+    await db.$disconnect();
+  }
+});
+
+test("a real switcher save retains a script-region target", async ({ page }) => {
+  const seededId = await signInAndGetProjectId(page);
+  const seeded = await db.project.findUniqueOrThrow({ where: { id: seededId }, select: { organizationId: true } });
+  const project = await db.project.create({ data: {
+    name: "Lifecycle regional switcher", domain: `switcher-${crypto.randomUUID()}.example.test`,
+    originalLang: "de", organizationId: seeded.organizationId,
+    languages: { create: { langCode: "zh-hant-tw" } },
+  } });
+  try {
+    const config = structuredClone(JSON.parse(readFileSync("tests/fixtures/switcher-contract.json", "utf8")).first);
+    config.instances[0].languageOrder = ["de", "zh-hant-tw"];
+    config.instances[0].customNames = { "zh-hant-tw": "Traditional Chinese" };
+    config.instances[0].customFlags = { "zh-hant-tw": "🇹🇼" };
+    await db.projectSettings.upsert({ where: { projectId: project.id }, create: {
+      projectId: project.id, switcherOwner: "saas", switcherConfig: config,
+    }, update: { switcherOwner: "saas", switcherConfig: config } });
+    const saved = await page.request.patch(`/api/projects/${project.id}/switcher`, { data: {
+      action: "save", expectedRevision: 0, expectedPluginSyncedAt: null, config,
+    } });
+    expect(saved.status(), await saved.text()).toBe(200);
+    expect((await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } })).switcherConfig).toMatchObject(config);
+    const media = await page.request.post(`/api/projects/${project.id}/media`, { data: {
+      langTo: "zh-hant-tw", originalUrl: "/wp-content/uploads/lifecycle-script-region.png",
+      localizedUrl: "/wp-content/uploads/lifecycle-script-region-tw.png",
+    } });
+    expect(media.status(), await media.text()).toBe(201);
+  } finally {
+    await db.project.delete({ where: { id: project.id } });
     await db.$disconnect();
   }
 });

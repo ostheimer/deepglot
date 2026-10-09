@@ -13,6 +13,10 @@ export function normalizeTargetLocale(input: string): string | null {
   }
 }
 
+export function isCanonicalTargetLocale(input: string): boolean {
+  return /^[a-z]{2,3}(?:-[a-z]{4})?(?:-(?:[a-z]{2}|[0-9]{3}))?$/.test(input);
+}
+
 export function targetLocaleFallbacks(locale: string): string[] {
   const normalized = normalizeTargetLocale(locale);
   if (!normalized) return [];

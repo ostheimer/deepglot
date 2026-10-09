@@ -31,8 +31,8 @@ refreshOrderAssert(
     'Plugin must expose the early refresh callback used by the plugins_loaded hook.'
 );
 refreshOrderAssert(
-    strpos($pluginSource, '!$options->isEnabled() || !$options->isConfigured()') !== false,
-    'The frontend refresh must not contact the SaaS for disabled or incomplete plugin configurations.'
+    strpos($pluginSource, 'hasRuntimeIdentity()') !== false,
+    'The early anonymous refresh must remain reachable after all target languages are paused.'
 );
 refreshOrderAssert(
     strpos($pluginSource, "\$this->container->get(SettingsSync::class)->maybeRefreshRuntimeConfig();") !== false

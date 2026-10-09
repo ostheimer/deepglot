@@ -37,7 +37,7 @@ class BrowserRedirector
             $requestedLanguage = strtolower(trim(str_replace('_', '-', $language)));
             $baseLanguage = explode('-', $requestedLanguage)[0];
 
-            if ($baseLanguage === '' || $baseLanguage === $this->routing->getSourceLanguage()) {
+            if ($baseLanguage === '') {
                 continue;
             }
 

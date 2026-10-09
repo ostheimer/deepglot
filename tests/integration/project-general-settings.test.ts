@@ -141,6 +141,7 @@ test(
     );
     assert.equal(response.status, 200);
     const body = await response.json();
+    const activeTarget = await db.projectLanguage.findUniqueOrThrow({ where: { projectId_langCode: { projectId: project.id, langCode: "en" } } });
     assert.deepEqual(body.project, {
       version: updated.project.version,
       name: "After readback",
@@ -149,6 +150,7 @@ test(
       targetLanguages: ["en"],
       visibleTargetLanguages: ["en"],
       automaticTargetLanguages: ["en"],
+      targetLanguageGenerations: { en: activeTarget.id },
       autoRedirect: true,
       displayAiNotice: true,
       automaticTranslation: false,

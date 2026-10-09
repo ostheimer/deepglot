@@ -107,7 +107,7 @@ class Plugin
         }
 
         $options = $this->container->get(Options::class);
-        if (!$options->isEnabled() || !$options->isConfigured()) {
+        if (!$options->isEnabled() || (!$options->isConfigured() && !$options->hasRuntimeIdentity())) {
             return;
         }
 

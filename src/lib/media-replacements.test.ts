@@ -419,6 +419,11 @@ test("runtime media mappings are grouped by active target-language shape", () =>
   );
 });
 
+test("keeps media replacements for script and region targets", () => {
+  const rows = buildRuntimeMediaReplacements([{ langTo: "zh-hant-tw", originalUrl: "/uploads/source.png", localizedUrl: "/uploads/variant.png" }]);
+  assert.deepEqual(rows, { "zh-hant-tw": { "/uploads/source.png": "/uploads/variant.png" } });
+});
+
 test("runtime media mappings fail closed on unsafe rows, duplicate keys and overflow", () => {
   const validRow = {
     langTo: "en",

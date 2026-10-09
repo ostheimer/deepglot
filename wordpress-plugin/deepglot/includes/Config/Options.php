@@ -83,6 +83,7 @@ class Options
             'target_languages' => ['en'],
             'visible_target_languages' => null,
             'automatic_target_languages' => null,
+            'target_language_generations' => [],
             'auto_redirect' => false,
             // General project runtime values are read back from the authenticated
             // SaaS project. They are preserved across ordinary wp-admin saves and
@@ -250,6 +251,8 @@ class Options
             'target_languages' => $targetLanguages,
             'visible_target_languages' => $visibleTargetLanguages,
             'automatic_target_languages' => $automaticTargetLanguages,
+            'target_language_generations' => $sameRuntimeIdentity && is_array($storedSettings['target_language_generations'] ?? null)
+                ? $storedSettings['target_language_generations'] : [],
             'auto_redirect' => $autoRedirect,
             'display_ai_notice' => $displayAiNotice,
             'automatic_translation' => $automaticTranslation,
@@ -733,6 +736,15 @@ class Options
         $options = $this->all();
 
         return !empty($options['api_key']) && !empty($options['target_languages']);
+    }
+
+    /** A previously synchronized project may temporarily have no active targets. */
+    public function hasRuntimeIdentity(): bool
+    {
+        $options = $this->all();
+        return !empty($options['api_key'])
+            && !empty($options['api_base_url'])
+            && $this->normalizeSaasProjectVersion($options['saas_project_version'] ?? '') !== '';
     }
 
     public function getRoutingMode(): string
@@ -1408,7 +1420,6 @@ class Options
             return;
         }
 
-        $settings['source_language'] = $sourceLanguage;
         $visibleTargetLanguages = $this->normalizeRuntimeLanguages($runtimeProject['visibleTargetLanguages'] ?? $targetLanguages);
         $automaticTargetLanguages = $this->normalizeRuntimeLanguages($runtimeProject['automaticTargetLanguages'] ?? $targetLanguages);
         if ($visibleTargetLanguages === null || $automaticTargetLanguages === null
@@ -1416,9 +1427,25 @@ class Options
             || array_diff($automaticTargetLanguages, $targetLanguages) !== []) {
             return;
         }
+        $generations = null;
+        if (array_key_exists('targetLanguageGenerations', $runtimeProject)) {
+            $generations = $runtimeProject['targetLanguageGenerations'];
+            if (!is_array($generations)
+                || array_diff(array_keys($generations), $targetLanguages) !== []
+                || array_diff($targetLanguages, array_keys($generations)) !== []) {
+                return;
+            }
+            foreach ($generations as $code => $generation) {
+                if (!is_string($generation) || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $generation) !== 1) return;
+            }
+        }
+        $settings['source_language'] = $sourceLanguage;
         $settings['target_languages'] = $targetLanguages;
         $settings['visible_target_languages'] = $visibleTargetLanguages;
         $settings['automatic_target_languages'] = $automaticTargetLanguages;
+        if ($generations !== null) {
+            $settings['target_language_generations'] = $generations;
+        }
         $settings['auto_redirect'] = $runtimeProject['autoRedirect'];
         $settings['display_ai_notice'] = $runtimeProject['displayAiNotice'];
         $settings['automatic_translation'] = $runtimeProject['automaticTranslation'];

@@ -312,7 +312,8 @@ class TranslationWarmer
      */
     public function reconcileLanguageConfiguration(
         string $sourceLanguage,
-        array $targetLanguages
+        array $targetLanguages,
+        array $invalidatedTargets = []
     ): bool {
         $sourceLanguage = strtolower(trim($sourceLanguage));
         $targetLanguages = array_values(array_unique(array_filter(
@@ -328,7 +329,7 @@ class TranslationWarmer
             return false;
         }
 
-        $allowedTargets = array_fill_keys($targetLanguages, true);
+        $allowedTargets = array_fill_keys(array_diff($targetLanguages, $invalidatedTargets), true);
         $keepPair = function (string $key) use ($sourceLanguage, $allowedTargets): bool {
             [$queuedSource, $queuedTarget] = $this->parseQueueKey($key);
 
