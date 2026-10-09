@@ -8,7 +8,7 @@ import {
 } from "@/lib/activity-digest";
 import { getAppBaseUrl } from "@/lib/billing";
 import { db } from "@/lib/db";
-import { canSendEmail, sendActivityDigestEmail } from "@/lib/email";
+import { canSendEmail, EmailNotAcceptedError, sendActivityDigestEmail } from "@/lib/email";
 import { canAccessProject } from "@/lib/project-access-policy";
 import { isSiteLocale, withLocalePrefix } from "@/lib/site-locale";
 
@@ -428,11 +428,15 @@ export async function processWeeklyActivityDigests({
         });
 
         if (!delivery.sent) {
-          throw new Error("Activity digest email is not configured.");
+          throw new EmailNotAcceptedError("Activity digest email is not configured.");
         }
       } catch (error) {
-        await releaseDigestSendClaim(claim);
-        console.error("[activity-digest] failed to send weekly digest", error);
+        if (error instanceof EmailNotAcceptedError) {
+          await releaseDigestSendClaim(claim);
+        }
+        // A timeout or lost response may follow provider acceptance. Keep the
+        // pending sentinel until provider evidence reconciles the status.
+        console.error("[activity-digest] weekly digest acceptance failed or is unknown", error);
         return "failed";
       }
 

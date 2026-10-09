@@ -8,6 +8,7 @@ import { ExternalLink, Eye, Pencil, Plus } from "lucide-react";
 import { PasswordChangeForm } from "@/components/einstellungen/password-change-form";
 import { ProfileSettingsForm } from "@/components/einstellungen/profile-settings-form";
 import { ActivityDigestPreferences } from "@/components/einstellungen/activity-digest-preferences";
+import { NotificationPreferences } from "@/components/einstellungen/notification-preferences";
 import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
@@ -179,15 +180,11 @@ export default async function EinstellungenPage({
               enabled: membership.activityDigestEnabled,
             }))}
           />
-
-          <div className="flex items-center justify-between gap-4 border-t border-gray-100 px-5 py-4">
-            <span className="text-sm font-medium text-gray-900">
-              {uiText(locale, "Product updates", "Produkt-Updates")}
-            </span>
-            <Badge variant="outline" className="shrink-0 text-xs">
-              {uiText(locale, "Planned", "Geplant")}
-            </Badge>
-          </div>
+          <NotificationPreferences locale={locale} memberships={memberships.map((membership) => ({
+            organizationId: membership.organizationId,
+            organizationName: membership.organization.name,
+            role: membership.role,
+          }))} />
         </div>
       </section>
 
