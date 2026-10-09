@@ -103,6 +103,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#text-safety" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Textgrenzen" : "Text boundaries"}
             </a>
+            <a href="#url-slugs" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "URL-Slugs verwalten" : "Manage URL slugs"}
+            </a>
             <a href="#rate-limit-backoff" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "429 und Wartezeit" : "429 and backoff"}
             </a>
@@ -228,6 +231,27 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                 {de
                   ? "Enthält stattdessen die Antwort eines Übersetzungsanbieters U+0000, wird dieses Ergebnis nicht gespeichert. Ein konfigurierter Ersatzanbieter kann übernehmen; schlägt auch die Anbieterkette fehl, endet die Anfrage ohne Versuch, Übersetzungsinhalte zu persistieren. Protokolliert werden nur Grenze, Feld, Anzahl und Anbieter — niemals Text oder URL."
                   : "If a translation provider response contains U+0000, that result is not stored. A configured fallback provider can take over; if the provider chain still fails, the request ends without attempting translation-content persistence. Logs contain only the boundary, field, count, and provider — never text or URLs."}
+              </p>
+            </div>
+          </section>
+
+          <section id="url-slugs" data-testid="help-url-slugs" className="scroll-mt-8 pt-24">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#c62812]">
+                {de ? "Übersetzte URL-Pfade" : "Translated URL paths"}
+              </p>
+              <h2 className="mt-3 text-4xl font-extrabold tracking-[-0.045em]">
+                {de ? "URL-Slugs sicher verwalten" : "Manage URL slugs safely"}
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#58636d]">
+                {de
+                  ? "Projektverantwortliche können in Übersetzungen → URL-Slugs nach Original und Übersetzung suchen, Sprache und Status filtern, einzelne Zuordnungen bearbeiten und sichtbare Zeilen auswählen. Für die Auswahl stehen CSV-Export und gemeinsames Zurücksetzen bereit. CSV-Importe melden Konflikte mit Zeilennummer und speichern bei einem Fehler keine Teilmenge. Sprachgebundene Übersetzer können ihre Sprache nur lesen und exportieren."
+                  : "Project managers can search original and translated slugs under Translations → URL Slugs, filter by language and status, edit one mapping, and select visible rows. They can export the selection as CSV or reset it together. CSV imports report conflicts by line and leave no partial changes. Language-bound translators can only read and export their assigned language."}
+              </p>
+              <p className="mt-4 text-sm leading-7 text-[#58636d]">
+                {de
+                  ? "WordPress übernimmt neue Zuordnungen beim nächsten fälligen Laufzeitabgleich nach 300 Sekunden auf einer Anfrage oder nach einem erzwungenen Einstellungsabgleich. Der neue Zielpfad wird kanonisch. Für einen früheren übersetzten Zielpfad wird keine automatische Weiterleitung gespeichert; bei einer vorgeschalteten Seiten-Cache-Schicht kann zusätzliches Leeren nötig sein."
+                  : "WordPress applies new mappings on a request when its 300-second runtime refresh is due, or after a forced settings sync. The new target becomes canonical. Deepglot stores no automatic redirect from an earlier translated target; an upstream page cache may also need a separate clear."}
               </p>
             </div>
           </section>
