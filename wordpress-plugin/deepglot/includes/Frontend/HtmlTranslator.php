@@ -6,6 +6,7 @@ use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Support\BotDetector;
 use Deepglot\Support\HtmlDocument;
+use Deepglot\Support\RequestInput;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\TranslationWarmer;
 
@@ -124,6 +125,8 @@ class HtmlTranslator
     private TranslationCache $cache;
     private JsonLdTranslator $jsonLd;
     private ?TranslationWarmer $warmer;
+    /** @var null|callable(array,string,string,string,bool,bool,string):void */
+    private $sourceObserver = null;
     private int $lastPendingSegmentCount = 0;
 
     public function __construct(
@@ -131,13 +134,15 @@ class HtmlTranslator
         Options $options,
         TranslationCache $cache,
         ?JsonLdTranslator $jsonLd = null,
-        ?TranslationWarmer $warmer = null
+        ?TranslationWarmer $warmer = null,
+        ?callable $sourceObserver = null
     ) {
         $this->client  = $client;
         $this->options = $options;
         $this->cache   = $cache;
         $this->jsonLd  = $jsonLd ?? new JsonLdTranslator();
         $this->warmer  = $warmer;
+        $this->sourceObserver = $sourceObserver;
     }
 
     /**
@@ -186,6 +191,13 @@ class HtmlTranslator
         return $this->translateDocument($html, $targetLanguage, false, $requestUrl, $bot)['html'];
     }
 
+    /** Full public HTML response entrypoint; cache hits still report source. */
+    public function translateSourcePage(string $html, string $targetLanguage, string $requestUrl = '', int $bot = 0): string
+    {
+        if ($this->sourceObserver === null) return $this->translate($html, $targetLanguage, $requestUrl, $bot);
+        return $this->translateDocument($html, $targetLanguage, false, $requestUrl, $bot, false, true)['html'];
+    }
+
     /**
      * Translates an HTML document synchronously even when normal page renders
      * are configured as cache-only. Use this for one-shot output such as
@@ -226,10 +238,12 @@ class HtmlTranslator
         bool $annotateSegments,
         string $requestUrl = '',
         int $bot = 0,
-        bool $forceSynchronous = false
+        bool $forceSynchronous = false,
+        bool $observeSource = false
     ): array
     {
         $this->lastPendingSegmentCount = 0;
+        $sourceCaptureMicros = sprintf('%.0f', microtime(true) * 1000000);
 
         if ($html === '') {
             return ['html' => $html, 'segments' => []];
@@ -268,6 +282,7 @@ class HtmlTranslator
         $jsonLdMutations = $this->jsonLd->collect($doc, $targetLanguage, $sourceLang);
 
         if (empty($nodes) && empty($attrs) && empty($jsonLdMutations)) {
+            if ($observeSource) $this->reportSourceInventory([], $sourceLang, $targetLanguage, $requestUrl, $html, $sourceCaptureMicros);
             return ['html' => $html, 'segments' => []];
         }
 
@@ -284,6 +299,10 @@ class HtmlTranslator
             array_map(static fn(\DOMAttr $a) => $a->value, $attrs),
             $jsonLdStrings
         )));
+
+        // Observe the entire source DOM before cache lookup. A translation
+        // transient hit still contributes its original source segment here.
+        if ($observeSource) $this->reportSourceInventory($texts, $sourceLang, $targetLanguage, $requestUrl, $html, $sourceCaptureMicros);
 
         // Load from cache.
         $cached  = $this->cache->getMany($texts, $sourceLang, $targetLanguage);
@@ -467,6 +486,50 @@ class HtmlTranslator
             'html' => $this->saveHtml($doc),
             'segments' => $segments,
         ];
+    }
+
+    /** Only a complete normal HTML response can prove source-page absence. */
+    private function reportSourceInventory(
+        array $texts,
+        string $sourceLang,
+        string $targetLanguage,
+        string $requestUrl,
+        string $html,
+        string $sourceCaptureMicros
+    ): void {
+        if ($this->sourceObserver === null || $requestUrl === '') return;
+        $query = wp_parse_url($requestUrl, PHP_URL_QUERY);
+        $status = function_exists('http_response_code') ? http_response_code() : 200;
+        // A visitor-specific render cannot replace a public page's source
+        // inventory. Its absence remains unknown for the URL context.
+        $publicRender = strtoupper(RequestInput::server('REQUEST_METHOD', 'GET')) === 'GET'
+            && (!function_exists('is_user_logged_in') || !is_user_logged_in())
+            && (!function_exists('is_preview') || !is_preview())
+            && (!function_exists('is_admin') || !is_admin())
+            && (!defined('DONOTCACHEPAGE') || !DONOTCACHEPAGE)
+            && RequestInput::server('HTTP_COOKIE') === '';
+        if ($publicRender && function_exists('headers_list')) {
+            foreach (headers_list() as $header) {
+                if (preg_match('/^Cache-Control\s*:.*\b(private|no-store|no-cache)\b/i', $header)) {
+                    $publicRender = false;
+                    break;
+                }
+            }
+        }
+        $complete = ($query === null || $query === '')
+            && ($status === false || $status === 200)
+            && $publicRender
+            && stripos($html, '</body>') !== false
+            && stripos($html, '</html>') !== false;
+        try {
+            ($this->sourceObserver)(
+                $texts, $sourceLang, $targetLanguage, $requestUrl,
+                $complete, $this->options->shouldTranslateDynamicContent(), $sourceCaptureMicros
+            );
+        } catch (\Throwable $ignored) {
+            // Observation is auxiliary; a failed diagnostic must not change
+            // the translated page or make a cache miss more expensive.
+        }
     }
 
     /**

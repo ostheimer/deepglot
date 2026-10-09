@@ -294,6 +294,11 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     access: "project / language scoped",
   },
   {
+    path: "/api/plugin/source-inventory",
+    sourceFile: "src/app/api/plugin/source-inventory/route.ts",
+    access: "fresh project API key; digest-only complete source-page capture",
+  },
+  {
     path: "/api/projects/[projektId]/translations/[translationId]",
     sourceFile:
       "src/app/api/projects/[projektId]/translations/[translationId]/route.ts",

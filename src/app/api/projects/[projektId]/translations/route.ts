@@ -26,6 +26,7 @@ const querySchema = z.object({
   quality: z.enum(["mismatch", "match", "unchecked", "all_mismatch", "all_match", "all_none"]).optional(),
   reportedType: z.enum(["text", "media", "link", "other", "unknown"]).optional(),
   activity: z.enum(["recent", "older", "unknown"]).optional(),
+  sourcePresence: z.enum(["present", "absent_captured_pages", "unknown"]).optional(),
   label: translationLabelSchema.optional(),
   variables: z.enum(["saved", "none"]).optional(),
   source: z
@@ -114,6 +115,7 @@ export async function GET(
         quality: parsed.data.quality,
         reportedType: parsed.data.reportedType,
         activity: parsed.data.activity,
+        sourcePresence: parsed.data.sourcePresence,
         label: parsed.data.label,
         variables: parsed.data.variables,
         source: parsed.data.source,

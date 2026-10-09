@@ -99,6 +99,10 @@ const WORKSPACE_257_ENGLISH_FALLBACK = Object.fromEntries(([
   "Replacement preview", "Reviewed text: saving resets status to",
   "Any placeholder mismatch", "All placeholders preserved", "No placeholders detected",
   "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity. All-placeholder filters are separate.",
+  "Captured source-page presence", "All source-page states",
+  "Present in a captured source page", "No longer present in captured source pages",
+  "Source-page presence unknown",
+  "Source-page absence applies only to fresh, complete server-rendered pages captured by WordPress. Dynamic, missing and expired observations are unknown; it does not establish absence from the whole website.",
 ] as const).map((key) => [key, key]));
 
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {

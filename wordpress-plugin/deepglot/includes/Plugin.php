@@ -310,7 +310,8 @@ class Plugin
                 $c->get(Options::class),
                 $c->get(TranslationCache::class),
                 new JsonLdTranslator($c->get(SiteRouting::class)),
-                $c->get(TranslationWarmer::class)
+                $c->get(TranslationWarmer::class),
+                [$c->get(Client::class), 'recordSourceInventory']
             );
         });
 

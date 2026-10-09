@@ -63,6 +63,7 @@ export type TranslationWorkspaceQuery = {
   reportedType?: string;
   quality?: string;
   activity?: string;
+  sourcePresence?: string;
   label?: string;
   variables?: string;
   source?: string;
@@ -82,6 +83,7 @@ export function translationWorkspaceQueryKey(query: TranslationWorkspaceQuery) {
     query.reportedType ?? "",
     query.quality ?? "",
     query.activity ?? "",
+    query.sourcePresence ?? "",
     query.label ?? "",
     query.variables ?? "",
     query.source ?? "",

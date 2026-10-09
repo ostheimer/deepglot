@@ -157,7 +157,7 @@ test("two projects in one organization cannot overspend the shared monthly quota
       stripeCustomerId: `local-synthetic-${suffix}`, status: "ACTIVE", wordsLimit: 3 } });
     const inputs = [];
     for (const index of [1, 2]) {
-      const project = await db.project.create({ data: { organizationId: organization.id,
+      const project: { id: string } = await db.project.create({ data: { organizationId: organization.id,
         name: `AI ${index}`, domain: `ai-quota-${index}-${suffix}.test`, originalLang: "de",
         languages: { create: { langCode: "en" } }, settings: { create: { translationProvider: "mock" } },
       } });
@@ -220,7 +220,7 @@ test("revocation, provider change and glossary change during HTTP dispatch inval
     for (const scenario of ["revocation", "settings", "glossary"] as const) {
       const membership = await db.organizationMember.create({ data: { organizationId: organization.id,
         userId: user.id, role: "OWNER" } });
-      const project = await db.project.create({ data: { organizationId: organization.id,
+      const project: { id: string } = await db.project.create({ data: { organizationId: organization.id,
         name: `AI ${scenario}`, domain: `ai-${scenario}-${suffix}.test`, originalLang: "de",
         languages: { create: { langCode: "en" } }, settings: { create: {
           translationProvider: "openai-compatible", translationModel: "local-test",

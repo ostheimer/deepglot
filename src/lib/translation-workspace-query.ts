@@ -3,6 +3,7 @@ import type { TranslationWorkflowFilters } from "./translation-workflow";
 import { normalizeTranslationLabel } from "./translation-metadata";
 import { TRANSLATION_TOKEN_PATTERN } from "./translation-quality";
 import { REPORTED_TYPE_GROUPS } from "./translation-reported-types";
+import { sourcePresenceSql } from "./source-page-snapshot-query";
 
 /** One parameterized predicate for both count and page selection. Alias: t. */
 export function workspaceSqlWhere(
@@ -10,6 +11,7 @@ export function workspaceSqlWhere(
   langTo: string | undefined,
   filters: TranslationWorkflowFilters,
   cutoff: Date,
+  sourceNow = new Date(),
 ) {
   const clauses: Prisma.Sql[] = [Prisma.sql`t."projectId" = ${projectId}`];
   if (langTo) clauses.push(Prisma.sql`t."langTo" = ${langTo}`);
@@ -76,6 +78,8 @@ export function workspaceSqlWhere(
           : Prisma.sql`NOT (${known})`,
     );
   }
+  if (filters.sourcePresence)
+    clauses.push(Prisma.sql`(${sourcePresenceSql(sourceNow)}) = ${filters.sourcePresence}`);
   if (filters.quality?.startsWith("all_")) {
     const source = Prisma.sql`regexp_matches(t."originalText", ${TRANSLATION_TOKEN_PATTERN}, 'g')`;
     const target = Prisma.sql`regexp_matches(t."translatedText", ${TRANSLATION_TOKEN_PATTERN}, 'g')`;

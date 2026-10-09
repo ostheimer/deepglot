@@ -18,6 +18,8 @@ import {
 } from "./translation-workspace-query";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { canAccessProjectForWrite, canAccessProject, canManageProject } from "@/lib/project-access";
+import { sourcePresenceSql } from "./source-page-snapshot-query";
+import type { SourcePresence } from "./source-page-snapshot";
 
 export type TranslationWorkflowActor = {
   canManage: boolean;
@@ -318,6 +320,7 @@ export type TranslationWorkflowFilters = {
   reportedType?: import("./translation-reported-types").ReportedTypeFilter;
   quality?: VariableQuality | "all_mismatch" | "all_match" | "all_none";
   activity?: ObservedActivity;
+  sourcePresence?: SourcePresence;
   label?: string;
   variables?: "saved" | "none";
   source?: TranslationSource;
@@ -381,7 +384,7 @@ export async function listProjectTranslationWorkflow({
 
   const observedAt = new Date();
   const cutoff = observationCutoff(observedAt);
-  const where = workspaceSqlWhere(projectId, langTo, filters, cutoff);
+  const where = workspaceSqlWhere(projectId, langTo, filters, cutoff, observedAt);
   // Count, page IDs and hydration see one snapshot even if a reviewer edits
   // content/metadata during the request. Only the bounded page leaves the DB.
   const { items, total } = await db.$transaction(
@@ -404,9 +407,15 @@ export async function listProjectTranslationWorkflow({
             include: workflowInclude,
           })
         : [];
+      const presence = ids.length ? await tx.$queryRaw<Array<{ id: string; sourcePresence: SourcePresence }>>(PrismaSql.sql`
+        SELECT t.id, ${sourcePresenceSql(observedAt)} AS "sourcePresence"
+        FROM "Translation" t WHERE t."projectId" = ${projectId}
+          AND t.id IN (${PrismaSql.join(ids.map(({ id }) => id))})
+      `) : [];
       const byId = new Map(rows.map((row) => [row.id, row]));
+      const presenceById = new Map(presence.map((entry) => [entry.id, entry.sourcePresence]));
       return {
-        items: ids.map(({ id }) => byId.get(id)!),
+        items: ids.map(({ id }) => ({ ...byId.get(id)!, sourcePresence: presenceById.get(id) ?? "unknown" })),
         total: Number(totals[0].total),
       };
     },

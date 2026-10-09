@@ -70,6 +70,7 @@ type WorkflowTranslation = {
   isManual: boolean;
   wordCount: number;
   status: WorkflowStatus;
+  sourcePresence?: "present" | "absent_captured_pages" | "unknown";
   assignedToId: string | null;
   assignedTo: WorkflowMember | null;
   updatedAt: string;
@@ -139,6 +140,7 @@ export function TranslationWorkflowPanel({
   const [variables, setVariables] = useState("");
   const [quality, setQuality] = useState("");
   const [activity, setActivity] = useState("");
+  const [sourcePresence, setSourcePresence] = useState("");
   const [reportedType, setReportedType] = useState("");
   const [mode, setMode] = useState("");
   const [context, setContext] = useState("");
@@ -163,6 +165,7 @@ export function TranslationWorkflowPanel({
     reportedType,
     quality,
     activity,
+    sourcePresence,
     label: submittedLabel,
     variables,
     source,
@@ -213,6 +216,7 @@ export function TranslationWorkflowPanel({
       reportedType,
       quality,
       activity,
+      sourcePresence,
       label: submittedLabel,
       variables,
       source,
@@ -262,6 +266,7 @@ export function TranslationWorkflowPanel({
     reportedType,
     quality,
     activity,
+    sourcePresence,
     submittedLabel,
     variables,
     assignee,
@@ -717,6 +722,7 @@ export function TranslationWorkflowPanel({
               setVariables("");
               setQuality("");
               setActivity("");
+              setSourcePresence("");
               setReportedType("");
               setSource("");
               setMode("");
@@ -851,6 +857,17 @@ export function TranslationWorkflowPanel({
             </option>
           </select>
           <select
+            aria-label={uiText(locale, "Captured source-page presence", "Vorkommen auf erfassten Quellseiten")}
+            value={sourcePresence}
+            onChange={(event) => { setSourcePresence(event.target.value); setPage(1); }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">{uiText(locale, "All source-page states", "Alle Quellseiten-Zustände")}</option>
+            <option value="present">{uiText(locale, "Present in a captured source page", "Auf einer erfassten Quellseite vorhanden")}</option>
+            <option value="absent_captured_pages">{uiText(locale, "No longer present in captured source pages", "In erfassten Quellseiten nicht mehr vorhanden")}</option>
+            <option value="unknown">{uiText(locale, "Source-page presence unknown", "Quellseiten-Vorkommen unbekannt")}</option>
+          </select>
+          <select
             aria-label={uiText(
               locale,
               "Reported content type",
@@ -880,6 +897,9 @@ export function TranslationWorkflowPanel({
             "Typen werden von Clients gemeldet, nicht abgeleitet. Mehrere Typen sind möglich; ältere Einträge können unbekannt sein.",
           )}
         </p>
+        {sourcePresence && <p className="mt-3 text-xs text-gray-600">{uiText(locale,
+          "Source-page absence applies only to fresh, complete server-rendered pages captured by WordPress. Dynamic, missing and expired observations are unknown; it does not establish absence from the whole website.",
+          "Abwesenheit gilt nur für frische, vollständig von WordPress erfasste, serverseitig gerenderte Quellseiten. Dynamische, fehlende oder veraltete Beobachtungen bleiben unbekannt; daraus folgt keine Abwesenheit auf der gesamten Website.")}</p>}
         {(quality || activity) && (
           <p className="mt-3 text-xs text-gray-600">
             {uiText(
@@ -999,6 +1019,11 @@ export function TranslationWorkflowPanel({
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
+                  <p className="text-xs text-gray-600">{translation.sourcePresence === "absent_captured_pages"
+                    ? uiText(locale, "No longer present in captured source pages", "In erfassten Quellseiten nicht mehr vorhanden")
+                    : translation.sourcePresence === "present"
+                      ? uiText(locale, "Present in a captured source page", "Auf einer erfassten Quellseite vorhanden")
+                      : uiText(locale, "Source-page presence unknown", "Quellseiten-Vorkommen unbekannt")}</p>
                   {(canManage || canSubmit) && (
                     <label className="flex items-center gap-2 text-xs text-gray-600">
                       <input type="checkbox"
