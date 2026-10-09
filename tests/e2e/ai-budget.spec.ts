@@ -54,6 +54,12 @@ test("AI budget setup is independently readable and localized before any approva
   await expect(page.getByTestId("ai-budget-readback")).toContainText("Enforcement inactive");
   await expect(page.getByTestId("ai-budget-readback")).toContainText("No approval saved");
   await expect(page.getByRole("button", { name: "Explicitly approve budget" })).toBeVisible();
+  const budget = page.getByTestId("ai-budget-panel");
+  await budget.getByLabel("Monthly cap").fill("1.");
+  await expect(budget.getByLabel("Monthly cap")).toHaveValue("1.");
+  await budget.getByRole("button", { name: "Organization", exact: true }).click();
+  await budget.getByRole("button", { name: "Project", exact: true }).click();
+  await expect(budget.getByLabel("Monthly cap")).toHaveValue("0.000000");
 
   await page.goto(`/de/projekte/${projectId}/einstellungen/sprachmodell`);
   await expect(page.getByTestId("ai-budget-panel")).toBeVisible();
@@ -94,11 +100,19 @@ test("owner can approve both scopes and read the saved policy back", async ({ pa
     const response = await page.request.get(`/api/projects/${projectId}/ai-budget`);
     expect(response.ok()).toBeTruthy();
     const readback = await response.json() as { organization: { revision: number; models: unknown[] };
-      project: { revision: number; models: unknown[] } };
+      project: { revision: number; models: unknown[]; [key: string]: unknown } };
     expect(readback.organization.models).toHaveLength(1);
     expect(readback.project.models).toHaveLength(1);
     expect(readback.organization.revision).toBe(1);
     expect(readback.project.revision).toBe(1);
+    await budget.getByLabel("Monthly cap").fill("7.");
+    const externalUpdate = await page.request.put(`/api/projects/${projectId}/ai-budget`, {
+      data: { ...readback.project, scope: "project", capMicros: "2000000" },
+    });
+    expect(externalUpdate.ok(), await externalUpdate.text()).toBeTruthy();
+    await budget.getByRole("button", { name: "Refresh budget status" }).click();
+    await expect(budget.getByLabel("Monthly cap")).toHaveValue("2.000000");
+    await expect(budget).toContainText("Budget events (enforcement inactive)");
   } finally {
     // Only the two policies created in this isolated local fixture are removed.
     await db.aiBudget.deleteMany({ where: { organizationId: project.organizationId,

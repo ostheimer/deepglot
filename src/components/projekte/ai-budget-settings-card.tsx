@@ -45,7 +45,6 @@ function blankPolicy(scope: Scope): Policy {
 
 function MoneyInput({ label, value, onChange }: { label: string; value: string; onChange: (micros: string) => void }) {
   const [display, setDisplay] = useState(() => microsToMajor(value));
-  useEffect(() => setDisplay((current) => majorToMicros(current) === value ? current : microsToMajor(value)), [value]);
   return <label className="text-sm">{label}<Input aria-label={label} inputMode="decimal" value={display} onChange={(event) => {
     setDisplay(event.target.value);
     const parsed = majorToMicros(event.target.value);
@@ -55,6 +54,12 @@ function MoneyInput({ label, value, onChange }: { label: string; value: string; 
 
 const PROVIDERS = ["openai", "gemini", "openrouter", "ollama", "openai-compatible", "deepl", "mock"];
 
+async function fetchBudgetReadback(projectId: string): Promise<Readback> {
+  const response = await fetch(`/api/projects/${projectId}/ai-budget`, { cache: "no-store" });
+  if (!response.ok) throw new Error("readback_failed");
+  return response.json() as Promise<Readback>;
+}
+
 export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
   projectId: string; locale: SiteLocale; isOwner: boolean;
 }) {
@@ -62,6 +67,7 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
   const [readback, setReadback] = useState<Readback | null>(null);
   const [scope, setScope] = useState<Scope>("project");
   const [draft, setDraft] = useState<Policy>(blankPolicy("project"));
+  const [draftResetVersion, setDraftResetVersion] = useState(0);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
   const [resolutionId, setResolutionId] = useState("");
@@ -71,19 +77,33 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
   const [actualOutputUnits, setActualOutputUnits] = useState("");
 
   async function refresh(initializeDraft = false) {
-    const response = await fetch(`/api/projects/${projectId}/ai-budget`, { cache: "no-store" });
-    if (!response.ok) throw new Error("readback_failed");
-    const data = await response.json() as Readback;
-    if (initializeDraft) setDraft(data.project ?? blankPolicy("project"));
+    const data = await fetchBudgetReadback(projectId);
+    if (initializeDraft) {
+      setDraft(data[scope] ?? blankPolicy(scope));
+      setDraftResetVersion((version) => version + 1);
+    }
     setReadback(data);
     return data;
   }
 
-  useEffect(() => { void refresh(true).catch(() => setStatus(de ? "Budgetdaten sind derzeit nicht verfügbar." : "Budget data is currently unavailable.")); }, [projectId, de]);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchBudgetReadback(projectId).then((data) => {
+      if (cancelled) return;
+      setScope("project");
+      setDraft(data.project ?? blankPolicy("project"));
+      setDraftResetVersion((version) => version + 1);
+      setReadback(data);
+    }).catch(() => {
+      if (!cancelled) setStatus(de ? "Budgetdaten sind derzeit nicht verfügbar." : "Budget data is currently unavailable.");
+    });
+    return () => { cancelled = true; };
+  }, [projectId, de]);
 
   function chooseScope(next: Scope) {
     setScope(next);
     setDraft(readback?.[next] ?? blankPolicy(next));
+    setDraftResetVersion((version) => version + 1);
     setStatus("");
   }
 
@@ -112,8 +132,7 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
         const result = await response.json().catch(() => ({})) as { code?: string };
         throw new Error(result.code ?? "approval_failed");
       }
-      const data = await refresh();
-      setDraft(data[scope] ?? blankPolicy(scope));
+      await refresh(true);
       setStatus(de ? "Freigabe gespeichert und unabhängig aus der Datenbank gelesen." : "Approval saved and independently read from the database.");
     } catch (error) {
       setStatus(`${de ? "Freigabe fehlgeschlagen" : "Approval failed"}: ${error instanceof Error ? error.message : "unknown"}`);
@@ -156,6 +175,12 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
         {item === "organization" ? (de ? "Organisation" : "Organization") : (de ? "Projekt" : "Project")}
       </Button>)}
     </div>
+    <Button className="mt-3" type="button" variant="outline" disabled={!readback || loading} onClick={() => {
+      setLoading(true);
+      void refresh(true).then(() => setStatus(de ? "Budgetstatus neu gelesen." : "Budget status refreshed."))
+        .catch(() => setStatus(de ? "Budgetdaten sind derzeit nicht verfügbar." : "Budget data is currently unavailable."))
+        .finally(() => setLoading(false));
+    }}>{de ? "Budgetstatus neu laden" : "Refresh budget status"}</Button>
     <div className="mt-4 rounded-md bg-gray-50 p-3 text-sm" data-testid="ai-budget-readback">
       <p className="font-medium">{!readback
         ? (de ? "Lade Durchsetzungsstatus…" : "Loading enforcement status…")
@@ -168,7 +193,7 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
         <p>{de ? "Rücksetzung am ersten UTC-Monatstag; kein Übertrag. Unbekannte Nutzung behält die volle Reservierung." : "Resets on the first UTC day of each month; no rollover. Unknown usage retains the full reservation."}</p>
       </>}
     </div>
-    {isOwner && readback && <form className="mt-5 space-y-4" onSubmit={save}>
+    {isOwner && readback && <form key={draftResetVersion} className="mt-5 space-y-4" onSubmit={save}>
       <p className="text-sm font-medium">{de ? "Owner-Freigabe" : "Owner approval"}</p>
       <div className="grid gap-3 sm:grid-cols-4">
         <label className="text-sm">{de ? "Währung (ISO)" : "Currency (ISO)"}<Input aria-label={de ? "Währung" : "Currency"} value={draft.currency} maxLength={3} onChange={(e) => setDraft({ ...draft, currency: e.target.value.toUpperCase() })} /></label>
@@ -205,7 +230,7 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
       {resolutionKind === "VERIFIED_USAGE" && <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">{de ? "Belegte Input-Einheiten" : "Verified input units"}<Input required type="number" min={0} value={actualInputUnits} onChange={(event) => setActualInputUnits(event.target.value)} /></label><label className="text-sm">{de ? "Belegte Output-Einheiten" : "Verified output units"}<Input required type="number" min={0} value={actualOutputUnits} onChange={(event) => setActualOutputUnits(event.target.value)} /></label></div>}
       <Button type="submit" disabled={loading}>{de ? "Prüfung ausdrücklich protokollieren" : "Record verified resolution"}</Button>
     </form>}
-    {readback?.events && readback.events.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{readback.enforcementState === "active" ? (de ? "Budgetereignisse" : "Budget events") : (de ? "Budgetereignisse aus früherer Durchsetzung" : "Budget events from previous enforcement")}</h4><ul className="mt-2 space-y-1">{readback.events.slice(0, 8).map((event) => <li key={event.id}>{event.createdAt.slice(0, 16).replace("T", " ")} UTC · {event.kind === "APPROVED" ? (de ? "Freigabe" : "Approval") : event.kind === "CAP_REACHED" ? (de ? "Limit erreicht" : "Cap reached") : event.kind === "MANUAL_SETTLEMENT" ? (de ? "Manuelle Prüfung" : "Manual review") : (de ? "Warnschwelle erreicht" : "Warning threshold reached")}{event.threshold ? ` (${event.threshold}%)` : ""}</li>)}</ul></div>}
+    {readback?.events && readback.events.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{readback.enforcementState === "active" ? (de ? "Budgetereignisse" : "Budget events") : (de ? "Budgetereignisse (Durchsetzung inaktiv)" : "Budget events (enforcement inactive)")}</h4><ul className="mt-2 space-y-1">{readback.events.slice(0, 8).map((event) => <li key={event.id}>{event.createdAt.slice(0, 16).replace("T", " ")} UTC · {event.kind === "APPROVED" ? (de ? "Freigabe" : "Approval") : event.kind === "CAP_REACHED" ? (de ? "Limit erreicht" : "Cap reached") : event.kind === "MANUAL_SETTLEMENT" ? (de ? "Manuelle Prüfung" : "Manual review") : (de ? "Warnschwelle erreicht" : "Warning threshold reached")}{event.threshold ? ` (${event.threshold}%)` : ""}</li>)}</ul></div>}
     {readback?.recentSpend && readback.recentSpend.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{readback.enforcementState === "active" ? (de ? "Letzte Anbieteraufrufe" : "Recent provider attempts") : (de ? "Frühere Budgetreservierungen" : "Previous budget reservations")}</h4><ul className="mt-2 space-y-1">{readback.recentSpend.slice(0, 8).map((item) => <li key={item.id}>{item.dispatchedAt.slice(0, 16).replace("T", " ")} UTC · {item.provider}/{item.model} · {item.state === "SETTLED" ? (de ? "Abgeglichene Kostenobergrenze" : "Reconciled cost ceiling") : (de ? "Volle Reservierung" : "Full hold")} {item.currency} {microsToMajor(item.state === "SETTLED" ? (item.reconciledCeilingMicros ?? item.reservedMicros) : item.reservedMicros)}</li>)}</ul></div>}
   </section>;
 }
