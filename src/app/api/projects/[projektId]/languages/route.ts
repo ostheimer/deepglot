@@ -16,8 +16,10 @@ import {
 } from "@/lib/project-access";
 import {
   addProjectTargetLanguages,
-  deleteProjectTargetLanguage,
+  updateProjectTargetLanguage,
 } from "@/lib/project-language-mutations";
+import { normalizeTargetLocale } from "@/lib/project-language-lifecycle";
+import { previewTargetLanguageRemoval, removeTargetLanguage, removeTargetLanguages } from "@/lib/project-language-removal";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -26,12 +28,12 @@ function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
 }
 
-// ISO 639-1/3 with an optional region/script subtag, e.g. "en", "pt-br".
 const langCodeSchema = z
   .string()
-  .trim()
-  .toLowerCase()
-  .regex(/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/);
+  .max(35)
+  .transform(normalizeTargetLocale)
+  .refine((code): code is string => code !== null)
+  .transform((code) => code as string);
 
 const addSchema = z.object({
   languages: z.array(langCodeSchema).min(1).max(200),
@@ -39,7 +41,83 @@ const addSchema = z.object({
 
 const deleteSchema = z.object({
   langCode: langCodeSchema,
+  confirmationToken: z.string().regex(/^[a-f0-9]{64}$/),
 });
+
+const patchSchema = z.object({
+  langCode: langCodeSchema,
+  isActive: z.boolean().optional(),
+  isVisible: z.boolean().optional(),
+  automaticTranslation: z.boolean().optional(),
+}).refine((value) => value.isActive !== undefined || value.isVisible !== undefined || value.automaticTranslation !== undefined);
+
+const bulkSchema = z.object({
+  action: z.enum(["enable", "disable", "remove"]),
+  languages: z.array(z.object({ langCode: langCodeSchema, confirmationToken: z.string().regex(/^[a-f0-9]{64}$/).optional() })).min(1).max(200),
+});
+
+async function managerProjectId(params: Promise<{ projektId: string }>) {
+  const { projektId } = await params;
+  const userId = await getAuthenticatedUserId();
+  if (!userId) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
+  if (!(await userCanManageProject(userId, projektId))) return { error: NextResponse.json({ error: "Project not found" }, { status: 404 }) };
+  return { projektId };
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const access = await managerProjectId(params);
+  if (access.error) return access.error;
+  const langCode = normalizeTargetLocale(new URL(req.url).searchParams.get("langCode") ?? "");
+  if (!langCode) return NextResponse.json({ error: "Invalid language" }, { status: 400 });
+  const preview = await previewTargetLanguageRemoval(db, access.projektId!, langCode);
+  return preview
+    ? NextResponse.json({ preview })
+    : NextResponse.json({ error: "Target language not found" }, { status: 404 });
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const access = await managerProjectId(params);
+  if (access.error) return access.error;
+  const parsed = patchSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid language settings" }, { status: 400 });
+  const updated = await updateProjectTargetLanguage(db, { projectId: access.projektId!, ...parsed.data });
+  return updated
+    ? NextResponse.json({ success: true })
+    : NextResponse.json({ error: "Target language not found" }, { status: 404 });
+}
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const access = await managerProjectId(params);
+  if (access.error) return access.error;
+  const parsed = bulkSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid bulk action" }, { status: 400 });
+  if (parsed.data.action === "remove") {
+    try {
+      const results = await removeTargetLanguages(db, access.projektId!, parsed.data.languages);
+      return NextResponse.json({ results });
+    } catch {
+      return NextResponse.json({ error: "Could not remove selected languages" }, { status: 500 });
+    }
+  }
+  const seen = new Set<string>();
+  const results = [];
+  for (const item of parsed.data.languages) {
+    if (seen.has(item.langCode)) {
+      results.push({ langCode: item.langCode, status: "duplicate" });
+      continue;
+    }
+    seen.add(item.langCode);
+    try {
+      const updated = await updateProjectTargetLanguage(db, {
+        projectId: access.projektId!, langCode: item.langCode, isActive: parsed.data.action === "enable",
+      });
+      results.push({ langCode: item.langCode, status: updated ? "updated" : "not_found" });
+    } catch {
+      results.push({ langCode: item.langCode, status: "failed" });
+    }
+  }
+  return NextResponse.json({ results });
+}
 
 export async function POST(
   req: NextRequest,
@@ -170,17 +248,8 @@ export async function DELETE(
     );
   }
 
-  const projectFound = await deleteProjectTargetLanguage(db, {
-    projectId: projektId,
-    langCode: parsed.data.langCode,
-  });
-
-  if (!projectFound) {
-    return NextResponse.json(
-      { error: t(locale, "Projekt nicht gefunden", "Project not found") },
-      { status: 404 },
-    );
-  }
-
-  return NextResponse.json({ success: true });
+  const result = await removeTargetLanguage(db, projektId, parsed.data.langCode, parsed.data.confirmationToken);
+  if (result.kind === "not_found") return NextResponse.json({ error: locale === "de" ? "Zielsprache nicht gefunden" : "Target language not found" }, { status: 404 });
+  if (result.kind === "stale_preview") return NextResponse.json({ error: locale === "de" ? "Die Vorschau ist nicht mehr aktuell. Bitte erneut prüfen." : "The preview is out of date. Please review it again.", preview: result.preview }, { status: 409 });
+  return NextResponse.json({ success: true, removed: result.preview });
 }

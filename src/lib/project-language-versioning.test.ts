@@ -20,6 +20,10 @@ const mutationSource = readFileSync(
   path.join(process.cwd(), "src", "lib", "project-language-mutations.ts"),
   "utf8",
 );
+const removalSource = readFileSync(
+  path.join(process.cwd(), "src", "lib", "project-language-removal.ts"),
+  "utf8",
+);
 
 function methodBody(method: "POST" | "DELETE") {
   const marker = `export async function ${method}(`;
@@ -45,16 +49,9 @@ test("target-language POST rejects the authoritative project source language bef
   );
 });
 
-for (const method of ["POST", "DELETE"] as const) {
-  test(`${method} changes target languages and the project version with a guarded write`, () => {
-    const body = methodBody(method);
-
-    assert.match(
-      body,
-      method === "POST"
-        ? /addProjectTargetLanguages\(db,/
-        : /deleteProjectTargetLanguage\(db,/,
-    );
+test("POST changes target languages and the project version with a guarded write", () => {
+    const body = methodBody("POST");
+    assert.match(body, /addProjectTargetLanguages\(db,/);
     assert.match(mutationSource, /runProjectLanguageMutation\(/);
     assert.match(mutationSource, /lockProjectRuntimeConfiguration\(/);
     assert.match(
@@ -72,8 +69,7 @@ for (const method of ["POST", "DELETE"] as const) {
       /database\.projectLanguage\.(?:createMany|deleteMany)\(/,
     );
     assert.doesNotMatch(mutationSource, /database\.project\.update\(/);
-  });
-}
+});
 
 test("target-language mutations retry guarded writes at read-committed isolation", () => {
   assert.match(mutationSource, /async function runProjectLanguageMutation/);
@@ -84,20 +80,17 @@ test("target-language mutations retry guarded writes at read-committed isolation
   assert.match(mutationSource, /PROJECT_LANGUAGE_MUTATION_ATTEMPTS\s*=\s*3/);
 });
 
-test("DELETE removes the WordPress domain mapping in the same guarded mutation", () => {
-  const languageDelete = mutationSource.indexOf("tx.projectLanguage.deleteMany(");
-  const mappingDelete = mutationSource.indexOf("tx.projectDomainMapping.deleteMany(");
-  const versionWrite = mutationSource.lastIndexOf("tx.project.updateMany(");
-
+test("DELETE requires a fresh preview and removes the WordPress domain mapping in one locked transaction", () => {
+  assert.match(methodBody("DELETE"), /removeTargetLanguage\(db, projektId, parsed\.data\.langCode, parsed\.data\.confirmationToken\)/);
+  assert.match(removalSource, /lockProjectRuntimeConfiguration\(tx, projectId\)/);
+  assert.match(removalSource, /current\.confirmationToken !== confirmationToken/);
+  const languageDelete = removalSource.indexOf("tx.projectLanguage.deleteMany(");
+  const mappingDelete = removalSource.indexOf("tx.projectDomainMapping.deleteMany(");
   assert.notEqual(languageDelete, -1, "target language must be deleted");
   assert.notEqual(mappingDelete, -1, "its domain mapping must be deleted");
-  assert.notEqual(versionWrite, -1, "the guarded version write must remain");
-  assert.ok(
-    languageDelete < mappingDelete && mappingDelete < versionWrite,
-    "language and mapping deletes must precede the guarded version write",
-  );
+  assert.match(removalSource, /await deleteTargetData\(tx, projectId, langCode\);[\s\S]*?await tx\.project\.update\(/);
   assert.match(
-    mutationSource.slice(mappingDelete, versionWrite),
+    removalSource.slice(mappingDelete, languageDelete),
     /where:\s*\{\s*projectId,\s*langCode\s*\}/,
   );
 });

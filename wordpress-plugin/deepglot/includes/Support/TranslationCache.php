@@ -9,6 +9,7 @@ namespace Deepglot\Support;
  */
 class TranslationCache
 {
+    public const LANGUAGE_EPOCHS_OPTION = 'deepglot_language_cache_epochs';
     /** Prefix for pre-envelope plain-string values. */
     private const LEGACY_PREFIX = 'dg_';
     /** Prefix for versioned, ASCII-safe envelope values. */
@@ -33,6 +34,10 @@ class TranslationCache
             $decoded = is_string($value) ? $this->decodeEnvelope($value, $envelopeKey) : null;
 
             return is_string($decoded) && !$this->isBlank($decoded) ? $decoded : null;
+        }
+
+        if ($this->languageEpoch($targetLang) > 0) {
+            return null;
         }
 
         // Only a missing versioned key may fall back to the legacy plain
@@ -132,7 +137,17 @@ class TranslationCache
 
     private function envelopeKey(string $text, string $sourceLang, string $targetLang): string
     {
-        return self::ENVELOPE_KEY_PREFIX . sha1($sourceLang . '|' . $targetLang . '|' . $text);
+        $epoch = $this->languageEpoch($targetLang);
+        return self::ENVELOPE_KEY_PREFIX . sha1($sourceLang . '|' . $targetLang . '|' . $text . ($epoch > 0 ? '|' . $epoch : ''));
+    }
+
+    private function languageEpoch(string $targetLang): int
+    {
+        if (!function_exists('get_option')) {
+            return 0;
+        }
+        $epochs = get_option(self::LANGUAGE_EPOCHS_OPTION, []);
+        return is_array($epochs) ? max(0, (int) ($epochs[strtolower($targetLang)] ?? 0)) : 0;
     }
 
     private function isBlank(string $value): bool

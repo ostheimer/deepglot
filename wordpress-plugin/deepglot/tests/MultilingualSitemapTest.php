@@ -287,6 +287,15 @@ sitemapAssert(!str_contains($xml, 'evil.example') && !str_contains($xml, 'javasc
 $doc = new DOMDocument();
 sitemapAssert($doc->loadXML($xml) === true, 'Generated sitemap is well-formed XML');
 
+$visibilitySettings = get_option(Options::OPTION_KEY);
+$visibilitySettings['visible_target_languages'] = ['en'];
+update_option(Options::OPTION_KEY, $visibilitySettings);
+$hiddenXml = $pathSitemap->buildXml([['loc' => 'https://example.com/news/']]);
+sitemapAssert(!str_contains($hiddenXml, 'https://example.com/fr/news/'), 'Hidden target must be absent from sitemap URLs and alternates.');
+sitemapAssert(str_contains($hiddenXml, 'https://example.com/en/news/'), 'Visible target must remain in sitemap.');
+$visibilitySettings['visible_target_languages'] = null;
+update_option(Options::OPTION_KEY, $visibilitySettings);
+
 // 3b. Search engines need one <url><loc> entry per language version. Every
 // version must publish the exact same reciprocal alternate set, including
 // translated slugs, so no page is left out of the cluster.

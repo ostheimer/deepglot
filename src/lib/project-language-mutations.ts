@@ -111,43 +111,36 @@ export async function addProjectTargetLanguages(
   });
 }
 
-export async function deleteProjectTargetLanguage(
+export async function updateProjectTargetLanguage(
   database: PrismaClient,
   {
     projectId,
     langCode,
+    isActive,
+    isVisible,
+    automaticTranslation,
   }: {
     projectId: string;
     langCode: string;
+    isActive?: boolean;
+    isVisible?: boolean;
+    automaticTranslation?: boolean;
   },
-): Promise<boolean> {
+) {
   return runProjectLanguageMutation(database, async (tx) => {
-    if (!(await lockProjectRuntimeConfiguration(tx, projectId))) {
-      return false;
-    }
-
-    const project = await tx.project.findUnique({
-      where: { id: projectId },
-      select: { updatedAt: true },
-    });
-    if (!project) {
-      return false;
-    }
-
-    await tx.projectLanguage.deleteMany({
+    if (!(await lockProjectRuntimeConfiguration(tx, projectId))) return false;
+    const project = await tx.project.findUnique({ where: { id: projectId }, select: { originalLang: true, updatedAt: true } });
+    if (!project || project.originalLang.toLowerCase() === langCode) return false;
+    const changed = await tx.projectLanguage.updateMany({
       where: { projectId, langCode },
+      data: { isActive, isVisible, automaticTranslation },
     });
-    await tx.projectDomainMapping.deleteMany({
-      where: { projectId, langCode },
-    });
+    if (changed.count !== 1) return false;
     const versionWrite = await tx.project.updateMany({
       where: { id: projectId, updatedAt: project.updatedAt },
       data: { updatedAt: nextProjectUpdatedAt(project.updatedAt) },
     });
-    if (versionWrite.count !== 1) {
-      throw new ProjectLanguageMutationConflictError();
-    }
-
+    if (versionWrite.count !== 1) throw new ProjectLanguageMutationConflictError();
     return true;
   });
 }

@@ -177,7 +177,7 @@ class DynamicTranslationController
         // the nonce and public-endpoint rate limit remain mandatory.
         $nonceValid = (bool) wp_verify_nonce((string) $request->get_header('X-WP-Nonce'), 'wp_rest');
         $quotaTicket = trim((string) $request->get_header(self::QUOTA_TICKET_HEADER));
-        $forceCacheOnly = !$this->options->shouldAutomaticallyTranslate();
+        $forceCacheOnly = !$this->options->shouldAutomaticallyTranslateTarget($langTo);
         $allowApi = $nonceValid
             && (
                 $forceCacheOnly
@@ -248,7 +248,7 @@ class DynamicTranslationController
         $fresh = [];
         $quotaExhausted = false;
         $retryAfter = 0;
-        $forceCacheOnly = $forceCacheOnly ?? !$this->options->shouldAutomaticallyTranslate();
+        $forceCacheOnly = $forceCacheOnly ?? !$this->options->shouldAutomaticallyTranslateTarget($langTo);
 
         if ($allowApi && !empty($missing)) {
             // Budgets are denominated in words (what the SaaS bills), not

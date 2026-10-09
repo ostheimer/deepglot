@@ -128,7 +128,7 @@ class TranslationWarmer
         // The authenticated SaaS project owns this gate. Keep any already
         // cached translations readable, but never create fresh provider work
         // after runtime-config disabled automatic translation.
-        if (!$this->options->shouldAutomaticallyTranslate()) {
+        if (!$this->options->shouldAutomaticallyTranslateTarget($targetLang)) {
             return false;
         }
 
@@ -613,7 +613,7 @@ class TranslationWarmer
             }
 
             if (
-                !$this->options->shouldAutomaticallyTranslate()
+                !$this->options->shouldAutomaticallyTranslateTarget($targetLang)
                 || !$this->languagePairIsCurrent($sourceLang, $targetLang)
             ) {
                 if ($this->options->shouldAutomaticallyTranslate()) {
@@ -643,7 +643,8 @@ class TranslationWarmer
                 return;
             }
 
-            if (!$this->languagePairIsCurrent($sourceLang, $targetLang)) {
+            if (!$this->languagePairIsCurrent($sourceLang, $targetLang)
+                || !$this->options->shouldAutomaticallyTranslateTarget($targetLang)) {
                 $this->reconcileLanguageConfiguration(
                     $this->options->getSourceLanguage(),
                     $this->options->getTargetLanguages()

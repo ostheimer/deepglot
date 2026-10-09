@@ -166,6 +166,10 @@ function makeSwitcher(array $overrides = []): LanguageSwitcher
 $switcher = makeSwitcher();
 $html = $switcher->renderShortcode([]);
 
+$hiddenTargetHtml = makeSwitcher(['visible_target_languages' => ['en']])->renderShortcode([]);
+switcherRenderAssert(!str_contains($hiddenTargetHtml, 'hreflang="fr"'), 'Hidden target must be absent from the public switcher.');
+switcherRenderAssert(str_contains($hiddenTargetHtml, 'hreflang="en"'), 'Visible target must stay in the public switcher.');
+
 switcherRenderAssert(str_contains($html, 'deepglot-switcher--list'), 'Default render must be list style: ' . $html);
 switcherRenderAssert(str_contains($html, 'deepglot-switcher--flag-rectangle_mat'), 'Default flag style must be rectangle_mat: ' . $html);
 switcherRenderAssert(str_contains($html, 'class="deepglot-flag deepglot-flag--de"'), 'Flag span for de must render');

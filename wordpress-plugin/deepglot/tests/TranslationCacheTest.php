@@ -9,6 +9,11 @@
  */
 
 // Minimal WP stubs so the class can be loaded standalone.
+if (!function_exists('get_option')) {
+    function get_option($key, $default = false) {
+        return $GLOBALS['_deepglot_test_options'][$key] ?? $default;
+    }
+}
 if (!function_exists('get_transient')) {
     $GLOBALS['_transient_store'] = [];
     $GLOBALS['_transient_ttls'] = [];
@@ -116,6 +121,20 @@ function test_different_languages_do_not_collide(): void
     $cache->set('Hallo', 'de', 'fr', 'Bonjour');
     assert($cache->get('Hallo', 'de', 'en') === 'Hello', 'EN translation must be independent');
     assert($cache->get('Hallo', 'de', 'fr') === 'Bonjour', 'FR translation must be independent');
+}
+
+function test_removed_language_epoch_invalidates_only_its_cache(): void
+{
+    $GLOBALS['_deepglot_test_options'] = [];
+    $cache = new TranslationCache();
+    $cache->set('Hallo', 'de', 'en', 'Old English');
+    $cache->set('Hallo', 'de', 'fr', 'Bonjour');
+    $GLOBALS['_deepglot_test_options'][TranslationCache::LANGUAGE_EPOCHS_OPTION] = ['en' => 1];
+    assertCache($cache->get('Hallo', 'de', 'en') === null, 'Removed target must not read its old transient after reactivation.');
+    assertCache($cache->get('Hallo', 'de', 'fr') === 'Bonjour', 'Unrelated target cache must remain readable.');
+    $cache->set('Hallo', 'de', 'en', 'New English');
+    assertCache($cache->get('Hallo', 'de', 'en') === 'New English', 'Re-added target must use its new cache namespace.');
+    $GLOBALS['_deepglot_test_options'] = [];
 }
 
 function test_get_many_returns_only_cached(): void
@@ -361,6 +380,7 @@ $tests = [
     'test_cache_miss_returns_null',
     'test_set_then_get_returns_value',
     'test_different_languages_do_not_collide',
+    'test_removed_language_epoch_invalidates_only_its_cache',
     'test_get_many_returns_only_cached',
     'test_set_many_stores_all',
     'test_empty_translations_never_become_cache_hits',

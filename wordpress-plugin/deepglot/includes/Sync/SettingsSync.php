@@ -259,8 +259,33 @@ class SettingsSync
         $previousTargetLanguages = $this->warmer !== null
             ? $this->options->getTargetLanguages()
             : [];
+        $previousSettings = get_option(Options::OPTION_KEY, []);
+        $previousSettings = is_array($previousSettings) ? $previousSettings : [];
         $previousMedia = get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []);
         $applied = $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
+
+        if ($applied) {
+            $currentSettings = get_option(Options::OPTION_KEY, []);
+            $currentSettings = is_array($currentSettings) ? $currentSettings : [];
+            $removedTargets = array_diff(
+                (array) ($previousSettings['target_languages'] ?? []),
+                (array) ($currentSettings['target_languages'] ?? [])
+            );
+            if ($removedTargets !== []) {
+                $epochs = get_option('deepglot_language_cache_epochs', []);
+                $epochs = is_array($epochs) ? $epochs : [];
+                foreach ($removedTargets as $removedTarget) {
+                    $epochs[$removedTarget] = max(0, (int) ($epochs[$removedTarget] ?? 0)) + 1;
+                }
+                update_option('deepglot_language_cache_epochs', $epochs, false);
+            }
+            foreach (['source_language', 'target_languages', 'visible_target_languages', 'automatic_target_languages', 'automatic_translation'] as $runtimeKey) {
+                if (($previousSettings[$runtimeKey] ?? null) !== ($currentSettings[$runtimeKey] ?? null)) {
+                    $this->purgeMediaPageCaches();
+                    break;
+                }
+            }
+        }
 
         if ($previousMedia !== get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [])) {
             $this->purgeMediaPageCaches();

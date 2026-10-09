@@ -81,6 +81,8 @@ class Options
             'api_key' => '',
             'source_language' => 'de',
             'target_languages' => ['en'],
+            'visible_target_languages' => null,
+            'automatic_target_languages' => null,
             'auto_redirect' => false,
             // General project runtime values are read back from the authenticated
             // SaaS project. They are preserved across ordinary wp-admin saves and
@@ -216,6 +218,12 @@ class Options
         $targetLanguages = $sameRuntimeIdentity
             ? $this->normalizeLanguageList($storedSettings['target_languages'] ?? [])
             : $this->normalizeLanguageList($input['target_languages'] ?? []);
+        $visibleTargetLanguages = $sameRuntimeIdentity
+            ? array_values(array_intersect($targetLanguages, $this->normalizeLanguageList($storedSettings['visible_target_languages'] ?? $targetLanguages)))
+            : $targetLanguages;
+        $automaticTargetLanguages = $sameRuntimeIdentity
+            ? array_values(array_intersect($targetLanguages, $this->normalizeLanguageList($storedSettings['automatic_target_languages'] ?? $targetLanguages)))
+            : $targetLanguages;
         $autoRedirect = $sameRuntimeIdentity
             ? !empty($storedSettings['auto_redirect'])
             : !empty($input['auto_redirect']);
@@ -240,6 +248,8 @@ class Options
             'api_key' => $incomingApiKey,
             'source_language' => $sourceLanguage,
             'target_languages' => $targetLanguages,
+            'visible_target_languages' => $visibleTargetLanguages,
+            'automatic_target_languages' => $automaticTargetLanguages,
             'auto_redirect' => $autoRedirect,
             'display_ai_notice' => $displayAiNotice,
             'automatic_translation' => $automaticTranslation,
@@ -693,6 +703,22 @@ class Options
         $options = $this->all();
 
         return $options['target_languages'];
+    }
+
+    public function getVisibleTargetLanguages(): array
+    {
+        $options = $this->all();
+        return array_values(array_intersect(
+            $options['target_languages'],
+            is_array($options['visible_target_languages'] ?? null) ? $options['visible_target_languages'] : $options['target_languages']
+        ));
+    }
+
+    public function shouldAutomaticallyTranslateTarget(string $language): bool
+    {
+        $options = $this->all();
+        return $this->shouldAutomaticallyTranslate()
+            && in_array(strtolower($language), is_array($options['automatic_target_languages'] ?? null) ? $options['automatic_target_languages'] : $options['target_languages'], true);
     }
 
     public function isEnabled(): bool
@@ -1327,9 +1353,9 @@ class Options
 
     private function sanitizeLanguage(string $language): string
     {
-        $language = strtolower(trim($language));
+        $language = strtolower(str_replace('_', '-', trim($language)));
 
-        return preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/D', $language) === 1
+        return preg_match('/^[a-z]{2,3}(?:-[a-z]{4})?(?:-(?:[a-z]{2}|[0-9]{3}))?$/D', $language) === 1
             ? $language
             : '';
     }
@@ -1383,7 +1409,16 @@ class Options
         }
 
         $settings['source_language'] = $sourceLanguage;
+        $visibleTargetLanguages = $this->normalizeRuntimeLanguages($runtimeProject['visibleTargetLanguages'] ?? $targetLanguages);
+        $automaticTargetLanguages = $this->normalizeRuntimeLanguages($runtimeProject['automaticTargetLanguages'] ?? $targetLanguages);
+        if ($visibleTargetLanguages === null || $automaticTargetLanguages === null
+            || array_diff($visibleTargetLanguages, $targetLanguages) !== []
+            || array_diff($automaticTargetLanguages, $targetLanguages) !== []) {
+            return;
+        }
         $settings['target_languages'] = $targetLanguages;
+        $settings['visible_target_languages'] = $visibleTargetLanguages;
+        $settings['automatic_target_languages'] = $automaticTargetLanguages;
         $settings['auto_redirect'] = $runtimeProject['autoRedirect'];
         $settings['display_ai_notice'] = $runtimeProject['displayAiNotice'];
         $settings['automatic_translation'] = $runtimeProject['automaticTranslation'];
@@ -1397,9 +1432,9 @@ class Options
             return '';
         }
 
-        $language = strtolower(trim($value));
+        $language = strtolower(str_replace('_', '-', trim($value)));
 
-        return preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/D', $language) === 1
+        return preg_match('/^[a-z]{2,3}(?:-[a-z]{4})?(?:-(?:[a-z]{2}|[0-9]{3}))?$/D', $language) === 1
             ? $language
             : '';
     }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AddLanguageDialog } from "@/components/projekte/add-language-dialog";
+import { LanguageLifecycleManager } from "@/components/projekte/language-lifecycle-manager";
 import { Flag } from "lucide-react";
 import Link from "next/link";
 import { getRequestLocale } from "@/lib/request-locale";
@@ -82,11 +83,10 @@ export default async function SprachenPage({ params }: PageProps) {
         )}
       </div>
 
-      <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        {canManageLanguages
-          ? uiText(locale, "Removing languages and bulk actions are not available here yet. You can add target languages or open the URL view for each language.", "Sprachen entfernen und weitere Sammelaktionen sind hier noch nicht verfügbar. Du kannst Zielsprachen hinzufügen oder die URL-Ansicht pro Sprache öffnen.")
-          : uiText(locale, "Only project managers can add or remove languages. You can open the URL view for each language.", "Nur Projekt-Manager können Sprachen hinzufügen oder entfernen. Du kannst die URL-Ansicht pro Sprache öffnen.")}
-      </p>
+      {canManageLanguages ? <LanguageLifecycleManager projectId={projektId} languages={project.languages} /> :
+        <p className="mb-4 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600">
+          {locale === "de" ? "Nur Projekt-Manager können Zielsprachen ändern." : "Only project managers can change target languages."}
+        </p>}
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {/* Table Header */}

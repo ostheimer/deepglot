@@ -54,6 +54,7 @@ import {
   reportPostgresTextRejection,
 } from "@/lib/postgres-text";
 import { shouldCreateFreshTranslations } from "@/lib/automatic-translation";
+import { targetLocaleFallbacks } from "@/lib/project-language-lifecycle";
 import {
   lockAndValidateProjectLanguageWrite,
   lockProjectRuntimeConfiguration,
@@ -250,9 +251,12 @@ async function executeAuthenticatedTranslateRequest(
 
     // 4. Validate target language
     const project = apiKeyRecord.project;
+    const targetLanguage = project.languages.find((language) =>
+      language.isActive && language.langCode.toLowerCase() === l_to.toLowerCase(),
+    );
     let canCreateFreshTranslations = shouldCreateFreshTranslations({
       isBot,
-      automaticTranslation: project.settings?.automaticTranslation,
+      automaticTranslation: project.settings?.automaticTranslation === false || targetLanguage?.automaticTranslation === false ? false : true,
     });
     let providerSettings = project.settings;
     let providerName = isBot
@@ -310,6 +314,16 @@ async function executeAuthenticatedTranslateRequest(
         translation,
       ]),
     );
+    const fallbackLocales = targetLocaleFallbacks(l_to).slice(1);
+    const fallbackHashes = fallbackLocales.flatMap((locale) =>
+      texts.filter((text) => text?.trim()).map((text) => computeTranslationHash(text, l_from, locale)),
+    );
+    const fallbackTranslations = fallbackHashes.length > 0
+      ? await db.translation.findMany({
+          where: { projectId: project.id, originalHash: { in: fallbackHashes }, langFrom: l_from, langTo: { in: fallbackLocales } },
+        })
+      : [];
+    const fallbackByHash = new Map(fallbackTranslations.map((item) => [item.originalHash, item]));
     const translationMemoryByHash = project.settings?.translationMemory
       ? await findOrganizationTranslationMemory(db, {
           organizationId: project.organizationId,
@@ -374,6 +388,17 @@ async function executeAuthenticatedTranslateRequest(
         continue;
       }
 
+      // A regional variant may reuse existing parent content until an exact
+      // translation exists. Glossary-protected text keeps its variant rules.
+      const parentTranslation = !hasGlossaryProtection(protection)
+        ? fallbackLocales.map((locale) => fallbackByHash.get(computeTranslationHash(text, l_from, locale))).find(Boolean)
+        : undefined;
+      if (parentTranslation) {
+        translatedTexts[index] = parentTranslation.translatedText;
+        cachedWords += wordCount;
+        continue;
+      }
+
       pendingTranslations.push({
         index,
         hash,
@@ -396,7 +421,7 @@ async function executeAuthenticatedTranslateRequest(
           originalLang: true,
           languages: {
             where: { isActive: true },
-            select: { langCode: true },
+            select: { langCode: true, automaticTranslation: true },
           },
           settings: true,
         },
@@ -422,7 +447,7 @@ async function executeAuthenticatedTranslateRequest(
       providerSettings = currentRuntimeConfiguration?.settings ?? null;
       canCreateFreshTranslations = shouldCreateFreshTranslations({
         isBot,
-        automaticTranslation: providerSettings?.automaticTranslation,
+        automaticTranslation: providerSettings?.automaticTranslation === false || currentRuntimeConfiguration?.languages.find((language) => language.langCode.toLowerCase() === l_to.toLowerCase())?.automaticTranslation === false ? false : true,
       });
       providerName = canCreateFreshTranslations ? "cache" : "disabled";
     }
@@ -709,7 +734,7 @@ async function executeAuthenticatedTranslateRequest(
                 originalLang: true,
                 languages: {
                   where: { isActive: true },
-                  select: { langCode: true },
+                  select: { langCode: true, automaticTranslation: true },
                 },
                 settings: {
                   select: { automaticTranslation: true },
@@ -728,8 +753,8 @@ async function executeAuthenticatedTranslateRequest(
               return { kind: "language_configuration_changed" } as const;
             }
             if (
-              currentLanguageConfiguration.settings?.automaticTranslation ===
-              false
+              currentLanguageConfiguration.settings?.automaticTranslation === false ||
+              currentLanguageConfiguration.languages.find((language) => language.langCode.toLowerCase() === l_to.toLowerCase())?.automaticTranslation === false
             ) {
               return { kind: "automatic_translation_disabled" } as const;
             }
@@ -936,7 +961,7 @@ async function executeAuthenticatedTranslateRequest(
     });
 
     if (pendingTranslations.length === 0 || !canCreateFreshTranslations) {
-      await db.$transaction(async (tx) => {
+      const languageStillActive = await db.$transaction(async (tx) => {
         const languageConfigurationIsCurrent =
           await lockAndValidateProjectLanguageWrite(tx, {
             projectId: project.id,
@@ -944,9 +969,7 @@ async function executeAuthenticatedTranslateRequest(
             targetLanguages: [l_to],
           });
         if (!languageConfigurationIsCurrent) {
-          // Cached translations are still safe to serve. Skip context and
-          // analytics whose language identity became stale during this request.
-          return;
+          return false;
         }
 
         // WordPress also marks human cache-only loads as OTHER. Context is an
@@ -966,7 +989,7 @@ async function executeAuthenticatedTranslateRequest(
           hashes,
           words,
         });
-        if (isBot) return;
+        if (isBot) return true;
 
         await recordTranslationBatch(
           {
@@ -991,7 +1014,11 @@ async function executeAuthenticatedTranslateRequest(
           wordCount: totalWords,
           tx,
         });
+        return true;
       });
+      if (!languageStillActive) {
+        return apiProblem({ status: 409, title: "Project language configuration changed", detail: "The target language was paused or removed while this request was prepared.", code: "project_language_configuration_changed", instance: "/api/translate" });
+      }
     }
 
     // 9. Return the drop-in-compatible response format.

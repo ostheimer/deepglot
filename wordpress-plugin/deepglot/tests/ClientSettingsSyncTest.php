@@ -225,6 +225,8 @@ $GLOBALS['_deepglot_runtime_response'] = [
         'version' => '2026-08-25T13:00:00.000Z',
         'sourceLanguage' => 'fr',
         'targetLanguages' => ['it'],
+        'visibleTargetLanguages' => [],
+        'automaticTargetLanguages' => [],
         'autoRedirect' => false,
         'displayAiNotice' => true,
         'automaticTranslation' => false,
@@ -251,6 +253,8 @@ settingsSyncCheck(
     ($newRuntimeSettings['api_key'] ?? null) === 'dg_live_new_project'
         && ($newRuntimeSettings['source_language'] ?? null) === 'fr'
         && ($newRuntimeSettings['target_languages'] ?? null) === ['it']
+        && ($newRuntimeSettings['visible_target_languages'] ?? null) === []
+        && ($newRuntimeSettings['automatic_target_languages'] ?? null) === []
         && ($newRuntimeSettings['auto_redirect'] ?? null) === false
         && ($newRuntimeSettings['saas_project_version'] ?? null) === '2026-08-25T13:00:00.000Z',
     'The new project runtime readback must replace bootstrap mirrors and establish the new SaaS version.'
