@@ -135,3 +135,45 @@ test("owner can release an UNKNOWN hold only through explicit verified review", 
     await db.aiBudget.delete({ where: { id: budget.id } });
   }
 });
+
+test("current-period budget threshold is delivered in both dashboard locales only to managers", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const session = await (await page.request.get("/api/auth/session")).json() as { user?: { id?: string } };
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId }, select: { organizationId: true } });
+  const key = { userId: session.user!.id!, organizationId: project.organizationId };
+  const membership = await db.organizationMember.findUniqueOrThrow({ where: { userId_organizationId: key } });
+  const periodKey = new Date().getUTCFullYear() * 100 + new Date().getUTCMonth() + 1;
+  const budget = await db.aiBudget.create({ data: { organizationId: project.organizationId,
+    currency: "USD", capMicros: BigInt(1000000), perCallCapMicros: BigInt(1000000),
+    warningPercent: 80, period: "MONTHLY_UTC", approvedByUserId: key.userId } });
+  const reservation = await db.aiSpendReservation.create({ data: {
+    organizationId: project.organizationId, projectId, requestKeyHash: `alert-${budget.id}`,
+    requestGroupHash: `alert-group-${budget.id}`, dispatchId: budget.id,
+    actorKind: "USER", actorId: key.userId, action: "TRANSLATION",
+    provider: "mock", model: "mock", currency: "USD", periodKey, state: "SETTLED",
+    reservedMicros: BigInt(800000), reconciledCeilingMicros: BigInt(800000),
+    estimatedInputUnits: 1, maxOutputUnits: 0, orgInputMicrosPerMillion: BigInt(0),
+    orgOutputMicrosPerMillion: BigInt(0), projectInputMicrosPerMillion: BigInt(0),
+    projectOutputMicrosPerMillion: BigInt(0), unit: "TOKEN",
+  } });
+  const event = await db.aiBudgetEvent.create({ data: { organizationId: project.organizationId,
+    budgetId: budget.id, kind: "WARNING_REACHED", periodKey, threshold: 80 } });
+  try {
+    await page.goto("/dashboard");
+    const english = page.getByRole("region", { name: "AI budget alerts" });
+    await expect(english).toContainText("Warning threshold reached");
+    await expect(english).toContainText("USD 0.800000/1.000000");
+    await page.goto("/de/dashboard");
+    const german = page.getByRole("region", { name: "KI-Budgetwarnungen" });
+    await expect(german).toContainText("Warnschwelle erreicht");
+    await expect(german).toContainText("USD 0.800000/1.000000");
+    await db.organizationMember.update({ where: { userId_organizationId: key }, data: { role: "MEMBER" } });
+    await page.reload();
+    await expect(page.getByRole("region", { name: "KI-Budgetwarnungen" })).toHaveCount(0);
+  } finally {
+    await db.organizationMember.update({ where: { userId_organizationId: key }, data: { role: membership.role } });
+    await db.aiBudgetEvent.delete({ where: { id: event.id } });
+    await db.aiSpendReservation.delete({ where: { id: reservation.id } });
+    await db.aiBudget.delete({ where: { id: budget.id } });
+  }
+});

@@ -113,6 +113,9 @@ test("only an owner can release UNKNOWN with an auditable verified reference", {
       actorKind: "API_KEY", actorId: key.id, action: "TRANSLATION",
       sourceLang: "de", targetLang: "en", expectedSettingsUpdatedAt: null,
       provider: "mock", model: "mock", input: { texts: ["Hallo"] } });
+    await assert.rejects(() => resolveUnknownAiSpend({ organizationId: id, projectId: project.id,
+      reservationId: approval.reservationId, ownerUserId: user.id, kind: "VERIFIED_NO_CHARGE",
+      evidenceReference: "credit-before-provider-completion" }), { code: "settlement_unavailable" });
     await settleAiSpend(approval.reservationId);
     const base = { organizationId: id, projectId: project.id, reservationId: approval.reservationId,
       ownerUserId: user.id, kind: "VERIFIED_USAGE" as const, evidenceReference: "provider-receipt-123" };

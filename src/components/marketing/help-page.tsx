@@ -156,6 +156,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
               ? "Preflight-Schätzungen sind unverbindliche Obergrenzen; vor jedem Anbieteraufruf wird erneut atomar reserviert. Fehlende oder veraltete Preise, unbekannte Usage und nicht freigegebene Fallback-Modelle werden konservativ behandelt. Das Wortkontingent des Tarifs ist kein Anbieterbudget. Deepglot kauft keine Credits und erhöht weder Budget noch Tarif automatisch."
               : "Preflight estimates are indicative ceilings; each provider call repeats authorization and reserves atomically. Missing or expired prices, unknown usage, and unapproved fallback models are handled conservatively. A plan's word quota is not a provider budget. Deepglot does not buy credits or automatically raise a budget or plan."}</p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Warnschwellen und erreichte Limits erscheinen für Workspace-Inhaber und -Admins in der Übersicht mit aktuellem Budgetstand. Unbekannte Nutzung behält ihre volle Reservierung. Erst nach unabhängig geprüftem Anbieterbeleg oder Gutschrift kann ein Inhaber sie im Projekt ausdrücklich und protokolliert auflösen. Eine E-Mail-Zustellung wird dafür nicht behauptet."
+              : "Threshold and cap alerts appear for workspace owners and admins on the overview with the current budget balance. Unknown usage retains its full hold. Only after independently checking a provider receipt or credit can an owner explicitly resolve it in the project with an audit record. This does not imply an email was sent."}</p>
           </section>
 
           <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">
