@@ -81,7 +81,7 @@ export async function changeWorkspaceMember(input: {
         const user = await tx.user.findUnique({ where: { id: input.targetUserId }, select: { email: true } });
         await tx.projectMember.deleteMany({ where: { userId: input.targetUserId,
           project: { organizationId: input.workspaceId } } });
-        if (user?.email) await tx.projectInvitation.deleteMany({ where: { email: user.email,
+        if (user?.email) await tx.projectInvitation.deleteMany({ where: { email: { equals: user.email, mode: "insensitive" },
           acceptedAt: null, project: { organizationId: input.workspaceId } } });
         await tx.organizationMember.delete({ where: { id: target.id } });
       }

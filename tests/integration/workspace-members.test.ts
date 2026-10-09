@@ -79,7 +79,7 @@ test("workspace revocation linearizes with a project write after its permission 
     await db.projectMember.create({ data: { projectId: project.id, userId: admin.id,
       email: admin.email, role: "ADMIN" } });
     await db.projectInvitation.create({ data: { projectId: project.id, inviterId: owner.id,
-      email: admin.email, tokenHash: `revocation-${suffix}`, expiresAt: new Date(Date.now() + 86_400_000) } });
+      email: admin.email.toUpperCase(), tokenHash: `revocation-${suffix}`, expiresAt: new Date(Date.now() + 86_400_000) } });
     const write = db.$transaction(async (tx) => {
       assert.equal(await canManageProjectForWrite(tx, admin.id, project.id), true);
       reportAuthorized();
@@ -104,7 +104,7 @@ test("workspace revocation linearizes with a project write after its permission 
     assert.equal(await db.organizationMember.count({ where: { userId: admin.id, organizationId: workspace.id } }), 0);
     const stillManaged = await db.$transaction((tx) => canManageProjectForWrite(tx, admin.id, project.id));
     assert.equal(stillManaged, false, "removing a workspace member also revokes their project grant");
-    assert.equal(await db.projectInvitation.count({ where: { projectId: project.id, email: admin.email,
+    assert.equal(await db.projectInvitation.count({ where: { projectId: project.id, email: { equals: admin.email, mode: "insensitive" },
       acceptedAt: null } }), 0);
   } finally {
     await db.project.delete({ where: { id: project.id } });
