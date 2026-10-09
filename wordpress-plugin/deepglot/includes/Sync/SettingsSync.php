@@ -14,6 +14,8 @@ class SettingsSync
     private const RUNTIME_REFRESH_LOCK_TTL = 60;
     private const RUNTIME_REFRESH_FAILURE_BACKOFF = 60;
     private const CACHE_INVALIDATION_CURSOR_OPTION = 'deepglot_url_cache_invalidation_cursor';
+    private const CACHE_INVALIDATION_DRAIN_HOOK = 'deepglot_drain_cache_invalidations';
+    private const MAX_BACKGROUND_INVALIDATION_PAGES = 2;
 
     /** In-process fallback for isolated callers without WordPress option storage. */
     private static ?string $runtimeRefreshProcessLock = null;
@@ -36,6 +38,7 @@ class SettingsSync
     public function register(): void
     {
         add_action('update_option_' . Options::OPTION_KEY, [$this, 'handleOptionUpdate'], 10, 2);
+        add_action(self::CACHE_INVALIDATION_DRAIN_HOOK, [$this, 'drainCacheInvalidationsInBackground']);
     }
 
     public function handleOptionUpdate($oldValue, $newValue): void
@@ -315,7 +318,11 @@ class SettingsSync
         }
 
         if ($applied) {
-            $this->applyCacheInvalidations($runtimeConfig, $identity, $cacheAfter);
+            if ($this->applyCacheInvalidations($runtimeConfig, $identity, $cacheAfter)
+                && !empty($runtimeConfig['cacheInvalidations']['hasMore'])
+                && $apiKeyOverride === null && $baseUrlOverride === null) {
+                $this->scheduleCacheInvalidationDrain($identity);
+            }
             delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
 
             if ($this->warmer !== null) {
@@ -339,25 +346,89 @@ class SettingsSync
         return $runtimeConfig;
     }
 
+    /** Keep follow-up SaaS requests off the visitor request that refreshed settings. */
+    private function scheduleCacheInvalidationDrain(string $identity, int $delay = 1): void
+    {
+        if (!function_exists('wp_next_scheduled') || !function_exists('wp_schedule_single_event')) return;
+        $args = [$identity];
+        if (!wp_next_scheduled(self::CACHE_INVALIDATION_DRAIN_HOOK, $args)) {
+            wp_schedule_single_event(time() + $delay, self::CACHE_INVALIDATION_DRAIN_HOOK, $args);
+        }
+    }
+
+    /** WP-Cron processes at most two pages per invocation and reschedules remaining work. */
+    public function drainCacheInvalidationsInBackground(string $identity): void
+    {
+        if (Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) return;
+        $lockToken = $this->createRuntimeRefreshLockToken();
+        if (!$this->acquireRuntimeRefreshLock($lockToken)) {
+            $this->scheduleCacheInvalidationDrain($identity, 60);
+            return;
+        }
+        try {
+            for ($page = 0; $page < self::MAX_BACKGROUND_INVALIDATION_PAGES; $page++) {
+                if (Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) return;
+                $record = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
+                if (!is_array($record) || ($record['identity'] ?? '') !== $identity) return;
+                $cursor = (string) ($record['cursor'] ?? '');
+                if (preg_match('/^\d{1,20}$/D', $cursor) !== 1) return;
+                $runtimeConfig = $this->client->fetchRuntimeConfig();
+                if (Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) return;
+                if (is_wp_error($runtimeConfig) || !is_array($runtimeConfig)
+                    || !$this->applyCacheInvalidations($runtimeConfig, $identity, $cursor)) {
+                    $this->scheduleCacheInvalidationDrain($identity, 60);
+                    return;
+                }
+                if (empty($runtimeConfig['cacheInvalidations']['hasMore'])) return;
+                $advanced = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
+                if (!is_array($advanced) || ($advanced['identity'] ?? '') !== $identity
+                    || (int) ($advanced['cursor'] ?? 0) <= (int) $cursor) return;
+            }
+            $this->scheduleCacheInvalidationDrain($identity);
+        } finally {
+            $this->releaseRuntimeRefreshLock($lockToken);
+        }
+    }
+
     /** Apply only explicit digest events after the matching runtime snapshot was accepted. */
-    private function applyCacheInvalidations(array $runtimeConfig, string $identity, string $cursor): void
+    private function applyCacheInvalidations(array $runtimeConfig, string $identity, string $cursor): bool
     {
         $batch = $runtimeConfig['cacheInvalidations'] ?? null;
         if (!is_array($batch) || !is_array($batch['entries'] ?? null) || count($batch['entries']) > 250) {
-            return;
+            return false;
+        }
+        $nextCursor = $cursor;
+        $targetLanguages = [];
+        $hasLegacyTarget = false;
+        foreach ($batch['entries'] as $entry) {
+            if (!is_array($entry)) return false;
+            $id = (string) ($entry['id'] ?? '');
+            $digest = (string) ($entry['cacheKey'] ?? '');
+            if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $nextCursor) {
+                return false;
+            }
+            if (!array_key_exists('targetLang', $entry) || $entry['targetLang'] === null) {
+                $hasLegacyTarget = true;
+            } elseif (!is_string($entry['targetLang']) || preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/D', $entry['targetLang']) !== 1) {
+                return false;
+            } else {
+                $targetLanguages[$entry['targetLang']] = true;
+            }
+            $nextCursor = $id;
         }
         $cache = new TranslationCache();
         foreach ($batch['entries'] as $entry) {
-            if (!is_array($entry)) return;
-            $id = (string) ($entry['id'] ?? '');
-            $digest = (string) ($entry['cacheKey'] ?? '');
-            if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $cursor) {
-                return;
-            }
-            if (!$cache->deleteByDigest($digest)) return;
-            $cursor = $id;
-            update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $cursor], false);
+            $digest = (string) $entry['cacheKey'];
+            if (!$cache->deleteByDigest($digest)) return false;
         }
+        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs(
+            $hasLegacyTarget ? null : array_keys($targetLanguages), $identity, $nextCursor)) return false;
+        if ($batch['entries'] !== []) $this->purgeMediaPageCaches();
+        if ($nextCursor !== $cursor) {
+            update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $nextCursor], false);
+            if (get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []) !== ['identity' => $identity, 'cursor' => $nextCursor]) return false;
+        }
+        return true;
     }
 
     /** A mapping may occur on any page, so known full-page caches need a site-wide purge. */

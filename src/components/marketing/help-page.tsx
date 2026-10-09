@@ -115,6 +115,7 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#translation-workspace" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Übersetzungs-Workspace" : "Translation workspace"}
             </a>
+            <a href="#xliff" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">XLIFF</a>
             <a href="#wordpress-warmup" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "WordPress-Aufwärmung" : "WordPress warm-up"}
             </a>
@@ -181,6 +182,13 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                 ? "Nach der Freischaltung wählen Projektverantwortliche Segmente und Zielsprache aus, prüfen Preis und Lieferzeit und nehmen ein Angebot ausdrücklich an. Gelieferte Texte bleiben zunächst Entwürfe. Nach der ausdrücklichen Übernahme durchlaufen sie den normalen Review- und Freigabeprozess."
                 : "After launch, project managers will select segments and a target language, review price and turnaround, and explicitly accept a quote. Delivered text remains a draft. After explicit adoption it follows the normal review and approval flow."}
             </p>
+          </section>
+
+          <section id="xliff" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold">{de ? "Übersetzungen mit XLIFF austauschen" : "Exchange translations with XLIFF"}</h2>
+            <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Unter Projekt → Übersetzungen → Import & Export kannst du XLIFF 1.2 pro Zielsprache herunterladen und hochladen. Die Datei gehört genau zu diesem Projekt und Sprachpaar. Bis zu 4 MB und 5.000 Segmente sind erlaubt. Variablen und HTML bleiben als Text erhalten. Bei einem Segmentfehler oder Konflikt wird nichts importiert; vorhandene manuelle und freigegebene Texte werden geschützt. Freigaben aus einer Datei übernimmt nur eine Projektverwaltung nach ausdrücklicher Bestätigung."
+              : "Under Project → Translations → Import & Export, download and upload XLIFF 1.2 per target language. Each file belongs to one project and language pair. The limit is 4 MB and 5,000 segments. Variables and HTML remain as text. Any segment error or conflict rejects the full import; existing manual and approved text is protected. File approvals require explicit confirmation by a project manager."}</p>
           </section>
 
           <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">

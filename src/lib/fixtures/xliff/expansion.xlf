@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xliff [<!ENTITY a "ha"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;">]>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2"><file original="project-a" source-language="de" target-language="en" datatype="plaintext"><body><trans-unit id="unused" approved="no"><source>&b;</source><target>test</target></trans-unit></body></file></xliff>

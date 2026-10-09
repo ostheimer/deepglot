@@ -266,7 +266,8 @@ test("manager preview, provider charge, idempotent replay, scoped deletion and o
     const runtime = await page.request.get("/api/plugin/runtime-config?cache_after=0", { headers: { Authorization: `Bearer ${rawKey}` } });
     expect(runtime.status(), await runtime.text()).toBe(200);
     const feed = (await runtime.json()).cacheInvalidations.entries;
-    expect(feed.some((item: { cacheKey: string }) => item.cacheKey === createHash("sha1").update(`de|en|${marker}`).digest("hex"))).toBe(true);
+    expect(feed.some((item: { cacheKey: string; targetLang: string | null }) =>
+      item.cacheKey === createHash("sha1").update(`de|en|${marker}`).digest("hex") && item.targetLang === "en")).toBe(true);
     expect(JSON.stringify(feed)).not.toContain(marker);
     const usage = await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } });
     expect((usage._sum.words ?? 0) - (beforeUsage._sum.words ?? 0)).toBe(preview.billableWords);

@@ -16,7 +16,8 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        # Docker Hub's anonymous pull limit can block CI before checkout.
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
