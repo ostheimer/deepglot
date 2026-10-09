@@ -47,12 +47,14 @@ test("real PostgreSQL claim serializes concurrent usage producers and preserves 
     await db.usageRecord.create({ data: { organizationId: org.id, projectId: project.id, month: 202610, words: 22500 } });
     const inputs = { stripeClient, env };
     assert.equal(await maybeAutoUpgradeAfterUsage(org.id, 202610, inputs), "disabled");
-    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "BUSINESS", maxPriceCents: 2500 } });
+    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "BUSINESS", maxPriceCents: 2500, updatedByUserId: owner.id } });
     const outcomes = await Promise.all(Array.from({ length: 5 }, () => maybeAutoUpgradeAfterUsage(org.id, 202610, inputs)));
     assert.equal(outcomes.filter((outcome) => outcome === "payment_pending").length, 1);
     assert.equal(updates, 1);
     assert.equal(new Set(keys).size, 1);
     const attempt = await db.autoUpgradeAttempt.findFirstOrThrow({ where: { organizationId: org.id } });
+    assert.equal(await db.billingCommand.count({ where: { workspaceId: org.id, action: "AUTO_UPGRADE", actorUserId: owner.id,
+      actorRole: "OWNER", targetRef: env.STRIPE_PRICE_BUSINESS_MONTHLY, id: attempt.billingCommandId ?? undefined } }), 1);
     assert.equal(attempt.status, "PAYMENT_PENDING");
     assert.equal(await db.autoUpgradeNotification.count({ where: { attemptId: attempt.id, kind: "ATTEMPTED", userId: owner.id } }), 1);
     assert.equal(await db.autoUpgradeNotification.count({ where: { attemptId: attempt.id, kind: "PAYMENT_ACTION_REQUIRED", userId: owner.id } }), 1);
@@ -104,7 +106,7 @@ test("unknown response retries the same key once, and an expired pending payment
     const project = await db.project.create({ data: { name: "Retry project", domain: `auto269-retry-${suffix}.invalid`, organizationId: org.id } });
     await db.subscription.create({ data: { organizationId: org.id, stripeCustomerId: customerId, stripeSubscriptionId: subId,
       stripePriceId: env.STRIPE_PRICE_STARTER_MONTHLY, status: "ACTIVE", plan: "STARTER", wordsLimit: 25000 } });
-    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "BUSINESS", maxPriceCents: 2500 } });
+    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "BUSINESS", maxPriceCents: 2500, updatedByUserId: owner.id } });
     await db.usageRecord.create({ data: { organizationId: org.id, projectId: project.id, month: 202610, words: 23000 } });
     const start = new Date();
     const input = { stripeClient, env };
@@ -153,7 +155,7 @@ test("legacy PROFESSIONAL plan applies a paid PRO to ADVANCED upgrade atomically
     const project = await db.project.create({ data: { name: "Legacy project", domain: `auto269-legacy-${suffix}.invalid`, organizationId: org.id } });
     await db.subscription.create({ data: { organizationId: org.id, stripeCustomerId: customerId, stripeSubscriptionId: subId,
       stripePriceId: proPrice, status: "ACTIVE", plan: "PROFESSIONAL", wordsLimit: 200000 } });
-    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "ADVANCED", maxPriceCents: 25900 } });
+    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "ADVANCED", maxPriceCents: 25900, updatedByUserId: owner.id } });
     await db.usageRecord.create({ data: { organizationId: org.id, projectId: project.id, month: 202610, words: 180000 } });
     await maybeAutoUpgradeAfterUsage(org.id, 202610, { stripeClient, env: { STRIPE_PRICE_PRO_MONTHLY: proPrice, STRIPE_PRICE_ADVANCED_MONTHLY: advancedPrice } });
     const attempt = await db.autoUpgradeAttempt.findFirstOrThrow({ where: { organizationId: org.id } });
@@ -170,6 +172,79 @@ test("legacy PROFESSIONAL plan applies a paid PRO to ADVANCED upgrade atomically
     assert.equal((await db.subscription.findUniqueOrThrow({ where: { organizationId: org.id } })).wordsLimit, 1000000);
     assert.equal((await db.autoUpgradeAttempt.findUniqueOrThrow({ where: { id: attempt.id } })).status, "APPLIED");
     assert.equal(await verifyAndApplyPaidAutoUpgrade(subId, "in_legacy_269", stripeClient), false);
+  } finally {
+    await db.organization.delete({ where: { id: org.id } });
+    await db.user.delete({ where: { id: owner.id } });
+  }
+});
+
+test("revoked opt-in owner cannot authorize a Stripe dispatch after validation", async () => {
+  const suffix = randomUUID();
+  const owner = await db.user.create({ data: { email: `auto269-revoked-${suffix}@example.invalid` } });
+  const successor = await db.user.create({ data: { email: `auto269-newowner-${suffix}@example.invalid` } });
+  const org = await db.organization.create({ data: { name: "Role race", slug: `auto269-role-${suffix}`, plan: "STARTER" } });
+  const customerId = `cus_${suffix.replaceAll("-", "")}`;
+  const subId = `sub_${suffix.replaceAll("-", "")}`;
+  let updates = 0;
+  let revoked = false;
+  const stripeClient = { subscriptions: { retrieve: async () => ({ id: subId, status: "active", customer: customerId,
+    collection_method: "charge_automatically", cancel_at_period_end: false, cancel_at: null, pending_update: null,
+    schedule: null, items: { data: [{ id: "si_role", quantity: 1, price: { id: env.STRIPE_PRICE_STARTER_MONTHLY } }] } }),
+    update: async () => { updates++; throw new Error("must not dispatch"); } },
+  prices: { retrieve: async (id: string) => {
+    if (!revoked) {
+      revoked = true;
+      await db.organizationMember.update({ where: { userId_organizationId: { userId: owner.id, organizationId: org.id } }, data: { role: "MEMBER" } });
+    }
+    return price(id, id === env.STRIPE_PRICE_STARTER_MONTHLY ? 1300 : 2500);
+  } } } as unknown as AutoUpgradeStripe;
+  try {
+    await db.organizationMember.createMany({ data: [
+      { userId: owner.id, organizationId: org.id, role: "OWNER" },
+      { userId: successor.id, organizationId: org.id, role: "OWNER" },
+    ] });
+    const project = await db.project.create({ data: { name: "Role project", domain: `auto269-role-${suffix}.invalid`, organizationId: org.id } });
+    await db.subscription.create({ data: { organizationId: org.id, stripeCustomerId: customerId, stripeSubscriptionId: subId,
+      stripePriceId: env.STRIPE_PRICE_STARTER_MONTHLY, status: "ACTIVE", plan: "STARTER", wordsLimit: 25000 } });
+    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: true, maxPlan: "BUSINESS",
+      maxPriceCents: 2500, updatedByUserId: owner.id } });
+    await db.usageRecord.create({ data: { organizationId: org.id, projectId: project.id, month: 202610, words: 23000 } });
+    assert.equal(await maybeAutoUpgradeAfterUsage(org.id, 202610, { stripeClient, env }), "canceled");
+    assert.equal(updates, 0);
+    assert.equal(await db.billingCommand.count({ where: { workspaceId: org.id, action: "AUTO_UPGRADE" } }), 0);
+    assert.equal((await db.autoUpgradeAttempt.findFirstOrThrow({ where: { organizationId: org.id } })).status, "CANCELED");
+  } finally {
+    await db.organization.delete({ where: { id: org.id } });
+    await db.user.deleteMany({ where: { id: { in: [owner.id, successor.id] } } });
+  }
+});
+
+test("opt-out holds a dispatched unknown Stripe outcome for review without another paid call", async () => {
+  const suffix = randomUUID();
+  const owner = await db.user.create({ data: { email: `auto269-held-${suffix}@example.invalid` } });
+  const org = await db.organization.create({ data: { name: "Held unknown", slug: `auto269-held-${suffix}`, plan: "STARTER" } });
+  const old = new Date(Date.now() - 11 * 60_000);
+  let updates = 0;
+  const stripeClient = { subscriptions: { retrieve: async () => ({ id: "sub_held", status: "active",
+    items: { data: [{ price: { id: env.STRIPE_PRICE_STARTER_MONTHLY } }] }, pending_update: null }),
+    update: async () => { updates++; throw new Error("must not retry after opt-out"); } } } as unknown as AutoUpgradeStripe;
+  try {
+    await db.organizationMember.create({ data: { userId: owner.id, organizationId: org.id, role: "OWNER" } });
+    await db.autoUpgradePreference.create({ data: { organizationId: org.id, enabled: false,
+      maxPlan: "BUSINESS", maxPriceCents: 2500, updatedByUserId: owner.id } });
+    const command = await db.billingCommand.create({ data: { workspaceId: org.id, actorUserId: owner.id,
+      actorRole: "OWNER", action: "AUTO_UPGRADE", targetRef: env.STRIPE_PRICE_BUSINESS_MONTHLY } });
+    const attempt = await db.autoUpgradeAttempt.create({ data: { organizationId: org.id, month: 202610,
+      fromPlan: "STARTER", toPlan: "BUSINESS", fromPriceId: env.STRIPE_PRICE_STARTER_MONTHLY,
+      toPriceId: env.STRIPE_PRICE_BUSINESS_MONTHLY, interval: "monthly", maxPriceCents: 2500,
+      usedWords: 23000, status: "DISPATCHING", stripeSubscriptionId: "sub_held", stripeItemId: "si_held",
+      billingCommandId: command.id, claimedAt: old } });
+    const result = await reconcileAutoUpgradeAttempts({ stripeClient, now: new Date() });
+    assert.equal(result.results.disabled, 1);
+    assert.equal(updates, 0);
+    assert.equal((await db.autoUpgradeAttempt.findUniqueOrThrow({ where: { id: attempt.id } })).status, "UNKNOWN");
+    assert.equal(await db.autoUpgradeNotification.count({ where: { attemptId: attempt.id, kind: "RECONCILE_REQUIRED", userId: owner.id } }), 1);
+    assert.equal((await reconcileAutoUpgradeAttempts({ stripeClient })).inspected, 0);
   } finally {
     await db.organization.delete({ where: { id: org.id } });
     await db.user.delete({ where: { id: owner.id } });

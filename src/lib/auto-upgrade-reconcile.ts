@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { maybeAutoUpgradeAfterUsage, type AutoUpgradeClient, type AutoUpgradeStripe } from "@/lib/auto-upgrade";
+import { maybeAutoUpgradeAfterUsage, notifyOwners, type AutoUpgradeClient, type AutoUpgradeStripe } from "@/lib/auto-upgrade";
 
 /** Bounded scheduler producer: resolves in-flight attempts even if translation traffic stops. */
 export async function reconcileAutoUpgradeAttempts(dependencies: { client?: AutoUpgradeClient; stripeClient?: AutoUpgradeStripe; now?: Date; env?: Record<string, string | undefined> } = {}) {
@@ -15,13 +15,12 @@ export async function reconcileAutoUpgradeAttempts(dependencies: { client?: Auto
       if (["disabled", "configuration_changed", "ineligible"].includes(outcome) && attempt.status === "DISPATCHING") {
         const row = await client.autoUpgradeAttempt.findUnique({ where: { id: attempt.id } });
         if (row && now.getTime() - row.claimedAt.getTime() > 10 * 60_000) {
-          // A revoked preference or changed billing context forbids another
-          // paid request. A changed remote state needs manual invoice binding.
-          const stripeClient = dependencies.stripeClient ?? (await import("@/lib/stripe")).stripe;
-          const remote = await stripeClient.subscriptions.retrieve(row.stripeSubscriptionId);
-          const unchanged = !remote.pending_update && remote.items.data[0]?.price.id === row.fromPriceId;
+          // DISPATCHING may have reached Stripe even when a later read still
+          // looks unchanged. Never release an unknown external outcome as a
+          // canceled attempt, and never issue a different key after opt-out.
           await client.autoUpgradeAttempt.updateMany({ where: { id: row.id, status: "DISPATCHING" },
-            data: { status: unchanged ? "CANCELED" : "UNKNOWN", errorCode: unchanged ? "DISPATCH_CONTEXT_CHANGED" : "UNBOUND_EXTERNAL_CHANGE" } });
+            data: { status: "UNKNOWN", errorCode: "DISPATCH_CONTEXT_CHANGED" } });
+          await notifyOwners(client, row.id, row.organizationId, "RECONCILE_REQUIRED");
         }
       }
     } catch (error) {

@@ -6,7 +6,7 @@ import { isRealStripeCustomerId } from "@/lib/billing";
 import { chooseAutoUpgrade } from "@/lib/auto-upgrade-policy";
 import { paidInvoiceMatchesAttempt, type UpgradeInvoiceProof, type UpgradeRemoteSubscription } from "@/lib/auto-upgrade-invoice";
 
-export type AutoUpgradeClient = Pick<PrismaClient, "$transaction" | "organization" | "subscription" | "autoUpgradeAttempt" | "autoUpgradePreference" | "organizationMember" | "usageRecord" | "autoUpgradeNotification">;
+export type AutoUpgradeClient = Pick<PrismaClient, "$transaction" | "organization" | "subscription" | "autoUpgradeAttempt" | "autoUpgradePreference" | "organizationMember" | "usageRecord" | "autoUpgradeNotification" | "billingCommand">;
 export type AutoUpgradeStripe = Pick<Stripe, "subscriptions" | "prices" | "invoices">;
 const RETRY_WINDOW_MS = 23 * 60 * 60 * 1000;
 
@@ -51,7 +51,7 @@ export async function validateStripeBillingContext(input: {
   return sub;
 }
 
-async function notifyOwners(client: AutoUpgradeClient, attemptId: string, organizationId: string, kind: "ATTEMPTED" | "APPLIED" | "PAYMENT_ACTION_REQUIRED" | "FAILED" | "RECONCILE_REQUIRED") {
+export async function notifyOwners(client: AutoUpgradeClient, attemptId: string, organizationId: string, kind: "ATTEMPTED" | "APPLIED" | "PAYMENT_ACTION_REQUIRED" | "FAILED" | "RECONCILE_REQUIRED") {
   // Serialize with org-member role changes (#267). A revoked owner cannot get
   // a new billing notice after the role change commits.
   await client.$transaction(async (tx) => {
@@ -150,7 +150,9 @@ export async function maybeAutoUpgradeAfterUsage(organizationId: string, month: 
     // After a lost response, a changed remote state could be our request or an
     // independent operator action. Never bind an invoice by guessing latest_invoice.
     if (row.status === "DISPATCHING" && (remote.pending_update || remote.items.data[0]?.price.id !== fromPriceId)) {
-      await client.autoUpgradeAttempt.updateMany({ where: { id: row.id, status: "DISPATCHING" }, data: { status: "UNKNOWN", errorCode: "UNBOUND_EXTERNAL_CHANGE" } });
+      const held = await client.autoUpgradeAttempt.updateMany({ where: { id: row.id, status: "DISPATCHING",
+        claimedAt: row.claimedAt }, data: { status: "UNKNOWN", errorCode: "UNBOUND_EXTERNAL_CHANGE" } });
+      if (held.count === 0) return "already_claimed" as const;
       await notifyOwners(client, row.id, organizationId, "RECONCILE_REQUIRED");
       return "unknown" as const;
     }
@@ -171,18 +173,39 @@ export async function maybeAutoUpgradeAfterUsage(organizationId: string, month: 
       const freshAttempt = await tx.autoUpgradeAttempt.findUnique({ where: { id: row.id } });
       const freshUsage = await tx.usageRecord.aggregate({ where: { organizationId, month }, _sum: { words: true } });
       const ownerCount = await tx.organizationMember.count({ where: { organizationId, role: "OWNER" } });
+      const author = freshPreference?.updatedByUserId ? await tx.organizationMember.findUnique({ where: {
+        userId_organizationId: { userId: freshPreference.updatedByUserId, organizationId } }, select: { role: true } }) : null;
+      const laterBillingCommand = await tx.billingCommand.findFirst({ where: { workspaceId: organizationId,
+        action: { not: "AUTO_UPGRADE" }, createdAt: { gt: freshPreference?.updatedAt ?? new Date(0) } }, select: { id: true } });
       if (!freshAttempt || freshAttempt.claimedAt.getTime() !== row.claimedAt.getTime() ||
           (freshAttempt.status !== "CLAIMED" && freshAttempt.status !== "DISPATCHING")) return false;
       if (!freshPreference?.enabled || freshPreference.updatedAt.getTime() !== preference.updatedAt.getTime() ||
           freshPreference.maxPriceCents < decision.priceCents || (freshOrg?.plan === "PROFESSIONAL" ? "PRO" : freshOrg?.plan) !== decision.from ||
           freshSub?.status !== "ACTIVE" || freshSub.stripeSubscriptionId !== subscription.stripeSubscriptionId ||
           freshSub.stripePriceId !== fromPriceId || !isRealStripeCustomerId(freshSub.stripeCustomerId) ||
-          ownerCount === 0 || (freshUsage._sum.words ?? 0) < Math.ceil(BILLING_PLANS[decision.from].wordsLimit * 0.9)) return false;
+          ownerCount === 0 || author?.role !== "OWNER" || laterBillingCommand ||
+          (freshAttempt.status === "DISPATCHING" && !freshAttempt.billingCommandId) ||
+          (freshUsage._sum.words ?? 0) < Math.ceil(BILLING_PLANS[decision.from].wordsLimit * 0.9)) return false;
+      const command = freshAttempt.billingCommandId ? null : await tx.billingCommand.create({ data: {
+        workspaceId: organizationId, actorUserId: freshPreference.updatedByUserId!, actorRole: "OWNER",
+        action: "AUTO_UPGRADE", targetRef: toPriceId,
+      } });
       await tx.autoUpgradeAttempt.update({ where: { id: row.id }, data: { status: "DISPATCHING", stripeItemId: verified.items.data[0].id,
-        claimedAt: now } });
+        claimedAt: now, billingCommandId: command?.id ?? freshAttempt.billingCommandId } });
       return true;
     });
-    if (!dispatch) return "canceled" as const;
+    if (!dispatch) {
+      // A CLAIMED row has never crossed the external boundary. A DISPATCHING
+      // row may already have charged Stripe: stop retries and hold it for
+      // manual reconciliation rather than releasing it as an ordinary cancel.
+      const terminal = row.status === "DISPATCHING" ? "UNKNOWN" : "CANCELED";
+      const held = await client.autoUpgradeAttempt.updateMany({ where: { id: row.id, status: row.status,
+        claimedAt: row.claimedAt }, data: {
+        status: terminal, errorCode: "DISPATCH_AUTHORITY_CHANGED" } });
+      if (held.count === 0) return "already_claimed" as const;
+      await notifyOwners(client, row.id, organizationId, terminal === "UNKNOWN" ? "RECONCILE_REQUIRED" : "FAILED");
+      return terminal === "UNKNOWN" ? "unknown" as const : "canceled" as const;
+    }
     const updated = await stripeClient.subscriptions.update(row.stripeSubscriptionId, {
       items: [{ id: verified.items.data[0].id, price: toPriceId }],
       payment_behavior: "pending_if_incomplete", proration_behavior: "always_invoice",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
+import { resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { BILLING_PLAN_KEYS, BILLING_PLANS, getStripePriceIdFromEnv, type BillingInterval, type BillingPlanKey } from "@/lib/billing-plans";
 import { isRealStripeCustomerId } from "@/lib/billing";
 import { configuredPriceMatches, stripeSubscriptionEligible } from "@/lib/auto-upgrade";
@@ -9,21 +10,23 @@ import { configuredPriceMatches, stripeSubscriptionEligible } from "@/lib/auto-u
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function ownerContext(organizationId: string) {
+async function ownerContext(requestedWorkspaceId: string | null) {
   const session = await auth();
   if (!session?.user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  const organizationId = await resolveBillingWorkspaceId(session.user.id, requestedWorkspaceId, false);
+  if (!organizationId) return { error: NextResponse.json({ error: "Choose a workspace" }, { status: 409 }) };
   const membership = await db.organizationMember.findUnique({
     where: { userId_organizationId: { userId: session.user.id, organizationId } },
     select: { role: true },
   });
   if (membership?.role !== "OWNER") return { error: NextResponse.json({ error: "Owner access required" }, { status: 403 }) };
-  return { userId: session.user.id };
+  return { userId: session.user.id, organizationId };
 }
 
 export async function GET(request: Request) {
-  const organizationId = new URL(request.url).searchParams.get("organizationId") ?? "";
-  const context = await ownerContext(organizationId);
+  const context = await ownerContext(new URL(request.url).searchParams.get("workspaceId"));
   if (context.error) return context.error;
+  const organizationId = context.organizationId!;
   const [preference, attempts, notices] = await Promise.all([
     db.autoUpgradePreference.findUnique({ where: { organizationId } }),
     db.autoUpgradeAttempt.findMany({ where: { organizationId }, orderBy: { createdAt: "desc" }, take: 20 }),
@@ -35,9 +38,9 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   const body = await request.json().catch(() => null);
-  const organizationId = typeof body?.organizationId === "string" ? body.organizationId : "";
-  const context = await ownerContext(organizationId);
+  const context = await ownerContext(typeof body?.workspaceId === "string" ? body.workspaceId : null);
   if (context.error) return context.error;
+  const organizationId = context.organizationId!;
   if (typeof body?.enabled !== "boolean") return NextResponse.json({ error: "Invalid preference" }, { status: 400 });
   if (!body.enabled) {
     const preference = await db.$transaction(async (tx) => {

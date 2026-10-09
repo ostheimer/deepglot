@@ -25,7 +25,7 @@ export function AutoUpgradeToggle({ organizationId, currentPlan, initialInterval
   const choices = BILLING_PLAN_KEYS.slice(currentIndex + 1, -1).filter((key) => key !== "FREE");
 
   async function refresh() {
-    const response = await fetch(`/api/billing/auto-upgrade?organizationId=${encodeURIComponent(organizationId)}`, { cache: "no-store" });
+    const response = await fetch(`/api/billing/auto-upgrade?workspaceId=${encodeURIComponent(organizationId)}`, { cache: "no-store" });
     if (!response.ok) throw new Error(de ? "Einstellung konnte nicht geladen werden." : "Could not load preference.");
     const data = await response.json();
     const preference = data.preference as Preference;
@@ -50,7 +50,7 @@ export function AutoUpgradeToggle({ organizationId, currentPlan, initialInterval
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/billing/auto-upgrade", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organizationId, enabled, maxPlan, interval, maxPriceCents: price, acknowledgeProration }) });
+        body: JSON.stringify({ workspaceId: organizationId, enabled, maxPlan, interval, maxPriceCents: price, acknowledgeProration }) });
       if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error ?? "Save failed"); }
       await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS "AutoUpgradeAttempt" (
   "stripeSubscriptionId" TEXT NOT NULL,
   "stripeItemId" TEXT,
   "stripeInvoiceId" TEXT,
+  "billingCommandId" TEXT,
   "errorCode" TEXT,
   "claimedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -38,6 +39,8 @@ CREATE TABLE IF NOT EXISTS "AutoUpgradeAttempt" (
   CONSTRAINT "AutoUpgradeAttempt_usage" CHECK ("usedWords" >= 0)
 );
 ALTER TABLE "AutoUpgradeAttempt" ADD COLUMN IF NOT EXISTS "stripeItemId" TEXT;
+ALTER TABLE "AutoUpgradeAttempt" ADD COLUMN IF NOT EXISTS "billingCommandId" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "AutoUpgradeAttempt_billingCommandId_key" ON "AutoUpgradeAttempt"("billingCommandId");
 CREATE UNIQUE INDEX IF NOT EXISTS "AutoUpgradeAttempt_organizationId_month_fromPlan_key" ON "AutoUpgradeAttempt"("organizationId", "month", "fromPlan");
 CREATE INDEX IF NOT EXISTS "AutoUpgradeAttempt_stripeSubscriptionId_status_idx" ON "AutoUpgradeAttempt"("stripeSubscriptionId", "status");
 

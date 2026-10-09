@@ -499,6 +499,7 @@ model AutoUpgradeAttempt {
   stripeSubscriptionId String
   stripeItemId String?
   stripeInvoiceId String?
+  billingCommandId String? @unique
   errorCode String?
   claimedAt DateTime @default(now())
   createdAt DateTime @default(now())
