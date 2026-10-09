@@ -79,6 +79,13 @@ test("manager controls a regional target independently and removes only confirme
     expect(await db.urlSlug.count({ where: { projectId, langTo: langCode } })).toBe(0);
     expect(await db.translation.count({ where: { projectId, langTo: "en", originalText: baseText } })).toBe(1);
 
+    const removedImport = await page.request.post(`/api/projects/${projectId}/import`, { multipart: {
+      asset: "slugs", format: "csv",
+      file: { name: "removed-locale.csv", mimeType: "text/csv", buffer: Buffer.from(`originalSlug,translatedSlug,langTo,urlCount\n${marker}-import,localized,${langCode},0\n`) },
+    } });
+    expect(removedImport.status()).toBe(409);
+    expect(await db.urlSlug.count({ where: { projectId, langTo: langCode, originalSlug: `${marker}-import` } })).toBe(0);
+
     expect((await page.request.post(path, { data: { languages: ["pt-br", "pt-pt"] } })).status()).toBe(200);
     const first = (await (await page.request.get(`${path}?langCode=pt-br`)).json()).preview;
     const second = (await (await page.request.get(`${path}?langCode=pt-pt`)).json()).preview;
