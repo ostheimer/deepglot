@@ -68,7 +68,6 @@ test("one-time Checkout binds quote, survives lost response and settles only ver
     disputes: { retrieve: async (id) => ({ id, charge: charge.id, amount: 1200, currency: "eur" } as Stripe.Dispute) },
   };
   const args = { orderId: order.id, projectId: project.id, actorId: owner.id, returnBaseUrl: "http://localhost:31572" };
-  await assert.rejects(() => beginProfessionalCheckout({ ...args, actorId: admin.id }, stripe));
   await assert.rejects(() => beginProfessionalCheckout(args, stripe), /lost response/);
   assert.equal(seenCustomer, undefined); // synthetic customer never crosses the Stripe boundary
   assert.equal(wroteWhileStripeWasCalled, true); // no project row lock is held over the provider call
@@ -109,6 +108,30 @@ test("one-time Checkout binds quote, survives lost response and settles only ver
   const beforeExpired = createCount;
   await assert.rejects(() => beginProfessionalCheckout({ ...args, orderId: expiredOrder.id }, stripe));
   assert.equal(createCount, beforeExpired);
+
+  // Project ADMIN may pay an accepted order, but an existing workspace
+  // customer's hosted billing details must not be attached to that Checkout.
+  await db.subscription.update({ where: { organizationId: organization.id }, data: { stripeCustomerId: `cus_fixture_${suffix}` } });
+  const adminOrder = await createProfessionalOrder({ projectId: project.id, requesterId: admin.id, targetLanguage: "de", translationIds: [translation.id] });
+  const adminGrant = await issueVendorGrant({ orderId: adminOrder.id, projectId: project.id, actorId: admin.id });
+  const adminSavedGrant = await db.professionalTranslationVendorGrant.findUniqueOrThrow({ where: { tokenHash: hashVendorToken(adminGrant.token) } });
+  await vendorQuote({ orderId: adminOrder.id, vendorGrantId: adminSavedGrant.id, amountMinor: 1200, currency: "EUR", turnaroundDays: 3,
+    expiresAt: new Date(Date.now() + 86_400_000), reference: `quote-admin-${suffix}`, termsVersion: "fixture-v1" });
+  await acceptProfessionalQuote({ orderId: adminOrder.id, projectId: project.id, actorId: admin.id, expectedScopeDigest: adminOrder.scopeDigest, expectedQuoteReference: `quote-admin-${suffix}` });
+  let adminCustomer: unknown = "not-called";
+  let adminSession: Stripe.Checkout.Session;
+  const adminStripe: ProfessionalOrderStripe = {
+    ...stripe, checkout: { sessions: {
+      create: async (params) => {
+        adminCustomer = params.customer;
+        adminSession = { id: `cs_admin_${suffix}`, url: "https://checkout.stripe.com/c/pay/admin-fixture", mode: "payment", payment_status: "unpaid",
+          amount_total: 1200, currency: "eur", client_reference_id: adminOrder.id, metadata: params.metadata, payment_intent: null } as unknown as Stripe.Checkout.Session;
+        return adminSession;
+      }, retrieve: async () => adminSession,
+    } },
+  };
+  await beginProfessionalCheckout({ ...args, orderId: adminOrder.id, actorId: admin.id }, adminStripe);
+  assert.equal(adminCustomer, undefined);
 
   process.env.STRIPE_SECRET_KEY = "sk_test_fixture_local_only";
   process.env.PROFESSIONAL_ORDERS_STRIPE_WEBHOOK_SECRET = "whsec_fixture_local_only";

@@ -79,9 +79,6 @@ export async function beginProfessionalCheckout(
   }
   const reserved = await db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, input);
-    if (scope.organizationRole !== "OWNER" && scope.organizationRole !== "ADMIN") {
-      throw new ProfessionalOrderError("FORBIDDEN", "Workspace billing manager access is required.");
-    }
     const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
     assertProfessionalOrderOwner(scope, order.organizationId);
@@ -94,8 +91,11 @@ export async function beginProfessionalCheckout(
     if (!order.checkoutRequestKey) await tx.professionalTranslationOrder.update({
       where: { id: order.id }, data: { checkoutRequestKey: key, checkoutAttemptedAt: new Date() },
     });
-    const subscription = await tx.subscription.findUnique({ where: { organizationId: scope.organizationId }, select: { stripeCustomerId: true } });
-    return { order: { ...order, checkoutRequestKey: key }, customerId: isRealStripeCustomerId(subscription?.stripeCustomerId) ? subscription.stripeCustomerId : null };
+    // A project ADMIN may pay the accepted quote, but must not enter an
+    // existing workspace customer's hosted Checkout or see its billing data.
+    const mayReuseCustomer = scope.organizationRole === "OWNER" || scope.organizationRole === "ADMIN";
+    const subscription = mayReuseCustomer ? await tx.subscription.findUnique({ where: { organizationId: scope.organizationId }, select: { stripeCustomerId: true } }) : null;
+    return { order: { ...order, checkoutRequestKey: key }, customerId: mayReuseCustomer && isRealStripeCustomerId(subscription?.stripeCustomerId) ? subscription!.stripeCustomerId : null };
   }, txOptions);
   const { order, customerId } = reserved;
   const session = order.stripeCheckoutSessionId
@@ -114,7 +114,6 @@ export async function beginProfessionalCheckout(
   if (verified.session.id !== session.id || !session.url || !session.url.startsWith("https://checkout.stripe.com/")) throw conflict();
   await db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, input);
-    if (scope.organizationRole !== "OWNER" && scope.organizationRole !== "ADMIN") throw new ProfessionalOrderError("FORBIDDEN", "Workspace billing manager access is required.");
     const current = await tx.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
     assertProfessionalOrderOwner(scope, current.organizationId);
     assertProfessionalOrderLanguage(scope, current.sourceLanguage, current.targetLanguage);
