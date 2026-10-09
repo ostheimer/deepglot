@@ -6,10 +6,9 @@ import { Search } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { canManageProject, getProjectAccess } from "@/lib/project-access";
 import { selectReadableSlugLanguages } from "@/lib/url-slug-access";
-import { SlugRowEditor } from "@/components/projekte/slug-row-editor";
+import { SlugList } from "@/components/projekte/slug-list";
 import Link from "next/link";
 import {
-  buildProjectQueryHref,
   normalizeProjectLang,
 } from "@/lib/dashboard-query";
 import { formatNumber } from "@/lib/locale-formatting";
@@ -18,15 +17,15 @@ import { uiText } from "@/lib/static-copy";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
-  searchParams: Promise<{ q?: string; lang?: string; seite?: string }>;
+  searchParams: Promise<{ q?: string; lang?: string; seite?: string; status?: string }>;
 }
 
 export default async function SlugsPage({ params, searchParams }: PageProps) {
   const { projektId } = await params;
-  const { q, lang, seite } = await searchParams;
+  const { q, lang, seite, status } = await searchParams;
   const locale = await getRequestLocale();
 
-  const page = Math.max(1, parseInt(seite ?? "1", 10));
+  const page = Math.max(1, Number.parseInt(seite ?? "1", 10) || 1);
   const pageSize = 25;
 
   const project = await db.project.findUnique({
@@ -47,17 +46,30 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
     readableLanguages.map((language) => language.langCode)
   );
   const canEdit = canManageProject(access);
+  const activeStatus = status === "translated" || status === "untranslated" ? status : "all";
+  const href = (options: { lang?: string; page?: number; q?: string; status?: string }) => {
+    const query = new URLSearchParams({ lang: options.lang ?? activeLang });
+    if (options.page && options.page > 1) query.set("seite", String(options.page));
+    if (options.q ?? q) query.set("q", options.q ?? q ?? "");
+    if ((options.status ?? activeStatus) !== "all") query.set("status", options.status ?? activeStatus);
+    return `?${query.toString()}`;
+  };
 
   const where = {
     projectId: projektId,
     langTo: activeLang,
-    ...(q ? { originalSlug: { contains: q, mode: "insensitive" as const } } : {}),
+    ...(q ? { OR: [
+      { originalSlug: { contains: q, mode: "insensitive" as const } },
+      { translatedSlug: { contains: q, mode: "insensitive" as const } },
+    ] } : {}),
+    ...(activeStatus === "translated" ? { translatedSlug: { not: null } } : {}),
+    ...(activeStatus === "untranslated" ? { translatedSlug: null } : {}),
   };
 
   const [slugs, total] = await Promise.all([
     db.urlSlug.findMany({
       where,
-      orderBy: { urlCount: "desc" },
+      orderBy: [{ urlCount: "desc" }, { originalSlug: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -98,7 +110,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
             }`}
           >
             <Link
-              href={buildProjectQueryHref({ lang: l.langCode, q })}
+              href={href({ lang: l.langCode, q })}
               aria-current={activeLang === l.langCode ? "page" : undefined}
             >
               {l.langCode.toUpperCase()}
@@ -118,67 +130,31 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
             className="pl-9 h-9"
           />
           <input type="hidden" name="lang" value={activeLang} />
+          {activeStatus !== "all" && <input type="hidden" name="status" value={activeStatus} />}
         </form>
         <span className="text-sm text-gray-500">
           {formatNumber(total, locale)} {uiText(locale, "results", "Ergebnisse")}
         </span>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[2fr_2fr] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {uiText(locale, "ORIGINAL SLUG", "ORIGINAL-SLUG")}
-          </span>
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {uiText(locale, "TRANSLATED SLUG", "ÜBERSETZTER SLUG")}
-          </span>
-        </div>
-
-        {slugs.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <p className="text-gray-500 text-sm">
-              {q
-                ? locale === "de"
-                  ? `Keine Slugs gefunden für "${q}"`
-                  : `No slugs found for "${q}"`
-                : locale === "de"
-                    ? "Keine URL-Slugs vorhanden. Mappings können per CSV importiert werden."
-                    : "No URL slugs yet. Mappings can be imported by CSV."}
-            </p>
-          </div>
-        ) : (
-          slugs.map((slug) => (
-            <div
-              key={slug.id}
-              data-slug-id={slug.id}
-              data-slug-updated-at={slug.updatedAt.toISOString()}
-              className="grid grid-cols-[2fr_2fr] gap-4 px-6 py-3.5 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 group transition-colors"
-            >
-              <div>
-                <p className="text-sm font-medium text-gray-900">{slug.originalSlug}</p>
-                {slug.urlCount > 0 && (
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {locale === "de"
-                      ? `In ${slug.urlCount} URLs gefunden`
-                      : `Found in ${slug.urlCount} URLs`}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                {canEdit ? (
-                  <SlugRowEditor projectId={projektId} initialSlug={{ id: slug.id, originalSlug: slug.originalSlug, translatedSlug: slug.translatedSlug, updatedAt: slug.updatedAt.toISOString() }} locale={locale} />
-                ) : slug.translatedSlug ? (
-                  <p className="text-sm font-medium text-gray-900">{slug.translatedSlug}</p>
-                ) : (
-                  <p className="text-sm text-gray-400">{locale === "de" ? "Kein Mapping" : "No mapping"}</p>
-                )}
-              </div>
-            </div>
-          ))
-        )}
+      <div className="mb-4 flex flex-wrap gap-2" aria-label={locale === "de" ? "Übersetzungsstatus" : "Translation status"}>
+        {(["all", "translated", "untranslated"] as const).map((value) => (
+          <Button key={value} asChild variant={activeStatus === value ? "default" : "outline"} size="sm">
+            <Link href={href({ status: value })} aria-current={activeStatus === value ? "page" : undefined}>
+              {locale === "de" ? ({ all: "Alle", translated: "Übersetzt", untranslated: "Unübersetzt" }[value]) : ({ all: "All", translated: "Translated", untranslated: "Untranslated" }[value])}
+            </Link>
+          </Button>
+        ))}
       </div>
+
+      {/* Table */}
+      {slugs.length === 0 ? (
+        <p className="rounded-xl border border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
+          {locale === "de" ? "Keine URL-Slugs für diese Suche und diesen Status gefunden." : "No URL slugs found for this search and status."}
+        </p>
+      ) : (
+        <SlugList key={JSON.stringify([activeLang, activeStatus, q ?? "", page, slugs.map((slug) => [slug.id, slug.updatedAt.toISOString()])])} rows={slugs.map((slug) => ({ ...slug, updatedAt: slug.updatedAt.toISOString() }))} projectId={projektId} canEdit={canEdit} locale={locale} />
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -190,11 +166,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
             {page > 1 && (
               <Button asChild variant="outline" size="sm">
                 <Link
-                  href={buildProjectQueryHref({
-                    lang: activeLang,
-                    page: page - 1,
-                    q,
-                  })}
+                  href={href({ page: page - 1 })}
                 >
                   {uiText(locale, "Previous", "Zurück")}
                 </Link>
@@ -203,11 +175,7 @@ export default async function SlugsPage({ params, searchParams }: PageProps) {
             {page < totalPages && (
               <Button asChild variant="outline" size="sm">
                 <Link
-                  href={buildProjectQueryHref({
-                    lang: activeLang,
-                    page: page + 1,
-                    q,
-                  })}
+                  href={href({ page: page + 1 })}
                 >
                   {uiText(locale, "Next", "Weiter")}
                 </Link>

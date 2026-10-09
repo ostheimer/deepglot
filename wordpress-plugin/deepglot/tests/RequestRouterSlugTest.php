@@ -126,4 +126,40 @@ requestRouterSlugAssert(
     'Path-prefix fallback requests below a WordPress subdirectory must strip the locale and reverse translated slugs.'
 );
 
+// A refreshed runtime map must replace old targets immediately in the router.
+// Old translated paths have no history and therefore cannot be redirected.
+$changedRouting = new SiteRouting(
+    $resolver,
+    'https://example.com',
+    'PATH_PREFIX',
+    [],
+    ['en' => ['ueber-uns' => 'about-us', '1279' => '7219']]
+);
+$changedRouting->replaceUrlSlugMappings(['en' => ['ueber-uns' => 'company', '1279' => '7219']]);
+requestRouterSlugAssert(
+    'https://example.com/en/company/?ref=nav',
+    $changedRouting->buildUrlForLanguage('/ueber-uns/?ref=nav', 'en'),
+    'A refreshed mapping must produce the new canonical link and preserve its query.'
+);
+requestRouterSlugAssert(
+    '/ueber-uns/',
+    $changedRouting->getCanonicalPath('/en/company/', 'en'),
+    'The new translated target must reverse to the WordPress source.'
+);
+requestRouterSlugAssert(
+    '/about-us/',
+    $changedRouting->getCanonicalPath('/en/about-us/', 'en'),
+    'The old translated target must not silently reverse to the source after a change.'
+);
+requestRouterSlugAssert(
+    '/1279/',
+    $changedRouting->getCanonicalPath('/en/7219/', 'en'),
+    'Numeric content slugs must remain routable.'
+);
+requestRouterSlugAssert(
+    'https://example.com/en/wp-content/uploads/photo.jpg/',
+    $changedRouting->buildUrlForLanguage('/wp-content/uploads/photo.jpg', 'en'),
+    'Plugin media infrastructure segments must never be translated.'
+);
+
 fwrite(STDOUT, "RequestRouterSlugTest: OK\n");

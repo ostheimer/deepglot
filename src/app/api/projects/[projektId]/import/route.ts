@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma, Project } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { Prisma, type Project } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import {
@@ -12,13 +13,15 @@ import {
 import {
   canAccessProject,
   canAccessProjectLanguage,
+  canManageProject,
   getAuthenticatedUserId,
   getProjectAccess,
   type ProjectAccessContext,
 } from "@/lib/project-access";
-import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
+import { isProjectRuntimeSerializationConflict, lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { getCookieLocale } from "@/lib/request-locale";
+import { planUrlSlugImport, UrlSlugImportConflict } from "@/lib/url-slug-import";
 import {
   importTranslationsCsv,
   ProjectTranslationImportError,
@@ -37,10 +40,8 @@ import { uiText } from "@/lib/static-copy";
 
 export const runtime = "nodejs";
 
-// Process imports in bounded chunks, each in its own short transaction. This
-// keeps every transaction well under the database timeout instead of wrapping
-// thousands of row writes in one long-running transaction (which would hit
-// Prisma's 5s interactive-transaction default and fail).
+// Translation and glossary imports use bounded chunks. Slug imports require a
+// single atomic project map and use a bulk SQL upsert in one transaction.
 const IMPORT_CHUNK_SIZE = 100;
 const IMPORT_TX_OPTIONS = { maxWait: 10_000, timeout: 60_000 } as const;
 
@@ -459,6 +460,9 @@ async function importSlugsCsv(
   content: string,
   { project, access, locale, emitRowEvents }: ImportContext
 ) {
+  if (!canManageProject(access)) {
+    throw new ImportError(locale === "de" ? "Keine Berechtigung zum Bearbeiten von URL-Slugs." : "You cannot edit URL slugs.", 403);
+  }
   const rows = parseImport(() => parseSlugsCsv(content), locale);
   assertRowLimit(rows.length, locale);
   assertLanguagesAllowed(
@@ -479,73 +483,81 @@ async function importSlugsCsv(
     }
   }
 
-  await writeInChunks(
-    rows,
-    locale,
-    async (slice, tx) => {
-      const languageConfigurationIsCurrent =
-        await lockAndValidateProjectLanguageWrite(tx, {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await db.$transaction(async (tx) => {
+        if (!(await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
           sourceLanguages: [project.originalLang],
-          targetLanguages: slice.map((row) => row.langTo),
+          targetLanguages: rows.map((row) => row.langTo),
+        }))) throw languageConfigurationChanged(locale);
+        const current = await tx.urlSlug.findMany({
+          where: { projectId: project.id },
+          select: { id: true, originalSlug: true, translatedSlug: true, langTo: true },
         });
-      if (!languageConfigurationIsCurrent) {
-        throw languageConfigurationChanged(locale);
-      }
-    },
-    async (row, tx) => {
-      const slug = await tx.urlSlug.upsert({
-        where: {
-          projectId_originalSlug_langTo: {
-            projectId: project.id,
-            originalSlug: row.originalSlug,
-            langTo: row.langTo,
-          },
-        },
-        create: {
+        const normalizedRows = planUrlSlugImport(rows, current);
+        const payload = JSON.stringify(normalizedRows.map((row) => ({
+          id: randomUUID(), originalSlug: row.originalSlug,
+          translatedSlug: row.translatedSlug || null,
+          langTo: row.langTo, urlCount: row.urlCount,
+        })));
+        const saved = await tx.$queryRaw<Array<{
+          id: string; originalSlug: string; translatedSlug: string | null; langTo: string;
+        }>>`
+          INSERT INTO "UrlSlug" ("id", "projectId", "originalSlug", "translatedSlug", "langTo", "urlCount", "createdAt", "updatedAt")
+          SELECT item.id, ${project.id}, item."originalSlug", item."translatedSlug", item."langTo", item."urlCount", NOW(), NOW()
+          FROM jsonb_to_recordset(${payload}::jsonb) AS item(
+            id text, "originalSlug" text, "translatedSlug" text, "langTo" text, "urlCount" integer
+          )
+          ON CONFLICT ("projectId", "originalSlug", "langTo") DO UPDATE SET
+            "translatedSlug" = EXCLUDED."translatedSlug",
+            "urlCount" = EXCLUDED."urlCount",
+            "updatedAt" = NOW()
+          RETURNING "id", "originalSlug", "translatedSlug", "langTo"
+        `;
+        if (emitRowEvents && saved.length > 0) {
+          const endpoints = await tx.webhookEndpoint.findMany({
+            where: { projectId: project.id, enabled: true, eventTypes: { has: "slug.upserted" } },
+            select: { id: true },
+          });
+          if (endpoints.length > 0) {
+            for (const batch of chunk(saved, 250)) {
+              await tx.webhookDelivery.createMany({ data: endpoints.flatMap((endpoint) => batch.map((slug) => ({
+                endpointId: endpoint.id,
+                projectId: project.id,
+                eventType: "slug.upserted",
+                payload: {
+                  type: "slug.upserted", slugId: slug.id,
+                  originalSlug: slug.originalSlug, translatedSlug: slug.translatedSlug,
+                  langTo: slug.langTo, imported: true,
+                },
+              }))) });
+            }
+          }
+        }
+        await queueProjectWebhookEvent({
           projectId: project.id,
-          originalSlug: row.originalSlug,
-          translatedSlug: row.translatedSlug || null,
-          langTo: row.langTo,
-          urlCount: row.urlCount,
-        },
-        update: {
-          translatedSlug: row.translatedSlug || null,
-          urlCount: row.urlCount,
-        },
-      });
-
-      if (emitRowEvents) {
-        await queueProjectWebhookEvent(
-          {
-            projectId: project.id,
-            eventType: "slug.upserted",
-            payload: {
-              type: "slug.upserted",
-              slugId: slug.id,
-              originalSlug: slug.originalSlug,
-              translatedSlug: slug.translatedSlug,
-              langTo: slug.langTo,
-              imported: true,
-            },
-          },
-          tx
-        );
+          eventType: "import.completed",
+          payload: { type: "import.completed", asset: "slugs", format: "csv", importedRows: rows.length },
+        }, tx);
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 });
+      return { importedRows: rows.length };
+    } catch (error) {
+      if (isProjectRuntimeSerializationConflict(error) && attempt < 2) continue;
+      if (error instanceof UrlSlugImportConflict) {
+        throw new ImportError(t(locale,
+          `Zeile ${error.line}: Konflikt für „${error.original}“ → „${error.target}“ (${error.reason}). Keine Zeile wurde importiert.`,
+          `Line ${error.line}: conflict for "${error.original}" → "${error.target}" (${error.reason}). No rows were imported.`), 409);
       }
-    },
-  );
-
-  await queueProjectWebhookEvent({
-    projectId: project.id,
-    eventType: "import.completed",
-    payload: {
-      type: "import.completed",
-      asset: "slugs",
-      format: "csv",
-      importedRows: rows.length,
-    },
-  });
-
+      if (error instanceof ImportError) throw error;
+      if (isProjectRuntimeSerializationConflict(error)) {
+        throw new ImportError(locale === "de"
+          ? "Gleichzeitige Änderung. Keine Zeile wurde importiert; bitte erneut versuchen."
+          : "Concurrent change. No rows were imported; please retry.", 409);
+      }
+      throw error;
+    }
+  }
   return { importedRows: rows.length };
 }
 

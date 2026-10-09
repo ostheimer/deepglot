@@ -88,8 +88,8 @@ test("UrlSlug imports lock and freshly validate the target language", () => {
     "src/app/api/projects/[projektId]/import/route.ts",
   );
 
-  assertGuardPrecedesWrite(importRoute, "tx.urlSlug.upsert(", "slug import");
-  const slugWrite = importRoute.indexOf("tx.urlSlug.upsert(");
+  assertGuardPrecedesWrite(importRoute, "tx.$queryRaw<Array<{", "slug import");
+  const slugWrite = importRoute.indexOf("tx.$queryRaw<Array<{");
   const slugGuard = importRoute.lastIndexOf(
     "lockAndValidateProjectLanguageWrite(",
     slugWrite,
@@ -99,6 +99,7 @@ test("UrlSlug imports lock and freshly validate the target language", () => {
     /sourceLanguages:\s*\[project\.originalLang\]/,
     "slug identity must also remain bound to the source snapshot used by the import",
   );
+  assert.match(importRoute.slice(slugWrite), /INSERT INTO "UrlSlug"/);
 });
 
 test("TranslatedUrl cache-hit analytics lock and freshly validate before upsert", () => {
