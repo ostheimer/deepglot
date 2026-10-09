@@ -90,7 +90,7 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
 
         <section id="xliff" className="scroll-mt-8 pt-20">
           <h2 className="text-3xl font-bold">XLIFF 1.2</h2>
-          <p className="mt-5 max-w-4xl leading-7 text-gray-700">{de
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700 [overflow-wrap:anywhere]">{de
             ? "Der angemeldete Projekt-Export GET /api/projects/{projectId}/export?asset=translations&format=xliff&langTo=en liefert XLIFF 1.2 mit Projekt-ID, Quell- und Zielsprache sowie stabilen Segment-IDs. POST /api/projects/{projectId}/import akzeptiert multipart mit asset=translations, format=xliff, langTo, file und optional applyApproved=true. Der Import prüft UTF-8, XML, 5 MB, 5.000 Segmente, Berechtigung und Konflikte atomar. Freigaben erfordern eine ausdrückliche Bestätigung durch eine Projektverwaltung. Diese Dashboard-Routen sind keine stabile externe API."
             : "The signed-in project export GET /api/projects/{projectId}/export?asset=translations&format=xliff&langTo=en returns XLIFF 1.2 with project ID, source and target languages, and stable segment IDs. POST /api/projects/{projectId}/import accepts multipart asset=translations, format=xliff, langTo, file, and optional applyApproved=true. Import validates UTF-8, XML, 5 MB, 5,000 segments, permissions, and conflicts atomically. Approvals require explicit project manager confirmation. These dashboard routes are not a stable external API."}</p>
         </section>
