@@ -693,7 +693,7 @@ export async function executeAuthenticatedTranslateRequest(
 
         if (dispatchConfiguration.kind === "stale_url_preview") {
           await refundBeforeProvider();
-          return apiProblem({ status: 409, title: "URL preview expired", detail: "Glossary rules changed before provider dispatch. No provider work started.", code: "stale_url_preview", instance: "/api/translate" });
+          return apiProblem({ status: 409, title: "URL preview expired", detail: "Confirmed project settings or glossary rules changed before provider dispatch. No provider work started.", code: "stale_url_preview", instance: "/api/translate" });
         }
 
         providerSettings = dispatchConfiguration.settings;
