@@ -147,7 +147,7 @@ export async function GET(
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
     if (!translations || translations.length > XLIFF_MAX_SEGMENTS) {
-      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 5 MB oder 5000 Segmente", "XLIFF export exceeds 5 MB or 5000 segments") }, { status: 413 });
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 4 MB oder 5000 Segmente", "XLIFF export exceeds 4 MB or 5000 segments") }, { status: 413 });
     }
     let xliff: string;
     try { xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations }); }
@@ -158,7 +158,7 @@ export async function GET(
       throw error;
     }
     if (new TextEncoder().encode(xliff).byteLength > XLIFF_MAX_BYTES) {
-      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 5 MB oder 5000 Segmente", "XLIFF export exceeds 5 MB or 5000 segments") }, { status: 413 });
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 4 MB oder 5000 Segmente", "XLIFF export exceeds 4 MB or 5000 segments") }, { status: 413 });
     }
     return new Response(xliff, { headers: {
       "Content-Type": "application/x-xliff+xml; charset=utf-8",

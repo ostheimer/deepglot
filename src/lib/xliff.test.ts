@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { parseXliff, planXliffImport, serializeXliff, XliffError } from "@/lib/xliff";
+import { parseXliff, planXliffImport, serializeXliff, XliffError, XLIFF_MAX_BYTES } from "@/lib/xliff";
 
 const project = { projectId: "project-a", langFrom: "de", langTo: "en" };
 const segment = { originalText: "Hallo {name} <b>Welt</b> & mehr", translatedText: "Hello {name} <b>world</b> & more", workflowStatus: "APPROVED" };
@@ -49,6 +49,11 @@ test("rejects malformed structure, invalid UTF-8, and unsupported inline XLIFF m
   assert.throws(() => parse(valid().replace("<source>", "<source><g id=\"1\">")), XliffError);
   assert.throws(() => parse(valid().replace("</source>", "</source><![CDATA[lost content]]>")), /Unexpected text/);
   assert.throws(() => parseXliff(new Uint8Array([0xff]), project), /encoded|valid/i);
+});
+
+test("rejects files above the 4 MB transport-safe limit", () => {
+  assert.equal(XLIFF_MAX_BYTES, 4_000_000);
+  assert.throws(() => parseXliff(new Uint8Array(XLIFF_MAX_BYTES + 1), project), /4 MB/);
 });
 
 test("rejects entity expansion, external entities and processing instructions", () => {

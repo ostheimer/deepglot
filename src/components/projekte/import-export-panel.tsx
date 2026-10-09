@@ -412,8 +412,8 @@ export function ImportExportPanel({
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h3 className="text-base font-semibold text-gray-900">{copy.translations} XLIFF 1.2</h3>
         <p className="mt-1 text-sm text-gray-500">{xliffCopy(locale,
-          "Eine Datei pro Projekt und Zielsprache, bis 5 MB und 5000 Segmente. Der Import schützt vorhandene manuelle und freigegebene Texte und weist bei einem Konflikt alle Segmente zurück.",
-          "One project and target language per file, up to 5 MB and 5000 segments. Import preserves existing manual and approved text and rejects all segments if any conflict occurs.")}</p>
+          "Eine Datei pro Projekt und Zielsprache, bis 4 MB und 5000 Segmente. Der Import schützt vorhandene manuelle und freigegebene Texte und weist bei einem Konflikt alle Segmente zurück.",
+          "One project and target language per file, up to 4 MB and 5000 segments. Import preserves existing manual and approved text and rejects all segments if any conflict occurs.")}</p>
         <p className="mt-3 text-xs text-gray-500">{xliffCopy(locale,
           "Freigaben aus der Datei muss eine Projektverwaltung ausdrücklich bestätigen. Importierter Text wird zur manuellen Überschreibung.",
           "Approved segments require a project manager to explicitly confirm applying approvals. Imported text becomes a manual override.")}</p>

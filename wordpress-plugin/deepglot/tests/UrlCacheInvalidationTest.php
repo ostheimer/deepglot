@@ -11,6 +11,8 @@ function get_option(string $key, $default = false) { return $GLOBALS['_dg_url_ca
 function update_option(string $key, $value, $autoload = null): bool { $GLOBALS['_dg_url_cache_options'][$key] = $value; return true; }
 function untrailingslashit(string $value): string { return rtrim($value, '/'); }
 function is_wp_error($value): bool { return false; }
+function wp_next_scheduled(string $hook, array $args = []) { return $GLOBALS['_dg_url_cache_events'][$hook] ?? false; }
+function wp_schedule_single_event(int $timestamp, string $hook, array $args = []): bool { $GLOBALS['_dg_url_cache_events'][$hook] = $timestamp; return true; }
 
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
 require_once __DIR__ . '/../includes/Config/Options.php';
@@ -54,16 +56,17 @@ class CacheDrainOptions extends \Deepglot\Config\Options {
 }
 class CacheDrainClient extends \Deepglot\Api\Client {
     public int $calls = 0;
+    public int $total = 751;
     public string $digest;
     public function fetchRuntimeConfig(?string $apiKeyOverride = null, ?string $baseUrlOverride = null) {
         $this->calls++;
         $record = get_option('deepglot_url_cache_invalidation_cursor', []);
         $after = (int) ($record['cursor'] ?? 0);
         $entries = [];
-        for ($id = $after + 1; $id <= min($after + 250, 501); $id++) {
+        for ($id = $after + 1; $id <= min($after + 250, $this->total); $id++) {
             $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $this->digest];
         }
-        return ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => $after + 250 < 501]];
+        return ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => $after + 250 < $this->total]];
     }
 }
 $GLOBALS['_dg_url_cache_stubborn'] = '';
@@ -78,11 +81,27 @@ $entries = [];
 for ($id = 1; $id <= 250; $id++) {
     $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $digest];
 }
-$drain = new ReflectionMethod($drainSync, 'drainCacheInvalidations');
-$drain->invoke($drainSync, ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => true]],
-    $identity, '0', null, null);
+$apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => true]], $identity, '0');
+if ($drainClient->calls !== 0 || (get_option('deepglot_url_cache_invalidation_cursor', [])['cursor'] ?? '') !== '250') {
+    throw new RuntimeException('The visitor request must apply only the first page.');
+}
+$schedule = new ReflectionMethod($drainSync, 'scheduleCacheInvalidationDrain');
+$schedule->invoke($drainSync, $identity);
+if (!wp_next_scheduled('deepglot_drain_cache_invalidations', [$identity])) {
+    throw new RuntimeException('Remaining cache invalidations must be scheduled for WP-Cron.');
+}
+$GLOBALS['_dg_url_cache_events'] = [];
+$drainSync->drainCacheInvalidationsInBackground($identity);
 $drained = get_option('deepglot_url_cache_invalidation_cursor', []);
-if (($drained['cursor'] ?? '') !== '501' || $drainClient->calls !== 2 || $cache->get('Änderung', 'de', 'en') !== null) {
-    throw new RuntimeException('A 501-entry feed must drain without waiting for the next five-minute refresh.');
+if (($drained['cursor'] ?? '') !== '750' || $drainClient->calls !== 2
+    || !wp_next_scheduled('deepglot_drain_cache_invalidations', [$identity])) {
+    throw new RuntimeException('A background run must stop after two pages and schedule the remainder.');
+}
+$GLOBALS['_dg_url_cache_events'] = [];
+$drainSync->drainCacheInvalidationsInBackground($identity);
+$drained = get_option('deepglot_url_cache_invalidation_cursor', []);
+if (($drained['cursor'] ?? '') !== '751' || $drainClient->calls !== 3
+    || $cache->get('Änderung', 'de', 'en') !== null) {
+    throw new RuntimeException('A 751-entry feed must complete in background without waiting for settings refresh.');
 }
 echo "UrlCacheInvalidationTest: OK\n";

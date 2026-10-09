@@ -2,7 +2,7 @@ import { DOMParser, type Element as XmlElement } from "@xmldom/xmldom";
 
 import { computeTranslationHash } from "@/lib/translation-hash";
 
-export const XLIFF_MAX_BYTES = 5 * 1024 * 1024;
+export const XLIFF_MAX_BYTES = 4_000_000;
 export const XLIFF_MAX_SEGMENTS = 5000;
 const NS = "urn:oasis:names:tc:xliff:document:1.2";
 const EXT_NS = "https://deepglot.ai/ns/xliff";
@@ -90,7 +90,7 @@ export function parseXliff(bytes: Uint8Array, expected: {
   langFrom: string;
   langTo: string;
 }): XliffSegment[] {
-  if (bytes.byteLength > XLIFF_MAX_BYTES) throw new XliffError("File exceeds 5 MB");
+  if (bytes.byteLength > XLIFF_MAX_BYTES) throw new XliffError("File exceeds 4 MB");
   let xml: string;
   try { xml = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
   catch { throw new XliffError("File is not valid UTF-8"); }

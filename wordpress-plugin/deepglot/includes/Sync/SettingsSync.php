@@ -14,7 +14,8 @@ class SettingsSync
     private const RUNTIME_REFRESH_LOCK_TTL = 60;
     private const RUNTIME_REFRESH_FAILURE_BACKOFF = 60;
     private const CACHE_INVALIDATION_CURSOR_OPTION = 'deepglot_url_cache_invalidation_cursor';
-    private const MAX_CACHE_INVALIDATION_PAGES = 24;
+    private const CACHE_INVALIDATION_DRAIN_HOOK = 'deepglot_drain_cache_invalidations';
+    private const MAX_BACKGROUND_INVALIDATION_PAGES = 2;
 
     /** In-process fallback for isolated callers without WordPress option storage. */
     private static ?string $runtimeRefreshProcessLock = null;
@@ -37,6 +38,7 @@ class SettingsSync
     public function register(): void
     {
         add_action('update_option_' . Options::OPTION_KEY, [$this, 'handleOptionUpdate'], 10, 2);
+        add_action(self::CACHE_INVALIDATION_DRAIN_HOOK, [$this, 'drainCacheInvalidationsInBackground']);
     }
 
     public function handleOptionUpdate($oldValue, $newValue): void
@@ -316,7 +318,11 @@ class SettingsSync
         }
 
         if ($applied) {
-            $this->drainCacheInvalidations($runtimeConfig, $identity, $cacheAfter, $apiKeyOverride, $baseUrlOverride);
+            if ($this->applyCacheInvalidations($runtimeConfig, $identity, $cacheAfter)
+                && !empty($runtimeConfig['cacheInvalidations']['hasMore'])
+                && $apiKeyOverride === null && $baseUrlOverride === null) {
+                $this->scheduleCacheInvalidationDrain($identity);
+            }
             delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
 
             if ($this->warmer !== null) {
@@ -340,30 +346,47 @@ class SettingsSync
         return $runtimeConfig;
     }
 
-    /** Drain the bounded SaaS feed under the existing refresh lock, including a 5,000-row import. */
-    private function drainCacheInvalidations(
-        array $runtimeConfig,
-        string $identity,
-        string $cursor,
-        ?string $apiKeyOverride,
-        ?string $baseUrlOverride
-    ): void {
-        for ($page = 0; $page < self::MAX_CACHE_INVALIDATION_PAGES; $page++) {
-            if (!$this->applyCacheInvalidations($runtimeConfig, $identity, $cursor)) return;
-            $batch = $runtimeConfig['cacheInvalidations'] ?? null;
-            if (!is_array($batch) || empty($batch['hasMore'])) return;
-            $record = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
-            if (!is_array($record) || ($record['identity'] ?? '') !== $identity) return;
-            $nextCursor = (string) ($record['cursor'] ?? '');
-            if (preg_match('/^\d{1,20}$/D', $nextCursor) !== 1 || (int) $nextCursor <= (int) $cursor) return;
-            $cursor = $nextCursor;
-            if ($apiKeyOverride === null && $baseUrlOverride === null &&
-                Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) {
-                return;
+    /** Keep follow-up SaaS requests off the visitor request that refreshed settings. */
+    private function scheduleCacheInvalidationDrain(string $identity, int $delay = 1): void
+    {
+        if (!function_exists('wp_next_scheduled') || !function_exists('wp_schedule_single_event')) return;
+        $args = [$identity];
+        if (!wp_next_scheduled(self::CACHE_INVALIDATION_DRAIN_HOOK, $args)) {
+            wp_schedule_single_event(time() + $delay, self::CACHE_INVALIDATION_DRAIN_HOOK, $args);
+        }
+    }
+
+    /** WP-Cron processes at most two pages per invocation and reschedules remaining work. */
+    public function drainCacheInvalidationsInBackground(string $identity): void
+    {
+        if (Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) return;
+        $lockToken = $this->createRuntimeRefreshLockToken();
+        if (!$this->acquireRuntimeRefreshLock($lockToken)) {
+            $this->scheduleCacheInvalidationDrain($identity, 60);
+            return;
+        }
+        try {
+            for ($page = 0; $page < self::MAX_BACKGROUND_INVALIDATION_PAGES; $page++) {
+                if (Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) return;
+                $record = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
+                if (!is_array($record) || ($record['identity'] ?? '') !== $identity) return;
+                $cursor = (string) ($record['cursor'] ?? '');
+                if (preg_match('/^\d{1,20}$/D', $cursor) !== 1) return;
+                $runtimeConfig = $this->client->fetchRuntimeConfig();
+                if (Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) return;
+                if (is_wp_error($runtimeConfig) || !is_array($runtimeConfig)
+                    || !$this->applyCacheInvalidations($runtimeConfig, $identity, $cursor)) {
+                    $this->scheduleCacheInvalidationDrain($identity, 60);
+                    return;
+                }
+                if (empty($runtimeConfig['cacheInvalidations']['hasMore'])) return;
+                $advanced = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
+                if (!is_array($advanced) || ($advanced['identity'] ?? '') !== $identity
+                    || (int) ($advanced['cursor'] ?? 0) <= (int) $cursor) return;
             }
-            $next = $this->client->fetchRuntimeConfig($apiKeyOverride, $baseUrlOverride);
-            if (is_wp_error($next) || !is_array($next)) return;
-            $runtimeConfig = $next;
+            $this->scheduleCacheInvalidationDrain($identity);
+        } finally {
+            $this->releaseRuntimeRefreshLock($lockToken);
         }
     }
 

@@ -630,7 +630,7 @@ export async function POST(
   }
 
   if (format === "xliff" && file.size > XLIFF_MAX_BYTES) {
-    return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Datei überschreitet 5 MB", "XLIFF file exceeds 5 MB") }, { status: 413 });
+    return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Datei überschreitet 4 MB", "XLIFF file exceeds 4 MB") }, { status: 413 });
   }
   const content = format === "xliff" ? "" : await file.text();
   const context: ImportContext = {
