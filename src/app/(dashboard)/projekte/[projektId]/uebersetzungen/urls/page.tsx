@@ -76,7 +76,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
         </h2>
         <div className="flex gap-2 items-center">
           {/* Language filter */}
-          <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white">
+          <nav aria-label={uiText(locale, "URL target languages", "URL-Zielsprachen")} className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-white">
             {readableLanguages.map((l) => (
               <Button
                 key={l.id}
@@ -97,7 +97,7 @@ export default async function UrlsPage({ params, searchParams }: PageProps) {
                 </Link>
               </Button>
             ))}
-          </div>
+          </nav>
         </div>
       </div>
 

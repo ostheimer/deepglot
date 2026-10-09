@@ -61,6 +61,7 @@ import {
   lockProjectRuntimeConfiguration,
 } from "@/lib/project-runtime-configuration-lock";
 import { canManageProjectForWrite } from "@/lib/project-access";
+import { urlProviderConfiguration } from "@/lib/url-operations";
 
 export const runtime = "nodejs";
 
@@ -129,6 +130,8 @@ export async function executeAuthenticatedTranslateRequest(
   parsedBodyOverride?: unknown,
   forceRetranslate?: {
     actorId: string;
+    settingsVersion: string | null;
+    providerConfiguration: readonly [string | null, string | null, string | null, string | null];
     hashes: ReadonlySet<string>;
     versions: ReadonlyMap<string, string>;
     glossaryVersion: string;
@@ -662,6 +665,10 @@ export async function executeAuthenticatedTranslateRequest(
           const settings = await tx.projectSettings.findUnique({
             where: { projectId: project.id },
           });
+          if (forceRetranslate && (
+            (settings?.updatedAt.toISOString() ?? null) !== forceRetranslate.settingsVersion ||
+            JSON.stringify(urlProviderConfiguration(settings)) !== JSON.stringify(forceRetranslate.providerConfiguration)
+          )) return { kind: "stale_url_preview" } as const;
           return settings?.automaticTranslation === false
             ? ({ kind: "automatic_translation_disabled", settings } as const)
             : ({ kind: "ready", settings } as const);
@@ -773,6 +780,14 @@ export async function executeAuthenticatedTranslateRequest(
 
             if (forceRetranslate && !(await canManageProjectForWrite(tx, forceRetranslate.actorId, project.id))) {
               return { kind: "manager_access_revoked" } as const;
+            }
+
+            if (forceRetranslate) {
+              const currentSettings = await tx.projectSettings.findUnique({ where: { projectId: project.id } });
+              if ((currentSettings?.updatedAt.toISOString() ?? null) !== forceRetranslate.settingsVersion ||
+                JSON.stringify(urlProviderConfiguration(currentSettings)) !== JSON.stringify(forceRetranslate.providerConfiguration)) {
+                return { kind: "stale_url_preview" } as const;
+              }
             }
 
             const currentLanguageConfiguration = await tx.project.findUnique({

@@ -6,7 +6,7 @@ import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
 import { countWords } from "@/lib/translation";
 import { getProjectUrl } from "@/lib/project-url";
-import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "@/lib/url-operations";
+import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, urlProviderConfiguration, wordpressCacheKey } from "@/lib/url-operations";
 import { executeAuthenticatedTranslateRequest } from "@/app/api/translate/route";
 import { executeIdempotently, PrismaApiIdempotencyStore, validateApiIdempotencyKey } from "@/lib/api-idempotency";
 import { buildGlossaryProtection, hasGlossaryProtection } from "@/lib/glossary";
@@ -70,6 +70,7 @@ async function snapshot(projectId: string, id: string, action: "retranslate" | "
     automaticTranslation: project.settings?.automaticTranslation,
     settingsUpdatedAt: project.settings?.updatedAt.toISOString(), month, wordsLimit,
     glossaryVersion,
+    providerConfiguration: urlProviderConfiguration(project.settings),
     segments: translations.map((item) => [item.id, item.originalHash, item.originalText, item.updatedAt.toISOString(), item.isManual, item.workflowStatus, item.contexts.map((context) => context.urlPath).sort()]),
   });
   return {
@@ -206,6 +207,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           versions: new Map(fresh.eligible.map((item) => [item.originalHash, item.updatedAt.toISOString()])),
           glossaryVersion: fresh.glossaryVersion,
           actorId,
+          settingsVersion: fresh.project.settings?.updatedAt.toISOString() ?? null,
+          providerConfiguration: urlProviderConfiguration(fresh.project.settings),
           onProviderDispatch: () => { providerDispatched = true; },
           receipt: { id: confirmation, projectId: projektId, urlId: id, actorId, urlPath: fresh.record.urlPath, langTo: fresh.record.langTo, totalEligibleSegments: fresh.preview.totalEligibleSegments, remainingSegments: fresh.preview.remainingSegments, nextAfterId: fresh.nextAfterId },
         });

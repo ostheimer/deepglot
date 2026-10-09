@@ -19,6 +19,21 @@ export function createUrlOperationFingerprint(snapshot: unknown) {
   return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
 
+/** Provider identity is part of the manager's confirmed spend scope. */
+export function urlProviderConfiguration(settings: {
+  translationProvider: string | null;
+  translationModel: string | null;
+  translationBaseUrl: string | null;
+  translationApiKeyUpdatedAt: Date | null;
+} | null | undefined): readonly [string | null, string | null, string | null, string | null] {
+  return [
+    settings?.translationProvider ?? null,
+    settings?.translationModel ?? null,
+    settings?.translationBaseUrl ?? null,
+    settings?.translationApiKeyUpdatedAt?.toISOString() ?? null,
+  ];
+}
+
 /** Compare rule revisions under the same project lock as URL mutations. */
 export function glossaryRuleVersion(rules: ReadonlyArray<{ id: string; updatedAt: Date }>) {
   return createUrlOperationFingerprint(rules.map((rule) => [rule.id, rule.updatedAt.toISOString()]).sort((a, b) => a[0].localeCompare(b[0])));

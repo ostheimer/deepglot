@@ -6,6 +6,7 @@ import { expect, test } from "@playwright/test";
 import { db } from "../../src/lib/db";
 import { computeTranslationHash } from "../../src/lib/translation-hash";
 import { hashApiIdempotencyKey } from "../../src/lib/api-idempotency";
+import { hashRateLimitSubject, TRANSLATE_RATE_LIMIT_SCOPE } from "../../src/lib/rate-limit";
 import { getProjectUrl } from "../../src/lib/project-url";
 import { e2eId, signInAndGetProjectId } from "./helpers";
 
@@ -54,7 +55,12 @@ async function startBarrierProvider() {
     started,
     release,
     calls: () => calls,
-    close: async () => { release(); await new Promise<void>((resolve) => server.close(() => resolve())); },
+    close: async () => {
+      release();
+      const closed = new Promise<void>((resolve) => server.close(() => resolve()));
+      server.closeAllConnections();
+      await closed;
+    },
   };
 }
 
@@ -82,7 +88,7 @@ test("language-bound translator reads URL inventory without manager controls", a
     await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
     await expect(page.getByRole("checkbox")).toHaveCount(0);
     await expect(page.getByText("Open WordPress to confirm retry")).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "FR" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "URL target languages" }).getByRole("link", { name: "FR" })).toHaveCount(0);
     expect((await page.goto(`/projects/${projectId}/translations/urls?lang=fr`))?.status()).toBe(404);
     const denied = await page.request.post(`/api/projects/${projectId}/url-operations`, { data: { action: "delete", id: english.id } });
     expect(denied.status()).toBe(404);
@@ -606,6 +612,96 @@ test("manager revoked after mock provider dispatch leaves no receipt and holds t
     await provider.close();
     await db.organizationMember.update({ where: { id: membership.id }, data: { role: membership.role } });
     await db.projectSettings.update({ where: { projectId }, data: { translationProvider: previousSettings.translationProvider, translationBaseUrl: previousSettings.translationBaseUrl, translationModel: previousSettings.translationModel } });
+    await db.urlOperationReceipt.deleteMany({ where: { urlId: url.id } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("provider settings changed after URL claim expire confirmation before dispatch", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const originalProvider = await startBarrierProvider();
+  const changedProvider = await startBarrierProvider();
+  originalProvider.release();
+  changedProvider.release();
+  const settings = await db.projectSettings.findUniqueOrThrow({ where: { projectId } });
+  await db.projectSettings.update({ where: { projectId }, data: { translationProvider: "ollama", translationBaseUrl: originalProvider.baseUrl, translationModel: "original-local-mock" } });
+  const scope = TRANSLATE_RATE_LIMIT_SCOPE;
+  const subjectHash = hashRateLimitSubject(scope, `manager:${projectId}`);
+  const priorBucket = await db.rateLimitBucket.findUnique({ where: { scope_subjectHash: { scope, subjectHash } } });
+  await db.rateLimitBucket.upsert({ where: { scope_subjectHash: { scope, subjectHash } }, create: { scope, subjectHash, count: 0, resetAt: new Date(Date.now() + 60_000) }, update: {} });
+  const path = `/${e2eId("settings-before-dispatch")}`;
+  const text = e2eId("Settings guard source");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  try {
+    const preview = await (await post({ action: "retranslate", id: url.id })).json();
+    const usageBefore = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words;
+    let pending!: ReturnType<typeof post>;
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "RateLimitBucket" WHERE scope = ${scope} AND "subjectHash" = ${subjectHash} FOR UPDATE`;
+      pending = post({ action: "retranslate", id: url.id, confirmation: preview.confirmation }, preview.confirmation);
+      for (let attempt = 0; attempt < 80; attempt++) {
+        const state = await db.translatedUrl.findUnique({ where: { id: url.id }, select: { operationState: true } });
+        if (state?.operationState === "provider_pending") break;
+        if (attempt === 79) throw new Error("URL was not claimed before rate-limit barrier release");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      await tx.projectSettings.update({ where: { projectId }, data: { translationProvider: "ollama", translationBaseUrl: changedProvider.baseUrl, translationModel: "changed-local-mock" } });
+    }, { timeout: 15_000 });
+    const response = await pending;
+    expect(response.status(), await response.text()).toBe(409);
+    expect((await response.json()).error).toBe("stale_url_preview");
+    expect(originalProvider.calls()).toBe(0);
+    expect(changedProvider.calls()).toBe(0);
+    expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
+    expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
+  } finally {
+    await originalProvider.close();
+    await changedProvider.close();
+    await db.projectSettings.update({ where: { projectId }, data: { translationProvider: settings.translationProvider, translationBaseUrl: settings.translationBaseUrl, translationModel: settings.translationModel } });
+    if (priorBucket) await db.rateLimitBucket.update({ where: { scope_subjectHash: { scope, subjectHash } }, data: { count: priorBucket.count, resetAt: priorBucket.resetAt } });
+    else await db.rateLimitBucket.deleteMany({ where: { scope, subjectHash } });
+    await db.urlOperationReceipt.deleteMany({ where: { urlId: url.id } });
+    await db.translation.deleteMany({ where: { id: translation.id } });
+    await db.translatedUrl.deleteMany({ where: { id: url.id } });
+    await db.$disconnect();
+  }
+});
+
+test("provider settings changed during mock HTTP hold the URL result without usage", async ({ page }) => {
+  test.setTimeout(120_000);
+  const projectId = await signInAndGetProjectId(page);
+  const provider = await startBarrierProvider();
+  const settings = await db.projectSettings.findUniqueOrThrow({ where: { projectId } });
+  await db.projectSettings.update({ where: { projectId }, data: { translationProvider: "ollama", translationBaseUrl: provider.baseUrl, translationModel: "initial-local-mock" } });
+  const path = `/${e2eId("settings-during-provider")}`;
+  const text = e2eId("Settings changed during HTTP");
+  const url = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
+  const translation = await db.translation.create({ data: { projectId, originalHash: computeTranslationHash(text, "de", "en"), originalText: text, translatedText: "old", langFrom: "de", langTo: "en", source: "MOCK", contexts: { create: [{ urlPath: path }] } } });
+  const post = (data: unknown, key?: string) => page.request.post(`/api/projects/${projectId}/url-operations`, { data, headers: key ? { "Idempotency-Key": key } : {} });
+  try {
+    const preview = await (await post({ action: "retranslate", id: url.id })).json();
+    const usageBefore = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words;
+    const pending = post({ action: "retranslate", id: url.id, confirmation: preview.confirmation }, preview.confirmation);
+    await Promise.race([provider.started, new Promise((_, reject) => setTimeout(() => reject(new Error("Mock provider did not start")), 15_000))]);
+    await db.projectSettings.update({ where: { projectId }, data: { translationModel: "changed-during-local-http" } });
+    provider.release();
+    const result = await pending;
+    expect(result.status(), await result.text()).toBe(409);
+    expect((await result.json()).providerCostUnknown).toBe(true);
+    expect(provider.calls()).toBe(1);
+    expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
+    expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
+    expect(await db.urlOperationReceipt.findUnique({ where: { id: preview.confirmation } })).toBeNull();
+    expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState).toBe("provider_pending");
+  } finally {
+    provider.release();
+    await provider.close();
+    await db.projectSettings.update({ where: { projectId }, data: { translationProvider: settings.translationProvider, translationBaseUrl: settings.translationBaseUrl, translationModel: settings.translationModel } });
     await db.urlOperationReceipt.deleteMany({ where: { urlId: url.id } });
     await db.translation.deleteMany({ where: { id: translation.id } });
     await db.translatedUrl.deleteMany({ where: { id: url.id } });
