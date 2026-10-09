@@ -118,4 +118,5 @@ jobs:
       - name: Run active AI budget browser contract
         env:
           AI_BUDGET_ENFORCEMENT: "on"
-        run: npx playwright test tests/e2e/ai-budget.spec.ts --project=chromium --grep 'rollout switch|current-period budget threshold'
+          TRANSLATION_API_KEY: synthetic-local-browser-fixture
+        run: npx playwright test tests/e2e/ai-budget.spec.ts tests/e2e/translation-ai-replace.spec.ts --project=chromium --grep 'rollout switch|current-period budget threshold|active AI editor'
