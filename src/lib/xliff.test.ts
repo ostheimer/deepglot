@@ -25,6 +25,8 @@ test("machine marker survives export while invalid or edited metadata is rejecte
   assert.equal(parse(machine)[0].manual, false);
   assert.throws(() => parse(machine.replace('dg:manual="no"', 'dg:manual="maybe"')), /dg:manual/);
   assert.match(machine, /xmlns:dg="https:\/\/deepglot.ai\/ns\/xliff"/);
+  assert.equal(parse(machine.replace(' dg:manual="no"', ''))[0].manual, true);
+  assert.throws(() => parse(machine.replace('dg:manual="no"', 'dg:manual=""')), /dg:manual/);
 });
 
 test("XML 1.0 export preserves carriage returns and rejects unsupported controls", () => {

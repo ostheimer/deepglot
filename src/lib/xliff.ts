@@ -143,7 +143,7 @@ export function parseXliff(bytes: Uint8Array, expected: {
     seen.add(id);
     const approved = unit.getAttribute("approved");
     if (approved !== "yes" && approved !== "no") throw new XliffError("approved must be yes or no", line);
-    const manual = unit.getAttributeNS(EXT_NS, "manual");
+    const manual = unit.hasAttributeNS(EXT_NS, "manual") ? unit.getAttributeNS(EXT_NS, "manual") : null;
     if (manual !== null && manual !== "yes" && manual !== "no") throw new XliffError("dg:manual must be yes or no", line);
     return { id, source, target, approved: approved === "yes", manual: manual !== "no", line };
   });
