@@ -3,11 +3,30 @@ import { AUDIT_CATEGORIES, type AuditCategory } from "@/lib/audit-events";
 
 export type AuditFilters = {
   from?: Date;
-  to?: Date;
+  toExclusive?: Date;
   actorUserId?: string;
   projectId?: string;
   category?: AuditCategory;
 };
+
+const viennaParts = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Vienna", year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
+function viennaDayStart(day: string) {
+  const [year, month, date] = day.split("-").map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, date);
+  const parts = Object.fromEntries(viennaParts.formatToParts(new Date(utcMidnight))
+    .filter((part) => part.type !== "literal").map((part) => [part.type, Number(part.value)]));
+  const offset = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - utcMidnight;
+  return new Date(utcMidnight - offset);
+}
+
+function nextCalendarDay(day: string) {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, date + 1)).toISOString().slice(0, 10);
+}
 
 export function parseAuditFilters(params: URLSearchParams): AuditFilters {
   const date = (key: string) => {
@@ -18,12 +37,14 @@ export function parseAuditFilters(params: URLSearchParams): AuditFilters {
     if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
       throw new Error("Invalid audit date");
     }
-    return parsed;
+    return value;
   };
-  const from = date("from");
-  const to = date("to");
-  if (from && to && from > to) throw new Error("Invalid audit date range");
-  const category = params.get("category");
+  const fromDay = date("from");
+  const toDay = date("to");
+  const from = fromDay ? viennaDayStart(fromDay) : undefined;
+  const toExclusive = toDay ? viennaDayStart(nextCalendarDay(toDay)) : undefined;
+  if (fromDay && toDay && fromDay > toDay) throw new Error("Invalid audit date range");
+  const category = params.get("category") || undefined;
   if (category && !AUDIT_CATEGORIES.includes(category as AuditCategory)) {
     throw new Error("Invalid audit category");
   }
@@ -33,7 +54,7 @@ export function parseAuditFilters(params: URLSearchParams): AuditFilters {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(value)) throw new Error("Invalid audit filter");
     return value;
   };
-  return { from, to, category: category as AuditCategory | undefined,
+  return { from, toExclusive, category: category as AuditCategory | undefined,
     actorUserId: id("actor"), projectId: id("project") };
 }
 
@@ -46,13 +67,13 @@ export async function listAuditEvents(
     select: { role: true },
   });
   if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) return null;
-  const { from, to, actorUserId, projectId, category } = input.filters;
+  const { from, toExclusive, actorUserId, projectId, category } = input.filters;
   return database.auditEvent.findMany({
     where: {
       organizationId: input.organizationId,
-      ...(from || to ? { createdAt: {
+      ...(from || toExclusive ? { createdAt: {
         ...(from ? { gte: from } : {}),
-        ...(to ? { lt: new Date(to.getTime() + 86_400_000) } : {}),
+        ...(toExclusive ? { lt: toExclusive } : {}),
       } } : {}),
       ...(actorUserId ? { actorUserId } : {}),
       ...(projectId ? { projectIdSnapshot: projectId } : {}),

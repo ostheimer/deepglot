@@ -303,7 +303,7 @@ export async function POST(
       },
       tx
     );
-    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: null,
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: claims.userId,
       action: existing ? "translation.manual_updated" : "translation.manual_created",
       category: "translation", metadata: { affectedId: saved.id, source: "editor" } });
 

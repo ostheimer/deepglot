@@ -19,8 +19,12 @@ test("audit metadata is bounded to safe labels, IDs and counts", () => {
 
 test("audit filters reject invalid dates, IDs and categories", () => {
   assert.deepEqual(parseAuditFilters(new URLSearchParams("from=2026-10-01&to=2026-10-09&category=project")), {
-    from: new Date("2026-10-01T00:00:00.000Z"), to: new Date("2026-10-09T00:00:00.000Z"),
+    from: new Date("2026-09-30T22:00:00.000Z"), toExclusive: new Date("2026-10-09T22:00:00.000Z"),
     category: "project", actorUserId: undefined, projectId: undefined,
+  });
+  assert.deepEqual(parseAuditFilters(new URLSearchParams("from=2026-10-25&to=2026-10-25")), {
+    from: new Date("2026-10-24T22:00:00.000Z"), toExclusive: new Date("2026-10-25T23:00:00.000Z"),
+    category: undefined, actorUserId: undefined, projectId: undefined,
   });
   for (const query of ["from=2026-02-30", "from=2026-10-10&to=2026-10-09",
     "category=secrets", "actor=x%2F..", "project=" + "x".repeat(81)]) {

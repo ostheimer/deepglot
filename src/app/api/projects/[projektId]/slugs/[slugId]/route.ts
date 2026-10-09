@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import {
   isProjectRuntimeSerializationConflict,
@@ -56,6 +57,8 @@ export async function PATCH(
           data: { translatedSlug },
         });
         if (changed.count !== 1) throw new Error("stale_slug");
+        await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+          action: "project.slug_updated", category: "project", metadata: { affectedId: slugId } });
         return tx.urlSlug.findUniqueOrThrow({
           where: { id: slugId },
           select: { id: true, translatedSlug: true, updatedAt: true },

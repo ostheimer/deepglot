@@ -30,6 +30,8 @@ const germanActions: Record<string, string> = {
   "project.runtime_sync_origin_cleared": "Synchronisierungsquelle entfernt",
   "project.settings_updated": "Projekteinstellungen geändert",
   "project.slugs_imported": "URL-Pfade importiert",
+  "project.slug_updated": "URL-Pfad geändert",
+  "project.slugs_reset": "URL-Pfade zurückgesetzt",
   "project.switcher_returned_to_wordpress": "Sprachauswahl zurückgesetzt",
   "project.switcher_updated": "Sprachauswahl geändert",
   "project.transferred_in": "Projekt in Arbeitsbereich verschoben",
