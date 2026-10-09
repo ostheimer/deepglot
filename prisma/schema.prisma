@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -277,7 +278,7 @@ model Project {
 
 /// Approval is explicit. A missing row is a deny, including for legacy tenants.
 /// An organization row has projectId NULL; a project row has its projectId.
-/// The SQL migration adds a partial unique index for the organization row.
+/// The partial unique index permits one organization-wide policy beside its project policies.
 model AiBudget {
   id String @id @default(cuid())
   organizationId String
@@ -297,6 +298,7 @@ model AiBudget {
   models AiBudgetModel[]
 
   @@index([organizationId])
+  @@unique([organizationId], map: "AiBudget_one_org_policy_idx", where: { projectId: null })
 }
 
 /// Owner-approved conservative price ceilings, never live or inferred prices.
