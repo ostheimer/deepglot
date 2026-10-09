@@ -304,6 +304,22 @@ model WorkspaceAudit {
   @@index([actorUserId, createdAt])
 }
 
+/// A durable authorization decision made before an external billing request.
+/// The org row lock serializes this decision with workspace role changes.
+/// No Stripe result or sensitive address data is inferred from this receipt.
+model BillingCommand {
+  id String @id @default(cuid())
+  workspaceId String
+  actorUserId String
+  actorRole OrganizationRole
+  action String
+  targetRef String?
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
 model ProjectLanguage {
   id        String   @id @default(cuid())
   langCode  String   // normalized lowercase BCP 47 language/script/region tag

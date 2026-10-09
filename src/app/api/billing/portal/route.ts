@@ -6,8 +6,7 @@ import {
   getBillingPortalReturnUrl,
   isRealStripeCustomerId,
 } from "@/lib/billing";
-import { db } from "@/lib/db";
-import { resolveBillingWorkspaceId } from "@/lib/billing-workspace";
+import { authorizeBillingCommand, resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { stripe } from "@/lib/stripe";
@@ -31,12 +30,10 @@ export async function POST(request: Request) {
   const requestedId = typeof body?.workspaceId === "string" ? body.workspaceId : null;
   const workspaceId = await resolveBillingWorkspaceId(session.user.id, requestedId, true);
   if (!workspaceId) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
-  const membership = await db.organizationMember.findUnique({
-    where: { userId_organizationId: { userId: session.user.id, organizationId: workspaceId } },
-    include: { organization: { include: { subscription: true } } },
-  });
-
-  const customerId = membership?.organization?.subscription?.stripeCustomerId;
+  const command = await authorizeBillingCommand({ actorUserId: session.user.id,
+    workspaceId, action: "PORTAL" });
+  if (!command) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const customerId = command.targetRef;
   if (!isRealStripeCustomerId(customerId)) {
     // Either no customer id at all, or one of the internal placeholders
     // (`free_…`, `manual_…`, …). Either way, calling Stripe would 404 with
@@ -73,7 +70,7 @@ export async function POST(request: Request) {
           `${error.message}`,
         {
           userId: session.user.id,
-          organizationId: membership?.organization?.id,
+          organizationId: command.organization.id,
           customerId,
         }
       );

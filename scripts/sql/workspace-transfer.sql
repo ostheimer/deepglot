@@ -35,4 +35,17 @@ CREATE INDEX IF NOT EXISTS "WorkspaceAudit_workspaceId_createdAt_idx"
   ON "WorkspaceAudit"("workspaceId", "createdAt");
 CREATE INDEX IF NOT EXISTS "WorkspaceAudit_actorUserId_createdAt_idx"
   ON "WorkspaceAudit"("actorUserId", "createdAt");
+CREATE TABLE IF NOT EXISTS "BillingCommand" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "workspaceId" TEXT NOT NULL,
+  "actorUserId" TEXT NOT NULL,
+  "actorRole" "OrganizationRole" NOT NULL,
+  "action" TEXT NOT NULL,
+  "targetRef" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "BillingCommand_workspaceId_createdAt_idx"
+  ON "BillingCommand"("workspaceId", "createdAt");
+CREATE INDEX IF NOT EXISTS "BillingCommand_actorUserId_createdAt_idx"
+  ON "BillingCommand"("actorUserId", "createdAt");
 COMMIT;
