@@ -47,6 +47,12 @@ export type TranslationSettingsLike = {
   translationModel?: string | null;
   translationBaseUrl?: string | null;
   translationApiKeyEncrypted?: string | null;
+  websiteDescription?: string | null;
+  translationTone?: string | null;
+  translationAudience?: string | null;
+  translationInstructions?: string | null;
+  useGlossaryAsContext?: boolean | null;
+  useApprovedTranslationsAsContext?: boolean | null;
 };
 
 export type TranslationProviderConfig = {
@@ -62,6 +68,12 @@ export type LanguageModelApiResponse = {
     model: string | null;
     baseUrl: string | null;
     hasProjectApiKey: boolean;
+    websiteDescription: string | null;
+    translationTone: string | null;
+    translationAudience: string | null;
+    translationInstructions: string | null;
+    useGlossaryAsContext: boolean;
+    useApprovedTranslationsAsContext: boolean;
   };
   effective: {
     provider: TranslationProviderName;
@@ -184,6 +196,12 @@ export function serializeLanguageModelApiResponse({
       model: settings?.translationModel ?? null,
       baseUrl: settings?.translationBaseUrl ?? null,
       hasProjectApiKey: Boolean(settings?.translationApiKeyEncrypted),
+      websiteDescription: settings?.websiteDescription ?? null,
+      translationTone: settings?.translationTone ?? null,
+      translationAudience: settings?.translationAudience ?? null,
+      translationInstructions: settings?.translationInstructions ?? null,
+      useGlossaryAsContext: settings?.useGlossaryAsContext ?? false,
+      useApprovedTranslationsAsContext: settings?.useApprovedTranslationsAsContext ?? false,
     },
     effective: {
       provider: effective.provider,

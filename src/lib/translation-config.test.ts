@@ -86,6 +86,12 @@ test("serializes GET and PATCH language-model API payloads without key material"
     translationModel: "openai/gpt-5.5",
     translationBaseUrl: "https://openrouter.ai/api/v1",
     translationApiKeyEncrypted: encrypted,
+    websiteDescription: "A product website",
+    translationTone: "clear",
+    translationAudience: "buyers",
+    translationInstructions: "Keep sentences short",
+    useGlossaryAsContext: true,
+    useApprovedTranslationsAsContext: true,
   };
   const effective = resolveTranslationProviderConfig({
     settings,
@@ -112,6 +118,12 @@ test("serializes GET and PATCH language-model API payloads without key material"
     assert.equal(payload.settings.hasProjectApiKey, true);
     assert.equal(payload.effective.hasApiKey, true);
     assert.equal("apiKey" in payload.effective, false);
+    assert.equal(payload.settings.websiteDescription, "A product website");
+    assert.equal(payload.settings.translationTone, "clear");
+    assert.equal(payload.settings.translationAudience, "buyers");
+    assert.equal(payload.settings.translationInstructions, "Keep sentences short");
+    assert.equal(payload.settings.useGlossaryAsContext, true);
+    assert.equal(payload.settings.useApprovedTranslationsAsContext, true);
   }
   assert.ok(getPayload.providers?.some((provider) => provider.id === "openrouter"));
   assert.equal(patchPayload.providers, undefined);

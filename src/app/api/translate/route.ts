@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordTranslationContexts } from "@/lib/translation-context";
+import { buildTranslationContext } from "@/lib/translation-context-settings";
 import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
@@ -571,6 +572,7 @@ async function executeAuthenticatedTranslateRequest(
     // immediately before the provider starts. A configuration change before
     // this lock is still pre-spend and can safely refund the exact reservation;
     // once translateTexts starts, the reservation is never refunded.
+    let approvedExamples: Array<{ originalText: string; translatedText: string }> = [];
     if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
       const refundBeforeProvider = async () => {
         if (!velocityReservation) return;
@@ -631,6 +633,19 @@ async function executeAuthenticatedTranslateRequest(
             undefined,
             providerSettings,
           );
+          approvedExamples = providerSettings?.useApprovedTranslationsAsContext
+            ? await db.translation.findMany({
+                where: {
+                  projectId: project.id,
+                  langFrom: l_from,
+                  langTo: l_to,
+                  OR: [{ isManual: true }, { workflowStatus: "APPROVED" }],
+                },
+                orderBy: { updatedAt: "desc" },
+                take: 12,
+                select: { originalText: true, translatedText: true },
+              })
+            : [];
         }
       } catch (error) {
         await refundBeforeProvider();
@@ -640,6 +655,12 @@ async function executeAuthenticatedTranslateRequest(
 
     // 7. Translate uncached strings via the configured provider.
     if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
+      const projectContext = buildTranslationContext({
+        settings: providerSettings,
+        texts: pendingTranslations.map((item) => texts[item.index]),
+        glossaryRules,
+        examples: approvedExamples,
+      });
       // From this statement onward provider cost may have been incurred. Clear
       // the only refund handle before dispatch so no later error path can undo
       // the conservative velocity charge.
@@ -650,12 +671,7 @@ async function executeAuthenticatedTranslateRequest(
             texts: pendingTranslations.map((item) => item.protectedText),
             sourceLang: l_from,
             targetLang: l_to,
-            ...(providerSettings?.websiteType
-              ? { websiteType: providerSettings.websiteType }
-              : {}),
-            ...(providerSettings?.industryType
-              ? { industryType: providerSettings.industryType }
-              : {}),
+            ...(projectContext ? { projectContext } : {}),
           },
           undefined,
           providerSettings,

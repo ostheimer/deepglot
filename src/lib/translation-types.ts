@@ -41,6 +41,7 @@ export type TranslateTextsInput = {
   targetLang: string;
   websiteType?: string;
   industryType?: string;
+  projectContext?: string;
 };
 
 export type TranslationProviderName =

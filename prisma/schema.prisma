@@ -375,6 +375,12 @@ model ProjectSettings {
   translationMemory       Boolean  @default(false)
   websiteType             String?  // Blog, Corporate, E-Commerce, etc.
   industryType            String?  // Health & medical, etc.
+  websiteDescription      String?
+  translationTone         String?
+  translationAudience     String?
+  translationInstructions String?
+  useGlossaryAsContext    Boolean  @default(false)
+  useApprovedTranslationsAsContext Boolean @default(false)
   translationProvider     String?  // openai, openrouter, ollama, openai-compatible, deepl, mock
   translationModel        String?
   translationBaseUrl      String?

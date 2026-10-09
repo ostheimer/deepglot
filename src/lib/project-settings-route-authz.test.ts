@@ -61,7 +61,7 @@ const MANAGEMENT_ROUTES: ReadonlyArray<{
     file: "members/invitations/[invitationId]/resend/route.ts",
     methods: ["POST"],
   },
-  { file: "language-model/route.ts", methods: ["GET", "PATCH"] },
+  { file: "language-model/route.ts", methods: ["GET", "POST", "PATCH"] },
   // Visitor analytics changes the collection of project data and must never
   // be activated or disabled by a translator or ordinary organization member.
   { file: "page-views/activate/route.ts", methods: ["POST", "DELETE"] },
