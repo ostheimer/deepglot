@@ -106,12 +106,17 @@ test("refunded receipt detaches; a later verified dispute still binds to the ori
   process.env.DEEPGLOT_DATABASE_URL = testUrl;
   for (const key of ["PROFESSIONAL_ORDERS_ENABLED", "PROFESSIONAL_ORDERS_LEGAL_ACCEPTED", "PROFESSIONAL_ORDERS_PRIVACY_ACCEPTED", "PROFESSIONAL_ORDERS_BILLING_ACCEPTED", "PROFESSIONAL_ORDERS_PRODUCTION_ACCEPTED"]) process.env[key] = "true";
   const { db } = await import("../../src/lib/db");
+  const { hashVendorToken } = await import("../../src/lib/professional-orders");
+  const { issueVendorGrant } = await import("../../src/lib/professional-order-service");
   const { applyProfessionalStripeEvent } = await import("../../src/lib/professional-order-stripe");
+  const { NextRequest } = await import("next/server");
+  const { GET: vendorGet } = await import("../../src/app/api/professional-orders/vendor/route");
   const suffix = randomUUID();
   const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
   const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source` } });
-  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target` } });
-  const project = await db.project.create({ data: { name: "Refunded fixture", domain: `${suffix}.example.invalid`, organizationId: source.id } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target`, members: { create: { userId: user.id, role: "OWNER" } } } });
+  const laterTarget = await db.organization.create({ data: { name: "Later target", slug: `${suffix}-later` } });
+  const project = await db.project.create({ data: { name: "Refunded fixture", domain: `${suffix}.example.invalid`, organizationId: source.id, originalLang: "en", languages: { create: { langCode: "de" } } } });
   const order = await db.professionalTranslationOrder.create({ data: {
     projectId: project.id, activeProjectId: project.id, organizationId: source.id, requesterId: user.id,
     status: "REFUNDED", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "b".repeat(64), wordCount: 2,
@@ -120,8 +125,9 @@ test("refunded receipt detaches; a later verified dispute still binds to the ori
     stripeCheckoutSessionId: `cs_refunded_${suffix}`, stripePaymentIntentId: `pi_refunded_${suffix}`,
     paymentReference: `pi_refunded_${suffix}`, paidAt: new Date(), refundReference: `ch_refunded_${suffix}`,
   } });
+  const vendorToken = `dgpo_${randomUUID().replaceAll("-", "")}${randomUUID().replaceAll("-", "")}`;
+  await db.professionalTranslationVendorGrant.create({ data: { orderId: order.id, tokenHash: hashVendorToken(vendorToken), expiresAt: new Date(Date.now() + 86_400_000) } });
   await db.project.update({ where: { id: project.id }, data: { organizationId: target.id } });
-  await db.project.delete({ where: { id: project.id } });
   const detached = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
   assert.equal(detached.activeProjectId, null);
   assert.equal(detached.organizationId, source.id);
@@ -144,6 +150,12 @@ test("refunded receipt detaches; a later verified dispute still binds to the ori
   assert.equal(evidence.organizationId, source.id);
   assert.equal(evidence.projectId, project.id);
   assert.equal(evidence.activeProjectId, null);
+  await assert.rejects(() => issueVendorGrant({ orderId: order.id, projectId: project.id, actorId: user.id }),
+    (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "NOT_FOUND");
+  assert.equal((await vendorGet(new NextRequest("http://localhost/api/professional-orders/vendor", { headers: { authorization: `Bearer ${vendorToken}` } }))).status, 404);
+  await db.project.update({ where: { id: project.id }, data: { organizationId: laterTarget.id } });
+  await db.project.delete({ where: { id: project.id } });
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).organizationId, source.id);
 });
 
 test("open financial and unknown-owner receipts cannot be orphaned", { skip: !allowed }, async () => {

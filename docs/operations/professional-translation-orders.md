@@ -47,7 +47,11 @@ proves that no payment happened. Transfer and deletion clear only the live
 reference, never the immutable origin, quote, item, event or payment evidence.
 The integrity script backfills legacy live references once and marks detached
 receipts so reruns cannot reattach them. A later verified dispute on a detached
-refunded receipt still maps to its originating merchant.
+refunded receipt still maps to its originating merchant. The resulting
+`DISPUTED` source receipt has no live-project capability: it remains a source
+merchant reconciliation obligation and does **not** block the destination
+workspace's later transfer or project deletion. An unmarked missing live
+reference remains fail-closed because its detachment provenance is unknown.
 
 This is a reference-detachment path, **not** a retention period or permission
 to erase historical translation/payment content. Before release, integrate

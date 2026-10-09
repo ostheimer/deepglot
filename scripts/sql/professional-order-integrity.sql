@@ -85,7 +85,7 @@ BEGIN
     IF EXISTS (
       SELECT 1 FROM "ProfessionalTranslationOrder" o
       WHERE o."projectId" = OLD."id" AND
-        (deepglot_professional_order_unresolved(o) OR
+        ((o."activeProjectId" = OLD."id" AND deepglot_professional_order_unresolved(o)) OR
          (o."activeProjectId" IS NULL AND o."projectDetachedAt" IS NULL))
     ) THEN
       RAISE EXCEPTION 'unresolved professional order blocks project lifecycle change';
