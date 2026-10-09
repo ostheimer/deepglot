@@ -109,6 +109,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#visual-exclusions" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Visuelle Ausnahmen" : "Visual exclusions"}
             </a>
+            <a href="#translation-workspace" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Übersetzungs-Workspace" : "Translation workspace"}
+            </a>
             <a href="#wordpress-warmup" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "WordPress-Aufwärmung" : "WordPress warm-up"}
             </a>
@@ -176,6 +179,19 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
                 ? "Die Vorschau verwendet öffentliches, serverseitig gerendertes HTML ohne JavaScript. Sie folgt keinen Weiterleitungen und begrenzt Laden und Antwort auf acht Sekunden und 1 MiB. Seiten, deren Inhalt erst durch JavaScript entsteht oder eine Anmeldung erfordern, können hier nicht ausgewählt werden. Beliebige CSS-Selektoren und Ausnahmen nur für eine einzelne Seite werden nicht angeboten. Das bestehende WordPress-Plugin 0.12.12 übernimmt die gespeicherte ID oder Klasse beim nächsten Sync."
                 : "The preview uses public, server-rendered HTML without JavaScript. It follows no redirects and limits loading and the response to eight seconds and 1 MiB. Pages that need a login or JavaScript to render cannot be selected here. Arbitrary CSS selectors and page-only element rules are unavailable. The existing WordPress plugin 0.12.12 receives the saved ID or class at the next sync."}
             </p>
+          </section>
+
+          <section id="translation-workspace" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold">{de ? "Texte prüfen und gezielt bearbeiten" : "Review and edit translation text"}</h2>
+            <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Öffne im Projekt Übersetzungen → Profis. Die Platzhalterprüfung vergleicht alle erkannten wörtlichen Tokens in Original und Übersetzung; die gesonderte Variablenprüfung betrachtet nur gespeicherte Variablen. Beide prüfen weder Grammatik noch komplexe ICU-Vorlagen. Ältere oder unbekannte Beobachtungen beweisen keine Inaktivität."
+              : "Open Project → Translations → Pros. The placeholder check compares all recognized literal tokens in source and target; the separate variable check considers only saved variables. Neither checks grammar or complex ICU templates. Older or unknown observations do not prove inactivity."}</p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Wähle bis zu 100 gemeldete Textsegmente und prüfe Suchen und Ersetzen zuerst in der Vorschau. Medien und externe Links sind ausgeschlossen. Manuelle und freigegebene Texte werden nur mit ausdrücklicher Auswahl einbezogen; eine Inhaltsänderung setzt ihren Prüfstatus zurück. Bei einer zwischenzeitlichen Änderung wird der gesamte Vorgang abgebrochen."
+              : "Select up to 100 reported text segments and preview search and replace before applying it. Media and external links are excluded. Manual and approved text requires explicit inclusion; changing its content resets review status. If any selected segment changes meanwhile, the whole operation is canceled."}</p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Im Texteditor kannst du Verbessern, Umformulieren oder Kürzen mit KI vorbereiten. Prüfe zuerst Anbieter, Modell und Wortkontingent; erst der gesonderte Ausführen-Klick kann Anbieterkosten auslösen. Ein genauer Anbieterpreis ist derzeit nicht verfügbar. Der Vorschlag wird nicht automatisch gespeichert: Übernimm ihn in den Editor, prüfe ihn und speichere die Änderung selbst."
+              : "In the text editor, you can prepare an AI Improve, Rephrase or Shorten action. Check the provider, model and word quota first; only the separate Run click can incur provider charges. An exact provider price is currently unavailable. The suggestion is never saved automatically: copy it into the editor, review it and save the edit yourself."}</p>
           </section>
 
           <section id="weekly-digest" data-testid="help-weekly-digest" className="scroll-mt-8 pt-20">

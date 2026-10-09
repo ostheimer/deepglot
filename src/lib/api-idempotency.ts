@@ -257,7 +257,8 @@ export class PrismaApiIdempotencyStore implements ApiIdempotencyStore {
         "leaseExpiresAt" = EXCLUDED."leaseExpiresAt",
         "updatedAt" = EXCLUDED."updatedAt"
       WHERE
-        "ApiIdempotencyRecord"."expiresAt" <= ${input.now}
+        ("ApiIdempotencyRecord"."status" <> 'DISPATCHED'
+          AND "ApiIdempotencyRecord"."expiresAt" <= ${input.now})
         OR (
           "ApiIdempotencyRecord"."status" = 'PROCESSING'
           AND "ApiIdempotencyRecord"."requestHash" = EXCLUDED."requestHash"
@@ -306,7 +307,7 @@ export class PrismaApiIdempotencyStore implements ApiIdempotencyStore {
       WHERE
         "scope" = ${input.scope}
         AND "keyHash" = ${input.keyHash}
-        AND "status" = 'PROCESSING'
+        AND "status" IN ('PROCESSING', 'DISPATCHED')
         AND "ownerToken" = ${input.ownerToken}
     `;
 
@@ -351,7 +352,7 @@ export class PrismaApiIdempotencyStore implements ApiIdempotencyStore {
     const { db } = await import("@/lib/db");
     return db.$executeRaw`
       DELETE FROM "ApiIdempotencyRecord"
-      WHERE "expiresAt" <= ${now}
+      WHERE "expiresAt" <= ${now} AND "status" <> 'DISPATCHED'
     `;
   }
 

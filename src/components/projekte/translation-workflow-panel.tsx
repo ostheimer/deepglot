@@ -35,6 +35,8 @@ import { planTranslationPaginationAfterDeletion } from "@/lib/translation-worksp
 import { translationContextLink } from "@/lib/translation-context";
 import { TranslationMetadataPanel } from "./translation-metadata-panel";
 import { TranslationHistoryPanel } from "./translation-history-panel";
+import { TranslationSearchReplacePanel } from "./translation-search-replace-panel";
+import { TranslationAiSuggestion } from "./translation-ai-suggestion";
 import type { TranslationMetadataValue } from "@/lib/translation-metadata";
 import { REPORTED_TYPE_GROUPS } from "@/lib/translation-reported-types";
 
@@ -802,6 +804,9 @@ export function TranslationWorkflowPanel({
                 "Keine Variablen ausgewählt",
               )}
             </option>
+            <option value="all_mismatch">{uiText(locale, "Any placeholder mismatch", "Beliebige Platzhalterabweichung")}</option>
+            <option value="all_match">{uiText(locale, "All placeholders preserved", "Alle Platzhalter erhalten")}</option>
+            <option value="all_none">{uiText(locale, "No placeholders detected", "Keine Platzhalter erkannt")}</option>
           </select>
           <select
             aria-label={uiText(
@@ -879,8 +884,8 @@ export function TranslationWorkflowPanel({
           <p className="mt-3 text-xs text-gray-600">
             {uiText(
               locale,
-              "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity.",
-              "Geprüft werden nur ausgewählte Variablen. Beobachtungen erfassen keine lokalen Cache-Treffer und beweisen keine Inaktivität.",
+              "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity. All-placeholder filters are separate.",
+              "Geprüft werden nur ausgewählte Variablen. Beobachtungen erfassen keine lokalen Cache-Treffer und beweisen keine Inaktivität. Filter für alle Platzhalter sind getrennt.",
             )}
           </p>
         )}
@@ -959,6 +964,9 @@ export function TranslationWorkflowPanel({
             </Button>
           </div>
         )}
+
+        {data && <TranslationSearchReplacePanel projectId={projectId} locale={locale}
+          selected={selectedItems} onApplied={() => latestLoadRef.current()} />}
 
         {!loading && data?.items.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-gray-500">
@@ -1167,6 +1175,14 @@ export function TranslationWorkflowPanel({
                               "Übersetzung",
                             )}
                           />
+                          {Boolean(translation.typeObservations?.length) &&
+                            translation.typeObservations!.every((type) =>
+                              REPORTED_TYPE_GROUPS.text.includes(type.wordType as never)) &&
+                          <TranslationAiSuggestion key={`${translation.id}:${editingDraft.expectedUpdatedAt}`}
+                            projectId={projectId} translationId={translation.id}
+                            expectedUpdatedAt={editingDraft.expectedUpdatedAt} locale={locale}
+                            onUse={(suggestion) => setEditingDraft((current) =>
+                              current?.id === translation.id ? { ...current, text: suggestion } : current)} />}
                           <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               type="button"

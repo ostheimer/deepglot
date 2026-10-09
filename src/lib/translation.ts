@@ -83,6 +83,21 @@ async function translateWithProvider(
   }
 }
 
+/** One configured provider attempt for an explicitly requested workspace rewrite. */
+export async function translateWorkspaceSuggestionOnce(
+  input: TranslateTextsInput,
+  config: TranslationProviderConfig,
+  env: TranslationEnv = process.env,
+) {
+  if (!input.workspaceRewrite || input.texts.length !== 1 || config.provider === "deepl")
+    throw new Error("Unsupported workspace rewrite request.");
+  validateTranslationProviderConfig(config);
+  const results = await translateWithProvider(input, env, config, providerAbortSignal(env));
+  if (results.length !== 1 || !results[0]?.text)
+    throw new TranslationProviderResponseError("Workspace provider returned no single suggestion.");
+  return results[0];
+}
+
 /**
  * Errors the fallback wrapper treats as "try the next provider": invalid
  * provider response contracts, quota / rate-limit responses, gateway/timeout

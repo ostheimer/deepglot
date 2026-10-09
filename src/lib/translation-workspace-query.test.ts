@@ -16,6 +16,13 @@ test("quality SQL materializes token counts once per text, not per variable", ()
   assert.equal(query.text.match(/AS MATERIALIZED/g)?.length, 2);
 });
 
+test("all-placeholder predicate compares source and target without saved metadata", () => {
+  const query = workspaceSqlWhere("project", "en", { quality: "all_mismatch" }, new Date());
+  assert.match(query.text, /FULL OUTER JOIN target_tokens/);
+  assert.doesNotMatch(query.text, /TranslationMetadata/);
+  assert.equal(query.text.match(/regexp_matches/g)?.length, 2);
+});
+
 test("workspace SQL binds user input and uses only fixed sorting expressions", () => {
   const hostile = "' OR TRUE --";
   const query = workspaceSqlWhere(

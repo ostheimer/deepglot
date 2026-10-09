@@ -4,6 +4,7 @@ import { Prisma, type Translation } from "@prisma/client";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 import { listProjectTranslationWorkflow } from "@/lib/translation-workflow";
 import {
+  allPlaceholderQuality,
   savedVariableQuality,
   observationCutoff,
 } from "@/lib/translation-quality";
@@ -115,6 +116,16 @@ test(
         });
         assert.deepEqual(result.items.map((r) => r.id).sort(), expected.sort());
         assert.equal(result.total, expected.length);
+      }
+      for (const quality of ["all_match", "all_mismatch", "all_none"] as const) {
+        const expected = rows.filter((_, i) =>
+          allPlaceholderQuality(cases[i][0], cases[i][1]) === quality.slice(4))
+          .map((row) => row.id);
+        if (quality === "all_none") expected.push(noMetadata.id);
+        const result = await listProjectTranslationWorkflow({
+          projectId: project.id, actor, filters: { quality, pageSize: 100 },
+        });
+        assert.deepEqual(result.items.map((row) => row.id).sort(), expected.sort());
       }
       const matching = await listProjectTranslationWorkflow({
         projectId: project.id,

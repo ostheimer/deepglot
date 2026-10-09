@@ -316,7 +316,7 @@ export function planTranslationWorkflowUpdate({
 
 export type TranslationWorkflowFilters = {
   reportedType?: import("./translation-reported-types").ReportedTypeFilter;
-  quality?: VariableQuality;
+  quality?: VariableQuality | "all_mismatch" | "all_match" | "all_none";
   activity?: ObservedActivity;
   label?: string;
   variables?: "saved" | "none";

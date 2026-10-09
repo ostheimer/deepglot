@@ -23,7 +23,7 @@ const statusMap = {
 } as const satisfies Record<string, TranslationWorkflowStatus>;
 
 const querySchema = z.object({
-  quality: z.enum(["mismatch", "match", "unchecked"]).optional(),
+  quality: z.enum(["mismatch", "match", "unchecked", "all_mismatch", "all_match", "all_none"]).optional(),
   reportedType: z.enum(["text", "media", "link", "other", "unknown"]).optional(),
   activity: z.enum(["recent", "older", "unknown"]).optional(),
   label: translationLabelSchema.optional(),

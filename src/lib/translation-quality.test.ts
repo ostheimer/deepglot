@@ -2,10 +2,19 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { STATIC_MESSAGES } from "./static-messages";
 import {
+  allPlaceholderQuality,
   observationCutoff,
   savedVariableQuality,
   translationTokenCounts,
 } from "./translation-quality";
+
+test("all-placeholder checks catch unsaved, duplicated and newly invented tokens", () => {
+  assert.equal(allPlaceholderQuality("Hallo {name}", "Hello"), "mismatch");
+  assert.equal(allPlaceholderQuality("Hallo {name}", "Hello {name} {name}"), "mismatch");
+  assert.equal(allPlaceholderQuality("Hallo", "Hello {name}"), "mismatch");
+  assert.equal(allPlaceholderQuality("Hallo {name}", "Hello {name}"), "match");
+  assert.equal(allPlaceholderQuality("Hallo", "Hello"), "none");
+});
 
 test("saved-variable checks compare exact token multiplicities, not substrings", () => {
   const cases = [

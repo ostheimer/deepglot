@@ -23,6 +23,18 @@ export function translationTokenCounts(text: string) {
   return counts;
 }
 
+/** Every recognized literal placeholder must have the same exact count. */
+export function allPlaceholderQuality(original: string, translated: string): "none" | "match" | "mismatch" {
+  const source = translationTokenCounts(original);
+  const target = translationTokenCounts(translated);
+  if (!source.size && !target.size) return "none";
+  if (source.size !== target.size) return "mismatch";
+  for (const [token, count] of source) {
+    if (target.get(token) !== count) return "mismatch";
+  }
+  return "match";
+}
+
 export function savedVariableQuality(
   original: string,
   translated: string,

@@ -10,6 +10,8 @@ The `quality` filter checks **explicitly selected variables**, not overall lingu
 
 Checks are computed from current source, translation and metadata during the read. There is no derived status to invalidate after provider, import or manual updates, and no automatic text rewriting. SQL tokenization is tested against the JavaScript reference implementation using actual PostgreSQL.
 
+The additional `all_mismatch`, `all_match` and `all_none` filters compare every token recognized by the same literal grammar, without requiring saved variable metadata. `all_match` requires at least one token; `all_none` means neither source nor target contains a recognized token. These checks still do not parse ICU syntax or grade linguistic quality.
+
 ## Observation semantics
 
 The `activity` filter describes recorded SaaS page-context observations:
@@ -32,4 +34,4 @@ A local synthetic PostgreSQL benchmark with 1,000 fully annotated segments and 5
 
 Unit tests cover token multiplicities, escapes, exact spelling, stale/unconfigured annotations, the UTC cutoff and client query identity. PostgreSQL tests cover SQL/reference parity, tenant/language boundaries, combined filters, literal search, pagination/counts, multiple path observations, the exact cutoff and immediate edit visibility. Browser tests exercise combined filters, correction-driven removal, reset and invalid API values; the existing workspace suite guards prior editing and permission behavior.
 
-True content type requires ingestion provenance for normal text, media and external-link entries; do not infer it from string contents or file extensions. Confirmed inactivity needs authoritative inventory/crawl semantics. These remain in #257, along with full placeholder preservation, history, bulk actions and AI/search-and-replace. This slice does not claim complete Weglot parity.
+True content type requires ingestion provenance for normal text, media and external-link entries; do not infer it from string contents or file extensions. Confirmed inactivity needs authoritative inventory/crawl semantics. The all-placeholder filter is broader than saved variables, but it is not a full ICU or template parser.

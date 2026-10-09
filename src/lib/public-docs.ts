@@ -305,6 +305,16 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     access: "atomic assignment / review: manager or assigned language translator",
   },
   {
+    path: "/api/projects/[projektId]/translations/search-replace",
+    sourceFile: "src/app/api/projects/[projektId]/translations/search-replace/route.ts",
+    access: "project / language scoped; preview fingerprint and atomic content CAS",
+  },
+  {
+    path: "/api/projects/[projektId]/translations/[translationId]/ai-suggestion",
+    sourceFile: "src/app/api/projects/[projektId]/translations/[translationId]/ai-suggestion/route.ts",
+    access: "assigned editor / manager; provider preview then explicit run; suggestion only",
+  },
+  {
     path: "/api/projects/[projektId]/translations/[translationId]/history",
     sourceFile: "src/app/api/projects/[projektId]/translations/[translationId]/history/route.ts",
     access: "project / language scoped; new workspace edits only",
