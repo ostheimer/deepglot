@@ -1,5 +1,7 @@
 # Issue 264: direct edit of an existing translated URL slug
 
+This is the historical acceptance record for PR 374. For the completed slug-management workflow and current CSV behavior, see [slug-management.md](slug-management.md).
+
 Managers can edit or clear one existing mapping on the slug page. This slice does not add slug discovery, bulk actions, auto translation, or redirect history; Issue 264 stays open for that remaining scope. The existing four-column slug CSV import/export contract is unchanged. A direct edit appears in export, and the exported CSV can be reimported. CSV import retains its existing validation and overwrite behavior; the stricter collision checks apply to the new single-row edit endpoint.
 
 The PATCH endpoint checks project management permission, row ownership, an active target language, and an `updatedAt` compare-and-swap inside a serializable transaction under the project configuration lock. A normalized target must be a single safe segment and must not collide with any source or translated segment in its language. It also must appear in the runtime URL slug payload. The existing source must itself be routable by the WordPress plugin; clearing a mapping remains possible even when the source is malformed. Language-bound translators can read only their active target language and have no edit control or PATCH permission.
