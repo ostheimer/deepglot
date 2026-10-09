@@ -10,6 +10,7 @@ const globalForPrisma = globalThis as unknown as {
       findUnique: ReturnType<typeof test.mock.fn>;
     };
     organization: { update: ReturnType<typeof test.mock.fn> };
+    autoUpgradeAttempt: { findFirst: ReturnType<typeof test.mock.fn> };
   };
 };
 
@@ -41,6 +42,7 @@ const organizationUpdate = test.mock.fn(
 globalForPrisma.prisma = {
   subscription: { update: subscriptionUpdate, findUnique: subscriptionFindUnique },
   organization: { update: organizationUpdate },
+  autoUpgradeAttempt: { findFirst: test.mock.fn(async () => null) },
 };
 
 test.before(async () => {

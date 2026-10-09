@@ -30,6 +30,7 @@ model User {
   activityDigestDeliveries ActivityDigestDelivery[]
   notificationPreferences NotificationPreference[]
   notificationDeliveries NotificationDelivery[]
+  autoUpgradeNotifications AutoUpgradeNotification[]
   translationContentRevisions TranslationContentRevision[]
 }
 
@@ -108,6 +109,9 @@ model Organization {
   activityDigestDeliveries ActivityDigestDelivery[]
   notificationPreferences NotificationPreference[]
   notificationDeliveries NotificationDelivery[]
+  autoUpgradePreference AutoUpgradePreference?
+  autoUpgradeAttempts AutoUpgradeAttempt[]
+  autoUpgradeNotifications AutoUpgradeNotification[]
 }
 
 /// Dedup marker for the monthly word-quota warning emails to the org owner.
@@ -464,6 +468,62 @@ model Subscription {
 
   organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// Off until an owner explicitly accepts a paid tier and recurring price ceiling.
+model AutoUpgradePreference {
+  id String @id @default(cuid())
+  organizationId String @unique
+  enabled Boolean @default(false)
+  maxPlan Plan @default(STARTER)
+  maxPriceCents Int @default(0)
+  interval String @default("monthly")
+  updatedByUserId String?
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// One attempt per starting tier and UTC usage month. Unknown Stripe outcomes are held for reconciliation.
+model AutoUpgradeAttempt {
+  id String @id @default(cuid())
+  organizationId String
+  month Int
+  fromPlan Plan
+  toPlan Plan
+  fromPriceId String
+  toPriceId String
+  interval String
+  maxPriceCents Int
+  usedWords Int
+  status String @default("CLAIMED")
+  stripeSubscriptionId String
+  stripeItemId String?
+  stripeInvoiceId String?
+  billingCommandId String? @unique
+  errorCode String?
+  claimedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notifications AutoUpgradeNotification[]
+  @@unique([organizationId, month, fromPlan])
+  @@index([stripeSubscriptionId, status])
+}
+
+/// Durable in-app owner notice; email delivery can be added without losing the event.
+model AutoUpgradeNotification {
+  id String @id @default(cuid())
+  attemptId String
+  userId String
+  organizationId String
+  kind String
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  attempt AutoUpgradeAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([attemptId, userId, kind])
+  @@index([userId, createdAt])
 }
 
 enum SubscriptionStatus {

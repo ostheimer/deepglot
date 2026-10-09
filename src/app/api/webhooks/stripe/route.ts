@@ -7,6 +7,8 @@ import {
   tryResolvePlanKeyByStripePriceId,
 } from "@/lib/billing-plans";
 import { checkoutCompletionIsDuplicate } from "@/lib/billing";
+import { activeAutoUpgradeAttempt, expireAutoUpgradePendingUpdate, verifyAndApplyPaidAutoUpgrade } from "@/lib/auto-upgrade";
+import { failedInvoiceIsUpgradeInvoice } from "@/lib/auto-upgrade-invoice";
 import { sendDuplicateSubscriptionAlertEmail } from "@/lib/email";
 import { Plan, SubscriptionStatus } from "@prisma/client";
 import Stripe from "stripe";
@@ -102,6 +104,20 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscriptionUpdated(subscription);
+        break;
+      }
+      case "customer.subscription.pending_update_applied": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await handleSubscriptionUpdated(subscription);
+        break;
+      }
+      case "customer.subscription.pending_update_expired": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const attempt = await activeAutoUpgradeAttempt(subscription.id);
+        if (attempt?.status === "PAYMENT_PENDING" && !subscription.pending_update &&
+            subscription.items.data[0]?.price.id === attempt.fromPriceId) {
+          await expireAutoUpgradePendingUpdate(subscription.id);
+        }
         break;
       }
     }
@@ -286,6 +302,9 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const stripeSubscriptionId = getSubscriptionIdFromInvoice(invoice);
   if (!stripeSubscriptionId) return;
 
+  const autoAttempt = await activeAutoUpgradeAttempt(stripeSubscriptionId);
+  if (autoAttempt && autoAttempt.stripeInvoiceId === invoice.id &&
+      await verifyAndApplyPaidAutoUpgrade(stripeSubscriptionId, invoice.id, stripe)) return;
   const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
   // updateMany tolerates untracked subscriptions (e.g. an orphaned duplicate):
@@ -303,6 +322,22 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const stripeSubscriptionId = getSubscriptionIdFromInvoice(invoice);
   if (!stripeSubscriptionId) return;
+
+  const autoAttempt = await db.autoUpgradeAttempt.findFirst({ where: { stripeSubscriptionId, stripeInvoiceId: invoice.id }, orderBy: { createdAt: "desc" } });
+  if (autoAttempt && failedInvoiceIsUpgradeInvoice(autoAttempt, invoice.id)) {
+    // A pending upgrade invoice may fail while the old paid plan remains active.
+    // Do not soft-cap the old subscription or grant the proposed higher quota.
+    if (autoAttempt.status === "AWAIT_INVOICE" || autoAttempt.status === "DISPATCHING") {
+      await db.autoUpgradeAttempt.update({ where: { id: autoAttempt.id }, data: { status: "PAYMENT_PENDING" } });
+    }
+    return;
+  }
+  const unbound = await activeAutoUpgradeAttempt(stripeSubscriptionId);
+  if (unbound?.status === "DISPATCHING" && !unbound.stripeInvoiceId && invoice.billing_reason === "subscription_update") {
+    const remote = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const latestId = typeof remote.latest_invoice === "string" ? remote.latest_invoice : remote.latest_invoice?.id;
+    if (remote.pending_update && latestId === invoice.id && remote.items.data[0]?.price.id === unbound.fromPriceId) return;
+  }
 
   // See handleInvoicePaid: tolerate untracked subscriptions.
   await db.subscription.updateMany({
@@ -346,7 +381,27 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     return;
   }
 
+  // An older subscription.updated event can arrive after the paid upgrade.
+  // Compare with Stripe's current object before accepting a lower price.
+  const latestApplied = await db.autoUpgradeAttempt.findFirst({ where: { stripeSubscriptionId: subscription.id, status: "APPLIED" }, orderBy: { createdAt: "desc" } });
+  if (latestApplied && subscription.items.data[0]?.price.id === latestApplied.fromPriceId) {
+    const live = await stripe.subscriptions.retrieve(subscription.id);
+    if (live.items.data[0]?.price.id === latestApplied.toPriceId) return;
+    subscription = live;
+  }
+
   const priceId = subscription.items.data[0]?.price.id;
+  const autoAttempt = await activeAutoUpgradeAttempt(subscription.id);
+  if (autoAttempt && priceId === autoAttempt.toPriceId) {
+    // Stripe can send subscription.updated before invoice.paid. The paid invoice
+    // is the authority for applying new quota; a pending update is never enough.
+    const invoiceId = typeof subscription.latest_invoice === "string" ? subscription.latest_invoice : subscription.latest_invoice?.id;
+    if (!invoiceId || autoAttempt.stripeInvoiceId !== invoiceId) return;
+    const invoice = await stripe.invoices.retrieve(invoiceId);
+    if (invoice.status !== "paid") return;
+    await verifyAndApplyPaidAutoUpgrade(subscription.id, invoice.id, stripe);
+    return;
+  }
   const resolvedPlanKey = tryResolvePlanKeyByStripePriceId(priceId);
   const status = mapStripeStatus(subscription.status);
 
