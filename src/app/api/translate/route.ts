@@ -6,7 +6,7 @@ import { preflightTranslationAction } from "@/lib/ai-action-preflight";
 import { currentAiBudgetEnforcementState, selectAiBudgetSpendControl } from "@/lib/ai-budget-enforcement";
 import { validateTranslationProviderConfig } from "@/lib/translation-config";
 import { recordTranslationContexts } from "@/lib/translation-context";
-import { glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
+import { glossaryDispatchFingerprint, glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
 import { buildTranslationContext } from "@/lib/translation-context-settings";
 import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
@@ -794,6 +794,9 @@ export async function executeAuthenticatedTranslateRequest(
                   sourceLang: l_from,
                   targetLang: l_to,
                   expectedSettingsUpdatedAt: providerSettings?.updatedAt.toISOString() ?? null,
+                  expectedGlossaryFingerprint: glossaryDispatchFingerprint(glossaryRules),
+                  expectedProjectContext: projectContext ?? null,
+                  contextSourceTexts: pendingTranslations.map((item) => texts[item.index]),
                   provider: candidate.provider,
                   model: candidate.model || candidate.provider,
                   input,

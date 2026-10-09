@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { canAccessProject, canAccessProjectLanguage } from "@/lib/project-access-policy";
+import { glossaryDispatchFingerprint } from "@/lib/url-operations";
+import { buildTranslationContext } from "@/lib/translation-context-settings";
 import {
   AiBudgetError, conservativeInputUnits, quotedMicros, spendWithinCap, utcPeriodKey,
   type ApprovedPrice, type AiPriceUnit,
@@ -20,6 +22,9 @@ export type AiSpendAttempt = {
   sourceLang?: string;
   targetLang?: string;
   expectedSettingsUpdatedAt?: string | null;
+  expectedGlossaryFingerprint?: string;
+  expectedProjectContext?: string | null;
+  contextSourceTexts?: readonly string[];
   action: string;
   provider: string;
   model: string;
@@ -88,7 +93,15 @@ export async function preflightAiSpendBatch(input: {
   organizationId: string; projectId: string;
   attempts: ReadonlyArray<{ provider: string; model: string; dispatchInput: unknown }>;
 }) {
-  return db.$transaction(async (tx) => {
+  return db.$transaction((tx) => preflightAiSpendBatchInTransaction(tx, input),
+    { isolationLevel: "RepeatableRead", timeout: 15_000 });
+}
+
+/** Caller-held snapshot supports related read-only previews and concurrent-policy tests. */
+export async function preflightAiSpendBatchInTransaction(tx: Prisma.TransactionClient, input: {
+  organizationId: string; projectId: string;
+  attempts: ReadonlyArray<{ provider: string; model: string; dispatchInput: unknown }>;
+}) {
     const project = await tx.project.findFirst({ where: { id: input.projectId,
       organizationId: input.organizationId }, select: { id: true } });
     if (!project) throw new AiBudgetError("project_changed", "Project ownership changed.");
@@ -128,7 +141,6 @@ export async function preflightAiSpendBatch(input: {
       spendWithinCap(projectMicros, total, projectBudget.capMicros);
     return { allowed, attempts, maxMicros: total.toString(), currency: organizationBudget.currency,
       code: allowed ? "approved_estimate" : "budget_exhausted" };
-  }, { isolationLevel: "RepeatableRead", timeout: 15_000 });
 }
 
 function approvedPrice(budget: BudgetWithModels, provider: string, model: string): ApprovedPrice {
@@ -242,16 +254,36 @@ export async function reserveAiSpendInTransaction(tx: Prisma.TransactionClient,
       }
       const project = await tx.project.findUnique({
         where: { id: attempt.projectId },
-        select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true } },
-          settings: { select: { automaticTranslation: true, providerReconnectRequired: true, updatedAt: true } } },
+        select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true, automaticTranslation: true } },
+          settings: true },
       });
       if (!project || project.originalLang.toLowerCase() !== attempt.sourceLang.toLowerCase() ||
           !project.languages.some((language) => language.langCode.toLowerCase() === attempt.targetLang!.toLowerCase()) ||
           (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION"].includes(attempt.action) &&
-            project.settings?.automaticTranslation === false) ||
+            (project.settings?.automaticTranslation === false ||
+              project.languages.find((language) => language.langCode.toLowerCase() === attempt.targetLang!.toLowerCase())?.automaticTranslation === false)) ||
           project.settings?.providerReconnectRequired === true ||
           (attempt.expectedSettingsUpdatedAt ?? null) !== (project.settings?.updatedAt.toISOString() ?? null)) {
         throw new AiBudgetError("project_changed", "Translation configuration changed before provider dispatch.");
+      }
+      if (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION"].includes(attempt.action) &&
+          attempt.expectedGlossaryFingerprint !== undefined) {
+        const rules = await tx.glossaryRule.findMany({ where: { projectId: attempt.projectId,
+          langFrom: attempt.sourceLang, langTo: attempt.targetLang },
+          orderBy: [{ originalTerm: "desc" }, { updatedAt: "desc" }] });
+        if (glossaryDispatchFingerprint(rules) !== attempt.expectedGlossaryFingerprint)
+          throw new AiBudgetError("project_changed", "Glossary changed before provider dispatch.");
+        const examples = project.settings?.useApprovedTranslationsAsContext
+          ? await tx.translation.findMany({ where: { projectId: attempt.projectId,
+              langFrom: attempt.sourceLang, langTo: attempt.targetLang,
+              OR: [{ isManual: true }, { workflowStatus: "APPROVED" }] },
+            orderBy: { updatedAt: "desc" }, take: 12,
+            select: { originalText: true, translatedText: true } })
+          : [];
+        const currentContext = buildTranslationContext({ settings: project.settings,
+          texts: attempt.contextSourceTexts ?? [], glossaryRules: rules, examples });
+        if ((currentContext ?? null) !== (attempt.expectedProjectContext ?? null))
+          throw new AiBudgetError("project_changed", "Approved translation context changed before provider dispatch.");
       }
     }
     const priorGroup = await tx.aiSpendReservation.findFirst({

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { createServer } from "node:http";
+import { once } from "node:events";
 
 import { resolveDatabaseUrl } from "@/lib/database-url";
 import {
@@ -321,6 +323,8 @@ after(async () => {
 
 test("active AI budget denies PDF provider work without owner approvals", { skip: skipWithoutDatabase }, async () => {
   const prior = process.env.AI_BUDGET_ENFORCEMENT;
+  const priorKey = process.env.TRANSLATION_API_KEY;
+  const priorFallbacks = process.env.TRANSLATION_FALLBACK_PROVIDERS;
   process.env.AI_BUDGET_ENFORCEMENT = "on";
   const { db } = await import("@/lib/db");
   const id = crypto.randomUUID();
@@ -426,6 +430,51 @@ test("active AI budget denies PDF provider work without owner approvals", { skip
       },
     }), (error) => error instanceof PdfTranslationError && error.code === "project_changed");
     assert.equal(await db.aiSpendReservation.count({ where: { projectId: project.id } }), 1);
+    let httpCalls = 0;
+    const provider = createServer((_request, response) => {
+      httpCalls += 1;
+      response.writeHead(503, { "Content-Type": "text/plain" });
+      response.end("synthetic provider failure");
+    });
+    provider.listen(0, "127.0.0.1");
+    await once(provider, "listening");
+    try {
+      const address = provider.address();
+      assert.ok(address && typeof address !== "string");
+      process.env.TRANSLATION_API_KEY = "synthetic-local-pdf-key";
+      process.env.TRANSLATION_FALLBACK_PROVIDERS = "not-a-provider";
+      await db.projectSettings.update({ where: { projectId: project.id }, data: {
+        translationProvider: "openai-compatible", translationModel: "local-pdf",
+        translationBaseUrl: `http://127.0.0.1:${address.port}/v1`,
+      } });
+      for (const budget of await db.aiBudget.findMany({ where: { organizationId: organization.id } }))
+        await db.aiBudgetModel.create({ data: { budgetId: budget.id,
+          provider: "openai-compatible", model: "local-pdf", unit: "TOKEN",
+          inputMicrosPerMillion: BigInt(0), outputMicrosPerMillion: BigInt(0),
+          maxInputUnits: 100_000, maxOutputUnits: 100, outputCapVerified: true,
+          priceExpiresAt: new Date(Date.now() + 86_400_000) } });
+      const failedInput = { ...baseInput, requestKey: `${id}:http-failure` };
+      const failedPreview = await previewProjectPdf(failedInput);
+      assert.equal(failedPreview.canRun, true);
+      const bucketBefore = await db.rateLimitBucket.findUniqueOrThrow({ where: { scope_subjectHash: {
+        scope: TRANSLATE_WORD_VELOCITY_SCOPE,
+        subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id),
+      } } });
+      await assert.rejects(translateProjectPdf({ ...failedInput,
+        previewFingerprint: failedPreview.fingerprint, previewExpiresAt: failedPreview.expiresAt }),
+        (error) => error instanceof PdfTranslationError && error.code === "provider_failed");
+      assert.equal(httpCalls, 1);
+      const unknown = await db.aiSpendReservation.findFirstOrThrow({ where: {
+        projectId: project.id, provider: "openai-compatible" },
+      });
+      assert.equal(unknown.state, "UNKNOWN");
+      const bucketAfter = await db.rateLimitBucket.findUniqueOrThrow({ where: { scope_subjectHash: {
+        scope: TRANSLATE_WORD_VELOCITY_SCOPE,
+        subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id),
+      } } });
+      assert.equal(bucketAfter.count, bucketBefore.count + 4,
+        "provider-started unknown outcome retains its word velocity charge");
+    } finally { provider.close(); await once(provider, "close"); }
   } finally {
     await db.rateLimitBucket.deleteMany({ where: { scope: TRANSLATE_WORD_VELOCITY_SCOPE,
       subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id) } });
@@ -433,5 +482,9 @@ test("active AI budget denies PDF provider work without owner approvals", { skip
     await db.user.delete({ where: { id: user.id } });
     if (prior === undefined) delete process.env.AI_BUDGET_ENFORCEMENT;
     else process.env.AI_BUDGET_ENFORCEMENT = prior;
+    if (priorKey === undefined) delete process.env.TRANSLATION_API_KEY;
+    else process.env.TRANSLATION_API_KEY = priorKey;
+    if (priorFallbacks === undefined) delete process.env.TRANSLATION_FALLBACK_PROVIDERS;
+    else process.env.TRANSLATION_FALLBACK_PROVIDERS = priorFallbacks;
   }
 });

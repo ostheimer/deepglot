@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { AiBudgetError } from "./ai-budget-math";
-import { preflightAiSpend, reserveAiSpendInTransaction, settleAiSpend } from "./ai-budget";
+import { preflightAiSpendBatch, reserveAiSpendInTransaction, settleAiSpend } from "./ai-budget";
 import { currentAiBudgetEnforcementState } from "./ai-budget-enforcement";
 import { PrismaApiIdempotencyStore, hashApiIdempotencyKey, hashApiIdempotencyRequestBody } from "./api-idempotency";
 import { db } from "./db";
@@ -153,16 +153,17 @@ export async function previewWorkspaceAi(input: { projectId: string; userId: str
   const previewExpiresAt = new Date(Date.now() + PREVIEW_VALID_MS);
   const state = await readAiScope({ ...input, previewExpiresAt }, false);
   const active = currentAiBudgetEnforcementState() === "active";
-  let budget: Awaited<ReturnType<typeof preflightAiSpend>> | null = null;
+  let budget: Awaited<ReturnType<typeof preflightAiSpendBatch>> | null = null;
   let budgetCode: string | null = null;
   try {
-    budget = await preflightAiSpend({ organizationId: state.project.organizationId,
-      projectId: input.projectId, provider: state.config.provider,
-      model: state.config.model || state.config.provider, dispatchInput: state.dispatchInput });
+    budget = await preflightAiSpendBatch({ organizationId: state.project.organizationId,
+      projectId: input.projectId, attempts: [{ provider: state.config.provider,
+        model: state.config.model || state.config.provider, dispatchInput: state.dispatchInput }] });
   } catch (error) {
     if (!(error instanceof AiBudgetError)) throw error;
     budgetCode = error.code;
   }
+  const quotedAttempt = budget?.attempts[0];
   return { fingerprint: state.fingerprint, provider: state.config.provider,
     previewExpiresAt: previewExpiresAt.toISOString(),
     model: state.config.model ?? null, inputCharacters: state.row.translatedText.length,
@@ -171,12 +172,12 @@ export async function previewWorkspaceAi(input: { projectId: string; userId: str
     canRun: active && budget?.allowed === true && state.used + state.words <= state.limit,
     budget: budget ? { allowed: active ? budget.allowed : null,
       previewOnly: !active, code: active ? budget.code : "preparation_estimate",
-      currency: budget.currency, unit: budget.unit, inputUnits: budget.inputUnits,
-      outputUnits: budget.outputUnits, estimatedMaxMicros: budget.estimatedMaxMicros,
-      platformCredits: false, externalProviderCost: budget.externalProviderCost }
+      currency: budget.currency, unit: quotedAttempt!.unit, inputUnits: quotedAttempt!.inputUnits,
+      outputUnits: quotedAttempt!.outputUnits, estimatedMaxMicros: budget.maxMicros,
+      platformCredits: false, externalProviderCost: quotedAttempt!.unit !== "ZERO_COST" }
       : { allowed: active ? false : null, previewOnly: !active, code: budgetCode ?? "budget_unavailable" },
-    price: budget ? { currency: budget.currency, estimatedMaxMicros: budget.estimatedMaxMicros,
-      unit: budget.unit, inputUnits: budget.inputUnits, outputUnits: budget.outputUnits } : null };
+    price: budget ? { currency: budget.currency, estimatedMaxMicros: budget.maxMicros,
+      unit: quotedAttempt!.unit, inputUnits: quotedAttempt!.inputUnits, outputUnits: quotedAttempt!.outputUnits } : null };
 }
 
 export async function runWorkspaceAi(input: { projectId: string; userId: string;

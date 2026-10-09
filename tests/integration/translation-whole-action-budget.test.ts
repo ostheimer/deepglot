@@ -3,6 +3,7 @@ import { mock, test } from "node:test";
 import { NextRequest } from "next/server";
 import { generateApiKey } from "@/lib/api-keys";
 import { resolveDatabaseUrl } from "@/lib/database-url";
+import { preflightAiSpendBatch, preflightAiSpendBatchInTransaction } from "@/lib/ai-budget";
 import { db } from "@/lib/db";
 import { hashRateLimitSubject, TRANSLATE_WORD_VELOCITY_SCOPE } from "@/lib/rate-limit";
 
@@ -23,7 +24,8 @@ test("automatic context translation preflights the full configured fallback befo
     name: "Whole action", domain: `whole-${suffix}.invalid`, originalLang: "de",
     languages: { create: { langCode: "en" } },
     settings: { create: { translationProvider: "openai-compatible", translationModel: "fixture",
-      translationBaseUrl: "http://127.0.0.1:1/v1", websiteDescription: "Fixture context" } } } });
+      translationBaseUrl: "http://127.0.0.1:1/v1", websiteDescription: "Fixture context",
+      useApprovedTranslationsAsContext: true } } } });
   const { rawKey } = await generateApiKey({ projectId: project.id, name: "Fixture" });
   for (const projectId of [null, project.id]) await db.aiBudget.create({ data: {
     organizationId: org.id, projectId, currency: "USD", capMicros: BigInt(1_000_000),
@@ -100,6 +102,53 @@ test("automatic context translation preflights the full configured fallback befo
       } } });
       assert.equal(bucketAfterRace.count, bucketBeforeRace.count);
     } finally { database.$transaction = originalTransaction; }
+    await db.apiKey.update({ where: { id: key.id }, data: { isActive: true } });
+    for (const [change, text] of [
+      [async () => { await db.glossaryRule.create({ data: { projectId: project.id,
+        langFrom: "de", langTo: "en", originalTerm: "Quellbegriff", translatedTerm: "Source term" } }); }, "Quellbegriff vor Glossarwechsel"],
+      [async () => { await db.translation.create({ data: { projectId: project.id,
+        originalHash: `approved-${suffix}`, originalText: "Beispiel", translatedText: "Example",
+        langFrom: "de", langTo: "en", isManual: true, source: "MANUAL" } }); }, "Text vor Kontextwechsel"],
+      [async () => { await db.projectLanguage.updateMany({ where: { projectId: project.id,
+        langCode: "en" }, data: { automaticTranslation: false } }); }, "Text vor Automatikwechsel"],
+    ] as const) {
+      let changedAtQuote = false;
+      database.$transaction = async (...args: unknown[]) => {
+        const result = await originalTransaction(...args);
+        if (!changedAtQuote && result && typeof result === "object" && "attempts" in result) {
+          changedAtQuote = true;
+          await change();
+        }
+        return result;
+      };
+      try {
+        const response = await request(text);
+        assert.equal(response.status, 409);
+        assert.equal(providerCalls, 1);
+        assert.equal(await db.aiSpendReservation.count({ where: { organizationId: org.id } }), 1);
+      } finally { database.$transaction = originalTransaction; }
+    }
+    let snapshotReady!: () => void;
+    let releaseSnapshot!: () => void;
+    const ready = new Promise<void>((resolve) => { snapshotReady = resolve; });
+    const released = new Promise<void>((resolve) => { releaseSnapshot = resolve; });
+    const quoteInput = { organizationId: org.id, projectId: project.id,
+      attempts: [{ provider: "mock", model: "mock", dispatchInput: {
+        texts: ["Begrenzter Text"], sourceLang: "de", targetLang: "en" } }] };
+    const snapshot = db.$transaction(async (tx) => {
+      await tx.project.findUniqueOrThrow({ where: { id: project.id } });
+      snapshotReady();
+      await released;
+      return preflightAiSpendBatchInTransaction(tx, quoteInput);
+    }, { isolationLevel: "RepeatableRead", timeout: 15_000 });
+    await ready;
+    const orgBudget = await db.aiBudget.findFirstOrThrow({ where: { organizationId: org.id, projectId: null } });
+    await db.aiBudget.update({ where: { id: orgBudget.id }, data: { capMicros: BigInt(0) } });
+    await db.aiSpendReservation.update({ where: { id: spend[0].id }, data: {
+      reservedMicros: BigInt(1_000_000), reconciledCeilingMicros: BigInt(1_000_000) } });
+    releaseSnapshot();
+    assert.equal((await snapshot).allowed, true);
+    assert.equal((await preflightAiSpendBatch(quoteInput)).allowed, false);
   } finally {
     fetchMock.mock.restore();
     await db.rateLimitBucket.deleteMany({ where: { scope: TRANSLATE_WORD_VELOCITY_SCOPE,
