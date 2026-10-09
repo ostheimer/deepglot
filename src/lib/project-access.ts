@@ -64,17 +64,20 @@ export async function userCanManageProject(userId: string, projectId: string) {
   return canManageProject(access);
 }
 
-/** Serialize membership-dependent writes with workspace role changes and transfers. */
+/** Lock in the same Organization -> Project order as transfer and member changes. */
 export async function lockProjectMembershipScope(tx: Prisma.TransactionClient, projectId: string) {
   const candidate = await tx.project.findUnique({ where: { id: projectId }, select: { organizationId: true } });
   if (!candidate) return null;
   await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${candidate.organizationId} FOR UPDATE`;
   const rows = await tx.$queryRaw<Array<{ organizationId: string }>>`
     SELECT "organizationId" FROM "Project" WHERE id = ${projectId} FOR UPDATE`;
+  // Transfer may have moved the project between the unlocked first read and
+  // the lock. The caller retries under the new workspace rather than writing
+  // with a membership snapshot from the former workspace.
   return rows[0]?.organizationId === candidate.organizationId ? candidate.organizationId : null;
 }
 
-/** Re-read the actor's current management role while both scope rows are locked. */
+/** Recheck current ownership and membership under locks shared with transfer and revocation. */
 export async function canManageProjectForWrite(tx: Prisma.TransactionClient, userId: string, projectId: string) {
   const organizationId = await lockProjectMembershipScope(tx, projectId);
   if (!organizationId) return false;

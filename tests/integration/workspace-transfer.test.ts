@@ -120,7 +120,9 @@ test("workspace transfer checks both owners, preserves history and content, and 
     assert.equal((await db.apiKey.findFirstOrThrow({ where: { projectId: project.id } })).isActive, false);
     assert.equal((await db.webhookEndpoint.findUniqueOrThrow({ where: { id: webhook.id } })).secret, "");
     assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id } }), 1);
-    assert.equal((await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } })).translationApiKeyEncrypted, null);
+    const movedSettings = await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } });
+    assert.equal(movedSettings.translationApiKeyEncrypted, null);
+    assert.equal(movedSettings.providerReconnectRequired, true);
     const staleSourceWrite = await db.$transaction(async (tx) => {
       if (!(await canManageProjectForWrite(tx, sourceUser.id, project.id))) return false;
       await tx.projectSettings.update({ where: { projectId: project.id }, data: { translationApiKeyEncrypted: "source-reenabled" } });
@@ -135,10 +137,19 @@ test("workspace transfer checks both owners, preserves history and content, and 
       langFrom: "de", langTo: "en", provider: "mock", totalWords: 10, cachedWords: 0,
       manualWords: 0, glossaryWords: 0, translatedWords: 10 }));
     assert.equal((await db.usageRecord.findFirstOrThrow({ where: { projectId: project.id } })).words, 43);
+
+    const platformProject = await db.project.create({ data: { organizationId: source.id,
+      name: "Platform fixture", domain: `platform-${suffix}.invalid`, settings: { create: { translationProvider: "openai" } } } });
+    const platformPreview = await previewWorkspaceTransfer(actor.id, platformProject.id, destination.id);
+    assert.equal(platformPreview.clearedProviderKey, false);
+    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: platformProject.id, destinationId: destination.id,
+      fingerprint: platformPreview.fingerprint, issuedAt: platformPreview.issuedAt,
+      confirmationToken: platformPreview.confirmationToken });
+    assert.equal((await db.projectSettings.findUniqueOrThrow({ where: { projectId: platformProject.id } })).providerReconnectRequired, false);
   } finally {
     await db.organization.deleteMany({ where: { id: { in: [source.id, destination.id] } } });
     await db.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });
-    await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });
+    await db.projectTransferAudit.deleteMany({ where: { sourceOrganizationId: source.id } });
     await db.$disconnect();
   }
 });

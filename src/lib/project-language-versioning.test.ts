@@ -81,7 +81,7 @@ test("target-language mutations retry guarded writes at read-committed isolation
 });
 
 test("DELETE requires a fresh preview and removes the WordPress domain mapping in one locked transaction", () => {
-  assert.match(methodBody("DELETE"), /removeTargetLanguage\(db, projektId, parsed\.data\.langCode, parsed\.data\.confirmationToken\)/);
+  assert.match(methodBody("DELETE"), /removeTargetLanguage\(db, projektId, parsed\.data\.langCode, parsed\.data\.confirmationToken, userId\)/);
   assert.match(removalSource, /lockProjectRuntimeConfiguration\(tx, projectId\)/);
   assert.match(removalSource, /current\.confirmationToken !== confirmationToken/);
   const languageDelete = removalSource.indexOf("tx.projectLanguage.deleteMany(");

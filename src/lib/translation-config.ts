@@ -47,6 +47,7 @@ export type TranslationSettingsLike = {
   translationModel?: string | null;
   translationBaseUrl?: string | null;
   translationApiKeyEncrypted?: string | null;
+  providerReconnectRequired?: boolean | null;
   websiteDescription?: string | null;
   translationTone?: string | null;
   translationAudience?: string | null;
@@ -68,6 +69,7 @@ export type LanguageModelApiResponse = {
     model: string | null;
     baseUrl: string | null;
     hasProjectApiKey: boolean;
+    providerReconnectRequired: boolean;
     websiteDescription: string | null;
     translationTone: string | null;
     translationAudience: string | null;
@@ -196,6 +198,7 @@ export function serializeLanguageModelApiResponse({
       model: settings?.translationModel ?? null,
       baseUrl: settings?.translationBaseUrl ?? null,
       hasProjectApiKey: Boolean(settings?.translationApiKeyEncrypted),
+      providerReconnectRequired: settings?.providerReconnectRequired === true,
       websiteDescription: settings?.websiteDescription ?? null,
       translationTone: settings?.translationTone ?? null,
       translationAudience: settings?.translationAudience ?? null,
@@ -230,6 +233,9 @@ export function resolveTranslationProviderConfig({
   settings?: TranslationSettingsLike | null;
   env?: Record<string, string | undefined>;
 } = {}): TranslationProviderConfig {
+  if (settings?.providerReconnectRequired) {
+    throw new Error("Provider reconnect required after workspace transfer.");
+  }
   const rawProjectProvider = clean(settings?.translationProvider);
   const rawEnvProvider = clean(env.TRANSLATION_PROVIDER);
   const configuredProjectProvider = normalizeTranslationProvider(rawProjectProvider);
@@ -338,6 +344,14 @@ export function resolveTranslationProviderConfig({
     case "mock":
       return { provider };
   }
+}
+
+/** Describe the selected provider while withholding all usable keys during reconnect. */
+export function resolveTranslationProviderDisplayConfig(settings: TranslationSettingsLike | null | undefined) {
+  const effective = resolveTranslationProviderConfig({ settings: settings ? {
+    ...settings, providerReconnectRequired: false,
+  } : null });
+  return settings?.providerReconnectRequired ? { ...effective, apiKey: undefined } : effective;
 }
 
 export function validateTranslationProviderConfig(config: TranslationProviderConfig) {

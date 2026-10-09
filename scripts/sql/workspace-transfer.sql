@@ -1,6 +1,7 @@
 -- Additive, privacy-minimal receipts for completed workspace transfers (#267).
 -- No backfill: past transfers cannot be inferred from current ownership.
 BEGIN;
+ALTER TABLE "ProjectSettings" ADD COLUMN IF NOT EXISTS "providerReconnectRequired" BOOLEAN NOT NULL DEFAULT false;
 CREATE TABLE IF NOT EXISTS "ProjectTransferAudit" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "projectId" TEXT NOT NULL,

@@ -11,7 +11,7 @@ import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import {
   normalizeTranslationProvider,
-  resolveTranslationProviderConfig,
+  resolveTranslationProviderDisplayConfig,
   serializeLanguageModelApiResponse,
 } from "@/lib/translation-config";
 
@@ -43,9 +43,7 @@ export async function GET(
   const settings = await db.projectSettings.findUnique({
     where: { projectId: projektId },
   });
-  const effective = resolveTranslationProviderConfig({
-    settings,
-  });
+  const effective = resolveTranslationProviderDisplayConfig(settings);
 
   return NextResponse.json(
     serializeLanguageModelApiResponse({
@@ -165,6 +163,7 @@ export async function PATCH(
     translationBaseUrl?: string | null;
     translationApiKeyEncrypted?: string | null;
     translationApiKeyUpdatedAt?: Date | null;
+    providerReconnectRequired?: boolean;
     websiteDescription?: string | null;
     translationTone?: string | null;
     translationAudience?: string | null;
@@ -195,6 +194,7 @@ export async function PATCH(
   if (body.apiKey) {
     data.translationApiKeyEncrypted = encryptSecret(body.apiKey);
     data.translationApiKeyUpdatedAt = new Date();
+    data.providerReconnectRequired = false;
   } else if (body.apiKeyAction === "clear") {
     data.translationApiKeyEncrypted = null;
     data.translationApiKeyUpdatedAt = null;
@@ -209,7 +209,7 @@ export async function PATCH(
     });
   });
   if (!settings) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
-  const effective = resolveTranslationProviderConfig({ settings });
+  const effective = resolveTranslationProviderDisplayConfig(settings);
 
   return NextResponse.json(
     serializeLanguageModelApiResponse({ settings, effective })

@@ -21,6 +21,7 @@ type LanguageModelSettings = {
   model: string | null;
   baseUrl: string | null;
   hasProjectApiKey: boolean;
+  providerReconnectRequired?: boolean;
   websiteDescription?: string | null;
   translationTone?: string | null;
   translationAudience?: string | null;
@@ -68,6 +69,7 @@ const COPY = {
     currentRuntime: "Current runtime",
     hasKey: "API key available",
     missingKey: "API key missing",
+    reconnectRequired: "Provider translation is paused after the workspace transfer. Add a destination-owned API key and save to reconnect; the previous key cannot be recovered.",
     customProviderWarning:
       "For Ollama/local gateways, the Vercel runtime must be able to reach the base URL. localhost on your laptop is not reachable from production.",
     providers: {
@@ -110,6 +112,7 @@ const COPY = {
     currentRuntime: "Aktive Laufzeit",
     hasKey: "API-Key verfügbar",
     missingKey: "API-Key fehlt",
+    reconnectRequired: "Provider-Übersetzungen sind nach dem Workspace-Transfer pausiert. Hinterlege einen API-Key des Ziel-Workspace und speichere ihn, um die Verbindung wiederherzustellen; der bisherige Key kann nicht wiederhergestellt werden.",
     customProviderWarning:
       "Für Ollama/lokale Gateways muss die Vercel-Laufzeit die Base URL erreichen können. localhost auf deinem Laptop ist in Production nicht erreichbar.",
     providers: {
@@ -168,6 +171,7 @@ export function LanguageModelSettingsCard({
   const [hasProjectApiKey, setHasProjectApiKey] = useState(
     initialSettings.hasProjectApiKey
   );
+  const [reconnectRequired, setReconnectRequired] = useState(initialSettings.providerReconnectRequired ?? false);
   const [isSaving, setIsSaving] = useState(false);
   const selectedProvider = provider || null;
   const selectedProviderOption = providers.find((item) => item.id === selectedProvider);
@@ -223,6 +227,7 @@ export function LanguageModelSettingsCard({
       setClearApiKey(false);
       setEffective(data.effective);
       setHasProjectApiKey(data.settings.hasProjectApiKey);
+      setReconnectRequired(data.settings.providerReconnectRequired ?? false);
       toast.success(copy.saved);
     } catch {
       toast.error(copy.failed);
@@ -239,6 +244,7 @@ export function LanguageModelSettingsCard({
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        {reconnectRequired && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{copy.reconnectRequired}</p>}
         <div className="grid gap-2">
           <Label htmlFor="translationProvider">{copy.provider}</Label>
           <select

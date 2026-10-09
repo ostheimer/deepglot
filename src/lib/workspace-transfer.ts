@@ -163,6 +163,7 @@ export async function commitWorkspaceTransfer(input: {
     await tx.webhookEndpoint.updateMany({ where: { projectId: input.projectId }, data: { enabled: false, secret: "" } });
     await tx.projectSettings.updateMany({ where: { projectId: input.projectId }, data: {
       translationApiKeyEncrypted: null, translationApiKeyUpdatedAt: null,
+      providerReconnectRequired: state.details.clearedProviderKey,
       runtimeSyncedAt: null, runtimeSyncSiteHost: null, runtimeSyncApiKeyId: null,
       runtimeSyncConflicts: [],
     } });

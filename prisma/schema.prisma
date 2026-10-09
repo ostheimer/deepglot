@@ -480,6 +480,7 @@ model ProjectSettings {
   translationModel        String?
   translationBaseUrl      String?
   translationApiKeyEncrypted String?
+  providerReconnectRequired Boolean @default(false)
   translationApiKeyUpdatedAt DateTime?
   routingMode             RoutingMode @default(PATH_PREFIX)
   runtimeSyncedAt         DateTime?

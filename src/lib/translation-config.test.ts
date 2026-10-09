@@ -15,6 +15,17 @@ import {
 
 const secretEnv = { AUTH_SECRET: "translation-config-test-secret" };
 
+test("a transferred BYOK project cannot silently use the platform provider key", () => {
+  assert.throws(() => resolveTranslationProviderConfig({
+    settings: { translationProvider: "openai", providerReconnectRequired: true },
+    env: { TRANSLATION_PROVIDER: "openai", OPENAI_API_KEY: "platform-fixture-key" },
+  }), /reconnect/i);
+  assert.equal(resolveTranslationProviderConfig({
+    settings: { translationProvider: "openai", providerReconnectRequired: false },
+    env: { TRANSLATION_PROVIDER: "openai", OPENAI_API_KEY: "platform-fixture-key" },
+  }).apiKey, "platform-fixture-key");
+});
+
 test("normalizes translation provider aliases", () => {
   assert.equal(normalizeTranslationProvider("OpenAI"), "openai");
   assert.equal(normalizeTranslationProvider("custom"), "openai-compatible");

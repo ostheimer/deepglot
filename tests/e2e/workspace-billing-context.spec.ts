@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import bcrypt from "bcryptjs";
+import { encode } from "next-auth/jwt";
 import { db } from "@/lib/db";
 import { getTestLoginConfig } from "@/lib/test-login-config";
 import { signInAsTestUser } from "./helpers";
@@ -11,8 +11,7 @@ test("billing pages and APIs stay within the selected workspace for two accounts
   const original = await db.organizationMember.findFirstOrThrow({ where: { userId: actor.id }, select: { organizationId: true } });
   const suffix = randomUUID();
   const secondEmail = `workspace-billing-${suffix}@example.invalid`;
-  const password = `fixture-${suffix}`;
-  const second = await db.user.create({ data: { email: secondEmail, password: await bcrypt.hash(password, 10) } });
+  const second = await db.user.create({ data: { email: secondEmail } });
   const destination = await db.organization.create({ data: { name: `Second fixture ${suffix}`, slug: `second-${suffix}`,
     members: { create: [
       { userId: actor.id, role: "OWNER" },
@@ -32,12 +31,14 @@ test("billing pages and APIs stay within the selected workspace for two accounts
 
     const otherContext = await browser.newContext({ baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000" });
     try {
+      const sessionCookie = (await page.context().cookies()).find((cookie) => cookie.name.endsWith("authjs.session-token"));
+      expect(sessionCookie).toBeDefined();
+      const token = await encode({ token: { id: second.id, sub: second.id, email: secondEmail },
+        secret: process.env.AUTH_SECRET!, salt: sessionCookie!.name });
+      await otherContext.addCookies([{ ...sessionCookie!, value: token }]);
       const otherPage = await otherContext.newPage();
-      await otherPage.goto("/login");
-      await otherPage.locator("#email").fill(secondEmail);
-      await otherPage.locator("#password").fill(password);
-      await otherPage.locator("form button[type=submit]").click();
-      await otherPage.waitForURL(/\/dashboard$/);
+      await otherPage.goto("/dashboard");
+      await expect(otherPage.getByRole("heading", { name: "Overview" })).toBeVisible();
       const listed = await otherPage.request.get("/api/workspaces");
       expect(listed.ok()).toBe(true);
       expect((await listed.json()).workspaces.map((row: { id: string }) => row.id)).toEqual([destination.id]);

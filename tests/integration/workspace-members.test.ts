@@ -4,6 +4,7 @@ import test from "node:test";
 import { db } from "@/lib/db";
 import { changeWorkspaceMember, listWorkspaceMembers } from "@/lib/workspace-members";
 import { resolveBillingWorkspaceId } from "@/lib/billing-workspace";
+import { canManageProjectForWrite } from "@/lib/project-access";
 
 test("workspace member controls enforce known-user, seat, role and last-owner boundaries with audit", async () => {
   const suffix = randomUUID();
@@ -55,6 +56,53 @@ test("workspace member controls enforce known-user, seat, role and last-owner bo
     await db.organization.deleteMany({ where: { id: { in: [source.id, destination.id] } } });
     await db.workspaceAudit.deleteMany({ where: { workspaceId: destination.id } });
     await db.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });
+    await db.$disconnect();
+  }
+});
+
+test("workspace revocation linearizes with a project write after its permission check", async () => {
+  const suffix = randomUUID();
+  const owner = await db.user.create({ data: { email: `owner-${suffix}@example.invalid` } });
+  const admin = await db.user.create({ data: { email: `admin-${suffix}@example.invalid` } });
+  const workspace = await db.organization.create({ data: { name: "Race fixture", slug: `race-${suffix}` } });
+  const project = await db.project.create({ data: { organizationId: workspace.id, name: "Race", domain: `${suffix}.invalid`,
+    settings: { create: {} } } });
+  let releaseWrite!: () => void;
+  let reportAuthorized!: () => void;
+  const held = new Promise<void>((resolve) => { releaseWrite = resolve; });
+  const authorized = new Promise<void>((resolve) => { reportAuthorized = resolve; });
+  try {
+    await db.organizationMember.createMany({ data: [
+      { userId: owner.id, organizationId: workspace.id, role: "OWNER" },
+      { userId: admin.id, organizationId: workspace.id, role: "ADMIN" },
+    ] });
+    const write = db.$transaction(async (tx) => {
+      assert.equal(await canManageProjectForWrite(tx, admin.id, project.id), true);
+      reportAuthorized();
+      await held;
+      await tx.projectSettings.update({ where: { projectId: project.id }, data: { translationTone: "formal" } });
+    }, { timeout: 10_000 });
+    await authorized;
+    const removal = changeWorkspaceMember({ actorUserId: owner.id, workspaceId: workspace.id,
+      action: "REMOVE", targetUserId: admin.id });
+    try {
+      const outcome = await Promise.race([
+        removal.then(() => "removed"),
+        new Promise<string>((resolve) => setTimeout(() => resolve("waiting"), 150)),
+      ]);
+      assert.equal(outcome, "waiting", "membership removal must wait until the authorized write commits");
+    } finally {
+      releaseWrite();
+      await write;
+      await removal;
+    }
+    assert.equal((await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } })).translationTone, "formal");
+    assert.equal(await db.organizationMember.count({ where: { userId: admin.id, organizationId: workspace.id } }), 0);
+  } finally {
+    await db.project.delete({ where: { id: project.id } });
+    await db.organization.delete({ where: { id: workspace.id } });
+    await db.workspaceAudit.deleteMany({ where: { workspaceId: workspace.id } });
+    await db.user.deleteMany({ where: { id: { in: [owner.id, admin.id] } } });
     await db.$disconnect();
   }
 });
