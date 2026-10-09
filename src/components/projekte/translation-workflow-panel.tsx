@@ -1336,7 +1336,7 @@ export function TranslationWorkflowPanel({
                             disabled={saving}
                             onClick={() =>
                               void updateTranslation(translation.id, {
-                                status: "assigned",
+                                status: translation.assignedToId ? "assigned" : "machine",
                               })
                             }
                           >
@@ -1352,7 +1352,7 @@ export function TranslationWorkflowPanel({
                           disabled={saving}
                           onClick={() =>
                             void updateTranslation(translation.id, {
-                              status: "assigned",
+                              status: translation.assignedToId ? "assigned" : "machine",
                             })
                           }
                         >

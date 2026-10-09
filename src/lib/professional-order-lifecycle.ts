@@ -12,12 +12,18 @@ export async function professionalOrderLifecycleState(client: Client, projectId:
     checkoutRequestKey: string | null; checkoutAttemptedAt: Date | null;
     stripeCheckoutSessionId: string | null; stripePaymentIntentId: string | null;
     paymentReference: string | null; paidAt: Date | null; refundReference: string | null;
-    updatedAt: Date;
+    paymentProvider: string | null; quoteAmountMinor: number | null; quoteCurrency: string | null;
+    completedAt: Date | null; completedById: string | null;
+    itemsComplete: boolean; updatedAt: Date;
   }>>`
     SELECT o."id", o."status", o."organizationId", o."activeProjectId",
       o."projectDetachedAt", o."checkoutRequestKey", o."checkoutAttemptedAt",
       o."stripeCheckoutSessionId", o."stripePaymentIntentId", o."paymentReference",
-      o."paidAt", o."refundReference", o."updatedAt"
+      o."paidAt", o."refundReference", o."paymentProvider", o."quoteAmountMinor", o."quoteCurrency",
+      o."completedAt", o."completedById",
+      (EXISTS (SELECT 1 FROM "ProfessionalTranslationOrderItem" i WHERE i."orderId" = o."id")
+        AND NOT EXISTS (SELECT 1 FROM "ProfessionalTranslationOrderItem" i WHERE i."orderId" = o."id"
+          AND (i."adoptedAt" IS NULL OR i."proposedText" IS NULL))) AS "itemsComplete", o."updatedAt"
     FROM "ProfessionalTranslationOrder" o
     WHERE o."projectId" = ${projectId}
       AND (o."activeProjectId" = ${projectId}
@@ -32,6 +38,11 @@ export async function professionalOrderLifecycleState(client: Client, projectId:
     if (row.status === "REFUNDED" && row.checkoutRequestKey && row.checkoutAttemptedAt &&
       row.stripeCheckoutSessionId && row.stripePaymentIntentId && row.paymentReference &&
       row.paidAt && row.refundReference) return false;
+    if (row.status === "COMPLETED" && row.checkoutRequestKey && row.checkoutAttemptedAt &&
+      row.stripeCheckoutSessionId && row.stripePaymentIntentId && row.paymentProvider === "stripe" &&
+      row.quoteAmountMinor !== null && row.quoteAmountMinor > 0 && row.quoteCurrency &&
+      row.paymentReference === row.stripePaymentIntentId && row.paidAt && row.completedAt &&
+      row.completedById && row.itemsComplete) return false;
     return true;
   };
   const pendingCount = rows.filter((row) => unresolved(row) || row.activeProjectId === null).length;

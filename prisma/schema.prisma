@@ -512,6 +512,8 @@ model ProfessionalTranslationOrder {
   paymentReference String? @unique
   paymentProvider String?
   paidAt DateTime?
+  completedAt DateTime?
+  completedById String?
   canceledAt DateTime?
   refundReference String?
   failureCode String?
@@ -536,6 +538,7 @@ enum ProfessionalTranslationOrderStatus {
   PAID
   IN_PROGRESS
   DELIVERED
+  COMPLETED
   CANCELED
   REFUND_PENDING
   REFUNDED

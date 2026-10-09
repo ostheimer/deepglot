@@ -174,8 +174,10 @@ export async function applyProfessionalStripeEvent(event: Stripe.Event, stripe: 
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Payment order not found.");
     if (!order.stripeCheckoutSessionId) throw conflict();
     await verifiedSession(stripe, order, order.stripeCheckoutSessionId, true);
-    if (charge.id !== chargeId || charge.currency.toUpperCase() !== order.quoteCurrency || charge.amount !== order.quoteAmountMinor) throw conflict();
-    if (event.type === "charge.refunded" && charge.amount_refunded !== order.quoteAmountMinor) return { status: order.status }; // partial: owner reconciliation
+    const quoteAmount = order.quoteAmountMinor;
+    if (quoteAmount === null || charge.id !== chargeId || charge.currency.toUpperCase() !== order.quoteCurrency || charge.amount !== quoteAmount) throw conflict();
+    if (event.type === "charge.refunded" &&
+        (!Number.isSafeInteger(charge.amount_refunded) || charge.amount_refunded <= 0 || charge.amount_refunded > quoteAmount)) throw conflict();
     if (event.type === "charge.dispute.created") {
       const dispute = await stripe.disputes.retrieve((event.data.object as Stripe.Dispute).id);
       const disputeChargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
@@ -185,11 +187,13 @@ export async function applyProfessionalStripeEvent(event: Stripe.Event, stripe: 
     return db.$transaction(async (tx) => {
       const current = await tx.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
       if (current.stripePaymentIntentId !== intentId || current.organizationId !== order.organizationId) throw conflict();
-      const kind = event.type === "charge.refunded" ? "refund_confirmed" : "dispute_opened";
+      const partialRefund = event.type === "charge.refunded" && charge.amount_refunded < quoteAmount;
+      const kind = event.type === "charge.refunded" ? (partialRefund ? "partial_refund_observed" : "refund_confirmed") : "dispute_opened";
       if (await tx.professionalTranslationOrderEvent.findUnique({ where: { orderId_kind_reference: { orderId: order.id, kind, reference: event.id } } })) return { status: current.status };
-      const next = kind === "refund_confirmed" ? "REFUNDED" : "DISPUTED";
-      if (kind === "refund_confirmed" && !["PAID", "IN_PROGRESS", "DELIVERED", "REFUND_PENDING", "DISPUTED", "FAILED"].includes(current.status) ||
-          kind === "dispute_opened" && !["PAID", "IN_PROGRESS", "DELIVERED", "REFUND_PENDING", "REFUNDED", "FAILED"].includes(current.status)) throw conflict();
+      const next = partialRefund ? (current.status === "DISPUTED" ? "DISPUTED" : "REFUND_PENDING") : kind === "refund_confirmed" ? "REFUNDED" : "DISPUTED";
+      if (partialRefund && !["PAID", "IN_PROGRESS", "DELIVERED", "COMPLETED", "REFUND_PENDING", "DISPUTED", "FAILED"].includes(current.status)) throw conflict();
+      if (kind === "refund_confirmed" && !["PAID", "IN_PROGRESS", "DELIVERED", "COMPLETED", "REFUND_PENDING", "DISPUTED", "FAILED"].includes(current.status) ||
+          kind === "dispute_opened" && !["PAID", "IN_PROGRESS", "DELIVERED", "COMPLETED", "REFUND_PENDING", "REFUNDED", "FAILED"].includes(current.status)) throw conflict();
       await tx.professionalTranslationOrder.update({ where: { id: order.id }, data: { status: next, ...(kind === "refund_confirmed" ? { refundReference: charge.id } : {}) } });
       await tx.professionalTranslationOrderEvent.create({ data: { orderId: order.id, kind, actorType: "stripe_webhook", reference: event.id } });
       if (kind === "dispute_opened") await tx.professionalTranslationVendorGrant.updateMany({ where: { orderId: order.id, revokedAt: null }, data: { revokedAt: new Date() } });

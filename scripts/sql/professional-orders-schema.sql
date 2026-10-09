@@ -2,7 +2,7 @@
 -- to the reviewed #272 schema. Install together with professional-order-integrity.sql
 -- in one externally controlled transaction, after a read-only zero-order preflight.
 -- CreateEnum
-CREATE TYPE "ProfessionalTranslationOrderStatus" AS ENUM ('QUOTE_REQUESTED', 'QUOTED', 'EXPIRED', 'PAYMENT_PENDING', 'PAID', 'IN_PROGRESS', 'DELIVERED', 'CANCELED', 'REFUND_PENDING', 'REFUNDED', 'DISPUTED', 'FAILED');
+CREATE TYPE "ProfessionalTranslationOrderStatus" AS ENUM ('QUOTE_REQUESTED', 'QUOTED', 'EXPIRED', 'PAYMENT_PENDING', 'PAID', 'IN_PROGRESS', 'DELIVERED', 'COMPLETED', 'CANCELED', 'REFUND_PENDING', 'REFUNDED', 'DISPUTED', 'FAILED');
 
 -- CreateTable
 CREATE TABLE "ProfessionalTranslationOrder" (
@@ -31,6 +31,8 @@ CREATE TABLE "ProfessionalTranslationOrder" (
     "paymentReference" TEXT,
     "paymentProvider" TEXT,
     "paidAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "completedById" TEXT,
     "canceledAt" TIMESTAMP(3),
     "refundReference" TEXT,
     "failureCode" TEXT,

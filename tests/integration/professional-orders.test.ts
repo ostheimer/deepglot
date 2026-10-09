@@ -15,10 +15,8 @@ test("local professional order lifecycle retains a draft until explicit adoption
   const { updateProjectTranslationWorkflow } = await import("../../src/lib/translation-workflow");
   const suffix = randomUUID();
   const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
-  const reviewer = await db.user.create({ data: { email: `reviewer-${suffix}@example.invalid` } });
   const organization = await db.organization.create({ data: { name: "Order fixture", slug: suffix, members: { create: { userId: user.id, role: "OWNER" } } } });
   const project = await db.project.create({ data: { name: "Order fixture", domain: `${suffix}.example.invalid`, originalLang: "en", organizationId: organization.id, languages: { create: { langCode: "de" } } } });
-  const reviewerMember = await db.projectMember.create({ data: { projectId: project.id, userId: reviewer.id, email: reviewer.email, role: "TRANSLATOR", langCode: "de" } });
   const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello {{name}} world", translatedText: "Hallo {{name}} Welt", langFrom: "en", langTo: "de", source: "MOCK", metadata: { create: { variables: ["{{name}}"] } } } });
   const order = await createProfessionalOrder({ projectId: project.id, requesterId: user.id, targetLanguage: "de", translationIds: [translation.id] });
   assert.equal(order.status, "QUOTE_REQUESTED");
@@ -48,16 +46,12 @@ test("local professional order lifecycle retains a draft until explicit adoption
   await adoptProfessionalDelivery({ orderId: order.id, projectId: project.id, itemId: item.id, actorId: user.id, expectedUpdatedAt: translation.updatedAt });
   const adopted = await db.translation.findUniqueOrThrow({ where: { id: translation.id } });
   assert.equal(adopted.translatedText, "Guten Tag, {{name}} Welt");
-  assert.equal(adopted.workflowStatus, "MACHINE"); // Adoption cannot approve its own review.
+  assert.equal(adopted.workflowStatus, "IN_REVIEW"); // Solo manager can review; adoption cannot approve itself.
+  assert.equal(adopted.assignedToId, null);
   assert.equal(await db.translationContentRevision.count({ where: { translationId: translation.id } }), 1);
   assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), 1);
   assert.equal((await db.professionalTranslationOrderItem.findUniqueOrThrow({ where: { id: item.id } })).adoptedById, user.id);
   const manager = { canManage: true, projectMemberId: null, langCode: null };
-  await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id, actor: manager,
-    actorUserId: user.id, patch: { status: "ASSIGNED", assignedToId: reviewerMember.id } });
-  await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id,
-    actor: { canManage: false, projectMemberId: reviewerMember.id, langCode: "de" }, actorUserId: reviewer.id,
-    patch: { status: "IN_REVIEW" } });
   assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).workflowStatus, "IN_REVIEW");
   await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id, actor: manager,
     actorUserId: user.id, patch: { status: "APPROVED" } });

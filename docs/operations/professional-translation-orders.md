@@ -28,7 +28,8 @@ returned to the vendor endpoint. Token distribution requires an approved secure
 channel and vendor agreement; do not paste tokens into tickets or logs.
 
 State progression: `QUOTE_REQUESTED → QUOTED → PAYMENT_PENDING → PAID →
-IN_PROGRESS → DELIVERED`. Quote expiry becomes `EXPIRED`. Before payment,
+IN_PROGRESS → DELIVERED → COMPLETED`. `COMPLETED` is an explicit manager action
+after every adopted draft has passed the normal review approval. Quote expiry becomes `EXPIRED`. Before payment,
 cancellation becomes `CANCELED`; after payment it becomes `REFUND_PENDING`.
 A late payment after cancellation also becomes `REFUND_PENDING`. Verified
 provider callbacks alone may mark `PAID`, `REFUNDED` or `DISPUTED`; failure is
@@ -38,7 +39,10 @@ references and are idempotent. Work does not start on a checkout redirect.
 The order's original `organizationId` and `projectId` never change. Its
 `activeProjectId` is a separate live reference. The database holds a project
 transfer or deletion while an order is quoted, payment-pending, paid, in work,
-delivered, refund-pending, disputed or failed. An `EXPIRED` order or a
+delivered, refund-pending, disputed or failed. A `COMPLETED` order can detach
+only when Checkout, PaymentIntent, payment and all adopted/approved item
+evidence are durable. A verified partial refund moves it back to
+`REFUND_PENDING` and holds transfer or deletion while it remains live. An `EXPIRED` order or a
 `CANCELED` order with **no durable Checkout attempt and no payment identity**
 can detach. A `REFUNDED` receipt can detach only with persisted Checkout,
 PaymentIntent, payment and full-refund references. An unbound Checkout attempt
@@ -92,7 +96,9 @@ that the source translation and language are still current, then uses the
 normal translation-content transaction for CAS, review-status reset, content
 revision, manual usage, digest-only cache invalidation and webhook. Adoption
 does **not** approve the text: the existing assignment → in-review → manager
-approval flow remains necessary. A stale source requires a new
+approval flow remains necessary. Adoption sets the proposal to `IN_REVIEW`;
+the authorized project manager may then approve it through the normal review
+action, even when no other reviewer is assigned. A stale source requires a new
 order/reconciliation; the vendor cannot force an overwrite. Existing
 import/export behavior remains available.
 

@@ -671,6 +671,24 @@ export async function updateProjectTranslationContent(input: Parameters<typeof u
   return db.$transaction((tx) => updateProjectTranslationContentInTransaction(tx, input));
 }
 
+/** A manager's explicit vendor-draft adoption enters review, even in a solo workspace.
+ * This never approves content; the normal IN_REVIEW → APPROVED action stays separate. */
+export async function stageAdoptedProfessionalDraftForReviewInTransaction(
+  tx: Prisma.TransactionClient,
+  input: { projectId: string; translationId: string; actorUserId: string; langTo: string; expectedUpdatedAt: Date },
+) {
+  const actor = await actorForCurrentWorkspace(tx, input.projectId, input.actorUserId,
+    { canManage: false, projectMemberId: null, langCode: null });
+  if (!actor.canManage) throw new TranslationWorkflowError("FORBIDDEN", "Project manager access is required for adoption.");
+  assertLanguageAccess(actor, input.langTo);
+  const changed = await tx.translation.updateMany({
+    where: { id: input.translationId, projectId: input.projectId,
+      langTo: input.langTo, updatedAt: input.expectedUpdatedAt },
+    data: { workflowStatus: "IN_REVIEW" },
+  });
+  if (changed.count !== 1) throw new TranslationWorkflowError("STALE_UPDATE", "Adopted text changed before review staging.");
+}
+
 export async function deleteProjectTranslation({
   projectId,
   translationId,

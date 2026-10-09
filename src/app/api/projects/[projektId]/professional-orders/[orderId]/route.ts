@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
-import { acceptProfessionalQuote, adoptProfessionalDelivery, cancelProfessionalOrder, issueVendorGrant } from "@/lib/professional-order-service";
+import { acceptProfessionalQuote, adoptProfessionalDelivery, cancelProfessionalOrder, completeProfessionalOrder, issueVendorGrant } from "@/lib/professional-order-service";
 import { ProfessionalOrderError } from "@/lib/professional-orders";
 
 export const runtime = "nodejs";
@@ -9,6 +9,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("vendor_grant") }).strict(),
   z.object({ action: z.literal("accept_quote"), expectedScopeDigest: z.string().regex(/^[a-f0-9]{64}$/), expectedQuoteReference: z.string().min(1) }).strict(),
   z.object({ action: z.literal("cancel") }).strict(),
+  z.object({ action: z.literal("complete") }).strict(),
   z.object({ action: z.literal("adopt_delivery"), itemId: z.string().min(1), expectedUpdatedAt: z.string().datetime({ offset: true }) }).strict(),
 ]);
 
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ? await acceptProfessionalQuote({ orderId, projectId: projektId, actorId: userId, expectedScopeDigest: action.expectedScopeDigest, expectedQuoteReference: action.expectedQuoteReference })
         : action.action === "cancel"
           ? await cancelProfessionalOrder({ orderId, projectId: projektId, actorId: userId })
+          : action.action === "complete"
+          ? await completeProfessionalOrder({ orderId, projectId: projektId, actorId: userId })
           : await adoptProfessionalDelivery({ orderId, projectId: projektId, actorId: userId, itemId: action.itemId, expectedUpdatedAt: new Date(action.expectedUpdatedAt) });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

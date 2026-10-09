@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { Prisma, type ProfessionalTranslationOrderStatus } from "@prisma/client";
 import { db } from "@/lib/db";
-import { assertValidTranslationContent, updateProjectTranslationContentInTransaction } from "@/lib/translation-workflow";
+import { assertValidTranslationContent, stageAdoptedProfessionalDraftForReviewInTransaction, updateProjectTranslationContentInTransaction } from "@/lib/translation-workflow";
 import { allPlaceholderQuality, savedVariableQuality } from "@/lib/translation-quality";
 import { assertProfessionalOrderLanguage, assertProfessionalOrderOwner, lockProfessionalOrderManagerScope } from "@/lib/professional-order-access";
 import {
@@ -225,15 +225,60 @@ export async function adoptProfessionalDelivery(input: { orderId: string; projec
         savedVariableQuality(item.originalText, item.proposedText, translation.metadata?.variables ?? []) === "mismatch") {
       throw new ProfessionalOrderError("CONFLICT", "Delivered text no longer meets placeholder or variable checks.");
     }
-    await updateProjectTranslationContentInTransaction(tx, {
+    const saved = await updateProjectTranslationContentInTransaction(tx, {
       projectId: input.projectId, translationId: translation.id, actorUserId: input.actorId,
       actor: { canManage: true, projectMemberId: null, langCode: null },
       translatedText: item.proposedText, expectedUpdatedAt: input.expectedUpdatedAt,
+    });
+    await stageAdoptedProfessionalDraftForReviewInTransaction(tx, {
+      projectId: input.projectId, translationId: translation.id, actorUserId: input.actorId,
+      langTo: translation.langTo, expectedUpdatedAt: saved.updatedAt,
     });
     const adoption = await tx.professionalTranslationOrderItem.updateMany({ where: { id: input.itemId, orderId: input.orderId, adoptedAt: null }, data: { adoptedAt: new Date(), adoptedById: input.actorId } });
     if (adoption.count !== 1) throw changed();
     await tx.professionalTranslationOrderEvent.create({ data: { orderId: input.orderId, kind: "delivery_adopted", actorType: "manager", actorId: input.actorId, reference: input.itemId } });
     return { adopted: true };
+  }, txOptions);
+}
+
+/** Explicitly close paid, fully adopted and approved work. Financial evidence
+ * remains with the originating merchant and can still receive later callbacks. */
+export async function completeProfessionalOrder(input: { orderId: string; projectId: string; actorId: string }) {
+  requireProfessionalOrdersEnabled();
+  return db.$transaction(async (tx) => {
+    const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
+    const order = await tx.professionalTranslationOrder.findFirst({
+      where: { id: input.orderId, projectId: input.projectId, activeProjectId: input.projectId },
+      include: { items: { select: { translationId: true, originalHash: true, proposedText: true, adoptedAt: true } } },
+    });
+    if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
+    assertProfessionalOrderOwner(scope, order.organizationId);
+    assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
+    if (order.status !== "DELIVERED" || !order.checkoutRequestKey || !order.checkoutAttemptedAt ||
+      !order.stripeCheckoutSessionId || !order.stripePaymentIntentId ||
+      order.paymentProvider !== "stripe" || order.paymentReference !== order.stripePaymentIntentId ||
+      !order.paidAt || !order.quoteAmountMinor || !order.quoteCurrency ||
+      order.items.length === 0 || order.items.some((item) => !item.adoptedAt || !item.proposedText)) throw changed();
+    const ids = order.items.map((item) => item.translationId).sort();
+    const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id" FROM "Translation" WHERE "projectId" = ${input.projectId}
+      AND "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR SHARE
+    `);
+    if (locked.length !== ids.length) throw changed();
+    const translations = await tx.translation.findMany({ where: { projectId: input.projectId, id: { in: ids } },
+      select: { id: true, originalHash: true, translatedText: true, workflowStatus: true, langFrom: true, langTo: true } });
+    if (translations.length !== order.items.length || order.items.some((item) => !translations.some((translation) =>
+      translation.id === item.translationId && translation.originalHash === item.originalHash &&
+      translation.langFrom === order.sourceLanguage && translation.langTo === order.targetLanguage &&
+      translation.translatedText === item.proposedText && translation.workflowStatus === "APPROVED"))) throw changed();
+    const completed = await tx.professionalTranslationOrder.updateMany({
+      where: { id: input.orderId, status: "DELIVERED", activeProjectId: input.projectId },
+      data: { status: "COMPLETED", completedAt: new Date(), completedById: input.actorId },
+    });
+    if (completed.count !== 1) throw changed();
+    await tx.professionalTranslationOrderEvent.create({ data: { orderId: input.orderId,
+      kind: "fulfillment_completed", actorType: "manager", actorId: input.actorId } });
+    return { status: "COMPLETED" as const };
   }, txOptions);
 }
 

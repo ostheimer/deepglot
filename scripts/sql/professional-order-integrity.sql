@@ -16,6 +16,16 @@ LANGUAGE sql STABLE AS $$
      o."stripeCheckoutSessionId" IS NOT NULL AND o."stripePaymentIntentId" IS NOT NULL AND
      o."paymentReference" IS NOT NULL AND o."paidAt" IS NOT NULL AND
      o."refundReference" IS NOT NULL)
+    OR
+    (o."status" = 'COMPLETED' AND o."checkoutRequestKey" IS NOT NULL AND
+     o."checkoutAttemptedAt" IS NOT NULL AND
+     o."stripeCheckoutSessionId" IS NOT NULL AND o."stripePaymentIntentId" IS NOT NULL AND
+     o."paymentProvider" = 'stripe' AND o."quoteAmountMinor" > 0 AND o."quoteCurrency" IS NOT NULL AND
+     o."paymentReference" = o."stripePaymentIntentId" AND
+     o."paidAt" IS NOT NULL AND o."completedAt" IS NOT NULL AND o."completedById" IS NOT NULL AND
+     EXISTS (SELECT 1 FROM "ProfessionalTranslationOrderItem" i WHERE i."orderId" = o."id") AND
+     NOT EXISTS (SELECT 1 FROM "ProfessionalTranslationOrderItem" i WHERE i."orderId" = o."id"
+       AND (i."adoptedAt" IS NULL OR i."proposedText" IS NULL)))
   ))
 $$;
 
@@ -43,6 +53,10 @@ BEGIN
      (OLD."paymentReference" IS NOT NULL AND NEW."paymentReference" IS DISTINCT FROM OLD."paymentReference") OR
      (OLD."paidAt" IS NOT NULL AND NEW."paidAt" IS DISTINCT FROM OLD."paidAt") THEN
     RAISE EXCEPTION 'professional order payment identity is immutable';
+  END IF;
+  IF (OLD."completedAt" IS NOT NULL AND NEW."completedAt" IS DISTINCT FROM OLD."completedAt") OR
+     (OLD."completedById" IS NOT NULL AND NEW."completedById" IS DISTINCT FROM OLD."completedById") THEN
+    RAISE EXCEPTION 'professional order completion evidence is immutable';
   END IF;
   IF NEW."activeProjectId" IS NOT NULL AND
      (NEW."activeProjectId" IS DISTINCT FROM NEW."projectId" OR NEW."projectDetachedAt" IS NOT NULL) THEN
