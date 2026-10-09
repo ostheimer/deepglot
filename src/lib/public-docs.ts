@@ -243,6 +243,11 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     access: "manage",
   },
   {
+    path: "/api/projects/[projektId]/language-model",
+    sourceFile: "src/app/api/projects/[projektId]/language-model/route.ts",
+    access: "manage: GET, PATCH, POST suggestion",
+  },
+  {
     path: "/api/projects/[projektId]/glossary",
     sourceFile: "src/app/api/projects/[projektId]/glossary/route.ts",
     access: "member",
