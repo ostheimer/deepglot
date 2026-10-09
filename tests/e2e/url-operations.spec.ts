@@ -479,7 +479,8 @@ test("a 251-segment retranslation receipt restores its cursor and bills the fina
     expect(firstResult.remainingSegments).toBe(1);
     const afterFirst = (await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words ?? 0;
     expect(afterFirst - before).toBe(first.billableWords);
-    await db.apiIdempotencyRecord.delete({ where: { scope_keyHash: { scope: `manager:url-operation:${projectId}:${actorId}`, keyHash: hashApiIdempotencyKey(first.confirmation) } } });
+    const organizationId = (await db.project.findUniqueOrThrow({ where: { id: projectId }, select: { organizationId: true } })).organizationId;
+    await db.apiIdempotencyRecord.delete({ where: { scope_keyHash: { scope: `manager:url-operation:${organizationId}:${projectId}:${actorId}`, keyHash: hashApiIdempotencyKey(first.confirmation) } } });
     await db.translatedUrl.update({ where: { id: url.id }, data: { operationState: "provider_pending", lastResult: "provider_outcome_unknown", operationToken: first.confirmation } });
     const recovered = await post(firstData, first.confirmation);
     expect(recovered.status(), await recovered.text()).toBe(200);
@@ -639,8 +640,10 @@ test("manager revoked after mock provider dispatch leaves no receipt and holds t
     await db.organizationMember.update({ where: { id: membership.id }, data: { role: "MEMBER" } });
     provider.release();
     const result = await pending;
-    expect(result.status(), await result.text()).toBe(409);
-    expect((await result.json()).providerCostUnknown).toBe(true);
+    // A revoked manager cannot read an in-flight operation's outcome. The
+    // persisted pending state still records the unresolved provider boundary.
+    expect(result.status(), await result.text()).toBe(404);
+    expect(await result.json()).toEqual({ error: "Project not found" });
     expect((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText).toBe("old");
     expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usageBefore);
     expect(await db.urlOperationReceipt.findUnique({ where: { id: preview.confirmation } })).toBeNull();
