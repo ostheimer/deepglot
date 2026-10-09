@@ -121,6 +121,7 @@ export function TranslationWorkflowPanel({
   canManage,
   currentMemberId,
   locale,
+  orderingEnabled = false,
 }: {
   projectId: string;
   domain: string;
@@ -129,6 +130,7 @@ export function TranslationWorkflowPanel({
   canManage: boolean;
   currentMemberId: string | null;
   locale: SiteLocale;
+  orderingEnabled?: boolean;
 }) {
   const [data, setData] = useState<WorkflowResponse | null>(null);
   const [status, setStatus] = useState<WorkflowStatus | "">("");
@@ -485,13 +487,13 @@ export function TranslationWorkflowPanel({
         </div>
       </div>
 
-      <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+      {!orderingEnabled && <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900">
         {uiText(
           locale,
           "Marketplace and payment are deliberately deferred. For external professionals, use the existing export → vendor → import handoff and approve the result here.",
           "Marktplatz und Bezahlung sind bewusst vertagt. Nutze für externe Profis den bestehenden Ablauf Export → Dienstleister → Import und gib das Ergebnis anschließend hier frei.",
         )}
-      </div>
+      </div>}
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <form

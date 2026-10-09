@@ -103,6 +103,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#ai-budget" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "KI-Budget" : "AI budget"}
             </a>
+            <a href="#professional-orders" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Professionelle Übersetzungen" : "Professional translations"}
+            </a>
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
             </a>
@@ -165,6 +168,18 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
               ? "Bei aktiver Durchsetzung erscheinen Warnschwellen und erreichte Limits für Workspace-Inhaber und -Admins in der Übersicht mit reserviertem oder abgeglichenem Kostenhöchstbetrag. Erst nach unabhängig geprüftem Anbieterbeleg oder Gutschrift kann ein Inhaber eine unbekannte Reservierung im Projekt ausdrücklich und protokolliert auflösen. Das ist keine tatsächlich abgerechnete Summe; eine E-Mail-Zustellung wird nicht behauptet."
               : "During active enforcement, threshold and cap alerts appear for workspace owners and admins on the overview with reserved or reconciled cost ceilings. Only after independently checking a provider receipt or credit can an owner explicitly resolve an unknown hold in the project with an audit record. This is not an invoiced amount and does not imply an email was sent."}</p>
+          <section id="professional-orders" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold">{de ? "Professionelle Übersetzungen" : "Professional translations"}</h2>
+            <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">
+              {de
+                ? "Bestellungen direkt in Deepglot sind noch nicht freigeschaltet. Du kannst Segmente weiterhin exportieren, mit einem externen Dienstleister bearbeiten lassen und das Ergebnis importieren. Prüfe und bestätige die importierten Übersetzungen anschließend im Projektbereich „Profis“."
+                : "In-product ordering is not available yet. You can still export segments, work with an external vendor, and import the result. Then review and approve the imported translations in the project's Professionals area."}
+            </p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">
+              {de
+                ? "Nach der Freischaltung wählen Projektverantwortliche Segmente und Zielsprache aus, prüfen Preis und Lieferzeit und nehmen ein Angebot ausdrücklich an. Gelieferte Texte bleiben zunächst Entwürfe und werden erst nach einer weiteren ausdrücklichen Freigabe übernommen."
+                : "After launch, project managers will select segments and a target language, review price and turnaround, and explicitly accept a quote. Delivered text remains a draft until a separate explicit approval adopts it."}
+            </p>
           </section>
 
           <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">

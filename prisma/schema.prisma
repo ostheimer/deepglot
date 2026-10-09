@@ -33,6 +33,7 @@ model User {
   notificationDeliveries NotificationDelivery[]
   autoUpgradeNotifications AutoUpgradeNotification[]
   translationContentRevisions TranslationContentRevision[]
+  professionalOrders ProfessionalTranslationOrder[] @relation("ProfessionalOrderRequester")
 }
 
 model Account {
@@ -275,6 +276,7 @@ model Project {
   webhookEndpoints WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
   aiBudget AiBudget?
+  professionalOrders ProfessionalTranslationOrder[]
 }
 
 /// Approval is explicit. A missing row is a deny, including for legacy tenants.
@@ -479,6 +481,103 @@ model Translation {
   @@index([projectId, langFrom, langTo])
   @@index([projectId, langTo, workflowStatus])
   @@index([assignedToId])
+}
+
+// Paid professional work is separate from the authoritative translation cache.
+// Snapshot rows are append-only in the application; changing source text later
+// cannot silently change what a vendor was asked to translate.
+model ProfessionalTranslationOrder {
+  id String @id @default(cuid())
+  projectId String
+  requesterId String
+  status ProfessionalTranslationOrderStatus @default(QUOTE_REQUESTED)
+  sourceLanguage String
+  targetLanguage String
+  scopeDigest String
+  wordCount Int
+  quoteAmountMinor Int?
+  quoteCurrency String?
+  quoteTurnaroundDays Int?
+  quoteExpiresAt DateTime?
+  quoteReference String?
+  quoteTermsVersion String?
+  selectedVendorGrantId String?
+  paymentReference String? @unique
+  paymentProvider String?
+  paidAt DateTime?
+  canceledAt DateTime?
+  refundReference String?
+  failureCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  requester User @relation("ProfessionalOrderRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  items ProfessionalTranslationOrderItem[]
+  events ProfessionalTranslationOrderEvent[]
+  vendorGrants ProfessionalTranslationVendorGrant[]
+
+  @@index([projectId, createdAt])
+  @@index([status, quoteExpiresAt])
+}
+
+enum ProfessionalTranslationOrderStatus {
+  QUOTE_REQUESTED
+  QUOTED
+  EXPIRED
+  PAYMENT_PENDING
+  PAID
+  IN_PROGRESS
+  DELIVERED
+  CANCELED
+  REFUND_PENDING
+  REFUNDED
+  DISPUTED
+  FAILED
+}
+
+model ProfessionalTranslationOrderItem {
+  id String @id @default(cuid())
+  orderId String
+  translationId String
+  originalHash String
+  originalText String
+  sourceUpdatedAt DateTime
+  proposedText String?
+  deliveredAt DateTime?
+  adoptedAt DateTime?
+  adoptedById String?
+  order ProfessionalTranslationOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, translationId])
+  @@index([translationId])
+}
+
+model ProfessionalTranslationOrderEvent {
+  id String @id @default(cuid())
+  orderId String
+  kind String
+  actorType String
+  actorId String?
+  reference String?
+  createdAt DateTime @default(now())
+  order ProfessionalTranslationOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, kind, reference])
+  @@index([orderId, createdAt])
+}
+
+// A scoped, expiring capability. Only a hash is stored; a grant belongs to one
+// order and exposes neither project membership nor platform API credentials.
+model ProfessionalTranslationVendorGrant {
+  id String @id @default(cuid())
+  orderId String
+  tokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  order ProfessionalTranslationOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
 }
 
 // New direct workspace edits only; not a complete translation audit trail.

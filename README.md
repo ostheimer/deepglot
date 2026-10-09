@@ -122,6 +122,17 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 Account settings support persistent workspace creation, renaming and management of already-known registered members within plan and seat limits. Project creation targets an explicit managed workspace, and the project list offers a signed, expiring transfer preview before an owner/admin moves a project to another workspace they manage. An unresolved URL provider operation or a legacy receipt without evidenced billing origin blocks both preview and commit until reconciled. Historical billed usage and attributed URL operation receipts stay with their source; plugin/API keys and webhook credentials require reconnecting. A transferred project BYOK provider key is removed and fresh provider work pauses until the destination saves a new key; projects already using the platform provider continue under destination plan and quota gates. Apply the compatible expansion in `scripts/sql/workspace-transfer.sql` after the #263 URL operations migration and before deploying #267; see the [complete transfer matrix and operational boundaries](docs/product-decisions/workspace-transfer.md).
 
+### Professional translation orders (release gated)
+
+Issue #272 adds a separate manager-only ordering candidate alongside the
+existing member review and export → vendor → import paths. It snapshots an
+authorized segment/language scope, accepts a vendor quote with price,
+turnaround and expiry, records durable payment/fulfillment states, and holds
+delivery as a review draft until the manager explicitly approves adoption.
+The feature is disabled by default; no live payment or vendor call is wired.
+See [the order runbook](docs/operations/professional-translation-orders.md)
+for the state contract, schema trigger, adapter boundary and launch decisions.
+
 Project managers can set a website description, tone, audience, and additional translation instructions under **Project → Settings → Language Model**. A description suggestion runs only when requested and remains unsaved until the manager saves it. Separate switches include relevant glossary entries and approved or manually edited translations from the same project and language pair in bounded provider context for new translations. Existing cache, manual translations, protected glossary terms, quotas, and provider fallback retain their priority. See [project translation context](docs/product-decisions/project-translation-context.md) for limits and rollout details.
 
 New direct workspace text edits have an atomic, lazy-loaded before/after history with editor attribution and scoped pagination. Earlier edits and writes through other editors are not reconstructed or included. Apply `scripts/sql/translation-history.sql` before deploying; see [workspace history scope and rollout](docs/product-decisions/translation-workspace-history.md).
