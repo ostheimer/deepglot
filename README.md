@@ -310,6 +310,7 @@ v0.12.0 operational semantics:
 
 Features:
 
+- Visual exclusion selection for project managers: load bounded public server-rendered HTML from a path on the configured project host, click an element with a unique ID or class on that preview page, and save the literal token through the existing exclusion API. The rule applies project-wide after the next WordPress 0.12.12 settings sync. The script-free preview follows no redirects and has an eight-second deadline and 1 MiB response cap; it does not support arbitrary CSS selectors or a page-only rule. See `docs/exclusion-visual.md`.
 - PHP autoloader and lightweight service container
 - URL language resolver and request router (path-prefix and subdomain routing)
 - OutputBuffer + HTML translator using DOMDocument — no external PHP dependencies

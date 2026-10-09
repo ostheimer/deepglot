@@ -10,24 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { chooseVisualSelector, type VisualSelection } from "@/lib/exclusion-visual-selector";
+import { sandboxHtml } from "@/lib/exclusion-visual-sandbox";
 import { uiText } from "@/lib/static-copy";
 
 type Exclusion = { id: string; type: "CSS_CLASS" | "CSS_ID"; value: string; createdAt: string };
-
-function sandboxHtml(html: string, pageUrl: string): string {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const origin = new URL(pageUrl).origin;
-  doc.querySelectorAll("script, iframe, frame, object, embed, form, meta[http-equiv], base").forEach((node) => node.remove());
-  const csp = doc.createElement("meta");
-  csp.httpEquiv = "Content-Security-Policy";
-  csp.content = `default-src 'none'; img-src ${origin} data:; style-src ${origin} 'unsafe-inline'; font-src ${origin} data:; base-uri ${origin}; form-action 'none'`;
-  doc.head.prepend(csp);
-  // Keep relative images/styles from the real project page. Scripts and forms stay disabled.
-  const base = doc.createElement("base");
-  base.href = pageUrl;
-  doc.head.insertBefore(base, csp.nextSibling);
-  return `<!doctype html>\n${doc.documentElement.outerHTML}`;
-}
 
 export function VisualExclusionBuilder({ projectId, onSaved }: { projectId: string; onSaved: (rule: Exclusion) => void }) {
   const locale = useLocale();

@@ -97,6 +97,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
             </a>
+            <a href="#visual-exclusions" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Visuelle Ausnahmen" : "Visual exclusions"}
+            </a>
             <a href="#wordpress-warmup" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "WordPress-Aufwärmung" : "WordPress warm-up"}
             </a>
@@ -113,6 +116,20 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               {de ? "Entwicklerdokumentation" : "Developer documentation"}
             </Link>
           </nav>
+
+          <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold">{de ? "Elemente von der Übersetzung ausnehmen" : "Exclude elements from translation"}</h2>
+            <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">
+              {de
+                ? "Öffne im Projekt Einstellungen → Ausnahmen → Auf Seite auswählen. Lade einen Pfad auf der öffentlichen Projektwebsite und klicke auf das gewünschte Element. Speichern lässt sich nur eine stabile ID oder Klasse, die auf der geladenen Vorschauseite eindeutig ist. Die Regel gilt nach dem nächsten WordPress-Sync auf allen Projektseiten, auf denen diese ID oder Klasse vorkommt; prüfe deshalb auch andere Seiten."
+                : "Open Settings → Exclusions → Select on page in the project. Load a path on the public project website and click the target element. Only a stable ID or class unique on the loaded preview page can be saved. After the next WordPress sync, the rule applies on every project page where that ID or class occurs, so review other pages too."}
+            </p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">
+              {de
+                ? "Die Vorschau verwendet öffentliches, serverseitig gerendertes HTML ohne JavaScript. Sie folgt keinen Weiterleitungen und begrenzt Laden und Antwort auf acht Sekunden und 1 MiB. Seiten, deren Inhalt erst durch JavaScript entsteht oder eine Anmeldung erfordern, können hier nicht ausgewählt werden. Beliebige CSS-Selektoren und Ausnahmen nur für eine einzelne Seite werden nicht angeboten. Das bestehende WordPress-Plugin 0.12.12 übernimmt die gespeicherte ID oder Klasse beim nächsten Sync."
+                : "The preview uses public, server-rendered HTML without JavaScript. It follows no redirects and limits loading and the response to eight seconds and 1 MiB. Pages that need a login or JavaScript to render cannot be selected here. Arbitrary CSS selectors and page-only element rules are unavailable. The existing WordPress plugin 0.12.12 receives the saved ID or class at the next sync."}
+            </p>
+          </section>
 
           <section id="weekly-digest" data-testid="help-weekly-digest" className="scroll-mt-8 pt-20">
             <div className="max-w-3xl">
