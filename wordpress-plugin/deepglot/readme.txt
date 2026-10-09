@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.12.14
+Stable tag: 0.12.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -100,6 +100,10 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.15 =
+* Reports bounded, digest-only source-page observations to the Deepglot workspace from public server-rendered pages, including cached translation renders, through a background WordPress job.
+* Treats missing, stale, incomplete, private, or dynamic observations as unknown; the workspace never infers whole-site absence from a page observation or last-seen age.
 
 = 0.12.14 =
 * Report observed bounded URL synchronization attempts, results, and HTTP status to the SaaS URL inventory. The WordPress job remains authoritative if reporting fails.
@@ -230,6 +234,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.15 =
+Adds background source-page observations for the workspace's bounded presence filter. Keep WP-Cron running; page and CDN caches that bypass WordPress PHP cannot report new observations until WordPress renders the source page again.
 
 = 0.12.14 =
 Reports bounded WordPress URL synchronization results and applies project-scoped translation-cache invalidations after confirmed URL operations. Rebuild external page or CDN caches separately.
