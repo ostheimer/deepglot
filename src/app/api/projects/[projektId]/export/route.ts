@@ -136,18 +136,26 @@ export async function GET(
         SELECT COUNT(*)::bigint AS rows,
           COALESCE(SUM(octet_length("originalText") + octet_length("translatedText")), 0)::bigint AS bytes
         FROM "Translation"
-        WHERE "projectId" = ${projektId} AND "langFrom" = ${project.originalLang} AND "langTo" = ${langTo}
+        WHERE "projectId" = ${projektId} AND LOWER("langFrom") = ${project.originalLang.toLowerCase()}
+          AND LOWER("langTo") = ${langTo}
       `;
       if (size.rows > BigInt(XLIFF_MAX_SEGMENTS) || size.bytes > BigInt(XLIFF_MAX_BYTES)) return null;
       return tx.translation.findMany({
-        where: { projectId: projektId, langFrom: project.originalLang, langTo },
+        where: { projectId: projektId,
+          langFrom: { equals: project.originalLang, mode: "insensitive" },
+          langTo: { equals: langTo, mode: "insensitive" } },
         orderBy: { originalHash: "asc" },
-        select: { originalText: true, translatedText: true, workflowStatus: true, isManual: true },
+        select: { originalHash: true, originalText: true, translatedText: true, workflowStatus: true, isManual: true },
         take: XLIFF_MAX_SEGMENTS + 1,
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
     if (!translations || translations.length > XLIFF_MAX_SEGMENTS) {
       return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 4 MB oder 5000 Segmente", "XLIFF export exceeds 4 MB or 5000 segments") }, { status: 413 });
+    }
+    if (new Set(translations.map((item) => item.originalText)).size !== translations.length) {
+      return NextResponse.json({ error: xliffCopy(locale,
+        "XLIFF-Export enthält denselben Quelltext mit mehreren Sprachcode-Schreibweisen",
+        "XLIFF export contains the same source with multiple language-code spellings") }, { status: 409 });
     }
     let xliff: string;
     try { xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations }); }

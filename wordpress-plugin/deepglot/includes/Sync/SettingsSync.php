@@ -397,18 +397,25 @@ class SettingsSync
         if (!is_array($batch) || !is_array($batch['entries'] ?? null) || count($batch['entries']) > 250) {
             return false;
         }
-        $cache = new TranslationCache();
-        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs()) return false;
+        $nextCursor = $cursor;
         foreach ($batch['entries'] as $entry) {
             if (!is_array($entry)) return false;
             $id = (string) ($entry['id'] ?? '');
             $digest = (string) ($entry['cacheKey'] ?? '');
-            if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $cursor) {
+            if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $nextCursor) {
                 return false;
             }
+            $nextCursor = $id;
+        }
+        $cache = new TranslationCache();
+        foreach ($batch['entries'] as $entry) {
+            $digest = (string) $entry['cacheKey'];
             if (!$cache->deleteByDigest($digest)) return false;
-            $cursor = $id;
-            update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $cursor], false);
+        }
+        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs()) return false;
+        if ($nextCursor !== $cursor) {
+            update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $nextCursor], false);
+            if (get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []) !== ['identity' => $identity, 'cursor' => $nextCursor]) return false;
         }
         return true;
     }

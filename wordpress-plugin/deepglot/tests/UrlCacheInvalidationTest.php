@@ -43,11 +43,15 @@ if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] 
 }
 $stubborn = 'dgv1_' . sha1('de|en|Anders');
 $GLOBALS['_dg_url_cache_stubborn'] = $stubborn;
+$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = ['en' => 2];
 $apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
     'id' => '3', 'urlPath' => '/en/test', 'cacheKey' => sha1('de|en|Anders'),
 ]]]], 'test-identity', '1');
 if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] !== $cursor) {
     throw new RuntimeException('A reported successful deletion without transient readback must not advance the cursor.');
+}
+if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 2]) {
+    throw new RuntimeException('A failed deletion must not rotate cache epochs.');
 }
 
 class CacheDrainOptions extends \Deepglot\Config\Options {
@@ -70,6 +74,7 @@ class CacheDrainClient extends \Deepglot\Api\Client {
     }
 }
 $GLOBALS['_dg_url_cache_stubborn'] = '';
+$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = [];
 $GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] = [];
 $cache->set('Änderung', 'de', 'en', 'Old');
 $drainOptions = new CacheDrainOptions();

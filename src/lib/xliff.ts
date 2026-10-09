@@ -7,6 +7,16 @@ export const XLIFF_MAX_SEGMENTS = 5000;
 const NS = "urn:oasis:names:tc:xliff:document:1.2";
 const EXT_NS = "https://deepglot.ai/ns/xliff";
 
+function languageCaseVariants(code: string): string[] {
+  return [...code].reduce<string[]>((variants, character) =>
+    variants.flatMap((prefix) => [...new Set([character.toLowerCase(), character.toUpperCase()])].map((variant) => prefix + variant)), [""]);
+}
+
+function isMatchingSegmentId(id: string, source: string, langFrom: string, langTo: string): boolean {
+  return languageCaseVariants(langFrom).some((from) => languageCaseVariants(langTo).some((to) =>
+    computeTranslationHash(source, from, to) === id));
+}
+
 export type XliffSegment = {
   id: string;
   source: string;
@@ -56,10 +66,13 @@ export function serializeXliff(input: {
   projectId: string;
   langFrom: string;
   langTo: string;
-  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string; isManual?: boolean }>;
+  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string; isManual?: boolean; originalHash?: string }>;
 }): string {
   const units = input.segments.map((item) => {
-    const id = computeTranslationHash(item.originalText, input.langFrom, input.langTo);
+    const id = item.originalHash ?? computeTranslationHash(item.originalText, input.langFrom, input.langTo);
+    if (!isMatchingSegmentId(id, item.originalText, input.langFrom, input.langTo)) {
+      throw new XliffError("Stored segment ID does not match its source and languages");
+    }
     return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}" dg:manual="${item.isManual === false ? "no" : "yes"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<xliff xmlns="${NS}" xmlns:dg="${EXT_NS}" version="1.2"><file original="${escapeXml(input.projectId)}" source-language="${escapeXml(input.langFrom)}" target-language="${escapeXml(input.langTo)}" datatype="plaintext"><body>\n${units.join("\n")}\n</body></file></xliff>\n`;
@@ -137,11 +150,14 @@ export function parseXliff(bytes: Uint8Array, expected: {
     const source = textOnly(parts[0], line);
     const target = textOnly(parts[1], line);
     if (!source || !target) throw new XliffError("Source and target must not be empty", line);
-    const id = computeTranslationHash(source, expected.langFrom, expected.langTo);
-    if (unit.getAttribute("id") !== id) throw new XliffError("Segment ID does not match its source and languages", line);
-    if (seen.has(id)) throw new XliffError("Duplicate segment ID", line);
-    seen.add(id);
-    const approved = unit.getAttribute("approved");
+    const id = unit.getAttribute("id") ?? "";
+    if (!isMatchingSegmentId(id, source, expected.langFrom, expected.langTo)) {
+      throw new XliffError("Segment ID does not match its source and languages", line);
+    }
+    const canonicalId = computeTranslationHash(source, expected.langFrom.toLowerCase(), expected.langTo.toLowerCase());
+    if (seen.has(canonicalId)) throw new XliffError("Duplicate segment ID", line);
+    seen.add(canonicalId);
+    const approved = unit.hasAttribute("approved") ? unit.getAttribute("approved") : "no";
     if (approved !== "yes" && approved !== "no") throw new XliffError("approved must be yes or no", line);
     const manual = unit.hasAttributeNS(EXT_NS, "manual") ? unit.getAttributeNS(EXT_NS, "manual") : null;
     if (manual !== null && manual !== "yes" && manual !== "no") throw new XliffError("dg:manual must be yes or no", line);

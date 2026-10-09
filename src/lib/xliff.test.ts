@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { parseXliff, planXliffImport, serializeXliff, XliffError, XLIFF_MAX_BYTES } from "@/lib/xliff";
+import { computeTranslationHash } from "@/lib/translation-hash";
 
 const project = { projectId: "project-a", langFrom: "de", langTo: "en" };
 const segment = { originalText: "Hallo {name} <b>Welt</b> & mehr", translatedText: "Hello {name} <b>world</b> & more", workflowStatus: "APPROVED" };
@@ -27,6 +28,14 @@ test("machine marker survives export while invalid or edited metadata is rejecte
   assert.match(machine, /xmlns:dg="https:\/\/deepglot.ai\/ns\/xliff"/);
   assert.equal(parse(machine.replace(' dg:manual="no"', ''))[0].manual, true);
   assert.throws(() => parse(machine.replace('dg:manual="no"', 'dg:manual=""')), /dg:manual/);
+  assert.equal(parse(machine.replace(' approved="no"', ''))[0].approved, false);
+  assert.throws(() => parse(machine.replace('approved="no"', 'approved=""')), /approved/);
+});
+
+test("preserves legacy uppercase language hashes without changing segment IDs", () => {
+  const legacyHash = computeTranslationHash(segment.originalText, "DE", "EN");
+  const xml = serializeXliff({ ...project, segments: [{ ...segment, originalHash: legacyHash }] });
+  assert.equal(parse(xml)[0].id, legacyHash);
 });
 
 test("XML 1.0 export preserves carriage returns and rejects unsupported controls", () => {

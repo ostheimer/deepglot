@@ -8,6 +8,7 @@ import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { assertPostgresTextFields } from "@/lib/postgres-text";
 import { recordTranslationBatch } from "@/lib/translation-batches";
 import { recordTranslationCacheInvalidations } from "@/lib/translation-cache-invalidation";
+import { computeTranslationHash } from "@/lib/translation-hash";
 import { parseXliff, planXliffImport, XliffError, type XliffSegment } from "@/lib/xliff";
 
 export class ProjectXliffImportError extends Error {
@@ -60,11 +61,19 @@ export async function importTranslationsXliff(input: {
         }))) {
           throw new ProjectXliffImportError("Project language configuration changed; no segments imported", 409);
         }
+        const lockedProject = await tx.project.findUniqueOrThrow({ where: { id: project.id }, select: { organizationId: true } });
         const existing = await tx.translation.findMany({
           where: { projectId: project.id, originalHash: { in: rows.map((row) => row.id) } },
-          select: { id: true, originalHash: true, originalText: true, translatedText: true, isManual: true, source: true, workflowStatus: true, assignedToId: true },
+          select: { id: true, originalHash: true, originalText: true, translatedText: true, langFrom: true, langTo: true,
+            isManual: true, source: true, workflowStatus: true, assignedToId: true },
         });
         const issues = planXliffImport(rows, existing, applyApproved);
+        const existingIds = new Set(existing.map((item) => item.originalHash));
+        for (const row of rows) {
+          if (!existingIds.has(row.id) && row.id !== computeTranslationHash(row.source, project.originalLang, langTo)) {
+            issues.push({ segment: row.line, message: "Legacy segment ID has no matching translation" });
+          }
+        }
         for (const item of existing) {
           const row = rows.find((candidate) => candidate.id === item.originalHash);
           if (row && item.originalText !== row.source) issues.push({ segment: row.line, message: "Stored source conflicts with segment ID" });
@@ -74,7 +83,7 @@ export async function importTranslationsXliff(input: {
         const creates: Array<{ projectId: string; originalHash: string; originalText: string; translatedText: string;
           langFrom: string; langTo: string; isManual: true; source: "IMPORT"; wordCount: number;
           workflowStatus: "APPROVED" | "MACHINE" }> = [];
-        const updates: Array<{ id: string; originalHash: string; originalText: string; translatedText: string;
+        const updates: Array<{ id: string; originalHash: string; originalText: string; translatedText: string; langFrom: string; langTo: string;
           isManual: boolean; source: string; workflowStatus: string }> = [];
         for (const row of rows) {
           const previous = current.get(row.id);
@@ -93,6 +102,7 @@ export async function importTranslationsXliff(input: {
           } else if (previous.translatedText !== row.target || previous.isManual !== nextManual ||
               previous.source !== nextSource || previous.workflowStatus !== nextWorkflow) {
             updates.push({ id: previous.id, originalHash: row.id, originalText: row.source,
+              langFrom: previous.langFrom, langTo: previous.langTo,
               translatedText: row.target, isManual: nextManual, source: nextSource ?? "IMPORT",
               workflowStatus: nextWorkflow });
           }
@@ -118,7 +128,7 @@ export async function importTranslationsXliff(input: {
         }
         const invalidations = [
           ...created.map((item) => ({ id: item.id, originalText: item.originalText, langFrom: item.langFrom, langTo: item.langTo })),
-          ...updates.map((item) => ({ id: item.id, originalText: item.originalText, langFrom: project.originalLang, langTo })),
+          ...updates.map((item) => ({ id: item.id, originalText: item.originalText, langFrom: item.langFrom, langTo: item.langTo })),
         ];
         await recordTranslationCacheInvalidations(tx, project.id, invalidations);
         if (emitRowEvents && invalidations.length) {
@@ -126,8 +136,7 @@ export async function importTranslationsXliff(input: {
             select: { id: true, eventTypes: true } });
           const events = [
             ...created.map((item) => ({ type: "translation.created" as const, item })),
-            ...updates.map((item) => ({ type: "translation.updated" as const,
-              item: { ...item, langFrom: project.originalLang, langTo } })),
+            ...updates.map((item) => ({ type: "translation.updated" as const, item })),
           ];
           const deliveries = events.flatMap(({ type, item }) => endpoints.filter((endpoint) => endpoint.eventTypes.includes(type))
             .map((endpoint) => ({ endpointId: endpoint.id, projectId: project.id, eventType: type,
@@ -136,7 +145,7 @@ export async function importTranslationsXliff(input: {
           for (const slice of chunk(deliveries, 100)) await tx.webhookDelivery.createMany({ data: slice });
         }
         const words = rows.reduce((sum, row) => sum + row.source.trim().split(/\s+/).filter(Boolean).length, 0);
-        if (rows.length) await recordTranslationBatch({ organizationId: project.organizationId, projectId: project.id,
+        if (rows.length) await recordTranslationBatch({ organizationId: lockedProject.organizationId, projectId: project.id,
           langFrom: project.originalLang, langTo, provider: "import", totalWords: words,
           cachedWords: 0, manualWords: words, glossaryWords: 0, translatedWords: 0 }, tx);
         await queueProjectWebhookEvent({ projectId: project.id, eventType: "import.completed",
