@@ -5,6 +5,12 @@ import { db } from "@/lib/db";
 test("optional workspace preferences save, read back, and unsubscribe in English and German", async ({ page }) => {
   expect((await page.request.get("/api/user/notification-preferences")).status()).toBe(401);
   await signInAsTestUser(page);
+  const initial = await page.request.get("/api/user/notification-preferences");
+  const organizationId = (await initial.json()).memberships[0].organizationId as string;
+  const reset = await page.request.patch("/api/user/notification-preferences", {
+    data: { organizationId, category: "PRODUCT_UPDATE", frequency: "OFF", locale: "en" },
+  });
+  expect(reset.ok()).toBeTruthy();
   await page.goto("/settings");
   const product = page.getByRole("combobox", { name: /Product updates/ });
   await expect(product).toHaveValue("OFF");
@@ -49,15 +55,17 @@ test("a downgraded member can unsubscribe from billing mail but cannot opt in", 
       data: { organizationId, category: "BILLING_SUMMARY", frequency: "MONTHLY", locale: "en" },
     });
     expect(enabled.ok()).toBeTruthy();
+    await page.goto("/settings");
+    const billing = page.getByRole("combobox", { name: /Billing summaries/ });
+    await expect(billing).toHaveValue("MONTHLY");
     await db.organizationMember.update({ where: key, data: { role: "MEMBER" } });
     const forbidden = await page.request.patch("/api/user/notification-preferences", {
       data: { organizationId, category: "BILLING_SUMMARY", frequency: "MONTHLY", locale: "en" },
     });
     expect(forbidden.status()).toBe(403);
-    const off = await page.request.patch("/api/user/notification-preferences", {
-      data: { organizationId, category: "BILLING_SUMMARY", frequency: "OFF", locale: "en" },
-    });
-    expect(off.ok()).toBeTruthy();
+    await billing.selectOption("OFF");
+    await expect(billing).toHaveValue("OFF");
+    await expect(billing.locator('option[value="MONTHLY"]')).toHaveAttribute("disabled", "");
     const saved = await page.request.get("/api/user/notification-preferences");
     const prefs = (await saved.json()).preferences;
     expect(prefs).toEqual(expect.arrayContaining([expect.objectContaining({ organizationId, category: "BILLING_SUMMARY", frequency: "OFF" })]));
@@ -65,4 +73,49 @@ test("a downgraded member can unsubscribe from billing mail but cannot opt in", 
     await db.organizationMember.update({ where: key, data: { role: previous.role } });
     await db.$disconnect();
   }
+});
+
+test("a delayed older readback cannot overwrite a newer category change", async ({ page }) => {
+  await signInAsTestUser(page);
+  const initial = await page.request.get("/api/user/notification-preferences");
+  const organizationId = (await initial.json()).memberships[0].organizationId as string;
+  for (const category of ["PRODUCT_UPDATE", "PROJECT_ACTIVITY"]) {
+    const off = await page.request.patch("/api/user/notification-preferences", {
+      data: { organizationId, category, frequency: "OFF", locale: "en" },
+    });
+    expect(off.ok()).toBeTruthy();
+  }
+  await page.goto("/settings");
+  const product = page.getByRole("combobox", { name: /Product updates/ });
+  const project = page.getByRole("combobox", { name: /Project notices/ });
+  await expect(product).toHaveValue("OFF");
+  await expect(project).toHaveValue("OFF");
+
+  let releaseFirstRead!: () => void;
+  let signalFirstRead!: () => void;
+  const firstReadStarted = new Promise<void>((resolve) => { signalFirstRead = resolve; });
+  const firstReadGate = new Promise<void>((resolve) => { releaseFirstRead = resolve; });
+  let held = false;
+  await page.route("**/api/user/notification-preferences", async (route) => {
+    if (route.request().method() !== "GET" || held) return route.continue();
+    held = true;
+    const response = await route.fetch();
+    const body = await response.body();
+    signalFirstRead();
+    await firstReadGate;
+    await route.fulfill({ response, body });
+  });
+
+  await product.selectOption("MONTHLY");
+  await firstReadStarted;
+  await expect(project).toBeDisabled();
+  releaseFirstRead();
+  await expect(project).toBeEnabled();
+  await project.selectOption("WEEKLY");
+  await expect(project).toHaveValue("WEEKLY");
+  await page.reload();
+  await expect(project).toHaveValue("WEEKLY");
+
+  await product.selectOption("OFF");
+  await project.selectOption("OFF");
 });

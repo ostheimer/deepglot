@@ -28,13 +28,17 @@ export async function GET() {
 
   const memberships = await db.organizationMember.findMany({
     where: { userId },
-    select: { organizationId: true, role: true },
+    select: { organizationId: true, role: true, organization: { select: { name: true } } },
   });
   const preferences = await db.notificationPreference.findMany({
     where: { userId, organizationId: { in: memberships.map((member) => member.organizationId) } },
     select: { organizationId: true, category: true, frequency: true, locale: true },
   });
-  return NextResponse.json({ memberships, preferences });
+  return NextResponse.json({ memberships: memberships.map((member) => ({
+    organizationId: member.organizationId,
+    organizationName: member.organization.name,
+    role: member.role,
+  })), preferences });
 }
 
 export async function PATCH(request: Request) {
