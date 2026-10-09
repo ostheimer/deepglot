@@ -1574,7 +1574,16 @@ class Options
             unset($GLOBALS['deepglot_applying_runtime_config']);
         }
 
-        return (bool) $updated;
+        if ($updated) return true;
+
+        // WordPress reports an unchanged option as false. A second runtime
+        // fetch in the same second can still carry the next cache-invalidation
+        // page; accept it only when the complete persisted settings read back.
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::OPTION_KEY, 'options');
+            wp_cache_delete('alloptions', 'options');
+        }
+        return get_option(self::OPTION_KEY, false) === $settings;
     }
 
     /**

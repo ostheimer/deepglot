@@ -376,6 +376,20 @@ function test_flush_keeps_translation_transient_key_patterns(): void
 // ---------------------------------------------------------------------------
 // Run tests.
 
+function test_delete_by_digest_is_targeted(): void
+{
+    $GLOBALS['_transient_store'] = [];
+    $cache = new TranslationCache();
+    $cache->set('Änderung', 'de', 'en', 'Changed');
+    $cache->set('Anders', 'de', 'en', 'Other');
+    $digest = sha1('de|en|Änderung');
+    assertCache($digest === 'b8b4b98e0acbde70771140308f16597155d928c3');
+    assertCache($cache->deleteByDigest($digest));
+    assertCache($cache->get('Änderung', 'de', 'en') === null);
+    assertCache($cache->get('Anders', 'de', 'en') === 'Other');
+    assertCache(!$cache->deleteByDigest('invalid'));
+}
+
 $tests = [
     'test_cache_miss_returns_null',
     'test_set_then_get_returns_value',
@@ -396,6 +410,7 @@ $tests = [
     'test_noncanonical_base64url_payload_fails_closed',
     'test_legacy_plain_string_with_envelope_like_prefix_remains_readable',
     'test_flush_keeps_translation_transient_key_patterns',
+    'test_delete_by_digest_is_targeted',
 ];
 
 $passed = 0;

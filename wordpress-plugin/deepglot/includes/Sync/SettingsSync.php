@@ -5,6 +5,7 @@ namespace Deepglot\Sync;
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Support\TranslationWarmer;
+use Deepglot\Support\TranslationCache;
 
 class SettingsSync
 {
@@ -12,6 +13,7 @@ class SettingsSync
     private const RUNTIME_REFRESH_BACKOFF_TRANSIENT = 'deepglot_runtime_refresh_backoff';
     private const RUNTIME_REFRESH_LOCK_TTL = 60;
     private const RUNTIME_REFRESH_FAILURE_BACKOFF = 60;
+    private const CACHE_INVALIDATION_CURSOR_OPTION = 'deepglot_url_cache_invalidation_cursor';
 
     /** In-process fallback for isolated callers without WordPress option storage. */
     private static ?string $runtimeRefreshProcessLock = null;
@@ -253,6 +255,12 @@ class SettingsSync
             ? untrailingslashit((string) $baseUrlOverride)
             : untrailingslashit($this->options->getApiBaseUrl());
 
+        $identity = Client::configurationIdentityFor($fetchKey, $fetchBaseUrl);
+        $cursorRecord = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
+        $cacheAfter = is_array($cursorRecord)
+            && ($cursorRecord['identity'] ?? '') === $identity
+            && preg_match('/^\d{1,20}$/D', (string) ($cursorRecord['cursor'] ?? '')) === 1
+                ? (string) $cursorRecord['cursor'] : '0';
         $runtimeConfig = $this->client->fetchRuntimeConfig($apiKeyOverride, $baseUrlOverride);
 
         if (is_wp_error($runtimeConfig)) {
@@ -307,6 +315,7 @@ class SettingsSync
         }
 
         if ($applied) {
+            $this->applyCacheInvalidations($runtimeConfig, $identity, $cacheAfter);
             delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
 
             if ($this->warmer !== null) {
@@ -328,6 +337,27 @@ class SettingsSync
         }
 
         return $runtimeConfig;
+    }
+
+    /** Apply only explicit digest events after the matching runtime snapshot was accepted. */
+    private function applyCacheInvalidations(array $runtimeConfig, string $identity, string $cursor): void
+    {
+        $batch = $runtimeConfig['cacheInvalidations'] ?? null;
+        if (!is_array($batch) || !is_array($batch['entries'] ?? null) || count($batch['entries']) > 250) {
+            return;
+        }
+        $cache = new TranslationCache();
+        foreach ($batch['entries'] as $entry) {
+            if (!is_array($entry)) return;
+            $id = (string) ($entry['id'] ?? '');
+            $digest = (string) ($entry['cacheKey'] ?? '');
+            if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $cursor) {
+                return;
+            }
+            if (!$cache->deleteByDigest($digest)) return;
+            $cursor = $id;
+            update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $cursor], false);
+        }
     }
 
     /** A mapping may occur on any page, so known full-page caches need a site-wide purge. */

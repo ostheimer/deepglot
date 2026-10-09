@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { lockProjectMembershipScope } from "@/lib/project-access";
 
 /**
  * Serialize mutations whose validity depends on the project's current source
@@ -9,14 +10,7 @@ export async function lockProjectRuntimeConfiguration(
   tx: Prisma.TransactionClient,
   projectId: string,
 ): Promise<boolean> {
-  const rows = await tx.$queryRaw<Array<{ id: string }>>`
-    SELECT "id"
-    FROM "Project"
-    WHERE "id" = ${projectId}
-    FOR UPDATE
-  `;
-
-  return rows.length === 1;
+  return (await lockProjectMembershipScope(tx, projectId)) !== null;
 }
 
 /**

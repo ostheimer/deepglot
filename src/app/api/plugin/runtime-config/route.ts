@@ -164,8 +164,25 @@ export async function GET(request: NextRequest) {
     }
 
     const exclusions = buildRuntimeExclusions(rules);
+    const afterRaw = new URL(request.url).searchParams.get("cache_after") ?? "0";
+    if (!/^\d{1,20}$/.test(afterRaw)) {
+      return apiProblem({ status: 400, title: "Invalid cache cursor", detail: "cache_after must be a nonnegative integer.", code: "invalid_cache_cursor", instance: "/api/plugin/runtime-config" });
+    }
+    const cacheAfter = BigInt(afterRaw);
+    if (cacheAfter > BigInt("9223372036854775807")) {
+      return apiProblem({ status: 400, title: "Invalid cache cursor", detail: "cache_after exceeds the supported range.", code: "invalid_cache_cursor", instance: "/api/plugin/runtime-config" });
+    }
+    const cacheInvalidationRows = await db.urlCacheInvalidation.findMany({
+      where: { projectId: apiKey.projectId, id: { gt: cacheAfter } },
+      orderBy: { id: "asc" }, take: 251,
+      select: { id: true, urlPath: true, cacheKey: true },
+    });
 
     return NextResponse.json({
+      cacheInvalidations: {
+        entries: cacheInvalidationRows.slice(0, 250).map((item) => ({ id: item.id.toString(), urlPath: item.urlPath, cacheKey: item.cacheKey })),
+        hasMore: cacheInvalidationRows.length > 250,
+      },
       exclusions,
       mediaReplacements,
       pageViewsEnabled:

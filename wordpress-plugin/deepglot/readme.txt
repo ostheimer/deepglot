@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.12.13
+Stable tag: 0.12.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -100,6 +100,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.14 =
+* Report observed bounded URL synchronization attempts, results, and HTTP status to the SaaS URL inventory. The WordPress job remains authoritative if reporting fails.
 
 = 0.12.13 =
 * Synchronizes independent target-language visibility and automatic-translation controls from the dashboard.
@@ -227,6 +230,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.14 =
+Reports bounded WordPress URL synchronization results and applies project-scoped translation-cache invalidations after confirmed URL operations. Rebuild external page or CDN caches separately.
 
 = 0.12.13 =
 Install this package to apply language lifecycle settings to public WordPress output. Refresh runtime settings and verify or purge any upstream CDN cache separately.

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import { getAuthenticatedUserId, userHasProjectAccess } from "@/lib/project-access";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
@@ -60,6 +61,7 @@ export async function PATCH(
 
   try {
     const rule = await db.$transaction(async (tx) => {
+      if (!(await lockProjectRuntimeConfiguration(tx, projektId))) throw new Error(NOT_FOUND_ERROR);
       const existing = await tx.glossaryRule.findFirst({
         where: { id: ruleId, projectId: projektId },
       });
@@ -162,6 +164,7 @@ export async function DELETE(
 
   try {
     await db.$transaction(async (tx) => {
+      if (!(await lockProjectRuntimeConfiguration(tx, projektId))) throw new Error(NOT_FOUND_ERROR);
       const deleted = await tx.glossaryRule.findFirst({
         where: { id: ruleId, projectId: projektId },
       });

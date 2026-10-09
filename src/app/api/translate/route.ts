@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordTranslationContexts } from "@/lib/translation-context";
+import { glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
 import { buildTranslationContext } from "@/lib/translation-context-settings";
 import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
@@ -59,6 +60,8 @@ import {
   lockAndValidateProjectLanguageWrite,
   lockProjectRuntimeConfiguration,
 } from "@/lib/project-runtime-configuration-lock";
+import { canManageProjectForWrite } from "@/lib/project-access";
+import { urlProviderConfiguration } from "@/lib/url-operations";
 
 export const runtime = "nodejs";
 
@@ -121,10 +124,20 @@ type ValidatedApiKeyRecord = NonNullable<
   Awaited<ReturnType<typeof validateApiKey>>
 >;
 
-async function executeAuthenticatedTranslateRequest(
+export async function executeAuthenticatedTranslateRequest(
   req: NextRequest,
-  apiKeyRecord: ValidatedApiKeyRecord,
+  apiKeyRecord: Pick<ValidatedApiKeyRecord, "id" | "project">,
   parsedBodyOverride?: unknown,
+  forceRetranslate?: {
+    actorId: string;
+    settingsVersion: string | null;
+    providerConfiguration: readonly [string | null, string | null, string | null, string | null];
+    hashes: ReadonlySet<string>;
+    versions: ReadonlyMap<string, string>;
+    glossaryVersion: string;
+    onProviderDispatch?: () => void;
+    receipt?: { id: string; projectId: string; urlId: string; actorId: string; urlPath: string; langTo: string; totalEligibleSegments: number; remainingSegments: number; nextAfterId: string | null };
+  },
 ) {
   try {
     // 2. Persistent rate limiting per API key
@@ -308,6 +321,14 @@ async function executeAuthenticatedTranslateRequest(
         originalHash: { in: hashes.filter(Boolean) },
       },
     });
+    if (forceRetranslate) {
+      for (const cached of cachedTranslations) {
+        if (!forceRetranslate.hashes.has(cached.originalHash)) continue;
+        if (cached.updatedAt.toISOString() !== forceRetranslate.versions.get(cached.originalHash)) {
+          return apiProblem({ status: 409, title: "URL preview expired", detail: "Translation changed since preview.", code: "stale_url_preview", instance: "/api/translate" });
+        }
+      }
+    }
     const cachedByHash = new Map(
       cachedTranslations.map((translation) => [
         translation.originalHash,
@@ -371,7 +392,7 @@ async function executeAuthenticatedTranslateRequest(
         protection.latestRuleUpdatedAt &&
         cached.updatedAt < protection.latestRuleUpdatedAt;
 
-      if (cached && !glossaryInvalidatesCache) {
+      if (cached && !glossaryInvalidatesCache && !forceRetranslate?.hashes.has(hash)) {
         translatedTexts[index] = cached.translatedText;
         if (cached.isManual) {
           manualWords += wordCount;
@@ -382,7 +403,7 @@ async function executeAuthenticatedTranslateRequest(
       }
 
       const memoryHit = translationMemoryByHash.get(hash);
-      if (memoryHit) {
+      if (memoryHit && !forceRetranslate?.hashes.has(hash)) {
         translatedTexts[index] = memoryHit.translatedText;
         manualWords += wordCount;
         continue;
@@ -627,9 +648,27 @@ async function executeAuthenticatedTranslateRequest(
             return { kind: "language_configuration_changed" } as const;
           }
 
+          if (forceRetranslate && !(await canManageProjectForWrite(tx, forceRetranslate.actorId, project.id))) {
+            return { kind: "manager_access_revoked" } as const;
+          }
+
+          if (forceRetranslate) {
+            const currentRules = await tx.glossaryRule.findMany({
+              where: { projectId: project.id, langFrom: l_from, langTo: l_to },
+              select: { id: true, updatedAt: true },
+            });
+            if (glossaryRuleVersion(currentRules) !== forceRetranslate.glossaryVersion) {
+              return { kind: "stale_url_preview" } as const;
+            }
+          }
+
           const settings = await tx.projectSettings.findUnique({
             where: { projectId: project.id },
           });
+          if (forceRetranslate && (
+            (settings?.updatedAt.toISOString() ?? null) !== forceRetranslate.settingsVersion ||
+            JSON.stringify(urlProviderConfiguration(settings)) !== JSON.stringify(forceRetranslate.providerConfiguration)
+          )) return { kind: "stale_url_preview" } as const;
           return settings?.automaticTranslation === false
             ? ({ kind: "automatic_translation_disabled", settings } as const)
             : ({ kind: "ready", settings } as const);
@@ -645,6 +684,16 @@ async function executeAuthenticatedTranslateRequest(
             code: "project_language_configuration_changed",
             instance: "/api/translate",
           });
+        }
+
+        if (dispatchConfiguration.kind === "manager_access_revoked") {
+          await refundBeforeProvider();
+          return apiProblem({ status: 403, title: "Manager access revoked", detail: "Current project management access is required for this URL operation.", code: "manager_access_revoked", instance: "/api/translate" });
+        }
+
+        if (dispatchConfiguration.kind === "stale_url_preview") {
+          await refundBeforeProvider();
+          return apiProblem({ status: 409, title: "URL preview expired", detail: "Confirmed project settings or glossary rules changed before provider dispatch. No provider work started.", code: "stale_url_preview", instance: "/api/translate" });
         }
 
         providerSettings = dispatchConfiguration.settings;
@@ -690,6 +739,7 @@ async function executeAuthenticatedTranslateRequest(
       // the only refund handle before dispatch so no later error path can undo
       // the conservative velocity charge.
       velocityReservation = null;
+      forceRetranslate?.onProviderDispatch?.();
       const results: Awaited<ReturnType<typeof translateTexts>> =
         await translateTexts(
           {
@@ -728,6 +778,18 @@ async function executeAuthenticatedTranslateRequest(
               return { kind: "language_configuration_changed" } as const;
             }
 
+            if (forceRetranslate && !(await canManageProjectForWrite(tx, forceRetranslate.actorId, project.id))) {
+              return { kind: "manager_access_revoked" } as const;
+            }
+
+            if (forceRetranslate) {
+              const currentSettings = await tx.projectSettings.findUnique({ where: { projectId: project.id } });
+              if ((currentSettings?.updatedAt.toISOString() ?? null) !== forceRetranslate.settingsVersion ||
+                JSON.stringify(urlProviderConfiguration(currentSettings)) !== JSON.stringify(forceRetranslate.providerConfiguration)) {
+                return { kind: "stale_url_preview" } as const;
+              }
+            }
+
             const currentLanguageConfiguration = await tx.project.findUnique({
               where: { id: project.id },
               select: {
@@ -757,6 +819,28 @@ async function executeAuthenticatedTranslateRequest(
               currentLanguageConfiguration.languages.find((language) => language.langCode.toLowerCase() === l_to.toLowerCase())?.automaticTranslation === false
             ) {
               return { kind: "automatic_translation_disabled" } as const;
+            }
+
+            if (forceRetranslate) {
+              const currentRules = await tx.glossaryRule.findMany({
+                where: { projectId: project.id, langFrom: l_from, langTo: l_to },
+                select: { id: true, updatedAt: true },
+              });
+              if (glossaryRuleVersion(currentRules) !== forceRetranslate.glossaryVersion) {
+                return { kind: "stale_url_preview" } as const;
+              }
+              const current = await tx.translation.findMany({
+                where: { projectId: project.id, originalHash: { in: [...forceRetranslate.hashes] } },
+                include: { contexts: { select: { urlPath: true } } },
+              });
+              const path = new URL(request_url).pathname;
+              if (current.length !== forceRetranslate.hashes.size || current.some((item) =>
+                item.updatedAt.toISOString() !== forceRetranslate.versions.get(item.originalHash) ||
+                item.isManual || item.workflowStatus !== "MACHINE" ||
+                item.contexts.length !== 1 || item.contexts[0].urlPath !== path
+              )) {
+                return { kind: "stale_url_preview" } as const;
+              }
             }
 
             for (const [resultIndex, item] of pendingTranslations.entries()) {
@@ -851,6 +935,14 @@ async function executeAuthenticatedTranslateRequest(
               }
             }
 
+            if (forceRetranslate && pendingTranslations.length > 0) {
+              await tx.urlCacheInvalidation.createMany({ data: pendingTranslations.map((item) => ({
+                projectId: project.id,
+                urlPath: new URL(request_url).pathname,
+                cacheKey: wordpressCacheKey(l_from, l_to, texts[item.index]),
+              })) });
+            }
+
             await incrementUsageRecord({
               organizationId: project.organizationId,
               projectId: project.id,
@@ -876,7 +968,23 @@ async function executeAuthenticatedTranslateRequest(
               tx,
             );
 
-            await upsertTranslatedUrlHit({
+            if (forceRetranslate?.receipt) {
+              await tx.urlOperationReceipt.create({ data: {
+                id: forceRetranslate.receipt.id,
+                projectId: forceRetranslate.receipt.projectId,
+                urlId: forceRetranslate.receipt.urlId,
+                actorId: forceRetranslate.receipt.actorId,
+                urlPath: forceRetranslate.receipt.urlPath,
+                langTo: forceRetranslate.receipt.langTo,
+                billedWords: translatedWords,
+                segmentCount: pendingTranslations.length,
+                totalEligibleSegments: forceRetranslate.receipt.totalEligibleSegments,
+                remainingSegments: forceRetranslate.receipt.remainingSegments,
+                nextAfterId: forceRetranslate.receipt.nextAfterId,
+              } });
+            }
+
+            if (!forceRetranslate) await upsertTranslatedUrlHit({
               projectId: project.id,
               langTo: l_to,
               requestUrl: request_url || null,
@@ -884,7 +992,7 @@ async function executeAuthenticatedTranslateRequest(
               tx,
             });
 
-            await recordTranslationContexts(tx, {
+            if (!forceRetranslate) await recordTranslationContexts(tx, {
               projectId: project.id,
               domain: project.domain,
               requestUrl: request_url,
@@ -917,6 +1025,9 @@ async function executeAuthenticatedTranslateRequest(
             instance: "/api/translate",
           });
         }
+        if (persistenceResult.kind === "manager_access_revoked") {
+          return apiProblem({ status: 409, title: "Manager access revoked", detail: "Manager access changed after provider dispatch. No result was stored; provider cost may have occurred.", code: "manager_access_revoked_during_provider_work", instance: "/api/translate" });
+        }
         if (persistenceResult.kind === "automatic_translation_disabled") {
           return apiProblem({
             status: 409,
@@ -926,6 +1037,9 @@ async function executeAuthenticatedTranslateRequest(
             code: "automatic_translation_disabled_during_request",
             instance: "/api/translate",
           });
+        }
+        if (persistenceResult.kind === "stale_url_preview") {
+          return apiProblem({ status: 409, title: "URL preview expired", detail: "Translation or URL context changed during provider work. No result was stored; provider cost may have occurred.", code: "stale_url_preview", instance: "/api/translate" });
         }
       } catch (error) {
         // The provider completed successfully before persistence began. Keep
@@ -1007,7 +1121,7 @@ async function executeAuthenticatedTranslateRequest(
           },
           tx,
         );
-        await upsertTranslatedUrlHit({
+        if (!forceRetranslate) await upsertTranslatedUrlHit({
           projectId: project.id,
           langTo: l_to,
           requestUrl: request_url || null,

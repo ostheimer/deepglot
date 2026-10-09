@@ -5,17 +5,20 @@ import { getProjectUrl } from "./project-url";
 export function translationContextPath(
   requestUrl: string | null | undefined,
   domain: string,
+  allowedTargetHosts: string[] = [],
 ) {
   if (!requestUrl) return null;
   try {
-    const site = new URL(getProjectUrl(domain));
     const url = new URL(requestUrl);
+    const permittedHosts = [domain, ...allowedTargetHosts].map((host) => {
+      const candidate = new URL(getProjectUrl(host));
+      return `${candidate.hostname}:${candidate.port}`;
+    });
     if (
       !["http:", "https:"].includes(url.protocol) ||
       url.username ||
       url.password ||
-      url.hostname !== site.hostname ||
-      url.port !== site.port
+      !permittedHosts.includes(`${url.hostname}:${url.port}`)
     )
       return null;
     const path = url.pathname;
@@ -58,8 +61,12 @@ export async function recordTranslationContexts(
     hashes: string[];
   },
 ) {
-  const urlPath = translationContextPath(input.requestUrl, input.domain);
-  if (!urlPath || input.hashes.length === 0) return;
+  const mappedHosts = await tx.projectDomainMapping.findMany({
+    where: { projectId: input.projectId, langCode: input.langTo },
+    select: { host: true },
+  });
+  const mappedPath = translationContextPath(input.requestUrl, input.domain, mappedHosts.map((item) => item.host));
+  if (!mappedPath || input.hashes.length === 0) return;
   const translations = await tx.translation.findMany({
     where: {
       projectId: input.projectId,
@@ -74,14 +81,14 @@ export async function recordTranslationContexts(
   await tx.translationContext.createMany({
     data: translations.map(({ id }) => ({
       translationId: id,
-      urlPath,
+      urlPath: mappedPath,
       firstSeenAt: now,
       lastSeenAt: now,
     })),
     skipDuplicates: true,
   });
   await tx.translationContext.updateMany({
-    where: { translationId: { in: translations.map(({ id }) => id) }, urlPath },
+    where: { translationId: { in: translations.map(({ id }) => id) }, urlPath: mappedPath },
     data: { lastSeenAt: now },
   });
 }
