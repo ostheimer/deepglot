@@ -31,7 +31,7 @@ async function transferState(client: Client, actorUserId: string, projectId: str
       invitations: { select: { id: true, acceptedAt: true } },
       apiKeys: { select: { id: true, isActive: true, createdAt: true } },
       webhookEndpoints: { select: { id: true, enabled: true, updatedAt: true } },
-      settings: { select: { translationApiKeyEncrypted: true, updatedAt: true } },
+      settings: { select: { translationApiKeyEncrypted: true, providerReconnectRequired: true, updatedAt: true } },
     },
   });
   if (!project || project.organizationId === destinationId) {
@@ -101,6 +101,8 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     disabledWebhookEndpoints: project.webhookEndpoints.filter((endpoint) => endpoint.enabled).length,
     retainedWebhookDeliveries: deliveryCount, retainedHistoricalBatches: batchCount,
     clearedProviderKey: Boolean(project.settings?.translationApiKeyEncrypted),
+    providerReconnectRequiredAfterTransfer: Boolean(
+      project.settings?.providerReconnectRequired || project.settings?.translationApiKeyEncrypted),
   };
   const version = fingerprint({
     details, members: project.members, languages: project.languages, destinationMembers: destination.members,
@@ -163,7 +165,7 @@ export async function commitWorkspaceTransfer(input: {
     await tx.webhookEndpoint.updateMany({ where: { projectId: input.projectId }, data: { enabled: false, secret: "" } });
     await tx.projectSettings.updateMany({ where: { projectId: input.projectId }, data: {
       translationApiKeyEncrypted: null, translationApiKeyUpdatedAt: null,
-      providerReconnectRequired: state.details.clearedProviderKey,
+      providerReconnectRequired: state.details.providerReconnectRequiredAfterTransfer,
       runtimeSyncedAt: null, runtimeSyncSiteHost: null, runtimeSyncApiKeyId: null,
       runtimeSyncConflicts: [],
     } });

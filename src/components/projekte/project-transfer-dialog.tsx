@@ -15,6 +15,7 @@ type Preview = {
   translatedUrls: number; urlSlugs: number; keptProjectMembers: number; removedProjectMembers: number;
   revokedInvitations: number; revokedApiKeys: number; disabledWebhookEndpoints: number;
   retainedWebhookDeliveries: number; retainedHistoricalBatches: number; clearedProviderKey: boolean;
+  providerReconnectRequiredAfterTransfer: boolean;
   fingerprint: string; issuedAt: string; confirmationToken: string;
 };
 
@@ -102,6 +103,7 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
             <dt>{uiText(locale, "Webhooks disabled", "Webhooks deaktiviert")}</dt><dd>{preview.disabledWebhookEndpoints}</dd>
             <dt>{uiText(locale, "Previous deliveries / batches retained", "Frühere Zustellungen / Batches bleiben")}</dt><dd>{preview.retainedWebhookDeliveries} / {preview.retainedHistoricalBatches}</dd>
             <dt>{uiText(locale, "Provider key cleared", "Provider-Key entfernt")}</dt><dd>{preview.clearedProviderKey ? uiText(locale, "Yes", "Ja") : uiText(locale, "No", "Nein")}</dd>
+            <dt>{uiText(locale, "Provider reconnect required after transfer", "Provider-Verbindung nach Transfer erforderlich")}</dt><dd>{preview.providerReconnectRequiredAfterTransfer ? uiText(locale, "Yes", "Ja") : uiText(locale, "No", "Nein")}</dd>
           </dl>
           <ul className="list-disc space-y-1 pl-5">
             <li>{uiText(locale, "Workspace members and roles stay in their workspaces. Only project members already in the destination remain; source-only assignments are cleared. Pending invitations are revoked.", "Workspace-Mitglieder und Rollen bleiben in ihren Workspaces. Nur Projektmitglieder, die bereits zum Ziel gehören, bleiben; Zuweisungen entfernter Mitglieder werden aufgehoben. Offene Einladungen werden widerrufen.")}</li>
@@ -110,7 +112,9 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
             <li>{uiText(locale, "All plugin API keys are deactivated and cannot be recovered. Reconnect WordPress with a newly created key after transfer.", "Alle Plugin-API-Keys werden deaktiviert und können nicht wiederhergestellt werden. Verbinde WordPress nach dem Transfer mit einem neu erstellten Key.")}</li>
             <li>{preview.clearedProviderKey
               ? uiText(locale, "The source provider key is removed and fresh provider work is paused until a destination-owned key is saved.", "Der Provider-Key des Ursprungs wird entfernt. Neue Provider-Aufträge bleiben pausiert, bis ein Key des Ziel-Workspace gespeichert ist.")
-              : uiText(locale, "No project provider key is moved. Existing platform provider settings remain subject to the destination plan and quota.", "Es wird kein Projekt-Provider-Key mitgenommen. Bestehende Plattform-Provider-Einstellungen unterliegen dem Plan und Kontingent des Ziel-Workspace.")}</li>
+              : preview.providerReconnectRequiredAfterTransfer
+                ? uiText(locale, "The provider connection is already paused from an earlier transfer and remains paused until a destination-owned key is saved.", "Die Provider-Verbindung ist seit einem früheren Transfer pausiert und bleibt es, bis ein Key des Ziel-Workspace gespeichert ist.")
+                : uiText(locale, "No project provider key is moved. Existing platform provider settings remain subject to the destination plan and quota.", "Es wird kein Projekt-Provider-Key mitgenommen. Bestehende Plattform-Provider-Einstellungen unterliegen dem Plan und Kontingent des Ziel-Workspace.")}</li>
             <li>{uiText(locale, "Webhook endpoints are disabled, signing secrets removed and pending deliveries failed. Reconnect the endpoint and secret explicitly; past delivery records remain.", "Webhook-Endpunkte werden deaktiviert, Signatur-Secrets entfernt und offene Zustellungen als fehlgeschlagen markiert. Verbinde Endpunkt und Secret ausdrücklich neu; frühere Zustellungen bleiben erhalten.")}</li>
             <li>{uiText(locale, "WordPress runtime sync state is reset; workspace notification preferences remain with their original memberships.", "Der WordPress-Runtime-Sync-Status wird zurückgesetzt; Workspace-Benachrichtigungseinstellungen bleiben bei ihren bisherigen Mitgliedschaften.")}</li>
           </ul>

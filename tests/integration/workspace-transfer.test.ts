@@ -142,6 +142,7 @@ test("workspace transfer checks both owners, preserves history and content, and 
       name: "Platform fixture", domain: `platform-${suffix}.invalid`, settings: { create: { translationProvider: "openai" } } } });
     const platformPreview = await previewWorkspaceTransfer(actor.id, platformProject.id, destination.id);
     assert.equal(platformPreview.clearedProviderKey, false);
+    assert.equal(platformPreview.providerReconnectRequiredAfterTransfer, false);
     await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: platformProject.id, destinationId: destination.id,
       fingerprint: platformPreview.fingerprint, issuedAt: platformPreview.issuedAt,
       confirmationToken: platformPreview.confirmationToken });
@@ -150,6 +151,39 @@ test("workspace transfer checks both owners, preserves history and content, and 
     await db.organization.deleteMany({ where: { id: { in: [source.id, destination.id] } } });
     await db.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });
     await db.projectTransferAudit.deleteMany({ where: { sourceOrganizationId: source.id } });
+    await db.$disconnect();
+  }
+});
+
+test("a second transfer cannot clear an existing BYOK reconnect pause", async () => {
+  const suffix = randomUUID();
+  const actor = await db.user.create({ data: { email: `reconnect-${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `reconnect-source-${suffix}` } });
+  const middle = await db.organization.create({ data: { name: "Middle", slug: `reconnect-middle-${suffix}`, plan: "STARTER",
+    subscription: { create: { stripeCustomerId: `fixture-middle-${suffix}`, status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } } } });
+  const destination = await db.organization.create({ data: { name: "Destination", slug: `reconnect-dest-${suffix}`, plan: "STARTER",
+    subscription: { create: { stripeCustomerId: `fixture-dest-${suffix}`, status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } } } });
+  const project = await db.project.create({ data: { organizationId: source.id, name: "Paused fixture",
+    domain: `paused-${suffix}.invalid`, settings: { create: { translationProvider: "openai",
+      translationApiKeyEncrypted: "fixture-source-ciphertext" } } } });
+  try {
+    await db.organizationMember.createMany({ data: [source, middle, destination].map((workspace) => ({
+      userId: actor.id, organizationId: workspace.id, role: "OWNER" as const,
+    })) });
+    const first = await previewWorkspaceTransfer(actor.id, project.id, middle.id);
+    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id, destinationId: middle.id,
+      fingerprint: first.fingerprint, issuedAt: first.issuedAt, confirmationToken: first.confirmationToken });
+    assert.equal((await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } })).providerReconnectRequired, true);
+    const second = await previewWorkspaceTransfer(actor.id, project.id, destination.id);
+    assert.equal(second.clearedProviderKey, false);
+    assert.equal(second.providerReconnectRequiredAfterTransfer, true);
+    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id, destinationId: destination.id,
+      fingerprint: second.fingerprint, issuedAt: second.issuedAt, confirmationToken: second.confirmationToken });
+    assert.equal((await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } })).providerReconnectRequired, true);
+  } finally {
+    await db.organization.deleteMany({ where: { id: { in: [source.id, middle.id, destination.id] } } });
+    await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });
+    await db.user.delete({ where: { id: actor.id } });
     await db.$disconnect();
   }
 });

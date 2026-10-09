@@ -44,6 +44,7 @@ const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
   "Webhooks disabled": "Webhooks disabled",
   "Previous deliveries / batches retained": "Previous deliveries / batches retained",
   "Provider key cleared": "Provider key cleared",
+  "Provider reconnect required after transfer": "Provider reconnect required after transfer",
   "Yes": "Yes",
   "No": "No",
   "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin, provider key and webhooks need reconnecting.": "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin, provider key and webhooks need reconnecting.",
@@ -58,6 +59,7 @@ const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
   "WordPress runtime sync state is reset; workspace notification preferences remain with their original memberships.": "WordPress runtime sync state is reset; workspace notification preferences remain with their original memberships.",
   "Provider translation is paused after the workspace transfer. Add a destination-owned API key and save to reconnect; the previous key cannot be recovered.": "Provider translation is paused after the workspace transfer. Add a destination-owned API key and save to reconnect; the previous key cannot be recovered.",
   "The source provider key is removed and fresh provider work is paused until a destination-owned key is saved.": "The source provider key is removed and fresh provider work is paused until a destination-owned key is saved.",
+  "The provider connection is already paused from an earlier transfer and remains paused until a destination-owned key is saved.": "The provider connection is already paused from an earlier transfer and remains paused until a destination-owned key is saved.",
   "No project provider key is moved. Existing platform provider settings remain subject to the destination plan and quota.": "No project provider key is moved. Existing platform provider settings remain subject to the destination plan and quota.",
   "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin and webhooks need reconnecting.": "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin and webhooks need reconnecting.",
 };

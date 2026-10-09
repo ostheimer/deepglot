@@ -14,6 +14,10 @@ test("transfer preview shows ownership and secret consequences before committing
     plan: "STARTER", members: { create: { userId: actor.id, role: "OWNER" } },
     subscription: { create: { stripeCustomerId: `free_fixture_${suffix}`, status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } },
   } });
+  const secondDestination = await db.organization.create({ data: { name: `Next destination ${suffix}`, slug: `next-destination-${suffix}`,
+    plan: "STARTER", members: { create: { userId: actor.id, role: "OWNER" } },
+    subscription: { create: { stripeCustomerId: `free_next_fixture_${suffix}`, status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } },
+  } });
   const project = await db.project.create({ data: { organizationId: source.organizationId,
     name: "Transfer UI fixture", domain, languages: { create: { langCode: "en" } },
     settings: { create: { translationProvider: "openai", translationApiKeyEncrypted: "fixture-ciphertext" } },
@@ -44,10 +48,24 @@ test("transfer preview shows ownership and secret consequences before committing
     expect((await db.apiKey.findFirstOrThrow({ where: { projectId: project.id } })).isActive).toBe(false);
     expect((await db.webhookEndpoint.findFirstOrThrow({ where: { projectId: project.id } })).secret).toBe("");
     expect(await db.projectTransferAudit.count({ where: { projectId: project.id, actorUserId: actor.id } })).toBe(1);
+
+    await page.goto("/projects");
+    await page.locator("div.grid").filter({ hasText: domain }).last().getByRole("button", { name: "Transfer", exact: true }).click();
+    const secondDialog = page.getByRole("dialog", { name: "Transfer project" });
+    await secondDialog.getByRole("combobox", { name: "Destination workspace" }).selectOption(secondDestination.id);
+    await secondDialog.getByRole("button", { name: "Show transfer preview" }).click();
+    await expect(secondDialog.getByText("The provider connection is already paused from an earlier transfer", { exact: false })).toBeVisible();
+    await secondDialog.getByRole("checkbox").check();
+    await secondDialog.getByRole("button", { name: "Transfer now" }).click();
+    await expect(page.getByText("Project transferred. Reconnect the plugin and webhook credentials.")).toBeVisible();
+    expect((await db.project.findUniqueOrThrow({ where: { id: project.id } })).organizationId).toBe(secondDestination.id);
+    expect((await db.projectSettings.findUniqueOrThrow({ where: { projectId: project.id } })).providerReconnectRequired).toBe(true);
+    expect(await db.projectTransferAudit.count({ where: { projectId: project.id, actorUserId: actor.id } })).toBe(2);
   } finally {
     await db.project.delete({ where: { id: project.id } });
     await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });
     await db.organization.delete({ where: { id: destination.id } });
+    await db.organization.delete({ where: { id: secondDestination.id } });
     await db.$disconnect();
   }
 });
