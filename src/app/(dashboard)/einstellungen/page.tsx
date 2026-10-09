@@ -14,6 +14,7 @@ import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import { PasskeySettings } from "@/components/einstellungen/passkey-settings";
 import { WorkspaceManager } from "@/components/einstellungen/workspace-manager";
+import { getEffectiveWorkspacePlanKey } from "@/lib/billing-plans";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Account settings", "Konto-Einstellungen");
@@ -182,7 +183,8 @@ export default async function EinstellungenPage({
       </section>
 
       <WorkspaceManager locale={locale} workspaces={memberships.map((m) => ({
-        id: m.organizationId, name: m.organization.name, plan: m.organization.plan, role: m.role,
+        id: m.organizationId, name: m.organization.name,
+        plan: getEffectiveWorkspacePlanKey(m.organization.plan, m.organization.subscription), role: m.role,
         projectCount: m.organization._count.projects, memberCount: m.organization._count.members,
       }))} />
     </div>

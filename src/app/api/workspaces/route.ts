@@ -13,8 +13,13 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const rows = await db.organizationMember.findMany({ where: { userId },
     select: { role: true, organization: { select: { id: true, name: true, plan: true,
+      subscription: { select: { status: true } },
       _count: { select: { projects: true, members: true } } } } }, orderBy: { createdAt: "asc" } });
-  return NextResponse.json({ workspaces: rows.map((row) => ({ ...row.organization, role: row.role })) });
+  return NextResponse.json({ workspaces: rows.map((row) => ({
+    id: row.organization.id, name: row.organization.name,
+    plan: getEffectiveWorkspacePlanKey(row.organization.plan, row.organization.subscription),
+    _count: row.organization._count, role: row.role,
+  })) });
 }
 
 export async function POST(request: Request) {
