@@ -5,6 +5,7 @@ import { computeTranslationHash } from "@/lib/translation-hash";
 export const XLIFF_MAX_BYTES = 5 * 1024 * 1024;
 export const XLIFF_MAX_SEGMENTS = 5000;
 const NS = "urn:oasis:names:tc:xliff:document:1.2";
+const EXT_NS = "https://deepglot.ai/ns/xliff";
 
 export type XliffSegment = {
   id: string;
@@ -40,8 +41,15 @@ export function planXliffImport(
 }
 
 function escapeXml(value: string): string {
+  for (const character of value) {
+    const point = character.codePointAt(0)!;
+    if ((point < 0x20 && point !== 0x09 && point !== 0x0a && point !== 0x0d) ||
+        (point >= 0xd800 && point <= 0xdfff) || point === 0xfffe || point === 0xffff) {
+      throw new XliffError("Translation contains a character unsupported by XML 1.0");
+    }
+  }
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\r/g, "&#13;");
 }
 
 export function serializeXliff(input: {
@@ -52,9 +60,9 @@ export function serializeXliff(input: {
 }): string {
   const units = input.segments.map((item) => {
     const id = computeTranslationHash(item.originalText, input.langFrom, input.langTo);
-    return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}" deepglot-manual="${item.isManual === false ? "no" : "yes"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
+    return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}" dg:manual="${item.isManual === false ? "no" : "yes"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
   });
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<xliff xmlns="${NS}" version="1.2"><file original="${escapeXml(input.projectId)}" source-language="${escapeXml(input.langFrom)}" target-language="${escapeXml(input.langTo)}" datatype="plaintext"><body>\n${units.join("\n")}\n</body></file></xliff>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<xliff xmlns="${NS}" xmlns:dg="${EXT_NS}" version="1.2"><file original="${escapeXml(input.projectId)}" source-language="${escapeXml(input.langFrom)}" target-language="${escapeXml(input.langTo)}" datatype="plaintext"><body>\n${units.join("\n")}\n</body></file></xliff>\n`;
 }
 
 function children(element: XmlElement): XmlElement[] {
@@ -135,8 +143,8 @@ export function parseXliff(bytes: Uint8Array, expected: {
     seen.add(id);
     const approved = unit.getAttribute("approved");
     if (approved !== "yes" && approved !== "no") throw new XliffError("approved must be yes or no", line);
-    const manual = unit.getAttribute("deepglot-manual");
-    if (manual !== null && manual !== "yes" && manual !== "no") throw new XliffError("deepglot-manual must be yes or no", line);
+    const manual = unit.getAttributeNS(EXT_NS, "manual");
+    if (manual !== null && manual !== "yes" && manual !== "no") throw new XliffError("dg:manual must be yes or no", line);
     return { id, source, target, approved: approved === "yes", manual: manual !== "no", line };
   });
 }

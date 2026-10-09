@@ -1,12 +1,13 @@
 import { Prisma, type Project } from "@prisma/client";
 
 import { db } from "@/lib/db";
-import { canAccessProjectLanguage, canManageProject, type ProjectAccessContext } from "@/lib/project-access";
+import { chunk } from "@/lib/import-export";
+import { canAccessProjectForWrite, canAccessProjectLanguage, canManageProject, type ProjectAccessContext } from "@/lib/project-access";
 import { isProjectRuntimeSerializationConflict, lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import { assertPostgresTextFields } from "@/lib/postgres-text";
 import { recordTranslationBatch } from "@/lib/translation-batches";
-import { workflowResetFieldsIfTranslatedTextChanged } from "@/lib/translation-workflow";
+import { recordTranslationCacheInvalidations } from "@/lib/translation-cache-invalidation";
 import { parseXliff, planXliffImport, XliffError, type XliffSegment } from "@/lib/xliff";
 
 export class ProjectXliffImportError extends Error {
@@ -20,6 +21,7 @@ export async function importTranslationsXliff(input: {
   bytes: Uint8Array;
   project: Project;
   access: ProjectAccessContext;
+  userId: string;
   langTo: string;
   applyApproved: boolean;
   emitRowEvents: boolean;
@@ -47,6 +49,10 @@ export async function importTranslationsXliff(input: {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await db.$transaction(async (tx) => {
+        const currentAccess = await canAccessProjectForWrite(tx, input.userId, project.id);
+        if (!currentAccess || !canAccessProjectLanguage(currentAccess, langTo) || (applyApproved && !canManageProject(currentAccess))) {
+          throw new ProjectXliffImportError("Project access changed; no segments imported", 403);
+        }
         if (!(await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
           sourceLanguages: [project.originalLang],
@@ -56,7 +62,7 @@ export async function importTranslationsXliff(input: {
         }
         const existing = await tx.translation.findMany({
           where: { projectId: project.id, originalHash: { in: rows.map((row) => row.id) } },
-          select: { id: true, originalHash: true, originalText: true, translatedText: true, isManual: true, workflowStatus: true, assignedToId: true },
+          select: { id: true, originalHash: true, originalText: true, translatedText: true, isManual: true, source: true, workflowStatus: true, assignedToId: true },
         });
         const issues = planXliffImport(rows, existing, applyApproved);
         for (const item of existing) {
@@ -65,34 +71,69 @@ export async function importTranslationsXliff(input: {
         }
         if (issues.length) throw new ProjectXliffImportError("XLIFF validation failed; no segments imported", 409, issues);
         const current = new Map(existing.map((item) => [item.originalHash, item]));
+        const creates: Array<{ projectId: string; originalHash: string; originalText: string; translatedText: string;
+          langFrom: string; langTo: string; isManual: true; source: "IMPORT"; wordCount: number;
+          workflowStatus: "APPROVED" | "MACHINE" }> = [];
+        const updates: Array<{ id: string; originalHash: string; originalText: string; translatedText: string;
+          isManual: boolean; source: string; workflowStatus: string }> = [];
         for (const row of rows) {
           const previous = current.get(row.id);
           // An external file may only preserve an unchanged existing machine row.
           // New or edited text is a human import even if the file claims otherwise.
           const preserveMachine = row.manual === false && previous && !previous.isManual && previous.translatedText === row.target;
-          const saved = await tx.translation.upsert({
-            where: { projectId_originalHash: { projectId: project.id, originalHash: row.id } },
-            create: {
-              projectId: project.id, originalHash: row.id, originalText: row.source,
-              translatedText: row.target, langFrom: project.originalLang, langTo,
-              isManual: true, source: "IMPORT", wordCount: row.source.trim().split(/\s+/).filter(Boolean).length,
-              workflowStatus: row.approved ? "APPROVED" : "MACHINE",
-            },
-            update: {
-              translatedText: row.target,
-              isManual: !preserveMachine,
-              ...(previous?.isManual || preserveMachine ? {} : { source: "IMPORT" as const }),
-              ...(previous ? workflowResetFieldsIfTranslatedTextChanged(previous, row.target) : {}),
-              ...(row.approved ? { workflowStatus: "APPROVED" } : {}),
-            },
-          });
-          if (emitRowEvents) await queueProjectWebhookEvent({
-            projectId: project.id,
-            eventType: previous ? "translation.updated" : "translation.created",
-            payload: { type: previous ? "translation.updated" : "translation.created", translationId: saved.id,
-              originalText: saved.originalText, translatedText: saved.translatedText,
-              langFrom: saved.langFrom, langTo: saved.langTo, imported: true },
-          }, tx);
+          const nextManual = !preserveMachine;
+          const nextSource = previous?.isManual || preserveMachine ? previous?.source : "IMPORT";
+          const nextWorkflow = row.approved ? "APPROVED" : previous?.translatedText === row.target
+            ? previous?.workflowStatus ?? "MACHINE" : previous?.assignedToId ? "ASSIGNED" : "MACHINE";
+          if (!previous) {
+            creates.push({ projectId: project.id, originalHash: row.id, originalText: row.source,
+              translatedText: row.target, langFrom: project.originalLang, langTo, isManual: true,
+              source: "IMPORT", wordCount: row.source.trim().split(/\s+/).filter(Boolean).length,
+              workflowStatus: row.approved ? "APPROVED" : "MACHINE" });
+          } else if (previous.translatedText !== row.target || previous.isManual !== nextManual ||
+              previous.source !== nextSource || previous.workflowStatus !== nextWorkflow) {
+            updates.push({ id: previous.id, originalHash: row.id, originalText: row.source,
+              translatedText: row.target, isManual: nextManual, source: nextSource ?? "IMPORT",
+              workflowStatus: nextWorkflow });
+          }
+        }
+        const created = [] as Array<{ id: string; originalHash: string; originalText: string; translatedText: string;
+          langFrom: string; langTo: string }>;
+        for (const slice of chunk(creates, 100)) {
+          created.push(...await tx.translation.createManyAndReturn({ data: slice,
+            select: { id: true, originalHash: true, originalText: true, translatedText: true, langFrom: true, langTo: true } }));
+        }
+        for (const slice of chunk(updates, 100)) {
+          const values = Prisma.join(slice.map((item) => Prisma.sql`(${item.id}, ${item.translatedText}, ${item.isManual},
+            ${item.source}::"TranslationSource", ${item.workflowStatus}::"TranslationWorkflowStatus")`));
+          const changed = await tx.$executeRaw(Prisma.sql`
+            UPDATE "Translation" AS translation SET
+              "translatedText" = incoming.text, "isManual" = incoming.manual,
+              "source" = incoming.source, "workflowStatus" = incoming.workflow,
+              "updatedAt" = NOW()
+            FROM (VALUES ${values}) AS incoming(id, text, manual, source, workflow)
+            WHERE translation.id = incoming.id
+          `);
+          if (changed !== slice.length) throw new ProjectXliffImportError("Concurrent update; no segments imported", 409);
+        }
+        const invalidations = [
+          ...created.map((item) => ({ id: item.id, originalText: item.originalText, langFrom: item.langFrom, langTo: item.langTo })),
+          ...updates.map((item) => ({ id: item.id, originalText: item.originalText, langFrom: project.originalLang, langTo })),
+        ];
+        await recordTranslationCacheInvalidations(tx, project.id, invalidations);
+        if (emitRowEvents && invalidations.length) {
+          const endpoints = await tx.webhookEndpoint.findMany({ where: { projectId: project.id, enabled: true },
+            select: { id: true, eventTypes: true } });
+          const events = [
+            ...created.map((item) => ({ type: "translation.created" as const, item })),
+            ...updates.map((item) => ({ type: "translation.updated" as const,
+              item: { ...item, langFrom: project.originalLang, langTo } })),
+          ];
+          const deliveries = events.flatMap(({ type, item }) => endpoints.filter((endpoint) => endpoint.eventTypes.includes(type))
+            .map((endpoint) => ({ endpointId: endpoint.id, projectId: project.id, eventType: type,
+              payload: { type, translationId: item.id, originalText: item.originalText,
+                translatedText: item.translatedText, langFrom: item.langFrom, langTo: item.langTo, imported: true } })));
+          for (const slice of chunk(deliveries, 100)) await tx.webhookDelivery.createMany({ data: slice });
         }
         const words = rows.reduce((sum, row) => sum + row.source.trim().split(/\s+/).filter(Boolean).length, 0);
         if (rows.length) await recordTranslationBatch({ organizationId: project.organizationId, projectId: project.id,

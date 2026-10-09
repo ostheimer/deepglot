@@ -647,7 +647,7 @@ export async function POST(
     if (format === "xliff") {
       if (asset !== "translations") throw new ImportError(xliffCopy(locale, "XLIFF unterstützt nur Übersetzungen", "XLIFF supports translations only"));
       result = await importTranslationsXliff({ bytes: new Uint8Array(await file.arrayBuffer()), project,
-        access, langTo: poLangTo, applyApproved, emitRowEvents: context.emitRowEvents });
+        access, userId, langTo: poLangTo, applyApproved, emitRowEvents: context.emitRowEvents });
     } else if (format === "po") {
       if (asset !== "translations") {
         throw new ImportError(

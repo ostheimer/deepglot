@@ -12,8 +12,10 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
   const { db } = await import("@/lib/db");
   const { importTranslationsXliff, ProjectXliffImportError } = await import("@/lib/project-xliff-import");
   const token = Math.random().toString(36).slice(2);
+  const user = await db.user.create({ data: { email: `xliff-${token}@example.invalid` } });
   const organization = await db.organization.create({ data: { name: "XLIFF fixture", slug: `xliff-fixture-${token}` } });
   try {
+    await db.organizationMember.create({ data: { organizationId: organization.id, userId: user.id, role: "OWNER" } });
     const project = await db.project.create({ data: {
       name: "XLIFF fixture", domain: `${token}.example.invalid`, originalLang: "de", organizationId: organization.id,
       languages: { create: [{ langCode: "en" }] },
@@ -32,7 +34,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     const bytes = (items: typeof segments) => new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en", segments: items,
     }));
-    await assert.rejects(() => importTranslationsXliff({ bytes: bytes(segments), project, access,
+    await assert.rejects(() => importTranslationsXliff({ bytes: bytes(segments), project, access, userId: user.id,
       langTo: "en", applyApproved: false, emitRowEvents: false }), (error) => {
       assert.ok(error instanceof ProjectXliffImportError);
       assert.equal(error.status, 409);
@@ -43,7 +45,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal((await db.translation.findUniqueOrThrow({ where: { projectId_originalHash: { projectId: project.id, originalHash: protectedHash } } })).translatedText, "Protected sentence");
 
     segments[1].translatedText = "Protected sentence";
-    const result = await importTranslationsXliff({ bytes: bytes(segments), project, access,
+    const result = await importTranslationsXliff({ bytes: bytes(segments), project, access, userId: user.id,
       langTo: "en", applyApproved: false, emitRowEvents: false });
     assert.equal(result.importedRows, 2);
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 2);
@@ -63,24 +65,54 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     const machineSegment = [{ originalText: machineText, translatedText: "Automatic sentence", workflowStatus: "MACHINE", isManual: false }];
     await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en", segments: machineSegment,
-    })), project, access, langTo: "en", applyApproved: false, emitRowEvents: false });
+    })), project, access, userId: user.id, langTo: "en", applyApproved: false, emitRowEvents: false });
     const machineAfter = await db.translation.findUniqueOrThrow({
       where: { projectId_originalHash: { projectId: project.id, originalHash: machineHash } },
     });
     assert.equal(machineAfter.isManual, false);
     assert.equal(machineAfter.source, "MOCK");
+    const invalidationCount = await db.urlCacheInvalidation.count({ where: { projectId: project.id } });
+    await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
+      projectId: project.id, langFrom: "de", langTo: "en", segments: machineSegment,
+    })), project, access, userId: user.id, langTo: "en", applyApproved: false, emitRowEvents: false });
+    const machineUnchanged = await db.translation.findUniqueOrThrow({
+      where: { projectId_originalHash: { projectId: project.id, originalHash: machineHash } },
+    });
+    assert.equal(machineUnchanged.updatedAt.getTime(), machineAfter.updatedAt.getTime());
+    assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), invalidationCount);
 
     machineSegment[0].translatedText = "Edited sentence";
     await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en", segments: machineSegment,
-    })), project, access, langTo: "en", applyApproved: false, emitRowEvents: false });
+    })), project, access, userId: user.id, langTo: "en", applyApproved: false, emitRowEvents: false });
     const editedAfter = await db.translation.findUniqueOrThrow({
       where: { projectId_originalHash: { projectId: project.id, originalHash: machineHash } },
     });
     assert.equal(editedAfter.isManual, true);
     assert.equal(editedAfter.source, "IMPORT");
+    assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), invalidationCount + 1);
+
+    await db.webhookEndpoint.create({ data: { projectId: project.id, url: "https://example.invalid/hook",
+      secret: "synthetic-secret", eventTypes: ["translation.created"], enabled: true } });
+    const bulkSegments = Array.from({ length: 205 }, (_, index) => ({
+      originalText: `Neuer Satz ${index}`, translatedText: `New sentence ${index}`, workflowStatus: "MACHINE",
+    }));
+    const bulkResult = await importTranslationsXliff({ bytes: bytes(bulkSegments), project, access, userId: user.id,
+      langTo: "en", applyApproved: false, emitRowEvents: true });
+    assert.equal(bulkResult.importedRows, 205);
+    assert.equal(await db.translation.count({ where: { projectId: project.id } }), 208);
+    assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id, eventType: "translation.created" } }), 205);
+
+    await db.organizationMember.delete({ where: { userId_organizationId: { userId: user.id, organizationId: organization.id } } });
+    await assert.rejects(() => importTranslationsXliff({ bytes: bytes(segments), project, access, userId: user.id,
+      langTo: "en", applyApproved: false, emitRowEvents: false }), (error) => {
+      assert.ok(error instanceof ProjectXliffImportError);
+      assert.equal(error.status, 403);
+      return true;
+    });
   } finally {
     await db.organization.delete({ where: { id: organization.id } });
+    await db.user.delete({ where: { id: user.id } });
     await db.$disconnect();
   }
 });

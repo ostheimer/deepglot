@@ -23,7 +23,18 @@ test("XLIFF 1.2 round trip preserves variables, HTML, approval, and stable ID", 
 test("machine marker survives export while invalid or edited metadata is rejected safely", () => {
   const machine = serializeXliff({ ...project, segments: [{ ...segment, workflowStatus: "MACHINE", isManual: false }] });
   assert.equal(parse(machine)[0].manual, false);
-  assert.throws(() => parse(machine.replace('deepglot-manual="no"', 'deepglot-manual="maybe"')), /deepglot-manual/);
+  assert.throws(() => parse(machine.replace('dg:manual="no"', 'dg:manual="maybe"')), /dg:manual/);
+  assert.match(machine, /xmlns:dg="https:\/\/deepglot.ai\/ns\/xliff"/);
+});
+
+test("XML 1.0 export preserves carriage returns and rejects unsupported controls", () => {
+  const withReturns = { ...segment, originalText: "Line\r\nnext", translatedText: "Target\rnext" };
+  const xml = serializeXliff({ ...project, segments: [withReturns] });
+  assert.match(xml, /&#13;/);
+  const [row] = parse(xml);
+  assert.equal(row.source, withReturns.originalText);
+  assert.equal(row.target, withReturns.translatedText);
+  assert.throws(() => serializeXliff({ ...project, segments: [{ ...segment, translatedText: "bad\u0001value" }] }), /XML 1.0/);
 });
 
 test("rejects wrong project, wrong language, duplicate ID and conflicting source", () => {

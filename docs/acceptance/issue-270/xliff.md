@@ -4,14 +4,14 @@
 
 - XLIFF 1.2, namespace `urn:oasis:names:tc:xliff:document:1.2`, one `file` and one `body` per project and target language.
 - `file@original` is the project ID; `source-language` and `target-language` must match the signed-in project's active language pair. `trans-unit@id` is the stable existing translation hash for the source text and language pair.
-- Source and target are UTF-8 text. XML escaping preserves placeholders and literal HTML; nested XLIFF inline elements are rejected with a segment number instead of silently losing markup.
+- Source and target are UTF-8 text. XML escaping preserves placeholders, literal HTML, and carriage returns; XML 1.0-invalid control characters produce a controlled export error. Nested XLIFF inline elements are rejected with a segment number instead of silently losing markup.
 - A 5 MiB / 5,000 segment limit applies to both import and export. Invalid UTF-8, XML, DTDs, entity declarations, extra processing instructions, duplicate IDs, mismatched hashes, and structure errors are rejected before persistence.
-- A project manager must explicitly choose `applyApproved=true` to apply `approved="yes"`; otherwise the file is rejected. `deepglot-manual="yes|no"` records exported manual status; an absent marker defaults to manual for external files. An untrusted `no` marker preserves machine status only when an existing machine segment has exactly the same target. New or edited imports become manual. Existing manual or approved text with a different target is a conflict. Matching manual text keeps its manual provenance.
-- The entire import, including row webhook enqueue and import batch log, runs in one serializable transaction. Any preflight, row, or database failure rolls back every segment. The API returns `issues` with one-based segment numbers for detected conflicts.
+- A project manager must explicitly choose `applyApproved=true` to apply `approved="yes"`; otherwise the file is rejected. The namespaced `dg:manual="yes|no"` extension records exported manual status; an absent marker defaults to manual for external files. An untrusted `no` marker preserves machine status only when an existing machine segment has exactly the same target. New or edited imports become manual. Existing manual or approved text with a different target is a conflict. Matching manual text keeps its manual provenance.
+- The entire import, including row webhook enqueue, cache invalidations, and import batch log, runs in one serializable transaction. Access is rechecked under project membership locks. Writes and row webhook deliveries are batched in groups of 100, and unchanged segments are not rewritten. Any preflight, row, or database failure rolls back every segment. The API returns `issues` with one-based segment numbers for detected conflicts.
 
 ## Verification on the feature branch
 
-- `node --import tsx --test src/lib/xliff.test.ts`: 6 passed, including fixture files for external entity and expansion payloads and machine marker validation.
+- `node --import tsx --test src/lib/xliff.test.ts`: 7 passed, including fixture files for external entity and expansion payloads, machine marker validation, and carriage-return preservation.
 - `node --import tsx --test src/lib/public-design-regressions.test.ts`: 8 passed.
 - `npm test` against the isolated local PostgreSQL cluster: 846 passed, 0 failed.
 - `npx tsc --noEmit --incremental false`: passed after regenerating Prisma Client for current `origin/main`.

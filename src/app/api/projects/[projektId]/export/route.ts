@@ -17,7 +17,7 @@ import {
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
-import { serializeXliff, XLIFF_MAX_BYTES, XLIFF_MAX_SEGMENTS } from "@/lib/xliff";
+import { serializeXliff, XliffError, XLIFF_MAX_BYTES, XLIFF_MAX_SEGMENTS } from "@/lib/xliff";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
@@ -134,9 +134,20 @@ export async function GET(
       where: { projectId: projektId, langFrom: project.originalLang, langTo },
       orderBy: { originalHash: "asc" },
       select: { originalText: true, translatedText: true, workflowStatus: true, isManual: true },
+      take: XLIFF_MAX_SEGMENTS + 1,
     });
-    const xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations });
-    if (translations.length > XLIFF_MAX_SEGMENTS || new TextEncoder().encode(xliff).byteLength > XLIFF_MAX_BYTES) {
+    if (translations.length > XLIFF_MAX_SEGMENTS) {
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 5 MB oder 5000 Segmente", "XLIFF export exceeds 5 MB or 5000 segments") }, { status: 413 });
+    }
+    let xliff: string;
+    try { xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations }); }
+    catch (error) {
+      if (error instanceof XliffError) return NextResponse.json({ error: xliffCopy(locale,
+        "Eine Übersetzung enthält ein in XML 1.0 nicht unterstütztes Zeichen.",
+        "A translation contains a character unsupported by XML 1.0.") }, { status: 422 });
+      throw error;
+    }
+    if (new TextEncoder().encode(xliff).byteLength > XLIFF_MAX_BYTES) {
       return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 5 MB oder 5000 Segmente", "XLIFF export exceeds 5 MB or 5000 segments") }, { status: 413 });
     }
     return new Response(xliff, { headers: {
