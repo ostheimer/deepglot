@@ -132,17 +132,24 @@ export async function importTranslationsXliff(input: {
         ];
         await recordTranslationCacheInvalidations(tx, project.id, invalidations);
         if (emitRowEvents && invalidations.length) {
-          const endpoints = await tx.webhookEndpoint.findMany({ where: { projectId: project.id, enabled: true },
-            select: { id: true, eventTypes: true } });
           const events = [
             ...created.map((item) => ({ type: "translation.created" as const, item })),
             ...updates.map((item) => ({ type: "translation.updated" as const, item })),
           ];
-          const deliveries = events.flatMap(({ type, item }) => endpoints.filter((endpoint) => endpoint.eventTypes.includes(type))
-            .map((endpoint) => ({ endpointId: endpoint.id, projectId: project.id, eventType: type,
-              payload: { type, translationId: item.id, originalText: item.originalText,
-                translatedText: item.translatedText, langFrom: item.langFrom, langTo: item.langTo, imported: true } })));
-          for (const slice of chunk(deliveries, 100)) await tx.webhookDelivery.createMany({ data: slice });
+          for (const slice of chunk(events, 250)) {
+            const payloads = slice.map(({ type, item }) => ({ type, payload: { type, translationId: item.id,
+              originalText: item.originalText, translatedText: item.translatedText,
+              langFrom: item.langFrom, langTo: item.langTo, imported: true } }));
+            await tx.$executeRaw`
+              INSERT INTO "WebhookDelivery" ("id", "eventType", "payload", "endpointId", "projectId",
+                "status", "attemptCount", "nextAttemptAt", "createdAt", "updatedAt")
+              SELECT gen_random_uuid()::text, event.type, event.payload, endpoint.id, ${project.id},
+                'PENDING'::"WebhookDeliveryStatus", 0, NOW(), NOW(), NOW()
+              FROM jsonb_to_recordset(${JSON.stringify(payloads)}::jsonb) AS event(type text, payload jsonb)
+              JOIN "WebhookEndpoint" AS endpoint ON endpoint."projectId" = ${project.id}
+                AND endpoint."enabled" = true AND event.type = ANY(endpoint."eventTypes")
+            `;
+          }
         }
         const contentChanges = [...created, ...updates.filter((item) =>
           current.get(item.originalHash)?.translatedText !== item.translatedText)];

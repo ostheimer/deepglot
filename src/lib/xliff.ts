@@ -8,8 +8,14 @@ const NS = "urn:oasis:names:tc:xliff:document:1.2";
 const EXT_NS = "https://deepglot.ai/ns/xliff";
 
 function languageCaseVariants(code: string): string[] {
-  return [...code].reduce<string[]>((variants, character) =>
-    variants.flatMap((prefix) => [...new Set([character.toLowerCase(), character.toUpperCase()])].map((variant) => prefix + variant)), [""]);
+  if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(code) || code.length > 35) {
+    throw new XliffError("Invalid language code");
+  }
+  const lower = code.toLowerCase();
+  const canonical = lower.split("-").map((part, index) => index === 0 ? part
+    : part.length === 4 ? part[0].toUpperCase() + part.slice(1)
+      : part.length === 2 ? part.toUpperCase() : part).join("-");
+  return [...new Set([code, lower, code.toUpperCase(), canonical])];
 }
 
 function isMatchingSegmentId(id: string, source: string, langFrom: string, langTo: string): boolean {
@@ -112,10 +118,20 @@ export function parseXliff(bytes: Uint8Array, expected: {
     const encoding = declaration[1].match(/\bencoding\s*=\s*["']([^"']+)["']/i)?.[1];
     if (encoding && !/^utf-8$/i.test(encoding)) throw new XliffError("XML declaration must specify UTF-8");
   }
-  const structuralMarkup = xml.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "");
-  const afterDeclaration = declaration ? structuralMarkup.slice(declaration[0].length) : structuralMarkup;
-  if (/\0/.test(xml) || /<!\s*(?:DOCTYPE|ENTITY)\b|<\?/i.test(afterDeclaration)) {
+  if (/\0/.test(xml)) {
     throw new XliffError("DTD, entities, processing instructions, and NUL are forbidden");
+  }
+  for (let position = declaration?.[0].length ?? 0; position < xml.length;) {
+    if (xml.startsWith("<!--", position) || xml.startsWith("<![CDATA[", position)) {
+      const end = xml.indexOf(xml.startsWith("<!--", position) ? "-->" : "]]>", position + 4);
+      if (end < 0) throw new XliffError("Invalid XML: unterminated comment or CDATA");
+      position = end + 3;
+    } else {
+      if (xml.startsWith("<?", position) || /^<!\s*(?:DOCTYPE|ENTITY)\b/i.test(xml.slice(position, position + 24))) {
+        throw new XliffError("DTD, entities, processing instructions, and NUL are forbidden");
+      }
+      position++;
+    }
   }
   const errors: string[] = [];
   let document;

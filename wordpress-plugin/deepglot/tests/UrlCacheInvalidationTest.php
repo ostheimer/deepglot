@@ -4,6 +4,8 @@
 if (!defined('DAY_IN_SECONDS')) define('DAY_IN_SECONDS', 86400);
 $GLOBALS['_dg_url_cache_transients'] = [];
 $GLOBALS['_dg_url_cache_options'] = [];
+$GLOBALS['_dg_page_purges'] = 0;
+function rocket_clean_domain(): void { $GLOBALS['_dg_page_purges']++; }
 function get_transient(string $key) { return $GLOBALS['_dg_url_cache_transients'][$key] ?? false; }
 function set_transient(string $key, $value, int $ttl = 0): bool { $GLOBALS['_dg_url_cache_transients'][$key] = $value; return true; }
 function delete_transient(string $key): bool { if (($GLOBALS['_dg_url_cache_stubborn'] ?? '') === $key) return true; unset($GLOBALS['_dg_url_cache_transients'][$key]); return true; }
@@ -35,6 +37,9 @@ $cursor = $GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cur
 if ($cursor !== ['identity' => 'test-identity', 'cursor' => '1']) {
     throw new RuntimeException('The digest must be applied before cursor advancement.');
 }
+if ($GLOBALS['_dg_page_purges'] !== 1) {
+    throw new RuntimeException('Rendered page cache must be purged before cursor advancement.');
+}
 $apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
     'id' => '2', 'urlPath' => '/en/test', 'cacheKey' => 'bad',
 ]]]], 'test-identity', '1');
@@ -52,6 +57,9 @@ if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] 
 }
 if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 2, 'fr' => 3]) {
     throw new RuntimeException('A failed deletion must not rotate cache epochs.');
+}
+if ($GLOBALS['_dg_page_purges'] !== 1) {
+    throw new RuntimeException('A failed deletion must not purge rendered pages.');
 }
 
 class CacheDrainOptions extends \Deepglot\Config\Options {

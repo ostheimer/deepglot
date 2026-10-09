@@ -100,6 +100,8 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
 
     await db.webhookEndpoint.create({ data: { projectId: project.id, url: "https://example.invalid/hook",
       secret: "synthetic-secret", eventTypes: ["translation.created"], enabled: true } });
+    await db.webhookEndpoint.create({ data: { projectId: project.id, url: "https://example.invalid/second-hook",
+      secret: "synthetic-secret", eventTypes: ["translation.created"], enabled: true } });
     const bulkSegments = Array.from({ length: 205 }, (_, index) => ({
       originalText: `Neuer Satz ${index}`, translatedText: `New sentence ${index}`, workflowStatus: "MACHINE",
     }));
@@ -107,7 +109,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       langTo: "en", applyApproved: false, emitRowEvents: true });
     assert.equal(bulkResult.importedRows, 205);
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 208);
-    assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id, eventType: "translation.created" } }), 205);
+    assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id, eventType: "translation.created" } }), 410);
 
     const legacySource = "Alter Satz mit großgeschriebenen Sprachcodes";
     const legacyHash = computeTranslationHash(legacySource, "DE", "EN");

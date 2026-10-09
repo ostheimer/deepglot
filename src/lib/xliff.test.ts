@@ -38,6 +38,12 @@ test("preserves legacy uppercase language hashes without changing segment IDs", 
   assert.equal(parse(xml)[0].id, legacyHash);
 });
 
+test("rejects an overlong language without enumerating casing combinations", () => {
+  const longCode = "en-" + "abcd".repeat(8);
+  assert.throws(() => parse(valid().replace('target-language="en"', `target-language="${longCode}"`),
+    { ...project, langTo: longCode }), /Invalid language code/);
+});
+
 test("XML 1.0 export preserves carriage returns and rejects unsupported controls", () => {
   const withReturns = { ...segment, originalText: "Line\r\nnext", translatedText: "Target\rnext" };
   const xml = serializeXliff({ ...project, segments: [withReturns] });
@@ -89,6 +95,7 @@ test("treats declaration-like tokens inside CDATA as literal segment text", () =
     .replace(/<target>[\s\S]*?<\/target>/, `<target><![CDATA[${literal}]]></target>`);
   assert.equal(parse(withCdata)[0].source, literal);
   assert.throws(() => parse(xml.replace("</body>", "<?xml extra?></body>")), /forbidden/);
+  assert.throws(() => parse(xml.replace("</body>", "<!-- <![CDATA[ --><?audit x?><!-- ]]> --></body>")), /forbidden/);
 });
 
 test("preflight rejects all writes for protected text or unconfirmed approvals", () => {
