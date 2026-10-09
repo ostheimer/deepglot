@@ -15,13 +15,20 @@ const schema = z.object({
     context.addIssue({ code: "custom", path: ["fingerprint"], message: "Preview is required." });
 });
 
-export async function POST(request: NextRequest, { params }: {
-  params: Promise<{ projektId: string; translationId: string }>;
-}) {
-  const userId = await getAuthenticatedUserId();
+export function createAiSuggestionPostHandler(dependencies: {
+  getUserId: typeof getAuthenticatedUserId;
+  getProjectAccess: typeof getProjectAccess;
+  preview: typeof previewWorkspaceAi;
+  run: typeof runWorkspaceAi;
+} = { getUserId: getAuthenticatedUserId, getProjectAccess,
+  preview: previewWorkspaceAi, run: runWorkspaceAi }) {
+  return async function POST(request: NextRequest, { params }: {
+    params: Promise<{ projektId: string; translationId: string }>;
+  }) {
+  const userId = await dependencies.getUserId();
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const { projektId, translationId } = await params;
-  const access = await getProjectAccess(userId, projektId);
+  const access = await dependencies.getProjectAccess(userId, projektId);
   if (!access || !canAccessProject(access))
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
@@ -30,8 +37,8 @@ export async function POST(request: NextRequest, { params }: {
     expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt), action: parsed.data.action };
   try {
     const result = parsed.data.mode === "preview"
-      ? await previewWorkspaceAi(input)
-      : await runWorkspaceAi({ ...input, fingerprint: parsed.data.fingerprint!,
+      ? await dependencies.preview(input)
+      : await dependencies.run({ ...input, fingerprint: parsed.data.fingerprint!,
           previewExpiresAt: new Date(parsed.data.previewExpiresAt!) });
     return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
@@ -43,4 +50,7 @@ export async function POST(request: NextRequest, { params }: {
       error.code === "STALE_UPDATE" || error.code === "INVALID_TRANSITION" ? 409 : 400;
     return NextResponse.json({ error: error.message, code: error.code }, { status });
   }
+  };
 }
+
+export const POST = createAiSuggestionPostHandler();

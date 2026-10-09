@@ -4,6 +4,7 @@ import { canAccessProject, canManageProject } from "./project-access-policy";
 import { lockAndValidateProjectLanguageWrite } from "./project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "./project-webhook-delivery";
 import { recordTranslationBatch } from "./translation-batches";
+import { recordTranslationCacheInvalidations } from "./translation-cache-invalidation";
 import { REPORTED_TYPE_GROUPS } from "./translation-reported-types";
 import { MAX_WORKSPACE_REPLACE_ITEMS, planWorkspaceReplacement, replacementFingerprint } from "./translation-search-replace";
 import { assertTranslationContentMutationAllowed, assertValidTranslationContent, resetTranslationWorkflowAfterContentEdit, TranslationWorkflowError, type TranslationWorkflowActor } from "./translation-workflow";
@@ -143,6 +144,7 @@ export async function applyWorkspaceReplacement(input: {
           langFrom: row.langFrom, langTo: row.langTo, created: false,
         } }, tx);
     }
+    await recordTranslationCacheInvalidations(tx, input.projectId, planned.map(({ row }) => row));
     return { updated: planned.length };
   }, { timeout: 15_000 });
 }

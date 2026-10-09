@@ -37,7 +37,7 @@ export type AiSpendApproval = {
 
 export async function preflightAiSpend(input: {
   organizationId: string; projectId: string; provider: string; model: string;
-  inputUnits: number; outputUnits: number;
+  inputUnits?: number; outputUnits?: number; dispatchInput?: unknown;
 }) {
   const project = await db.project.findFirst({
     where: { id: input.projectId, organizationId: input.organizationId }, select: { id: true },
@@ -57,9 +57,13 @@ export async function preflightAiSpend(input: {
   const orgPrice = approvedPrice(organizationBudget, input.provider, input.model);
   const projectPrice = approvedPrice(projectBudget, input.provider, input.model);
   if (orgPrice.unit !== projectPrice.unit) throw new AiBudgetError("price_ambiguous", "Approved price units do not match.");
+  const inputUnits = input.dispatchInput === undefined
+    ? input.inputUnits : conservativeInputUnits(input.dispatchInput, orgPrice.unit);
+  const outputUnits = input.outputUnits ?? Math.min(orgPrice.maxOutputUnits, projectPrice.maxOutputUnits);
+  if (inputUnits === undefined) throw new AiBudgetError("estimate_unbounded", "No dispatch input bound was provided.");
   const now = new Date();
-  const orgQuote = quotedMicros(orgPrice, input.inputUnits, input.outputUnits, now);
-  const projectQuote = quotedMicros(projectPrice, input.inputUnits, input.outputUnits, now);
+  const orgQuote = quotedMicros(orgPrice, inputUnits, outputUnits, now);
+  const projectQuote = quotedMicros(projectPrice, inputUnits, outputUnits, now);
   const estimatedMaxMicros = orgQuote > projectQuote ? orgQuote : projectQuote;
   const periodKey = utcPeriodKey(now);
   const { organizationMicros: orgCommitted, projectMicros: projectCommitted } =
@@ -70,7 +74,7 @@ export async function preflightAiSpend(input: {
     spendWithinCap(projectCommitted, estimatedMaxMicros, projectBudget.capMicros);
   return {
     allowed, code: allowed ? "approved_estimate" : "budget_exhausted",
-    currency: organizationBudget.currency, unit: orgPrice.unit,
+    currency: organizationBudget.currency, unit: orgPrice.unit, inputUnits, outputUnits,
     estimatedMaxMicros: estimatedMaxMicros.toString(), periodKey,
     organizationRemainingMicros: (organizationBudget.capMicros - orgCommitted).toString(),
     projectRemainingMicros: (projectBudget.capMicros - projectCommitted).toString(),
@@ -142,14 +146,19 @@ export async function lockAiSpendScope(tx: Prisma.TransactionClient, organizatio
 }
 
 export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendApproval> {
+  return db.$transaction((tx) => reserveAiSpendInTransaction(tx, attempt));
+}
+
+/** Reuse the caller's Organization→Project transaction for an atomic dispatch marker. */
+export async function reserveAiSpendInTransaction(tx: Prisma.TransactionClient,
+  attempt: AiSpendAttempt, scopeAlreadyLocked = false): Promise<AiSpendApproval> {
   if (!attempt.requestKey || !attempt.requestGroupKey || !attempt.dispatchId || !attempt.actorId || !attempt.projectId || !attempt.organizationId ||
       !attempt.action || !attempt.provider || !attempt.model) {
     throw new AiBudgetError("budget_unavailable", "Spend identity is incomplete.");
   }
   const requestKeyHash = crypto.createHash("sha256").update(attempt.requestKey).digest("hex");
   const requestGroupHash = crypto.createHash("sha256").update(attempt.requestGroupKey).digest("hex");
-  return db.$transaction(async (tx) => {
-    await lockAiSpendScope(tx, attempt.organizationId, attempt.projectId);
+  if (!scopeAlreadyLocked) await lockAiSpendScope(tx, attempt.organizationId, attempt.projectId);
     const now = new Date();
     if (attempt.actorKind === "API_KEY") {
       const keys = await tx.$queryRaw<Array<{ id: string; projectId: string; isActive: boolean; expiresAt: Date | null }>>`
@@ -179,18 +188,20 @@ export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendAp
         : canAccessProject(access) && projectMember?.role !== "TRANSLATOR";
       if (!allowed) throw new AiBudgetError("actor_revoked", "The user no longer has access to this project and language.");
     }
-    if (attempt.action === "TRANSLATION") {
+    if (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION", "PDF_TRANSLATION", "AI_EDIT"].includes(attempt.action)) {
       if (!attempt.sourceLang || !attempt.targetLang) {
         throw new AiBudgetError("project_changed", "Translation language scope is missing.");
       }
       const project = await tx.project.findUnique({
         where: { id: attempt.projectId },
         select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true } },
-          settings: { select: { automaticTranslation: true, updatedAt: true } } },
+          settings: { select: { automaticTranslation: true, providerReconnectRequired: true, updatedAt: true } } },
       });
       if (!project || project.originalLang.toLowerCase() !== attempt.sourceLang.toLowerCase() ||
           !project.languages.some((language) => language.langCode.toLowerCase() === attempt.targetLang!.toLowerCase()) ||
-          project.settings?.automaticTranslation === false ||
+          (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION"].includes(attempt.action) &&
+            project.settings?.automaticTranslation === false) ||
+          project.settings?.providerReconnectRequired === true ||
           (attempt.expectedSettingsUpdatedAt ?? null) !== (project.settings?.updatedAt.toISOString() ?? null)) {
         throw new AiBudgetError("project_changed", "Translation configuration changed before provider dispatch.");
       }
@@ -269,7 +280,6 @@ export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendAp
       reservedMicros: reservation.reservedMicros.toString(), inputUnits,
       maxOutputUnits, unit: orgPrice.unit,
     };
-  });
 }
 
 /** Missing, malformed or unexpectedly high usage remains charged at the hold. */

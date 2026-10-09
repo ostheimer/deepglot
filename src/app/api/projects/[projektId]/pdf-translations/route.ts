@@ -4,6 +4,7 @@ import { getAuthenticatedUserId } from "@/lib/project-access";
 import {
   PDF_TRANSLATION_REQUEST_TIMEOUT_MS,
   PdfTranslationError,
+  previewProjectPdf,
   translateProjectPdf,
   type PdfTranslationDependencies,
   type PdfUpload,
@@ -15,6 +16,7 @@ export const maxDuration = 60;
 
 type PdfTranslationRouteDependencies = {
   getUserId: () => Promise<string | null>;
+  previewProjectPdf?: typeof previewProjectPdf;
   translateProjectPdf: (
     input: TranslateProjectPdfInput,
     dependencies?: Pick<
@@ -46,6 +48,7 @@ export function createPdfTranslationPostHandler(
     getUserId: getAuthenticatedUserId,
     translateProjectPdf: (input, routeDependencies) =>
       translateProjectPdf(input, routeDependencies),
+    previewProjectPdf,
   }
 ) {
   return async function POST(
@@ -90,15 +93,25 @@ export function createPdfTranslationPostHandler(
     }
 
     const { projektId } = await params;
+    const mode = formData.get("mode");
 
     try {
+      const pdfInput = {
+        userId, projectId: projektId, langTo, file,
+        requestKey: request.headers.get("Idempotency-Key")?.trim() || undefined,
+        previewFingerprint: typeof formData.get("previewFingerprint") === "string"
+          ? String(formData.get("previewFingerprint")) : undefined,
+        previewExpiresAt: typeof formData.get("previewExpiresAt") === "string"
+          ? String(formData.get("previewExpiresAt")) : undefined,
+      };
+      if (mode === "preview") {
+        return NextResponse.json(await (dependencies.previewProjectPdf ?? previewProjectPdf)(pdfInput),
+          { headers: { "Cache-Control": "private, no-store" } });
+      }
+      if (mode !== null && mode !== "run")
+        return NextResponse.json({ error: "Invalid PDF action.", code: "invalid_pdf_action" }, { status: 400 });
       const result = await dependencies.translateProjectPdf(
-        {
-          userId,
-          projectId: projektId,
-          langTo,
-          file,
-        },
+        pdfInput,
         { providerBudgetSignal, providerBudgetDeadlineAt }
       );
 

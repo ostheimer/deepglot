@@ -17,6 +17,7 @@ import {
   workspaceSqlOrder,
 } from "./translation-workspace-query";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
+import { recordTranslationCacheInvalidations } from "@/lib/translation-cache-invalidation";
 import { canAccessProjectForWrite, canAccessProject, canManageProject } from "@/lib/project-access";
 import { sourcePresenceSql } from "./source-page-snapshot-query";
 import type { SourcePresence } from "./source-page-snapshot";
@@ -646,6 +647,7 @@ export async function updateProjectTranslationContent({
       },
       tx,
     );
+    await recordTranslationCacheInvalidations(tx, projectId, [current]);
     await queueProjectWebhookEvent(
       {
         projectId,
@@ -690,6 +692,7 @@ export async function deleteProjectTranslation({
       select: {
         id: true,
         originalHash: true,
+        originalText: true,
         langFrom: true,
         langTo: true,
         assignedToId: true,
@@ -722,6 +725,8 @@ export async function deleteProjectTranslation({
         "The segment changed while it was being deleted. Reload and retry.",
       );
     }
+
+    await recordTranslationCacheInvalidations(tx, projectId, [current]);
 
     await queueProjectWebhookEvent(
       {

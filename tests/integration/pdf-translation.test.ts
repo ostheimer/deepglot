@@ -7,6 +7,7 @@ import { resolveDatabaseUrl } from "@/lib/database-url";
 import {
   PdfTranslationError,
   parsePdfText,
+  previewProjectPdf,
   translateProjectPdf,
 } from "@/lib/pdf-translation";
 import {
@@ -14,17 +15,18 @@ import {
   TRANSLATE_WORD_VELOCITY_SCOPE,
 } from "@/lib/rate-limit";
 import { getUsageMonthKey } from "@/lib/translation-batches";
+import { preflightTranslationAction } from "@/lib/ai-action-preflight";
 
 const databaseUrl = resolveDatabaseUrl();
 const skipWithoutDatabase = databaseUrl
   ? false
   : "requires a prepared PostgreSQL database via DATABASE_URL or DEEPGLOT_DATABASE_URL";
 
-async function createPdfFile() {
+async function createPdfFile(text = "Hallo Welt aus PDF.") {
   const document = await PDFDocument.create();
   const font = await document.embedFont(StandardFonts.Helvetica);
   const page = document.addPage([595, 842]);
-  page.drawText("Hallo Welt aus PDF.", { x: 48, y: 780, size: 12, font });
+  page.drawText(text, { x: 48, y: 780, size: 12, font });
   const bytes = await document.save();
   const arrayBuffer = bytes.buffer.slice(
     bytes.byteOffset,
@@ -314,5 +316,122 @@ after(async () => {
   if (databaseUrl) {
     const { db } = await import("@/lib/db");
     await db.$disconnect();
+  }
+});
+
+test("active AI budget denies PDF provider work without owner approvals", { skip: skipWithoutDatabase }, async () => {
+  const prior = process.env.AI_BUDGET_ENFORCEMENT;
+  process.env.AI_BUDGET_ENFORCEMENT = "on";
+  const { db } = await import("@/lib/db");
+  const id = crypto.randomUUID();
+  const user = await db.user.create({ data: { email: `pdf-budget-${id}@example.invalid` } });
+  const organization = await db.organization.create({ data: {
+    name: "PDF budget test", slug: `pdf-budget-${id}`,
+    members: { create: { userId: user.id, role: "OWNER" } },
+  } });
+  const project = await db.project.create({ data: {
+    organizationId: organization.id, name: "PDF budget test", domain: `pdf-budget-${id}.invalid`,
+    originalLang: "de", languages: { create: [{ langCode: "en" }, { langCode: "fr" }] },
+    settings: { create: { translationProvider: "mock" } },
+  } });
+  try {
+    const source = await createPdfFile();
+    const baseInput = { userId: user.id, projectId: project.id,
+      langTo: "en", file: source, requestKey: `${id}:attempt` };
+    const unapproved = await previewProjectPdf(baseInput);
+    assert.equal(unapproved.canRun, false);
+    assert.equal(unapproved.budget.code, "budget_unapproved");
+    await assert.rejects(translateProjectPdf({ ...baseInput,
+      previewFingerprint: unapproved.fingerprint, previewExpiresAt: unapproved.expiresAt }),
+    (error) => error instanceof PdfTranslationError && error.code === "budget_unapproved");
+    assert.equal(await db.aiSpendReservation.count({ where: { projectId: project.id } }), 0);
+    assert.equal((await db.usageRecord.aggregate({ where: { organizationId: organization.id },
+      _sum: { words: true } }))._sum.words, null);
+    const rejectedVelocity = await db.rateLimitBucket.findUnique({ where: { scope_subjectHash: {
+      scope: TRANSLATE_WORD_VELOCITY_SCOPE,
+      subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id),
+    } } });
+    assert.equal(rejectedVelocity?.count ?? 0, 0);
+    for (const projectId of [null, project.id]) await db.aiBudget.create({ data: {
+      organizationId: organization.id, projectId, currency: "USD", capMicros: BigInt(1_000_000),
+      perCallCapMicros: BigInt(1_000_000), warningPercent: 80, period: "MONTHLY_UTC",
+      approvedByUserId: user.id, models: { create: [{ provider: "mock", model: "mock",
+        unit: "ZERO_COST", inputMicrosPerMillion: BigInt(0), outputMicrosPerMillion: BigInt(0),
+        maxInputUnits: 100_000, maxOutputUnits: 100,
+        priceExpiresAt: new Date(Date.now() + 86_400_000) }] },
+    } });
+    for (const budget of await db.aiBudget.findMany({ where: { organizationId: organization.id } }))
+      await db.aiBudgetModel.create({ data: { budgetId: budget.id,
+        provider: "openai-compatible", model: "local-test", unit: "TOKEN",
+        inputMicrosPerMillion: BigInt(100_000), outputMicrosPerMillion: BigInt(100_000),
+        maxInputUnits: 100_000, maxOutputUnits: 100, outputCapVerified: true,
+        priceExpiresAt: new Date(Date.now() + 86_400_000) } });
+    const preflightInput = { organizationId: organization.id,
+      projectId: project.id, settings: { translationProvider: "mock" },
+      dispatchInput: { texts: ["Erste Seite", "Zweite Seite"], sourceLang: "de", targetLang: "en",
+        projectContext: "Project glossary and approved examples for this PDF" },
+      env: { TRANSLATION_FALLBACK_PROVIDERS: "openai-compatible",
+        TRANSLATION_MODEL: "local-test", TRANSLATION_BASE_URL: "http://127.0.0.1:1/v1",
+        TRANSLATION_API_KEY: "synthetic-fixture-only" } };
+    const fullQuote = await preflightTranslationAction(preflightInput);
+    const bareQuote = await preflightTranslationAction({ ...preflightInput,
+      dispatchInput: { ...preflightInput.dispatchInput, projectContext: undefined } });
+    assert.equal(fullQuote.allowed, true);
+    assert.equal(fullQuote.attempts.length, 6);
+    assert.equal(fullQuote.attempts.filter((attempt) => attempt.provider === "openai-compatible").length, 3);
+    assert.ok(BigInt(fullQuote.maxMicros) > BigInt(0));
+    assert.ok(fullQuote.attempts[1].inputUnits > bareQuote.attempts[1].inputUnits);
+    assert.ok(BigInt(fullQuote.maxMicros) > BigInt(bareQuote.maxMicros));
+    await db.aiBudget.update({ where: { projectId: project.id },
+      data: { capMicros: BigInt(fullQuote.maxMicros) - BigInt(1) } });
+    const insufficientFullAction = await preflightTranslationAction(preflightInput);
+    assert.equal(insufficientFullAction.allowed, false,
+      "a caller may not present one affordable attempt as an affordable full fallback action");
+    await db.aiBudget.update({ where: { projectId: project.id },
+      data: { capMicros: BigInt(1_000_000) } });
+    const approved = await previewProjectPdf(baseInput);
+    assert.equal(approved.canRun, true);
+    assert.equal(approved.budget.attempts.length, 1);
+    const runInput = { ...baseInput, previewFingerprint: approved.fingerprint,
+      previewExpiresAt: approved.expiresAt };
+    const result = await translateProjectPdf(runInput);
+    assert.equal(result.pageCount, 1);
+    const spend = await db.aiSpendReservation.findMany({ where: { projectId: project.id } });
+    assert.equal(spend.length, 1);
+    assert.equal(spend[0].action, "PDF_TRANSLATION");
+    assert.equal(spend[0].state, "SETTLED");
+    await assert.rejects(translateProjectPdf(runInput),
+    (error) => error instanceof PdfTranslationError && error.code === "spend_already_dispatched");
+    const changedFile = { ...runInput, file: await createPdfFile("Anderer Inhalt.") };
+    await assert.rejects(translateProjectPdf(changedFile),
+      (error) => error instanceof PdfTranslationError && error.code === "pdf_preview_stale");
+    const changedLanguage = { ...runInput, langTo: "fr" };
+    await assert.rejects(translateProjectPdf(changedLanguage),
+      (error) => error instanceof PdfTranslationError && error.code === "pdf_preview_stale");
+    const changedPreview = await previewProjectPdf(changedFile);
+    await assert.rejects(translateProjectPdf({ ...changedFile,
+      previewFingerprint: changedPreview.fingerprint, previewExpiresAt: changedPreview.expiresAt }),
+      (error) => error instanceof PdfTranslationError && error.code === "spend_already_dispatched");
+    await db.projectSettings.update({ where: { projectId: project.id },
+      data: { useGlossaryAsContext: true } });
+    const guardedInput = { ...baseInput, requestKey: `${id}:glossary-race` };
+    const guardedPreview = await previewProjectPdf(guardedInput);
+    await assert.rejects(translateProjectPdf({ ...guardedInput,
+      previewFingerprint: guardedPreview.fingerprint, previewExpiresAt: guardedPreview.expiresAt }, {
+      translateTexts: async (attemptInput, _env, _settings, options) => {
+        await db.glossaryRule.create({ data: { projectId: project.id, langFrom: "de",
+          langTo: "en", originalTerm: "Hallo", translatedTerm: "Hello" } });
+        await options!.spendControl!.beforeAttempt({ provider: "mock" }, attemptInput);
+        return [];
+      },
+    }), (error) => error instanceof PdfTranslationError && error.code === "project_changed");
+    assert.equal(await db.aiSpendReservation.count({ where: { projectId: project.id } }), 1);
+  } finally {
+    await db.rateLimitBucket.deleteMany({ where: { scope: TRANSLATE_WORD_VELOCITY_SCOPE,
+      subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id) } });
+    await db.organization.delete({ where: { id: organization.id } });
+    await db.user.delete({ where: { id: user.id } });
+    if (prior === undefined) delete process.env.AI_BUDGET_ENFORCEMENT;
+    else process.env.AI_BUDGET_ENFORCEMENT = prior;
   }
 });

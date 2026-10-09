@@ -773,7 +773,7 @@ export async function executeAuthenticatedTranslateRequest(
                   requestKey: `${requestGroupKey}:${sequence}`,
                   actorKind: "API_KEY",
                   actorId: apiKeyRecord.id,
-                  action: "TRANSLATION",
+                  action: input.projectContext ? "CONTEXT_TRANSLATION" : "TRANSLATION",
                   sourceLang: l_from,
                   targetLang: l_to,
                   expectedSettingsUpdatedAt: providerSettings?.updatedAt.toISOString() ?? null,

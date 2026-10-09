@@ -9,7 +9,18 @@ type Action = "improve" | "rephrase" | "shorten";
 type Preview = { fingerprint: string; provider: string; model: string | null;
   previewExpiresAt: string;
   inputCharacters: number; estimatedOutputCharacters: number; quotaWords: number;
-  wordsUsed: number; wordsLimit: number; canRun: boolean; price: null };
+  wordsUsed: number; wordsLimit: number; canRun: boolean;
+  price: { currency: string; estimatedMaxMicros: string; unit: string;
+    inputUnits: number; outputUnits: number } | null;
+  budget: { allowed: boolean | null; previewOnly: boolean; code: string;
+    platformCredits?: boolean; externalProviderCost?: boolean } };
+
+function formatMicros(micros: string, locale: SiteLocale) {
+  const value = BigInt(micros);
+  const whole = value / BigInt(1_000_000);
+  const fraction = (value % BigInt(1_000_000)).toString().padStart(6, "0");
+  return `${whole}${locale === "de" ? "," : "."}${fraction}`;
+}
 
 export function TranslationAiSuggestion({ projectId, translationId, expectedUpdatedAt, locale, onUse }: {
   projectId: string; translationId: string; expectedUpdatedAt: string; locale: SiteLocale;
@@ -55,8 +66,16 @@ export function TranslationAiSuggestion({ projectId, translationId, expectedUpda
     {preview && <div className="space-y-1 text-gray-700">
       <p>{preview.provider}{preview.model ? ` · ${preview.model}` : ""} · {preview.inputCharacters} {uiText(locale, "input characters", "Eingabezeichen")} · {preview.estimatedOutputCharacters} {uiText(locale, "estimated output characters", "geschätzte Ausgabezeichen")}</p>
       <p>{uiText(locale, "Estimated quota words", "Geschätzte Kontingentwörter")}: {preview.quotaWords} · {uiText(locale, "Used / limit", "Verbraucht / Limit")}: {preview.wordsUsed} / {preview.wordsLimit}</p>
-      <p>{uiText(locale, "Exact provider price is unavailable; running may incur provider charges and count against quota.",
-        "Ein genauer Anbieterpreis ist nicht verfügbar; Ausführen kann Anbieterkosten verursachen und das Kontingent belasten.")}</p>
+      {preview.price ? <p>{uiText(locale, "Approved maximum cost ceiling", "Freigegebene Kostenobergrenze")}: {preview.price.currency} {formatMicros(preview.price.estimatedMaxMicros, locale)} · {preview.price.inputUnits} {uiText(locale, "input units", "Eingabeeinheiten")} / {preview.price.outputUnits} {uiText(locale, "maximum output units", "maximale Ausgabeeinheiten")} ({preview.price.unit})</p>
+        : <p>{uiText(locale, "No approved provider price ceiling is available.", "Keine freigegebene Anbieter-Kostenobergrenze verfügbar.")} ({preview.budget.code})</p>}
+      <p>{uiText(locale, "Plan words and provider costs are separate. No platform credits are included; the ceiling is not a provider invoice.",
+        "Tarifwörter und Anbieterkosten sind getrennt. Plattform-Credits sind nicht enthalten; die Obergrenze ist keine Anbieterrechnung.")}</p>
+      {preview.budget.previewOnly && <p>{uiText(locale,
+        "Budget enforcement is inactive. This is a read-only estimate; AI Run is paused.",
+        "Die Budgetdurchsetzung ist inaktiv. Dies ist nur eine Vorschau; KI-Ausführen ist pausiert.")}</p>}
+      {!preview.budget.previewOnly && !preview.budget.allowed && <p>{uiText(locale,
+        "The approved AI budget cannot admit this action. Review the provider and budget settings.",
+        "Das freigegebene KI-Budget lässt diese Aktion nicht zu. Prüfe Anbieter und Budgeteinstellungen.")}</p>}
       <Button type="button" size="xs" disabled={busy || !preview.canRun}
         onClick={() => void request("run")}>{uiText(locale, "Run AI now", "KI jetzt ausführen")}</Button>
     </div>}

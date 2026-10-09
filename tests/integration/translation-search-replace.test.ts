@@ -39,6 +39,8 @@ test("selected replacement preview is atomic, permission-fresh and records manua
     const fresh = { ...request, items: await selected(a.id, b.id) };
     const currentPreview = await previewWorkspaceReplacement(fresh);
     assert.deepEqual(await applyWorkspaceReplacement({ ...fresh, fingerprint: currentPreview.fingerprint }), { updated: 2 });
+    assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), 2,
+      "each replaced source digest must invalidate the WordPress transient");
     const changed = await db.translation.findUniqueOrThrow({ where: { id: a.id }, include: { contentRevisions: true } });
     assert.equal(changed.translatedText, "Hi {name}");
     assert.equal(changed.isManual, true);
