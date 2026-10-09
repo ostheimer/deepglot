@@ -236,6 +236,8 @@ test("current-period budget threshold is delivered in both dashboard locales onl
     }
     await db.organizationMember.update({ where: { userId_organizationId: key }, data: { role: "MEMBER" } });
     await page.reload();
+    await expect(english).toHaveCount(0);
+    await page.goto("/de/dashboard");
     await expect(page.getByRole("region", { name: "KI-Budgetwarnungen" })).toHaveCount(0);
   } finally {
     await db.organizationMember.update({ where: { userId_organizationId: key }, data: { role: membership.role } });
