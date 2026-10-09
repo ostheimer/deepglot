@@ -17,9 +17,14 @@ import {
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { serializeXliff, XLIFF_MAX_BYTES, XLIFF_MAX_SEGMENTS } from "@/lib/xliff";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
+}
+
+function xliffCopy(locale: SiteLocale, deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
 }
 
 export async function GET(
@@ -116,6 +121,28 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
+  }
+
+  if (format === "xliff") {
+    if (asset !== "translations" || !langTo) {
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export benötigt eine Zielsprache", "XLIFF export requires a target language") }, { status: 400 });
+    }
+    if (!canAccessProjectLanguage(access, langTo)) {
+      return NextResponse.json({ error: xliffCopy(locale, "Keine Berechtigung für diese Sprache", "No access to this language") }, { status: 403 });
+    }
+    const translations = await db.translation.findMany({
+      where: { projectId: projektId, langFrom: project.originalLang, langTo },
+      orderBy: { originalHash: "asc" },
+      select: { originalText: true, translatedText: true, workflowStatus: true },
+    });
+    const xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations });
+    if (translations.length > XLIFF_MAX_SEGMENTS || new TextEncoder().encode(xliff).byteLength > XLIFF_MAX_BYTES) {
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 5 MB oder 5000 Segmente", "XLIFF export exceeds 5 MB or 5000 segments") }, { status: 413 });
+    }
+    return new Response(xliff, { headers: {
+      "Content-Type": "application/x-xliff+xml; charset=utf-8",
+      "Content-Disposition": `attachment; filename="deepglot-translations-${sanitizeFilenamePart(langTo)}.xlf"`,
+    } });
   }
 
   if (asset === "translations") {

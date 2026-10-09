@@ -1,0 +1,139 @@
+import { DOMParser, type Element as XmlElement } from "@xmldom/xmldom";
+
+import { computeTranslationHash } from "@/lib/translation-hash";
+
+export const XLIFF_MAX_BYTES = 5 * 1024 * 1024;
+export const XLIFF_MAX_SEGMENTS = 5000;
+const NS = "urn:oasis:names:tc:xliff:document:1.2";
+
+export type XliffSegment = {
+  id: string;
+  source: string;
+  target: string;
+  approved: boolean;
+  line: number;
+};
+
+export class XliffError extends Error {
+  constructor(message: string, public readonly line = 0) {
+    super(line ? `Segment ${line}: ${message}` : message);
+    this.name = "XliffError";
+  }
+}
+
+export function planXliffImport(
+  rows: readonly XliffSegment[],
+  existing: readonly { originalHash: string; translatedText: string; isManual: boolean; workflowStatus: string }[],
+  applyApproved: boolean,
+) {
+  const current = new Map(existing.map((item) => [item.originalHash, item]));
+  const issues: Array<{ segment: number; message: string }> = [];
+  for (const row of rows) {
+    const item = current.get(row.id);
+    if (row.approved && !applyApproved) issues.push({ segment: row.line, message: "Approval requires explicit manager confirmation" });
+    if (item && item.translatedText !== row.target && (item.isManual || item.workflowStatus === "APPROVED")) {
+      issues.push({ segment: row.line, message: "Existing manual or approved translation differs" });
+    }
+  }
+  return issues;
+}
+
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+export function serializeXliff(input: {
+  projectId: string;
+  langFrom: string;
+  langTo: string;
+  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string }>;
+}): string {
+  const units = input.segments.map((item) => {
+    const id = computeTranslationHash(item.originalText, input.langFrom, input.langTo);
+    return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<xliff xmlns="${NS}" version="1.2"><file original="${escapeXml(input.projectId)}" source-language="${escapeXml(input.langFrom)}" target-language="${escapeXml(input.langTo)}" datatype="plaintext"><body>\n${units.join("\n")}\n</body></file></xliff>\n`;
+}
+
+function children(element: XmlElement): XmlElement[] {
+  const result: XmlElement[] = [];
+  for (let node = element.firstChild; node; node = node.nextSibling) {
+    if (node.nodeType === 1) result.push(node as XmlElement);
+    else if (node.nodeType !== 3 && node.nodeType !== 4) throw new XliffError("Unsupported XML node");
+    else if (node.nodeType === 3 && node.nodeValue?.trim()) throw new XliffError("Unexpected text outside a segment");
+  }
+  return result;
+}
+
+function textOnly(element: XmlElement, line: number): string {
+  for (let node = element.firstChild; node; node = node.nextSibling) {
+    if (node.nodeType !== 3 && node.nodeType !== 4) {
+      throw new XliffError("Inline XLIFF elements are unsupported; keep inline markup as escaped text", line);
+    }
+  }
+  return element.textContent ?? "";
+}
+
+/** Parses the documented Deepglot XLIFF 1.2 subset. It never resolves external entities. */
+export function parseXliff(bytes: Uint8Array, expected: {
+  projectId: string;
+  langFrom: string;
+  langTo: string;
+}): XliffSegment[] {
+  if (bytes.byteLength > XLIFF_MAX_BYTES) throw new XliffError("File exceeds 5 MB");
+  let xml: string;
+  try { xml = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+  catch { throw new XliffError("File is not valid UTF-8"); }
+  const declaration = xml.match(/^\uFEFF?<\?xml\s+([^?]+)\?>/i);
+  if (declaration) {
+    const encoding = declaration[1].match(/\bencoding\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (encoding && !/^utf-8$/i.test(encoding)) throw new XliffError("XML declaration must specify UTF-8");
+  }
+  if (/\0|<!\s*(?:DOCTYPE|ENTITY)\b|<\?(?!xml\s)/i.test(xml)) {
+    throw new XliffError("DTD, entities, processing instructions, and NUL are forbidden");
+  }
+  const errors: string[] = [];
+  let document;
+  try {
+    document = new DOMParser({ onError: (_level, message) => { errors.push(message); } }).parseFromString(xml, "application/xml");
+  } catch (error) {
+    throw new XliffError(`Invalid XML: ${error instanceof Error ? error.message : "parse error"}`);
+  }
+  if (errors.length || !document?.documentElement) throw new XliffError(`Invalid XML: ${errors[0] ?? "missing root"}`);
+  const root = document.documentElement;
+  if (root.localName !== "xliff" || root.namespaceURI !== NS || root.getAttribute("version") !== "1.2") {
+    throw new XliffError("Expected XLIFF 1.2 namespace and version");
+  }
+  const files = children(root);
+  if (files.length !== 1 || files[0].localName !== "file" || files[0].namespaceURI !== NS) throw new XliffError("Expected exactly one file");
+  const file = files[0];
+  if (file.getAttribute("original") !== expected.projectId ||
+      file.getAttribute("source-language") !== expected.langFrom ||
+      file.getAttribute("target-language") !== expected.langTo) {
+    throw new XliffError("Project or language pair does not match this import");
+  }
+  const bodies = children(file);
+  if (bodies.length !== 1 || bodies[0].localName !== "body" || bodies[0].namespaceURI !== NS) throw new XliffError("Expected exactly one body");
+  const units = children(bodies[0]);
+  if (units.length > XLIFF_MAX_SEGMENTS) throw new XliffError("Too many segments (maximum 5000)");
+  const seen = new Set<string>();
+  return units.map((unit, index) => {
+    const line = index + 1;
+    if (unit.localName !== "trans-unit" || unit.namespaceURI !== NS) throw new XliffError("Expected trans-unit", line);
+    const parts = children(unit);
+    if (parts.length !== 2 || parts[0].localName !== "source" || parts[1].localName !== "target" || parts.some((part) => part.namespaceURI !== NS)) {
+      throw new XliffError("Expected one source followed by one target", line);
+    }
+    const source = textOnly(parts[0], line);
+    const target = textOnly(parts[1], line);
+    if (!source || !target) throw new XliffError("Source and target must not be empty", line);
+    const id = computeTranslationHash(source, expected.langFrom, expected.langTo);
+    if (unit.getAttribute("id") !== id) throw new XliffError("Segment ID does not match its source and languages", line);
+    if (seen.has(id)) throw new XliffError("Duplicate segment ID", line);
+    seen.add(id);
+    const approved = unit.getAttribute("approved");
+    if (approved !== "yes" && approved !== "no") throw new XliffError("approved must be yes or no", line);
+    return { id, source, target, approved: approved === "yes", line };
+  });
+}
