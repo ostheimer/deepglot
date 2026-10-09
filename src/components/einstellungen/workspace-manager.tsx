@@ -24,13 +24,17 @@ export function WorkspaceManager({ locale, workspaces }: { locale: SiteLocale; w
   const [candidateId, setCandidateId] = useState("");
   const [candidateRole, setCandidateRole] = useState<"MEMBER" | "ADMIN">("MEMBER");
 
-  async function showMembers(workspaceId: string) {
-    if (membersFor === workspaceId) { setMembersFor(null); return; }
+  async function loadMembers(workspaceId: string) {
     const response = await fetch(`/api/workspaces/${workspaceId}/members`);
     if (!response.ok) return;
     const data = await response.json();
     setMembersFor(workspaceId); setMembers(data.members); setCandidates(data.candidates);
     setCandidateId(""); setCandidateRole("MEMBER");
+  }
+
+  async function showMembers(workspaceId: string) {
+    if (membersFor === workspaceId) { setMembersFor(null); return; }
+    await loadMembers(workspaceId);
   }
 
   async function changeMember(workspaceId: string, userId: string, method: "POST" | "PATCH" | "DELETE", role?: string) {
@@ -41,7 +45,7 @@ export function WorkspaceManager({ locale, workspaces }: { locale: SiteLocale; w
       const response = await fetch(url, { method, headers: { "Content-Type": "application/json" },
         body: method === "DELETE" ? undefined : JSON.stringify(method === "POST" ? { userId, role } : { role }) });
       if (!response.ok) { toast.error(uiText(locale, "Member change was rejected. Check role and seat limit.", "Mitgliedsänderung abgelehnt. Prüfe Rolle und Mitgliederlimit.")); return; }
-      setMembersFor(null); await showMembers(workspaceId); router.refresh();
+      await loadMembers(workspaceId); router.refresh();
     } finally { setBusy(false); }
   }
 
