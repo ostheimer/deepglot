@@ -42,7 +42,13 @@ test("XML 1.0 export preserves carriage returns and rejects unsupported controls
 test("rejects wrong project, wrong language, duplicate ID and conflicting source", () => {
   assert.throws(() => parse(valid(), { ...project, projectId: "project-b" }), /Project or language/);
   assert.throws(() => parse(valid(), { ...project, langTo: "fr" }), /Project or language/);
-  assert.throws(() => parse(valid().replace("</body>", `${valid().match(/<trans-unit[\s\S]*?<\/trans-unit>/)?.[0]}</body>`)), /Duplicate segment ID/);
+  assert.throws(() => parse(valid().replace("</body>", `${valid().match(/<trans-unit[\s\S]*?<\/trans-unit>/)?.[0]}</body>`)), (error) => {
+    assert.ok(error instanceof XliffError);
+    assert.equal(error.line, 2);
+    assert.equal(error.detail, "Duplicate segment ID");
+    assert.equal(error.message, "Segment 2: Duplicate segment ID");
+    return true;
+  });
   assert.throws(() => parse(valid().replace("Hallo", "Servus")), /Segment ID does not match/);
 });
 

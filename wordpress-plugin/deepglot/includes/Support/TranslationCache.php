@@ -125,6 +125,24 @@ class TranslationCache
         return true;
     }
 
+    /** Invalidate epoch-scoped entries whose keys cannot be derived from an epoch-free SaaS digest. */
+    public function invalidatePositiveLanguageEpochs(): bool
+    {
+        if (!function_exists('get_option') || !function_exists('update_option')) return false;
+        $epochs = get_option(self::LANGUAGE_EPOCHS_OPTION, []);
+        if (!is_array($epochs)) return false;
+        $next = $epochs;
+        foreach ($epochs as $language => $epoch) {
+            if ((int) $epoch > 0) {
+                if ((int) $epoch >= PHP_INT_MAX) return false;
+                $next[$language] = (int) $epoch + 1;
+            }
+        }
+        if ($next === $epochs) return true;
+        update_option(self::LANGUAGE_EPOCHS_OPTION, $next, false);
+        return get_option(self::LANGUAGE_EPOCHS_OPTION, []) === $next;
+    }
+
     /**
      * Invalidates all Deepglot transients.
      * Note: WordPress does not support wildcard deletion; we tag keys in options instead.

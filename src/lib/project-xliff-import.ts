@@ -38,7 +38,7 @@ export async function importTranslationsXliff(input: {
     rows = parseXliff(input.bytes, { projectId: project.id, langFrom: project.originalLang, langTo });
   } catch (error) {
     if (error instanceof XliffError) {
-      throw new ProjectXliffImportError(error.message, 400, error.line ? [{ segment: error.line, message: error.message }] : []);
+      throw new ProjectXliffImportError(error.message, 400, error.line ? [{ segment: error.line, message: error.detail }] : []);
     }
     throw error;
   }

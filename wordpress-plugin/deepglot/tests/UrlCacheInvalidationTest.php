@@ -104,4 +104,16 @@ if (($drained['cursor'] ?? '') !== '751' || $drainClient->calls !== 3
     || $cache->get('Änderung', 'de', 'en') !== null) {
     throw new RuntimeException('A 751-entry feed must complete in background without waiting for settings refresh.');
 }
+$GLOBALS['_dg_url_cache_options']['deepglot_language_cache_epochs'] = ['en' => 2];
+$cache->set('Änderung', 'de', 'en', 'Stale at epoch two');
+if ($cache->get('Änderung', 'de', 'en') !== 'Stale at epoch two') {
+    throw new RuntimeException('Epoch-scoped cache fixture was not stored.');
+}
+$apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
+    'id' => '752', 'urlPath' => '/en/test', 'cacheKey' => $digest,
+]]]], $identity, '751');
+if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 3]
+    || $cache->get('Änderung', 'de', 'en') !== null) {
+    throw new RuntimeException('Digest invalidation must also retire epoch-scoped cache entries.');
+}
 echo "UrlCacheInvalidationTest: OK\n";

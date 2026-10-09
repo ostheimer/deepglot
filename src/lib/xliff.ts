@@ -17,8 +17,8 @@ export type XliffSegment = {
 };
 
 export class XliffError extends Error {
-  constructor(message: string, public readonly line = 0) {
-    super(line ? `Segment ${line}: ${message}` : message);
+  constructor(public readonly detail: string, public readonly line = 0) {
+    super(line ? `Segment ${line}: ${detail}` : detail);
     this.name = "XliffError";
   }
 }

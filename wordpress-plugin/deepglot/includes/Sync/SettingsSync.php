@@ -398,6 +398,7 @@ class SettingsSync
             return false;
         }
         $cache = new TranslationCache();
+        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs()) return false;
         foreach ($batch['entries'] as $entry) {
             if (!is_array($entry)) return false;
             $id = (string) ($entry['id'] ?? '');

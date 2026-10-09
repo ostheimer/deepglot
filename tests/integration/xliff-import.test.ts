@@ -81,6 +81,9 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal(machineUnchanged.updatedAt.getTime(), machineAfter.updatedAt.getTime());
     assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), invalidationCount);
 
+    await db.translationContext.createMany({ data: Array.from({ length: 300 }, (_, index) => ({
+      translationId: machineAfter.id, urlPath: `/page-${String(index).padStart(3, "0")}`,
+    })) });
     machineSegment[0].translatedText = "Edited sentence";
     await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en", segments: machineSegment,
@@ -91,6 +94,8 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal(editedAfter.isManual, true);
     assert.equal(editedAfter.source, "IMPORT");
     assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), invalidationCount + 1);
+    const latestInvalidation = await db.urlCacheInvalidation.findFirstOrThrow({ where: { projectId: project.id }, orderBy: { id: "desc" } });
+    assert.equal(latestInvalidation.urlPath, "/page-000");
 
     await db.webhookEndpoint.create({ data: { projectId: project.id, url: "https://example.invalid/hook",
       secret: "synthetic-secret", eventTypes: ["translation.created"], enabled: true } });
