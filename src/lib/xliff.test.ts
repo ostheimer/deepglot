@@ -34,14 +34,12 @@ test("machine marker survives export while invalid or edited metadata is rejecte
 
 test("preserves legacy uppercase language hashes without changing segment IDs", () => {
   const legacyHash = computeTranslationHash(segment.originalText, "DE", "EN");
-  const xml = serializeXliff({ ...project, segments: [{ ...segment, originalHash: legacyHash }] });
-  assert.equal(parse(xml)[0].id, legacyHash);
-});
-
-test("rejects an overlong language without enumerating casing combinations", () => {
-  const longCode = "en-" + "abcd".repeat(8);
-  assert.throws(() => parse(valid().replace('target-language="en"', `target-language="${longCode}"`),
-    { ...project, langTo: longCode }), /Invalid language code/);
+  const xml = serializeXliff({ ...project, segments: [{ ...segment, originalHash: legacyHash, langFrom: "DE", langTo: "EN" }] });
+  assert.equal(parseXliff(new TextEncoder().encode(xml), project, { allowPersistedIds: true })[0].id, legacyHash);
+  const mixedHash = computeTranslationHash(segment.originalText, "dE", "eN");
+  const mixed = serializeXliff({ ...project, segments: [{ ...segment, originalHash: mixedHash, langFrom: "dE", langTo: "eN" }] });
+  assert.equal(parseXliff(new TextEncoder().encode(mixed), project, { allowPersistedIds: true })[0].id, mixedHash);
+  assert.throws(() => parse(mixed), /Segment ID does not match/);
 });
 
 test("XML 1.0 export preserves carriage returns and rejects unsupported controls", () => {

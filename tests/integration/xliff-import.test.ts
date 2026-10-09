@@ -112,19 +112,19 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id, eventType: "translation.created" } }), 410);
 
     const legacySource = "Alter Satz mit großgeschriebenen Sprachcodes";
-    const legacyHash = computeTranslationHash(legacySource, "DE", "EN");
+    const legacyHash = computeTranslationHash(legacySource, "dE", "eN");
     await db.translation.create({ data: { projectId: project.id, originalHash: legacyHash, originalText: legacySource,
-      translatedText: "Old sentence", langFrom: "DE", langTo: "EN", isManual: false, source: "MOCK" } });
+      translatedText: "Old sentence", langFrom: "dE", langTo: "eN", isManual: false, source: "MOCK" } });
     await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en",
       segments: [{ originalHash: legacyHash, originalText: legacySource, translatedText: "Updated sentence", workflowStatus: "MACHINE" }],
     })), project, access, userId: user.id, langTo: "en", applyApproved: false, emitRowEvents: false });
     const legacyAfter = await db.translation.findUniqueOrThrow({ where: { projectId_originalHash: { projectId: project.id, originalHash: legacyHash } } });
     assert.equal(legacyAfter.translatedText, "Updated sentence");
-    assert.equal(legacyAfter.langFrom, "DE");
-    assert.equal(legacyAfter.langTo, "EN");
+    assert.equal(legacyAfter.langFrom, "dE");
+    assert.equal(legacyAfter.langTo, "eN");
     const legacyInvalidation = await db.urlCacheInvalidation.findFirstOrThrow({ where: { projectId: project.id }, orderBy: { id: "desc" } });
-    assert.equal(legacyInvalidation.cacheKey, encodeWordpressCacheInvalidationKey("DE", "EN", legacySource));
+    assert.equal(legacyInvalidation.cacheKey, encodeWordpressCacheInvalidationKey("dE", "eN", legacySource));
 
     await db.organizationMember.delete({ where: { userId_organizationId: { userId: user.id, organizationId: organization.id } } });
     await assert.rejects(() => importTranslationsXliff({ bytes: bytes(segments), project, access, userId: user.id,

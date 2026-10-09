@@ -7,22 +7,6 @@ export const XLIFF_MAX_SEGMENTS = 5000;
 const NS = "urn:oasis:names:tc:xliff:document:1.2";
 const EXT_NS = "https://deepglot.ai/ns/xliff";
 
-function languageCaseVariants(code: string): string[] {
-  if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(code) || code.length > 35) {
-    throw new XliffError("Invalid language code");
-  }
-  const lower = code.toLowerCase();
-  const canonical = lower.split("-").map((part, index) => index === 0 ? part
-    : part.length === 4 ? part[0].toUpperCase() + part.slice(1)
-      : part.length === 2 ? part.toUpperCase() : part).join("-");
-  return [...new Set([code, lower, code.toUpperCase(), canonical])];
-}
-
-function isMatchingSegmentId(id: string, source: string, langFrom: string, langTo: string): boolean {
-  return languageCaseVariants(langFrom).some((from) => languageCaseVariants(langTo).some((to) =>
-    computeTranslationHash(source, from, to) === id));
-}
-
 export type XliffSegment = {
   id: string;
   source: string;
@@ -72,11 +56,12 @@ export function serializeXliff(input: {
   projectId: string;
   langFrom: string;
   langTo: string;
-  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string; isManual?: boolean; originalHash?: string }>;
+  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string; isManual?: boolean;
+    originalHash?: string; langFrom?: string; langTo?: string }>;
 }): string {
   const units = input.segments.map((item) => {
     const id = item.originalHash ?? computeTranslationHash(item.originalText, input.langFrom, input.langTo);
-    if (!isMatchingSegmentId(id, item.originalText, input.langFrom, input.langTo)) {
+    if (id !== computeTranslationHash(item.originalText, item.langFrom ?? input.langFrom, item.langTo ?? input.langTo)) {
       throw new XliffError("Stored segment ID does not match its source and languages");
     }
     return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}" dg:manual="${item.isManual === false ? "no" : "yes"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
@@ -108,7 +93,7 @@ export function parseXliff(bytes: Uint8Array, expected: {
   projectId: string;
   langFrom: string;
   langTo: string;
-}): XliffSegment[] {
+}, options: { allowPersistedIds?: boolean } = {}): XliffSegment[] {
   if (bytes.byteLength > XLIFF_MAX_BYTES) throw new XliffError("File exceeds 4 MB");
   let xml: string;
   try { xml = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
@@ -169,7 +154,8 @@ export function parseXliff(bytes: Uint8Array, expected: {
     const target = textOnly(parts[1], line);
     if (!source || !target) throw new XliffError("Source and target must not be empty", line);
     const id = unit.getAttribute("id") ?? "";
-    if (!isMatchingSegmentId(id, source, expected.langFrom, expected.langTo)) {
+    if (id !== computeTranslationHash(source, expected.langFrom, expected.langTo)
+        && (!options.allowPersistedIds || !/^[a-f0-9]{32}$/.test(id))) {
       throw new XliffError("Segment ID does not match its source and languages", line);
     }
     const canonicalId = computeTranslationHash(source, expected.langFrom.toLowerCase(), expected.langTo.toLowerCase());

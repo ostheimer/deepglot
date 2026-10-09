@@ -28,6 +28,9 @@ export async function importTranslationsXliff(input: {
   emitRowEvents: boolean;
 }) {
   const { project, access, langTo, applyApproved, emitRowEvents } = input;
+  if (langTo.length > 35 || !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(langTo)) {
+    throw new ProjectXliffImportError("Invalid target language", 400);
+  }
   if (!langTo || !canAccessProjectLanguage(access, langTo)) {
     throw new ProjectXliffImportError("Target language is missing or forbidden", 403);
   }
@@ -36,7 +39,7 @@ export async function importTranslationsXliff(input: {
   }
   let rows: XliffSegment[];
   try {
-    rows = parseXliff(input.bytes, { projectId: project.id, langFrom: project.originalLang, langTo });
+    rows = parseXliff(input.bytes, { projectId: project.id, langFrom: project.originalLang, langTo }, { allowPersistedIds: true });
   } catch (error) {
     if (error instanceof XliffError) {
       throw new ProjectXliffImportError(error.message, 400, error.line ? [{ segment: error.line, message: error.detail }] : []);
@@ -76,7 +79,12 @@ export async function importTranslationsXliff(input: {
         }
         for (const item of existing) {
           const row = rows.find((candidate) => candidate.id === item.originalHash);
-          if (row && item.originalText !== row.source) issues.push({ segment: row.line, message: "Stored source conflicts with segment ID" });
+          if (row && (item.originalText !== row.source ||
+              item.langFrom.toLowerCase() !== project.originalLang.toLowerCase() ||
+              item.langTo.toLowerCase() !== langTo.toLowerCase() ||
+              item.originalHash !== computeTranslationHash(row.source, item.langFrom, item.langTo))) {
+            issues.push({ segment: row.line, message: "Stored source or language conflicts with segment ID" });
+          }
         }
         if (issues.length) throw new ProjectXliffImportError("XLIFF validation failed; no segments imported", 409, issues);
         const current = new Map(existing.map((item) => [item.originalHash, item]));

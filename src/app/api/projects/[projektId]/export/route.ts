@@ -145,7 +145,8 @@ export async function GET(
           langFrom: { equals: project.originalLang, mode: "insensitive" },
           langTo: { equals: langTo, mode: "insensitive" } },
         orderBy: { originalHash: "asc" },
-        select: { originalHash: true, originalText: true, translatedText: true, workflowStatus: true, isManual: true },
+        select: { originalHash: true, originalText: true, translatedText: true, workflowStatus: true,
+          isManual: true, langFrom: true, langTo: true },
         take: XLIFF_MAX_SEGMENTS + 1,
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
