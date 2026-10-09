@@ -2,6 +2,19 @@
 -- No backfill: past transfers cannot be inferred from current ownership.
 BEGIN;
 ALTER TABLE "ProjectSettings" ADD COLUMN IF NOT EXISTS "providerReconnectRequired" BOOLEAN NOT NULL DEFAULT false;
+-- #263 receipts have no exact usage-record foreign key. Never infer their
+-- historical billed owner from the project's *current* workspace. A fresh
+-- read-only receipt count is required before rollout; if any legacy receipt
+-- exists, investigate its original billing evidence before this script runs.
+ALTER TABLE "UrlOperationReceipt" ADD COLUMN IF NOT EXISTS "originatingOrganizationId" TEXT;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM "UrlOperationReceipt" WHERE "originatingOrganizationId" IS NULL) THEN
+    RAISE EXCEPTION 'Unattributed URL operation receipts require evidence-based reconciliation before workspace transfer rollout';
+  END IF;
+END $$;
+ALTER TABLE "UrlOperationReceipt" ALTER COLUMN "originatingOrganizationId" SET NOT NULL;
+CREATE INDEX IF NOT EXISTS "UrlOperationReceipt_originatingOrganizationId_createdAt_idx"
+  ON "UrlOperationReceipt"("originatingOrganizationId", "createdAt");
 CREATE TABLE IF NOT EXISTS "ProjectTransferAudit" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "projectId" TEXT NOT NULL,

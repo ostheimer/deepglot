@@ -7,7 +7,7 @@ import { getUsageMonthKey } from "@/lib/translation-batches";
 type Client = typeof db | Prisma.TransactionClient;
 
 export class WorkspaceTransferError extends Error {
-  constructor(public code: "NOT_FOUND" | "FORBIDDEN" | "LIMIT" | "STALE", public status: number) {
+  constructor(public code: "NOT_FOUND" | "FORBIDDEN" | "LIMIT" | "STALE" | "PENDING", public status: number) {
     super(code);
   }
 }
@@ -49,6 +49,13 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     !manager(destination.members.find((member) => member.userId === actorUserId)?.role)) {
     throw new WorkspaceTransferError("NOT_FOUND", 404);
   }
+  // A manager URL operation has already claimed external provider work. Keep
+  // its originating workspace, credentials and receipt/usage boundary intact
+  // until the outcome is reconciled. Commit repeats this under Org -> Project
+  // locks, which also serialize the provider_pending claim.
+  if (await client.translatedUrl.count({ where: { projectId, operationState: "provider_pending" } })) {
+    throw new WorkspaceTransferError("PENDING", 409);
+  }
   const plan = BILLING_PLANS[getEffectiveWorkspacePlanKey(destination.plan, destination.subscription)];
   const destinationWordsLimit = getEffectiveWordsLimit(destination.subscription);
   const month = getUsageMonthKey();
@@ -70,7 +77,10 @@ async function transferState(client: Client, actorUserId: string, projectId: str
       (SELECT COALESCE(string_agg(id || ':' || "updatedAt"::text, '|' ORDER BY id), '') FROM "GlossaryRule" WHERE "projectId" = ${projectId}),
       (SELECT COALESCE(string_agg(id || ':' || "updatedAt"::text, '|' ORDER BY id), '') FROM "ProjectMediaReplacement" WHERE "projectId" = ${projectId}),
       (SELECT COALESCE(string_agg(id || ':' || "createdAt"::text, '|' ORDER BY id), '') FROM "TranslationExclusion" WHERE "projectId" = ${projectId}),
-      (SELECT COALESCE(string_agg(id || ':' || "lastSeenAt"::text || ':' || "requestCount"::text, '|' ORDER BY id), '') FROM "TranslatedUrl" WHERE "projectId" = ${projectId}),
+      (SELECT COALESCE(string_agg(id || ':' || "lastSeenAt"::text || ':' || "requestCount"::text || ':' ||
+        COALESCE("operationState", '') || ':' || COALESCE("operationToken", '') || ':' ||
+        COALESCE("lastOperationAt"::text, '') || ':' || COALESCE("lastResult", ''), '|' ORDER BY id), '')
+        FROM "TranslatedUrl" WHERE "projectId" = ${projectId}),
       (SELECT COALESCE(string_agg(id || ':' || "updatedAt"::text, '|' ORDER BY id), '') FROM "WebhookDelivery" WHERE "projectId" = ${projectId})
     )) AS version`;
   const wordsUsed = destinationUsage._sum.words ?? 0;

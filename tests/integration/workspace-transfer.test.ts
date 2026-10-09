@@ -187,3 +187,52 @@ test("a second transfer cannot clear an existing BYOK reconnect pause", async ()
     await db.$disconnect();
   }
 });
+
+test("a provider-pending URL operation blocks transfer preview and a previously issued commit", async () => {
+  const suffix = randomUUID();
+  const actor = await db.user.create({ data: { email: `pending-transfer-${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `pending-source-${suffix}` } });
+  const destination = await db.organization.create({ data: { name: "Destination", slug: `pending-dest-${suffix}`,
+    plan: "STARTER", subscription: { create: { stripeCustomerId: `fixture-pending-${suffix}`,
+      status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } } } });
+  const project = await db.project.create({ data: { organizationId: source.id, name: "Pending operation",
+    domain: `pending-${suffix}.invalid`, settings: { create: {} } } });
+  try {
+    await db.organizationMember.createMany({ data: [source, destination].map((workspace) => ({
+      userId: actor.id, organizationId: workspace.id, role: "OWNER" as const,
+    })) });
+    const url = await db.translatedUrl.create({ data: { projectId: project.id, urlPath: "/pending", langTo: "en" } });
+    const preview = await previewWorkspaceTransfer(actor.id, project.id, destination.id);
+    await db.translatedUrl.update({ where: { id: url.id }, data: { operationState: "provider_pending",
+      operationToken: `fixture-${suffix}`, lastOperationAt: new Date() } });
+    await assert.rejects(previewWorkspaceTransfer(actor.id, project.id, destination.id), { code: "PENDING" });
+    await assert.rejects(commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
+      destinationId: destination.id, fingerprint: preview.fingerprint, issuedAt: preview.issuedAt,
+      confirmationToken: preview.confirmationToken }), { code: "PENDING" });
+    assert.equal((await db.project.findUniqueOrThrow({ where: { id: project.id } })).organizationId, source.id);
+    assert.equal((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).operationState, "provider_pending");
+    await db.translatedUrl.update({ where: { id: url.id }, data: { operationState: "failed",
+      lastResult: "pre_provider_failed", lastOperationAt: new Date(Date.now() + 1000) } });
+    await assert.rejects(commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
+      destinationId: destination.id, fingerprint: preview.fingerprint, issuedAt: preview.issuedAt,
+      confirmationToken: preview.confirmationToken }), { code: "STALE" });
+    const reconciled = await previewWorkspaceTransfer(actor.id, project.id, destination.id);
+    assert.notEqual(reconciled.fingerprint, preview.fingerprint);
+    const historicalReceipt = await db.urlOperationReceipt.create({ data: {
+      id: suffix.replaceAll("-", "").padEnd(64, "0"), projectId: project.id, originatingOrganizationId: source.id,
+      urlId: url.id, actorId: actor.id, urlPath: url.urlPath, langTo: url.langTo,
+      billedWords: 7, segmentCount: 1, totalEligibleSegments: 1,
+      remainingSegments: 0,
+    } });
+    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id,
+      destinationId: destination.id, fingerprint: reconciled.fingerprint, issuedAt: reconciled.issuedAt,
+      confirmationToken: reconciled.confirmationToken });
+    assert.equal((await db.urlOperationReceipt.findUniqueOrThrow({ where: { id: historicalReceipt.id } }))
+      .originatingOrganizationId, source.id);
+  } finally {
+    await db.organization.deleteMany({ where: { id: { in: [source.id, destination.id] } } });
+    await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });
+    await db.user.delete({ where: { id: actor.id } });
+    await db.$disconnect();
+  }
+});

@@ -8,6 +8,7 @@ import { computeTranslationHash } from "../../src/lib/translation-hash";
 import { hashApiIdempotencyKey } from "../../src/lib/api-idempotency";
 import { hashRateLimitSubject, TRANSLATE_RATE_LIMIT_SCOPE } from "../../src/lib/rate-limit";
 import { getProjectUrl } from "../../src/lib/project-url";
+import { commitWorkspaceTransfer, previewWorkspaceTransfer } from "../../src/lib/workspace-transfer";
 import { e2eId, signInAndGetProjectId } from "./helpers";
 
 async function waitForBlockedProjectLock() {
@@ -159,6 +160,43 @@ test("revoked API key cannot record a WordPress URL status after validation", as
   }
 });
 
+test("a transferred project cannot recover a receipt billed to its former workspace", async ({ page }) => {
+  const sourceProjectId = await signInAndGetProjectId(page);
+  const sourceProject = await db.project.findUniqueOrThrow({ where: { id: sourceProjectId } });
+  const actor = await db.user.findUniqueOrThrow({ where: { email: "preview@deepglot.local" } });
+  const suffix = e2eId("receipt-origin");
+  const destination = await db.organization.create({ data: { name: "Receipt destination", slug: suffix,
+    plan: "STARTER", subscription: { create: { stripeCustomerId: `fixture-${suffix}`,
+      status: "ACTIVE", plan: "STARTER", wordsLimit: 25_000 } } } });
+  const project = await db.project.create({ data: { organizationId: sourceProject.organizationId,
+    name: "Historical receipt fixture", domain: `${suffix}.invalid`,
+    languages: { create: { langCode: "en" } }, settings: { create: {} } } });
+  const confirmation = createHash("sha256").update(project.id).digest("hex");
+  try {
+    await db.organizationMember.create({ data: { userId: actor.id, organizationId: destination.id, role: "OWNER" } });
+    const url = await db.translatedUrl.create({ data: { projectId: project.id, urlPath: "/historical",
+      langTo: "en", operationState: "completed", operationToken: confirmation } });
+    await db.urlOperationReceipt.create({ data: { id: confirmation, projectId: project.id,
+      originatingOrganizationId: sourceProject.organizationId, urlId: url.id, actorId: actor.id,
+      urlPath: url.urlPath, langTo: url.langTo, billedWords: 7, segmentCount: 1,
+      totalEligibleSegments: 1, remainingSegments: 0 } });
+    const preview = await previewWorkspaceTransfer(actor.id, project.id, destination.id);
+    await commitWorkspaceTransfer({ actorUserId: actor.id, projectId: project.id, destinationId: destination.id,
+      fingerprint: preview.fingerprint, issuedAt: preview.issuedAt, confirmationToken: preview.confirmationToken });
+    const replay = await page.request.post(`/api/projects/${project.id}/url-operations`, {
+      headers: { "Idempotency-Key": confirmation }, data: { action: "retranslate", id: url.id, confirmation },
+    });
+    expect(replay.status(), await replay.text()).toBe(409);
+    expect((await db.urlOperationReceipt.findUniqueOrThrow({ where: { id: confirmation } }))
+      .originatingOrganizationId).toBe(sourceProject.organizationId);
+  } finally {
+    await db.apiIdempotencyRecord.deleteMany({ where: { scope: { startsWith: `manager:url-operation:${destination.id}:${project.id}:` } } });
+    await db.project.delete({ where: { id: project.id } });
+    await db.organization.delete({ where: { id: destination.id } });
+    await db.projectTransferAudit.deleteMany({ where: { projectId: project.id } });
+  }
+});
+
 test("WordPress sync result accepts a canonical script and region locale", async ({ page }) => {
   const projectId = await signInAndGetProjectId(page);
   const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
@@ -237,7 +275,7 @@ test("manager preview, provider charge, idempotent replay, scoped deletion and o
     expect((await db.usageRecord.aggregate({ where: { projectId }, _sum: { words: true } }))._sum.words).toBe(usage._sum.words);
     expect((await db.translatedUrl.findUniqueOrThrow({ where: { id: url.id } })).requestCount).toBe(2);
     const actorId = (await db.user.findUniqueOrThrow({ where: { email: "preview@deepglot.local" } })).id;
-    await db.apiIdempotencyRecord.delete({ where: { scope_keyHash: { scope: `manager:url-operation:${projectId}:${actorId}`, keyHash: hashApiIdempotencyKey(preview.confirmation) } } });
+    await db.apiIdempotencyRecord.delete({ where: { scope_keyHash: { scope: `manager:url-operation:${project.organizationId}:${projectId}:${actorId}`, keyHash: hashApiIdempotencyKey(preview.confirmation) } } });
     await db.translatedUrl.update({ where: { id: url.id }, data: { operationState: "provider_pending", lastResult: "provider_outcome_unknown", operationToken: preview.confirmation } });
     const recovered = await post(action, preview.confirmation);
     expect(recovered.status(), await recovered.text()).toBe(200);

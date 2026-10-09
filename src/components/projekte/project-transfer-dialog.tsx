@@ -45,7 +45,13 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
     try {
       const response = await fetch(`/api/projects/${projectId}/transfer`, { method: "POST",
         headers: { "Content-Type": "application/json" }, body: JSON.stringify({ destinationId }) });
-      if (!response.ok) { toast.error(uiText(locale, "Transfer preview unavailable. Check destination access and plan limits.", "Transfer-Vorschau nicht verfügbar. Prüfe Zielzugriff und Planlimits.")); return; }
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        toast.error(error?.error === "PENDING"
+          ? uiText(locale, "A URL provider operation is still pending. Reconcile its outcome before transferring this project.", "Ein URL-Provider-Auftrag ist noch offen. Kläre dessen Ergebnis, bevor du dieses Projekt überträgst.")
+          : uiText(locale, "Transfer preview unavailable. Check destination access and plan limits.", "Transfer-Vorschau nicht verfügbar. Prüfe Zielzugriff und Planlimits."));
+        return;
+      }
       setPreview(await response.json());
     } finally { setBusy(false); }
   }
@@ -59,7 +65,10 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
           fingerprint: preview.fingerprint, issuedAt: preview.issuedAt,
           confirmationToken: preview.confirmationToken }) });
       if (!response.ok) { setPreview(null); setAcknowledged(false);
-        toast.error(uiText(locale, "Transfer changed or failed. Request a fresh preview.", "Transfer geändert oder fehlgeschlagen. Fordere eine neue Vorschau an.")); return; }
+        const error = await response.json().catch(() => ({}));
+        toast.error(error?.error === "PENDING"
+          ? uiText(locale, "A URL provider operation started. Reconcile its outcome, then request a fresh transfer preview.", "Ein URL-Provider-Auftrag wurde gestartet. Kläre dessen Ergebnis und fordere danach eine neue Transfer-Vorschau an.")
+          : uiText(locale, "Transfer changed or failed. Request a fresh preview.", "Transfer geändert oder fehlgeschlagen. Fordere eine neue Vorschau an.")); return; }
       setOpen(false); router.refresh();
       toast.success(uiText(locale, "Project transferred. Reconnect the plugin and webhook credentials.", "Projekt übertragen. Verbinde Plugin und Webhook-Zugänge neu."));
     } finally { setBusy(false); }
@@ -76,6 +85,9 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
         <p className="text-sm text-gray-600">{uiText(locale,
           "Only a workspace owner or admin can transfer to a workspace they also manage.",
           "Nur Workspace-Owner oder -Admins können in einen Workspace übertragen, den sie ebenfalls verwalten.")}</p>
+        <p className="text-sm text-gray-600">{uiText(locale,
+          "A URL provider operation with an unresolved outcome blocks the preview and transfer. Reconcile it first so its costs and receipt remain with the originating workspace.",
+          "Ein URL-Provider-Auftrag mit ungeklärtem Ergebnis sperrt Vorschau und Transfer. Kläre ihn zuerst, damit Kosten und Beleg beim ursprünglichen Workspace bleiben.")}</p>
         <select className="w-full rounded-md border p-2" value={destinationId} onChange={(event) => {
           setDestinationId(event.target.value); setPreview(null); setAcknowledged(false);
         }} aria-label={uiText(locale, "Destination workspace", "Ziel-Workspace")}>

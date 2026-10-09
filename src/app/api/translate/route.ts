@@ -972,6 +972,7 @@ export async function executeAuthenticatedTranslateRequest(
               await tx.urlOperationReceipt.create({ data: {
                 id: forceRetranslate.receipt.id,
                 projectId: forceRetranslate.receipt.projectId,
+                originatingOrganizationId: project.organizationId,
                 urlId: forceRetranslate.receipt.urlId,
                 actorId: forceRetranslate.receipt.actorId,
                 urlPath: forceRetranslate.receipt.urlPath,

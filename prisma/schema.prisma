@@ -726,6 +726,7 @@ model UrlCacheInvalidation {
 model UrlOperationReceipt {
   id String @id // SHA-256 confirmation token
   projectId String
+  originatingOrganizationId String // immutable billed workspace at persistence
   urlId String
   actorId String
   urlPath String
@@ -739,6 +740,7 @@ model UrlOperationReceipt {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, urlId])
+  @@index([originatingOrganizationId, createdAt])
 }
 
 // Opt-in visitor events. Query strings, fragments, IP addresses, user agents,
