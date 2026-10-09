@@ -220,6 +220,11 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               </p>
               <p className="mt-4 text-sm leading-7 text-[#58636d]">
                 {de
+                  ? "Die passende WordPress-Runtime ist seit v0.12.13 im öffentlichen Plugin-Verzeichnis erhältlich. Aktualisiere das Plugin auf jeder betroffenen Website und prüfe danach den anonymen Seitenaufruf; die Veröffentlichung aktualisiert bestehende Installationen nicht sofort. Bekannte WordPress-Seitencaches werden beim Sprachwechsel geleert, vorgeschaltete CDN-Caches können separat zu leeren sein."
+                  : "The matching WordPress runtime is available in the public plugin directory since v0.12.13. Update the plugin on each affected site and check an anonymous page request afterward; publication does not instantly update existing installations. Known WordPress page caches are purged after a language change, while upstream CDN caches may need a separate purge."}
+              </p>
+              <p className="mt-4 text-sm leading-7 text-[#58636d]">
+                {de
                   ? "Seit v0.12.8 übersetzt Deepglot ARIA-Beschriftungen auf allen Elementen im Seiteninhalt sowie Bild-Tooltips und die sichtbaren Titel von RSS- und Atom-Feeds. Normale Link-Metadaten bleiben von Anbieteranfragen ausgeschlossen. Leere oder ausschließlich aus Leerraum bestehende Übersetzungen werden nicht gespeichert und gelten auch in bestehenden, älteren Cacheeinträgen als Fehltreffer, damit Metabeschreibungen nicht verschwinden."
                   : "Since v0.12.8, Deepglot translates ARIA labels on every body element, image tooltips, and the human-readable titles of RSS and Atom feeds. Ordinary link metadata remains excluded from provider requests. Empty or whitespace-only translations are not stored and count as misses in existing legacy cache entries too, so meta descriptions do not disappear."}
               </p>
