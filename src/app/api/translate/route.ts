@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { AiBudgetError } from "@/lib/ai-budget-math";
 import { reserveAiSpend, settleAiSpend } from "@/lib/ai-budget";
+import { preflightTranslationAction } from "@/lib/ai-action-preflight";
 import { currentAiBudgetEnforcementState, selectAiBudgetSpendControl } from "@/lib/ai-budget-enforcement";
 import { validateTranslationProviderConfig } from "@/lib/translation-config";
 import { recordTranslationContexts } from "@/lib/translation-context";
-import { glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
+import { glossaryDispatchFingerprint, glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
 import { buildTranslationContext } from "@/lib/translation-context-settings";
 import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
@@ -625,8 +626,7 @@ export async function executeAuthenticatedTranslateRequest(
     // this lock is still pre-spend and can safely refund the exact reservation;
     // once translateTexts starts, the reservation is never refunded.
     let approvedExamples: Array<{ originalText: string; translatedText: string }> = [];
-    if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
-      const refundBeforeProvider = async () => {
+    const refundBeforeProvider = async () => {
         if (!velocityReservation) return;
         const reservation = velocityReservation;
         velocityReservation = null;
@@ -640,7 +640,8 @@ export async function executeAuthenticatedTranslateRequest(
             error,
           );
         }
-      };
+    };
+    if (pendingTranslations.length > 0 && canCreateFreshTranslations) {
 
       try {
         const dispatchConfiguration = await db.$transaction(async (tx) => {
@@ -741,23 +742,39 @@ export async function executeAuthenticatedTranslateRequest(
         glossaryRules,
         examples: approvedExamples,
       });
-      // From this statement onward provider cost may have been incurred. Clear
-      // the only refund handle before dispatch so no later error path can undo
-      // the conservative velocity charge.
-      velocityReservation = null;
+      const dispatchInput = {
+        texts: pendingTranslations.map((item) => item.protectedText),
+        sourceLang: l_from, targetLang: l_to,
+        ...(projectContext ? { projectContext } : {}),
+      };
       const aiBudgetEnforcement = currentAiBudgetEnforcementState();
-      if (aiBudgetEnforcement === "inactive") forceRetranslate?.onProviderDispatch?.();
+      if (aiBudgetEnforcement === "active") {
+        try {
+          const quote = await preflightTranslationAction({
+            organizationId: project.organizationId, projectId: project.id,
+            dispatchInput, settings: providerSettings,
+          });
+          if (!quote.allowed) throw new AiBudgetError("budget_exhausted",
+            "The complete configured provider action exceeds an approved ceiling.");
+        } catch (error) {
+          await refundBeforeProvider();
+          throw error;
+        }
+      }
+      // Under active enforcement, a rejected reservation is still pre-provider
+      // and refunds velocity. Once one reservation commits, keep the charge
+      // even if later attempts fail or the provider outcome is unknown.
+      let providerStarted = aiBudgetEnforcement === "inactive";
+      if (providerStarted) {
+        velocityReservation = null;
+        forceRetranslate?.onProviderDispatch?.();
+      }
       const requestGroupKey = `${apiKeyRecord.id}:${req.headers.get("Idempotency-Key")?.trim() || crypto.randomUUID()}`;
       const dispatchId = crypto.randomUUID();
       let attemptNumber = 0;
       const results: Awaited<ReturnType<typeof translateTexts>> =
         await translateTexts(
-          {
-            texts: pendingTranslations.map((item) => item.protectedText),
-            sourceLang: l_from,
-            targetLang: l_to,
-            ...(projectContext ? { projectContext } : {}),
-          },
+          dispatchInput,
           undefined,
           providerSettings,
           {
@@ -773,14 +790,19 @@ export async function executeAuthenticatedTranslateRequest(
                   requestKey: `${requestGroupKey}:${sequence}`,
                   actorKind: "API_KEY",
                   actorId: apiKeyRecord.id,
-                  action: "TRANSLATION",
+                  action: input.projectContext ? "CONTEXT_TRANSLATION" : "TRANSLATION",
                   sourceLang: l_from,
                   targetLang: l_to,
                   expectedSettingsUpdatedAt: providerSettings?.updatedAt.toISOString() ?? null,
+                  expectedGlossaryFingerprint: glossaryDispatchFingerprint(glossaryRules),
+                  expectedProjectContext: projectContext ?? null,
+                  contextSourceTexts: pendingTranslations.map((item) => texts[item.index]),
                   provider: candidate.provider,
                   model: candidate.model || candidate.provider,
                   input,
                 });
+                providerStarted = true;
+                velocityReservation = null;
                 // The URL receipt must not claim provider dispatch when the
                 // budget rejected this attempt before the HTTP boundary.
                 forceRetranslate?.onProviderDispatch?.();
@@ -793,7 +815,10 @@ export async function executeAuthenticatedTranslateRequest(
               },
             }),
           },
-        );
+        ).catch(async (error) => {
+          if (!providerStarted) await refundBeforeProvider();
+          throw error;
+        });
 
       const enabledTranslationWebhookEvents = await db.webhookEndpoint.findMany(
         {

@@ -199,11 +199,17 @@ test("velocity refunds stop at the final pre-provider dispatch boundary", () => 
     "only configuration drift before provider dispatch may refund",
   );
   assert.doesNotMatch(source.slice(providerStart), /releaseTranslateWordVelocity/);
-  assert.doesNotMatch(
-    pdf,
-    /releaseTranslateWordVelocity/,
-    "PDF provider work may already have incurred cost before throwing",
-  );
+  const pdfAttempt = pdf.indexOf("const results = await translate(");
+  const pdfCatch = pdf.indexOf("} catch (error) {", pdfAttempt);
+  const pdfCompleted = pdf.indexOf("// The provider has completed", pdfCatch);
+  assert.ok(pdfAttempt >= 0 && pdfCatch > pdfAttempt && pdfCompleted > pdfCatch);
+  assert.match(pdf.slice(pdfAttempt, pdfCatch), /spendStarted = true;/,
+    "a committed PDF reservation must mark provider spend before HTTP");
+  assert.match(pdf.slice(pdfCatch, pdfCompleted),
+    /if \(!spendStarted && enforcement === "active"\)\s*await releaseTranslateWordVelocity/,
+    "PDF may refund only a proven pre-dispatch rejection");
+  assert.doesNotMatch(pdf.slice(pdfCompleted), /releaseTranslateWordVelocity/,
+    "PDF output or persistence failures after provider work retain velocity");
 });
 
 test("post-provider drift and persistence failures retain the velocity spend", () => {

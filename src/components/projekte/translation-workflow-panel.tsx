@@ -35,6 +35,8 @@ import { planTranslationPaginationAfterDeletion } from "@/lib/translation-worksp
 import { translationContextLink } from "@/lib/translation-context";
 import { TranslationMetadataPanel } from "./translation-metadata-panel";
 import { TranslationHistoryPanel } from "./translation-history-panel";
+import { TranslationSearchReplacePanel } from "./translation-search-replace-panel";
+import { TranslationAiSuggestion } from "./translation-ai-suggestion";
 import type { TranslationMetadataValue } from "@/lib/translation-metadata";
 import { REPORTED_TYPE_GROUPS } from "@/lib/translation-reported-types";
 
@@ -68,6 +70,7 @@ type WorkflowTranslation = {
   isManual: boolean;
   wordCount: number;
   status: WorkflowStatus;
+  sourcePresence?: "present" | "absent_captured_pages" | "unknown";
   assignedToId: string | null;
   assignedTo: WorkflowMember | null;
   updatedAt: string;
@@ -137,6 +140,7 @@ export function TranslationWorkflowPanel({
   const [variables, setVariables] = useState("");
   const [quality, setQuality] = useState("");
   const [activity, setActivity] = useState("");
+  const [sourcePresence, setSourcePresence] = useState("");
   const [reportedType, setReportedType] = useState("");
   const [mode, setMode] = useState("");
   const [context, setContext] = useState("");
@@ -161,6 +165,7 @@ export function TranslationWorkflowPanel({
     reportedType,
     quality,
     activity,
+    sourcePresence,
     label: submittedLabel,
     variables,
     source,
@@ -211,6 +216,7 @@ export function TranslationWorkflowPanel({
       reportedType,
       quality,
       activity,
+      sourcePresence,
       label: submittedLabel,
       variables,
       source,
@@ -260,6 +266,7 @@ export function TranslationWorkflowPanel({
     reportedType,
     quality,
     activity,
+    sourcePresence,
     submittedLabel,
     variables,
     assignee,
@@ -715,6 +722,7 @@ export function TranslationWorkflowPanel({
               setVariables("");
               setQuality("");
               setActivity("");
+              setSourcePresence("");
               setReportedType("");
               setSource("");
               setMode("");
@@ -802,6 +810,9 @@ export function TranslationWorkflowPanel({
                 "Keine Variablen ausgewählt",
               )}
             </option>
+            <option value="all_mismatch">{uiText(locale, "Any placeholder mismatch", "Beliebige Platzhalterabweichung")}</option>
+            <option value="all_match">{uiText(locale, "All placeholders preserved", "Alle Platzhalter erhalten")}</option>
+            <option value="all_none">{uiText(locale, "No placeholders detected", "Keine Platzhalter erkannt")}</option>
           </select>
           <select
             aria-label={uiText(
@@ -846,6 +857,17 @@ export function TranslationWorkflowPanel({
             </option>
           </select>
           <select
+            aria-label={uiText(locale, "Captured source-page presence", "Vorkommen auf erfassten Quellseiten")}
+            value={sourcePresence}
+            onChange={(event) => { setSourcePresence(event.target.value); setPage(1); }}
+            className="h-9 rounded-md border px-3 text-sm"
+          >
+            <option value="">{uiText(locale, "All source-page states", "Alle Quellseiten-Zustände")}</option>
+            <option value="present">{uiText(locale, "Present in a captured source page", "Auf einer erfassten Quellseite vorhanden")}</option>
+            <option value="absent_captured_pages">{uiText(locale, "No longer present in captured source pages", "In erfassten Quellseiten nicht mehr vorhanden")}</option>
+            <option value="unknown">{uiText(locale, "Source-page presence unknown", "Quellseiten-Vorkommen unbekannt")}</option>
+          </select>
+          <select
             aria-label={uiText(
               locale,
               "Reported content type",
@@ -875,12 +897,15 @@ export function TranslationWorkflowPanel({
             "Typen werden von Clients gemeldet, nicht abgeleitet. Mehrere Typen sind möglich; ältere Einträge können unbekannt sein.",
           )}
         </p>
+        {sourcePresence && <p className="mt-3 text-xs text-gray-600">{uiText(locale,
+          "Source-page absence applies only to fresh, complete server-rendered pages captured by WordPress. Dynamic, missing and expired observations are unknown; it does not establish absence from the whole website.",
+          "Abwesenheit gilt nur für frische, vollständig von WordPress erfasste, serverseitig gerenderte Quellseiten. Dynamische, fehlende oder veraltete Beobachtungen bleiben unbekannt; daraus folgt keine Abwesenheit auf der gesamten Website.")}</p>}
         {(quality || activity) && (
           <p className="mt-3 text-xs text-gray-600">
             {uiText(
               locale,
-              "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity.",
-              "Geprüft werden nur ausgewählte Variablen. Beobachtungen erfassen keine lokalen Cache-Treffer und beweisen keine Inaktivität.",
+              "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity. All-placeholder filters are separate.",
+              "Geprüft werden nur ausgewählte Variablen. Beobachtungen erfassen keine lokalen Cache-Treffer und beweisen keine Inaktivität. Filter für alle Platzhalter sind getrennt.",
             )}
           </p>
         )}
@@ -960,6 +985,9 @@ export function TranslationWorkflowPanel({
           </div>
         )}
 
+        {data && <TranslationSearchReplacePanel projectId={projectId} locale={locale}
+          selected={selectedItems} onApplied={() => latestLoadRef.current()} />}
+
         {!loading && data?.items.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-gray-500">
             {uiText(
@@ -991,6 +1019,11 @@ export function TranslationWorkflowPanel({
 
               return (
                 <article key={translation.id} className="space-y-4 px-5 py-5">
+                  <p className="text-xs text-gray-600">{translation.sourcePresence === "absent_captured_pages"
+                    ? uiText(locale, "No longer present in captured source pages", "In erfassten Quellseiten nicht mehr vorhanden")
+                    : translation.sourcePresence === "present"
+                      ? uiText(locale, "Present in a captured source page", "Auf einer erfassten Quellseite vorhanden")
+                      : uiText(locale, "Source-page presence unknown", "Quellseiten-Vorkommen unbekannt")}</p>
                   {(canManage || canSubmit) && (
                     <label className="flex items-center gap-2 text-xs text-gray-600">
                       <input type="checkbox"
@@ -1167,6 +1200,14 @@ export function TranslationWorkflowPanel({
                               "Übersetzung",
                             )}
                           />
+                          {Boolean(translation.typeObservations?.length) &&
+                            translation.typeObservations!.every((type) =>
+                              REPORTED_TYPE_GROUPS.text.includes(type.wordType as never)) &&
+                          <TranslationAiSuggestion key={`${translation.id}:${editingDraft.expectedUpdatedAt}`}
+                            projectId={projectId} translationId={translation.id}
+                            expectedUpdatedAt={editingDraft.expectedUpdatedAt} locale={locale}
+                            onUse={(suggestion) => setEditingDraft((current) =>
+                              current?.id === translation.id ? { ...current, text: suggestion } : current)} />}
                           <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               type="button"

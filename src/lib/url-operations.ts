@@ -39,6 +39,14 @@ export function glossaryRuleVersion(rules: ReadonlyArray<{ id: string; updatedAt
   return createUrlOperationFingerprint(rules.map((rule) => [rule.id, rule.updatedAt.toISOString()]).sort((a, b) => a[0].localeCompare(b[0])));
 }
 
+/** Bind the exact ordered terms and matching mode used to protect dispatch text. */
+export function glossaryDispatchFingerprint(rules: ReadonlyArray<{
+  id: string; originalTerm: string; translatedTerm: string; caseSensitive: boolean; updatedAt: Date;
+}>) {
+  return createUrlOperationFingerprint(rules.map((rule) => [rule.id, rule.originalTerm,
+    rule.translatedTerm, rule.caseSensitive, rule.updatedAt.toISOString()]));
+}
+
 /** HTTP status alone never proves that an accepted provider request was free. */
 export function managerProviderOutcome(input: { providerDispatched: boolean; receiptPersisted: boolean; responseStatus: number }) {
   if (input.receiptPersisted) return "completed" as const;

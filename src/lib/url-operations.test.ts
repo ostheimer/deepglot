@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "./url-operations";
+import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryDispatchFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "./url-operations";
 
 test("URL deletion protects shared, manual, and reviewed segments", () => {
   assert.equal(classifyUrlTranslation({ isManual: false, workflowStatus: "MACHINE", paths: ["/one"] }, "/one"), "delete");
@@ -36,4 +36,7 @@ test("glossary revisions are order-independent but reject a new matching rule", 
   assert.equal(glossaryRuleVersion([first, second]), glossaryRuleVersion([second, first]));
   assert.notEqual(glossaryRuleVersion([first]), glossaryRuleVersion([first, second]));
   assert.notEqual(glossaryRuleVersion([first]), glossaryRuleVersion([{ ...first, updatedAt: second.updatedAt }]));
+  const dispatchRule = { ...first, originalTerm: "Quelle", translatedTerm: "Source", caseSensitive: false };
+  assert.notEqual(glossaryDispatchFingerprint([dispatchRule]),
+    glossaryDispatchFingerprint([{ ...dispatchRule, translatedTerm: "Origin" }]));
 });

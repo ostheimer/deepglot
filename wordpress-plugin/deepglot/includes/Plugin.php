@@ -30,6 +30,7 @@ use Deepglot\Frontend\WooCommerceEmailTranslator;
 use Deepglot\Frontend\WpRocketCompat;
 use Deepglot\Support\SiteRouting;
 use Deepglot\Support\RequestInput;
+use Deepglot\Support\SourceInventoryQueue;
 use Deepglot\Support\TranslationCache;
 use Deepglot\Support\TranslationWarmer;
 use Deepglot\Support\UrlLanguageResolver;
@@ -62,6 +63,7 @@ class Plugin
         $this->container->get(RestApi::class)->register();
         $this->container->get(SettingsSync::class)->register();
         $this->container->get(TranslationWarmer::class)->register();
+        $this->container->get(SourceInventoryQueue::class)->register();
         $this->container->get(UrlTranslationSync::class)->register();
         add_action('plugins_loaded', [$this, 'refreshRuntimeRouting'], 0);
         $this->container->get(RequestRouter::class)->register();
@@ -295,6 +297,10 @@ class Plugin
             );
         });
 
+        $this->container->singleton(SourceInventoryQueue::class, function (Container $c) {
+            return new SourceInventoryQueue($c->get(Client::class), $c->get(Options::class));
+        });
+
         $this->container->singleton(UrlTranslationSync::class, function (Container $c) {
             return new UrlTranslationSync(
                 $c->get(Options::class),
@@ -310,7 +316,8 @@ class Plugin
                 $c->get(Options::class),
                 $c->get(TranslationCache::class),
                 new JsonLdTranslator($c->get(SiteRouting::class)),
-                $c->get(TranslationWarmer::class)
+                $c->get(TranslationWarmer::class),
+                [$c->get(SourceInventoryQueue::class), 'recordSourceInventory']
             );
         });
 

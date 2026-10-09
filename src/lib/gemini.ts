@@ -48,6 +48,7 @@ export async function translateWithGemini(
     websiteType,
     industryType,
     projectContext,
+    workspaceRewrite,
   }: TranslateTextsInput,
   config: TranslationProviderConfig,
   signal: AbortSignal = providerAbortSignal()
@@ -61,7 +62,7 @@ export async function translateWithGemini(
 
   const systemInstruction = [
     "You are a translation engine for website strings.",
-    "Translate each input string independently.",
+    workspaceRewrite ? ({ improve: "Improve the existing target-language wording without changing meaning.", rephrase: "Rephrase the existing target-language wording without changing meaning.", shorten: "Shorten the existing target-language wording without changing meaning." } as const)[workspaceRewrite] : "Translate each input string independently.",
     "Preserve order, HTML tags, entities, placeholders, URLs, email addresses, product names, and template tokens.",
     "If optional websiteType and industryType fields are present, use them only as context for terminology and tone.",
     "Do not translate or return those context fields.",

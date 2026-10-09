@@ -118,6 +118,8 @@ test(
     assert.equal(manuallyEdited.isManual, true);
     assert.equal(manuallyEdited.source, "MANUAL");
     assert.equal(manuallyEdited.workflowStatus, "MACHINE");
+    assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), 1,
+      "manual content edit must invalidate the WordPress translation transient");
     await testContext.test("records workspace edits for activity digests", async () => {
       assert.deepEqual(
         await db.translationBatchLog.findFirst({
@@ -385,6 +387,9 @@ test(
       (error) =>
         error instanceof TranslationWorkflowError && error.code === "FORBIDDEN",
     );
+    const invalidationsBeforeDelete = await db.urlCacheInvalidation.count({
+      where: { projectId: project.id },
+    });
     await deleteProjectTranslation({
       projectId: project.id,
       translationId: deleteCandidate.id,
@@ -395,6 +400,8 @@ test(
       await db.translation.count({ where: { id: deleteCandidate.id } }),
       0,
     );
+    assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }),
+      invalidationsBeforeDelete + 1);
     assert.equal(
       await db.webhookDelivery.count({
         where: { projectId: project.id, eventType: "translation.deleted" },

@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { canAccessProject, canAccessProjectLanguage } from "@/lib/project-access-policy";
+import { glossaryDispatchFingerprint } from "@/lib/url-operations";
+import { buildTranslationContext } from "@/lib/translation-context-settings";
 import {
   AiBudgetError, conservativeInputUnits, quotedMicros, spendWithinCap, utcPeriodKey,
   type ApprovedPrice, type AiPriceUnit,
@@ -20,6 +22,9 @@ export type AiSpendAttempt = {
   sourceLang?: string;
   targetLang?: string;
   expectedSettingsUpdatedAt?: string | null;
+  expectedGlossaryFingerprint?: string;
+  expectedProjectContext?: string | null;
+  contextSourceTexts?: readonly string[];
   action: string;
   provider: string;
   model: string;
@@ -37,7 +42,7 @@ export type AiSpendApproval = {
 
 export async function preflightAiSpend(input: {
   organizationId: string; projectId: string; provider: string; model: string;
-  inputUnits: number; outputUnits: number;
+  inputUnits?: number; outputUnits?: number; dispatchInput?: unknown;
 }) {
   const project = await db.project.findFirst({
     where: { id: input.projectId, organizationId: input.organizationId }, select: { id: true },
@@ -57,9 +62,13 @@ export async function preflightAiSpend(input: {
   const orgPrice = approvedPrice(organizationBudget, input.provider, input.model);
   const projectPrice = approvedPrice(projectBudget, input.provider, input.model);
   if (orgPrice.unit !== projectPrice.unit) throw new AiBudgetError("price_ambiguous", "Approved price units do not match.");
+  const inputUnits = input.dispatchInput === undefined
+    ? input.inputUnits : conservativeInputUnits(input.dispatchInput, orgPrice.unit);
+  const outputUnits = input.outputUnits ?? Math.min(orgPrice.maxOutputUnits, projectPrice.maxOutputUnits);
+  if (inputUnits === undefined) throw new AiBudgetError("estimate_unbounded", "No dispatch input bound was provided.");
   const now = new Date();
-  const orgQuote = quotedMicros(orgPrice, input.inputUnits, input.outputUnits, now);
-  const projectQuote = quotedMicros(projectPrice, input.inputUnits, input.outputUnits, now);
+  const orgQuote = quotedMicros(orgPrice, inputUnits, outputUnits, now);
+  const projectQuote = quotedMicros(projectPrice, inputUnits, outputUnits, now);
   const estimatedMaxMicros = orgQuote > projectQuote ? orgQuote : projectQuote;
   const periodKey = utcPeriodKey(now);
   const { organizationMicros: orgCommitted, projectMicros: projectCommitted } =
@@ -70,13 +79,68 @@ export async function preflightAiSpend(input: {
     spendWithinCap(projectCommitted, estimatedMaxMicros, projectBudget.capMicros);
   return {
     allowed, code: allowed ? "approved_estimate" : "budget_exhausted",
-    currency: organizationBudget.currency, unit: orgPrice.unit,
+    currency: organizationBudget.currency, unit: orgPrice.unit, inputUnits, outputUnits,
     estimatedMaxMicros: estimatedMaxMicros.toString(), periodKey,
     organizationRemainingMicros: (organizationBudget.capMicros - orgCommitted).toString(),
     projectRemainingMicros: (projectBudget.capMicros - projectCommitted).toString(),
     platformCredits: false, paidFeatureActivation: false, externalProviderCost: orgPrice.unit !== "ZERO_COST",
     note: "Read-only estimate. Dispatch repeats authorization and atomically reserves the conservative ceiling.",
   };
+}
+
+/** One read-only policy snapshot for the complete bounded provider action. */
+export async function preflightAiSpendBatch(input: {
+  organizationId: string; projectId: string;
+  attempts: ReadonlyArray<{ provider: string; model: string; dispatchInput: unknown }>;
+}) {
+  return db.$transaction((tx) => preflightAiSpendBatchInTransaction(tx, input),
+    { isolationLevel: "RepeatableRead", timeout: 15_000 });
+}
+
+/** Caller-held snapshot supports related read-only previews and concurrent-policy tests. */
+export async function preflightAiSpendBatchInTransaction(tx: Prisma.TransactionClient, input: {
+  organizationId: string; projectId: string;
+  attempts: ReadonlyArray<{ provider: string; model: string; dispatchInput: unknown }>;
+}) {
+    const project = await tx.project.findFirst({ where: { id: input.projectId,
+      organizationId: input.organizationId }, select: { id: true } });
+    if (!project) throw new AiBudgetError("project_changed", "Project ownership changed.");
+    const budgets = await tx.aiBudget.findMany({ where: { organizationId: input.organizationId,
+      OR: [{ projectId: null }, { projectId: input.projectId }] }, include: { models: true } });
+    const organizationBudget = budgets.find((item) => item.projectId === null);
+    const projectBudget = budgets.find((item) => item.projectId === input.projectId);
+    if (!organizationBudget || !projectBudget)
+      throw new AiBudgetError("budget_unapproved", "Both organization and project budgets require owner approval.");
+    if (organizationBudget.currency !== projectBudget.currency ||
+        organizationBudget.period !== "MONTHLY_UTC" || projectBudget.period !== "MONTHLY_UTC")
+      throw new AiBudgetError("budget_ambiguous", "Budget currency or period does not match.");
+    const now = new Date();
+    const periodKey = utcPeriodKey(now);
+    const { organizationMicros, projectMicros } = await readAiSpendTotals(tx,
+      input.organizationId, input.projectId, periodKey, organizationBudget.currency);
+    let total = BigInt(0);
+    let allCallsAllowed = true;
+    const attempts = input.attempts.map((attempt) => {
+      const orgPrice = approvedPrice(organizationBudget, attempt.provider, attempt.model);
+      const projectPrice = approvedPrice(projectBudget, attempt.provider, attempt.model);
+      if (orgPrice.unit !== projectPrice.unit)
+        throw new AiBudgetError("price_ambiguous", "Approved price units do not match.");
+      const inputUnits = conservativeInputUnits(attempt.dispatchInput, orgPrice.unit);
+      const outputUnits = Math.min(orgPrice.maxOutputUnits, projectPrice.maxOutputUnits);
+      const orgQuote = quotedMicros(orgPrice, inputUnits, outputUnits, now);
+      const projectQuote = quotedMicros(projectPrice, inputUnits, outputUnits, now);
+      const ceiling = orgQuote > projectQuote ? orgQuote : projectQuote;
+      total += ceiling;
+      allCallsAllowed &&= ceiling <= organizationBudget.perCallCapMicros &&
+        ceiling <= projectBudget.perCallCapMicros;
+      return { provider: attempt.provider, model: attempt.model, inputUnits,
+        outputUnits, maxMicros: ceiling.toString(), unit: orgPrice.unit };
+    });
+    const allowed = allCallsAllowed &&
+      spendWithinCap(organizationMicros, total, organizationBudget.capMicros) &&
+      spendWithinCap(projectMicros, total, projectBudget.capMicros);
+    return { allowed, attempts, maxMicros: total.toString(), currency: organizationBudget.currency,
+      code: allowed ? "approved_estimate" : "budget_exhausted" };
 }
 
 function approvedPrice(budget: BudgetWithModels, provider: string, model: string): ApprovedPrice {
@@ -142,14 +206,19 @@ export async function lockAiSpendScope(tx: Prisma.TransactionClient, organizatio
 }
 
 export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendApproval> {
+  return db.$transaction((tx) => reserveAiSpendInTransaction(tx, attempt));
+}
+
+/** Reuse the caller's Organization→Project transaction for an atomic dispatch marker. */
+export async function reserveAiSpendInTransaction(tx: Prisma.TransactionClient,
+  attempt: AiSpendAttempt, scopeAlreadyLocked = false): Promise<AiSpendApproval> {
   if (!attempt.requestKey || !attempt.requestGroupKey || !attempt.dispatchId || !attempt.actorId || !attempt.projectId || !attempt.organizationId ||
       !attempt.action || !attempt.provider || !attempt.model) {
     throw new AiBudgetError("budget_unavailable", "Spend identity is incomplete.");
   }
   const requestKeyHash = crypto.createHash("sha256").update(attempt.requestKey).digest("hex");
   const requestGroupHash = crypto.createHash("sha256").update(attempt.requestGroupKey).digest("hex");
-  return db.$transaction(async (tx) => {
-    await lockAiSpendScope(tx, attempt.organizationId, attempt.projectId);
+  if (!scopeAlreadyLocked) await lockAiSpendScope(tx, attempt.organizationId, attempt.projectId);
     const now = new Date();
     if (attempt.actorKind === "API_KEY") {
       const keys = await tx.$queryRaw<Array<{ id: string; projectId: string; isActive: boolean; expiresAt: Date | null }>>`
@@ -179,20 +248,42 @@ export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendAp
         : canAccessProject(access) && projectMember?.role !== "TRANSLATOR";
       if (!allowed) throw new AiBudgetError("actor_revoked", "The user no longer has access to this project and language.");
     }
-    if (attempt.action === "TRANSLATION") {
+    if (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION", "PDF_TRANSLATION", "AI_EDIT"].includes(attempt.action)) {
       if (!attempt.sourceLang || !attempt.targetLang) {
         throw new AiBudgetError("project_changed", "Translation language scope is missing.");
       }
       const project = await tx.project.findUnique({
         where: { id: attempt.projectId },
-        select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true } },
-          settings: { select: { automaticTranslation: true, updatedAt: true } } },
+        select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true, automaticTranslation: true } },
+          settings: true },
       });
       if (!project || project.originalLang.toLowerCase() !== attempt.sourceLang.toLowerCase() ||
           !project.languages.some((language) => language.langCode.toLowerCase() === attempt.targetLang!.toLowerCase()) ||
-          project.settings?.automaticTranslation === false ||
+          (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION"].includes(attempt.action) &&
+            (project.settings?.automaticTranslation === false ||
+              project.languages.find((language) => language.langCode.toLowerCase() === attempt.targetLang!.toLowerCase())?.automaticTranslation === false)) ||
+          project.settings?.providerReconnectRequired === true ||
           (attempt.expectedSettingsUpdatedAt ?? null) !== (project.settings?.updatedAt.toISOString() ?? null)) {
         throw new AiBudgetError("project_changed", "Translation configuration changed before provider dispatch.");
+      }
+      if (["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION"].includes(attempt.action) &&
+          attempt.expectedGlossaryFingerprint !== undefined) {
+        const rules = await tx.glossaryRule.findMany({ where: { projectId: attempt.projectId,
+          langFrom: attempt.sourceLang, langTo: attempt.targetLang },
+          orderBy: [{ originalTerm: "desc" }, { updatedAt: "desc" }] });
+        if (glossaryDispatchFingerprint(rules) !== attempt.expectedGlossaryFingerprint)
+          throw new AiBudgetError("project_changed", "Glossary changed before provider dispatch.");
+        const examples = project.settings?.useApprovedTranslationsAsContext
+          ? await tx.translation.findMany({ where: { projectId: attempt.projectId,
+              langFrom: attempt.sourceLang, langTo: attempt.targetLang,
+              OR: [{ isManual: true }, { workflowStatus: "APPROVED" }] },
+            orderBy: { updatedAt: "desc" }, take: 12,
+            select: { originalText: true, translatedText: true } })
+          : [];
+        const currentContext = buildTranslationContext({ settings: project.settings,
+          texts: attempt.contextSourceTexts ?? [], glossaryRules: rules, examples });
+        if ((currentContext ?? null) !== (attempt.expectedProjectContext ?? null))
+          throw new AiBudgetError("project_changed", "Approved translation context changed before provider dispatch.");
       }
     }
     const priorGroup = await tx.aiSpendReservation.findFirst({
@@ -269,7 +360,6 @@ export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendAp
       reservedMicros: reservation.reservedMicros.toString(), inputUnits,
       maxOutputUnits, unit: orgPrice.unit,
     };
-  });
 }
 
 /** Missing, malformed or unexpectedly high usage remains charged at the hold. */

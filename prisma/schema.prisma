@@ -267,6 +267,7 @@ model Project {
   urlOperationReceipts UrlOperationReceipt[]
   pageViews      PageView[]
   settings       ProjectSettings?
+  sourcePageSnapshots SourcePageSnapshot[]
   members        ProjectMember[]
   invitations    ProjectInvitation[]
   domainMappings ProjectDomainMapping[]
@@ -529,6 +530,28 @@ model TranslationContext {
 
   @@id([translationId, urlPath])
   @@index([urlPath])
+}
+
+// Latest bounded server-rendered source observation for one translated page.
+// Absence is meaningful only while complete, fresh and free of dynamic content.
+model SourcePageSnapshot {
+  id String @id @default(cuid())
+  projectId String
+  urlPath String
+  langFrom String
+  langTo String
+  originalHashes String[] @default([])
+  complete Boolean
+  dynamicPossible Boolean
+  provenance String
+  contentDigest String
+  clientCapturedMicros BigInt
+  uncertainUntil DateTime?
+  capturedAt DateTime @default(now())
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, urlPath, langTo])
+  @@index([projectId, langTo, capturedAt])
 }
 
 enum TranslationSource {

@@ -636,6 +636,16 @@ class Client
         );
     }
 
+    /** Called only by the bounded source-observation cron, never page output. */
+    public function sendSourceInventory(array $payload): bool
+    {
+        if (!$this->options->isEnabled() || !$this->options->isConfigured()) return false;
+        $result = $this->request('POST', '/plugin/source-inventory', $payload,
+            null, 2, null, ['Authorization' => 'Bearer ' . trim($this->options->getApiKey())]);
+        return !is_wp_error($result) && is_array($result)
+            && ($result['accepted'] ?? false) === true;
+    }
+
     private function request(
         string $method,
         string $path,

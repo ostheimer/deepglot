@@ -1,7 +1,18 @@
 import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
+import crypto from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { extractText, getDocumentProxy } from "unpdf";
 
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
+import { buildTranslationContext } from "@/lib/translation-context-settings";
+import { preflightTranslationAction } from "@/lib/ai-action-preflight";
+import { AiBudgetError } from "@/lib/ai-budget-math";
+import { lockAiSpendScope, reserveAiSpendInTransaction, settleAiSpend } from "@/lib/ai-budget";
+import { currentAiBudgetEnforcementState, selectAiBudgetSpendControl } from "@/lib/ai-budget-enforcement";
+import { buildFallbackProviderChain, resolveTranslationProviderConfig,
+  validateTranslationProviderConfig } from "@/lib/translation-config";
+import type { TranslationContextSettings } from "@/lib/translation-context-settings";
+import type { TranslateTextsInput } from "@/lib/translation-types";
 import { sanitizeFilenamePart } from "@/lib/import-export";
 import {
   canAccessProject,
@@ -12,6 +23,7 @@ import {
   consumeTranslateWordVelocity,
   getTranslateWordVelocityPolicy,
   reportTranslateVelocityOutcome,
+  releaseTranslateWordVelocity,
 } from "@/lib/rate-limit";
 import { shouldRejectTranslateRequest } from "@/lib/translate-quota";
 import {
@@ -62,6 +74,9 @@ export type TranslateProjectPdfInput = {
   projectId: string;
   langTo: string;
   file: PdfUpload;
+  requestKey?: string;
+  previewFingerprint?: string;
+  previewExpiresAt?: string;
 };
 
 export type PdfTranslationDependencies = {
@@ -341,6 +356,105 @@ function buildOutputFilename(sourceFilename: string, langTo: string) {
   return `${safeBase}-deepglot-${safeLanguage}.pdf`;
 }
 
+async function pdfDispatchInput(db: typeof import("@/lib/db").db | Prisma.TransactionClient, projectId: string,
+  sourceLang: string, targetLang: string, settings: TranslationContextSettings | null,
+  pages: string[]): Promise<TranslateTextsInput> {
+  const [rules, examples] = await Promise.all([
+    settings?.useGlossaryAsContext ? db.glossaryRule.findMany({ where: {
+      projectId, langFrom: sourceLang, langTo: targetLang },
+      select: { originalTerm: true, translatedTerm: true } }) : [],
+    settings?.useApprovedTranslationsAsContext ? db.translation.findMany({ where: {
+      projectId, langFrom: sourceLang, langTo: targetLang,
+      OR: [{ isManual: true }, { workflowStatus: "APPROVED" }] },
+      orderBy: { updatedAt: "desc" }, take: 12,
+      select: { originalText: true, translatedText: true } }) : [],
+  ]);
+  const context = buildTranslationContext({ settings, texts: pages, glossaryRules: rules,
+    examples });
+  return { texts: pages, sourceLang, targetLang,
+    ...(context ? { projectContext: context } : {}) };
+}
+
+async function prepareProjectPdf(input: TranslateProjectPdfInput) {
+  const langTo = input.langTo.trim().toLowerCase();
+  const access = await getProjectAccess(input.userId, input.projectId);
+  if (!access || !canAccessProject(access))
+    throw new PdfTranslationError("Project not found.", "project_not_found", 404);
+  if (!canAccessProjectLanguage(access, langTo))
+    throw new PdfTranslationError("You are not authorized to translate this language.", "language_forbidden", 403);
+  const { db } = await import("@/lib/db");
+  const project = await db.project.findUnique({
+    where: { id: input.projectId },
+    include: { languages: { where: { isActive: true } }, settings: true,
+      organization: { include: { subscription: true } } },
+  });
+  if (!project) throw new PdfTranslationError("Project not found.", "project_not_found", 404);
+  if (!langTo || !project.languages.some((language) => language.langCode.toLowerCase() === langTo))
+    throw new PdfTranslationError("Choose an active target language for this project.", "language_not_active", 400);
+  validatePdfUpload(input.file);
+  const fileBytes = new Uint8Array(await input.file.arrayBuffer());
+  const parsed = await parsePdfText(fileBytes);
+  const dispatchInput = await pdfDispatchInput(db, project.id, project.originalLang,
+    langTo, project.settings, parsed.pages);
+  return { db, project, parsed, dispatchInput, langTo,
+    fileDigest: crypto.createHash("sha256").update(fileBytes).digest("hex") };
+}
+
+async function pdfPreviewFingerprint(input: TranslateProjectPdfInput,
+  prepared: Awaited<ReturnType<typeof prepareProjectPdf>>, expiresAt: string) {
+  const revisions = await prepared.db.aiBudget.findMany({ where: {
+    organizationId: prepared.project.organizationId,
+    OR: [{ projectId: null }, { projectId: prepared.project.id }],
+  }, select: { projectId: true, revision: true, updatedAt: true }, orderBy: { id: "asc" } });
+  return crypto.createHash("sha256").update(JSON.stringify({
+    organizationId: prepared.project.organizationId, projectId: prepared.project.id,
+    userId: input.userId, requestKey: input.requestKey,
+    fileDigest: prepared.fileDigest, targetLang: prepared.langTo,
+    dispatchInput: prepared.dispatchInput,
+    settingsUpdatedAt: prepared.project.settings?.updatedAt.toISOString() ?? null,
+    effectiveChain: buildFallbackProviderChain(
+      resolveTranslationProviderConfig({ settings: prepared.project.settings }), process.env,
+    ).map((candidate) => ({ provider: candidate.provider, model: candidate.model,
+      baseUrl: candidate.baseUrl })),
+    revisions, expiresAt,
+  })).digest("hex");
+}
+
+/** Read-only preview of exactly the PDF input and configured fallback chain used at dispatch. */
+export async function previewProjectPdf(input: TranslateProjectPdfInput) {
+  const prepared = await prepareProjectPdf(input);
+  if (!input.requestKey || !/^[A-Za-z0-9_.:-]{8,128}$/.test(input.requestKey))
+    throw new PdfTranslationError("A stable request key is required for PDF preview.", "idempotency_key_required", 400);
+  const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+  const active = currentAiBudgetEnforcementState() === "active";
+  const { getUsageMonthKey } = await import("@/lib/translation-batches");
+  const wordsLimit = getEffectiveWordsLimit(prepared.project.organization.subscription);
+  const wordsUsed = (await prepared.db.usageRecord.aggregate({ where: {
+    organizationId: prepared.project.organizationId, month: getUsageMonthKey(),
+  }, _sum: { words: true } }))._sum.words ?? 0;
+  const wordQuotaAllowed = !shouldRejectTranslateRequest({ wordsUsed, wordsLimit,
+    pendingWordCount: prepared.parsed.wordCount, quotaProbe: false });
+  let quote: Awaited<ReturnType<typeof preflightTranslationAction>> | null = null;
+  let code: string | null = null;
+  try {
+    quote = await preflightTranslationAction({ organizationId: prepared.project.organizationId,
+      projectId: prepared.project.id, dispatchInput: prepared.dispatchInput,
+      settings: prepared.project.settings });
+  } catch (error) {
+    if (!(error instanceof AiBudgetError)) throw error;
+    code = error.code;
+  }
+  return { fingerprint: await pdfPreviewFingerprint(input, prepared, expiresAt),
+    expiresAt, pageCount: prepared.parsed.totalPages, wordCount: prepared.parsed.wordCount,
+    budget: quote ? { ...quote, allowed: active ? quote.allowed : null, previewOnly: !active }
+      : { allowed: active ? false : null, previewOnly: !active,
+        code: code ?? "budget_unavailable", attempts: [], maxMicros: null, currency: null },
+    canRun: wordQuotaAllowed && (!active || quote?.allowed === true),
+    wordQuota: { used: wordsUsed, limit: wordsLimit, pending: prepared.parsed.wordCount,
+      allowed: wordQuotaAllowed },
+    platformCredits: false };
+}
+
 export async function translateProjectPdf(
   input: TranslateProjectPdfInput,
   dependencies: PdfTranslationDependencies = {}
@@ -359,64 +473,31 @@ export async function translateProjectPdf(
       ? [dependencies.providerBudgetSignal]
       : []),
   ]);
-  const langTo = input.langTo.trim().toLowerCase();
-  const access = await getProjectAccess(input.userId, input.projectId);
+  const prepared = await prepareProjectPdf(input);
+  const { db, project, parsed, dispatchInput, langTo } = prepared;
 
-  if (!access || !canAccessProject(access)) {
-    throw new PdfTranslationError(
-      "Project not found.",
-      "project_not_found",
-      404
-    );
+  const { getUsageMonthKey, incrementUsageRecord, recordTranslationBatch } =
+    await import("@/lib/translation-batches");
+  const enforcement = currentAiBudgetEnforcementState();
+  if (enforcement === "active") {
+    const expiresAt = input.previewExpiresAt;
+    if (!expiresAt || !Number.isFinite(Date.parse(expiresAt)) ||
+        Date.parse(expiresAt) <= Date.now() || Date.parse(expiresAt) > Date.now() + 15 * 60_000 ||
+        !input.previewFingerprint ||
+        input.previewFingerprint !== await pdfPreviewFingerprint(input, prepared, expiresAt))
+      throw new PdfTranslationError("The PDF preview changed or expired. Preview again.", "pdf_preview_stale", 409);
+    let quote: Awaited<ReturnType<typeof preflightTranslationAction>>;
+    try {
+      quote = await preflightTranslationAction({ organizationId: project.organizationId,
+        projectId: project.id, dispatchInput, settings: project.settings });
+    } catch (error) {
+      if (error instanceof AiBudgetError)
+        throw new PdfTranslationError(error.message, error.code, 409);
+      throw error;
+    }
+    if (!quote.allowed) throw new PdfTranslationError("The approved AI budget is insufficient.",
+      "budget_exhausted", 409);
   }
-
-  if (!canAccessProjectLanguage(access, langTo)) {
-    throw new PdfTranslationError(
-      "You are not authorized to translate this language.",
-      "language_forbidden",
-      403
-    );
-  }
-
-  const [
-    { db },
-    { getUsageMonthKey, incrementUsageRecord, recordTranslationBatch },
-  ] = await Promise.all([
-    import("@/lib/db"),
-    import("@/lib/translation-batches"),
-  ]);
-  const project = await db.project.findUnique({
-    where: { id: input.projectId },
-    include: {
-      languages: { where: { isActive: true } },
-      settings: true,
-      organization: { include: { subscription: true } },
-    },
-  });
-
-  if (!project) {
-    throw new PdfTranslationError(
-      "Project not found.",
-      "project_not_found",
-      404
-    );
-  }
-
-  if (
-    !langTo ||
-    !project.languages.some(
-      (language) => language.langCode.toLowerCase() === langTo
-    )
-  ) {
-    throw new PdfTranslationError(
-      "Choose an active target language for this project.",
-      "language_not_active",
-      400
-    );
-  }
-
-  validatePdfUpload(input.file);
-  const parsed = await parsePdfText(new Uint8Array(await input.file.arrayBuffer()));
   const currentMonth = getUsageMonthKey();
   const wordsLimit = getEffectiveWordsLimit(project.organization.subscription);
   const usage = await db.usageRecord.aggregate({
@@ -482,21 +563,58 @@ export async function translateProjectPdf(
 
   const translate = dependencies.translateTexts ?? translateTexts;
   const provider = resolveTranslationProvider(undefined, project.settings);
+  if (enforcement === "active" && (!input.requestKey || !/^[A-Za-z0-9_.:-]{8,128}$/.test(input.requestKey))) {
+    await releaseTranslateWordVelocity({ organizationId: project.organizationId,
+      words: parsed.wordCount, reservationResetAt: velocity.resetAt });
+    throw new PdfTranslationError("A stable request key is required for budgeted PDF translation.",
+      "idempotency_key_required", 400);
+  }
+  const requestGroupKey = `${project.id}:pdf:${input.requestKey}`;
+  const dispatchId = crypto.randomUUID();
+  let attemptNumber = 0;
+  let spendStarted = false;
   let translatedPages: string[];
 
   try {
     const results = await translate(
-      {
-        texts: parsed.pages,
-        sourceLang: project.originalLang,
-        targetLang: langTo,
-      },
+      dispatchInput,
       undefined,
       project.settings,
       {
         maxRequestTimeoutMs: PDF_TRANSLATION_REQUEST_TIMEOUT_MS,
         signal: providerBudgetSignal,
         deadlineAt: providerBudgetDeadlineAt,
+        spendControl: selectAiBudgetSpendControl(enforcement, {
+          beforeAttempt: async (candidate, attemptInput) => {
+            validateTranslationProviderConfig(candidate);
+            const approval = await db.$transaction(async (tx) => {
+              await lockAiSpendScope(tx, project.organizationId, project.id);
+              const currentSettings = await tx.projectSettings.findUnique({ where: { projectId: project.id } });
+              if ((currentSettings?.updatedAt.toISOString() ?? null) !==
+                  (project.settings?.updatedAt.toISOString() ?? null))
+                throw new AiBudgetError("project_changed", "PDF settings changed before provider dispatch.");
+              const currentInput = await pdfDispatchInput(tx, project.id, project.originalLang,
+                langTo, currentSettings, parsed.pages);
+              if (JSON.stringify(currentInput) !== JSON.stringify(dispatchInput))
+                throw new AiBudgetError("project_changed", "PDF glossary or examples changed before provider dispatch.");
+              return reserveAiSpendInTransaction(tx, {
+              organizationId: project.organizationId, projectId: project.id,
+              requestGroupKey, dispatchId,
+              requestKey: `${requestGroupKey}:${attemptNumber++}`,
+              actorKind: "USER", actorId: input.userId, action: "PDF_TRANSLATION",
+              sourceLang: project.originalLang, targetLang: langTo,
+              expectedSettingsUpdatedAt: project.settings?.updatedAt.toISOString() ?? null,
+              provider: candidate.provider, model: candidate.model || candidate.provider,
+              input: attemptInput,
+              }, true);
+            });
+            spendStarted = true;
+            return { maxOutputUnits: approval.maxOutputUnits,
+              settle: async (usage?: { inputUnits: number; outputUnits: number }) => {
+                await settleAiSpend(approval.reservationId, usage);
+              } };
+          },
+        }),
       }
     );
 
@@ -508,6 +626,11 @@ export async function translateProjectPdf(
     }
     translatedPages = results.map((result) => result.text.trim());
   } catch (error) {
+    if (!spendStarted && enforcement === "active")
+      await releaseTranslateWordVelocity({ organizationId: project.organizationId,
+        words: parsed.wordCount, reservationResetAt: velocity.resetAt }).catch(() => {});
+    if (error instanceof AiBudgetError)
+      throw new PdfTranslationError(error.message, error.code, 409);
     if (error instanceof TranslationCountMismatchDeadlineError) {
       throw new PdfTranslationError(
         error.message,

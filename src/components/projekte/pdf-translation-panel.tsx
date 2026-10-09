@@ -14,6 +14,19 @@ type PdfTranslationPanelProps = {
   languages: Array<{ id: string; langCode: string }>;
 };
 
+type PdfPreview = {
+  fingerprint: string;
+  expiresAt: string;
+  pageCount: number;
+  wordCount: number;
+  canRun: boolean;
+  wordQuota: { used: number; limit: number; pending: number; allowed: boolean };
+  budget: { allowed: boolean | null; previewOnly: boolean; code: string;
+    currency: string | null; maxMicros: string | null;
+    attempts: Array<{ provider: string; model: string; inputUnits: number;
+      outputUnits: number; unit: string }> };
+};
+
 function filenameFromDisposition(value: string | null) {
   const match = value?.match(/filename="([^"]+)"/i);
   return match?.[1] ?? "deepglot-translated.pdf";
@@ -26,9 +39,11 @@ export function PdfTranslationPanel({
 }: PdfTranslationPanelProps) {
   const locale = useLocale();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const requestKeyRef = useRef<string | null>(null);
   const [langTo, setLangTo] = useState(languages[0]?.langCode ?? "");
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preview, setPreview] = useState<PdfPreview | null>(null);
   const t = (english: string, german: string) =>
     locale === "de" ? german : english;
 
@@ -93,21 +108,54 @@ export function PdfTranslationPanel({
       "Choose an active project language.",
       "Wähle eine aktive Projektsprache."
     ),
+    pdf_preview_stale: t("The PDF preview changed or expired. Preview again.",
+      "Die PDF-Vorschau hat sich geändert oder ist abgelaufen. Bitte erneut prüfen."),
+    spend_already_dispatched: t("This PDF request reached a provider. Check its result before trying a new request.",
+      "Diese PDF-Anfrage hat den Anbieter erreicht. Prüfe das Ergebnis vor einer neuen Anfrage."),
   };
+
+  function pdfForm(mode: "preview" | "run") {
+    const formData = new FormData();
+    formData.set("file", file!);
+    formData.set("langTo", langTo);
+    formData.set("mode", mode);
+    if (mode === "run" && preview) {
+      formData.set("previewFingerprint", preview.fingerprint);
+      formData.set("previewExpiresAt", preview.expiresAt);
+    }
+    return formData;
+  }
+
+  async function handlePreview() {
+    if (!file || !langTo || isSubmitting) return;
+    setIsSubmitting(true);
+    setPreview(null);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/pdf-translations`, {
+        method: "POST", body: pdfForm("preview"),
+        headers: { "Idempotency-Key": requestKeyRef.current ??= crypto.randomUUID() },
+      });
+      const body = await response.json() as PdfPreview & { error?: string; code?: string };
+      if (!response.ok) {
+        toast.error((body.code && errors[body.code]) || body.error ||
+          t("PDF preview failed.", "PDF-Vorschau fehlgeschlagen."));
+        return;
+      }
+      setPreview(body);
+    } finally { setIsSubmitting(false); }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!file || !langTo || isSubmitting) return;
-
-    const formData = new FormData();
-    formData.set("file", file);
-    formData.set("langTo", langTo);
+    if (!file || !langTo || isSubmitting || !preview?.canRun) return;
+    const formData = pdfForm("run");
     setIsSubmitting(true);
 
     try {
       const response = await fetch(
         `/api/projects/${projectId}/pdf-translations`,
-        { method: "POST", body: formData }
+        { method: "POST", body: formData,
+          headers: { "Idempotency-Key": requestKeyRef.current ??= crypto.randomUUID() } }
       );
 
       if (!response.ok) {
@@ -134,6 +182,8 @@ export function PdfTranslationPanel({
       link.click();
       link.remove();
       URL.revokeObjectURL(downloadUrl);
+      requestKeyRef.current = null;
+      setPreview(null);
 
       toast.success(
         t(
@@ -179,7 +229,7 @@ export function PdfTranslationPanel({
               <select
                 id="pdf-target-language"
                 value={langTo}
-                onChange={(event) => setLangTo(event.target.value)}
+                onChange={(event) => { setLangTo(event.target.value); requestKeyRef.current = null; setPreview(null); }}
                 disabled={languages.length === 0 || isSubmitting}
                 className="mt-2 flex h-10 w-full max-w-sm rounded-md border border-input bg-white px-3 py-2 text-sm"
               >
@@ -206,7 +256,7 @@ export function PdfTranslationPanel({
                 ref={fileInputRef}
                 type="file"
                 accept=".pdf,application/pdf"
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => { setFile(event.target.files?.[0] ?? null); requestKeyRef.current = null; setPreview(null); }}
                 disabled={isSubmitting}
                 className="block w-full max-w-xl text-sm text-gray-600 file:mr-4 file:rounded-md file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
               />
@@ -217,9 +267,32 @@ export function PdfTranslationPanel({
               )}
             </div>
 
+            <Button type="button" variant="outline" onClick={handlePreview}
+              disabled={!file || !langTo || isSubmitting}>
+              {isSubmitting ? t("Checking…", "Wird geprüft…") : t("Preview cost and quota", "Kosten und Kontingent prüfen")}
+            </Button>
+
+            {preview && <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="status">
+              <p>{preview.pageCount} {t("pages", "Seiten")} · {preview.wordCount} {t("words", "Wörter")}</p>
+              <p>{t("Monthly words", "Monatliche Wörter")}: {preview.wordQuota.used} + {preview.wordQuota.pending} / {preview.wordQuota.limit}
+                {!preview.wordQuota.allowed && ` · ${t("quota exceeded", "Kontingent überschritten")}`}</p>
+              <p>{preview.budget.maxMicros !== null && preview.budget.currency
+                ? `${preview.budget.currency} ${(Number(preview.budget.maxMicros) / 1_000_000).toFixed(6)}`
+                : t("No approved cost ceiling is available.", "Keine freigegebene Kostenobergrenze verfügbar.")}</p>
+              <p>{t("Upper bound covers configured providers, fallback attempts and count-mismatch repair. Provider usage may be lower; no platform credits are included.",
+                "Die Obergrenze umfasst konfigurierte Anbieter, Fallback-Versuche und die Korrektur abweichender Antwortzahlen. Die tatsächliche Nutzung kann geringer sein; Plattform-Credits sind nicht enthalten.")}</p>
+              <p>{preview.budget.attempts.map((attempt) => `${attempt.provider}/${attempt.model}: ${attempt.inputUnits} + ${attempt.outputUnits} ${attempt.unit}`).join(" · ")}</p>
+              <p>{preview.budget.previewOnly
+                ? t("Budget enforcement is off: estimate only. Running may incur provider charges under the current project settings.",
+                  "Die Budgetkontrolle ist aus: nur eine Schätzung. Beim Ausführen können gemäß den aktuellen Projekteinstellungen Anbieterkosten entstehen.")
+                : preview.canRun ? t("Approved for this preview. Click to translate.",
+                  "Für diese Vorschau freigegeben. Zum Übersetzen klicken.")
+                  : t(`Not approved: ${preview.budget.code}`, `Nicht freigegeben: ${preview.budget.code}`)}</p>
+            </div>}
+
             <Button
               type="submit"
-              disabled={!file || !langTo || isSubmitting}
+              disabled={!file || !langTo || isSubmitting || !preview?.canRun}
               className="bg-brand-600 hover:bg-brand-700"
             >
               {isSubmitting ? (

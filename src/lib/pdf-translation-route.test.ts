@@ -72,6 +72,46 @@ test("PDF route returns the generated PDF as an attachment", async () => {
   assert.equal(response.headers.get("x-deepglot-pdf-words"), "7");
 });
 
+test("PDF route previews without dispatch and carries the same request key and preview receipt into run", async () => {
+  const calls: string[] = [];
+  const handler = createPdfTranslationPostHandler({
+    getUserId: async () => "user-1",
+    previewProjectPdf: async (input) => {
+      calls.push("preview");
+      assert.equal(input.requestKey, "stable-job-123");
+      return { fingerprint: "preview-fingerprint", expiresAt: "2099-01-01T00:00:00.000Z",
+        canRun: true, pageCount: 1, wordCount: 2, platformCredits: false,
+        budget: { allowed: true, previewOnly: false, attempts: [], maxMicros: "0",
+          currency: "USD", code: "approved_estimate" },
+        wordQuota: { used: 0, limit: 100, pending: 2, allowed: true } };
+    },
+    translateProjectPdf: async (input) => {
+      calls.push("run");
+      assert.equal(input.requestKey, "stable-job-123");
+      assert.equal(input.previewFingerprint, "preview-fingerprint");
+      return { bytes: new Uint8Array([37, 80, 68, 70]), filename: "translated.pdf",
+        pageCount: 1, wordCount: 2 };
+    },
+  });
+  function request(mode: "preview" | "run") {
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "source.pdf", { type: "application/pdf" }));
+    formData.set("langTo", "en");
+    formData.set("mode", mode);
+    if (mode === "run") formData.set("previewFingerprint", "preview-fingerprint");
+    return new NextRequest("http://127.0.0.1/api/projects/project-1/pdf-translations", {
+      method: "POST", body: formData, headers: { "Idempotency-Key": "stable-job-123" },
+    });
+  }
+  const params = { params: Promise.resolve({ projektId: "project-1" }) };
+  const preview = await handler(request("preview"), params);
+  assert.equal(preview.status, 200);
+  assert.equal(preview.headers.get("content-type")?.includes("application/json"), true);
+  const run = await handler(request("run"), params);
+  assert.equal(run.status, 200);
+  assert.deepEqual(calls, ["preview", "run"]);
+});
+
 test("PDF route starts the provider budget before authentication and multipart parsing", async () => {
   const originalTimeout = AbortSignal.timeout;
   const events: string[] = [];

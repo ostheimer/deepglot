@@ -34,6 +34,20 @@ describe("translateWithOpenAICompatible response validation", () => {
     globalThis.fetch = originalFetch;
   });
 
+  it("uses a trusted rewrite instruction for workspace suggestions", async () => {
+    let systemPrompt = "";
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body));
+      systemPrompt = body.messages[0].content;
+      return new Response(JSON.stringify({ choices: [{ message: {
+        content: JSON.stringify({ translations: [{ text: "Hi" }] }),
+      } }] }));
+    }) as typeof fetch;
+    await translateWithOpenAICompatible({ texts: ["Hello"], sourceLang: "en", targetLang: "en",
+      workspaceRewrite: "shorten" }, config);
+    assert.match(systemPrompt, /Shorten the existing target-language wording/);
+  });
+
   it("classifies a JSON null model payload as a provider response error", async () => {
     installModelContent("null");
 

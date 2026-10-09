@@ -327,6 +327,8 @@ test.describe("Phase 6 dashboard flows", () => {
       mimeType: "application/pdf",
       buffer: Buffer.from(sourceBytes),
     });
+    await page.getByRole("button", { name: "Preview cost and quota" }).click();
+    await expect(page.getByRole("status")).toContainText("Budget enforcement is off: estimate only.");
 
     const [download] = await Promise.all([
       page.waitForEvent("download"),

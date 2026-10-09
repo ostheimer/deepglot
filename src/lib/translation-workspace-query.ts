@@ -3,6 +3,7 @@ import type { TranslationWorkflowFilters } from "./translation-workflow";
 import { normalizeTranslationLabel } from "./translation-metadata";
 import { TRANSLATION_TOKEN_PATTERN } from "./translation-quality";
 import { REPORTED_TYPE_GROUPS } from "./translation-reported-types";
+import { sourcePresenceSql } from "./source-page-snapshot-query";
 
 /** One parameterized predicate for both count and page selection. Alias: t. */
 export function workspaceSqlWhere(
@@ -10,6 +11,7 @@ export function workspaceSqlWhere(
   langTo: string | undefined,
   filters: TranslationWorkflowFilters,
   cutoff: Date,
+  sourceNow = new Date(),
 ) {
   const clauses: Prisma.Sql[] = [Prisma.sql`t."projectId" = ${projectId}`];
   if (langTo) clauses.push(Prisma.sql`t."langTo" = ${langTo}`);
@@ -76,7 +78,27 @@ export function workspaceSqlWhere(
           : Prisma.sql`NOT (${known})`,
     );
   }
-  if (filters.quality === "unchecked")
+  if (filters.sourcePresence)
+    clauses.push(Prisma.sql`(${sourcePresenceSql(sourceNow)}) = ${filters.sourcePresence}`);
+  if (filters.quality?.startsWith("all_")) {
+    const source = Prisma.sql`regexp_matches(t."originalText", ${TRANSLATION_TOKEN_PATTERN}, 'g')`;
+    const target = Prisma.sql`regexp_matches(t."translatedText", ${TRANSLATION_TOKEN_PATTERN}, 'g')`;
+    const mismatch = Prisma.sql`EXISTS (
+      WITH source_tokens AS MATERIALIZED (
+        SELECT parts[1] AS token, count(*) AS n FROM ${source} AS s(parts)
+        WHERE parts[1] <> '%%' GROUP BY parts[1]
+      ), target_tokens AS MATERIALIZED (
+        SELECT parts[1] AS token, count(*) AS n FROM ${target} AS s(parts)
+        WHERE parts[1] <> '%%' GROUP BY parts[1]
+      )
+      SELECT 1 FROM source_tokens s FULL OUTER JOIN target_tokens d USING (token)
+      WHERE s.n IS DISTINCT FROM d.n
+    )`;
+    const hasAny = Prisma.sql`(${Prisma.sql`EXISTS (SELECT 1 FROM ${source} AS s(parts) WHERE parts[1] <> '%%')`} OR ${Prisma.sql`EXISTS (SELECT 1 FROM ${target} AS s(parts) WHERE parts[1] <> '%%')`})`;
+    clauses.push(filters.quality === "all_mismatch" ? mismatch :
+      filters.quality === "all_none" ? Prisma.sql`NOT (${hasAny})` :
+      Prisma.sql`(${hasAny} AND NOT (${mismatch}))`);
+  } else if (filters.quality === "unchecked")
     clauses.push(Prisma.sql`NOT (${hasVariables})`);
   else if (filters.quality) {
     // Tokenize in PostgreSQL before pagination; do not load the project into JS.

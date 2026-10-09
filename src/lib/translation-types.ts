@@ -39,6 +39,8 @@ export type TranslateTextsInput = {
   texts: string[];
   sourceLang: string;
   targetLang: string;
+  /** Trusted server-side rewrite action; never accepted from public translation requests. */
+  workspaceRewrite?: "improve" | "rephrase" | "shorten";
   websiteType?: string;
   industryType?: string;
   projectContext?: string;

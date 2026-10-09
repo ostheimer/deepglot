@@ -82,6 +82,34 @@ const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
   "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin and webhooks need reconnecting.": "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin and webhooks need reconnecting.",
 };
 
+// The workspace tools ship English and inline German copy. Other dashboard
+// locales retain explicit English fallback entries until their catalogue pass.
+const WORKSPACE_257_ENGLISH_FALLBACK = Object.fromEntries(([
+  "AI editing action", "Improve with AI", "Rephrase with AI", "Shorten with AI",
+  "Check provider and quota", "input characters", "estimated output characters",
+  "Estimated quota words", "Used / limit",
+  "Approved maximum cost ceiling", "input units", "maximum output units",
+  "No approved provider price ceiling is available.",
+  "Plan words and provider costs are separate. No platform credits are included; the ceiling is not a provider invoice.",
+  "Budget enforcement is inactive. This is a read-only estimate; AI Run is paused.",
+  "The approved AI budget cannot admit this action. Review the provider and budget settings.",
+  "Exact provider price is unavailable; running may incur provider charges and count against quota.",
+  "Run AI now", "Use suggestion in editor",
+  "The translation changes only after you save the editor.",
+  "Selected replacements were saved.", "Search and replace selected text",
+  "Select up to 100 reported text segments. Media and external links are excluded. Preview before saving all changes together.",
+  "Include selected manual and approved text; edits reset review status",
+  "Find literal text", "Replace with", "Preview replacements",
+  "Save previewed replacements", "Select reported text only; include reviewed text explicitly if needed.",
+  "Replacement preview", "Reviewed text: saving resets status to",
+  "Any placeholder mismatch", "All placeholders preserved", "No placeholders detected",
+  "Checks cover selected variables only. Observations exclude local cache hits and do not prove inactivity. All-placeholder filters are separate.",
+  "Captured source-page presence", "All source-page states",
+  "Present in a captured source page", "No longer present in captured source pages",
+  "Source-page presence unknown",
+  "Source-page absence applies only to fresh, complete server-rendered pages captured by WordPress. Dynamic, missing and expired observations are unknown; it does not establish absence from the whole website.",
+] as const).map((key) => [key, key]));
+
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {
   "en": {},
   "de": {
@@ -875,6 +903,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "bg": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -2030,6 +2059,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "hr": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -3185,6 +3215,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "cs": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -4340,6 +4371,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "da": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -5495,6 +5527,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "nl": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -6650,6 +6683,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "et": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -7805,6 +7839,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "fi": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -8960,6 +8995,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "fr": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -10115,6 +10151,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "el": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -11270,6 +11307,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "hu": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -12425,6 +12463,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "ga": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -13580,6 +13619,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "it": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -14735,6 +14775,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "lv": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -15890,6 +15931,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "lt": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -17045,6 +17087,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "mt": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -18200,6 +18243,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "pl": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -19355,6 +19399,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "pt": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -20510,6 +20555,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "ro": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -21665,6 +21711,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "sk": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -22820,6 +22867,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "sl": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -23975,6 +24023,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "es": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -25130,6 +25179,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
   },
   "sv": {
     ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
+    ...WORKSPACE_257_ENGLISH_FALLBACK,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",

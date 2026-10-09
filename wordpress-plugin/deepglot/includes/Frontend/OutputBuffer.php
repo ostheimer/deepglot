@@ -126,7 +126,7 @@ class OutputBuffer
             $html = $translated['html'];
             $editorSegments = $translated['segments'];
         } else {
-            $html = $this->translator->translate($html, $targetLanguage, $requestUrl, $bot);
+            $html = $this->translator->translateSourcePage($html, $targetLanguage, $requestUrl, $bot);
         }
 
         $this->emitUrlSyncDiagnostics($targetLanguage);

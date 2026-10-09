@@ -294,6 +294,11 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     access: "project / language scoped",
   },
   {
+    path: "/api/plugin/source-inventory",
+    sourceFile: "src/app/api/plugin/source-inventory/route.ts",
+    access: "fresh project API key; digest-only complete source-page capture",
+  },
+  {
     path: "/api/projects/[projektId]/translations/[translationId]",
     sourceFile:
       "src/app/api/projects/[projektId]/translations/[translationId]/route.ts",
@@ -303,6 +308,16 @@ export const DASHBOARD_DEVELOPER_SURFACES = [
     path: "/api/projects/[projektId]/translations/bulk",
     sourceFile: "src/app/api/projects/[projektId]/translations/bulk/route.ts",
     access: "atomic assignment / review: manager or assigned language translator",
+  },
+  {
+    path: "/api/projects/[projektId]/translations/search-replace",
+    sourceFile: "src/app/api/projects/[projektId]/translations/search-replace/route.ts",
+    access: "project / language scoped; preview fingerprint and atomic content CAS",
+  },
+  {
+    path: "/api/projects/[projektId]/translations/[translationId]/ai-suggestion",
+    sourceFile: "src/app/api/projects/[projektId]/translations/[translationId]/ai-suggestion/route.ts",
+    access: "assigned editor / manager; provider preview then explicit run; suggestion only",
   },
   {
     path: "/api/projects/[projektId]/translations/[translationId]/history",
