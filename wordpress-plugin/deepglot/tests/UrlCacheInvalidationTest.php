@@ -9,8 +9,12 @@ function set_transient(string $key, $value, int $ttl = 0): bool { $GLOBALS['_dg_
 function delete_transient(string $key): bool { if (($GLOBALS['_dg_url_cache_stubborn'] ?? '') === $key) return true; unset($GLOBALS['_dg_url_cache_transients'][$key]); return true; }
 function get_option(string $key, $default = false) { return $GLOBALS['_dg_url_cache_options'][$key] ?? $default; }
 function update_option(string $key, $value, $autoload = null): bool { $GLOBALS['_dg_url_cache_options'][$key] = $value; return true; }
+function untrailingslashit(string $value): string { return rtrim($value, '/'); }
+function is_wp_error($value): bool { return false; }
 
 require_once __DIR__ . '/../includes/Support/TranslationCache.php';
+require_once __DIR__ . '/../includes/Config/Options.php';
+require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Sync/SettingsSync.php';
 
 $cache = new \Deepglot\Support\TranslationCache();
@@ -42,5 +46,43 @@ $apply->invoke($sync, ['cacheInvalidations' => ['entries' => [[
 ]]]], 'test-identity', '1');
 if ($GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] !== $cursor) {
     throw new RuntimeException('A reported successful deletion without transient readback must not advance the cursor.');
+}
+
+class CacheDrainOptions extends \Deepglot\Config\Options {
+    public function getApiKey(): string { return 'test-key'; }
+    public function getApiBaseUrl(): string { return 'https://example.invalid/api'; }
+}
+class CacheDrainClient extends \Deepglot\Api\Client {
+    public int $calls = 0;
+    public string $digest;
+    public function fetchRuntimeConfig(?string $apiKeyOverride = null, ?string $baseUrlOverride = null) {
+        $this->calls++;
+        $record = get_option('deepglot_url_cache_invalidation_cursor', []);
+        $after = (int) ($record['cursor'] ?? 0);
+        $entries = [];
+        for ($id = $after + 1; $id <= min($after + 250, 501); $id++) {
+            $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $this->digest];
+        }
+        return ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => $after + 250 < 501]];
+    }
+}
+$GLOBALS['_dg_url_cache_stubborn'] = '';
+$GLOBALS['_dg_url_cache_options']['deepglot_url_cache_invalidation_cursor'] = [];
+$cache->set('Änderung', 'de', 'en', 'Old');
+$drainOptions = new CacheDrainOptions();
+$drainClient = new CacheDrainClient($drainOptions);
+$drainClient->digest = $digest;
+$drainSync = new \Deepglot\Sync\SettingsSync($drainOptions, $drainClient);
+$identity = \Deepglot\Api\Client::configurationIdentityFor($drainOptions->getApiKey(), $drainOptions->getApiBaseUrl());
+$entries = [];
+for ($id = 1; $id <= 250; $id++) {
+    $entries[] = ['id' => (string) $id, 'urlPath' => '/en/test', 'cacheKey' => $digest];
+}
+$drain = new ReflectionMethod($drainSync, 'drainCacheInvalidations');
+$drain->invoke($drainSync, ['cacheInvalidations' => ['entries' => $entries, 'hasMore' => true]],
+    $identity, '0', null, null);
+$drained = get_option('deepglot_url_cache_invalidation_cursor', []);
+if (($drained['cursor'] ?? '') !== '501' || $drainClient->calls !== 2 || $cache->get('Änderung', 'de', 'en') !== null) {
+    throw new RuntimeException('A 501-entry feed must drain without waiting for the next five-minute refresh.');
 }
 echo "UrlCacheInvalidationTest: OK\n";

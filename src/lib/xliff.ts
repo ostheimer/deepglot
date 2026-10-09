@@ -70,7 +70,7 @@ function children(element: XmlElement): XmlElement[] {
   for (let node = element.firstChild; node; node = node.nextSibling) {
     if (node.nodeType === 1) result.push(node as XmlElement);
     else if (node.nodeType !== 3 && node.nodeType !== 4) throw new XliffError("Unsupported XML node");
-    else if (node.nodeType === 3 && node.nodeValue?.trim()) throw new XliffError("Unexpected text outside a segment");
+    else if ((node.nodeType === 3 || node.nodeType === 4) && node.nodeValue?.trim()) throw new XliffError("Unexpected text outside a segment");
   }
   return result;
 }

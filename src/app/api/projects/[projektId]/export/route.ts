@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import {
@@ -130,13 +131,22 @@ export async function GET(
     if (!canAccessProjectLanguage(access, langTo)) {
       return NextResponse.json({ error: xliffCopy(locale, "Keine Berechtigung für diese Sprache", "No access to this language") }, { status: 403 });
     }
-    const translations = await db.translation.findMany({
-      where: { projectId: projektId, langFrom: project.originalLang, langTo },
-      orderBy: { originalHash: "asc" },
-      select: { originalText: true, translatedText: true, workflowStatus: true, isManual: true },
-      take: XLIFF_MAX_SEGMENTS + 1,
-    });
-    if (translations.length > XLIFF_MAX_SEGMENTS) {
+    const translations = await db.$transaction(async (tx) => {
+      const [size] = await tx.$queryRaw<Array<{ rows: bigint; bytes: bigint }>>`
+        SELECT COUNT(*)::bigint AS rows,
+          COALESCE(SUM(octet_length("originalText") + octet_length("translatedText")), 0)::bigint AS bytes
+        FROM "Translation"
+        WHERE "projectId" = ${projektId} AND "langFrom" = ${project.originalLang} AND "langTo" = ${langTo}
+      `;
+      if (size.rows > BigInt(XLIFF_MAX_SEGMENTS) || size.bytes > BigInt(XLIFF_MAX_BYTES)) return null;
+      return tx.translation.findMany({
+        where: { projectId: projektId, langFrom: project.originalLang, langTo },
+        orderBy: { originalHash: "asc" },
+        select: { originalText: true, translatedText: true, workflowStatus: true, isManual: true },
+        take: XLIFF_MAX_SEGMENTS + 1,
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
+    if (!translations || translations.length > XLIFF_MAX_SEGMENTS) {
       return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 5 MB oder 5000 Segmente", "XLIFF export exceeds 5 MB or 5000 segments") }, { status: 413 });
     }
     let xliff: string;

@@ -14,6 +14,7 @@ class SettingsSync
     private const RUNTIME_REFRESH_LOCK_TTL = 60;
     private const RUNTIME_REFRESH_FAILURE_BACKOFF = 60;
     private const CACHE_INVALIDATION_CURSOR_OPTION = 'deepglot_url_cache_invalidation_cursor';
+    private const MAX_CACHE_INVALIDATION_PAGES = 24;
 
     /** In-process fallback for isolated callers without WordPress option storage. */
     private static ?string $runtimeRefreshProcessLock = null;
@@ -315,7 +316,7 @@ class SettingsSync
         }
 
         if ($applied) {
-            $this->applyCacheInvalidations($runtimeConfig, $identity, $cacheAfter);
+            $this->drainCacheInvalidations($runtimeConfig, $identity, $cacheAfter, $apiKeyOverride, $baseUrlOverride);
             delete_transient(self::RUNTIME_REFRESH_BACKOFF_TRANSIENT);
 
             if ($this->warmer !== null) {
@@ -339,25 +340,53 @@ class SettingsSync
         return $runtimeConfig;
     }
 
+    /** Drain the bounded SaaS feed under the existing refresh lock, including a 5,000-row import. */
+    private function drainCacheInvalidations(
+        array $runtimeConfig,
+        string $identity,
+        string $cursor,
+        ?string $apiKeyOverride,
+        ?string $baseUrlOverride
+    ): void {
+        for ($page = 0; $page < self::MAX_CACHE_INVALIDATION_PAGES; $page++) {
+            if (!$this->applyCacheInvalidations($runtimeConfig, $identity, $cursor)) return;
+            $batch = $runtimeConfig['cacheInvalidations'] ?? null;
+            if (!is_array($batch) || empty($batch['hasMore'])) return;
+            $record = get_option(self::CACHE_INVALIDATION_CURSOR_OPTION, []);
+            if (!is_array($record) || ($record['identity'] ?? '') !== $identity) return;
+            $nextCursor = (string) ($record['cursor'] ?? '');
+            if (preg_match('/^\d{1,20}$/D', $nextCursor) !== 1 || (int) $nextCursor <= (int) $cursor) return;
+            $cursor = $nextCursor;
+            if ($apiKeyOverride === null && $baseUrlOverride === null &&
+                Client::configurationIdentityFor($this->options->getApiKey(), $this->options->getApiBaseUrl()) !== $identity) {
+                return;
+            }
+            $next = $this->client->fetchRuntimeConfig($apiKeyOverride, $baseUrlOverride);
+            if (is_wp_error($next) || !is_array($next)) return;
+            $runtimeConfig = $next;
+        }
+    }
+
     /** Apply only explicit digest events after the matching runtime snapshot was accepted. */
-    private function applyCacheInvalidations(array $runtimeConfig, string $identity, string $cursor): void
+    private function applyCacheInvalidations(array $runtimeConfig, string $identity, string $cursor): bool
     {
         $batch = $runtimeConfig['cacheInvalidations'] ?? null;
         if (!is_array($batch) || !is_array($batch['entries'] ?? null) || count($batch['entries']) > 250) {
-            return;
+            return false;
         }
         $cache = new TranslationCache();
         foreach ($batch['entries'] as $entry) {
-            if (!is_array($entry)) return;
+            if (!is_array($entry)) return false;
             $id = (string) ($entry['id'] ?? '');
             $digest = (string) ($entry['cacheKey'] ?? '');
             if (preg_match('/^\d{1,20}$/D', $id) !== 1 || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1 || (int) $id <= (int) $cursor) {
-                return;
+                return false;
             }
-            if (!$cache->deleteByDigest($digest)) return;
+            if (!$cache->deleteByDigest($digest)) return false;
             $cursor = $id;
             update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $cursor], false);
         }
+        return true;
     }
 
     /** A mapping may occur on any page, so known full-page caches need a site-wide purge. */

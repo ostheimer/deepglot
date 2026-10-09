@@ -47,6 +47,7 @@ test("rejects wrong project, wrong language, duplicate ID and conflicting source
 test("rejects malformed structure, invalid UTF-8, and unsupported inline XLIFF markup", () => {
   assert.throws(() => parse(valid().replace("</body>", "</body2>")), XliffError);
   assert.throws(() => parse(valid().replace("<source>", "<source><g id=\"1\">")), XliffError);
+  assert.throws(() => parse(valid().replace("</source>", "</source><![CDATA[lost content]]>")), /Unexpected text/);
   assert.throws(() => parseXliff(new Uint8Array([0xff]), project), /encoded|valid/i);
 });
 
