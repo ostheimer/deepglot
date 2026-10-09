@@ -61,8 +61,8 @@ export function AutoUpgradeToggle({ organizationId, currentPlan, initialInterval
     <div>
       <h2 className="text-lg font-semibold text-gray-900">{de ? "Automatische Planerhöhung" : "Automatic plan upgrade"}</h2>
       <p className="text-sm text-gray-600 mt-1">{de
-        ? "Standardmäßig aus. Ab 90 % des monatlichen Wortlimits kann Deepglot genau eine Stufe höher buchen. Es gibt keine automatische Herabstufung."
-        : "Off by default. At 90% of the monthly word allowance, Deepglot may move one plan higher. Plans never downgrade automatically."}</p>
+        ? "Standardmäßig aus. Ab 90 % des monatlichen Wortlimits kann Deepglot genau eine Stufe höher buchen. Es gibt keine automatische Herabstufung. Verlässt der genehmigende Owner seine Rolle, muss ein anderer Owner die Einstellung erneut speichern."
+        : "Off by default. At 90% of the monthly word allowance, Deepglot may move one plan higher. Plans never downgrade automatically. If the approving owner loses that role, another owner must save the preference again."}</p>
     </div>
     {ready && <>
       <label className="flex items-center gap-3 text-sm font-medium text-gray-900">
