@@ -3,8 +3,122 @@ import crypto from "node:crypto";
 import test from "node:test";
 import { db } from "@/lib/db";
 import { reserveAiSpend, settleAiSpend, resolveUnknownAiSpend } from "@/lib/ai-budget";
+import { preflightAiSpend } from "@/lib/ai-budget";
 
 const databaseUrl = process.env.DEEPGLOT_BUDGET_TEST_DATABASE_URL;
+
+async function waitForScopeLockWaiters(expected: number) {
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline) {
+    const rows = await db.$queryRaw<Array<{ waiting: bigint }>>`
+      SELECT count(*)::bigint AS waiting FROM pg_stat_activity
+      WHERE wait_event_type = 'Lock' AND query LIKE '%"Organization"%'
+        AND query LIKE '%FOR UPDATE%'
+    `;
+    if (Number(rows[0]?.waiting ?? 0) >= expected) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Expected ${expected} PostgreSQL scope-lock waiters`);
+}
+
+async function raceSettlements(organizationId: string, reservationId: string,
+  firstUsage?: { inputUnits: number; outputUnits: number },
+  secondUsage?: { inputUnits: number; outputUnits: number }) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let ready!: () => void;
+  const acquired = new Promise<void>((resolve) => { ready = resolve; });
+  const holder = db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`;
+    ready();
+    await gate;
+  }, { timeout: 10000 });
+  let first: ReturnType<typeof settleAiSpend> | undefined;
+  let second: ReturnType<typeof settleAiSpend> | undefined;
+  try {
+    await acquired;
+    first = settleAiSpend(reservationId, firstUsage);
+    await waitForScopeLockWaiters(1);
+    second = settleAiSpend(reservationId, secondUsage);
+    await waitForScopeLockWaiters(2);
+    release();
+    await holder;
+    return await Promise.all([first, second]);
+  } finally {
+    release();
+    await holder.catch(() => {});
+    await Promise.allSettled([first, second].filter((item) => item !== undefined));
+  }
+}
+
+test("parallel good then malformed settlement cannot reduce an UNKNOWN hold", { skip: !databaseUrl }, async () => {
+  const id = crypto.randomUUID();
+  await db.organization.create({ data: { id, name: "Settlement race fixture", slug: `settlement-${id}` } });
+  try {
+    const project = await db.project.create({ data: { id: `${id}-project`, name: "Settlement race",
+      domain: `settlement-${id}.test`, organizationId: id } });
+    for (const projectId of [null, project.id]) await db.aiBudget.create({ data: {
+      organizationId: id, projectId, currency: "USD", capMicros: BigInt(5000),
+      perCallCapMicros: BigInt(5000), warningPercent: 80, period: "MONTHLY_UTC",
+      approvedByUserId: "fixture-owner", models: { create: [{ provider: "mock", model: "mock", unit: "TOKEN",
+        inputMicrosPerMillion: BigInt(1000000), outputMicrosPerMillion: BigInt(1000000),
+        maxInputUnits: 10000, maxOutputUnits: 100, priceExpiresAt: new Date(Date.now() + 86400000) }] },
+    } });
+    const createReservation = (suffix: string) => db.aiSpendReservation.create({ data: {
+      organizationId: id, projectId: project.id, requestKeyHash: `race-${id}-${suffix}`,
+      requestGroupHash: `race-group-${id}-${suffix}`, dispatchId: `${id}-${suffix}`, actorKind: "API_KEY", actorId: "fixture-key",
+      action: "TRANSLATION", provider: "mock", model: "mock", currency: "USD",
+      periodKey: new Date().getUTCFullYear() * 100 + new Date().getUTCMonth() + 1,
+      state: "DISPATCHED", reservedMicros: BigInt(5000), estimatedInputUnits: 10000,
+      maxOutputUnits: 100, orgInputMicrosPerMillion: BigInt(1000000),
+      orgOutputMicrosPerMillion: BigInt(1000000), projectInputMicrosPerMillion: BigInt(1000000),
+      projectOutputMicrosPerMillion: BigInt(1000000), unit: "TOKEN",
+    } });
+    const reservation = await createReservation("good-first");
+    const [first, second] = await raceSettlements(id, reservation.id,
+      { inputUnits: 1, outputUnits: 0 }, { inputUnits: -1, outputUnits: 0 });
+    assert.equal(first.state, "SETTLED");
+    assert.equal(second.state, "SETTLED");
+    assert.equal(second.reconciledCeilingMicros, BigInt(1));
+    const saved = await db.aiSpendReservation.findUniqueOrThrow({ where: { id: reservation.id } });
+    assert.equal(saved.state, "SETTLED");
+    assert.equal(saved.reconciledCeilingMicros, BigInt(1));
+    const preflight = await preflightAiSpend({ organizationId: id, projectId: project.id,
+      provider: "mock", model: "mock", inputUnits: 1, outputUnits: 0 });
+    assert.equal(preflight.organizationRemainingMicros, "4999");
+    await db.aiSpendReservation.delete({ where: { id: reservation.id } });
+
+    const unknownFirst = await createReservation("unknown-first");
+    const [unknown, lateGood] = await raceSettlements(id, unknownFirst.id,
+      { inputUnits: -1, outputUnits: 0 }, { inputUnits: 1, outputUnits: 0 });
+    assert.equal(unknown.state, "UNKNOWN");
+    assert.equal(lateGood.state, "UNKNOWN");
+    assert.equal(lateGood.reconciledCeilingMicros, null);
+    const held = await preflightAiSpend({ organizationId: id, projectId: project.id,
+      provider: "mock", model: "mock", inputUnits: 1, outputUnits: 0 });
+    assert.equal(held.allowed, false);
+    assert.equal(held.organizationRemainingMicros, "0");
+    // Defensive readback also keeps the full hold for a legacy row whose
+    // stale settlement once left a reduced ceiling attached to UNKNOWN.
+    await db.aiSpendReservation.update({ where: { id: unknownFirst.id },
+      data: { reconciledCeilingMicros: BigInt(1) } });
+    const legacyUnknown = await preflightAiSpend({ organizationId: id, projectId: project.id,
+      provider: "mock", model: "mock", inputUnits: 1, outputUnits: 0 });
+    assert.equal(legacyUnknown.organizationRemainingMicros, "0");
+    await db.aiSpendReservation.delete({ where: { id: unknownFirst.id } });
+
+    const differingReceipts = await createReservation("different-good-receipts");
+    const [original, conflicting] = await raceSettlements(id, differingReceipts.id,
+      { inputUnits: 1, outputUnits: 0 }, { inputUnits: 2, outputUnits: 0 });
+    assert.equal(original.state, "SETTLED");
+    assert.equal(conflicting.state, "SETTLED");
+    assert.equal(conflicting.actualInputUnits, 1);
+    assert.equal(conflicting.reconciledCeilingMicros, BigInt(1));
+    assert.equal(await db.aiSpendReservation.count({ where: { organizationId: id } }), 1);
+  } finally {
+    await db.organization.delete({ where: { id } });
+  }
+});
 
 test("PostgreSQL budget admission is atomic across projects, retries and unknown receipts", { skip: !databaseUrl }, async () => {
   const id = crypto.randomUUID();

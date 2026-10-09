@@ -101,7 +101,9 @@ function approvedPrice(budget: BudgetWithModels, provider: string, model: string
 
 async function committedMicros(tx: Prisma.TransactionClient, organizationId: string, periodKey: number, projectId?: string) {
   const rows = await tx.$queryRaw<Array<{ total: bigint }>>`
-    SELECT COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")), 0)::bigint AS total
+    SELECT COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
+      THEN COALESCE("reconciledCeilingMicros", "reservedMicros")
+      ELSE "reservedMicros" END), 0)::bigint AS total
     FROM "AiSpendReservation"
     WHERE "organizationId" = ${organizationId} AND "periodKey" = ${periodKey}
       AND (${projectId ?? null}::text IS NULL OR "projectId" = ${projectId ?? null})
@@ -256,26 +258,40 @@ export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendAp
 /** Missing, malformed or unexpectedly high usage remains charged at the hold. */
 export async function settleAiSpend(reservationId: string, usage?: { inputUnits: number; outputUnits: number }) {
   return db.$transaction(async (tx) => {
+    // The first read only identifies the lock scope. It must not authorize a
+    // transition because another settlement can finish while this one waits.
+    const scope = await tx.aiSpendReservation.findUnique({ where: { id: reservationId },
+      select: { organizationId: true, projectId: true } });
+    if (!scope) throw new AiBudgetError("budget_unavailable", "Spend reservation is missing.");
+    await lockAiSpendScope(tx, scope.organizationId, scope.projectId);
     const reservation = await tx.aiSpendReservation.findUnique({ where: { id: reservationId } });
-    if (!reservation) throw new AiBudgetError("budget_unavailable", "Spend reservation is missing.");
-    await lockAiSpendScope(tx, reservation.organizationId, reservation.projectId);
+    if (!reservation || reservation.organizationId !== scope.organizationId || reservation.projectId !== scope.projectId) {
+      throw new AiBudgetError("budget_unavailable", "Spend reservation scope changed.");
+    }
     if (reservation.state !== "DISPATCHED") return reservation;
+    const finish = async (data: Prisma.AiSpendReservationUpdateManyMutationInput) => {
+      const changed = await tx.aiSpendReservation.updateMany({
+        where: { id: reservationId, organizationId: scope.organizationId,
+          projectId: scope.projectId, state: "DISPATCHED" }, data,
+      });
+      if (changed.count !== 1) throw new AiBudgetError("budget_unavailable", "Spend settlement changed concurrently.");
+      return tx.aiSpendReservation.findUniqueOrThrow({ where: { id: reservationId } });
+    };
     const complete = usage && Number.isSafeInteger(usage.inputUnits) &&
       Number.isSafeInteger(usage.outputUnits) && usage.inputUnits >= 0 && usage.outputUnits >= 0 &&
       usage.inputUnits <= reservation.estimatedInputUnits && usage.outputUnits <= reservation.maxOutputUnits;
     if (!complete || !usage) {
-      return tx.aiSpendReservation.update({ where: { id: reservationId }, data: { state: "UNKNOWN", settledAt: new Date() } });
+      return finish({ state: "UNKNOWN", reconciledCeilingMicros: null,
+        actualInputUnits: null, actualOutputUnits: null, settledAt: new Date() });
     }
     const now = new Date();
     const actual = measuredCeiling(reservation, usage);
     if (actual > reservation.reservedMicros) {
-      return tx.aiSpendReservation.update({ where: { id: reservationId }, data: { state: "UNKNOWN", settledAt: now } });
+      return finish({ state: "UNKNOWN", reconciledCeilingMicros: null,
+        actualInputUnits: null, actualOutputUnits: null, settledAt: now });
     }
-    return tx.aiSpendReservation.update({
-      where: { id: reservationId },
-      data: { state: "SETTLED", reconciledCeilingMicros: actual,
-        actualInputUnits: usage.inputUnits, actualOutputUnits: usage.outputUnits, settledAt: now },
-    });
+    return finish({ state: "SETTLED", reconciledCeilingMicros: actual,
+      actualInputUnits: usage.inputUnits, actualOutputUnits: usage.outputUnits, settledAt: now });
   });
 }
 

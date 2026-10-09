@@ -88,7 +88,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     select: { id: true, projectId: true, currency: true, capMicros: true },
   }) : [];
   const committedRows = budgetEvents.length ? await db.$queryRaw<Array<{ projectId: string; total: bigint }>>`
-    SELECT "projectId", COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")), 0)::bigint AS total
+    SELECT "projectId", COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
+      THEN COALESCE("reconciledCeilingMicros", "reservedMicros") ELSE "reservedMicros" END), 0)::bigint AS total
     FROM "AiSpendReservation" WHERE "organizationId" = ${org!.id} AND "periodKey" = ${currentMonth}
     GROUP BY "projectId"
   ` : [];

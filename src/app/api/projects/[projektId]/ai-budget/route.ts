@@ -29,8 +29,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const periodKey = utcPeriodKey(new Date());
   const spend = await db.$queryRaw<Array<{ organizationMicros: bigint; projectMicros: bigint }>>`
     SELECT
-      COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")), 0)::bigint AS "organizationMicros",
-      COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")) FILTER (WHERE "projectId" = ${projektId}), 0)::bigint AS "projectMicros"
+      COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
+        THEN COALESCE("reconciledCeilingMicros", "reservedMicros") ELSE "reservedMicros" END), 0)::bigint AS "organizationMicros",
+      COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
+        THEN COALESCE("reconciledCeilingMicros", "reservedMicros") ELSE "reservedMicros" END)
+        FILTER (WHERE "projectId" = ${projektId}), 0)::bigint AS "projectMicros"
     FROM "AiSpendReservation"
     WHERE "organizationId" = ${access.organizationId} AND "periodKey" = ${periodKey}
   `;
