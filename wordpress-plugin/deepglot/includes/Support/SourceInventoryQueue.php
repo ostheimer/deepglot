@@ -172,7 +172,8 @@ class SourceInventoryQueue
             $current = get_option(self::LOCK_OPTION, false);
             if (!is_array($current) || ($current['owner'] ?? null) !== $lock['owner']) return false;
             update_option(self::QUEUE_OPTION, $queue, false);
-            return true;
+            $this->clearQueueCache();
+            return get_option(self::QUEUE_OPTION, []) === $queue;
         }
         if ($wpdb->query('START TRANSACTION') === false) return false;
         try {
@@ -185,18 +186,28 @@ class SourceInventoryQueue
                 return false;
             }
             // Another PHP process may have changed the option while this request waited.
-            if (function_exists('wp_cache_delete')) {
-                wp_cache_delete(self::QUEUE_OPTION, 'options');
-                wp_cache_delete('notoptions', 'options');
-            }
+            $this->clearQueueCache();
             update_option(self::QUEUE_OPTION, $queue, false);
+            // update_option() also returns false for a no-op. The database value,
+            // not its return value or the request-local cache, proves persistence.
+            $persisted = $wpdb->get_var($wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s FOR UPDATE",
+                self::QUEUE_OPTION
+            ));
+            if ($persisted !== maybe_serialize($queue)) {
+                $wpdb->query('ROLLBACK');
+                $this->clearQueueCache();
+                return false;
+            }
             if ($wpdb->query('COMMIT') === false) {
                 $wpdb->query('ROLLBACK');
+                $this->clearQueueCache();
                 return false;
             }
             return true;
         } catch (\Throwable $error) {
             $wpdb->query('ROLLBACK');
+            $this->clearQueueCache();
             throw $error;
         }
     }
@@ -221,12 +232,17 @@ class SourceInventoryQueue
     /** A different request can update wp_options while this cron awaits HTTP. */
     private function readQueueFresh(): array
     {
+        $this->clearQueueCache();
+        $queue = get_option(self::QUEUE_OPTION, []);
+        return is_array($queue) ? $queue : [];
+    }
+
+    private function clearQueueCache(): void
+    {
         if (function_exists('wp_cache_delete')) {
             wp_cache_delete(self::QUEUE_OPTION, 'options');
             wp_cache_delete('notoptions', 'options');
         }
-        $queue = get_option(self::QUEUE_OPTION, []);
-        return is_array($queue) ? $queue : [];
     }
 
     private function schedule(array $queue): void

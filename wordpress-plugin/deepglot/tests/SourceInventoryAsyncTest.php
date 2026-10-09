@@ -12,6 +12,7 @@ function get_option($key, $default = false) {
     return $GLOBALS['_dg_async_options'][$key] ?? $default;
 }
 function update_option($key, $value) {
+    if ($key === 'deepglot_source_inventory_queue' && ($GLOBALS['_dg_async_write_fail'] ?? false)) return false;
     $GLOBALS['_dg_async_options'][$key] = $value;
     if ($key === 'deepglot_source_inventory_queue') $GLOBALS['_dg_async_option_cache'][$key] = $value;
     return true;
@@ -217,5 +218,17 @@ $GLOBALS['_dg_async_events'] = [];
 $queue->run();
 if (count($GLOBALS['_dg_async_http']) !== 4 || get_option(SourceInventoryQueue::QUEUE_OPTION, []) !== []) {
     fwrite(STDERR, "FAIL: queued observation cannot cross API-key identity changes.\n"); exit(1);
+}
+$queue->recordSourceInventory(['Write failure'], 'de', 'en', 'https://example.test/en/write-failure',
+    true, false, (string) (time() * 1000000));
+$writeFailPending = get_option(SourceInventoryQueue::QUEUE_OPTION, []);
+$GLOBALS['_dg_async_write_fail'] = true;
+$GLOBALS['_dg_async_available'] = true;
+$GLOBALS['_dg_async_events'] = [];
+$queue->run();
+unset($GLOBALS['_dg_async_write_fail']);
+if ($GLOBALS['_dg_async_options'][SourceInventoryQueue::QUEUE_OPTION] !== $writeFailPending
+    || get_transient(current($writeFailPending)['successKey']) !== false) {
+    fwrite(STDERR, "FAIL: rejected queue write cannot create a success receipt.\n"); exit(1);
 }
 fwrite(STDOUT, "SourceInventoryAsyncTest: OK\n");
