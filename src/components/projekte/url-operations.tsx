@@ -20,7 +20,7 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
   const [selected, setSelected] = useState<string[]>([]);
   const [previews, setPreviews] = useState<Preview[]>([]);
   const [busy, setBusy] = useState(false);
-  const [results, setResults] = useState<Array<{ id: string; ok: boolean; detail: string; action?: Action; nextAfterId?: string | null }>>([]);
+  const [results, setResults] = useState<Array<{ id: string; urlPath: string; ok: boolean; detail: string; action?: Action; nextAfterId?: string | null }>>([]);
   const de = locale === "de";
   const reasonText = (reason: string | null) => {
     const labels: Record<string, [string, string]> = {
@@ -38,14 +38,15 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
   async function open(action: Action, targetIds: string[], afterId?: string) {
     setBusy(true); if (!afterId) setResults([]);
     const output: Preview[] = [];
-    const failures: Array<{ id: string; ok: boolean; detail: string }> = [];
+    const failures: Array<{ id: string; urlPath: string; ok: boolean; detail: string }> = [];
     for (const id of targetIds) {
+      const urlPath = records.find((record) => record.id === id)?.urlPath ?? id;
       try {
         const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id, afterId }) });
         const payload = await response.json();
         if (response.ok) output.push({ ...payload, afterId } as Preview);
-        else failures.push({ id, ok: false, detail: String(payload.error ?? response.status) });
-      } catch { failures.push({ id, ok: false, detail: de ? "Netzwerkfehler" : "Network error" }); }
+        else failures.push({ id, urlPath, ok: false, detail: String(payload.error ?? response.status) });
+      } catch { failures.push({ id, urlPath, ok: false, detail: de ? "Netzwerkfehler" : "Network error" }); }
     }
     setPreviews(output); setResults(failures); setBusy(false);
   }
@@ -55,7 +56,7 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
     const output = [...results];
     for (const preview of previews) {
       if ((preview.action === "retranslate" && !preview.canRetranslate) || (preview.action === "delete" && !preview.canDelete)) {
-        output.push({ id: preview.id, ok: false, detail: reasonText(preview.reason) || (de ? "Nicht verfügbar" : "Unavailable") });
+        output.push({ id: preview.id, urlPath: preview.urlPath, ok: false, detail: reasonText(preview.reason) || (de ? "Nicht verfügbar" : "Unavailable") });
         continue;
       }
       try {
@@ -65,8 +66,8 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
           body: JSON.stringify({ action: preview.action, id: preview.id, afterId: preview.afterId, confirmation: preview.confirmation }),
         });
         const payload = await response.json();
-        output.push({ id: preview.id, ok: response.ok && payload.result !== "failed", detail: response.ok ? (payload.result ?? `${payload.deletedSegments} ${de ? "Segmente gelöscht" : "segments deleted"}`) : String(payload.error ?? response.status), action: preview.action, nextAfterId: payload.nextAfterId ?? null });
-      } catch { output.push({ id: preview.id, ok: false, detail: de ? "Netzwerkfehler; Ergebnis vor erneutem Versuch prüfen" : "Network error; check result before retrying" }); }
+        output.push({ id: preview.id, urlPath: preview.urlPath, ok: response.ok && payload.result !== "failed", detail: response.ok ? (payload.result ?? `${payload.deletedSegments} ${de ? "Segmente gelöscht" : "segments deleted"}`) : String(payload.error ?? response.status), action: preview.action, nextAfterId: payload.nextAfterId ?? null });
+      } catch { output.push({ id: preview.id, urlPath: preview.urlPath, ok: false, detail: de ? "Netzwerkfehler; Ergebnis vor erneutem Versuch prüfen" : "Network error; check result before retrying" }); }
       setResults([...output]);
     }
     setPreviews([]); setSelected([]); setBusy(false); router.refresh();
@@ -105,6 +106,6 @@ export function UrlOperations({ projectId, records, wordpressSyncUrl, locale }: 
       </div>)}
       <div className="flex gap-2"><Button size="sm" disabled={busy || previews.every((preview) => preview.action === "retranslate" ? !preview.canRetranslate : !preview.canDelete)} onClick={confirm}>{de ? "Endgültig bestätigen" : "Confirm permanently"}</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => setPreviews([])}>{de ? "Abbrechen" : "Cancel"}</Button></div>
     </div>}
-    {results.length > 0 && <div role="status" className="rounded border p-3 text-sm"><strong>{de ? "Einzelergebnisse" : "Individual results"}</strong><ul>{results.map((result, index) => <li key={`${result.id}-${index}`}>{result.id}: {result.ok ? "✓" : "✗"} {result.detail} {result.nextAfterId && result.action && <Button size="sm" variant="outline" disabled={busy} onClick={() => open(result.action!, [result.id], result.nextAfterId!)}>{de ? "Nächste 250 prüfen" : "Review next 250"}</Button>}</li>)}</ul></div>}
+    {results.length > 0 && <div role="status" className="rounded border p-3 text-sm"><strong>{de ? "Einzelergebnisse" : "Individual results"}</strong><ul>{results.map((result, index) => <li key={`${result.id}-${index}`}>{result.urlPath}: {result.ok ? "✓" : "✗"} {result.detail} {result.nextAfterId && result.action && <Button size="sm" variant="outline" disabled={busy} onClick={() => open(result.action!, [result.id], result.nextAfterId!)}>{de ? "Nächste 250 prüfen" : "Review next 250"}</Button>}</li>)}</ul></div>}
   </div>;
 }
