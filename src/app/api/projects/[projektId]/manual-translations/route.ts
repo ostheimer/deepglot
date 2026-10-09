@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { canAccessProjectForWrite } from "@/lib/project-access";
+
 import { verifyEditorSessionToken } from "@/lib/editor-session";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
@@ -301,6 +303,9 @@ export async function POST(
       },
       tx
     );
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: null,
+      action: existing ? "translation.manual_updated" : "translation.manual_created",
+      category: "translation", metadata: { affectedId: saved.id, source: "editor" } });
 
     return { kind: "saved", translation: saved } as const;
   });

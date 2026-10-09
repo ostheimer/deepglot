@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { sendProjectInvitationEmail } from "@/lib/email";
 import {
   buildProjectInvitationUrl,
@@ -58,7 +59,8 @@ export async function POST(
   const rawToken = createProjectInvitationToken();
   const updated = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
-    return tx.projectInvitation.update({
+    const saved = await tx.projectInvitation.update({
+
     where: { id: invitation.id },
     data: {
       tokenHash: hashProjectInvitationToken(rawToken),
@@ -74,8 +76,13 @@ export async function POST(
       inviter: { select: { id: true, name: true, email: true } },
     },
     });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: "member.invitation_renewed", category: "member",
+      metadata: { affectedId: invitation.id } });
+    return saved;
   });
   if (!updated) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
+
 
   let emailDelivery:
     | Awaited<ReturnType<typeof sendProjectInvitationEmail>>

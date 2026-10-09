@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
 import { SITE_LOCALES } from "@/lib/site-locale";
 
 const patchSchema = z.object({
@@ -35,7 +36,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
-  const updated = await db.organizationMember.update({
+  const updated = await db.$transaction(async (tx) => { const saved = await tx.organizationMember.update({
     where: { id: membership.id },
     data: {
       activityDigestEnabled: parsed.data.enabled,
@@ -46,6 +47,11 @@ export async function PATCH(request: Request) {
       activityDigestEnabled: true,
       activityDigestLocale: true,
     },
+  });
+    await appendWorkspaceAuditEvent(tx, { organizationId: parsed.data.organizationId,
+      actorUserId: session.user.id, action: "workspace.activity_digest_updated",
+      category: "workspace", metadata: { status: parsed.data.enabled ? "enabled" : "disabled" } });
+    return saved;
   });
 
   return NextResponse.json({

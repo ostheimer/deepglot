@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import {
   getAuthenticatedUserId,
   userCanManageProject,
@@ -117,7 +118,8 @@ export async function PATCH(
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
     const current = await tx.webhookEndpoint.findFirst({ where: { id: existing.id, projectId: projektId } });
     if (!current || (parsed.data.enabled === true && !current.secret && !parsed.data.rotateSecret)) return null;
-    return tx.webhookEndpoint.update({
+    const updated = await tx.webhookEndpoint.update({
+
     where: { id: existing.id },
     data: {
       ...(parsed.data.url ? { url: parsed.data.url } : {}),
@@ -136,6 +138,10 @@ export async function PATCH(
       },
     },
     });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: parsed.data.rotateSecret ? "webhook.secret_rotated" : "webhook.updated",
+      category: "webhook", metadata: { affectedId: id } });
+    return updated;
   });
 
   if (!endpoint) return NextResponse.json({ error: t(locale, "Webhook nicht gefunden", "Webhook not found") }, { status: 404 });
@@ -177,7 +183,11 @@ export async function DELETE(
   const removed = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
     const result = await tx.webhookEndpoint.deleteMany({ where: { id: existing.id, projectId: projektId } });
+    if (result.count === 1) await appendProjectAuditEvent(tx, { projectId: projektId,
+      actorUserId: userId, action: "webhook.deleted", category: "webhook",
+      metadata: { affectedId: id } });
     return result.count === 1;
+
   });
   if (!removed) return NextResponse.json({ error: t(locale, "Webhook nicht gefunden", "Webhook not found") }, { status: 404 });
 

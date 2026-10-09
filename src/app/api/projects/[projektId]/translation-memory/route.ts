@@ -4,7 +4,9 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
+
 import { planSupportsTranslationMemory } from "@/lib/translation-memory";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 
 const patchSchema = z.object({ enabled: z.boolean() });
 
@@ -33,13 +35,16 @@ export async function PATCH(
       select: { organization: { select: { plan: true } } } });
     if (!project) return null;
     if (parsed.data.enabled && !planSupportsTranslationMemory(project.organization.plan)) return "PLAN" as const;
-    return tx.projectSettings.upsert({ where: { projectId: projektId },
+    const settings = await tx.projectSettings.upsert({ where: { projectId: projektId },
       create: { projectId: projektId, translationMemory: parsed.data.enabled },
       update: { translationMemory: parsed.data.enabled }, select: { translationMemory: true } });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!, action: "project.translation_memory_updated", category: "project", metadata: { status: parsed.data.enabled ? "enabled" : "disabled" } });
+    return settings;
   });
   if (!result) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   if (result === "PLAN") return NextResponse.json({ error: "Das Übersetzungsgedächtnis ist ab dem Pro-Plan verfügbar." }, { status: 403 });
   const settings = result;
+
 
   return NextResponse.json({ enabled: settings.translationMemory });
 }

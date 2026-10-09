@@ -3,6 +3,23 @@ import type { SiteLocale } from "@/lib/site-locale";
 // New workspace and AI budget flows ship in German and English; other locales
 // use clear English fallback copy until their catalogue translations are reviewed.
 const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
+  "Activity is available to workspace owners and admins.": "Activity is available to workspace owners and admins.",
+  "Saved changes from this workspace. Earlier actions are not backfilled.": "Saved changes from this workspace. Earlier actions are not backfilled.",
+  "From": "From",
+  "To": "To",
+  "Actor": "Actor",
+  "All": "All",
+  "Project": "Project",
+  "Category": "Category",
+  "Filter": "Filter",
+  "Invalid filter.": "Invalid filter.",
+  "Action": "Action",
+  "System": "System",
+  "No saved activity matches these filters.": "No saved activity matches these filters.",
+  "Showing the latest 100 events. Narrow the date range to see older events.": "Showing the latest 100 events. Narrow the date range to see older events.",
+  "Export displayed events as CSV": "Export displayed events as CSV",
+  "Back to overview": "Back to overview",
+  "Saved changes will appear here.": "Saved changes will appear here.",
   "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.": "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.",
   "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.": "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.",
   "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.": "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.",

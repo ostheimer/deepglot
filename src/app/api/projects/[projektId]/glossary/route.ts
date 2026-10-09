@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { getCookieLocale } from "@/lib/request-locale";
 import { getAuthenticatedUserId, userHasProjectAccess, canAccessProjectForWrite, canAccessProject } from "@/lib/project-access";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
@@ -129,6 +130,8 @@ export async function POST(
         tx
       );
 
+      await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+        action: "glossary.created", category: "glossary", metadata: { affectedId: created.id } });
       return { kind: "created", rule: created } as const;
     });
 

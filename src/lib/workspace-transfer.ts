@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { Prisma, type OrganizationRole } from "@prisma/client";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent, appendWorkspaceAuditEvent } from "@/lib/audit-events";
 import { BILLING_PLANS, getEffectiveWordsLimit, getEffectiveWorkspacePlanKey } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
 import { professionalOrderLifecycleState } from "@/lib/professional-order-lifecycle";
@@ -226,6 +227,11 @@ export async function commitWorkspaceTransfer(input: {
       sourceOrganizationId: state.sourceId, destinationOrganizationId: input.destinationId,
       previewFingerprint: state.version, projectVersion: new Date(state.details.projectVersion),
     } });
+    await appendWorkspaceAuditEvent(tx, { organizationId: state.sourceId,
+      actorUserId: input.actorUserId, action: "project.transferred_out", category: "project",
+      metadata: { affectedId: input.projectId } });
+    await appendProjectAuditEvent(tx, { projectId: input.projectId,
+      actorUserId: input.actorUserId, action: "project.transferred_in", category: "project" });
     return { auditId: audit.id, projectId: input.projectId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 });
   } catch (error) {

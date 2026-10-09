@@ -111,6 +111,12 @@ export async function addProjectTargetLanguages(
       if (versionWrite.count !== 1) {
         throw new ProjectLanguageMutationConflictError();
       }
+      if (actorUserId) {
+        const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+        await appendProjectAuditEvent(tx, { projectId, actorUserId,
+          action: "project.languages_added", category: "project",
+          metadata: { count: languages.length } });
+      }
 
       return { kind: "updated" } as const;
     });
@@ -125,6 +131,7 @@ export async function updateProjectTargetLanguage(
     isActive,
     isVisible,
     automaticTranslation,
+
     actorUserId,
   }: {
     projectId: string;
@@ -132,6 +139,7 @@ export async function updateProjectTargetLanguage(
     isActive?: boolean;
     isVisible?: boolean;
     automaticTranslation?: boolean;
+
     actorUserId?: string;
   },
 ) {
@@ -150,6 +158,7 @@ export async function updateProjectTargetLanguage(
       data: { updatedAt: nextProjectUpdatedAt(project.updatedAt) },
     });
     if (versionWrite.count !== 1) throw new ProjectLanguageMutationConflictError();
+
     return true;
   });
 }

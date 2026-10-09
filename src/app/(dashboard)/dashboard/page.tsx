@@ -113,22 +113,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       })
     : 0;
 
-  // Activity: recent exclusions, glossary rules, projects
-  const recentExclusions = org
-    ? await db.translationExclusion.findMany({
-        where: { project: { organizationId: org.id } },
-        include: { project: { select: { name: true, domain: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 6,
-      })
-    : [];
-
-  const recentGlossary = org
-    ? await db.glossaryRule.findMany({
-        where: { project: { organizationId: org.id } },
-        include: { project: { select: { name: true, domain: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 3,
+  const recentAuditEvents = org && ["OWNER", "ADMIN"].includes(memberships[0]?.role ?? "")
+    ? await db.auditEvent.findMany({
+        where: { organizationId: org.id },
+        include: { project: { select: { name: true } }, actor: { select: { name: true, email: true } } },
+        orderBy: { createdAt: "desc" }, take: 8,
       })
     : [];
 
@@ -142,49 +131,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const wordsPercent = Math.min(Math.round((wordsUsed / wordsLimit) * 100), 100);
   const requestsPercent = Math.min(Math.round((requestsCount / requestsLimit) * 100), 100);
 
-  // Build activity feed
-  type ActivityItem = {
-    id: string;
-    project: string;
-    message: string;
-    date: Date;
-    type: "exclusion" | "glossary" | "warning" | "project";
-  };
-
-  const activityItems: ActivityItem[] = [
-    ...recentExclusions.map((e) => ({
-      id: `excl-${e.id}`,
-      project: e.project.domain,
-      message:
-        locale === "de"
-          ? `${session.user?.email ?? "Du"} hat eine Ausnahme-Regel hinzugefügt „${e.type === "URL" ? "URL enthält" : e.type} ${e.value.slice(0, 30)}".`
-          : `${session.user?.email ?? "You"} added an exclusion rule "${e.type === "URL" ? "URL contains" : e.type} ${e.value.slice(0, 30)}".`,
-      date: e.createdAt,
-      type: "exclusion" as const,
-    })),
-    ...recentGlossary.map((g) => ({
-      id: `gloss-${g.id}`,
-      project: g.project.domain,
-      message:
-        locale === "de"
-          ? `${session.user?.email ?? "Du"} hat Glossar-Regel „${g.originalTerm}" hinzugefügt.`
-          : `${session.user?.email ?? "You"} added glossary rule "${g.originalTerm}".`,
-      date: g.createdAt,
-      type: "glossary" as const,
-    })),
-    ...(org?.projects ?? []).map((p) => ({
-      id: `proj-${p.id}`,
-      project: p.domain,
-      message:
-        locale === "de"
-          ? `Projekt „${p.name}" wurde erstellt.`
-          : `Project "${p.name}" was created.`,
-      date: p.createdAt,
-      type: "project" as const,
-    })),
-  ]
-    .sort((a, b) => b.date.getTime() - a.date.getTime())
-    .slice(0, 8);
+  const activityItems = recentAuditEvents.map((event) => ({
+    id: event.id,
+    project: event.project?.name ?? event.projectIdSnapshot ?? org?.name ?? "",
+    message: `${event.actor?.name || event.actor?.email || uiText(locale, "System", "System")}: ${event.action}`,
+    date: event.createdAt,
+  }));
 
   return (
     <div className="min-h-full">
@@ -479,12 +431,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {activityItems.length ? (
               <div className="divide-y divide-gray-50 max-h-[420px] overflow-y-auto">
                 {activityItems.map((item) => {
-                  const icon =
-                    item.type === "warning" ? (
-                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0 mt-0.5" />
-                    );
+                  const icon = <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0 mt-0.5" />;
 
                   const dateStr = new Intl.DateTimeFormat(getIntlLocale(locale), {
                     year: "numeric",
@@ -518,7 +465,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   {uiText(locale, "No activity yet", "Noch keine Aktivitäten")}
                 </p>
                 <p className="mt-2 text-xs text-gray-400">
-                  {uiText(locale, "Activity will appear here as soon as projects, glossary rules, or exclusions are used.", "Sobald Projekte, Glossare oder Ausnahmen genutzt werden, erscheint die Aktivität hier.")}
+                  {uiText(locale, "Saved changes will appear here.", "Gespeicherte Änderungen erscheinen hier.")}
                 </p>
               </div>
             )}
@@ -526,10 +473,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {activityItems.length > 0 && (
               <div className="px-5 py-3 border-t border-gray-100 text-center">
                 <Link
-                  href={withLocalePrefix("/projects", locale)}
+                  href={withLocalePrefix("/dashboard/aktivitaet", locale)}
                   className="text-xs text-brand-600 hover:underline"
                 >
-                  {uiText(locale, "View all projects", "Alle Projekte anzeigen")}
+                  {uiText(locale, "View activity", "Aktivitäten anzeigen")}
                 </Link>
               </div>
             )}

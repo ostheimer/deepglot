@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { authorizeBillingCommand, resolveBillingWorkspaceId } from "@/lib/billing-workspace";
+import { db } from "@/lib/db";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
+
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
 import { isRealStripeCustomerId } from "@/lib/billing";
@@ -62,6 +65,10 @@ export async function POST(request: Request) {
       country: country ?? "AT",
     },
     ...(vatNumber && { tax_id_data: undefined }), // VAT handled separately via tax IDs
+  });
+  await appendWorkspaceAuditEvent(db, {
+    organizationId: workspaceId, actorUserId: session.user.id,
+    action: "billing.address_updated", category: "billing",
   });
 
   return NextResponse.json({ success: true });

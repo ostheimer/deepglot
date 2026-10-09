@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { sendProjectInvitationEmail } from "@/lib/email";
 import {
   buildProjectInvitationUrl,
@@ -161,6 +162,8 @@ export async function POST(
           inviter: { select: { id: true, name: true, email: true } },
         },
       });
+      await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+        action: "member.invited", category: "member", metadata: { affectedId: invitation.id, role: invitation.role } });
 
       return { kind: "created", invitation } as const;
     });
