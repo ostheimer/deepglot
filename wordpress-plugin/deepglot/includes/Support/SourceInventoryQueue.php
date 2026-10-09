@@ -127,13 +127,13 @@ class SourceInventoryQueue
     private function removeIfCurrent(string $identity, array $item): bool
     {
         $removed = false;
-        $this->mutateQueue(static function (array &$queue) use ($identity, $item, &$removed): void {
+        $committed = $this->mutateQueue(static function (array &$queue) use ($identity, $item, &$removed): void {
             if (($queue[$identity]['payload']['capturedMicros'] ?? null) !== ($item['payload']['capturedMicros'] ?? null)
                 || ($queue[$identity]['digest'] ?? null) !== ($item['digest'] ?? null)) return;
             unset($queue[$identity]);
             $removed = true;
         });
-        return $removed;
+        return $committed !== null && $removed;
     }
 
     /** Short atomic option lock; HTTP dispatch is always outside this window. */
@@ -157,13 +157,65 @@ class SourceInventoryQueue
         try {
             $queue = $this->readQueueFresh();
             $mutation($queue);
-            update_option(self::QUEUE_OPTION, $queue, false);
-            return $queue;
+            return $this->commitIfOwner($lock, $queue) ? $queue : null;
         } finally {
-            $current = get_option(self::LOCK_OPTION, false);
-            if (is_array($current) && ($current['owner'] ?? null) === $owner)
-                delete_option(self::LOCK_OPTION);
+            $this->releaseIfOwner($lock);
         }
+    }
+
+    /** Serialize the final write with lease takeover, even if mutation outlives its lease. */
+    private function commitIfOwner(array $lock, array $queue): bool
+    {
+        global $wpdb;
+        if (!isset($wpdb) || !function_exists('maybe_serialize')) {
+            // Standalone PHP tests provide WordPress option stubs without a database.
+            $current = get_option(self::LOCK_OPTION, false);
+            if (!is_array($current) || ($current['owner'] ?? null) !== $lock['owner']) return false;
+            update_option(self::QUEUE_OPTION, $queue, false);
+            return true;
+        }
+        if ($wpdb->query('START TRANSACTION') === false) return false;
+        try {
+            $stored = $wpdb->get_var($wpdb->prepare(
+                "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s FOR UPDATE",
+                self::LOCK_OPTION
+            ));
+            if ($stored !== maybe_serialize($lock)) {
+                $wpdb->query('ROLLBACK');
+                return false;
+            }
+            // Another PHP process may have changed the option while this request waited.
+            if (function_exists('wp_cache_delete')) {
+                wp_cache_delete(self::QUEUE_OPTION, 'options');
+                wp_cache_delete('notoptions', 'options');
+            }
+            update_option(self::QUEUE_OPTION, $queue, false);
+            if ($wpdb->query('COMMIT') === false) {
+                $wpdb->query('ROLLBACK');
+                return false;
+            }
+            return true;
+        } catch (\Throwable $error) {
+            $wpdb->query('ROLLBACK');
+            throw $error;
+        }
+    }
+
+    /** Never use request-local get_option() to decide whether a lock can be released. */
+    private function releaseIfOwner(array $lock): void
+    {
+        global $wpdb;
+        if (!isset($wpdb) || !function_exists('maybe_serialize')) {
+            $current = get_option(self::LOCK_OPTION, false);
+            if (is_array($current) && ($current['owner'] ?? null) === $lock['owner'])
+                delete_option(self::LOCK_OPTION);
+            return;
+        }
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
+            self::LOCK_OPTION, maybe_serialize($lock)
+        ));
+        if (function_exists('wp_cache_delete')) wp_cache_delete(self::LOCK_OPTION, 'options');
     }
 
     /** A different request can update wp_options while this cron awaits HTTP. */
