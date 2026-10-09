@@ -50,7 +50,9 @@ export async function GET(
     );
   }
 
-  const endpoints = await db.webhookEndpoint.findMany({
+  const endpoints = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    return tx.webhookEndpoint.findMany({
     where: { projectId: projektId },
     include: {
       deliveries: {
@@ -60,6 +62,9 @@ export async function GET(
     },
     orderBy: { createdAt: "desc" },
   });
+  });
+
+  if (!endpoints) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ endpoints });
 }
