@@ -127,7 +127,9 @@ test("a project transfer invalidates the previous workspace manager scope", { sk
   const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello world", translatedText: "Hallo Welt", langFrom: "en", langTo: "de", source: "MOCK" } });
   const order = await createProfessionalOrder({ projectId: project.id, requesterId: user.id, targetLanguage: "de", translationIds: [translation.id] });
   assert.equal(await userCanManageProject(user.id, project.id), true);
-  await db.project.update({ where: { id: project.id }, data: { organizationId: target.id } });
+  await assert.rejects(() => db.project.update({ where: { id: project.id }, data: { organizationId: target.id } }));
+  assert.equal((await db.project.findUniqueOrThrow({ where: { id: project.id } })).organizationId, source.id);
+  await db.organizationMember.delete({ where: { userId_organizationId: { userId: user.id, organizationId: source.id } } });
   await assert.rejects(() => issueVendorGrant({ orderId: order.id, projectId: project.id, actorId: user.id }));
   assert.equal(await db.professionalTranslationVendorGrant.count({ where: { orderId: order.id } }), 0);
 });

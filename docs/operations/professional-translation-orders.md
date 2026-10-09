@@ -10,7 +10,7 @@ workflow remains available while ordering is off.
 Only a project manager can create an order from 1–100 existing segments in one
 active target language. The server rechecks project ownership and language,
 copies the original text, hash and update timestamp into an order item, records
-the scope digest and word count, and never reprices an accepted snapshot. The
+the scope digest, originating workspace and word count, and never reprices an accepted snapshot. The
 manager's role, current workspace owner and active language are rechecked
 inside every write transaction under Organization → Project row locks; a
 revocation or transfer after the API gate therefore cannot authorize a write.
@@ -34,6 +34,26 @@ A late payment after cancellation also becomes `REFUND_PENDING`. Verified
 provider callbacks alone may mark `PAID`, `REFUNDED` or `DISPUTED`; failure is
 tracked as `FAILED`. All financial and fulfillment events carry provider
 references and are idempotent. Work does not start on a checkout redirect.
+The originating organization remains immutable. Project deletion is blocked by
+the order foreign key, and the integrity trigger blocks project transfer when
+order evidence exists. Integrate this guard with #267's workspace transfer
+contract on the merged main before release; reconcile paid/refund/dispute
+obligations with the original merchant rather than silently moving them.
+
+One-time Stripe Checkout uses the accepted quote's amount and currency only.
+The server reserves a durable idempotency key in a short transaction, calls
+Stripe outside the Organization → Project locks, then binds the returned
+Session in a second transaction. A lost response retries the same key for at
+most 23 hours; after that, an unbound attempt fails closed for merchant
+reconciliation. Session and PaymentIntent identity, mode, paid state, quote
+reference, scope digest, originating organization, amount and currency are
+retrieved and checked server-side after a signed webhook. Untrusted redirect
+parameters or webhook metadata alone cannot mark payment. A synthetic
+subscription customer is omitted; a real `cus_` customer is reused only from
+the same organization. Checkout responses expose only the Stripe URL, no
+customer identifier or billing profile. No credit purchase or plan upgrade is
+started. Partial refunds remain pending merchant review; full refunds and
+chargeback openings are recorded from separately verified Stripe objects.
 
 Delivery must contain exactly the quoted items. It writes proposed text only
 to order item drafts, leaving the authoritative translation cache unchanged.
@@ -50,7 +70,7 @@ Other members' assignments and existing import/export behavior are untouched.
 | --- | --- | --- |
 | Merchant and vendor model | Seller of record, vendor contract party, whether platform sells a service or intermediates it, payout and liability model | Recorded owner decision and approved vendor agreement |
 | Pricing and terms | Currency/rounding, minimum price, revisions, quote validity, turnaround start, cancellation windows, vendor service level | Versioned customer and vendor terms tied to quote terms version |
-| Payment | Merchant account, one-time Checkout integration, asynchronous success/failure webhooks, idempotency, duplicate/late payment and refund handling | Isolated sandbox payment, replay, late payment, refund and dispute acceptance |
+| Payment | Merchant account, one-time Checkout ownership, duplicate/late payment and refund handling | Isolated sandbox payment, signed webhook, replay, late payment, refund and dispute acceptance |
 | Tax and invoice | Tax registration jurisdictions, seller/invoice issuer, tax code, reverse-charge treatment where applicable, invoice/credit-note ownership | Recorded tax determination and example invoices/credit notes; obtain specialist review only where the actual decision requires it, and do not assume Stripe Tax registration |
 | Disputes and failures | Who handles chargebacks, vendor non-delivery, partial delivery, rework, refund decisions and support response times | Named operational owner and exercised failure runbook |
 | Privacy | Vendor role/processor agreement, permitted content, sensitive data exclusions, data location, retention/deletion, access logs and breach contact | Approved privacy notice, DPA and least-privilege review |
@@ -66,9 +86,14 @@ The API and order UI are hidden unless all five environment flags are exactly
 `PROFESSIONAL_ORDERS_PRODUCTION_ACCEPTED`. No flag is set by default. These
 flags represent recorded approvals; setting them is not itself approval.
 Because no merchant, tax, invoice or vendor contract decision is recorded,
-**do not enable the flags in shared Preview or Production**. The internal
-payment adapter contract has no live Stripe route or key configuration yet;
-`PAYMENT_PENDING` cannot advance from a browser request.
+**do not enable the flags in shared Preview or Production**. The Checkout route
+requires the existing `STRIPE_SECRET_KEY`; the separate webhook route requires
+`PROFESSIONAL_ORDERS_STRIPE_WEBHOOK_SECRET`. Configure a dedicated Stripe
+endpoint for `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed`, `charge.refunded`, and
+`charge.dispute.created` only after activation decisions. Never reuse the
+subscription webhook secret for this endpoint. No real Stripe requests, keys,
+customer writes or vendor calls were used during this candidate's QA.
 
 For a disposable local PostgreSQL database only: apply `npx prisma db push`,
 then run `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f
@@ -80,11 +105,13 @@ scope and order item source text fail. Run the focused unit and local integratio
 tests using `DEEPGLOT_ORDER_TEST_DATABASE_URL` pointed only at the disposable
 instance. Never point that variable at Neon or a customer database.
 
-Before activation, implement the chosen payment adapter with signed webhooks,
-Checkout session creation, payment/refund/dispute readback, invoice and tax
-handling. The adapter must call `recordProfessionalPayment` and
-`recordProfessionalSettlement` only after verified provider events. It must
-never initiate a subscription upgrade or purchase translation credits.
+Before activation, record merchant, invoice issuer, tax treatment, credit-note
+ownership, vendor agreement and refund execution policy. The Checkout adapter
+intentionally creates neither an invoice nor an automatic tax calculation or
+refund: those choices require the recorded seller/tax model. Exercise the
+dedicated signed webhook route with Stripe's test mode and run AI-led bilingual
+browser QA only after those decisions. The order adapter never initiates a
+subscription upgrade or purchases translation credits.
 Reconcile `PAYMENT_PENDING`, `REFUND_PENDING`, `DISPUTED` and `FAILED` daily with
 the named merchant/support owner. No actual vendor or Stripe calls are made by
 this candidate implementation.

@@ -39,11 +39,17 @@ export async function lockProfessionalOrderManagerScope(
     WHERE "projectId" = ${input.projectId} AND "isActive" = true
     FOR SHARE
   `;
-  return { organizationId: locked[0].organizationId, sourceLanguage: locked[0].originalLang, activeLanguages: new Set(languages.map((language) => language.langCode.toLowerCase())) };
+  return { organizationId: locked[0].organizationId, organizationRole: organizationMembers[0]?.role ?? null, sourceLanguage: locked[0].originalLang, activeLanguages: new Set(languages.map((language) => language.langCode.toLowerCase())) };
 }
 
 export function assertProfessionalOrderLanguage(scope: Awaited<ReturnType<typeof lockProfessionalOrderManagerScope>>, sourceLanguage: string, targetLanguage: string) {
   if (scope.sourceLanguage.toLowerCase() !== sourceLanguage.toLowerCase() || !scope.activeLanguages.has(targetLanguage.toLowerCase())) {
     throw new ProfessionalOrderError("CONFLICT", "Project language configuration changed; request a new quote.");
+  }
+}
+
+export function assertProfessionalOrderOwner(scope: Awaited<ReturnType<typeof lockProfessionalOrderManagerScope>>, orderOrganizationId: string | null) {
+  if (!orderOrganizationId || scope.organizationId !== orderOrganizationId) {
+    throw new ProfessionalOrderError("CONFLICT", "Order billing ownership changed; reconcile before continuing.");
   }
 }

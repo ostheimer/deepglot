@@ -489,6 +489,7 @@ model Translation {
 model ProfessionalTranslationOrder {
   id String @id @default(cuid())
   projectId String
+  organizationId String? // immutable billing owner snapshot; legacy null rows fail closed
   requesterId String
   status ProfessionalTranslationOrderStatus @default(QUOTE_REQUESTED)
   sourceLanguage String
@@ -502,6 +503,10 @@ model ProfessionalTranslationOrder {
   quoteReference String?
   quoteTermsVersion String?
   selectedVendorGrantId String?
+  checkoutRequestKey String? @unique
+  checkoutAttemptedAt DateTime?
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId String? @unique
   paymentReference String? @unique
   paymentProvider String?
   paidAt DateTime?

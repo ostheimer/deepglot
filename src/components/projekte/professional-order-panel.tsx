@@ -46,6 +46,13 @@ export function ProfessionalOrderPanel({ projectId, languages, locale }: { proje
     finally { setBusy(false); }
   }
 
+  async function checkout(orderId: string) {
+    const result = await action(`${base}/${orderId}/checkout`, {});
+    if (result?.url && typeof result.url === "string" && result.url.startsWith("https://checkout.stripe.com/")) {
+      window.location.assign(result.url);
+    }
+  }
+
   const base = `/api/projects/${projectId}/professional-orders`;
   return <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
     <div>
@@ -79,6 +86,7 @@ export function ProfessionalOrderPanel({ projectId, languages, locale }: { proje
         <div className="flex flex-wrap gap-2">
           {order.status === "QUOTE_REQUESTED" && <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(`${base}/${order.id}`, { action: "vendor_grant" })}>{de ? "Dienstleisterzugang erzeugen" : "Create vendor access"}</Button>}
           {order.status === "QUOTED" && order.quoteReference && <Button size="sm" disabled={busy || !order.quoteExpiresAt || new Date(order.quoteExpiresAt) <= new Date()} onClick={() => void action(`${base}/${order.id}`, { action: "accept_quote", expectedScopeDigest: order.scopeDigest, expectedQuoteReference: order.quoteReference })}>{de ? "Angebot annehmen" : "Accept quote"}</Button>}
+          {order.status === "PAYMENT_PENDING" && <Button size="sm" disabled={busy} onClick={() => void checkout(order.id)}>{de ? "Einmalig sicher bezahlen" : "Secure one-time payment"}</Button>}
           {["QUOTE_REQUESTED", "QUOTED", "PAYMENT_PENDING", "PAID", "IN_PROGRESS", "DELIVERED"].includes(order.status) && <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(`${base}/${order.id}`, { action: "cancel" })}>{order.status === "PAID" || order.status === "IN_PROGRESS" || order.status === "DELIVERED" ? (de ? "Erstattung anfragen" : "Request refund") : (de ? "Stornieren" : "Cancel")}</Button>}
         </div>
         {order.status === "PAYMENT_PENDING" && <p className="text-amber-700">{de ? "Zahlung ausstehend. Die Bestellung startet erst nach bestätigtem Zahlungseingang." : "Payment pending. Work starts only after confirmed payment."}</p>}

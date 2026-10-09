@@ -129,7 +129,9 @@ existing member review and export → vendor → import paths. It snapshots an
 authorized segment/language scope, accepts a vendor quote with price,
 turnaround and expiry, records durable payment/fulfillment states, and holds
 delivery as a review draft until the manager explicitly approves adoption.
-The feature is disabled by default; no live payment or vendor call is wired.
+The feature is disabled by default. One-time Stripe Checkout and a separate
+signed payment/refund/dispute webhook are implemented behind the gate; no
+live payment or vendor call has been made.
 See [the order runbook](docs/operations/professional-translation-orders.md)
 for the state contract, schema trigger, adapter boundary and launch decisions.
 

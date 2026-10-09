@@ -30,10 +30,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   try {
     requireProfessionalOrdersEnabled();
     const orders = await db.$transaction(async (tx) => {
-      await lockProfessionalOrderManagerScope(tx, { projectId: projektId, actorId: actor.userId! });
-      await tx.professionalTranslationOrder.updateMany({ where: { projectId: projektId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
+      const scope = await lockProfessionalOrderManagerScope(tx, { projectId: projektId, actorId: actor.userId! });
+      await tx.professionalTranslationOrder.updateMany({ where: { projectId: projektId, organizationId: scope.organizationId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
       return tx.professionalTranslationOrder.findMany({
-        where: { projectId: projektId }, take: 50, orderBy: { createdAt: "desc" },
+        where: { projectId: projektId, organizationId: scope.organizationId }, take: 50, orderBy: { createdAt: "desc" },
         select: { id: true, status: true, sourceLanguage: true, targetLanguage: true, wordCount: true, scopeDigest: true, quoteAmountMinor: true, quoteCurrency: true, quoteTurnaroundDays: true, quoteExpiresAt: true, quoteReference: true, createdAt: true, items: { select: { id: true, translationId: true, originalText: true, originalHash: true, sourceUpdatedAt: true, proposedText: true, deliveredAt: true, adoptedAt: true } } },
       });
     });
