@@ -14,6 +14,7 @@ import {
 } from "@/lib/translation-config";
 
 type OpenAIChatCompletionResponse = {
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
   choices?: Array<{
     message?: {
       content?: string | Array<{ text?: string; type?: string }>;
@@ -191,6 +192,7 @@ export async function translateWithOpenAICompatible(
       },
     ],
     ...(!shouldOmitTemperature(model) && { temperature: 0 }),
+    ...(config.maxOutputUnits !== undefined && { max_completion_tokens: config.maxOutputUnits }),
   };
 
   const response = await fetch(getChatCompletionsUrl(baseUrl), {
@@ -226,6 +228,9 @@ export async function translateWithOpenAICompatible(
   }
 
   const data = rawData as OpenAIChatCompletionResponse;
+  if (Number.isSafeInteger(data.usage?.prompt_tokens) && Number.isSafeInteger(data.usage?.completion_tokens)) {
+    config.onUsage?.({ inputUnits: data.usage!.prompt_tokens!, outputUnits: data.usage!.completion_tokens! });
+  }
   const rawContent = getOpenAIMessageText(data.choices?.[0]?.message?.content);
 
   return parseOpenAITranslations(rawContent, texts.length);

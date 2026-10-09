@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { currentAiBudgetEnforcementState } from "@/lib/ai-budget-enforcement";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const org = memberships[0]?.organization;
   const currentMonth = parseInt(new Date().toISOString().slice(0, 7).replace("-", ""));
+
+  // Mandatory, in-app budget alerts are scoped to current org managers. The
+  // optional email preferences have no budget category or producer.
+  const canReadBudgetAlerts = memberships[0]?.role === "OWNER" || memberships[0]?.role === "ADMIN";
+  const budgetEvents = org && canReadBudgetAlerts && currentAiBudgetEnforcementState() === "active" ? await db.aiBudgetEvent.findMany({
+    where: { organizationId: org.id, periodKey: currentMonth,
+      kind: { in: ["WARNING_REACHED", "CAP_REACHED"] },
+      OR: [{ projectId: null }, { projectId: { in: org.projects.map((project) => project.id) } }] },
+    orderBy: { createdAt: "desc" }, take: 6,
+  }) : [];
+  const budgetPolicies = budgetEvents.length ? await db.aiBudget.findMany({
+    where: { id: { in: budgetEvents.map((event) => event.budgetId) }, organizationId: org!.id },
+    select: { id: true, projectId: true, currency: true, capMicros: true },
+  }) : [];
+  const committedRows = budgetEvents.length ? await db.$queryRaw<Array<{ projectId: string; currency: string; total: bigint }>>`
+    SELECT "projectId", "currency", COALESCE(SUM(CASE WHEN "state" = 'SETTLED'
+      THEN COALESCE("reconciledCeilingMicros", "reservedMicros") ELSE "reservedMicros" END), 0)::bigint AS total
+    FROM "AiSpendReservation" WHERE "organizationId" = ${org!.id} AND "periodKey" = ${currentMonth}
+    GROUP BY "projectId", "currency"
+  ` : [];
+  const organizationCommitted = committedRows.reduce((sum, row) => sum + row.total, BigInt(0));
+  const projectCommitted = new Map(committedRows.map((row) => [row.projectId, row.total]));
+  const formatBudget = (micros: bigint) => `${micros / BigInt(1_000_000)}.${(micros % BigInt(1_000_000)).toString().padStart(6, "0")}`;
 
   // Word usage this month
   const monthlyUsage = org
@@ -167,6 +191,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
         {uiText(locale, "Overview", "Übersicht")}
       </h1>
+
+      {budgetEvents.length > 0 && <section className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4" aria-label={locale === "de" ? "KI-Budgetwarnungen" : "AI budget alerts"}>
+        <h2 className="flex items-center gap-2 font-semibold text-amber-950"><AlertTriangle className="h-5 w-5" />{locale === "de" ? "KI-Budgetwarnungen" : "AI budget alerts"}</h2>
+        <p className="mt-1 text-sm text-amber-900">{locale === "de" ? "Anbieterkosten-Obergrenzen; getrennt von Wortkontingent und Plattform-Credits." : "Provider-cost ceilings, separate from word quota and platform credits."}</p>
+        <ul className="mt-3 space-y-2 text-sm text-amber-950">{budgetEvents.map((event) => {
+          const policy = budgetPolicies.find((item) => item.id === event.budgetId);
+          if (!policy) return null;
+          const project = policy.projectId ? org?.projects.find((item) => item.id === policy.projectId) : null;
+          const committed = policy.projectId ? (projectCommitted.get(policy.projectId) ?? BigInt(0)) : organizationCommitted;
+          const currencyConflict = committedRows.some((row) => row.currency !== policy.currency);
+          const targetProject = project?.id ?? org?.projects[0]?.id;
+          return <li key={event.id} className="rounded-md bg-white/70 p-2">
+            <strong>{event.kind === "CAP_REACHED" ? (locale === "de" ? "Limit erreicht" : "Cap reached") : (locale === "de" ? "Warnschwelle erreicht" : "Warning threshold reached")}</strong>
+            {` · ${project ? project.name : (locale === "de" ? "Organisation" : "Organization")} · ${event.threshold}% · ${currencyConflict
+              ? (locale === "de" ? "Währungskonflikt: kein Betrag angezeigt" : "Currency conflict: no amount shown")
+              : `${policy.currency} ${formatBudget(committed)}/${formatBudget(policy.capMicros)}`}`}
+            {targetProject && <> · <Link className="underline" href={withLocalePrefix(`/projects/${targetProject}/settings/language-model`, locale)}>{locale === "de" ? "Budget prüfen" : "Review budget"}</Link></>}
+          </li>;
+        })}</ul>
+      </section>}
 
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_280px] gap-6">
 

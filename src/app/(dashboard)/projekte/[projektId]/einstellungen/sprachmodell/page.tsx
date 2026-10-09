@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { Cpu, ShieldCheck, Sparkles } from "lucide-react";
 
 import { LanguageModelSettingsCard } from "@/components/projekte/language-model-settings-card";
+import { AiBudgetSettingsCard } from "@/components/projekte/ai-budget-settings-card";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { userCanManageProject } from "@/lib/project-access";
@@ -41,6 +42,10 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
   }
 
   const effective = resolveTranslationProviderDisplayConfig(project.settings);
+  const owner = await db.organizationMember.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: project.organizationId } },
+    select: { role: true },
+  });
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -115,6 +120,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
           recommendedModels: getRecommendedModels(provider),
         }))}
       />
+      <AiBudgetSettingsCard projectId={project.id} locale={locale} isOwner={owner?.role === "OWNER"} />
     </div>
   );
 }

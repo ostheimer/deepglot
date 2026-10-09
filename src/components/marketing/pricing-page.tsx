@@ -9,11 +9,13 @@ const PAGE_COPY = {
   en: {
     title: "Simple, fair pricing",
     description: "Start for free. No credit card required.",
+    aiCosts: "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.",
     eyebrow: "Fair by design",
   },
   de: {
     title: "Einfache, faire Preise",
     description: "Kostenlos starten, keine Kreditkarte erforderlich.",
+    aiCosts: "Wortkontingente der Tarife sind von externen KI-Anbieterkosten getrennt. Nach Aktivierung der KI-Budgetdurchsetzung benötigen neue Anbieteraufrufe ausdrücklich freigegebene Organisations- und Projektbudgets. KI-Budgets kaufen nie automatisch Credits oder erhöhen ihre Limits. Eine getrennt freigegebene automatische Planerhöhung ändert nur das Wortkontingent des Tarifs.",
     eyebrow: "Fair aus Prinzip",
   },
 } as const;
@@ -38,6 +40,7 @@ export async function PricingPage({ locale }: PricingPageProps) {
           {copy.title}
         </h1>
         <p className="text-lg text-[#58636d]">{copy.description}</p>
+        <p className="mx-auto mt-4 max-w-3xl text-sm text-[#58636d]">{copy.aiCosts}</p>
       </div>
 
       <div className="pt-14">

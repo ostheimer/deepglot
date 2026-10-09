@@ -57,6 +57,7 @@ export function ProjectsTable({ projects }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ projectId: string; message: string } | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -90,9 +91,28 @@ export function ProjectsTable({ projects }: Props) {
       return;
     }
     setDeletingId(id);
-    await fetch(`/api/projects/${id}`, { method: "DELETE" });
-    router.refresh();
-    setDeletingId(null);
+    setDeleteError(null);
+    try {
+      const response = await fetch(`/api/projects/${id}`, {
+        method: "DELETE", headers: { "Accept-Language": locale },
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { code?: string };
+        setDeleteError({ projectId: id, message: result.code === "ai_spend_pending"
+          ? uiText(locale,
+            "Project deletion is paused while AI provider work is in flight or has unknown usage. Review the budget and resolve unknown usage with provider evidence.",
+            "Die Projektlöschung ist pausiert, solange KI-Anbieteraufrufe laufen oder ihre Nutzung ungeklärt ist. Prüfe das Budget und kläre unbekannte Nutzung anhand eines Anbieterbelegs.")
+          : uiText(locale, "Project could not be deleted. Please try again.", "Das Projekt konnte nicht gelöscht werden. Bitte versuche es erneut.") });
+        return;
+      }
+      router.refresh();
+    } catch {
+      setDeleteError({ projectId: id, message: uiText(locale,
+        "Project could not be deleted. Please try again.",
+        "Das Projekt konnte nicht gelöscht werden. Bitte versuche es erneut.") });
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   // Status dot based on last activity
@@ -171,6 +191,13 @@ export function ProjectsTable({ projects }: Props) {
           </Button>
         </div>
       </div>
+
+      {deleteError && <div role="alert" className="mb-5 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+        {deleteError.message}{" "}
+        <Link className="underline" href={withLocalePrefix(`/projects/${deleteError.projectId}/settings/language-model`, locale)}>
+          {uiText(locale, "Review AI budget", "KI-Budget prüfen")}
+        </Link>
+      </div>}
 
       {projects.length === 0 ? (
         /* Empty state */

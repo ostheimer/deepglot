@@ -30,7 +30,8 @@ export async function translateWithDeepL(
     projectContext,
   }: TranslateTextsInput,
   env: TranslationEnv = process.env,
-  signal: AbortSignal = providerAbortSignal(env)
+  signal: AbortSignal = providerAbortSignal(env),
+  onUsage?: (usage: { inputUnits: number; outputUnits: number }) => void,
 ): Promise<TranslationResult[]> {
   const apiKey = env.DEEPL_API_KEY;
   if (!apiKey) throw new Error("DEEPL_API_KEY nicht konfiguriert");
@@ -39,6 +40,7 @@ export async function translateWithDeepL(
   params.append("source_lang", sourceLang.toUpperCase());
   params.append("target_lang", targetLang.toUpperCase());
   params.append("preserve_formatting", "1");
+  params.append("show_billed_characters", "true");
   const context = [
     websiteType ? `Website type: ${websiteType}.` : "",
     industryType ? `Industry: ${industryType}.` : "",
@@ -97,6 +99,18 @@ export async function translateWithDeepL(
       texts.length,
       translations.length
     );
+  }
+
+  // DeepL returns a per-translation integer billed_characters only when
+  // show_billed_characters=true. Missing/malformed entries retain the hold.
+  const billed = translations.map((entry) =>
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? (entry as { billed_characters?: unknown }).billed_characters
+      : null,
+  );
+  if (billed.every((value) => Number.isSafeInteger(value) && Number(value) >= 0)) {
+    const total = billed.reduce<number>((sum, value) => sum + Number(value), 0);
+    if (Number.isSafeInteger(total)) onUsage?.({ inputUnits: total, outputUnits: 0 });
   }
 
   return translations.map((entry, index) => {

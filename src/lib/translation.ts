@@ -74,8 +74,9 @@ async function translateWithProvider(
       return translateWithGemini(input, config, signal);
     case "deepl":
       validateTranslationProviderConfig(config);
-      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey }, signal);
+      return translateWithDeepL(input, { ...env, DEEPL_API_KEY: config.apiKey }, signal, config.onUsage);
     case "mock":
+      config.onUsage?.({ inputUnits: 0, outputUnits: 0 });
       return translateWithMock(input);
     default:
       throw new Error(`Provider '${config.provider}' is not supported.`);
@@ -253,6 +254,13 @@ export type TranslationExecutionOptions = {
   signal?: AbortSignal;
   /** Monotonic absolute deadline from performance.now() at caller entry. */
   deadlineAt?: number;
+  /** Called immediately before each provider HTTP attempt, including fallback. */
+  spendControl?: {
+    beforeAttempt: (config: TranslationProviderConfig, input: TranslateTextsInput) => Promise<{
+      maxOutputUnits: number;
+      settle: (usage?: { inputUnits: number; outputUnits: number }) => Promise<void>;
+    }>;
+  };
 };
 
 export function resolveTranslationRequestTimeoutMs(
@@ -512,7 +520,8 @@ export async function translateTexts(
             budget,
             providerCallSlots,
             0,
-            true
+            true,
+            executionOptions?.spendControl,
           );
           return { kind: "translated", translations };
         } catch (error) {
@@ -614,7 +623,9 @@ export async function translateTexts(
             requestSignal,
             budget,
             providerCallSlots,
-            1
+            1,
+            false,
+            executionOptions?.spendControl,
           ),
         })
       );
@@ -723,7 +734,8 @@ async function translateChunk(
   budget: TranslationChunkBudget,
   providerCallSlots: ProviderCallSlots,
   isolationDepth = 0,
-  deferRootCountMismatch = false
+  deferRootCountMismatch = false,
+  spendControl?: TranslationExecutionOptions["spendControl"],
 ): Promise<TranslationResult[]> {
   const providerChain = chain.map((entry) => entry.provider).join(" -> ");
 
@@ -749,12 +761,19 @@ async function translateChunk(
       try {
         // The request may have been aborted while this call waited for a slot.
         requestSignal.throwIfAborted();
-        results = await translateWithProvider(
-          input,
-          env,
-          candidate,
-          requestSignal
-        );
+        const approval = await spendControl?.beforeAttempt(candidate, input);
+        let usage: { inputUnits: number; outputUnits: number } | undefined;
+        try {
+          results = await translateWithProvider(
+            input, env,
+            approval ? { ...candidate, maxOutputUnits: approval.maxOutputUnits,
+              onUsage: (reported) => { usage = reported; } } : candidate,
+            requestSignal
+          );
+        } finally {
+          // Unknown or failed provider receipts retain the conservative hold.
+          await approval?.settle(usage);
+        }
       } finally {
         releaseSlot();
       }

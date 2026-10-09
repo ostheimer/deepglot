@@ -1,7 +1,19 @@
 import type { SiteLocale } from "@/lib/site-locale";
 
-// The new workspace flow ships in German and English; other locales use clear English fallback copy until translated.
+// New workspace and AI budget flows ship in German and English; other locales
+// use clear English fallback copy until their catalogue translations are reviewed.
 const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
+  "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.": "Plan word quotas are separate from external AI provider charges. Once AI budget enforcement is activated, new provider spending requires explicit organization and project approvals. AI budgets never buy credits or raise their limits automatically. A separately approved automatic subscription upgrade changes only the plan's word quota.",
+  "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.": "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.",
+  "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.": "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.",
+  "A URL provider operation or an in-flight/unknown AI spend reservation blocks preview and transfer. Resolve its outcome first so the receipt and spend remain with the originating workspace.": "A URL provider operation or an in-flight/unknown AI spend reservation blocks preview and transfer. Resolve its outcome first so the receipt and spend remain with the originating workspace.",
+  "Settled AI spend records retained at source": "Settled AI spend records retained at source",
+  "Source project AI approval cleared": "Source project AI approval cleared",
+  "No approval": "No approval",
+  "Settled AI spend reservations and approval events retain their original workspace. The source project AI approval is cleared. The destination owner must explicitly approve a new project AI budget before active enforcement permits fresh provider work.": "Settled AI spend reservations and approval events retain their original workspace. The source project AI approval is cleared. The destination owner must explicitly approve a new project AI budget before active enforcement permits fresh provider work.",
+  "Project deletion is paused while AI provider work is in flight or has unknown usage. Review the budget and resolve unknown usage with provider evidence.": "Project deletion is paused while AI provider work is in flight or has unknown usage. Review the budget and resolve unknown usage with provider evidence.",
+  "Project could not be deleted. Please try again.": "Project could not be deleted. Please try again.",
+  "Review AI budget": "Review AI budget",
   "Choose a workspace in the sidebar.": "Choose a workspace in the sidebar.",
   "Choose workspace": "Choose workspace",
   "Choose a workspace": "Choose a workspace",

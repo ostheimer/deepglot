@@ -15,6 +15,7 @@ type Preview = {
   translatedUrls: number; urlSlugs: number; keptProjectMembers: number; removedProjectMembers: number;
   revokedInvitations: number; revokedApiKeys: number; disabledWebhookEndpoints: number;
   retainedWebhookDeliveries: number; retainedHistoricalBatches: number; clearedProviderKey: boolean;
+  retainedAiSpendReservations: number; clearedAiProjectBudget: boolean;
   providerReconnectRequiredAfterTransfer: boolean;
   fingerprint: string; issuedAt: string; confirmationToken: string;
 };
@@ -48,7 +49,7 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         toast.error(error?.error === "PENDING"
-          ? uiText(locale, "A URL provider operation is still pending. Reconcile its outcome before transferring this project.", "Ein URL-Provider-Auftrag ist noch offen. Kläre dessen Ergebnis, bevor du dieses Projekt überträgst.")
+          ? uiText(locale, "A URL or AI provider operation is still pending or unresolved. Review its outcome and the AI budget before transferring this project.", "Ein URL- oder KI-Anbieterauftrag ist noch offen oder ungeklärt. Prüfe Ergebnis und KI-Budget, bevor du dieses Projekt überträgst.")
           : error?.error === "UNATTRIBUTED"
             ? uiText(locale, "An older URL receipt has no evidenced billing workspace. Reconcile its origin before transferring this project.", "Für einen älteren URL-Beleg ist der abrechnende Workspace nicht belegt. Kläre seine Herkunft, bevor du dieses Projekt überträgst.")
           : uiText(locale, "Transfer preview unavailable. Check destination access and plan limits.", "Transfer-Vorschau nicht verfügbar. Prüfe Zielzugriff und Planlimits."));
@@ -69,7 +70,7 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
       if (!response.ok) { setPreview(null); setAcknowledged(false);
         const error = await response.json().catch(() => ({}));
         toast.error(error?.error === "PENDING"
-          ? uiText(locale, "A URL provider operation started. Reconcile its outcome, then request a fresh transfer preview.", "Ein URL-Provider-Auftrag wurde gestartet. Kläre dessen Ergebnis und fordere danach eine neue Transfer-Vorschau an.")
+          ? uiText(locale, "A URL or AI provider operation started or remains unresolved. Review its outcome and the AI budget, then request a fresh transfer preview.", "Ein URL- oder KI-Anbieterauftrag wurde gestartet oder ist noch ungeklärt. Prüfe Ergebnis und KI-Budget und fordere danach eine neue Transfer-Vorschau an.")
           : error?.error === "UNATTRIBUTED"
             ? uiText(locale, "A URL receipt without evidenced billing origin appeared. Reconcile it, then request a fresh transfer preview.", "Ein URL-Beleg ohne belegten Abrechnungsursprung ist hinzugekommen. Kläre ihn und fordere danach eine neue Transfer-Vorschau an.")
           : uiText(locale, "Transfer changed or failed. Request a fresh preview.", "Transfer geändert oder fehlgeschlagen. Fordere eine neue Vorschau an.")); return; }
@@ -90,8 +91,8 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
           "Only a workspace owner or admin can transfer to a workspace they also manage.",
           "Nur Workspace-Owner oder -Admins können in einen Workspace übertragen, den sie ebenfalls verwalten.")}</p>
         <p className="text-sm text-gray-600">{uiText(locale,
-          "A URL provider operation with an unresolved outcome blocks the preview and transfer. Reconcile it first so its costs and receipt remain with the originating workspace.",
-          "Ein URL-Provider-Auftrag mit ungeklärtem Ergebnis sperrt Vorschau und Transfer. Kläre ihn zuerst, damit Kosten und Beleg beim ursprünglichen Workspace bleiben.")}</p>
+          "A URL provider operation or an in-flight/unknown AI spend reservation blocks preview and transfer. Resolve its outcome first so the receipt and spend remain with the originating workspace.",
+          "Ein URL-Provider-Auftrag oder eine laufende beziehungsweise ungeklärte KI-Reservierung sperrt Vorschau und Transfer. Kläre das Ergebnis zuerst, damit Beleg und Ausgabe beim ursprünglichen Workspace bleiben.")}</p>
         <p className="text-sm text-gray-600">{uiText(locale,
           "An older URL receipt without evidenced billing ownership also blocks transfer until its origin is reconciled.",
           "Ein älterer URL-Beleg ohne belegten Abrechnungsursprung sperrt den Transfer ebenfalls bis zur Klärung.")}</p>
@@ -121,12 +122,15 @@ export function ProjectTransferDialog({ projectId, projectName, organizationId }
             <dt>{uiText(locale, "API keys revoked", "API-Keys widerrufen")}</dt><dd>{preview.revokedApiKeys}</dd>
             <dt>{uiText(locale, "Webhooks disabled", "Webhooks deaktiviert")}</dt><dd>{preview.disabledWebhookEndpoints}</dd>
             <dt>{uiText(locale, "Previous deliveries / batches retained", "Frühere Zustellungen / Batches bleiben")}</dt><dd>{preview.retainedWebhookDeliveries} / {preview.retainedHistoricalBatches}</dd>
+            <dt>{uiText(locale, "Settled AI spend records retained at source", "Abgeglichene KI-Ausgaben bleiben beim Ursprung")}</dt><dd>{preview.retainedAiSpendReservations}</dd>
+            <dt>{uiText(locale, "Source project AI approval cleared", "KI-Projektfreigabe des Ursprungs entfernt")}</dt><dd>{preview.clearedAiProjectBudget ? uiText(locale, "Yes", "Ja") : uiText(locale, "No approval", "Keine Freigabe")}</dd>
             <dt>{uiText(locale, "Provider key cleared", "Provider-Key entfernt")}</dt><dd>{preview.clearedProviderKey ? uiText(locale, "Yes", "Ja") : uiText(locale, "No", "Nein")}</dd>
             <dt>{uiText(locale, "Provider reconnect required after transfer", "Provider-Verbindung nach Transfer erforderlich")}</dt><dd>{preview.providerReconnectRequiredAfterTransfer ? uiText(locale, "Yes", "Ja") : uiText(locale, "No", "Nein")}</dd>
           </dl>
           <ul className="list-disc space-y-1 pl-5">
             <li>{uiText(locale, "Workspace members and roles stay in their workspaces. Only project members already in the destination remain; source-only assignments are cleared. Pending invitations are revoked.", "Workspace-Mitglieder und Rollen bleiben in ihren Workspaces. Nur Projektmitglieder, die bereits zum Ziel gehören, bleiben; Zuweisungen entfernter Mitglieder werden aufgehoben. Offene Einladungen werden widerrufen.")}</li>
             <li>{uiText(locale, "Subscriptions and billing ownership stay separate. Past billed usage and batches remain with the source, including this month; future usage counts for the destination.", "Abos und Abrechnungsverantwortung bleiben getrennt. Bereits abgerechnete Nutzung und Batches bleiben beim Ursprung, auch in diesem Monat; künftige Nutzung zählt beim Ziel.")}</li>
+            <li>{uiText(locale, "Settled AI spend reservations and approval events retain their original workspace. The source project AI approval is cleared. The destination owner must explicitly approve a new project AI budget before active enforcement permits fresh provider work.", "Abgeglichene KI-Reservierungen und Freigabeereignisse behalten ihren ursprünglichen Workspace. Die KI-Projektfreigabe des Ursprungs wird entfernt. Bei aktiver Durchsetzung muss der Ziel-Owner ein neues KI-Projektbudget ausdrücklich freigeben, bevor neue Anbieteraufrufe möglich sind.")}</li>
             <li>{uiText(locale, "Translations, manual edits, history, glossary, URLs, slugs and media remain with the project. No content is retransmitted to a provider during transfer.", "Übersetzungen, manuelle Änderungen, Verlauf, Glossar, URLs, Slugs und Medien bleiben beim Projekt. Beim Transfer wird kein Inhalt erneut an einen Provider gesendet.")}</li>
             <li>{uiText(locale, "All plugin API keys are deactivated and cannot be recovered. Reconnect WordPress with a newly created key after transfer.", "Alle Plugin-API-Keys werden deaktiviert und können nicht wiederhergestellt werden. Verbinde WordPress nach dem Transfer mit einem neu erstellten Key.")}</li>
             <li>{preview.clearedProviderKey

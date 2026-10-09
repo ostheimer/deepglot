@@ -12,6 +12,8 @@ const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1bet
 type GeminiPart = { text?: string };
 
 type GeminiResponse = {
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number;
+    thoughtsTokenCount?: number; totalTokenCount?: number };
   candidates?: Array<{
     content?: {
       parts?: GeminiPart[];
@@ -90,6 +92,7 @@ export async function translateWithGemini(
     generationConfig: {
       responseMimeType: "application/json",
       temperature: 0,
+      ...(config.maxOutputUnits !== undefined && { maxOutputTokens: config.maxOutputUnits }),
     },
   };
 
@@ -113,6 +116,20 @@ export async function translateWithGemini(
   }
 
   const data = rawData as GeminiResponse;
+  // Google bills thinking tokens as output. An incomplete or contradictory
+  // receipt cannot release a conservative reservation.
+  const receipt = data.usageMetadata;
+  const valid = (value: unknown) => Number.isSafeInteger(value) && Number(value) >= 0;
+  if (receipt && valid(receipt.promptTokenCount) && valid(receipt.candidatesTokenCount) &&
+      (receipt.thoughtsTokenCount === undefined || valid(receipt.thoughtsTokenCount))) {
+    const outputUnits = receipt.candidatesTokenCount! + (receipt.thoughtsTokenCount ?? 0);
+    const totalUnits = receipt.promptTokenCount! + outputUnits;
+    if (Number.isSafeInteger(outputUnits) && Number.isSafeInteger(totalUnits) &&
+        (receipt.totalTokenCount === undefined ||
+          (valid(receipt.totalTokenCount) && receipt.totalTokenCount === totalUnits))) {
+      config.onUsage?.({ inputUnits: receipt.promptTokenCount!, outputUnits });
+    }
+  }
 
   if (data.promptFeedback?.blockReason) {
     throw new TranslationProviderResponseError(
