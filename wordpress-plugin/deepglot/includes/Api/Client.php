@@ -636,51 +636,14 @@ class Client
         );
     }
 
-    /** Digest-only observation of a complete server-rendered source page. */
-    public function recordSourceInventory(
-        array $texts,
-        string $langFrom,
-        string $langTo,
-        string $requestUrl,
-        bool $complete,
-        bool $dynamicPossible,
-        string $capturedMicros
-    ): void {
-        if (!$this->options->isEnabled() || !$this->options->isConfigured() || $requestUrl === '') {
-            return;
-        }
-        $complete = $complete && !$dynamicPossible && count($texts) <= 2000;
-        $hashes = [];
-        if ($complete) {
-            foreach (array_unique($texts) as $text) {
-                $hashes[] = md5($text . '|' . $langFrom . '|' . $langTo);
-            }
-            sort($hashes, SORT_STRING);
-        }
-        $path = wp_parse_url($requestUrl, PHP_URL_PATH);
-        if (!is_string($path) || $path === '') {
-            return;
-        }
-        $identity = hash('sha256', $path . '|' . $langFrom . '|' . $langTo . '|' . trim($this->options->getApiKey()));
-        $transientKey = 'deepglot_source_inventory_' . substr($identity, 0, 32);
-        $digest = hash('sha256', json_encode([$hashes, $complete, $dynamicPossible]));
-        $previous = get_transient($transientKey);
-        if (is_array($previous) && ($previous['digest'] ?? '') === $digest
-            && time() - (int) ($previous['sent_at'] ?? 0) < 300) {
-            return;
-        }
-        $result = $this->request('POST', '/plugin/source-inventory', [
-            'requestUrl' => $requestUrl,
-            'langFrom' => $langFrom,
-            'langTo' => $langTo,
-            'originalHashes' => $hashes,
-            'complete' => $complete,
-            'dynamicPossible' => $dynamicPossible,
-            'capturedMicros' => $capturedMicros,
-        ], null, 2, null, ['Authorization' => 'Bearer ' . trim($this->options->getApiKey())]);
-        if (!is_wp_error($result) && is_array($result) && ($result['accepted'] ?? false) === true) {
-            set_transient($transientKey, ['digest' => $digest, 'sent_at' => time()], 300);
-        }
+    /** Called only by the bounded source-observation cron, never page output. */
+    public function sendSourceInventory(array $payload): bool
+    {
+        if (!$this->options->isEnabled() || !$this->options->isConfigured()) return false;
+        $result = $this->request('POST', '/plugin/source-inventory', $payload,
+            null, 2, null, ['Authorization' => 'Bearer ' . trim($this->options->getApiKey())]);
+        return !is_wp_error($result) && is_array($result)
+            && ($result['accepted'] ?? false) === true;
     }
 
     private function request(
