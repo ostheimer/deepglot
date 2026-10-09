@@ -117,7 +117,8 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       translatedText: "Old sentence", langFrom: "dE", langTo: "eN", isManual: false, source: "MOCK" } });
     await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en",
-      segments: [{ originalHash: legacyHash, originalText: legacySource, translatedText: "Updated sentence", workflowStatus: "MACHINE" }],
+      segments: [{ originalHash: legacyHash, originalText: legacySource, translatedText: "Updated sentence",
+        workflowStatus: "MACHINE", langFrom: "dE", langTo: "eN" }],
     })), project, access, userId: user.id, langTo: "en", applyApproved: false, emitRowEvents: false });
     const legacyAfter = await db.translation.findUniqueOrThrow({ where: { projectId_originalHash: { projectId: project.id, originalHash: legacyHash } } });
     assert.equal(legacyAfter.translatedText, "Updated sentence");
