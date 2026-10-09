@@ -97,3 +97,41 @@ test("project managers can read budgets but cannot approve organization spending
     await db.organizationMember.update({ where: { userId_organizationId: key }, data: { role: membership.role } });
   }
 });
+
+test("owner can release an UNKNOWN hold only through explicit verified review", async ({ page }) => {
+  const projectId = await signInAndGetProjectId(page);
+  const session = await (await page.request.get("/api/auth/session")).json() as { user?: { id?: string } };
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId }, select: { organizationId: true } });
+  const budget = await db.aiBudget.create({ data: { organizationId: project.organizationId,
+    projectId, currency: "USD", capMicros: BigInt(1000000), perCallCapMicros: BigInt(100000),
+    warningPercent: 80, period: "MONTHLY_UTC", approvedByUserId: session.user!.id! } });
+  const reservation = await db.aiSpendReservation.create({ data: {
+    organizationId: project.organizationId, projectId, requestKeyHash: `fixture-${budget.id}`,
+    requestGroupHash: `fixture-group-${budget.id}`, dispatchId: budget.id,
+    actorKind: "USER", actorId: session.user!.id!, action: "TRANSLATION",
+    provider: "mock", model: "mock", currency: "USD", periodKey: 202610, state: "UNKNOWN",
+    reservedMicros: BigInt(100), estimatedInputUnits: 100, maxOutputUnits: 10,
+    orgInputMicrosPerMillion: BigInt(1000000), orgOutputMicrosPerMillion: BigInt(1000000),
+    projectInputMicrosPerMillion: BigInt(1000000), projectOutputMicrosPerMillion: BigInt(1000000), unit: "TOKEN",
+  } });
+  try {
+    await page.goto(`/projects/${projectId}/settings/language-model`);
+    const panel = page.getByTestId("ai-budget-panel");
+    await expect(panel.getByText("Review unknown usage manually")).toBeVisible();
+    await panel.getByLabel("Reservation").selectOption(reservation.id);
+    await panel.getByLabel("Verified outcome").selectOption("VERIFIED_NO_CHARGE");
+    await panel.getByLabel("Receipt or credit ID").fill("credit-fixture-319");
+    await panel.getByRole("button", { name: "Record verified resolution" }).click();
+    await expect(panel.getByRole("status")).toContainText("Manual review recorded and budget balance read again.");
+    const saved = await db.aiSpendReservation.findUniqueOrThrow({ where: { id: reservation.id } });
+    expect(saved.state).toBe("SETTLED");
+    expect(saved.reconciledCeilingMicros).toBe(BigInt(0));
+    expect(saved.actualInputUnits).toBeNull();
+    expect(saved.actualOutputUnits).toBeNull();
+    expect(saved.resolutionEvidenceHash).toHaveLength(64);
+  } finally {
+    await db.aiBudgetEvent.deleteMany({ where: { budgetId: budget.id } });
+    await db.aiSpendReservation.delete({ where: { id: reservation.id } });
+    await db.aiBudget.delete({ where: { id: budget.id } });
+  }
+});

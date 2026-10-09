@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { aiBudgetPolicyInput } from "@/lib/ai-budget-policy";
-import { lockAiSpendScope, preflightAiSpend } from "@/lib/ai-budget";
+import { lockAiSpendScope, preflightAiSpend, resolveUnknownAiSpend } from "@/lib/ai-budget";
 import { AiBudgetError, utcPeriodKey } from "@/lib/ai-budget-math";
 import { userCanManageProject } from "@/lib/project-access";
 import { z } from "zod";
@@ -44,9 +44,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     where: { projectId: projektId, organizationId: access.organizationId },
     orderBy: { dispatchedAt: "desc" }, take: 20,
     select: { id: true, action: true, provider: true, model: true, currency: true,
-      state: true, unit: true, estimatedInputUnits: true, actualInputUnits: true,
+      state: true, unit: true, estimatedInputUnits: true, maxOutputUnits: true, actualInputUnits: true,
       actualOutputUnits: true, reservedMicros: true, reconciledCeilingMicros: true,
-      periodKey: true, dispatchedAt: true, settledAt: true },
+      resolutionKind: true, resolvedAt: true, periodKey: true, dispatchedAt: true, settledAt: true },
   });
   const serialize = (projectId: string | null) => {
     const budget = budgets.find((item) => item.projectId === projectId);
@@ -76,6 +76,41 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       reconciledCeilingMicros: item.reconciledCeilingMicros?.toString() ?? null })),
     wordQuotaIsSeparate: true, platformCreditsIncluded: false,
   });
+}
+
+const manualSettlementInput = z.object({
+  reservationId: z.string().min(1),
+  kind: z.enum(["VERIFIED_USAGE", "VERIFIED_NO_CHARGE"]),
+  // Opaque provider receipt/credit reference only; the server stores its hash.
+  evidenceReference: z.string().regex(/^[A-Za-z0-9_.:-]{3,128}$/),
+  inputUnits: z.number().int().min(0).optional(),
+  outputUnits: z.number().int().min(0).optional(),
+}).superRefine((input, ctx) => {
+  if (input.kind === "VERIFIED_USAGE" && (input.inputUnits === undefined || input.outputUnits === undefined)) {
+    ctx.addIssue({ code: "custom", message: "Verified provider units are required." });
+  }
+  if (input.kind === "VERIFIED_NO_CHARGE" && (input.inputUnits !== undefined || input.outputUnits !== undefined)) {
+    ctx.addIssue({ code: "custom", message: "No-charge confirmation does not accept usage units." });
+  }
+});
+
+/** Manual, audited release of an UNKNOWN hold; DISPATCHED is never released here. */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const { projektId } = await params;
+  const access = await context(projektId);
+  if (!access) return NextResponse.json({ code: "not_found" }, { status: 404 });
+  const parsed = manualSettlementInput.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ code: "invalid_settlement" }, { status: 400 });
+  try {
+    const result = await resolveUnknownAiSpend({ organizationId: access.organizationId,
+      projectId: projektId, ownerUserId: access.userId, ...parsed.data });
+    return NextResponse.json({ id: result.id, state: result.state,
+      reconciledCeilingMicros: result.reconciledCeilingMicros?.toString() ?? null });
+  } catch (error) {
+    if (error instanceof AiBudgetError) return NextResponse.json({ code: error.code },
+      { status: error.code === "owner_required" ? 403 : 409 });
+    return NextResponse.json({ code: "budget_unavailable" }, { status: 503 });
+  }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {

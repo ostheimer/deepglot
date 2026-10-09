@@ -267,11 +267,7 @@ export async function settleAiSpend(reservationId: string, usage?: { inputUnits:
       return tx.aiSpendReservation.update({ where: { id: reservationId }, data: { state: "UNKNOWN", settledAt: new Date() } });
     }
     const now = new Date();
-    const calculate = (inputRate: bigint, outputRate: bigint) =>
-      (BigInt(usage.inputUnits) * inputRate + BigInt(usage.outputUnits) * outputRate + BigInt(999_999)) / BigInt(1_000_000);
-    const orgActual = calculate(reservation.orgInputMicrosPerMillion, reservation.orgOutputMicrosPerMillion);
-    const projectActual = calculate(reservation.projectInputMicrosPerMillion, reservation.projectOutputMicrosPerMillion);
-    const actual = orgActual > projectActual ? orgActual : projectActual;
+    const actual = measuredCeiling(reservation, usage);
     if (actual > reservation.reservedMicros) {
       return tx.aiSpendReservation.update({ where: { id: reservationId }, data: { state: "UNKNOWN", settledAt: now } });
     }
@@ -280,5 +276,84 @@ export async function settleAiSpend(reservationId: string, usage?: { inputUnits:
       data: { state: "SETTLED", reconciledCeilingMicros: actual,
         actualInputUnits: usage.inputUnits, actualOutputUnits: usage.outputUnits, settledAt: now },
     });
+  });
+}
+
+type RateSnapshot = {
+  orgInputMicrosPerMillion: bigint; orgOutputMicrosPerMillion: bigint;
+  projectInputMicrosPerMillion: bigint; projectOutputMicrosPerMillion: bigint;
+};
+
+function measuredCeiling(reservation: RateSnapshot, usage: { inputUnits: number; outputUnits: number }) {
+  const calculate = (inputRate: bigint, outputRate: bigint) =>
+    (BigInt(usage.inputUnits) * inputRate + BigInt(usage.outputUnits) * outputRate + BigInt(999_999)) / BigInt(1_000_000);
+  const orgCeiling = calculate(reservation.orgInputMicrosPerMillion, reservation.orgOutputMicrosPerMillion);
+  const projectCeiling = calculate(reservation.projectInputMicrosPerMillion, reservation.projectOutputMicrosPerMillion);
+  return orgCeiling > projectCeiling ? orgCeiling : projectCeiling;
+}
+
+/** Owner assertion after independently checking an opaque provider receipt/refund ID. */
+export async function resolveUnknownAiSpend(input: {
+  organizationId: string; projectId: string; reservationId: string; ownerUserId: string;
+  kind: "VERIFIED_USAGE" | "VERIFIED_NO_CHARGE";
+  evidenceReference: string; inputUnits?: number; outputUnits?: number;
+}) {
+  const evidenceHash = crypto.createHash("sha256").update(input.evidenceReference.trim()).digest("hex");
+  return db.$transaction(async (tx) => {
+    await lockAiSpendScope(tx, input.organizationId, input.projectId);
+    const membership = await tx.organizationMember.findUnique({
+      where: { userId_organizationId: { userId: input.ownerUserId, organizationId: input.organizationId } },
+      select: { role: true },
+    });
+    if (membership?.role !== "OWNER") throw new AiBudgetError("owner_required", "Only the organization owner can reconcile a hold.");
+    const reservation = await tx.aiSpendReservation.findFirst({
+      where: { id: input.reservationId, organizationId: input.organizationId, projectId: input.projectId },
+    });
+    const requestedInput = input.kind === "VERIFIED_USAGE" ? input.inputUnits : null;
+    const requestedOutput = input.kind === "VERIFIED_USAGE" ? input.outputUnits : null;
+    if (reservation?.state === "SETTLED" && reservation.resolutionKind === input.kind &&
+        reservation.resolutionEvidenceHash === evidenceHash &&
+        reservation.actualInputUnits === requestedInput && reservation.actualOutputUnits === requestedOutput) {
+      return reservation;
+    }
+    if (!reservation || reservation.state !== "UNKNOWN") {
+      throw new AiBudgetError("settlement_unavailable", "Only an unknown, completed provider attempt can be manually reconciled.");
+    }
+    const usage = input.kind === "VERIFIED_NO_CHARGE"
+      ? { inputUnits: 0, outputUnits: 0 }
+      : { inputUnits: input.inputUnits, outputUnits: input.outputUnits };
+    if (!Number.isSafeInteger(usage.inputUnits) || !Number.isSafeInteger(usage.outputUnits) ||
+        usage.inputUnits! < 0 || usage.outputUnits! < 0 ||
+        usage.inputUnits! > reservation.estimatedInputUnits || usage.outputUnits! > reservation.maxOutputUnits) {
+      throw new AiBudgetError("settlement_unavailable", "Verified provider units exceed the original reservation.");
+    }
+    const reconciledCeilingMicros = input.kind === "VERIFIED_NO_CHARGE"
+      ? BigInt(0) : measuredCeiling(reservation, usage as { inputUnits: number; outputUnits: number });
+    if (reconciledCeilingMicros > reservation.reservedMicros) {
+      throw new AiBudgetError("settlement_unavailable", "Verified provider units exceed the original ceiling.");
+    }
+    const resolvedAt = new Date();
+    const updatedCount = await tx.aiSpendReservation.updateMany({ where: { id: reservation.id, state: "UNKNOWN" }, data: {
+      state: "SETTLED", reconciledCeilingMicros,
+      actualInputUnits: input.kind === "VERIFIED_USAGE" ? usage.inputUnits : null,
+      actualOutputUnits: input.kind === "VERIFIED_USAGE" ? usage.outputUnits : null,
+      resolutionKind: input.kind, resolutionEvidenceHash: evidenceHash,
+      resolvedByUserId: input.ownerUserId, resolvedAt, settledAt: resolvedAt,
+    } });
+    if (updatedCount.count !== 1) throw new AiBudgetError("settlement_unavailable", "Hold was already resolved.");
+    const projectBudget = await tx.aiBudget.findFirst({ where: {
+      organizationId: input.organizationId, projectId: input.projectId,
+    }, select: { id: true } });
+    if (!projectBudget) throw new AiBudgetError("budget_unavailable", "Project budget record is unavailable.");
+    await tx.aiBudgetEvent.create({ data: {
+      organizationId: input.organizationId, projectId: input.projectId,
+      budgetId: projectBudget.id, kind: "MANUAL_SETTLEMENT", actorId: input.ownerUserId,
+      periodKey: reservation.periodKey,
+      snapshot: { reservationId: reservation.id, kind: input.kind, evidenceHash,
+        inputUnits: input.kind === "VERIFIED_USAGE" ? usage.inputUnits : null,
+        outputUnits: input.kind === "VERIFIED_USAGE" ? usage.outputUnits : null,
+        reconciledCeilingMicros: reconciledCeilingMicros.toString() },
+    } });
+    return tx.aiSpendReservation.findUniqueOrThrow({ where: { id: reservation.id } });
   });
 }

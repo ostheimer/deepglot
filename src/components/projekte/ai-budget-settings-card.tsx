@@ -23,7 +23,7 @@ type Readback = {
   events: Array<{ id: string; kind: string; threshold: number | null; createdAt: string }>;
   recentSpend: Array<{ id: string; action: string; provider: string; model: string;
     state: string; currency: string; reservedMicros: string; reconciledCeilingMicros: string | null;
-    dispatchedAt: string }>;
+    estimatedInputUnits: number; maxOutputUnits: number; dispatchedAt: string }>;
 };
 
 function microsToMajor(raw: string): string {
@@ -63,6 +63,11 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
   const [draft, setDraft] = useState<Policy>(blankPolicy("project"));
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resolutionId, setResolutionId] = useState("");
+  const [resolutionKind, setResolutionKind] = useState<"VERIFIED_USAGE" | "VERIFIED_NO_CHARGE">("VERIFIED_USAGE");
+  const [evidenceReference, setEvidenceReference] = useState("");
+  const [actualInputUnits, setActualInputUnits] = useState("");
+  const [actualOutputUnits, setActualOutputUnits] = useState("");
 
   async function refresh(initializeDraft = false) {
     const response = await fetch(`/api/projects/${projectId}/ai-budget`, { cache: "no-store" });
@@ -114,6 +119,30 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
     } finally { setLoading(false); }
   }
 
+  async function resolveUnknown(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setStatus("");
+    try {
+      const body = { reservationId: resolutionId, kind: resolutionKind, evidenceReference,
+        ...(resolutionKind === "VERIFIED_USAGE" && {
+          inputUnits: Number(actualInputUnits), outputUnits: Number(actualOutputUnits),
+        }) };
+      const response = await fetch(`/api/projects/${projectId}/ai-budget`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { code?: string };
+        throw new Error(result.code ?? "settlement_failed");
+      }
+      await refresh();
+      setResolutionId(""); setEvidenceReference(""); setActualInputUnits(""); setActualOutputUnits("");
+      setStatus(de ? "Manuelle Prüfung protokolliert und Budgetstand neu gelesen." : "Manual review recorded and budget balance read again.");
+    } catch (error) {
+      setStatus(`${de ? "Prüfung fehlgeschlagen" : "Review failed"}: ${error instanceof Error ? error.message : "unknown"}`);
+    } finally { setLoading(false); }
+  }
+
   const approved = readback?.[scope];
   const committed = scope === "organization" ? readback?.organizationCommittedMicros : readback?.projectCommittedMicros;
   return <section className="rounded-xl border border-gray-200 bg-white p-6" data-testid="ai-budget-panel">
@@ -159,7 +188,16 @@ export function AiBudgetSettingsCard({ projectId, locale, isOwner }: {
       <div className="flex gap-3"><Button type="button" variant="outline" onClick={addModel}>{de ? "Modell hinzufügen" : "Add model"}</Button><Button type="submit" disabled={loading || draft.models.length === 0}>{loading ? (de ? "Speichere…" : "Saving…") : (de ? "Budget ausdrücklich freigeben" : "Explicitly approve budget")}</Button></div>
     </form>}
     {status && <p role="status" className="mt-3 text-sm">{status}</p>}
-    {readback?.events && readback.events.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{de ? "Budgetereignisse" : "Budget events"}</h4><ul className="mt-2 space-y-1">{readback.events.slice(0, 8).map((event) => <li key={event.id}>{event.createdAt.slice(0, 16).replace("T", " ")} UTC · {event.kind === "APPROVED" ? (de ? "Freigabe" : "Approval") : event.kind === "CAP_REACHED" ? (de ? "Limit erreicht" : "Cap reached") : (de ? "Warnschwelle erreicht" : "Warning threshold reached")}{event.threshold ? ` (${event.threshold}%)` : ""}</li>)}</ul></div>}
+    {isOwner && readback?.recentSpend.some((item) => item.state === "UNKNOWN") && <form className="mt-5 space-y-3 rounded-md border p-3" onSubmit={resolveUnknown}>
+      <h4 className="font-medium">{de ? "Unbekannte Nutzung manuell prüfen" : "Review unknown usage manually"}</h4>
+      <p className="text-xs text-gray-600">{de ? "Nur nach unabhängig geprüftem Anbieterbeleg oder Gutschrift. Eine ID genügt; keine Kundentexte oder Zugangsdaten eingeben." : "Only after independently checking a provider receipt or credit. Enter an opaque ID, never customer text or credentials."}</p>
+      <label className="block text-sm">{de ? "Reservierung" : "Reservation"}<select className="h-10 w-full rounded-md border px-2" value={resolutionId} onChange={(event) => setResolutionId(event.target.value)} required><option value="">{de ? "Auswählen" : "Select"}</option>{readback.recentSpend.filter((item) => item.state === "UNKNOWN").map((item) => <option key={item.id} value={item.id}>{item.id} · {item.provider}/{item.model}</option>)}</select></label>
+      <label className="block text-sm">{de ? "Prüfergebnis" : "Verified outcome"}<select className="h-10 w-full rounded-md border px-2" value={resolutionKind} onChange={(event) => setResolutionKind(event.target.value as typeof resolutionKind)}><option value="VERIFIED_USAGE">{de ? "Anbieter-Nutzung belegt" : "Provider usage verified"}</option><option value="VERIFIED_NO_CHARGE">{de ? "Keine Belastung belegt" : "No charge verified"}</option></select></label>
+      <label className="block text-sm">{de ? "Beleg- oder Gutschrift-ID" : "Receipt or credit ID"}<Input required minLength={3} maxLength={128} pattern="[A-Za-z0-9_.:-]+" value={evidenceReference} onChange={(event) => setEvidenceReference(event.target.value)} /></label>
+      {resolutionKind === "VERIFIED_USAGE" && <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">{de ? "Belegte Input-Einheiten" : "Verified input units"}<Input required type="number" min={0} value={actualInputUnits} onChange={(event) => setActualInputUnits(event.target.value)} /></label><label className="text-sm">{de ? "Belegte Output-Einheiten" : "Verified output units"}<Input required type="number" min={0} value={actualOutputUnits} onChange={(event) => setActualOutputUnits(event.target.value)} /></label></div>}
+      <Button type="submit" disabled={loading}>{de ? "Prüfung ausdrücklich protokollieren" : "Record verified resolution"}</Button>
+    </form>}
+    {readback?.events && readback.events.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{de ? "Budgetereignisse" : "Budget events"}</h4><ul className="mt-2 space-y-1">{readback.events.slice(0, 8).map((event) => <li key={event.id}>{event.createdAt.slice(0, 16).replace("T", " ")} UTC · {event.kind === "APPROVED" ? (de ? "Freigabe" : "Approval") : event.kind === "CAP_REACHED" ? (de ? "Limit erreicht" : "Cap reached") : event.kind === "MANUAL_SETTLEMENT" ? (de ? "Manuelle Prüfung" : "Manual review") : (de ? "Warnschwelle erreicht" : "Warning threshold reached")}{event.threshold ? ` (${event.threshold}%)` : ""}</li>)}</ul></div>}
     {readback?.recentSpend && readback.recentSpend.length > 0 && <div className="mt-5 text-sm"><h4 className="font-medium">{de ? "Letzte Anbieteraufrufe" : "Recent provider attempts"}</h4><ul className="mt-2 space-y-1">{readback.recentSpend.slice(0, 8).map((item) => <li key={item.id}>{item.dispatchedAt.slice(0, 16).replace("T", " ")} UTC · {item.provider}/{item.model} · {item.state === "SETTLED" ? (de ? "Kostenobergrenze aus Usage" : "Usage-based cost ceiling") : (de ? "Volle Reservierung" : "Full hold")} {item.currency} {microsToMajor(item.reconciledCeilingMicros ?? item.reservedMicros)}</li>)}</ul></div>}
   </section>;
 }
