@@ -83,6 +83,54 @@ export async function preflightAiSpend(input: {
   };
 }
 
+/** One read-only policy snapshot for the complete bounded provider action. */
+export async function preflightAiSpendBatch(input: {
+  organizationId: string; projectId: string;
+  attempts: ReadonlyArray<{ provider: string; model: string; dispatchInput: unknown }>;
+}) {
+  return db.$transaction(async (tx) => {
+    const project = await tx.project.findFirst({ where: { id: input.projectId,
+      organizationId: input.organizationId }, select: { id: true } });
+    if (!project) throw new AiBudgetError("project_changed", "Project ownership changed.");
+    const budgets = await tx.aiBudget.findMany({ where: { organizationId: input.organizationId,
+      OR: [{ projectId: null }, { projectId: input.projectId }] }, include: { models: true } });
+    const organizationBudget = budgets.find((item) => item.projectId === null);
+    const projectBudget = budgets.find((item) => item.projectId === input.projectId);
+    if (!organizationBudget || !projectBudget)
+      throw new AiBudgetError("budget_unapproved", "Both organization and project budgets require owner approval.");
+    if (organizationBudget.currency !== projectBudget.currency ||
+        organizationBudget.period !== "MONTHLY_UTC" || projectBudget.period !== "MONTHLY_UTC")
+      throw new AiBudgetError("budget_ambiguous", "Budget currency or period does not match.");
+    const now = new Date();
+    const periodKey = utcPeriodKey(now);
+    const { organizationMicros, projectMicros } = await readAiSpendTotals(tx,
+      input.organizationId, input.projectId, periodKey, organizationBudget.currency);
+    let total = BigInt(0);
+    let allCallsAllowed = true;
+    const attempts = input.attempts.map((attempt) => {
+      const orgPrice = approvedPrice(organizationBudget, attempt.provider, attempt.model);
+      const projectPrice = approvedPrice(projectBudget, attempt.provider, attempt.model);
+      if (orgPrice.unit !== projectPrice.unit)
+        throw new AiBudgetError("price_ambiguous", "Approved price units do not match.");
+      const inputUnits = conservativeInputUnits(attempt.dispatchInput, orgPrice.unit);
+      const outputUnits = Math.min(orgPrice.maxOutputUnits, projectPrice.maxOutputUnits);
+      const orgQuote = quotedMicros(orgPrice, inputUnits, outputUnits, now);
+      const projectQuote = quotedMicros(projectPrice, inputUnits, outputUnits, now);
+      const ceiling = orgQuote > projectQuote ? orgQuote : projectQuote;
+      total += ceiling;
+      allCallsAllowed &&= ceiling <= organizationBudget.perCallCapMicros &&
+        ceiling <= projectBudget.perCallCapMicros;
+      return { provider: attempt.provider, model: attempt.model, inputUnits,
+        outputUnits, maxMicros: ceiling.toString(), unit: orgPrice.unit };
+    });
+    const allowed = allCallsAllowed &&
+      spendWithinCap(organizationMicros, total, organizationBudget.capMicros) &&
+      spendWithinCap(projectMicros, total, projectBudget.capMicros);
+    return { allowed, attempts, maxMicros: total.toString(), currency: organizationBudget.currency,
+      code: allowed ? "approved_estimate" : "budget_exhausted" };
+  }, { isolationLevel: "RepeatableRead", timeout: 15_000 });
+}
+
 function approvedPrice(budget: BudgetWithModels, provider: string, model: string): ApprovedPrice {
   const allowance = budget.models.find((item) => item.provider === provider && item.model === model);
   if (!allowance) throw new AiBudgetError("model_not_approved", "This provider and model have no approved price ceiling.");
