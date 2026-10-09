@@ -56,6 +56,19 @@ async function transferState(client: Client, actorUserId: string, projectId: str
   if (await client.translatedUrl.count({ where: { projectId, operationState: "provider_pending" } })) {
     throw new WorkspaceTransferError("PENDING", 409);
   }
+  // AI spend is bound to its originating organization. An in-flight or
+  // unknown provider outcome cannot move across the credential-purge boundary.
+  // Commit repeats this after locking both organizations and the project.
+  const aiSpendState = await client.$queryRaw<Array<{ pendingCount: number; settledCount: number; version: string }>>`
+    SELECT COUNT(*) FILTER (WHERE "state" IN ('DISPATCHED', 'UNKNOWN'))::int AS "pendingCount",
+      COUNT(*) FILTER (WHERE "state" = 'SETTLED')::int AS "settledCount",
+      COALESCE(md5(string_agg(id || ':' || "state" || ':' || "dispatchedAt"::text || ':' ||
+        COALESCE("settledAt"::text, '') || ':' || COALESCE("reconciledCeilingMicros"::text, ''),
+        '|' ORDER BY id)), '') AS version
+    FROM "AiSpendReservation" WHERE "projectId" = ${projectId}`;
+  if (aiSpendState[0]?.pendingCount) throw new WorkspaceTransferError("PENDING", 409);
+  const projectAiBudget = await client.aiBudget.findUnique({ where: { projectId },
+    select: { id: true, organizationId: true, revision: true, updatedAt: true } });
   // A #263 writer can still persist a receipt without this newly expanded
   // column while old and new deployments overlap. Its billing owner cannot be
   // inferred from current project ownership, even if the URL is completed.
@@ -122,6 +135,8 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     revokedApiKeys: project.apiKeys.filter((key) => key.isActive).length,
     disabledWebhookEndpoints: project.webhookEndpoints.filter((endpoint) => endpoint.enabled).length,
     retainedWebhookDeliveries: deliveryCount, retainedHistoricalBatches: batchCount,
+    retainedAiSpendReservations: aiSpendState[0]?.settledCount ?? 0,
+    clearedAiProjectBudget: Boolean(projectAiBudget),
     clearedProviderKey: Boolean(project.settings?.translationApiKeyEncrypted),
     providerReconnectRequiredAfterTransfer: Boolean(
       project.settings?.providerReconnectRequired || project.settings?.translationApiKeyEncrypted),
@@ -133,6 +148,8 @@ async function transferState(client: Client, actorUserId: string, projectId: str
     settingsUpdatedAt: project.settings?.updatedAt,
     translationVersion: translations.version, mutableVersion: mutableVersion[0]?.version,
     receiptVersion: receiptState[0]?.version,
+    aiSpendVersion: aiSpendState[0]?.version,
+    projectAiBudget,
   });
   return { details, version, removedMemberIds, sourceId: source.id };
 }
@@ -194,6 +211,10 @@ export async function commitWorkspaceTransfer(input: {
       runtimeSyncedAt: null, runtimeSyncSiteHost: null, runtimeSyncApiKeyId: null,
       runtimeSyncConflicts: [],
     } });
+    // Approval belongs to the source workspace; the destination owner must
+    // approve a new project policy. Sparse spend rows and approval events keep
+    // their immutable original organization and project attribution.
+    await tx.aiBudget.deleteMany({ where: { projectId: input.projectId } });
     await tx.project.update({ where: { id: input.projectId }, data: { organizationId: input.destinationId } });
     const audit = await tx.projectTransferAudit.create({ data: {
       projectId: input.projectId, actorUserId: input.actorUserId,
