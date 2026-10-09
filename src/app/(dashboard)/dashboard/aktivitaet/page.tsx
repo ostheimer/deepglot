@@ -12,7 +12,7 @@ import { uiText } from "@/lib/static-copy";
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 function csvCell(value: string) {
-  const safe = /^[=+@\-\t\r]/.test(value) ? `'${value}` : value;
+  const safe = /^[\s\uFEFF]*[=+@-]/.test(value) ? `'${value}` : value;
   return `"${safe.replaceAll('"', '""')}"`;
 }
 
