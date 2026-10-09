@@ -213,12 +213,27 @@ test("current-period budget threshold is delivered in both dashboard locales onl
   try {
     await page.goto("/dashboard");
     const english = page.getByRole("region", { name: "AI budget alerts" });
-    await expect(english).toContainText("Warning threshold reached");
-    await expect(english).toContainText("USD 0.800000/1.000000");
+    if (process.env.AI_BUDGET_ENFORCEMENT === "on") {
+      await expect(english).toContainText("Warning threshold reached");
+      await expect(english).toContainText("USD 0.800000/1.000000");
+    } else {
+      await expect(english).toHaveCount(0);
+    }
     await page.goto("/de/dashboard");
     const german = page.getByRole("region", { name: "KI-Budgetwarnungen" });
-    await expect(german).toContainText("Warnschwelle erreicht");
-    await expect(german).toContainText("USD 0.800000/1.000000");
+    if (process.env.AI_BUDGET_ENFORCEMENT === "on") {
+      await expect(german).toContainText("Warnschwelle erreicht");
+      await expect(german).toContainText("USD 0.800000/1.000000");
+      await db.aiSpendReservation.update({ where: { id: reservation.id }, data: { currency: "EUR" } });
+      await page.reload();
+      await expect(german).toContainText("Währungskonflikt");
+      await expect(german).not.toContainText("USD 0.800000/1.000000");
+      await page.goto("/dashboard");
+      await expect(english).toContainText("Currency conflict");
+      await expect(english).not.toContainText("USD 0.800000/1.000000");
+    } else {
+      await expect(german).toHaveCount(0);
+    }
     await db.organizationMember.update({ where: { userId_organizationId: key }, data: { role: "MEMBER" } });
     await page.reload();
     await expect(page.getByRole("region", { name: "KI-Budgetwarnungen" })).toHaveCount(0);
