@@ -273,7 +273,6 @@ model Project {
   webhookEndpoints WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
   aiBudget AiBudget?
-  aiSpendReservations AiSpendReservation[]
 }
 
 /// Approval is explicit. A missing row is a deny, including for legacy tenants.
@@ -325,6 +324,8 @@ model AiBudgetModel {
 model AiSpendReservation {
   id String @id @default(cuid())
   organizationId String
+  // Immutable originating project ID. Intentionally no live Project FK:
+  // settled ledger history must survive an allowed project deletion.
   projectId String
   requestKeyHash String
   requestGroupHash String
@@ -355,7 +356,6 @@ model AiSpendReservation {
   dispatchedAt DateTime @default(now())
   settledAt DateTime?
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, requestKeyHash])
   @@index([organizationId, periodKey])

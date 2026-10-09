@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS "AiBudgetModel" (
 CREATE TABLE IF NOT EXISTS "AiSpendReservation" (
   "id" TEXT PRIMARY KEY,
   "organizationId" TEXT NOT NULL REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  "projectId" TEXT NOT NULL REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  "projectId" TEXT NOT NULL,
   "requestKeyHash" TEXT NOT NULL,
   "requestGroupHash" TEXT NOT NULL,
   "dispatchId" TEXT NOT NULL,
@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS "AiSpendReservation" (
   "settledAt" TIMESTAMP(3),
   CONSTRAINT "AiSpendReservation_organizationId_requestKeyHash_key" UNIQUE ("organizationId", "requestKeyHash")
 );
+-- The project ID is an immutable historical attribution. A prior version of
+-- this migration used ON DELETE CASCADE and could erase settled org spend.
+ALTER TABLE "AiSpendReservation" DROP CONSTRAINT IF EXISTS "AiSpendReservation_projectId_fkey";
 CREATE INDEX IF NOT EXISTS "AiSpendReservation_organizationId_periodKey_idx" ON "AiSpendReservation"("organizationId", "periodKey");
 CREATE INDEX IF NOT EXISTS "AiSpendReservation_projectId_periodKey_idx" ON "AiSpendReservation"("projectId", "periodKey");
 CREATE INDEX IF NOT EXISTS "AiSpendReservation_organizationId_requestGroupHash_idx" ON "AiSpendReservation"("organizationId", "requestGroupHash");

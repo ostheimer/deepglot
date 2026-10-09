@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { deleteProjectWithAiSpendGuard } from "@/lib/ai-budget-project-deletion";
+import { AiBudgetError } from "@/lib/ai-budget-math";
 import {
   userCanManageProject,
-  canManageProjectForWrite,
   userHasProjectAccess,
 } from "@/lib/project-access";
 import {
@@ -38,7 +39,7 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ projektId: string }> }
 ) {
   const session = await auth();
@@ -52,13 +53,25 @@ export async function DELETE(
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
-  const deleted = await db.$transaction(async (tx) => {
-    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
-    await tx.project.delete({ where: { id: projektId } });
-    return true;
-  });
-  if (!deleted) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-  return NextResponse.json({ success: true });
+  try {
+    await deleteProjectWithAiSpendGuard(projektId, session.user.id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof AiBudgetError) {
+      if (error.code === "ai_spend_pending") {
+        const de = request.headers.get("accept-language")?.toLowerCase().startsWith("de") ?? false;
+        return NextResponse.json({ code: error.code,
+          error: de
+            ? "Dieses Projekt hat noch laufende oder ungeklärte KI-Anbieteraufrufe. Prüfe den Budgetstatus; unbekannte Nutzung muss eine Workspace-Inhaberin oder ein Workspace-Inhaber nach Anbieterbeleg klären."
+            : "This project has in-flight or unresolved AI provider work. Review its budget status; an owner must resolve unknown usage after checking provider evidence." },
+        { status: 409 });
+      }
+      if (error.code === "project_changed" || error.code === "actor_revoked") {
+        return NextResponse.json({ code: "not_found" }, { status: 404 });
+      }
+    }
+    return NextResponse.json({ code: "project_delete_unavailable" }, { status: 503 });
+  }
 }
 
 export async function PATCH(
