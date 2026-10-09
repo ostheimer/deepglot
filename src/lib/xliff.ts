@@ -11,6 +11,7 @@ export type XliffSegment = {
   source: string;
   target: string;
   approved: boolean;
+  manual: boolean;
   line: number;
 };
 
@@ -47,11 +48,11 @@ export function serializeXliff(input: {
   projectId: string;
   langFrom: string;
   langTo: string;
-  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string }>;
+  segments: Array<{ originalText: string; translatedText: string; workflowStatus: string; isManual?: boolean }>;
 }): string {
   const units = input.segments.map((item) => {
     const id = computeTranslationHash(item.originalText, input.langFrom, input.langTo);
-    return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
+    return `    <trans-unit id="${id}" approved="${item.workflowStatus === "APPROVED" ? "yes" : "no"}" deepglot-manual="${item.isManual === false ? "no" : "yes"}"><source>${escapeXml(item.originalText)}</source><target>${escapeXml(item.translatedText)}</target></trans-unit>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<xliff xmlns="${NS}" version="1.2"><file original="${escapeXml(input.projectId)}" source-language="${escapeXml(input.langFrom)}" target-language="${escapeXml(input.langTo)}" datatype="plaintext"><body>\n${units.join("\n")}\n</body></file></xliff>\n`;
 }
@@ -134,6 +135,8 @@ export function parseXliff(bytes: Uint8Array, expected: {
     seen.add(id);
     const approved = unit.getAttribute("approved");
     if (approved !== "yes" && approved !== "no") throw new XliffError("approved must be yes or no", line);
-    return { id, source, target, approved: approved === "yes", line };
+    const manual = unit.getAttribute("deepglot-manual");
+    if (manual !== null && manual !== "yes" && manual !== "no") throw new XliffError("deepglot-manual must be yes or no", line);
+    return { id, source, target, approved: approved === "yes", manual: manual !== "no", line };
   });
 }

@@ -15,8 +15,15 @@ test("XLIFF 1.2 round trip preserves variables, HTML, approval, and stable ID", 
   assert.equal(rows[0].source, segment.originalText);
   assert.equal(rows[0].target, segment.translatedText);
   assert.equal(rows[0].approved, true);
+  assert.equal(rows[0].manual, true);
   assert.match(rows[0].id, /^[a-f0-9]{32}$/);
   assert.equal(parse(valid())[0].id, rows[0].id);
+});
+
+test("machine marker survives export while invalid or edited metadata is rejected safely", () => {
+  const machine = serializeXliff({ ...project, segments: [{ ...segment, workflowStatus: "MACHINE", isManual: false }] });
+  assert.equal(parse(machine)[0].manual, false);
+  assert.throws(() => parse(machine.replace('deepglot-manual="no"', 'deepglot-manual="maybe"')), /deepglot-manual/);
 });
 
 test("rejects wrong project, wrong language, duplicate ID and conflicting source", () => {

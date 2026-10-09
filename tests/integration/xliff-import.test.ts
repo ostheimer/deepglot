@@ -53,6 +53,32 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal(protectedAfter.translatedText, "Protected sentence");
     assert.equal(protectedAfter.isManual, true);
     assert.equal(protectedAfter.source, "MANUAL");
+
+    const machineText = "Automatischer Satz";
+    const machineHash = computeTranslationHash(machineText, "de", "en");
+    await db.translation.create({ data: {
+      projectId: project.id, originalHash: machineHash, originalText: machineText,
+      translatedText: "Automatic sentence", langFrom: "de", langTo: "en", isManual: false, source: "MOCK",
+    } });
+    const machineSegment = [{ originalText: machineText, translatedText: "Automatic sentence", workflowStatus: "MACHINE", isManual: false }];
+    await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
+      projectId: project.id, langFrom: "de", langTo: "en", segments: machineSegment,
+    })), project, access, langTo: "en", applyApproved: false, emitRowEvents: false });
+    const machineAfter = await db.translation.findUniqueOrThrow({
+      where: { projectId_originalHash: { projectId: project.id, originalHash: machineHash } },
+    });
+    assert.equal(machineAfter.isManual, false);
+    assert.equal(machineAfter.source, "MOCK");
+
+    machineSegment[0].translatedText = "Edited sentence";
+    await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
+      projectId: project.id, langFrom: "de", langTo: "en", segments: machineSegment,
+    })), project, access, langTo: "en", applyApproved: false, emitRowEvents: false });
+    const editedAfter = await db.translation.findUniqueOrThrow({
+      where: { projectId_originalHash: { projectId: project.id, originalHash: machineHash } },
+    });
+    assert.equal(editedAfter.isManual, true);
+    assert.equal(editedAfter.source, "IMPORT");
   } finally {
     await db.organization.delete({ where: { id: organization.id } });
     await db.$disconnect();

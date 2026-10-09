@@ -133,7 +133,7 @@ export async function GET(
     const translations = await db.translation.findMany({
       where: { projectId: projektId, langFrom: project.originalLang, langTo },
       orderBy: { originalHash: "asc" },
-      select: { originalText: true, translatedText: true, workflowStatus: true },
+      select: { originalText: true, translatedText: true, workflowStatus: true, isManual: true },
     });
     const xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations });
     if (translations.length > XLIFF_MAX_SEGMENTS || new TextEncoder().encode(xliff).byteLength > XLIFF_MAX_BYTES) {

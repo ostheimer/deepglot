@@ -67,6 +67,9 @@ export async function importTranslationsXliff(input: {
         const current = new Map(existing.map((item) => [item.originalHash, item]));
         for (const row of rows) {
           const previous = current.get(row.id);
+          // An external file may only preserve an unchanged existing machine row.
+          // New or edited text is a human import even if the file claims otherwise.
+          const preserveMachine = row.manual === false && previous && !previous.isManual && previous.translatedText === row.target;
           const saved = await tx.translation.upsert({
             where: { projectId_originalHash: { projectId: project.id, originalHash: row.id } },
             create: {
@@ -77,8 +80,8 @@ export async function importTranslationsXliff(input: {
             },
             update: {
               translatedText: row.target,
-              isManual: true,
-              ...(previous?.isManual ? {} : { source: "IMPORT" as const }),
+              isManual: !preserveMachine,
+              ...(previous?.isManual || preserveMachine ? {} : { source: "IMPORT" as const }),
               ...(previous ? workflowResetFieldsIfTranslatedTextChanged(previous, row.target) : {}),
               ...(row.approved ? { workflowStatus: "APPROVED" } : {}),
             },
