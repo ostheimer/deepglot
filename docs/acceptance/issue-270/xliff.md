@@ -17,6 +17,7 @@
 - `npx tsc --noEmit --incremental false`: passed after regenerating Prisma Client for current `origin/main`.
 - `npm run lint`: passed with four existing warnings in Stripe/webhook files.
 - `npm run check:docs-language`: passed.
+- `npm run build` passed with a synthetic Stripe test key and isolated local PostgreSQL; no provider or Stripe request was sent.
 - `tests/integration/xliff-import.test.ts` against a synthetic database on local PostgreSQL: conflict on segment 2 left segment 1 unwritten and kept the protected text; a corrected retry saved both segments and preserved `MANUAL` provenance. Test-created organization and project rows were deleted in `finally`.
 
 ## Remaining release proof
