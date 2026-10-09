@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { authorizeBillingCommand, resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { stripe } from "@/lib/stripe";
 import {
   blocksNewCheckoutForExistingSubscription,
@@ -27,6 +28,7 @@ const checkoutSchema = z.object({
   // FREE and ENTERPRISE have no Stripe price and are rejected explicitly.
   plan: z.enum(["STARTER", "BUSINESS", "PRO", "ADVANCED", "EXTENDED"]),
   interval: z.enum(["monthly", "yearly"]),
+  workspaceId: z.string().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -71,12 +73,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
-    include: { organization: { include: { subscription: true } } },
-  });
-
-  const organization = membership?.organization;
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, parsed.data.workspaceId ?? null, true);
+  if (!workspaceId) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const command = await authorizeBillingCommand({ actorUserId: session.user.id,
+    workspaceId, action: "CHECKOUT", priceId });
+  const organization = command?.organization;
   if (!organization) {
     return NextResponse.json(
       {
@@ -202,7 +203,7 @@ export async function POST(request: Request) {
           userId: session.user.id,
         },
       },
-      success_url: getCheckoutSuccessUrl(),
+      success_url: getCheckoutSuccessUrl(workspaceId),
       cancel_url: getCheckoutCancelUrl(),
     });
 

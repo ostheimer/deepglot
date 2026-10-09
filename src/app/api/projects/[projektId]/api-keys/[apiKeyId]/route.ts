@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CLEARED_RUNTIME_SYNC_ORIGIN } from "@/lib/plugin-settings-sync";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -56,8 +56,9 @@ export async function DELETE(
   // happen under the project runtime lock that the plugin sync takes as
   // well, so an in-flight sync with this key either finishes before the
   // revocation or sees the key gone; it can never re-create the origin.
-  await db.$transaction(async (tx) => {
+  const revoked = await db.$transaction(async (tx) => {
     await lockProjectRuntimeConfiguration(tx, projektId);
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
     await tx.apiKey.delete({
       where: { id: apiKey.id },
     });
@@ -65,7 +66,10 @@ export async function DELETE(
       where: { projectId: projektId, runtimeSyncApiKeyId: apiKey.id },
       data: CLEARED_RUNTIME_SYNC_ORIGIN,
     });
+    return true;
   });
+
+  if (!revoked) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ success: true });
 }

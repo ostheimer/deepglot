@@ -269,7 +269,7 @@ export async function executeAuthenticatedTranslateRequest(
     );
     let canCreateFreshTranslations = shouldCreateFreshTranslations({
       isBot,
-      automaticTranslation: project.settings?.automaticTranslation === false || targetLanguage?.automaticTranslation === false ? false : true,
+      automaticTranslation: project.settings?.automaticTranslation === false || project.settings?.providerReconnectRequired === true || targetLanguage?.automaticTranslation === false ? false : true,
     });
     let providerSettings = project.settings;
     let providerName = isBot
@@ -468,7 +468,7 @@ export async function executeAuthenticatedTranslateRequest(
       providerSettings = currentRuntimeConfiguration?.settings ?? null;
       canCreateFreshTranslations = shouldCreateFreshTranslations({
         isBot,
-        automaticTranslation: providerSettings?.automaticTranslation === false || currentRuntimeConfiguration?.languages.find((language) => language.langCode.toLowerCase() === l_to.toLowerCase())?.automaticTranslation === false ? false : true,
+        automaticTranslation: providerSettings?.automaticTranslation === false || providerSettings?.providerReconnectRequired === true || currentRuntimeConfiguration?.languages.find((language) => language.langCode.toLowerCase() === l_to.toLowerCase())?.automaticTranslation === false ? false : true,
       });
       providerName = canCreateFreshTranslations ? "cache" : "disabled";
     }
@@ -669,7 +669,7 @@ export async function executeAuthenticatedTranslateRequest(
             (settings?.updatedAt.toISOString() ?? null) !== forceRetranslate.settingsVersion ||
             JSON.stringify(urlProviderConfiguration(settings)) !== JSON.stringify(forceRetranslate.providerConfiguration)
           )) return { kind: "stale_url_preview" } as const;
-          return settings?.automaticTranslation === false
+          return settings?.automaticTranslation === false || settings?.providerReconnectRequired === true
             ? ({ kind: "automatic_translation_disabled", settings } as const)
             : ({ kind: "ready", settings } as const);
         });
@@ -972,6 +972,7 @@ export async function executeAuthenticatedTranslateRequest(
               await tx.urlOperationReceipt.create({ data: {
                 id: forceRetranslate.receipt.id,
                 projectId: forceRetranslate.receipt.projectId,
+                originatingOrganizationId: project.organizationId,
                 urlId: forceRetranslate.receipt.urlId,
                 actorId: forceRetranslate.receipt.actorId,
                 urlPath: forceRetranslate.receipt.urlPath,

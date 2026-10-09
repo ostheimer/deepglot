@@ -94,7 +94,17 @@ async function authorized(projectId: string) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   if (!(await userCanManageProject(userId, projectId))) return { error: NextResponse.json({ error: "Project not found" }, { status: 404 }) };
-  return { userId };
+  const project = await db.project.findUnique({ where: { id: projectId }, select: { organizationId: true } });
+  if (!project) return { error: NextResponse.json({ error: "Project not found" }, { status: 404 }) };
+  return { userId, organizationId: project.organizationId };
+}
+
+async function currentManagerInWorkspace(actorId: string, projectId: string, organizationId: string) {
+  return db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, actorId, projectId))) return false;
+    const project = await tx.project.findUnique({ where: { id: projectId }, select: { organizationId: true } });
+    return project?.organizationId === organizationId;
+  });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
@@ -102,12 +112,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const auth = await authorized(projektId);
   if (auth.error) return auth.error;
   const actorId = auth.userId!;
+  const originatingOrganizationId = auth.organizationId!;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid URL operation" }, { status: 400 });
   const { action, id, afterId, confirmation } = parsed.data;
   if (!confirmation) {
     try {
       const current = await snapshot(projektId, id, action, afterId);
+      if (!(await currentManagerInWorkspace(actorId, projektId, originatingOrganizationId))) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
       return current ? NextResponse.json(current.preview) : NextResponse.json({ error: "URL not found" }, { status: 404 });
     } catch (error) {
       return NextResponse.json({ error: error instanceof Error ? error.message : "Preview failed" }, { status: 422 });
@@ -116,7 +130,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const key = request.headers.get("Idempotency-Key")?.trim();
   if (!key || !validateApiIdempotencyKey(key) || key !== confirmation) return NextResponse.json({ error: "Idempotency-Key must match the confirmed preview" }, { status: 400 });
   const result = await executeIdempotently({
-    scope: `manager:url-operation:${projektId}:${actorId}`,
+    scope: `manager:url-operation:${originatingOrganizationId}:${projektId}:${actorId}`,
     key,
     requestBody: parsed.data,
     store: new PrismaApiIdempotencyStore(),
@@ -124,9 +138,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (action === "retranslate") {
         const recovered = await db.$transaction(async (tx) => {
           if (!(await canManageProjectForWrite(tx, actorId, projektId))) return { denied: true } as const;
+          const currentProject = await tx.project.findUnique({ where: { id: projektId }, select: { organizationId: true } });
+          if (currentProject?.organizationId !== originatingOrganizationId) return { denied: true } as const;
           const receipt = await tx.urlOperationReceipt.findUnique({ where: { id: confirmation } });
           const receiptUrl = receipt ? await tx.translatedUrl.findFirst({ where: { id, projectId: projektId } }) : null;
-          if (receipt?.projectId !== projektId || receipt.urlId !== id || receipt.actorId !== actorId || receipt.id !== confirmation || receiptUrl?.operationToken !== confirmation || receiptUrl.urlPath !== receipt.urlPath || receiptUrl.langTo !== receipt.langTo) return null;
+          if (receipt?.projectId !== projektId || receipt.originatingOrganizationId !== originatingOrganizationId ||
+            receipt.urlId !== id || receipt.actorId !== actorId || receipt.id !== confirmation ||
+            receiptUrl?.operationToken !== confirmation || receiptUrl.urlPath !== receipt.urlPath || receiptUrl.langTo !== receipt.langTo) return null;
           await tx.translatedUrl.updateMany({ where: { id, projectId: projektId, operationState: "provider_pending" }, data: { operationState: "completed", lastResult: "retranslated", lastError: null, lastOperationAt: new Date() } });
           return { receipt } as const;
         });
@@ -143,6 +161,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const ids = fresh.translations.map((item) => item.id);
         try { await db.$transaction(async (tx) => {
           if (!(await canManageProjectForWrite(tx, actorId, projektId))) throw new Error("ACCESS_REVOKED");
+          const currentProject = await tx.project.findUnique({ where: { id: projektId }, select: { organizationId: true } });
+          if (currentProject?.organizationId !== originatingOrganizationId) throw new Error("ACCESS_REVOKED");
           const currentRules = await tx.glossaryRule.findMany({ where: { projectId: projektId, langFrom: fresh.project.originalLang, langTo: fresh.record.langTo }, select: { id: true, updatedAt: true } });
           if (glossaryRuleVersion(currentRules) !== fresh.glossaryVersion) throw new Error("STALE_URL");
           await tx.$queryRaw`SELECT id FROM "TranslatedUrl" WHERE id = ${id} AND "projectId" = ${projektId} FOR UPDATE`;
@@ -181,6 +201,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // An unknown outcome remains blocked until an operator reconciles it.
       const claimed = await db.$transaction(async (tx) => {
         if (!(await canManageProjectForWrite(tx, actorId, projektId))) return { denied: true, count: 0 };
+        const currentProject = await tx.project.findUnique({ where: { id: projektId }, select: { organizationId: true } });
+        if (currentProject?.organizationId !== originatingOrganizationId) return { denied: true, count: 0 };
         return tx.translatedUrl.updateMany({
         where: {
           id, projectId: projektId,
@@ -218,7 +240,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const responseBody = await response.json();
       const receipt = await db.urlOperationReceipt.findUnique({ where: { id: confirmation } });
-      const outcome = managerProviderOutcome({ providerDispatched, receiptPersisted: receipt?.projectId === projektId && receipt.urlId === id && receipt.actorId === actorId && receipt.urlPath === fresh.record.urlPath && receipt.langTo === fresh.record.langTo, responseStatus: response.status });
+      const outcome = managerProviderOutcome({ providerDispatched, receiptPersisted: receipt?.projectId === projektId && receipt.originatingOrganizationId === originatingOrganizationId && receipt.urlId === id && receipt.actorId === actorId && receipt.urlPath === fresh.record.urlPath && receipt.langTo === fresh.record.langTo, responseStatus: response.status });
       if (outcome === "completed") {
         await db.translatedUrl.updateMany({ where: { id, projectId: projektId }, data: { operationState: "completed", lastResult: "retranslated", lastHttpStatus: null, origin: "dashboard", lastOperationAt: new Date(), lastError: null } });
       } else if (outcome === "rejected_before_provider") {
@@ -227,6 +249,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return { status: outcome === "completed" ? 200 : outcome === "rejected_before_provider" ? response.status : 409, headers: {}, body: { id, action, affectedSegments: fresh.eligible.length, totalEligibleSegments: fresh.preview.totalEligibleSegments, remainingSegments: outcome === "completed" ? fresh.preview.remainingSegments : null, ...(outcome === "completed" ? { billedWords: receipt!.billedWords } : outcome === "rejected_before_provider" ? { billedWords: 0 } : { providerCostUnknown: true }), result: outcome === "completed" ? "completed" : outcome === "rejected_before_provider" ? "failed" : "unknown", nextAfterId: outcome === "completed" ? fresh.nextAfterId : null, ...(outcome === "completed" ? {} : { error: outcome === "rejected_before_provider" ? responseBody.code ?? "operation_failed" : "provider_outcome_unknown" }) } };
     },
   });
+  // executeIdempotently may return a stored response without entering execute.
+  // Recheck the current tenant before exposing an old receipt/replay response.
+  if (!(await currentManagerInWorkspace(actorId, projektId, originatingOrganizationId))) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
   if (result.kind === "conflict") return NextResponse.json({ error: "Idempotency key used for another request" }, { status: 409 });
   return NextResponse.json(result.response.body, { status: result.response.status });
 }

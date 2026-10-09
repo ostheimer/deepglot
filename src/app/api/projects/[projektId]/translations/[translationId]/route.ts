@@ -132,6 +132,7 @@ export async function PATCH(
         translationId,
         actor,
         metadata: parsed.data.metadata,
+        actorUserId: userId,
         expectedVersion: parsed.data.expectedVersion,
       });
       return NextResponse.json({ metadata });
@@ -150,6 +151,7 @@ export async function PATCH(
             projectId: projektId,
             translationId,
             actor,
+            actorUserId: userId,
             patch: {
               status: parsed.data.status
                 ? statusMap[parsed.data.status]
@@ -207,6 +209,7 @@ export async function DELETE(
         projectMemberId: membership?.id ?? null,
         langCode: access.langCode ?? null,
       },
+      actorUserId: userId,
       expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
     });
     return new NextResponse(null, { status: 204 });

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { normalizeExclusionInput } from "@/lib/exclusions";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -95,7 +95,9 @@ export async function POST(
   }
 
   try {
-    const exclusion = await db.translationExclusion.create({
+    const exclusion = await db.$transaction(async (tx) => {
+      if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+      return tx.translationExclusion.create({
       data: {
         projectId: projektId,
         type: normalized.type,
@@ -107,7 +109,9 @@ export async function POST(
         value: true,
         createdAt: true,
       },
+      });
     });
+    if (!exclusion) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
     return NextResponse.json({ exclusion }, { status: 201 });
   } catch (error) {

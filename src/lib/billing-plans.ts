@@ -48,6 +48,10 @@ export type BillingPlan = {
   languagesLimit: number;
   /** Hard ceiling on configured projects (websites). */
   projectsLimit: number;
+  /** Number of workspaces an account may own across its plans. */
+  workspacesLimit: number;
+  /** Maximum registered members in one workspace. */
+  membersLimit: number;
   /** Marks the plan that should receive visual emphasis on the pricing grid. */
   highlight: boolean;
   /** Stripe price-id environment key for the monthly price, or null. */
@@ -66,6 +70,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 10_000,
     languagesLimit: 1,
     projectsLimit: 1,
+    workspacesLimit: 1,
+    membersLimit: 1,
     highlight: false,
     stripePriceIdEnvKeys: { monthly: null, yearly: null },
   },
@@ -77,6 +83,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 25_000,
     languagesLimit: 2,
     projectsLimit: 2,
+    workspacesLimit: 2,
+    membersLimit: 3,
     highlight: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_STARTER_MONTHLY",
@@ -91,6 +99,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 50_000,
     languagesLimit: 3,
     projectsLimit: 3,
+    workspacesLimit: 3,
+    membersLimit: 5,
     highlight: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_BUSINESS_MONTHLY",
@@ -105,6 +115,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 200_000,
     languagesLimit: 5,
     projectsLimit: 5,
+    workspacesLimit: 5,
+    membersLimit: 10,
     highlight: true,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_PRO_MONTHLY",
@@ -119,6 +131,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 1_000_000,
     languagesLimit: 10,
     projectsLimit: 10,
+    workspacesLimit: 10,
+    membersLimit: 25,
     highlight: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_ADVANCED_MONTHLY",
@@ -133,6 +147,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 5_000_000,
     languagesLimit: 20,
     projectsLimit: 25,
+    workspacesLimit: 25,
+    membersLimit: 50,
     highlight: false,
     stripePriceIdEnvKeys: {
       monthly: "STRIPE_PRICE_EXTENDED_MONTHLY",
@@ -147,6 +163,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlan> = {
     wordsLimit: 20_000_000,
     languagesLimit: 50,
     projectsLimit: 100,
+    workspacesLimit: 100,
+    membersLimit: 100,
     highlight: false,
     stripePriceIdEnvKeys: { monthly: null, yearly: null },
   },
@@ -167,6 +185,16 @@ export function resolveBillingPlanKey(plan: string | null | undefined): BillingP
 /** Project ceiling for an organization plan value stored on `Organization.plan`. */
 export function getProjectsLimitForPlan(plan: string | null | undefined): number {
   return BILLING_PLANS[resolveBillingPlanKey(plan)].projectsLimit;
+}
+
+export function getEffectiveWorkspacePlanKey(
+  plan: string | null | undefined,
+  subscription: { status: SubscriptionStatus } | null | undefined,
+): BillingPlanKey {
+  if (!subscription || (subscription.status !== "ACTIVE" && subscription.status !== "TRIALING")) {
+    return "FREE";
+  }
+  return resolveBillingPlanKey(plan);
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   getProjectInvitationExpiresAt,
   hashProjectInvitationToken,
 } from "@/lib/project-invitations";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -56,7 +56,9 @@ export async function POST(
   }
 
   const rawToken = createProjectInvitationToken();
-  const updated = await db.projectInvitation.update({
+  const updated = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    return tx.projectInvitation.update({
     where: { id: invitation.id },
     data: {
       tokenHash: hashProjectInvitationToken(rawToken),
@@ -71,7 +73,9 @@ export async function POST(
       createdAt: true,
       inviter: { select: { id: true, name: true, email: true } },
     },
+    });
   });
+  if (!updated) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   let emailDelivery:
     | Awaited<ReturnType<typeof sendProjectInvitationEmail>>

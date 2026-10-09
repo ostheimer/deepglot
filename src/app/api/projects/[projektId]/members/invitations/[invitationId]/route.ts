@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -43,7 +43,12 @@ export async function DELETE(
     );
   }
 
-  await db.projectInvitation.delete({ where: { id: invitation.id } });
+  const deleted = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
+    await tx.projectInvitation.deleteMany({ where: { id: invitation.id, projectId: projektId, acceptedAt: null } });
+    return true;
+  });
+  if (!deleted) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 }

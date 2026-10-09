@@ -37,7 +37,7 @@ test("workspace history is atomic, scoped, cursor-paginated and survives actor d
     assert.equal(second.nextCursor, null);
     await updateProjectTranslationContent({ ...input, translatedText: "C", expectedUpdatedAt: c.updatedAt });
     await assert.rejects(updateProjectTranslationContent({ ...input, translatedText: "stale", expectedUpdatedAt: translation.updatedAt }), { code: "STALE_UPDATE" });
-    await assert.rejects(updateProjectTranslationContent({ ...input, actor: { ...manager, canManage: false, projectMemberId: "other" }, translatedText: "denied", expectedUpdatedAt: c.updatedAt }), { code: "FORBIDDEN" });
+    await assert.rejects(updateProjectTranslationContent({ ...input, actorUserId: undefined, actor: { ...manager, canManage: false, projectMemberId: "other" }, translatedText: "denied", expectedUpdatedAt: c.updatedAt }), { code: "FORBIDDEN" });
     const beforeRollback = await db.translationBatchLog.count({ where: { projectId: project.id } });
     await assert.rejects(updateProjectTranslationContent({ ...input, actorUserId: "missing-user", translatedText: "rollback", expectedUpdatedAt: c.updatedAt }));
     assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText, "C");

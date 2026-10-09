@@ -61,7 +61,7 @@ async function managerProjectId(params: Promise<{ projektId: string }>) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   if (!(await userCanManageProject(userId, projektId))) return { error: NextResponse.json({ error: "Project not found" }, { status: 404 }) };
-  return { projektId };
+  return { projektId, userId };
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
@@ -80,7 +80,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ pr
   if (access.error) return access.error;
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid language settings" }, { status: 400 });
-  const updated = await updateProjectTargetLanguage(db, { projectId: access.projektId!, ...parsed.data });
+  const updated = await updateProjectTargetLanguage(db, { projectId: access.projektId!, actorUserId: access.userId!, ...parsed.data });
   return updated
     ? NextResponse.json({ success: true })
     : NextResponse.json({ error: "Target language not found" }, { status: 404 });
@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ proj
   if (!parsed.success) return NextResponse.json({ error: "Invalid bulk action" }, { status: 400 });
   if (parsed.data.action === "remove") {
     try {
-      const results = await removeTargetLanguages(db, access.projektId!, parsed.data.languages);
+      const results = await removeTargetLanguages(db, access.projektId!, parsed.data.languages, access.userId!);
       return NextResponse.json({ results });
     } catch {
       return NextResponse.json({ error: "Could not remove selected languages" }, { status: 500 });
@@ -109,7 +109,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ proj
     seen.add(item.langCode);
     try {
       const updated = await updateProjectTargetLanguage(db, {
-        projectId: access.projektId!, langCode: item.langCode, isActive: parsed.data.action === "enable",
+        projectId: access.projektId!, langCode: item.langCode, isActive: parsed.data.action === "enable", actorUserId: access.userId!,
       });
       results.push({ langCode: item.langCode, status: updated ? "updated" : "not_found" });
     } catch {
@@ -154,6 +154,7 @@ export async function POST(
     const result = await addProjectTargetLanguages(db, {
       projectId: projektId,
       languages: parsed.data.languages,
+      actorUserId: userId,
     });
 
     if (result.kind === "not_found") {
@@ -248,7 +249,7 @@ export async function DELETE(
     );
   }
 
-  const result = await removeTargetLanguage(db, projektId, parsed.data.langCode, parsed.data.confirmationToken);
+  const result = await removeTargetLanguage(db, projektId, parsed.data.langCode, parsed.data.confirmationToken, userId);
   if (result.kind === "not_found") return NextResponse.json({ error: locale === "de" ? "Zielsprache nicht gefunden" : "Target language not found" }, { status: 404 });
   if (result.kind === "stale_preview") return NextResponse.json({ error: locale === "de" ? "Die Vorschau ist nicht mehr aktuell. Bitte erneut prüfen." : "The preview is out of date. Please review it again.", preview: result.preview }, { status: 409 });
   return NextResponse.json({ success: true, removed: result.preview });

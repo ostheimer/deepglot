@@ -81,6 +81,7 @@ export async function runVisualEditorPersistenceAcceptance(): Promise<VisualEdit
   const editorSecret = `visual-editor-acceptance-${runId}`;
   let organizationId: string | null = null;
   let projectId: string | null = null;
+  let actorUserId: string | null = null;
 
   process.env.DEEPGLOT_EDITOR_SECRET = editorSecret;
 
@@ -92,6 +93,9 @@ export async function runVisualEditorPersistenceAcceptance(): Promise<VisualEdit
       },
     });
     organizationId = organization.id;
+    const actor = await db.user.create({ data: { email: `editor-${runId}@example.invalid` } });
+    actorUserId = actor.id;
+    await db.organizationMember.create({ data: { organizationId, userId: actor.id, role: "OWNER" } });
 
     const project = await db.project.create({
       data: {
@@ -123,6 +127,8 @@ export async function runVisualEditorPersistenceAcceptance(): Promise<VisualEdit
 
     const token = createEditorSessionToken({
       projectId,
+      organizationId,
+      userId: actor.id,
       domain: project.domain,
       langTo: "en",
     });
@@ -217,6 +223,9 @@ export async function runVisualEditorPersistenceAcceptance(): Promise<VisualEdit
 
     if (organizationId) {
       await db.organization.deleteMany({ where: { id: organizationId } });
+    }
+    if (actorUserId) {
+      await db.user.deleteMany({ where: { id: actorUserId } });
     }
 
     if (previousEditorSecret === undefined) {

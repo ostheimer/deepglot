@@ -18,16 +18,18 @@ import { uiText } from "@/lib/static-copy";
 interface Props {
   subscriptionId: string | null;
   plan: string;
+  workspaceId?: string;
 }
 
-export function CancelSubscriptionButton({ subscriptionId, plan }: Props) {
+export function CancelSubscriptionButton({ subscriptionId, plan, workspaceId }: Props) {
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
 
   async function handleCancel() {
     if (!subscriptionId) return;
     setLoading(true);
-    await fetch("/api/billing/cancel", { method: "POST" });
+    await fetch("/api/billing/cancel", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId }) });
     setLoading(false);
     window.location.reload();
   }

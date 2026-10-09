@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+import { resolveBillingWorkspaceId, workspaceIdFromSearchParams } from "@/lib/billing-workspace";
+import type { LocaleSearchParams } from "@/lib/request-locale";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { UsageCharts } from "@/components/abonnement/usage-charts";
@@ -19,13 +21,15 @@ export function generateMetadata() {
   return buildDashboardTitleMetadata("Usage", "Nutzung");
 }
 
-export default async function NutzungPage() {
+export default async function NutzungPage({ searchParams }: { searchParams: LocaleSearchParams }) {
   const locale = await getRequestLocale();
   const session = await auth();
   if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, await workspaceIdFromSearchParams(searchParams), false);
+  if (!workspaceId) return <p>{uiText(locale, "Choose a workspace in the sidebar.", "Wähle links einen Workspace.")}</p>;
+  const membership = await db.organizationMember.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: workspaceId } },
     include: {
       organization: {
         include: {

@@ -71,8 +71,10 @@ export function getAppBaseUrl(): string {
   return baseUrl;
 }
 
-export function getBillingPortalReturnUrl(): string {
-  return new URL(BILLING_PORTAL_RETURN_PATH, getAppBaseUrl()).toString();
+export function getBillingPortalReturnUrl(workspaceId?: string): string {
+  const url = new URL(BILLING_PORTAL_RETURN_PATH, getAppBaseUrl());
+  if (workspaceId) url.searchParams.set("workspaceId", workspaceId);
+  return url.toString();
 }
 
 /**
@@ -81,11 +83,13 @@ export function getBillingPortalReturnUrl(): string {
  * `checkout.session.completed` webhook) is visible immediately; cancel returns
  * to the public pricing grid so the customer can pick a different tier.
  */
-export function getCheckoutSuccessUrl(): string {
-  return new URL(
+export function getCheckoutSuccessUrl(workspaceId?: string): string {
+  const url = new URL(
     "/subscription/overview?checkout=success",
     getAppBaseUrl()
-  ).toString();
+  );
+  if (workspaceId) url.searchParams.set("workspaceId", workspaceId);
+  return url.toString();
 }
 
 export function getCheckoutCancelUrl(): string {

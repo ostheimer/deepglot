@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { authorizeBillingCommand, resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
 import { isRealStripeCustomerId } from "@/lib/billing";
@@ -13,6 +13,7 @@ function t(locale: SiteLocale, deText: string, enText: string) {
 }
 
 const schema = z.object({
+  workspaceId: z.string().min(1).optional(),
   billingName: z.string().max(200).optional(),
   address: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
@@ -42,12 +43,12 @@ export async function POST(request: Request) {
 
   const { billingName, address, city, zip, country, vatNumber } = parsed.data;
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
-    include: { organization: { include: { subscription: true } } },
-  });
-
-  const customerId = membership?.organization?.subscription?.stripeCustomerId;
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, parsed.data.workspaceId ?? null, true);
+  if (!workspaceId) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const command = await authorizeBillingCommand({ actorUserId: session.user.id,
+    workspaceId, action: "ADDRESS" });
+  if (!command) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const customerId = command.targetRef;
   if (!isRealStripeCustomerId(customerId)) {
     return NextResponse.json({ success: true }); // no Stripe customer yet, silently succeed
   }

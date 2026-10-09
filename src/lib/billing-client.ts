@@ -22,12 +22,13 @@ async function postForRedirect(
 /** Starts Stripe Checkout for a paid plan and redirects to the hosted page. */
 export function startCheckout(
   plan: BillingPlanKey,
-  interval: BillingInterval
+  interval: BillingInterval,
+  workspaceId?: string,
 ): Promise<void> {
-  return postForRedirect("/api/billing/checkout", { plan, interval });
+  return postForRedirect("/api/billing/checkout", { plan, interval, ...(workspaceId ? { workspaceId } : {}) });
 }
 
 /** Opens the Stripe billing portal for the current customer. */
-export function openBillingPortal(): Promise<void> {
-  return postForRedirect("/api/billing/portal");
+export function openBillingPortal(workspaceId?: string): Promise<void> {
+  return postForRedirect("/api/billing/portal", workspaceId ? { workspaceId } : undefined);
 }

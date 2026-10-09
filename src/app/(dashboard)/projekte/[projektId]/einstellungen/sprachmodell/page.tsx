@@ -11,7 +11,7 @@ import {
   TRANSLATION_PROVIDERS,
   getProviderLabel,
   getRecommendedModels,
-  resolveTranslationProviderConfig,
+  resolveTranslationProviderDisplayConfig,
 } from "@/lib/translation-config";
 import { uiText } from "@/lib/static-copy";
 
@@ -40,7 +40,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
     notFound();
   }
 
-  const effective = resolveTranslationProviderConfig({ settings: project.settings });
+  const effective = resolveTranslationProviderDisplayConfig(project.settings);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -94,6 +94,7 @@ export default async function SprachmodellPage({ params }: SprachmodellPageProps
           model: project.settings?.translationModel ?? null,
           baseUrl: project.settings?.translationBaseUrl ?? null,
           hasProjectApiKey: Boolean(project.settings?.translationApiKeyEncrypted),
+          providerReconnectRequired: project.settings?.providerReconnectRequired ?? false,
           websiteDescription: project.settings?.websiteDescription ?? null,
           translationTone: project.settings?.translationTone ?? null,
           translationAudience: project.settings?.translationAudience ?? null,

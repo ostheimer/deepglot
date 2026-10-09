@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { generateApiKey } from "@/lib/api-keys";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
+import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -69,10 +70,12 @@ export async function POST(
       );
     }
 
-    const { rawKey, apiKey } = await generateApiKey({
-      projectId: projektId,
-      name: parsed.data.name,
+    const created = await db.$transaction(async (tx) => {
+      if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
+      return generateApiKey({ projectId: projektId, name: parsed.data.name, tx });
     });
+    if (!created) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
+    const { rawKey, apiKey } = created;
 
     return NextResponse.json({
       apiKey: {

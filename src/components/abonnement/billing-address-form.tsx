@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
 import { uiText } from "@/lib/static-copy";
 
-export function BillingAddressForm() {
+export function BillingAddressForm({ workspaceId }: { workspaceId?: string }) {
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -25,6 +25,7 @@ export function BillingAddressForm() {
     setSuccess(false);
     const form = e.currentTarget;
     const data = {
+      workspaceId,
       billingName: (form.elements.namedItem("billingName") as HTMLInputElement).value,
       address: (form.elements.namedItem("address") as HTMLInputElement).value,
       city: (form.elements.namedItem("city") as HTMLInputElement).value,

@@ -50,7 +50,8 @@ test("the collector requires explicit opt-in and project-authenticated ingestion
 
   assert.match(collector, /validateApiKey/);
   assert.match(collector, /pageViewsEnabled/);
-  assert.match(collector, /db\.pageView\.(?:create|upsert)/);
+  assert.match(collector, /tx\.pageView\.(?:create|upsert)/);
+  assert.match(collector, /lockProjectRuntimeConfiguration/);
 });
 
 test("plugin runtime configuration propagates the opt-in without exposing API keys", () => {

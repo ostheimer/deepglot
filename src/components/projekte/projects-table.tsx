@@ -25,6 +25,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { formatNumber } from "@/lib/locale-formatting";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { ProjectTransferDialog } from "@/components/projekte/project-transfer-dialog";
 
 export type ProjectRow = {
   id: string;
@@ -37,6 +38,8 @@ export type ProjectRow = {
   manualTranslations: number;
   totalTranslations: number;
   members: Array<{ name?: string | null; email?: string | null; image?: string | null }>;
+  organizationId: string;
+  canTransfer: boolean;
 };
 
 type SortKey = "name" | "totalWords" | "languagesCount";
@@ -199,7 +202,7 @@ export function ProjectsTable({ projects }: Props) {
           </div>
 
           {/* Table header */}
-          <div className="grid grid-cols-[2fr_130px_100px_120px_200px_40px] gap-x-4 px-5 py-2.5 bg-gray-50 border-b border-gray-200">
+          <div className="grid grid-cols-[2fr_130px_100px_120px_200px_140px] gap-x-4 px-5 py-2.5 bg-gray-50 border-b border-gray-200">
             <button
               className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left hover:text-gray-900 transition-colors"
               onClick={() => toggleSort("name")}
@@ -245,7 +248,7 @@ export function ProjectsTable({ projects }: Props) {
                 return (
                   <div
                     key={project.id}
-                    className="grid grid-cols-[2fr_130px_100px_120px_200px_40px] gap-x-4 px-5 py-4 items-center hover:bg-gray-50 transition-colors"
+                    className="grid grid-cols-[2fr_130px_100px_120px_200px_140px] gap-x-4 px-5 py-4 items-center hover:bg-gray-50 transition-colors"
                   >
                     {/* Name + Domain */}
                     <Link
@@ -315,6 +318,8 @@ export function ProjectsTable({ projects }: Props) {
                     </div>
 
                     {/* Actions */}
+                    <div className="flex items-center gap-1">
+                    {project.canTransfer && <ProjectTransferDialog projectId={project.id} projectName={project.name} organizationId={project.organizationId} />}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -354,6 +359,7 @@ export function ProjectsTable({ projects }: Props) {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                   </div>
                 );
               })}

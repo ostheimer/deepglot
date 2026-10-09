@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { authorizeBillingCommand, resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -10,7 +10,7 @@ function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const locale = await getCookieLocale();
   const session = await auth();
   if (!session?.user?.id) {
@@ -20,12 +20,14 @@ export async function POST() {
     );
   }
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
-    include: { organization: { include: { subscription: true } } },
-  });
-
-  const sub = membership?.organization?.subscription;
+  const body = await request.json().catch(() => ({}));
+  const requestedId = typeof body?.workspaceId === "string" ? body.workspaceId : null;
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, requestedId, true);
+  if (!workspaceId) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const command = await authorizeBillingCommand({ actorUserId: session.user.id,
+    workspaceId, action: "CANCEL" });
+  if (!command) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const sub = command.organization.subscription;
   if (!sub?.stripeSubscriptionId) {
     return NextResponse.json(
       { error: t(locale, "Kein aktives Abonnement", "No active subscription") },

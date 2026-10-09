@@ -5,6 +5,7 @@ import {
 } from "./translation-metadata";
 import {
   assertTranslationContentMutationAllowed,
+  actorForCurrentWorkspace,
   TranslationWorkflowError,
   type TranslationWorkflowActor,
 } from "./translation-workflow";
@@ -14,12 +15,14 @@ export async function updateProjectTranslationMetadata({
   projectId,
   translationId,
   actor,
+  actorUserId,
   metadata,
   expectedVersion,
 }: {
   projectId: string;
   translationId: string;
   actor: TranslationWorkflowActor;
+  actorUserId?: string;
   metadata: TranslationMetadataInput;
   expectedVersion: number;
 }) {
@@ -36,6 +39,7 @@ export async function updateProjectTranslationMetadata({
   }
   const { db } = await import("./db");
   return db.$transaction(async (tx) => {
+    const writeActor = await actorForCurrentWorkspace(tx, projectId, actorUserId, actor);
     const initial = await tx.translation.findFirst({
       where: { id: translationId, projectId },
       select: { langFrom: true, langTo: true },
@@ -77,7 +81,7 @@ export async function updateProjectTranslationMetadata({
       );
     }
     assertTranslationContentMutationAllowed({
-      actor,
+      actor: writeActor,
       langTo: current.langTo,
       assignedToId: current.assignedToId,
       operation: "edit",

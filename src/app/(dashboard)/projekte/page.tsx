@@ -19,7 +19,7 @@ export default async function ProjektePage({ searchParams }: ProjektePageProps) 
   const session = await auth();
   if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
-  const membership = await db.organizationMember.findFirst({
+  const memberships = await db.organizationMember.findMany({
     where: { userId: session.user.id },
     include: {
       organization: {
@@ -42,8 +42,11 @@ export default async function ProjektePage({ searchParams }: ProjektePageProps) 
     },
   });
 
-  const org = membership?.organization;
-  const rawProjects = org?.projects ?? [];
+  const rawProjects = memberships.flatMap((membership) => membership.organization.projects.map((project) => ({
+    ...project, organizationId: membership.organizationId,
+    canTransfer: membership.role === "OWNER" || membership.role === "ADMIN",
+    organizationMembers: membership.organization.members,
+  })));
 
   if (rawProjects.length === 0) {
     const rows: ProjectRow[] = [];
@@ -70,12 +73,6 @@ export default async function ProjektePage({ searchParams }: ProjektePageProps) 
   const manualMap = new Map(manualByProject.map((r) => [r.projectId, r._count._all]));
 
   // Org members used as fallback for member avatars
-  const orgMembers = (org?.members ?? []).map((m) => ({
-    name: m.user?.name,
-    email: m.user?.email,
-    image: m.user?.image,
-  }));
-
   const rows: ProjectRow[] = rawProjects.map((p) => ({
     id: p.id,
     name: p.name,
@@ -86,11 +83,13 @@ export default async function ProjektePage({ searchParams }: ProjektePageProps) 
     languagesCount: p.languages.length,
     manualTranslations: manualMap.get(p.id) ?? 0,
     totalTranslations: p._count.translations,
+    organizationId: p.organizationId,
+    canTransfer: p.canTransfer,
     // Project-specific members + org members as fallback
     members:
       p.members.length > 0
         ? p.members.map((m) => ({ name: null, email: m.email, image: null }))
-        : orgMembers,
+        : p.organizationMembers.map((m) => ({ name: m.user?.name, email: m.user?.email, image: m.user?.image })),
   }));
 
   return <ProjectsTable projects={rows} />;

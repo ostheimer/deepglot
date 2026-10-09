@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ProjectWebhooksManager } from "@/components/projekte/project-webhooks-manager";
 import { db } from "@/lib/db";
+import { canManageProjectForWrite, getAuthenticatedUserId } from "@/lib/project-access";
 import { requireProjectManagement } from "@/lib/project-page-access";
 
 interface PageProps {
@@ -11,10 +12,13 @@ interface PageProps {
 export default async function WebhooksPage({ params }: PageProps) {
   const { projektId } = await params;
   await requireProjectManagement(projektId);
+  const userId = await getAuthenticatedUserId();
 
-  const [project, latestProcessorRun, statusCounts, pendingDueCount] =
-    await Promise.all([
-      db.project.findUnique({
+  // Webhook signing secrets are displayed here. Fetch them while the same
+  // current-workspace lock protects the authorization decision from transfer.
+  const project = await db.$transaction(async (tx) => {
+    if (!userId || !(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    return tx.project.findUnique({
         where: { id: projektId },
         include: {
           webhookEndpoints: {
@@ -27,7 +31,12 @@ export default async function WebhooksPage({ params }: PageProps) {
             orderBy: { createdAt: "desc" },
           },
         },
-      }),
+      });
+  });
+  if (!project) notFound();
+
+  const [latestProcessorRun, statusCounts, pendingDueCount] =
+    await Promise.all([
       db.webhookProcessorRun.findFirst({
         orderBy: { createdAt: "desc" },
       }),
@@ -44,10 +53,6 @@ export default async function WebhooksPage({ params }: PageProps) {
         },
       }),
     ]);
-
-  if (!project) {
-    notFound();
-  }
 
   const deliveryCounts = { PENDING: 0, SUCCESS: 0, FAILED: 0 };
   for (const item of statusCounts) {

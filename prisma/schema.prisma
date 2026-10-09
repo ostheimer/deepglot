@@ -268,6 +268,58 @@ model Project {
   webhookDeliveries WebhookDelivery[]
 }
 
+/// Immutable receipt for a committed workspace boundary change. No key, URL,
+/// translated content, or webhook payload is stored in this audit row.
+model ProjectTransferAudit {
+  id String @id @default(cuid())
+  projectId String
+  actorUserId String
+  sourceOrganizationId String
+  destinationOrganizationId String
+  previewFingerprint String @unique
+  projectVersion DateTime
+  outcome String @default("COMMITTED")
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([sourceOrganizationId, createdAt])
+  @@index([destinationOrganizationId, createdAt])
+}
+
+/// Factual workspace administration receipt. Kept without foreign keys so
+/// account lifecycle operations do not rewrite or erase historical actions.
+model WorkspaceAudit {
+  id String @id @default(cuid())
+  workspaceId String
+  actorUserId String
+  action String
+  targetUserId String?
+  previousRole OrganizationRole?
+  nextRole OrganizationRole?
+  previousName String?
+  nextName String?
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+/// A durable authorization decision made before an external billing request.
+/// The org row lock serializes this decision with workspace role changes.
+/// No Stripe result or sensitive address data is inferred from this receipt.
+model BillingCommand {
+  id String @id @default(cuid())
+  workspaceId String
+  actorUserId String
+  actorRole OrganizationRole
+  action String
+  targetRef String?
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
 model ProjectLanguage {
   id        String   @id @default(cuid())
   langCode  String   // normalized lowercase BCP 47 language/script/region tag
@@ -444,6 +496,7 @@ model ProjectSettings {
   translationModel        String?
   translationBaseUrl      String?
   translationApiKeyEncrypted String?
+  providerReconnectRequired Boolean @default(false)
   translationApiKeyUpdatedAt DateTime?
   routingMode             RoutingMode @default(PATH_PREFIX)
   runtimeSyncedAt         DateTime?
@@ -673,6 +726,7 @@ model UrlCacheInvalidation {
 model UrlOperationReceipt {
   id String @id // SHA-256 confirmation token
   projectId String
+  originatingOrganizationId String? // new writers capture billed workspace; legacy null blocks transfer
   urlId String
   actorId String
   urlPath String
@@ -686,6 +740,7 @@ model UrlOperationReceipt {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, urlId])
+  @@index([originatingOrganizationId, createdAt])
 }
 
 // Opt-in visitor events. Query strings, fragments, IP addresses, user agents,

@@ -55,6 +55,7 @@ for (const locale of passkeyLocales) {
 
     let initialPasskeyCount = 0;
     let passkeyCreated = false;
+    let primaryError: unknown = null;
 
     try {
       await signInAsTestUser(page);
@@ -104,36 +105,45 @@ for (const locale of passkeyLocales) {
       await page.getByRole("button", { name: locale.loginButton }).click();
       await expect(page.getByText(locale.failedLogin)).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`${locale.loginPath}$`));
+    } catch (error) {
+      primaryError = error;
+      throw error;
     } finally {
-      if (passkeyCreated) {
-        await page.goto(locale.settingsPath);
-        if (
-          page.url().includes("/login") ||
-          page.url().includes("/anmelden")
-        ) {
-          await page.getByRole("button", { name: locale.loginButton }).click();
-          await page.waitForURL(locale.dashboardURL, { timeout: 15_000 });
+      try {
+        if (passkeyCreated && !page.isClosed()) {
           await page.goto(locale.settingsPath);
+          if (
+            page.url().includes("/login") ||
+            page.url().includes("/anmelden")
+          ) {
+            await page.getByRole("button", { name: locale.loginButton }).click();
+            await page.waitForURL(locale.dashboardURL, { timeout: 15_000 });
+            await page.goto(locale.settingsPath);
+          }
+
+          const removeButtons = page.getByRole("button", {
+            name: locale.removeButton,
+          });
+          if ((await removeButtons.count()) > initialPasskeyCount) {
+            await removeButtons.last().click();
+            await page
+              .getByRole("button", {
+                name: locale.confirmRemoveButton,
+                exact: true,
+              })
+              .click();
+          }
         }
 
-        const removeButtons = page.getByRole("button", {
-          name: locale.removeButton,
-        });
-        if ((await removeButtons.count()) > initialPasskeyCount) {
-          await removeButtons.last().click();
-          await page
-            .getByRole("button", {
-              name: locale.confirmRemoveButton,
-              exact: true,
-            })
-            .click();
+        if (!page.isClosed()) {
+          await cdp.send("WebAuthn.removeVirtualAuthenticator", {
+            authenticatorId,
+          });
+          await cdp.send("WebAuthn.disable");
         }
+      } catch (cleanupError) {
+        if (primaryError === null) throw cleanupError;
       }
-
-      await cdp.send("WebAuthn.removeVirtualAuthenticator", {
-        authenticatorId,
-      });
-      await cdp.send("WebAuthn.disable");
     }
   });
 }

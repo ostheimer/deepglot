@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       languages: z
         .array(z.string().length(2))
         .min(1, t(locale, "Mindestens eine Übersetzungssprache erforderlich", "At least one translation language is required")),
+      organizationId: z.string().min(1).optional(),
     });
     const body = await req.json();
     const parsed = createProjectSchema.safeParse(body);
@@ -45,11 +46,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, domain, originalLang, languages } = parsed.data;
+    const { name, domain, originalLang, languages, organizationId } = parsed.data;
 
     // Find user's organization
     const membership = await db.organizationMember.findFirst({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, ...(organizationId ? { organizationId } : {}),
+        role: { in: ["OWNER", "ADMIN"] } },
       include: { organization: { include: { subscription: true } } },
     });
 
@@ -60,25 +62,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const currentProjects = await db.project.count({
-      where: { organizationId: membership.organizationId },
-    });
-
-    const limit = getProjectsLimitForPlan(membership.organization.plan);
-    if (currentProjects >= limit) {
-      return NextResponse.json(
-        {
-          error:
-            locale === "de"
-              ? `Dein ${membership.organization.plan}-Plan erlaubt maximal ${limit} Projekt${limit > 1 ? "e" : ""}. Bitte upgrade deinen Plan.`
-              : `Your ${membership.organization.plan} plan allows up to ${limit} project${limit > 1 ? "s" : ""}. Please upgrade your plan.`,
-        },
-        { status: 403 }
-      );
-    }
-
     // Create project with languages in a transaction
     const project = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${membership.organizationId} FOR UPDATE`;
+      const currentMembership = await tx.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: session.user.id!, organizationId: membership.organizationId } },
+        select: { role: true },
+      });
+      if (currentMembership?.role !== "OWNER" && currentMembership?.role !== "ADMIN") return null;
+      const [currentProjects, currentOrganization] = await Promise.all([
+        tx.project.count({ where: { organizationId: membership.organizationId } }),
+        tx.organization.findUniqueOrThrow({ where: { id: membership.organizationId }, select: { plan: true } }),
+      ]);
+      if (currentProjects >= getProjectsLimitForPlan(currentOrganization.plan)) return null;
       const newProject = await tx.project.create({
         data: {
           name,
@@ -98,6 +94,8 @@ export async function POST(req: NextRequest) {
 
       return newProject;
     });
+
+    if (!project) return NextResponse.json({ error: t(locale, "Kein Zugriff oder Projektlimit erreicht", "No access or project limit reached") }, { status: 409 });
 
     // Automatically create a default API key so the user can start using the
     // plugin immediately without an extra step.

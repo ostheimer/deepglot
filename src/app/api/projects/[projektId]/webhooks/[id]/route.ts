@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   getAuthenticatedUserId,
   userCanManageProject,
+  canManageProjectForWrite,
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
@@ -105,7 +106,18 @@ export async function PATCH(
     );
   }
 
-  const endpoint = await db.webhookEndpoint.update({
+  if (parsed.data.enabled === true && !existing.secret && !parsed.data.rotateSecret) {
+    return NextResponse.json(
+      { error: t(locale, "Webhook nach Workspace-Transfer neu verbinden", "Reconnect webhook after workspace transfer") },
+      { status: 409 }
+    );
+  }
+
+  const endpoint = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    const current = await tx.webhookEndpoint.findFirst({ where: { id: existing.id, projectId: projektId } });
+    if (!current || (parsed.data.enabled === true && !current.secret && !parsed.data.rotateSecret)) return null;
+    return tx.webhookEndpoint.update({
     where: { id: existing.id },
     data: {
       ...(parsed.data.url ? { url: parsed.data.url } : {}),
@@ -123,7 +135,10 @@ export async function PATCH(
         take: 10,
       },
     },
+    });
   });
+
+  if (!endpoint) return NextResponse.json({ error: t(locale, "Webhook nicht gefunden", "Webhook not found") }, { status: 404 });
 
   return NextResponse.json({ endpoint });
 }
@@ -159,9 +174,12 @@ export async function DELETE(
     );
   }
 
-  await db.webhookEndpoint.delete({
-    where: { id: existing.id },
+  const removed = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
+    const result = await tx.webhookEndpoint.deleteMany({ where: { id: existing.id, projectId: projektId } });
+    return result.count === 1;
   });
+  if (!removed) return NextResponse.json({ error: t(locale, "Webhook nicht gefunden", "Webhook not found") }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 }

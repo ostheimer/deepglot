@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { encryptSecret } from "@/lib/secret-encryption";
 import { suggestWebsiteDescription } from "@/lib/translation-context-settings";
@@ -11,7 +11,7 @@ import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import {
   normalizeTranslationProvider,
-  resolveTranslationProviderConfig,
+  resolveTranslationProviderDisplayConfig,
   serializeLanguageModelApiResponse,
 } from "@/lib/translation-config";
 
@@ -43,9 +43,7 @@ export async function GET(
   const settings = await db.projectSettings.findUnique({
     where: { projectId: projektId },
   });
-  const effective = resolveTranslationProviderConfig({
-    settings,
-  });
+  const effective = resolveTranslationProviderDisplayConfig(settings);
 
   return NextResponse.json(
     serializeLanguageModelApiResponse({
@@ -165,6 +163,7 @@ export async function PATCH(
     translationBaseUrl?: string | null;
     translationApiKeyEncrypted?: string | null;
     translationApiKeyUpdatedAt?: Date | null;
+    providerReconnectRequired?: boolean;
     websiteDescription?: string | null;
     translationTone?: string | null;
     translationAudience?: string | null;
@@ -195,20 +194,22 @@ export async function PATCH(
   if (body.apiKey) {
     data.translationApiKeyEncrypted = encryptSecret(body.apiKey);
     data.translationApiKeyUpdatedAt = new Date();
+    data.providerReconnectRequired = false;
   } else if (body.apiKeyAction === "clear") {
     data.translationApiKeyEncrypted = null;
     data.translationApiKeyUpdatedAt = null;
   }
 
-  const settings = await db.projectSettings.upsert({
-    where: { projectId: projektId },
-    create: {
-      projectId: projektId,
-      ...data,
-    },
-    update: data,
+  const settings = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
+    return tx.projectSettings.upsert({
+      where: { projectId: projektId },
+      create: { projectId: projektId, ...data },
+      update: data,
+    });
   });
-  const effective = resolveTranslationProviderConfig({ settings });
+  if (!settings) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
+  const effective = resolveTranslationProviderDisplayConfig(settings);
 
   return NextResponse.json(
     serializeLanguageModelApiResponse({ settings, effective })

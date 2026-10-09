@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   getAuthenticatedUserId,
   userCanManageProject,
+  canManageProjectForWrite,
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { PROJECT_WEBHOOK_EVENT_TYPES } from "@/lib/webhooks";
@@ -49,7 +50,9 @@ export async function GET(
     );
   }
 
-  const endpoints = await db.webhookEndpoint.findMany({
+  const endpoints = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    return tx.webhookEndpoint.findMany({
     where: { projectId: projektId },
     include: {
       deliveries: {
@@ -59,6 +62,9 @@ export async function GET(
     },
     orderBy: { createdAt: "desc" },
   });
+  });
+
+  if (!endpoints) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ endpoints });
 }
@@ -114,7 +120,9 @@ export async function POST(
     );
   }
 
-  const endpoint = await db.webhookEndpoint.create({
+  const endpoint = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    return tx.webhookEndpoint.create({
     data: {
       projectId: projektId,
       url: parsed.data.url,
@@ -128,7 +136,10 @@ export async function POST(
         take: 10,
       },
     },
+    });
   });
+
+  if (!endpoint) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ endpoint }, { status: 201 });
 }

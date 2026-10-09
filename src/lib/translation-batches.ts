@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type UsageRecord, type TranslationBatchLog } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import { assertPostgresTextFields } from "@/lib/postgres-text";
@@ -21,6 +21,16 @@ export function getUsageMonthKey(date = new Date()) {
   return Number.parseInt(date.toISOString().slice(0, 7).replace("-", ""), 10);
 }
 
+async function assertCurrentWorkspace(tx: Prisma.TransactionClient, projectId: string, organizationId: string) {
+  // Hold the project row until the write commits. A concurrent transfer must
+  // wait, then any request carrying a pre-transfer organization fails closed.
+  const rows = await tx.$queryRaw<Array<{ organizationId: string }>>`
+    SELECT "organizationId" FROM "Project" WHERE id = ${projectId} FOR SHARE`;
+  if (rows[0]?.organizationId !== organizationId) {
+    throw new Error("Project workspace changed during the request");
+  }
+}
+
 export async function incrementUsageRecord({
   organizationId,
   projectId,
@@ -33,10 +43,16 @@ export async function incrementUsageRecord({
   words: number;
   month?: number;
   tx?: Prisma.TransactionClient;
-}) {
+}): Promise<UsageRecord | null> {
   if (words <= 0) {
     return null;
   }
+
+  if (!tx) {
+    return db.$transaction((transaction) => incrementUsageRecord({ organizationId, projectId, words, month, tx: transaction }));
+  }
+
+  await assertCurrentWorkspace(tx, projectId, organizationId);
 
   const client = tx ?? db;
 
@@ -122,7 +138,7 @@ export async function upsertTranslatedUrlHit({
 export async function recordTranslationBatch(
   input: TranslationBatchRecordInput,
   tx?: Prisma.TransactionClient
-) {
+): Promise<TranslationBatchLog> {
   assertPostgresTextFields(
     {
       langFrom: input.langFrom,
@@ -134,6 +150,9 @@ export async function recordTranslationBatch(
   );
 
   const client = tx ?? db;
+
+  if (!tx) return db.$transaction((transaction) => recordTranslationBatch(input, transaction));
+  await assertCurrentWorkspace(tx, input.projectId, input.organizationId);
 
   return client.translationBatchLog.create({
     data: {

@@ -8,7 +8,7 @@ import {
   parseExclusionCsv,
   planExclusionImport,
 } from "@/lib/exclusion-csv";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { uiText } from "@/lib/static-copy";
 
@@ -85,6 +85,7 @@ export async function POST(
 
   try {
     const committed = await db.$transaction(async (tx) => {
+      if (!(await canManageProjectForWrite(tx, userId, projektId))) throw new Error("not_found");
       // Recheck inside the transaction so a concurrent import cannot turn a
       // previewed create into an accidental overwrite or partial commit.
       const current = await tx.translationExclusion.findMany({

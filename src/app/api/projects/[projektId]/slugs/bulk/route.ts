@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { isProjectRuntimeSerializationConflict, lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 
 const schema = z.object({
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const count = await db.$transaction(async (tx) => {
+        if (!(await canManageProjectForWrite(tx, userId, projektId))) throw new Error("not_found");
         const rows = await tx.urlSlug.findMany({
           where: { projectId: projektId, id: { in: input.data.rows.map((row) => row.id) } },
           select: { id: true, langTo: true, translatedSlug: true, updatedAt: true },
