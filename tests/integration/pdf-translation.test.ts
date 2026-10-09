@@ -420,6 +420,10 @@ test("active AI budget denies PDF provider work without owner approvals", { skip
       data: { useGlossaryAsContext: true } });
     const guardedInput = { ...baseInput, requestKey: `${id}:glossary-race` };
     const guardedPreview = await previewProjectPdf(guardedInput);
+    const velocityBeforeGlossaryDrift = await db.rateLimitBucket.findUniqueOrThrow({ where: {
+      scope_subjectHash: { scope: TRANSLATE_WORD_VELOCITY_SCOPE,
+        subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id) },
+    } });
     await assert.rejects(translateProjectPdf({ ...guardedInput,
       previewFingerprint: guardedPreview.fingerprint, previewExpiresAt: guardedPreview.expiresAt }, {
       translateTexts: async (attemptInput, _env, _settings, options) => {
@@ -430,6 +434,12 @@ test("active AI budget denies PDF provider work without owner approvals", { skip
       },
     }), (error) => error instanceof PdfTranslationError && error.code === "project_changed");
     assert.equal(await db.aiSpendReservation.count({ where: { projectId: project.id } }), 1);
+    const velocityAfterGlossaryDrift = await db.rateLimitBucket.findUniqueOrThrow({ where: {
+      scope_subjectHash: { scope: TRANSLATE_WORD_VELOCITY_SCOPE,
+        subjectHash: hashRateLimitSubject(TRANSLATE_WORD_VELOCITY_SCOPE, organization.id) },
+    } });
+    assert.equal(velocityAfterGlossaryDrift.count, velocityBeforeGlossaryDrift.count,
+      "a known pre-dispatch glossary rejection refunds the PDF velocity reservation");
     let httpCalls = 0;
     const provider = createServer((_request, response) => {
       httpCalls += 1;
