@@ -238,6 +238,14 @@ $html = '<!DOCTYPE html>'
 
 $processed = $buffer->process($html, 'en');
 
+$hiddenSettings = $options->all();
+$hiddenSettings['visible_target_languages'] = [];
+update_option(Options::OPTION_KEY, $hiddenSettings);
+$hiddenPage = $buffer->process($html, 'en');
+dgLangAssert(str_contains($hiddenPage, 'content="noindex, follow"'), 'A hidden direct target route must emit noindex.');
+$hiddenSettings['visible_target_languages'] = null;
+update_option(Options::OPTION_KEY, $hiddenSettings);
+
 dgLangAssert(
     str_contains($processed, 'lang="en"'),
     'Translated page must announce lang="en" on the <html> element, got: ' . substr($processed, 0, 200)

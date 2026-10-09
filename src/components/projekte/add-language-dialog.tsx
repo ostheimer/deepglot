@@ -15,6 +15,7 @@ import { getLanguageName } from "@/lib/language-names";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { uiText } from "@/lib/static-copy";
+import { normalizeTargetLocale } from "@/lib/project-language-lifecycle";
 
 const ALL_LANGUAGE_CODES = [
   "en", "fr", "es", "it", "nl", "pl", "pt", "ru", "zh", "ja",
@@ -36,6 +37,7 @@ export function AddLanguageDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [customLocale, setCustomLocale] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const available = ALL_LANGUAGE_CODES.filter(
@@ -43,14 +45,20 @@ export function AddLanguageDialog({
   );
 
   async function handleAdd() {
-    if (selected.length === 0) return;
+    const custom = customLocale.trim() ? normalizeTargetLocale(customLocale) : null;
+    if (customLocale.trim() && (!custom || custom === originalLang || existingLangs.includes(custom))) {
+      toast.error(locale === "de" ? "Gib eine gültige neue Sprachvariante ein, z. B. pt-BR oder zh-Hant-TW." : "Enter a valid new locale, such as pt-BR or zh-Hant-TW.");
+      return;
+    }
+    const languages = Array.from(new Set([...selected, ...(custom ? [custom] : [])]));
+    if (languages.length === 0) return;
     setIsLoading(true);
 
     try {
       const res = await fetch(`/api/projects/${projectId}/languages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ languages: selected }),
+        body: JSON.stringify({ languages }),
       });
 
       if (!res.ok) {
@@ -61,11 +69,12 @@ export function AddLanguageDialog({
 
       toast.success(
         locale === "de"
-          ? `${selected.length} Sprache${selected.length > 1 ? "n" : ""} hinzugefügt`
-          : `${selected.length} language${selected.length > 1 ? "s" : ""} added`
+          ? `${languages.length} Sprache${languages.length > 1 ? "n" : ""} hinzugefügt`
+          : `${languages.length} language${languages.length > 1 ? "s" : ""} added`
       );
       setOpen(false);
       setSelected([]);
+      setCustomLocale("");
       router.refresh();
     } finally {
       setIsLoading(false);
@@ -122,6 +131,16 @@ export function AddLanguageDialog({
             </div>
           )}
 
+          <label className="block text-sm text-gray-700">
+            {locale === "de" ? "Eigene regionale Sprachvariante" : "Custom regional locale"}
+            <input
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
+              value={customLocale}
+              onChange={(event) => setCustomLocale(event.target.value)}
+              placeholder="pt-BR"
+            />
+          </label>
+
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
               {uiText(locale, "Cancel", "Abbrechen")}
@@ -129,7 +148,7 @@ export function AddLanguageDialog({
             <Button
               className="bg-brand-600 hover:bg-brand-700"
               onClick={handleAdd}
-              disabled={selected.length === 0 || isLoading}
+              disabled={(selected.length === 0 && !customLocale.trim()) || isLoading}
             >
               {isLoading
                 ? uiText(locale, "Adding...", "Wird hinzugefügt...")

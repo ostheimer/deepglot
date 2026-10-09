@@ -152,6 +152,21 @@ class OutputBuffer
             $this->allowsFallbackCanonical()
         );
 
+        // Hidden targets remain reachable by a direct URL but are omitted
+        // from discovery and explicitly excluded from search indexing.
+        if (!in_array(strtolower($targetLanguage), $this->options->getVisibleTargetLanguages(), true)) {
+            $head = $doc->getElementsByTagName('head')->item(0);
+            if ($head instanceof \DOMElement) {
+                $robots = $doc->createElement('meta');
+                $robots->setAttribute('name', 'robots');
+                $robots->setAttribute('content', 'noindex, follow');
+                $head->appendChild($robots);
+            }
+            if (!headers_sent()) {
+                header('X-Robots-Tag: noindex, follow', false);
+            }
+        }
+
         // Step 4: switch <html lang> to the target language and mark translate="no"
         // so browser extensions (Chrome auto-translate, etc.) don't double translate.
         $htmlEl = $doc->getElementsByTagName('html')->item(0);

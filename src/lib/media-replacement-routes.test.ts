@@ -229,7 +229,7 @@ test("language reactivation preserves manager access and duplicate handling whil
   assert.match(languageMutations, /isProjectRuntimeSerializationConflict/);
   assert.match(languageRoute, /media_replacements_payload_too_large/);
   assert.match(languageRoute, /status:\s*409/);
-  assert.match(languageMutations, /projectLanguage\.deleteMany\(/);
+  assert.match(languageRoute, /removeTargetLanguage\(db, projektId, parsed\.data\.langCode, parsed\.data\.confirmationToken\)/);
 });
 
 test("dashboard language activation revives existing inactive rows and rejects the 501-image sentinel with a stable conflict", () => {

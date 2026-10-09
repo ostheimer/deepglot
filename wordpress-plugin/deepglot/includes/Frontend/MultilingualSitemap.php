@@ -272,7 +272,7 @@ class MultilingualSitemap
             $alternates = [];
             $languages = array_values(array_unique(array_merge(
                 [$sourceLanguage],
-                $this->routing->getTargetLanguages()
+                $this->options->getVisibleTargetLanguages()
             )));
 
             foreach ($languages as $language) {

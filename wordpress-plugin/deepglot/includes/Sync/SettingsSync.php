@@ -115,7 +115,7 @@ class SettingsSync
             return new \WP_Error('deepglot_sync_missing_key', __('No API key is configured for synchronization.', 'deepglot'));
         }
 
-        if (empty($normalized['target_languages'])) {
+        if (empty($normalized['target_languages']) && !$this->options->hasRuntimeIdentity()) {
             return new \WP_Error('deepglot_sync_missing_languages', __('No target languages are configured for synchronization.', 'deepglot'));
         }
 
@@ -126,6 +126,12 @@ class SettingsSync
             ? untrailingslashit($baseUrlOverride)
             : untrailingslashit((string) ($normalized['api_base_url'] ?? $this->options->getApiBaseUrl()));
         $usesStoredCredentials = $apiKeyOverride === null && $baseUrlOverride === null;
+
+        if (empty($normalized['target_languages'])) {
+            // The SaaS owns target activation. Its runtime readback can recover
+            // a paused-all site; the settings-report endpoint requires targets.
+            return $this->refreshRuntimeConfig($apiKeyOverride, $baseUrlOverride, true);
+        }
 
         $settingsResult = $this->client->syncSettings($normalized, $apiKeyOverride, $baseUrlOverride);
 
@@ -259,8 +265,42 @@ class SettingsSync
         $previousTargetLanguages = $this->warmer !== null
             ? $this->options->getTargetLanguages()
             : [];
+        $previousSettings = get_option(Options::OPTION_KEY, []);
+        $previousSettings = is_array($previousSettings) ? $previousSettings : [];
         $previousMedia = get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, []);
         $applied = $this->options->applyRuntimeConfig($runtimeConfig, $fetchKey, $fetchBaseUrl);
+
+        if ($applied) {
+            $currentSettings = get_option(Options::OPTION_KEY, []);
+            $currentSettings = is_array($currentSettings) ? $currentSettings : [];
+            $removedTargets = array_diff(
+                (array) ($previousSettings['target_languages'] ?? []),
+                (array) ($currentSettings['target_languages'] ?? [])
+            );
+            $previousGenerations = (array) ($previousSettings['target_language_generations'] ?? []);
+            $currentGenerations = (array) ($currentSettings['target_language_generations'] ?? []);
+            $changedGenerations = [];
+            foreach ((array) ($currentSettings['target_languages'] ?? []) as $target) {
+                if (isset($currentGenerations[$target]) && ($previousGenerations[$target] ?? null) !== $currentGenerations[$target]) {
+                    $changedGenerations[] = $target;
+                }
+            }
+            $invalidatedTargets = array_unique(array_merge($removedTargets, $changedGenerations));
+            if ($invalidatedTargets !== []) {
+                $epochs = get_option('deepglot_language_cache_epochs', []);
+                $epochs = is_array($epochs) ? $epochs : [];
+                foreach ($invalidatedTargets as $removedTarget) {
+                    $epochs[$removedTarget] = max(0, (int) ($epochs[$removedTarget] ?? 0)) + 1;
+                }
+                update_option('deepglot_language_cache_epochs', $epochs, false);
+            }
+            foreach (['source_language', 'target_languages', 'visible_target_languages', 'automatic_target_languages', 'target_language_generations', 'automatic_translation'] as $runtimeKey) {
+                if (($previousSettings[$runtimeKey] ?? null) !== ($currentSettings[$runtimeKey] ?? null)) {
+                    $this->purgeMediaPageCaches();
+                    break;
+                }
+            }
+        }
 
         if ($previousMedia !== get_option(Options::MEDIA_REPLACEMENTS_OPTION_KEY, [])) {
             $this->purgeMediaPageCaches();
@@ -276,10 +316,12 @@ class SettingsSync
                     $previousSourceLanguage !== $currentSourceLanguage
                     || array_diff($previousTargetLanguages, $currentTargetLanguages) !== []
                     || array_diff($currentTargetLanguages, $previousTargetLanguages) !== []
+                    || $invalidatedTargets !== []
                 ) {
                     $this->warmer->reconcileLanguageConfiguration(
                         $currentSourceLanguage,
-                        $currentTargetLanguages
+                        $currentTargetLanguages,
+                        $invalidatedTargets
                     );
                 }
             }

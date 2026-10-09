@@ -107,7 +107,7 @@ class NavMenuSwitcher
             ?? $this->routing->detectLanguage($requestUri, $host)
             ?? $this->options->getSourceLanguage();
         $sourceLang    = $this->options->getSourceLanguage();
-        $targetLangs   = $this->options->getTargetLanguages();
+        $targetLangs   = $this->options->getVisibleTargetLanguages();
         $orderedLangs  = $this->orderLanguages(
             array_values(array_unique(array_merge([$sourceLang], $targetLangs))),
             $this->options->getSwitcherLanguageOrder()

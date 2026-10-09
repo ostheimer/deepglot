@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { isCanonicalTargetLocale } from "@/lib/project-language-lifecycle";
 import {
   MAX_RUNTIME_MEDIA_REPLACEMENTS_BYTES,
   MediaRuntimePayloadLimitError,
@@ -49,7 +50,7 @@ const mediaReplacementSchema = z
       .string()
       .trim()
       .toLowerCase()
-      .regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/),
+      .refine(isCanonicalTargetLocale),
   })
   .strict();
 

@@ -159,7 +159,7 @@ class LanguageSwitcher
         $requestUri    = RequestInput::server('REQUEST_URI', '/');
         $host          = RequestInput::server('HTTP_HOST');
         $sourceLang    = $this->options->getSourceLanguage();
-        $targetLangs   = $this->options->getTargetLanguages();
+        $targetLangs   = $this->options->getVisibleTargetLanguages();
 
         // Active language detection — prefer RequestRouter because it
         // captures the language BEFORE its plugins_loaded hook strips

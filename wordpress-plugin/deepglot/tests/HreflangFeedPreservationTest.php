@@ -99,4 +99,12 @@ hreflangFeedAssert(
     'Only stale page-language alternates are removed, including mixed-case rel token lists.'
 );
 
+$settings = get_option(Options::OPTION_KEY);
+$settings['visible_target_languages'] = [];
+update_option(Options::OPTION_KEY, $settings);
+$hiddenDoc = new DOMDocument();
+$hiddenDoc->loadHTML('<!doctype html><html><head></head><body></body></html>');
+$injector->inject($hiddenDoc, '/produkte/');
+hreflangFeedAssert(!str_contains($hiddenDoc->saveHTML(), 'hreflang="en"'), 'Hidden target must be omitted from hreflang discovery.');
+
 fwrite(STDOUT, "HreflangFeedPreservationTest: OK\n");

@@ -22,7 +22,9 @@ class BrowserRedirector
     public function pickPreferredLanguage(string $acceptLanguage): ?string
     {
         $candidates = [];
-        $supportedTargets = $this->routing->getTargetLanguages();
+        $supportedTargets = $this->options !== null
+            ? $this->options->getVisibleTargetLanguages()
+            : $this->routing->getTargetLanguages();
 
         foreach (explode(',', $acceptLanguage) as $item) {
             $item = trim($item);
@@ -32,17 +34,28 @@ class BrowserRedirector
 
             [$language, $qualityPart] = array_pad(explode(';q=', $item, 2), 2, null);
             $quality = $qualityPart !== null ? (float) $qualityPart : 1.0;
-            $baseLanguage = strtolower(trim(explode('-', $language)[0]));
+            $requestedLanguage = strtolower(trim(str_replace('_', '-', $language)));
+            $baseLanguage = explode('-', $requestedLanguage)[0];
 
-            if ($baseLanguage === '' || $baseLanguage === $this->routing->getSourceLanguage()) {
+            if ($baseLanguage === '') {
                 continue;
             }
 
-            if (!in_array($baseLanguage, $supportedTargets, true)) {
+            $matchedLanguage = null;
+            $parts = explode('-', $requestedLanguage);
+            while ($parts !== []) {
+                $candidate = implode('-', $parts);
+                if (in_array($candidate, $supportedTargets, true)) {
+                    $matchedLanguage = $candidate;
+                    break;
+                }
+                array_pop($parts);
+            }
+            if ($matchedLanguage === null) {
                 continue;
             }
 
-            $candidates[$baseLanguage] = max($candidates[$baseLanguage] ?? 0, $quality);
+            $candidates[$matchedLanguage] = max($candidates[$matchedLanguage] ?? 0, $quality);
         }
 
         arsort($candidates);

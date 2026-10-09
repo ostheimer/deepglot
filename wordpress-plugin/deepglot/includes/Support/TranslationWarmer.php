@@ -128,7 +128,7 @@ class TranslationWarmer
         // The authenticated SaaS project owns this gate. Keep any already
         // cached translations readable, but never create fresh provider work
         // after runtime-config disabled automatic translation.
-        if (!$this->options->shouldAutomaticallyTranslate()) {
+        if (!$this->options->shouldAutomaticallyTranslateTarget($targetLang)) {
             return false;
         }
 
@@ -312,7 +312,8 @@ class TranslationWarmer
      */
     public function reconcileLanguageConfiguration(
         string $sourceLanguage,
-        array $targetLanguages
+        array $targetLanguages,
+        array $invalidatedTargets = []
     ): bool {
         $sourceLanguage = strtolower(trim($sourceLanguage));
         $targetLanguages = array_values(array_unique(array_filter(
@@ -328,7 +329,7 @@ class TranslationWarmer
             return false;
         }
 
-        $allowedTargets = array_fill_keys($targetLanguages, true);
+        $allowedTargets = array_fill_keys(array_diff($targetLanguages, $invalidatedTargets), true);
         $keepPair = function (string $key) use ($sourceLanguage, $allowedTargets): bool {
             [$queuedSource, $queuedTarget] = $this->parseQueueKey($key);
 
@@ -613,7 +614,7 @@ class TranslationWarmer
             }
 
             if (
-                !$this->options->shouldAutomaticallyTranslate()
+                !$this->options->shouldAutomaticallyTranslateTarget($targetLang)
                 || !$this->languagePairIsCurrent($sourceLang, $targetLang)
             ) {
                 if ($this->options->shouldAutomaticallyTranslate()) {
@@ -643,7 +644,8 @@ class TranslationWarmer
                 return;
             }
 
-            if (!$this->languagePairIsCurrent($sourceLang, $targetLang)) {
+            if (!$this->languagePairIsCurrent($sourceLang, $targetLang)
+                || !$this->options->shouldAutomaticallyTranslateTarget($targetLang)) {
                 $this->reconcileLanguageConfiguration(
                     $this->options->getSourceLanguage(),
                     $this->options->getTargetLanguages()

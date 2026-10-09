@@ -241,7 +241,7 @@ class HtmlTranslator
         // visual-editor prefill) may read SaaS cache entries but must keep the
         // request cache-only even if the SaaS project was re-enabled moments
         // ago. Manual translations can still be entered and saved in the editor.
-        $automaticTranslationEnabled = $this->options->shouldAutomaticallyTranslate();
+        $automaticTranslationEnabled = $this->options->shouldAutomaticallyTranslateTarget($targetLanguage);
 
         if (!$automaticTranslationEnabled && $bot < BotDetector::OTHER) {
             $bot = BotDetector::OTHER;

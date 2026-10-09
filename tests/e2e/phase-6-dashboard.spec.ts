@@ -126,8 +126,8 @@ test.describe("Phase 6 dashboard flows", () => {
     await expect(page.getByText("Imported volume")).toBeVisible();
     await expect(page.getByText("Provider words")).toBeVisible();
     await expect(page.getByText("Language pairs")).toBeVisible();
-    await expect(page.getByText("DE → EN")).toBeVisible();
-    await expect(page.getByText("DE → FR")).toBeVisible();
+    await expect(page.getByText("DE → EN", { exact: true })).toBeVisible();
+    await expect(page.getByText("DE → FR", { exact: true })).toBeVisible();
     await expect(page.getByText("Top URLs")).toBeVisible();
     await expect(
       page.getByText(`https://${seededProjectDomain}/preise`)

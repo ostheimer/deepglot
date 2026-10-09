@@ -122,13 +122,27 @@ if (!function_exists('__')) {
     }
 }
 
+if (!defined('DAY_IN_SECONDS')) define('DAY_IN_SECONDS', 86400);
 require_once __DIR__ . '/../includes/Config/Options.php';
 require_once __DIR__ . '/../includes/Api/Client.php';
 require_once __DIR__ . '/../includes/Sync/SettingsSync.php';
+require_once __DIR__ . '/../includes/Support/TranslationCache.php';
+require_once __DIR__ . '/../includes/Support/TranslationWarmer.php';
 
 use Deepglot\Api\Client;
 use Deepglot\Config\Options;
 use Deepglot\Sync\SettingsSync;
+use Deepglot\Support\TranslationCache;
+use Deepglot\Support\TranslationWarmer;
+
+class LifecycleQueueSpy extends TranslationWarmer {
+    public array $reconciliations = [];
+    public function __construct() {}
+    public function reconcileLanguageConfiguration(string $sourceLanguage, array $targetLanguages, array $invalidatedTargets = []): bool {
+        $this->reconciliations[] = [$sourceLanguage, $targetLanguages, $invalidatedTargets];
+        return true;
+    }
+}
 
 function settingsSyncCheck($condition, string $message): void
 {
@@ -225,6 +239,8 @@ $GLOBALS['_deepglot_runtime_response'] = [
         'version' => '2026-08-25T13:00:00.000Z',
         'sourceLanguage' => 'fr',
         'targetLanguages' => ['it'],
+        'visibleTargetLanguages' => [],
+        'automaticTargetLanguages' => [],
         'autoRedirect' => false,
         'displayAiNotice' => true,
         'automaticTranslation' => false,
@@ -251,9 +267,79 @@ settingsSyncCheck(
     ($newRuntimeSettings['api_key'] ?? null) === 'dg_live_new_project'
         && ($newRuntimeSettings['source_language'] ?? null) === 'fr'
         && ($newRuntimeSettings['target_languages'] ?? null) === ['it']
+        && ($newRuntimeSettings['visible_target_languages'] ?? null) === []
+        && ($newRuntimeSettings['automatic_target_languages'] ?? null) === []
         && ($newRuntimeSettings['auto_redirect'] ?? null) === false
         && ($newRuntimeSettings['saas_project_version'] ?? null) === '2026-08-25T13:00:00.000Z',
     'The new project runtime readback must replace bootstrap mirrors and establish the new SaaS version.'
 );
+
+// A target deleted and recreated between two bounded syncs has the same
+// language array but a new SaaS row identity. Its old local cache must miss.
+$sameListOptions = new Options();
+$sameListSettings = array_merge(Options::defaults(), [
+    'enabled' => true, 'api_key' => 'dg_live_same_list', 'api_base_url' => 'https://deepglot.test/api',
+    'source_language' => 'de', 'target_languages' => ['en'],
+    'saas_project_version' => '2026-08-25T14:00:00.000Z',
+    'target_language_generations' => ['en' => 'old-target-row'],
+]);
+update_option(Options::OPTION_KEY, $sameListSettings);
+$cache = new TranslationCache();
+settingsSyncCheck($cache->set('Old source', 'de', 'en', 'Old cached translation'), 'Fixture cache must save.');
+settingsSyncCheck($cache->get('Old source', 'de', 'en') === 'Old cached translation', 'Fixture cache must be warm.');
+$GLOBALS['_deepglot_runtime_response'] = ['project' => [
+    'version' => '2026-08-25T15:00:00.000Z', 'sourceLanguage' => 'de', 'targetLanguages' => ['en'],
+    'visibleTargetLanguages' => ['en'], 'automaticTargetLanguages' => ['en'],
+    'targetLanguageGenerations' => ['en' => 'new-target-row'],
+    'autoRedirect' => false, 'displayAiNotice' => false, 'automaticTranslation' => true,
+]];
+$queueSpy = new LifecycleQueueSpy();
+$sameListSync = new SettingsSync($sameListOptions, new Client($sameListOptions), $queueSpy);
+settingsSyncCheck(!is_wp_error($sameListSync->sync($sameListSettings)), 'Same-list sync must succeed.');
+settingsSyncCheck($cache->get('Old source', 'de', 'en') === null, 'A recreated target must invalidate its old local cache even if the active list is unchanged.');
+settingsSyncCheck($queueSpy->reconciliations[0] === ['de', ['en'], ['en']], 'A recreated target must discard old queued texts and URL purge targets.');
+$queueReconciliationsAfterChange = count($queueSpy->reconciliations);
+$cache->set('Fresh source', 'de', 'en', 'Fresh cached translation');
+$GLOBALS['_deepglot_runtime_response']['project']['version'] = '2026-08-25T16:00:00.000Z';
+settingsSyncCheck(!is_wp_error($sameListSync->sync($sameListOptions->all())), 'A same-generation sync must succeed.');
+settingsSyncCheck($cache->get('Fresh source', 'de', 'en') === 'Fresh cached translation', 'An ordinary settings sync must preserve cache for the same target generation.');
+settingsSyncCheck(count($queueSpy->reconciliations) === $queueReconciliationsAfterChange, 'A same-generation sync must retain queued work.');
+$beforeInvalidGeneration = $sameListOptions->all();
+$epochBeforeInvalidGeneration = get_option(TranslationCache::LANGUAGE_EPOCHS_OPTION, []);
+$invalidGeneration = $GLOBALS['_deepglot_runtime_response'];
+$invalidGeneration['project']['version'] = '2026-08-25T16:30:00.000Z';
+$invalidGeneration['project']['sourceLanguage'] = 'fr';
+$invalidGeneration['project']['targetLanguageGenerations'] = ['en' => 'same-target-row', 'pt-br' => 'foreign-row'];
+$sameListOptions->applyRuntimeConfig($invalidGeneration, 'dg_live_same_list', 'https://deepglot.test/api');
+$afterInvalidGeneration = $sameListOptions->all();
+foreach (['source_language', 'target_languages', 'visible_target_languages', 'automatic_target_languages', 'target_language_generations', 'saas_project_version'] as $field) {
+    settingsSyncCheck($afterInvalidGeneration[$field] === $beforeInvalidGeneration[$field],
+        'Malformed target generations must not partially apply ' . $field . '.');
+}
+settingsSyncCheck(get_option(TranslationCache::LANGUAGE_EPOCHS_OPTION, []) === $epochBeforeInvalidGeneration,
+    'Malformed target generations must not advance the target cache epoch.');
+
+$pausedSettings = $sameListOptions->all();
+$pausedSettings['target_languages'] = [];
+$pausedSettings['visible_target_languages'] = [];
+$pausedSettings['automatic_target_languages'] = [];
+update_option(Options::OPTION_KEY, $pausedSettings);
+$GLOBALS['_deepglot_runtime_response']['project']['version'] = '2026-08-25T17:00:00.000Z';
+settingsSyncCheck(!$sameListOptions->isConfigured(), 'No active targets must keep delivery disabled.');
+settingsSyncCheck(!is_wp_error($sameListSync->sync($pausedSettings)), 'An established identity with no active targets must still refresh.');
+settingsSyncCheck($sameListOptions->getTargetLanguages() === ['en'], 'The later runtime snapshot must restore a reenabled target.');
+
+$legacyOptions = new Options();
+update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
+    'enabled' => true, 'api_key' => 'dg_live_legacy', 'api_base_url' => 'https://deepglot.test/api',
+    'source_language' => 'de', 'target_languages' => ['en'],
+]));
+$legacyOptions->applyRuntimeConfig(['project' => [
+    'version' => '2026-08-25T18:00:00.000Z', 'sourceLanguage' => 'de', 'targetLanguages' => ['en'],
+    'autoRedirect' => false, 'displayAiNotice' => false, 'automaticTranslation' => true,
+]], 'dg_live_legacy', 'https://deepglot.test/api');
+settingsSyncCheck($legacyOptions->getVisibleTargetLanguages() === ['en']
+    && $legacyOptions->shouldAutomaticallyTranslateTarget('en'),
+    'A previously released SaaS runtime without lifecycle keys must retain legacy visible and automatic behavior.');
 
 fwrite(STDOUT, "ClientSettingsSyncTest: OK\n");

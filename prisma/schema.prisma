@@ -268,8 +268,10 @@ model Project {
 
 model ProjectLanguage {
   id        String   @id @default(cuid())
-  langCode  String   // ISO 639-1, e.g. "en", "fr"
+  langCode  String   // normalized lowercase BCP 47 language/script/region tag
   isActive  Boolean  @default(true)
+  isVisible Boolean  @default(true)
+  automaticTranslation Boolean @default(true)
   createdAt DateTime @default(now())
 
   projectId String

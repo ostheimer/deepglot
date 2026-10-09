@@ -52,7 +52,7 @@ class HreflangInjector
         }
 
         $sourceLang  = $this->options->getSourceLanguage();
-        $targetLangs = $this->options->getTargetLanguages();
+        $targetLangs = $this->options->getVisibleTargetLanguages();
 
         // Remove any existing hreflang tags to avoid duplicates.
         $this->removeExistingHreflang($head);

@@ -70,6 +70,15 @@ test("preserves supported three-letter project languages", () => {
   assert.equal(switcherConfigSchema.safeParse(withThreeLetterLanguage).success, true);
 });
 
+test("accepts a configured script and region target in switcher saves", () => {
+  const regional = structuredClone(fixtures.first);
+  regional.instances[0].languageOrder = ["de", "zh-hant-tw"];
+  regional.instances[0].customNames = { "zh-hant-tw": "Traditional Chinese" };
+  regional.instances[0].customFlags = { "zh-hant-tw": "🇹🇼" };
+  const parsed = switcherConfigSchema.parse(regional);
+  assert.equal(validateSwitcherLanguages(parsed, ["de", "zh-hant-tw"]), true);
+});
+
 test("accepts the enterprise maximum of 50 targets plus source language", () => {
   const enterprise = structuredClone(fixtures.first);
   const targets = Array.from({ length: 50 }, (_, index) => `x${String.fromCharCode(97 + Math.floor(index / 26))}${String.fromCharCode(97 + index % 26)}`);

@@ -10,8 +10,8 @@ import {
 } from "@/lib/project-general-settings";
 import {
   addProjectTargetLanguages,
-  deleteProjectTargetLanguage,
 } from "@/lib/project-language-mutations";
+import { previewTargetLanguageRemoval, removeTargetLanguage } from "@/lib/project-language-removal";
 import {
   lockAndValidateProjectLanguageWrite,
   lockProjectRuntimeConfiguration,
@@ -141,12 +141,16 @@ test(
     );
     assert.equal(response.status, 200);
     const body = await response.json();
+    const activeTarget = await db.projectLanguage.findUniqueOrThrow({ where: { projectId_langCode: { projectId: project.id, langCode: "en" } } });
     assert.deepEqual(body.project, {
       version: updated.project.version,
       name: "After readback",
       domain: `www.${suffix}.example.test:8443`,
       sourceLanguage: "de",
       targetLanguages: ["en"],
+      visibleTargetLanguages: ["en"],
+      automaticTargetLanguages: ["en"],
+      targetLanguageGenerations: { en: activeTarget.id },
       autoRedirect: true,
       displayAiNotice: true,
       automaticTranslation: false,
@@ -593,13 +597,9 @@ test(
       },
     });
 
-    assert.equal(
-      await deleteProjectTargetLanguage(db, {
-        projectId: project.id,
-        langCode: "en",
-      }),
-      true,
-    );
+    const preview = await previewTargetLanguageRemoval(db, project.id, "en");
+    assert.ok(preview);
+    assert.equal((await removeTargetLanguage(db, project.id, "en", preview.confirmationToken)).kind, "removed");
 
     const [readBack, languageCount, mappingCount] = await Promise.all([
       db.project.findUniqueOrThrow({ where: { id: project.id } }),
@@ -701,10 +701,9 @@ test(
 
     await writerHasLock;
     let deletionSettled = false;
-    const deletion = deleteProjectTargetLanguage(db, {
-      projectId: project.id,
-      langCode: "en",
-    }).finally(() => {
+    const preview = await previewTargetLanguageRemoval(db, project.id, "en");
+    assert.ok(preview);
+    const deletion = removeTargetLanguage(db, project.id, "en", preview.confirmationToken).finally(() => {
       deletionSettled = true;
     });
 
@@ -713,12 +712,12 @@ test(
     allowWriterCommit();
     await writer;
 
-    assert.equal(await deletion, true);
+    assert.equal((await deletion).kind, "stale_preview");
     assert.equal(
       await db.projectDomainMapping.count({
         where: { projectId: project.id, langCode: "en" },
       }),
-      0,
+      1,
     );
   },
 );

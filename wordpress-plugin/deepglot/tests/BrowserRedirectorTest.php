@@ -47,6 +47,19 @@ assertSameRedirect(
     $redirector->pickPreferredLanguage('de-DE,de;q=0.9'),
     'The source language alone should not trigger a redirect.'
 );
+
+$variantRouting = new SiteRouting(
+    new UrlLanguageResolver('de', ['en', 'en-us', 'zh-hant-tw']),
+    'https://example.com',
+    'PATH_PREFIX',
+    []
+);
+$variantRedirector = new BrowserRedirector($variantRouting);
+assertSameRedirect('en-us', $variantRedirector->pickPreferredLanguage('en-US,en;q=0.8'), 'An exact regional target must win before its parent.');
+assertSameRedirect('zh-hant-tw', $variantRedirector->pickPreferredLanguage('zh-Hant-TW'), 'A script-region target must remain distinct.');
+assertSameRedirect('zh-hant-tw', $variantRouting->detectLanguage('/zh-hant-tw/page', 'example.com'), 'The regional route must be reachable directly.');
+$sourceVariantRouting = new SiteRouting(new UrlLanguageResolver('en', ['en-gb']), 'https://example.com', 'PATH_PREFIX', []);
+assertSameRedirect('en-gb', (new BrowserRedirector($sourceVariantRouting))->pickPreferredLanguage('en-GB,en;q=0.8'), 'A configured regional target must beat the source-language base.');
 assertSameRedirect(
     true,
     $redirector->shouldSkipRedirect([
