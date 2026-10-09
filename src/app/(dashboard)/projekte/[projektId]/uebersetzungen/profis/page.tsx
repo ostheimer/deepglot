@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { TranslationWorkflowPanel } from "@/components/projekte/translation-workflow-panel";
+import { ProfessionalOrderPanel } from "@/components/projekte/professional-order-panel";
 import { db } from "@/lib/db";
 import {
   canAccessProject,
@@ -9,6 +10,7 @@ import {
   getProjectAccess,
 } from "@/lib/project-access";
 import { getRequestLocale } from "@/lib/request-locale";
+import { professionalOrdersEnabled } from "@/lib/professional-orders";
 
 interface PageProps {
   params: Promise<{ projektId: string }>;
@@ -57,6 +59,7 @@ export default async function ProfiUebersetzungenPage({ params }: PageProps) {
   const manageable = canManageProject(access);
 
   return (
+    <div className="space-y-6">
     <TranslationWorkflowPanel
       domain={project.domain}
       projectId={project.id}
@@ -70,6 +73,9 @@ export default async function ProfiUebersetzungenPage({ params }: PageProps) {
       canManage={manageable}
       currentMemberId={currentMember?.id ?? null}
       locale={locale}
+      orderingEnabled={manageable && professionalOrdersEnabled()}
     />
+    {manageable && professionalOrdersEnabled() && <ProfessionalOrderPanel projectId={project.id} languages={project.languages.map((language) => language.langCode)} locale={locale} />}
+    </div>
   );
 }

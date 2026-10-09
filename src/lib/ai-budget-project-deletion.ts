@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { lockAiSpendScope } from "@/lib/ai-budget";
 import { AiBudgetError } from "@/lib/ai-budget-math";
 import { canManageProject } from "@/lib/project-access-policy";
+import { professionalOrderLifecycleState } from "@/lib/professional-order-lifecycle";
 
 /** Deletion must share admission's Organization→Project lock order. */
 export async function deleteProjectWithAiSpendGuard(projectId: string, userId: string) {
@@ -25,6 +26,10 @@ export async function deleteProjectWithAiSpendGuard(projectId: string, userId: s
     } });
     if (pending > 0) {
       throw new AiBudgetError("ai_spend_pending", "Project has in-flight or unresolved AI provider work.");
+    }
+    const orders = await professionalOrderLifecycleState(tx, projectId);
+    if (orders.pendingCount) {
+      throw new AiBudgetError("professional_order_pending", "Project has unresolved professional order or payment obligations.");
     }
     await tx.project.delete({ where: { id: projectId } });
     // AiSpendReservation.projectId is immutable historical text, without a

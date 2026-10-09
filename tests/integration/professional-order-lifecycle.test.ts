@@ -1,0 +1,285 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { after, test } from "node:test";
+import type Stripe from "stripe";
+import type { ProfessionalOrderStripe } from "../../src/lib/professional-order-stripe";
+
+const testUrl = process.env.DEEPGLOT_ORDER_TEST_DATABASE_URL;
+const allowed = testUrl?.startsWith("postgresql://andreas@127.0.0.1:55472/postgres");
+after(async () => { if (allowed) await (await import("../../src/lib/db")).db.$disconnect(); });
+
+test("completed historical order keeps provenance while its project transfers and is deleted", { skip: !allowed }, async () => {
+  process.env.DEEPGLOT_DATABASE_URL = testUrl;
+  for (const key of ["PROFESSIONAL_ORDERS_ENABLED", "PROFESSIONAL_ORDERS_LEGAL_ACCEPTED", "PROFESSIONAL_ORDERS_PRIVACY_ACCEPTED", "PROFESSIONAL_ORDERS_BILLING_ACCEPTED", "PROFESSIONAL_ORDERS_PRODUCTION_ACCEPTED"]) process.env[key] = "true";
+  const { db } = await import("../../src/lib/db");
+  const { hashVendorToken } = await import("../../src/lib/professional-orders");
+  const { createProfessionalOrder, issueVendorGrant, vendorQuote, acceptProfessionalQuote, cancelProfessionalOrder } = await import("../../src/lib/professional-order-service");
+  const { applyProfessionalStripeEvent } = await import("../../src/lib/professional-order-stripe");
+  const { previewWorkspaceTransfer, commitWorkspaceTransfer } = await import("../../src/lib/workspace-transfer");
+  const { deleteProjectWithAiSpendGuard } = await import("../../src/lib/ai-budget-project-deletion");
+  process.env.AUTH_SECRET = "local-disposable-transfer-fixture-only";
+  const suffix = randomUUID();
+  const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source`, members: { create: { userId: user.id, role: "OWNER" } } } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target`, members: { create: { userId: user.id, role: "OWNER" } } } });
+  const project = await db.project.create({ data: { name: "Lifecycle fixture", domain: `${suffix}.example.invalid`, originalLang: "en", organizationId: source.id, languages: { create: { langCode: "de" } } } });
+  const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello world", translatedText: "Hallo Welt", langFrom: "en", langTo: "de", source: "MOCK" } });
+  const order = await createProfessionalOrder({ projectId: project.id, requesterId: user.id, targetLanguage: "de", translationIds: [translation.id] });
+  const grant = await issueVendorGrant({ orderId: order.id, projectId: project.id, actorId: user.id });
+  const savedGrant = await db.professionalTranslationVendorGrant.findUniqueOrThrow({ where: { tokenHash: hashVendorToken(grant.token) } });
+  await vendorQuote({ orderId: order.id, vendorGrantId: savedGrant.id, amountMinor: 1200, currency: "EUR", turnaroundDays: 3, expiresAt: new Date(Date.now() + 86_400_000), reference: `quote-${suffix}`, termsVersion: "fixture-v1" });
+  await acceptProfessionalQuote({ orderId: order.id, projectId: project.id, actorId: user.id, expectedScopeDigest: order.scopeDigest, expectedQuoteReference: `quote-${suffix}` });
+  await assert.rejects(() => previewWorkspaceTransfer(user.id, project.id, target.id),
+    (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "PENDING");
+  await assert.rejects(() => deleteProjectWithAiSpendGuard(project.id, user.id),
+    (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "professional_order_pending");
+  await cancelProfessionalOrder({ orderId: order.id, projectId: project.id, actorId: user.id });
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).status, "CANCELED");
+  const metadata = { orderId: order.id, projectId: project.id, organizationId: source.id, scopeDigest: order.scopeDigest, quoteReference: `quote-${suffix}`, amountMinor: "1200", currency: "EUR" };
+  const session = { id: `cs_unexpected_${suffix}`, mode: "payment", payment_status: "paid", amount_total: 1200, currency: "eur", client_reference_id: order.id, metadata, payment_intent: `pi_unexpected_${suffix}` } as unknown as Stripe.Checkout.Session;
+  const intent = { id: session.payment_intent, status: "succeeded", amount: 1200, currency: "eur", metadata } as unknown as Stripe.PaymentIntent;
+  const fakeStripe = { checkout: { sessions: { retrieve: async () => session } }, paymentIntents: { retrieve: async () => intent } } as unknown as ProfessionalOrderStripe;
+  const unexpected = { id: `evt_unexpected_${suffix}`, type: "checkout.session.completed", data: { object: session } } as Stripe.Event;
+  await assert.rejects(() => applyProfessionalStripeEvent(unexpected, fakeStripe)); // no durable Checkout dispatch
+  let preview = await previewWorkspaceTransfer(user.id, project.id, target.id);
+  const competing = await db.professionalTranslationOrder.create({ data: { projectId: project.id,
+    activeProjectId: project.id, organizationId: source.id, requesterId: user.id,
+    status: "PAYMENT_PENDING", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "d".repeat(64), wordCount: 1 } });
+  await assert.rejects(() => commitWorkspaceTransfer({ actorUserId: user.id, projectId: project.id, destinationId: target.id,
+    fingerprint: preview.fingerprint, issuedAt: preview.issuedAt, confirmationToken: preview.confirmationToken }),
+  (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "PENDING");
+  await db.professionalTranslationOrder.update({ where: { id: competing.id }, data: { status: "CANCELED" } });
+  preview = await previewWorkspaceTransfer(user.id, project.id, target.id);
+  await commitWorkspaceTransfer({ actorUserId: user.id, projectId: project.id, destinationId: target.id,
+    fingerprint: preview.fingerprint, issuedAt: preview.issuedAt, confirmationToken: preview.confirmationToken });
+  await deleteProjectWithAiSpendGuard(project.id, user.id);
+  const evidence = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id }, include: { items: true, events: true } });
+  assert.equal(evidence.organizationId, source.id);
+  assert.equal(evidence.projectId, project.id);
+  assert.equal(evidence.activeProjectId, null);
+  assert.ok(evidence.projectDetachedAt);
+  assert.equal(evidence.items[0].originalText, "Hello world");
+  assert.ok(evidence.events.some((event) => event.kind === "canceled"));
+
+  const expiredProject = await db.project.create({ data: { name: "Expired fixture", domain: `expired-${suffix}.example.invalid`, organizationId: source.id } });
+  const expiredOrder = await db.professionalTranslationOrder.create({ data: { projectId: expiredProject.id, activeProjectId: expiredProject.id, organizationId: source.id,
+    requesterId: user.id, status: "EXPIRED", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "e".repeat(64), wordCount: 1 } });
+  await db.project.update({ where: { id: expiredProject.id }, data: { organizationId: target.id } });
+  await db.project.delete({ where: { id: expiredProject.id } });
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: expiredOrder.id } })).activeProjectId, null);
+});
+
+test("a dispatched Checkout holds project lifecycle and late payment stays with the source merchant", { skip: !allowed }, async () => {
+  process.env.DEEPGLOT_DATABASE_URL = testUrl;
+  for (const key of ["PROFESSIONAL_ORDERS_ENABLED", "PROFESSIONAL_ORDERS_LEGAL_ACCEPTED", "PROFESSIONAL_ORDERS_PRIVACY_ACCEPTED", "PROFESSIONAL_ORDERS_BILLING_ACCEPTED", "PROFESSIONAL_ORDERS_PRODUCTION_ACCEPTED"]) process.env[key] = "true";
+  const { db } = await import("../../src/lib/db");
+  const { applyProfessionalStripeEvent } = await import("../../src/lib/professional-order-stripe");
+  const suffix = randomUUID();
+  const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source` } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target` } });
+  const project = await db.project.create({ data: { name: "Unresolved fixture", domain: `${suffix}.example.invalid`, organizationId: source.id } });
+  const order = await db.professionalTranslationOrder.create({ data: {
+    projectId: project.id, activeProjectId: project.id, organizationId: source.id, requesterId: user.id,
+    status: "CANCELED", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "a".repeat(64), wordCount: 2,
+    quoteAmountMinor: 1200, quoteCurrency: "EUR", quoteReference: `quote-${suffix}`,
+    checkoutRequestKey: `attempt-${suffix}`, checkoutAttemptedAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+  } });
+  await assert.rejects(() => db.project.update({ where: { id: project.id }, data: { organizationId: target.id } }));
+  await assert.rejects(() => db.project.delete({ where: { id: project.id } }));
+  const metadata = { orderId: order.id, projectId: project.id, organizationId: source.id, scopeDigest: order.scopeDigest,
+    quoteReference: order.quoteReference!, amountMinor: "1200", currency: "EUR" };
+  const session = { id: `cs_late_${suffix}`, mode: "payment", payment_status: "paid", amount_total: 1200, currency: "eur",
+    client_reference_id: order.id, metadata, payment_intent: `pi_late_${suffix}` } as unknown as Stripe.Checkout.Session;
+  const intent = { id: session.payment_intent, status: "succeeded", amount: 1200, currency: "eur", metadata } as unknown as Stripe.PaymentIntent;
+  const fakeStripe = { checkout: { sessions: { retrieve: async () => session } }, paymentIntents: { retrieve: async () => intent } } as unknown as ProfessionalOrderStripe;
+  const event = { id: `evt_late_${suffix}`, type: "checkout.session.completed", data: { object: session } } as Stripe.Event;
+  const applied = await applyProfessionalStripeEvent(event, fakeStripe);
+  assert.equal("status" in applied && applied.status, "REFUND_PENDING");
+  const outstanding = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
+  assert.equal(outstanding.organizationId, source.id);
+  assert.equal(outstanding.projectId, project.id);
+  assert.equal(outstanding.stripePaymentIntentId, intent.id);
+  await assert.rejects(() => db.project.delete({ where: { id: project.id } }));
+
+  const failedOrder = await db.professionalTranslationOrder.create({ data: {
+    projectId: project.id, activeProjectId: project.id, organizationId: source.id, requesterId: user.id,
+    status: "FAILED", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "f".repeat(64), wordCount: 2,
+    quoteAmountMinor: 1200, quoteCurrency: "EUR", quoteReference: `quote-failed-${suffix}`,
+    checkoutRequestKey: `failed-attempt-${suffix}`, checkoutAttemptedAt: new Date(),
+  } });
+  const failedMetadata = { ...metadata, orderId: failedOrder.id, scopeDigest: failedOrder.scopeDigest, quoteReference: failedOrder.quoteReference! };
+  const failedSession = { ...session, id: `cs_failed-${suffix}`, client_reference_id: failedOrder.id,
+    payment_intent: `pi_failed-${suffix}`, metadata: failedMetadata } as Stripe.Checkout.Session;
+  const failedIntent = { ...intent, id: failedSession.payment_intent, metadata: failedMetadata } as Stripe.PaymentIntent;
+  const failedStripe = { checkout: { sessions: { retrieve: async () => failedSession } }, paymentIntents: { retrieve: async () => failedIntent } } as unknown as ProfessionalOrderStripe;
+  const failedEvent = { id: `evt_failed-late-${suffix}`, type: "checkout.session.async_payment_succeeded", data: { object: failedSession } } as Stripe.Event;
+  const failedResult = await applyProfessionalStripeEvent(failedEvent, failedStripe);
+  assert.equal("status" in failedResult && failedResult.status, "REFUND_PENDING");
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: failedOrder.id } })).organizationId, source.id);
+});
+
+test("refunded receipt detaches; a later verified dispute still binds to the original merchant", { skip: !allowed }, async () => {
+  process.env.DEEPGLOT_DATABASE_URL = testUrl;
+  for (const key of ["PROFESSIONAL_ORDERS_ENABLED", "PROFESSIONAL_ORDERS_LEGAL_ACCEPTED", "PROFESSIONAL_ORDERS_PRIVACY_ACCEPTED", "PROFESSIONAL_ORDERS_BILLING_ACCEPTED", "PROFESSIONAL_ORDERS_PRODUCTION_ACCEPTED"]) process.env[key] = "true";
+  const { db } = await import("../../src/lib/db");
+  const { hashVendorToken } = await import("../../src/lib/professional-orders");
+  const { issueVendorGrant } = await import("../../src/lib/professional-order-service");
+  const { applyProfessionalStripeEvent } = await import("../../src/lib/professional-order-stripe");
+  const { NextRequest } = await import("next/server");
+  const { GET: vendorGet } = await import("../../src/app/api/professional-orders/vendor/route");
+  const suffix = randomUUID();
+  const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source` } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target`, members: { create: { userId: user.id, role: "OWNER" } } } });
+  const laterTarget = await db.organization.create({ data: { name: "Later target", slug: `${suffix}-later` } });
+  const project = await db.project.create({ data: { name: "Refunded fixture", domain: `${suffix}.example.invalid`, organizationId: source.id, originalLang: "en", languages: { create: { langCode: "de" } } } });
+  const order = await db.professionalTranslationOrder.create({ data: {
+    projectId: project.id, activeProjectId: project.id, organizationId: source.id, requesterId: user.id,
+    status: "REFUNDED", sourceLanguage: "en", targetLanguage: "de", scopeDigest: "b".repeat(64), wordCount: 2,
+    quoteAmountMinor: 1200, quoteCurrency: "EUR", quoteReference: `quote-${suffix}`,
+    checkoutRequestKey: `attempt-${suffix}`, checkoutAttemptedAt: new Date(),
+    stripeCheckoutSessionId: `cs_refunded_${suffix}`, stripePaymentIntentId: `pi_refunded_${suffix}`,
+    paymentReference: `pi_refunded_${suffix}`, paidAt: new Date(), refundReference: `ch_refunded_${suffix}`,
+  } });
+  const vendorToken = `dgpo_${randomUUID().replaceAll("-", "")}${randomUUID().replaceAll("-", "")}`;
+  await db.professionalTranslationVendorGrant.create({ data: { orderId: order.id, tokenHash: hashVendorToken(vendorToken), expiresAt: new Date(Date.now() + 86_400_000) } });
+  await db.project.update({ where: { id: project.id }, data: { organizationId: target.id } });
+  const detached = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
+  assert.equal(detached.activeProjectId, null);
+  assert.equal(detached.organizationId, source.id);
+  const metadata = { orderId: order.id, projectId: project.id, organizationId: source.id, scopeDigest: order.scopeDigest,
+    quoteReference: order.quoteReference!, amountMinor: "1200", currency: "EUR" };
+  let session = { id: order.stripeCheckoutSessionId, mode: "payment", payment_status: "paid", amount_total: 1200, currency: "eur",
+    client_reference_id: order.id, metadata, payment_intent: order.stripePaymentIntentId } as unknown as Stripe.Checkout.Session;
+  const intent = { id: order.stripePaymentIntentId, status: "succeeded", amount: 1200, currency: "eur", metadata } as unknown as Stripe.PaymentIntent;
+  const charge = { id: order.refundReference, payment_intent: order.stripePaymentIntentId, amount: 1200, currency: "eur" } as unknown as Stripe.Charge;
+  const dispute = { id: `dp_later_${suffix}`, charge: charge.id, amount: 1200, currency: "eur" } as unknown as Stripe.Dispute;
+  const fakeStripe = { checkout: { sessions: { retrieve: async () => session } }, paymentIntents: { retrieve: async () => intent },
+    charges: { retrieve: async () => charge }, disputes: { retrieve: async () => dispute } } as unknown as ProfessionalOrderStripe;
+  const event = { id: `evt_dispute_later_${suffix}`, type: "charge.dispute.created", data: { object: dispute } } as Stripe.Event;
+  session = { ...session, metadata: { ...metadata, organizationId: target.id } } as Stripe.Checkout.Session;
+  await assert.rejects(() => applyProfessionalStripeEvent(event, fakeStripe)); // transferred org metadata cannot take ownership
+  session = { ...session, metadata } as Stripe.Checkout.Session;
+  const applied = await applyProfessionalStripeEvent(event, fakeStripe);
+  assert.equal("status" in applied && applied.status, "DISPUTED");
+  const evidence = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
+  assert.equal(evidence.organizationId, source.id);
+  assert.equal(evidence.projectId, project.id);
+  assert.equal(evidence.activeProjectId, null);
+  await assert.rejects(() => issueVendorGrant({ orderId: order.id, projectId: project.id, actorId: user.id }),
+    (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "NOT_FOUND");
+  assert.equal((await vendorGet(new NextRequest("http://localhost/api/professional-orders/vendor", { headers: { authorization: `Bearer ${vendorToken}` } }))).status, 404);
+  await db.project.update({ where: { id: project.id }, data: { organizationId: laterTarget.id } });
+  await db.project.delete({ where: { id: project.id } });
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).organizationId, source.id);
+});
+
+test("open financial and unknown-owner receipts cannot be orphaned", { skip: !allowed }, async () => {
+  process.env.DEEPGLOT_DATABASE_URL = testUrl;
+  const { db } = await import("../../src/lib/db");
+  const suffix = randomUUID();
+  const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source` } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target` } });
+  for (const status of ["PAYMENT_PENDING", "PAID", "REFUND_PENDING", "DISPUTED", "FAILED", "EXPIRED", "COMPLETED"] as const) {
+    const project = await db.project.create({ data: { name: status, domain: `${status.toLowerCase()}-${suffix}.example.invalid`, organizationId: source.id } });
+    await db.professionalTranslationOrder.create({ data: {
+      projectId: project.id, activeProjectId: project.id, organizationId: status === "EXPIRED" ? null : source.id,
+      requesterId: user.id, status, sourceLanguage: "en", targetLanguage: "de", scopeDigest: "c".repeat(64), wordCount: 1,
+    } });
+    await assert.rejects(() => db.project.update({ where: { id: project.id }, data: { organizationId: target.id } }));
+    await assert.rejects(() => db.project.delete({ where: { id: project.id } }));
+  }
+});
+
+test("verified Checkout receipt completes review and transfers with or without a prior full refund", { skip: !allowed }, async () => {
+  process.env.DEEPGLOT_DATABASE_URL = testUrl;
+  process.env.AUTH_SECRET = "local-disposable-transfer-fixture-only";
+  for (const key of ["PROFESSIONAL_ORDERS_ENABLED", "PROFESSIONAL_ORDERS_LEGAL_ACCEPTED", "PROFESSIONAL_ORDERS_PRIVACY_ACCEPTED", "PROFESSIONAL_ORDERS_BILLING_ACCEPTED", "PROFESSIONAL_ORDERS_PRODUCTION_ACCEPTED"]) process.env[key] = "true";
+  const { db } = await import("../../src/lib/db");
+  const { hashVendorToken } = await import("../../src/lib/professional-orders");
+  const { createProfessionalOrder, issueVendorGrant, vendorQuote, acceptProfessionalQuote,
+    deliverProfessionalOrder, adoptProfessionalDelivery, completeProfessionalOrder } = await import("../../src/lib/professional-order-service");
+  const { updateProjectTranslationWorkflow } = await import("../../src/lib/translation-workflow");
+  const { previewWorkspaceTransfer, commitWorkspaceTransfer } = await import("../../src/lib/workspace-transfer");
+  const { deleteProjectWithAiSpendGuard } = await import("../../src/lib/ai-budget-project-deletion");
+  const { beginProfessionalCheckout, applyProfessionalStripeEvent } = await import("../../src/lib/professional-order-stripe");
+  for (const refundBeforeTransfer of [false, true]) {
+  const suffix = randomUUID();
+  const user = await db.user.create({ data: { email: `${suffix}@example.invalid` } });
+  const source = await db.organization.create({ data: { name: "Source", slug: `${suffix}-source`, members: { create: { userId: user.id, role: "OWNER" } } } });
+  const target = await db.organization.create({ data: { name: "Target", slug: `${suffix}-target`, members: { create: { userId: user.id, role: "OWNER" } } } });
+  const project = await db.project.create({ data: { name: "Completed order", domain: `${suffix}.example.invalid`, originalLang: "en", organizationId: source.id, languages: { create: { langCode: "de" } } } });
+  const translation = await db.translation.create({ data: { projectId: project.id, originalHash: `fixture-${suffix}`, originalText: "Hello world", translatedText: "Hallo Welt", langFrom: "en", langTo: "de", source: "MOCK" } });
+  const order = await createProfessionalOrder({ projectId: project.id, requesterId: user.id, targetLanguage: "de", translationIds: [translation.id] });
+  const grant = await issueVendorGrant({ orderId: order.id, projectId: project.id, actorId: user.id });
+  const savedGrant = await db.professionalTranslationVendorGrant.findUniqueOrThrow({ where: { tokenHash: hashVendorToken(grant.token) } });
+  await vendorQuote({ orderId: order.id, vendorGrantId: savedGrant.id, amountMinor: 1200, currency: "EUR", turnaroundDays: 3,
+    expiresAt: new Date(Date.now() + 86_400_000), reference: `quote-${suffix}`, termsVersion: "fixture-v1" });
+  await acceptProfessionalQuote({ orderId: order.id, projectId: project.id, actorId: user.id,
+    expectedScopeDigest: order.scopeDigest, expectedQuoteReference: `quote-${suffix}` });
+  const sessionId = `cs_completed_${suffix}`;
+  const intentId = `pi_completed_${suffix}`;
+  const metadata = { orderId: order.id, projectId: project.id, organizationId: source.id, scopeDigest: order.scopeDigest,
+    quoteReference: `quote-${suffix}`, amountMinor: "1200", currency: "EUR" };
+  let session = { id: sessionId, url: "https://checkout.stripe.com/c/pay/fixture", mode: "payment", payment_status: "unpaid",
+    amount_total: 1200, currency: "eur", client_reference_id: order.id, metadata, payment_intent: null } as unknown as Stripe.Checkout.Session;
+  const intent = { id: intentId, status: "succeeded", amount: 1200, currency: "eur", metadata } as unknown as Stripe.PaymentIntent;
+  let refundedAmount = 300;
+  const charge = { id: `ch_completed_${suffix}`, payment_intent: intentId, amount: 1200, currency: "eur",
+    get amount_refunded() { return refundedAmount; } } as unknown as Stripe.Charge;
+  const dispute = { id: `dp_completed_${suffix}`, charge: charge.id, amount: 1200, currency: "eur" } as unknown as Stripe.Dispute;
+  const fakeStripe = { checkout: { sessions: {
+    create: async (params: { metadata?: Record<string, string> }) => {
+      assert.deepEqual(params.metadata, metadata);
+      return session;
+    }, retrieve: async (id: string) => { assert.equal(id, sessionId); return session; },
+  } }, paymentIntents: { retrieve: async (id: string) => { assert.equal(id, intentId); return intent; } },
+  charges: { retrieve: async (id: string) => { assert.equal(id, charge.id); return charge; } },
+  disputes: { retrieve: async (id: string) => { assert.equal(id, dispute.id); return dispute; } } } as unknown as ProfessionalOrderStripe;
+  await beginProfessionalCheckout({ orderId: order.id, projectId: project.id, actorId: user.id,
+    returnBaseUrl: "http://localhost:31572" }, fakeStripe);
+  session = { ...session, payment_status: "paid", payment_intent: intentId } as Stripe.Checkout.Session;
+  const paidEvent = { id: `evt_completed_paid_${suffix}`, type: "checkout.session.completed",
+    data: { object: session } } as Stripe.Event;
+  assert.equal("status" in (await applyProfessionalStripeEvent(paidEvent, fakeStripe)) &&
+    (await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).status, "PAID");
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).paymentProvider, "stripe_checkout");
+  await assert.rejects(() => db.professionalTranslationOrder.update({ where: { id: order.id }, data: { paymentProvider: "stripe" } }));
+  const item = await db.professionalTranslationOrderItem.findFirstOrThrow({ where: { orderId: order.id } });
+  await deliverProfessionalOrder({ orderId: order.id, vendorGrantId: savedGrant.id, items: [{ itemId: item.id, proposedText: "Guten Tag, Welt" }] });
+  await adoptProfessionalDelivery({ orderId: order.id, projectId: project.id, itemId: item.id, actorId: user.id, expectedUpdatedAt: translation.updatedAt });
+  await assert.rejects(() => previewWorkspaceTransfer(user.id, project.id, target.id), { code: "PENDING" });
+  await assert.rejects(() => completeProfessionalOrder({ orderId: order.id, projectId: project.id, actorId: user.id })); // review is still pending
+  await updateProjectTranslationWorkflow({ projectId: project.id, translationId: translation.id,
+    actor: { canManage: true, projectMemberId: null, langCode: null }, actorUserId: user.id, patch: { status: "APPROVED" } });
+  await db.organizationMember.delete({ where: { userId_organizationId: { userId: user.id, organizationId: source.id } } });
+  await assert.rejects(() => completeProfessionalOrder({ orderId: order.id, projectId: project.id, actorId: user.id }));
+  await db.organizationMember.create({ data: { userId: user.id, organizationId: source.id, role: "OWNER" } });
+  assert.equal((await completeProfessionalOrder({ orderId: order.id, projectId: project.id, actorId: user.id })).status, "COMPLETED");
+  await previewWorkspaceTransfer(user.id, project.id, target.id);
+  if (refundBeforeTransfer) {
+    const partial = { id: `evt_completed_partial_${suffix}`, type: "charge.refunded", data: { object: charge } } as Stripe.Event;
+    assert.equal("status" in (await applyProfessionalStripeEvent(partial, fakeStripe)) &&
+      (await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).status, "REFUND_PENDING");
+    await assert.rejects(() => previewWorkspaceTransfer(user.id, project.id, target.id), { code: "PENDING" });
+    refundedAmount = 1200;
+    const full = { id: `evt_completed_full_${suffix}`, type: "charge.refunded", data: { object: charge } } as Stripe.Event;
+    assert.equal("status" in (await applyProfessionalStripeEvent(full, fakeStripe)) &&
+      (await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).status, "REFUNDED");
+  }
+  const preview = await previewWorkspaceTransfer(user.id, project.id, target.id);
+  await commitWorkspaceTransfer({ actorUserId: user.id, projectId: project.id, destinationId: target.id,
+    fingerprint: preview.fingerprint, issuedAt: preview.issuedAt, confirmationToken: preview.confirmationToken });
+  const detached = await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
+  assert.equal(detached.activeProjectId, null);
+  assert.equal(detached.organizationId, source.id);
+  const event = { id: `evt_completed_dispute_${suffix}`, type: "charge.dispute.created", data: { object: dispute } } as Stripe.Event;
+  assert.equal("status" in (await applyProfessionalStripeEvent(event, fakeStripe)) &&
+    (await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).status, "DISPUTED");
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).organizationId, source.id);
+  await deleteProjectWithAiSpendGuard(project.id, user.id);
+  assert.equal((await db.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } })).projectId, project.id);
+  }
+});

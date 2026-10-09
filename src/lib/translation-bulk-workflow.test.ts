@@ -12,7 +12,9 @@ test("bulk actions map to the existing workflow state machine", () => {
   assert.deepEqual(bulkWorkflowPatch({ kind: "submit" }), { status: "IN_REVIEW" });
   assert.deepEqual(bulkWorkflowPatch({ kind: "approve" }), { status: "APPROVED" });
   assert.deepEqual(bulkWorkflowPatch({ kind: "return" }), { status: "ASSIGNED" });
+  assert.deepEqual(bulkWorkflowPatch({ kind: "return" }, null), { status: "MACHINE" });
   assert.deepEqual(bulkWorkflowPatch({ kind: "reopen" }), { status: "ASSIGNED" });
+  assert.deepEqual(bulkWorkflowPatch({ kind: "reopen" }, null), { status: "MACHINE" });
 });
 
 test("bulk review requires the correct starting state", () => {

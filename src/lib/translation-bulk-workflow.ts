@@ -21,14 +21,14 @@ export type BulkWorkflowAction =
   | { kind: "assign"; assignedToId: string }
   | { kind: "unassign" | "submit" | "approve" | "return" | "reopen" };
 
-export function bulkWorkflowPatch(action: BulkWorkflowAction): TranslationWorkflowPatch {
+export function bulkWorkflowPatch(action: BulkWorkflowAction, assignedToId?: string | null): TranslationWorkflowPatch {
   switch (action.kind) {
     case "assign": return { assignedToId: action.assignedToId };
     case "unassign": return { assignedToId: null };
     case "submit": return { status: "IN_REVIEW" };
     case "approve": return { status: "APPROVED" };
     case "return":
-    case "reopen": return { status: "ASSIGNED" };
+    case "reopen": return { status: assignedToId === null ? "MACHINE" : "ASSIGNED" };
   }
 }
 
@@ -162,7 +162,7 @@ export async function updateProjectTranslationsBulkWorkflow({
           assignedToId: current.assignedToId,
           langTo: current.langTo,
         },
-        patch: bulkWorkflowPatch(action),
+        patch: bulkWorkflowPatch(action, current.assignedToId),
         actor: effectiveActor,
         assignee,
       });
