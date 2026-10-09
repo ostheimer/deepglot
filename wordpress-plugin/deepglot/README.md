@@ -1,10 +1,10 @@
 # Deepglot WordPress Plugin
 
-This directory contains the Deepglot WordPress plugin (**v0.12.14**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
+This directory contains the Deepglot WordPress plugin (**v0.12.15**). It captures the rendered HTML via output buffering, translates it through the Deepglot API, rewrites internal links, and injects SEO metadata — plus an opt-in client-side layer for dynamically loaded content. See the [repository README](https://github.com/ostheimer/deepglot/blob/main/README.md) for the full feature list.
 
-v0.12.14 adds bounded URL-sync result reporting and a digest-only translation-cache invalidation feed for confirmed manager URL actions. The package is published in the WordPress.org directory as v0.12.14.
+v0.12.15 adds bounded, asynchronous source-page observation for the workspace's presence filter. v0.12.14 added bounded URL-sync result reporting and a digest-only translation-cache invalidation feed for confirmed manager URL actions. The public WordPress.org package and dashboard installer remain v0.12.14 until the v0.12.15 archives have been published and verified.
 
-The next workspace source-observation runtime queues a bounded set of source-text identities from a complete server-rendered target page before checking local translation transients, including full translation-cache hits. The frontend request performs no inventory HTTP; a bounded WP-Cron worker sends digests and the same-origin path, never the page text or a provider request. Failed calls have no success receipt and retry with delay only while the original capture remains fresh. Incomplete HTML, query-dependent requests, private/personalized or no-cache renders, excessive segment counts and enabled dynamic translation produce an unknown observation. Full-page caches that bypass PHP produce no new snapshot; SaaS expires old snapshots after 15 minutes. Disabled WP-Cron or an unavailable SaaS endpoint may delay observation, never certify a failed report. The matching SaaS schema/API must be deployed before this runtime. This paragraph describes the pending source-observation release, not the frozen public v0.12.13 package.
+The v0.12.15 source-observation runtime queues a bounded set of source-text identities from a complete server-rendered target page before checking local translation transients, including full translation-cache hits. The frontend request performs no inventory HTTP; a bounded WP-Cron worker sends digests and the same-origin path, never the page text or a provider request. Failed calls have no success receipt and retry with delay only while the original capture remains fresh. Incomplete HTML, query-dependent requests, private/personalized or no-cache renders, excessive segment counts and enabled dynamic translation produce an unknown observation. Full-page caches that bypass PHP produce no new snapshot; SaaS expires old snapshots after 15 minutes. Disabled WP-Cron or an unavailable SaaS endpoint may delay observation, never certify a failed report. The matching SaaS schema/API must be deployed before this runtime. The release candidate is not yet the public v0.12.15 package.
 
 v0.12.12 changes the plugin and block-editor translation originals to US English, extracts the Visual Editor and flag-label text, and migrates bundled catalogs for existing locales. Older WordPress.org German and formal German packs continue to render the updated interface through the bundle fallback while translations of current official keys take precedence. Swedish plugin translations are AI-reviewed candidates; WordPress.org catalog submission and approval are separate from this package release.
 
@@ -365,8 +365,8 @@ a SHA-256 sidecar next to the ZIP:
 wordpress-plugin/build-zip.sh "$(git rev-parse --verify HEAD)" wordpress-plugin/dist
 ```
 
-For the prepared v0.12.14 package this creates `deepglot-0.12.14.zip` and
-`deepglot-0.12.14.zip.sha256`. Build the same commit into two empty output
+For the prepared v0.12.15 package this creates `deepglot-0.12.15.zip` and
+`deepglot-0.12.15.zip.sha256`. Build the same commit into two empty output
 directories and compare the ZIP hashes when validating a release candidate.
 The `WordPress plugin release` GitHub Actions workflow performs this check on
 `wp-plugin-v*` tags, verifies the tag against the plugin header and stable tag,
