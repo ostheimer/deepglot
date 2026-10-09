@@ -115,6 +115,14 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     const legacyHash = computeTranslationHash(legacySource, "dE", "eN");
     await db.translation.create({ data: { projectId: project.id, originalHash: legacyHash, originalText: legacySource,
       translatedText: "Old sentence", langFrom: "dE", langTo: "eN", isManual: false, source: "MOCK" } });
+    const canonicalDuplicate = computeTranslationHash(legacySource, "de", "en");
+    await assert.rejects(() => importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
+      projectId: project.id, langFrom: "de", langTo: "en",
+      segments: [{ originalHash: canonicalDuplicate, originalText: legacySource,
+        translatedText: "Different sentence", workflowStatus: "MACHINE" }],
+    })), project, access, userId: user.id, langTo: "en", applyApproved: false, emitRowEvents: false }),
+    (error) => error instanceof ProjectXliffImportError && error.status === 409);
+    assert.equal(await db.translation.count({ where: { projectId: project.id, originalText: legacySource } }), 1);
     await importTranslationsXliff({ bytes: new TextEncoder().encode(serializeXliff({
       projectId: project.id, langFrom: "de", langTo: "en",
       segments: [{ originalHash: legacyHash, originalText: legacySource, translatedText: "Updated sentence",

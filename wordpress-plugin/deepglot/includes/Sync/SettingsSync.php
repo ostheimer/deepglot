@@ -421,7 +421,8 @@ class SettingsSync
             $digest = (string) $entry['cacheKey'];
             if (!$cache->deleteByDigest($digest)) return false;
         }
-        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs($hasLegacyTarget ? null : array_keys($targetLanguages))) return false;
+        if ($batch['entries'] !== [] && !$cache->invalidatePositiveLanguageEpochs(
+            $hasLegacyTarget ? null : array_keys($targetLanguages), $identity, $nextCursor)) return false;
         if ($batch['entries'] !== []) $this->purgeMediaPageCaches();
         if ($nextCursor !== $cursor) {
             update_option(self::CACHE_INVALIDATION_CURSOR_OPTION, ['identity' => $identity, 'cursor' => $nextCursor], false);

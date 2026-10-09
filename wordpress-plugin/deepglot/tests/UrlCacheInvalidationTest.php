@@ -10,7 +10,11 @@ function get_transient(string $key) { return $GLOBALS['_dg_url_cache_transients'
 function set_transient(string $key, $value, int $ttl = 0): bool { $GLOBALS['_dg_url_cache_transients'][$key] = $value; return true; }
 function delete_transient(string $key): bool { if (($GLOBALS['_dg_url_cache_stubborn'] ?? '') === $key) return true; unset($GLOBALS['_dg_url_cache_transients'][$key]); return true; }
 function get_option(string $key, $default = false) { return $GLOBALS['_dg_url_cache_options'][$key] ?? $default; }
-function update_option(string $key, $value, $autoload = null): bool { $GLOBALS['_dg_url_cache_options'][$key] = $value; return true; }
+function update_option(string $key, $value, $autoload = null): bool {
+    if ($key === 'deepglot_url_cache_invalidation_cursor' && !empty($GLOBALS['_dg_url_cache_fail_cursor'])) return false;
+    $GLOBALS['_dg_url_cache_options'][$key] = $value;
+    return true;
+}
 function untrailingslashit(string $value): string { return rtrim($value, '/'); }
 function is_wp_error($value): bool { return false; }
 function wp_next_scheduled(string $hook, array $args = []) { return $GLOBALS['_dg_url_cache_events'][$hook] ?? false; }
@@ -125,14 +129,33 @@ if ($cache->get('Änderung', 'de', 'en') !== 'Stale at epoch two') {
 $apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
     'id' => '752', 'urlPath' => '/en/test', 'cacheKey' => $digest, 'targetLang' => 'en',
 ]]]], $identity, '751');
-if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 3, 'fr' => 3]
+$epochs = get_option('deepglot_language_cache_epochs', []);
+unset($epochs['__url_cache_cursor']);
+if ($epochs !== ['en' => 3, 'fr' => 3]
     || $cache->get('Änderung', 'de', 'en') !== null) {
     throw new RuntimeException('Digest invalidation must retire only matching language epoch-scoped entries.');
 }
 $apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
     'id' => '753', 'urlPath' => '/en/test', 'cacheKey' => $digest,
 ]]]], $identity, '752');
-if (get_option('deepglot_language_cache_epochs', []) !== ['en' => 4, 'fr' => 4]) {
+$epochs = get_option('deepglot_language_cache_epochs', []);
+unset($epochs['__url_cache_cursor']);
+if ($epochs !== ['en' => 4, 'fr' => 4]) {
     throw new RuntimeException('Legacy feed entries must retire all positive language epochs.');
 }
+$GLOBALS['_dg_url_cache_fail_cursor'] = true;
+$apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
+    'id' => '754', 'urlPath' => '/en/test', 'cacheKey' => $digest, 'targetLang' => 'en',
+]]]], $identity, '753');
+$epochs = get_option('deepglot_language_cache_epochs', []);
+if (($epochs['en'] ?? null) !== 5 || (get_option('deepglot_url_cache_invalidation_cursor', [])['cursor'] ?? '') !== '753') {
+    throw new RuntimeException('The epoch and page marker must persist before cursor advancement.');
+}
+$apply->invoke($drainSync, ['cacheInvalidations' => ['entries' => [[
+    'id' => '754', 'urlPath' => '/en/test', 'cacheKey' => $digest, 'targetLang' => 'en',
+]]]], $identity, '753');
+if ((get_option('deepglot_language_cache_epochs', [])['en'] ?? null) !== 5) {
+    throw new RuntimeException('Retrying a failed cursor write must not rotate an epoch twice.');
+}
+$GLOBALS['_dg_url_cache_fail_cursor'] = false;
 echo "UrlCacheInvalidationTest: OK\n";

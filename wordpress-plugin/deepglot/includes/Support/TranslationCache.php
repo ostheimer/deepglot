@@ -126,21 +126,24 @@ class TranslationCache
     }
 
     /** Invalidate epoch-scoped entries whose keys cannot be derived from an epoch-free SaaS digest. */
-    public function invalidatePositiveLanguageEpochs(?array $targetLanguages = null): bool
+    public function invalidatePositiveLanguageEpochs(?array $targetLanguages = null, string $identity = '', string $cursor = ''): bool
     {
         if (!function_exists('get_option') || !function_exists('update_option')) return false;
         $epochs = get_option(self::LANGUAGE_EPOCHS_OPTION, []);
         if (!is_array($epochs)) return false;
+        $marker = ['identity' => $identity, 'cursor' => $cursor];
+        if (($epochs['__url_cache_cursor'] ?? null) === $marker) return true;
         $next = $epochs;
         $targetSet = $targetLanguages === null ? null : array_fill_keys($targetLanguages, true);
         foreach ($epochs as $language => $epoch) {
+            if ($language === '__url_cache_cursor') continue;
             if ($targetSet !== null && !isset($targetSet[$language])) continue;
             if ((int) $epoch > 0) {
                 if ((int) $epoch >= PHP_INT_MAX) return false;
                 $next[$language] = (int) $epoch + 1;
             }
         }
-        if ($next === $epochs) return true;
+        $next['__url_cache_cursor'] = $marker;
         update_option(self::LANGUAGE_EPOCHS_OPTION, $next, false);
         return get_option(self::LANGUAGE_EPOCHS_OPTION, []) === $next;
     }

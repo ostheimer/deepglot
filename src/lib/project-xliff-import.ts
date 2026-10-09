@@ -66,13 +66,30 @@ export async function importTranslationsXliff(input: {
         }
         const lockedProject = await tx.project.findUniqueOrThrow({ where: { id: project.id }, select: { organizationId: true } });
         const existing = await tx.translation.findMany({
-          where: { projectId: project.id, originalHash: { in: rows.map((row) => row.id) } },
+          where: { projectId: project.id, OR: [
+            { originalHash: { in: rows.map((row) => row.id) } },
+            { originalText: { in: rows.map((row) => row.source) },
+              langFrom: { equals: project.originalLang, mode: "insensitive" },
+              langTo: { equals: langTo, mode: "insensitive" } },
+          ] },
           select: { id: true, originalHash: true, originalText: true, translatedText: true, langFrom: true, langTo: true,
             isManual: true, source: true, workflowStatus: true, assignedToId: true },
         });
         const issues = planXliffImport(rows, existing, applyApproved);
         const existingIds = new Set(existing.map((item) => item.originalHash));
+        const existingBySource = new Map<string, Set<string>>();
+        for (const item of existing) {
+          if (item.langFrom.toLowerCase() !== project.originalLang.toLowerCase() ||
+              item.langTo.toLowerCase() !== langTo.toLowerCase()) continue;
+          const ids = existingBySource.get(item.originalText) ?? new Set<string>();
+          ids.add(item.originalHash);
+          existingBySource.set(item.originalText, ids);
+        }
         for (const row of rows) {
+          const semanticMatches = existingBySource.get(row.source);
+          if (semanticMatches && (semanticMatches.size > 1 || !semanticMatches.has(row.id))) {
+            issues.push({ segment: row.line, message: "Source already has a translation under another language-code spelling" });
+          }
           if (!existingIds.has(row.id) && row.id !== computeTranslationHash(row.source, project.originalLang, langTo)) {
             issues.push({ segment: row.line, message: "Legacy segment ID has no matching translation" });
           }

@@ -106,7 +106,11 @@ export function parseXliff(bytes: Uint8Array, expected: {
   if (/\0/.test(xml)) {
     throw new XliffError("DTD, entities, processing instructions, and NUL are forbidden");
   }
+  let markupCount = 0;
   for (let position = declaration?.[0].length ?? 0; position < xml.length;) {
+    if (xml[position] === "<" && ++markupCount > XLIFF_MAX_SEGMENTS * 6 + 20) {
+      throw new XliffError("Too many XML nodes (maximum 5000 segments)");
+    }
     if (xml.startsWith("<!--", position) || xml.startsWith("<![CDATA[", position)) {
       const end = xml.indexOf(xml.startsWith("<!--", position) ? "-->" : "]]>", position + 4);
       if (end < 0) throw new XliffError("Invalid XML: unterminated comment or CDATA");

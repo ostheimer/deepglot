@@ -77,6 +77,10 @@ test("rejects files above the 4 MB transport-safe limit", () => {
   assert.throws(() => parseXliff(new Uint8Array(XLIFF_MAX_BYTES + 1), project), /4 MB/);
 });
 
+test("rejects excessive markup before building the XML DOM", () => {
+  assert.throws(() => parse(valid().replace("</body>", `${"<x/>".repeat(30_021)}</body>`)), /Too many XML nodes/);
+});
+
 test("rejects entity expansion, external entities and processing instructions", () => {
   for (const name of ["xxe.xlf", "expansion.xlf"]) {
     const bytes = readFileSync(`src/lib/fixtures/xliff/${name}`);
