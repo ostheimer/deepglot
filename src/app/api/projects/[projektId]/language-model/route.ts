@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { encryptSecret } from "@/lib/secret-encryption";
 import { suggestWebsiteDescription } from "@/lib/translation-context-settings";
@@ -200,14 +200,15 @@ export async function PATCH(
     data.translationApiKeyUpdatedAt = null;
   }
 
-  const settings = await db.projectSettings.upsert({
-    where: { projectId: projektId },
-    create: {
-      projectId: projektId,
-      ...data,
-    },
-    update: data,
+  const settings = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
+    return tx.projectSettings.upsert({
+      where: { projectId: projektId },
+      create: { projectId: projektId, ...data },
+      update: data,
+    });
   });
+  if (!settings) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
   const effective = resolveTranslationProviderConfig({ settings });
 
   return NextResponse.json(

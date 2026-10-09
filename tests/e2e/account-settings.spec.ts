@@ -16,7 +16,7 @@ test.describe("account settings", () => {
     await expect(
       page.getByText("2FA needs a dedicated enrollment and recovery flow.")
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Create" })).toBeEnabled();
 
     const email = `profile-${Date.now()}@example.com`;
     const profileRequests: unknown[] = [];

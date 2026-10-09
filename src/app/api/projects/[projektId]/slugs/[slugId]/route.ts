@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import {
   isProjectRuntimeSerializationConflict,
   lockAndValidateProjectLanguageWrite,
@@ -34,6 +34,7 @@ export async function PATCH(
     try {
       const slug = await db.$transaction(async (tx) => {
         if (!(await lockProjectRuntimeConfiguration(tx, projektId))) throw new Error("not_found");
+        if (!(await canManageProjectForWrite(tx, userId, projektId))) throw new Error("not_found");
         const existing = await tx.urlSlug.findFirst({
           where: { id: slugId, projectId: projektId },
           select: { id: true, originalSlug: true, translatedSlug: true, langTo: true, updatedAt: true },

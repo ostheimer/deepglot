@@ -8,16 +8,18 @@ import { uiText } from "@/lib/static-copy";
 interface Props {
   stripeCustomerId: string | null;
   label: string;
+  workspaceId?: string;
 }
 
-export function PortalButton({ stripeCustomerId, label }: Props) {
+export function PortalButton({ stripeCustomerId, label, workspaceId }: Props) {
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
     if (!stripeCustomerId) return;
     setLoading(true);
-    const res = await fetch("/api/billing/portal", { method: "POST" });
+    const res = await fetch("/api/billing/portal", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspaceId }) });
     const data = await res.json();
     if (data.url) window.location.href = data.url;
     setLoading(false);

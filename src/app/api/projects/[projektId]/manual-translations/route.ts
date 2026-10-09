@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { canAccessProjectForWrite } from "@/lib/project-access";
 import { verifyEditorSessionToken } from "@/lib/editor-session";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
@@ -180,6 +181,14 @@ export async function POST(
   );
 
   const persistenceResult = await db.$transaction(async (tx) => {
+    if (!claims.organizationId || !claims.userId ||
+        !(await canAccessProjectForWrite(tx, claims.userId, projektId))) {
+      return { kind: "editor_scope_changed" } as const;
+    }
+    const currentProject = await tx.project.findUnique({ where: { id: projektId }, select: { organizationId: true } });
+    if (!currentProject || currentProject.organizationId !== claims.organizationId) {
+      return { kind: "editor_scope_changed" } as const;
+    }
     const languageConfigurationIsCurrent =
       await lockAndValidateProjectLanguageWrite(tx, {
         projectId: projektId,
@@ -303,6 +312,13 @@ export async function POST(
           "The project's source or target language changed. Reload the editor and retry.",
         code: "project_language_configuration_changed",
       },
+      { status: 409, headers: corsHeaders(request) },
+    );
+  }
+
+  if (persistenceResult.kind === "editor_scope_changed") {
+    return NextResponse.json(
+      { error: "Editor session expired. Open the editor again.", code: "editor_scope_changed" },
       { status: 409, headers: corsHeaders(request) },
     );
   }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CLEARED_RUNTIME_SYNC_ORIGIN } from "@/lib/plugin-settings-sync";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -58,6 +58,7 @@ export async function DELETE(
     if (!(await lockProjectRuntimeConfiguration(tx, projektId))) {
       return false;
     }
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
     const result = await tx.projectSettings.updateMany({
       where: { projectId: projektId, runtimeSyncSiteHost: expectedSiteHost },
       data: CLEARED_RUNTIME_SYNC_ORIGIN,

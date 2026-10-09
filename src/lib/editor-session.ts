@@ -2,6 +2,8 @@ import crypto from "crypto";
 
 export type EditorSessionClaims = {
   projectId: string;
+  organizationId?: string;
+  userId?: string;
   domain: string;
   langTo: string;
   exp: number;
@@ -50,11 +52,15 @@ export function getEditorSessionSecret(
 export function createEditorSessionToken(
   {
     projectId,
+    organizationId,
+    userId,
     domain,
     langTo,
     ttlSeconds = 900,
   }: {
     projectId: string;
+    organizationId?: string;
+    userId?: string;
     domain: string;
     langTo: string;
     ttlSeconds?: number;
@@ -64,6 +70,8 @@ export function createEditorSessionToken(
   const issuedAt = Math.floor(Date.now() / 1000);
   const claims: EditorSessionClaims = {
     projectId,
+    organizationId,
+    userId,
     domain,
     langTo: langTo.toLowerCase(),
     iat: issuedAt,

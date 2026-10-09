@@ -82,6 +82,8 @@ export async function POST(
 
   const token = createEditorSessionToken({
     projectId: project.id,
+    organizationId: project.organizationId,
+    userId: session.user.id,
     domain: project.domain,
     langTo,
   });

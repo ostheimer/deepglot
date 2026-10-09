@@ -26,9 +26,10 @@ interface Props {
   currentPlan: BillingPlanKey;
   /** Whether the org already has a Stripe customer (enables the portal). */
   hasStripeCustomer: boolean;
+  workspaceId?: string;
 }
 
-export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
+export function PlanSwitcher({ currentPlan, hasStripeCustomer, workspaceId }: Props) {
   const locale = useLocale();
   const [yearly, setYearly] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
   async function handleUpgrade(plan: BillingPlanKey) {
     setPending(plan);
     try {
-      await startCheckout(plan, interval);
+      await startCheckout(plan, interval, workspaceId);
     } catch (error) {
       const fallback =
         locale === "de"
@@ -66,7 +67,7 @@ export function PlanSwitcher({ currentPlan, hasStripeCustomer }: Props) {
   async function handlePortal() {
     setPending("__portal");
     try {
-      await openBillingPortal();
+      await openBillingPortal(workspaceId);
     } catch (error) {
       // Surface the specific server-side reason (e.g. "Stripe customer not
       // found", "Portal not configured") instead of the previous generic

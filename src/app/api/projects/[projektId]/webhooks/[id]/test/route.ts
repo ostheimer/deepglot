@@ -5,6 +5,7 @@ import { dispatchWebhookDelivery } from "@/lib/project-webhook-delivery";
 import {
   getAuthenticatedUserId,
   userCanManageProject,
+  canManageProjectForWrite,
 } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -48,8 +49,11 @@ export async function POST(
   }
 
   const eventType = endpoint.eventTypes[0] ?? "translation.updated";
-  const delivery = await db.webhookDelivery.create({
-    data: {
+  const delivery = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
+    const current = await tx.webhookEndpoint.findFirst({ where: { id: endpoint.id, projectId: projektId, enabled: true } });
+    if (!current) return null;
+    return tx.webhookDelivery.create({ data: {
       endpointId: endpoint.id,
       projectId: projektId,
       eventType,
@@ -59,8 +63,10 @@ export async function POST(
         projectId: projektId,
         sentAt: new Date().toISOString(),
       },
-    },
+    } });
   });
+
+  if (!delivery) return NextResponse.json({ error: t(locale, "Webhook nicht gefunden", "Webhook not found") }, { status: 404 });
 
   const ok = await dispatchWebhookDelivery(delivery.id);
   const updatedDelivery = await db.webhookDelivery.findUnique({

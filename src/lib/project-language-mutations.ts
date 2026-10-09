@@ -5,6 +5,7 @@ import {
   isProjectRuntimeSerializationConflict,
   lockProjectRuntimeConfiguration,
 } from "@/lib/project-runtime-configuration-lock";
+import { canManageProjectForWrite } from "@/lib/project-access";
 
 const PROJECT_LANGUAGE_MUTATION_ATTEMPTS = 3;
 
@@ -60,13 +61,18 @@ export async function addProjectTargetLanguages(
   {
     projectId,
     languages,
+    actorUserId,
   }: {
     projectId: string;
     languages: string[];
+    actorUserId?: string;
   },
 ): Promise<AddProjectTargetLanguagesResult> {
   return runProjectLanguageMutation(database, async (tx) => {
     if (!(await lockProjectRuntimeConfiguration(tx, projectId))) {
+      return { kind: "not_found" } as const;
+    }
+    if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) {
       return { kind: "not_found" } as const;
     }
 
@@ -119,16 +125,19 @@ export async function updateProjectTargetLanguage(
     isActive,
     isVisible,
     automaticTranslation,
+    actorUserId,
   }: {
     projectId: string;
     langCode: string;
     isActive?: boolean;
     isVisible?: boolean;
     automaticTranslation?: boolean;
+    actorUserId?: string;
   },
 ) {
   return runProjectLanguageMutation(database, async (tx) => {
     if (!(await lockProjectRuntimeConfiguration(tx, projectId))) return false;
+    if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) return false;
     const project = await tx.project.findUnique({ where: { id: projectId }, select: { originalLang: true, updatedAt: true } });
     if (!project || project.originalLang.toLowerCase() === langCode) return false;
     const changed = await tx.projectLanguage.updateMany({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { validateApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/db";
+import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import {
   PAGE_VIEW_MAX_REQUEST_BODY_BYTES,
   PAGE_VIEW_RATE_LIMIT_SCOPE,
@@ -162,7 +163,16 @@ async function collectPageView(request: NextRequest) {
   }
 
   try {
-    await db.pageView.create({
+    const recorded = await db.$transaction(async (tx) => {
+      if (!(await lockProjectRuntimeConfiguration(tx, apiKey.projectId))) return false;
+      const liveKey = await tx.apiKey.findFirst({ where: { id: apiKey.id, projectId: apiKey.projectId, isActive: true }, select: { id: true } });
+      const liveProject = await tx.project.findUnique({ where: { id: apiKey.projectId }, select: {
+        settings: { select: { pageViewsEnabled: true, pageViewsConsentGrantedAt: true } },
+        languages: { where: { langCode: event.data.langTo, isActive: true }, select: { id: true } },
+      } });
+      if (!liveKey || !liveProject?.settings?.pageViewsEnabled || !liveProject.settings.pageViewsConsentGrantedAt ||
+          liveProject.languages.length === 0) return false;
+      await tx.pageView.create({
       data: {
         eventId: event.data.eventId,
         urlPath: event.data.urlPath,
@@ -170,6 +180,9 @@ async function collectPageView(request: NextRequest) {
         projectId: apiKey.projectId,
       },
     });
+      return true;
+    });
+    if (!recorded) return NextResponse.json({ tracked: false, reason: "configuration_changed" });
   } catch (error) {
     if (!isUniqueConstraintConflict(error)) {
       throw error;

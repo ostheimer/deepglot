@@ -18,6 +18,7 @@ import {
 import {
   getAuthenticatedUserId,
   userCanManageProject,
+  canManageProjectForWrite,
 } from "@/lib/project-access";
 import {
   isProjectRuntimeSerializationConflict,
@@ -112,6 +113,7 @@ export async function PATCH(
           if (!(await lockProjectRuntimeConfiguration(tx, projektId))) {
             throw new Error(NOT_FOUND_ERROR);
           }
+          if (!(await canManageProjectForWrite(tx, userId, projektId))) throw new Error(NOT_FOUND_ERROR);
 
           const existing = await tx.projectMediaReplacement.findFirst({
             where: { id: mediaId, projectId: projektId },
@@ -304,8 +306,9 @@ export async function DELETE(
     );
   }
 
-  const deleted = await db.projectMediaReplacement.deleteMany({
-    where: { id: mediaId, projectId: projektId },
+  const deleted = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return { count: 0 };
+    return tx.projectMediaReplacement.deleteMany({ where: { id: mediaId, projectId: projektId } });
   });
 
   if (deleted.count === 0) {

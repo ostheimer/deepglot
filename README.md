@@ -116,6 +116,8 @@ The `POST /api/translate` route is designed for drop-in compatibility:
 
 ## Translation workspace
 
+Account settings support persistent workspace creation and renaming. Project creation targets an explicit managed workspace, and the project list offers a signed, expiring transfer preview before an owner/admin moves a project to another workspace they manage. Historical billed usage stays with its source; existing plugin/API, webhook and provider credentials require reconnecting in the destination. Apply `scripts/sql/workspace-transfer.sql` before deployment; see the [complete transfer matrix and operational boundaries](docs/product-decisions/workspace-transfer.md).
+
 Project managers can set a website description, tone, audience, and additional translation instructions under **Project → Settings → Language Model**. A description suggestion runs only when requested and remains unsaved until the manager saves it. Separate switches include relevant glossary entries and approved or manually edited translations from the same project and language pair in bounded provider context for new translations. Existing cache, manual translations, protected glossary terms, quotas, and provider fallback retain their priority. See [project translation context](docs/product-decisions/project-translation-context.md) for limits and rollout details.
 
 New direct workspace text edits have an atomic, lazy-loaded before/after history with editor attribution and scoped pagination. Earlier edits and writes through other editors are not reconstructed or included. Apply `scripts/sql/translation-history.sql` before deploying; see [workspace history scope and rollout](docs/product-decisions/translation-workspace-history.md).

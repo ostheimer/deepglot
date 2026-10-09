@@ -1,5 +1,63 @@
 import type { SiteLocale } from "@/lib/site-locale";
 
+// The new workspace flow ships in German and English; other locales use clear English fallback copy until translated.
+const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
+  "Choose a workspace in the sidebar.": "Choose a workspace in the sidebar.",
+  "Choose workspace": "Choose workspace",
+  "Choose a workspace": "Choose a workspace",
+  "Project access changed.": "Project access changed.",
+  "Reconnect webhook after workspace transfer": "Reconnect webhook after workspace transfer",
+  "No access or project limit reached": "No access or project limit reached",
+  "Billing workspace": "Billing workspace",
+  "Member change was rejected. Check role and seat limit.": "Member change was rejected. Check role and seat limit.",
+  "Workspace could not be saved. Check your plan limit and role.": "Workspace could not be saved. Check your plan limit and role.",
+  "Workspace saved": "Workspace saved",
+  "Each workspace has its own plan, projects, members and billing. New workspaces start on Free.": "Each workspace has its own plan, projects, members and billing. New workspaces start on Free.",
+  "New workspace name": "New workspace name",
+  "Workspace name": "Workspace name",
+  "Rename": "Rename",
+  "Member role": "Member role",
+  "Known user": "Known user",
+  "Choose known user": "Choose known user",
+  "New member role": "New member role",
+  "Add known user": "Add known user",
+  "Only people from workspaces you already manage appear here. Invitations and email delivery are not available.": "Only people from workspaces you already manage appear here. Invitations and email delivery are not available.",
+  "Transfer preview unavailable. Check destination access and plan limits.": "Transfer preview unavailable. Check destination access and plan limits.",
+  "Transfer changed or failed. Request a fresh preview.": "Transfer changed or failed. Request a fresh preview.",
+  "Project transferred. Reconnect the plugin and webhook credentials.": "Project transferred. Reconnect the plugin and webhook credentials.",
+  "Transfer": "Transfer",
+  "Transfer project": "Transfer project",
+  "Only a workspace owner or admin can transfer to a workspace they also manage.": "Only a workspace owner or admin can transfer to a workspace they also manage.",
+  "Destination workspace": "Destination workspace",
+  "Choose destination": "Choose destination",
+  "No other workspace under your management is available.": "No other workspace under your management is available.",
+  "Show transfer preview": "Show transfer preview",
+  "Destination plan": "Destination plan",
+  "Destination projects": "Destination projects",
+  "Destination words used this month": "Destination words used this month",
+  "Source billed words this month": "Source billed words this month",
+  "Languages / translations / manual": "Languages / translations / manual",
+  "URLs / slugs": "URLs / slugs",
+  "Project members kept / removed": "Project members kept / removed",
+  "Pending invitations revoked": "Pending invitations revoked",
+  "API keys revoked": "API keys revoked",
+  "Webhooks disabled": "Webhooks disabled",
+  "Previous deliveries / batches retained": "Previous deliveries / batches retained",
+  "Provider key cleared": "Provider key cleared",
+  "Yes": "Yes",
+  "No": "No",
+  "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin, provider key and webhooks need reconnecting.": "Billing and past usage remain with the source. Future usage belongs to the destination. Translations, manual edits, URLs, slugs, domain mapping and non-secret runtime settings stay with the project. The plugin, provider key and webhooks need reconnecting.",
+  "I understand these changes and confirm the transfer.": "I understand these changes and confirm the transfer.",
+  "Transfer now": "Transfer now",
+  "Workspace members and roles stay in their workspaces. Only project members already in the destination remain; source-only assignments are cleared. Pending invitations are revoked.": "Workspace members and roles stay in their workspaces. Only project members already in the destination remain; source-only assignments are cleared. Pending invitations are revoked.",
+  "Subscriptions and billing ownership stay separate. Past billed usage and batches remain with the source, including this month; future usage counts for the destination.": "Subscriptions and billing ownership stay separate. Past billed usage and batches remain with the source, including this month; future usage counts for the destination.",
+  "Translations, manual edits, history, glossary, URLs, slugs and media remain with the project. No content is retransmitted to a provider during transfer.": "Translations, manual edits, history, glossary, URLs, slugs and media remain with the project. No content is retransmitted to a provider during transfer.",
+  "All plugin API keys are deactivated and cannot be recovered. Reconnect WordPress with a newly created key after transfer.": "All plugin API keys are deactivated and cannot be recovered. Reconnect WordPress with a newly created key after transfer.",
+  "The source provider key is removed. Reconnect a destination-owned provider key before requesting new provider translations.": "The source provider key is removed. Reconnect a destination-owned provider key before requesting new provider translations.",
+  "Webhook endpoints are disabled, signing secrets removed and pending deliveries failed. Reconnect the endpoint and secret explicitly; past delivery records remain.": "Webhook endpoints are disabled, signing secrets removed and pending deliveries failed. Reconnect the endpoint and secret explicitly; past delivery records remain.",
+  "WordPress runtime sync state is reset; workspace notification preferences remain with their original memberships.": "WordPress runtime sync state is reset; workspace notification preferences remain with their original memberships.",
+};
+
 export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>> = {
   "en": {},
   "de": {
@@ -792,6 +850,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Dein Plan läuft bis zum Ende der aktuellen Abrechnungsperiode weiter. Danach wirst du auf den Free-Plan zurückgesetzt."
   },
   "bg": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -1946,6 +2005,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Вашият план ще остане активен до края на текущия период на фактуриране. След това ще бъдете преместени обратно към безплатния план."
   },
   "hr": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -3100,6 +3160,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš će plan ostati aktivan do kraja tekućeg obračunskog razdoblja. Nakon toga bit ćete premješteni natrag na besplatni plan."
   },
   "cs": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -4254,6 +4315,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš tarif zůstane aktivní až do konce aktuálního fakturačního období. Poté budete přesunuti zpět do bezplatného plánu."
   },
   "da": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -5408,6 +5470,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Din plan forbliver aktiv indtil udgangen af den aktuelle faktureringsperiode. Derefter vil du blive flyttet tilbage til gratisplanen."
   },
   "nl": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -6562,6 +6625,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Uw abonnement blijft actief tot het einde van de huidige factureringsperiode. Daarna wordt u teruggezet naar het gratis abonnement."
   },
   "et": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -7716,6 +7780,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Teie plaan jääb aktiivseks kuni praeguse arveldusperioodi lõpuni. Pärast seda suunatakse teid tagasi tasuta paketti."
   },
   "fi": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -8870,6 +8935,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Suunnitelmasi pysyy aktiivisena nykyisen laskutuskauden loppuun asti. Tämän jälkeen sinut siirretään takaisin ilmaiseen suunnitelmaan."
   },
   "fr": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -10024,6 +10090,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Votre forfait restera actif jusqu'à la fin de la période de facturation en cours. Après cela, vous reviendrez au forfait gratuit."
   },
   "el": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -11178,6 +11245,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Το πρόγραμμά σας θα παραμείνει ενεργό μέχρι το τέλος της τρέχουσας περιόδου χρέωσης. Μετά από αυτό, θα μεταφερθείτε ξανά στο Δωρεάν πρόγραμμα."
   },
   "hu": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -12332,6 +12400,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "A csomag az aktuális számlázási időszak végéig aktív marad. Ezt követően visszakerül az ingyenes csomaghoz."
   },
   "ga": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -13486,6 +13555,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Fanfaidh do phlean gníomhach go dtí deireadh na tréimhse billeála reatha. Ina dhiaidh sin, bogfar ar ais chuig an bplean In Aisce thú."
   },
   "it": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -14640,6 +14710,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il tuo piano rimarrà attivo fino alla fine del periodo di fatturazione corrente. Successivamente, verrai riportato al piano gratuito."
   },
   "lv": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -15794,6 +15865,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsu plāns paliks aktīvs līdz pašreizējā norēķinu perioda beigām. Pēc tam jūs tiksit pārvietots atpakaļ uz bezmaksas plānu."
   },
   "lt": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -16948,6 +17020,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Jūsų planas išliks aktyvus iki dabartinio atsiskaitymo laikotarpio pabaigos. Po to būsite grąžinti į nemokamą planą."
   },
   "mt": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -18102,6 +18175,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Il-pjan tiegħek se jibqa' attiv sa tmiem il-perjodu attwali tal-kontijiet. Wara dan, int ser tiġi mċaqlaq lura għall-pjan Ħieles."
   },
   "pl": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -19256,6 +19330,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Twój plan pozostanie aktywny do końca bieżącego okresu rozliczeniowego. Następnie zostaniesz przeniesiony z powrotem do planu Free."
   },
   "pt": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -20410,6 +20485,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Seu plano permanecerá ativo até o final do período de cobrança atual. Depois disso, você voltará para o plano Gratuito."
   },
   "ro": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -21564,6 +21640,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Planul dvs. va rămâne activ până la sfârșitul perioadei curente de facturare. După aceea, veți fi mutat înapoi la planul gratuit."
   },
   "sk": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -22718,6 +22795,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Váš plán zostane aktívny až do konca aktuálneho fakturačného obdobia. Potom sa presuniete späť do bezplatného plánu."
   },
   "sl": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -23872,6 +23950,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Vaš načrt bo ostal aktiven do konca trenutnega obračunskega obdobja. Po tem boste prestavljeni nazaj na brezplačen načrt."
   },
   "es": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",
@@ -25026,6 +25105,7 @@ export const STATIC_MESSAGES: Partial<Record<SiteLocale, Record<string, string>>
     "Your plan will remain active until the end of the current billing period. After that, you will be moved back to the Free plan.": "Su plan permanecerá activo hasta el final del período de facturación actual. Después de eso, volverás al plan gratuito."
   },
   "sv": {
+    ...WORKSPACE_ENGLISH_FALLBACK_MESSAGES,
     "Website description": "Website description",
     "Suggest from project details": "Suggest from project details",
     "Could not suggest a description.": "Could not suggest a description.",

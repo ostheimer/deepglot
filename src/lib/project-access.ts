@@ -84,3 +84,15 @@ export async function canManageProjectForWrite(tx: Prisma.TransactionClient, use
   return canManageProject({ organizationRole: membership?.role ?? null,
     projectRole: projectMember?.role ?? null });
 }
+
+/** Language/editor writes permit scoped translators after the same ownership lock. */
+export async function canAccessProjectForWrite(tx: Prisma.TransactionClient, userId: string, projectId: string) {
+  const organizationId = await lockProjectMembershipScope(tx, projectId);
+  if (!organizationId) return null;
+  const membership = await tx.organizationMember.findUnique({ where: { userId_organizationId: {
+    userId, organizationId } }, select: { role: true } });
+  const projectMember = await tx.projectMember.findFirst({ where: { projectId, userId }, select: { role: true, langCode: true } });
+  const access = { organizationRole: membership?.role ?? null, projectRole: projectMember?.role ?? null,
+    langCode: projectMember?.langCode ?? null } satisfies ProjectAccessContext;
+  return canAccessProject(access) ? access : null;
+}

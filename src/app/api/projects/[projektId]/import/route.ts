@@ -13,7 +13,9 @@ import {
 import {
   canAccessProject,
   canAccessProjectLanguage,
+  canAccessProjectForWrite,
   canManageProject,
+  canManageProjectForWrite,
   getAuthenticatedUserId,
   getProjectAccess,
   type ProjectAccessContext,
@@ -202,6 +204,7 @@ function languageConfigurationChanged(locale: SiteLocale) {
 type ImportContext = {
   project: Project;
   access: ProjectAccessContext;
+  userId: string;
   locale: SiteLocale;
   emitRowEvents: boolean;
 };
@@ -209,7 +212,7 @@ type ImportContext = {
 async function importTranslationsPo(
   content: string,
   langTo: string,
-  { project, access, locale, emitRowEvents }: ImportContext
+  { project, access, userId, locale, emitRowEvents }: ImportContext
 ) {
   if (!langTo) {
     throw new ImportError(
@@ -244,6 +247,10 @@ async function importTranslationsPo(
     rows,
     locale,
     async (_slice, tx) => {
+      const currentAccess = await canAccessProjectForWrite(tx, userId, project.id);
+      if (!currentAccess || !canAccessProjectLanguage(currentAccess, langTo)) {
+        throw new ImportError(t(locale, "Projektzugriff geändert.", "Project access changed."), 403);
+      }
       const languageConfigurationIsCurrent =
         await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
@@ -361,7 +368,7 @@ async function importTranslationsPo(
 
 async function importGlossaryCsv(
   content: string,
-  { project, access, locale, emitRowEvents }: ImportContext
+  { project, access, userId, locale, emitRowEvents }: ImportContext
 ) {
   const rows = parseImport(() => parseGlossaryCsv(content), locale);
   assertRowLimit(rows.length, locale);
@@ -387,6 +394,10 @@ async function importGlossaryCsv(
     rows,
     locale,
     async (slice, tx) => {
+      const currentAccess = await canAccessProjectForWrite(tx, userId, project.id);
+      if (!currentAccess || slice.some((row) => !canAccessProjectLanguage(currentAccess, row.langTo))) {
+        throw new ImportError(t(locale, "Projektzugriff geändert.", "Project access changed."), 403);
+      }
       const languageConfigurationIsCurrent =
         await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
@@ -458,7 +469,7 @@ async function importGlossaryCsv(
 
 async function importSlugsCsv(
   content: string,
-  { project, access, locale, emitRowEvents }: ImportContext
+  { project, access, userId, locale, emitRowEvents }: ImportContext
 ) {
   if (!canManageProject(access)) {
     throw new ImportError(locale === "de" ? "Keine Berechtigung zum Bearbeiten von URL-Slugs." : "You cannot edit URL slugs.", 403);
@@ -486,6 +497,9 @@ async function importSlugsCsv(
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       await db.$transaction(async (tx) => {
+        if (!(await canManageProjectForWrite(tx, userId, project.id))) {
+          throw new ImportError(t(locale, "Projektzugriff geändert.", "Project access changed."), 403);
+        }
         if (!(await lockAndValidateProjectLanguageWrite(tx, {
           projectId: project.id,
           sourceLanguages: [project.originalLang],
@@ -612,6 +626,7 @@ export async function POST(
   const context: ImportContext = {
     project,
     access,
+    userId,
     locale,
     emitRowEvents: await projectHasWebhookEndpoints(project.id),
   };

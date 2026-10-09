@@ -20,6 +20,7 @@ import {
 import {
   getAuthenticatedUserId,
   userCanManageProject,
+  canManageProjectForWrite,
 } from "@/lib/project-access";
 import {
   isProjectRuntimeSerializationConflict,
@@ -133,6 +134,7 @@ export async function POST(
               "INVALID_TARGET_LANGUAGE"
             );
           }
+          if (!(await canManageProjectForWrite(tx, userId, projektId))) throw new Error("not_found");
 
           const targetLanguage = await tx.projectLanguage.findFirst({
             where: {

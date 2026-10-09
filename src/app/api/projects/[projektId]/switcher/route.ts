@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { switcherConfigSchema, validateSwitcherLanguages } from "@/lib/switcher-contract";
 
@@ -18,7 +18,7 @@ async function managerId(context: Context) {
   if (!session?.user?.id) return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   const { projektId } = await context.params;
   if (!(await userCanManageProject(session.user.id, projektId))) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-  return { projektId };
+  return { projektId, userId: session.user.id };
 }
 
 export async function GET(_request: Request, context: Context) {
@@ -42,6 +42,7 @@ export async function PATCH(request: Request, context: Context) {
   const body = parsed.data;
   const result = await db.$transaction(async (tx) => {
     if (!(await lockProjectRuntimeConfiguration(tx, access.projektId))) return { status: 404 };
+    if (!(await canManageProjectForWrite(tx, access.userId, access.projektId))) return { status: 404 };
     const project = await tx.project.findUnique({
       where: { id: access.projektId },
       select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true } }, settings: true },

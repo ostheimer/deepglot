@@ -104,6 +104,7 @@ const rateLimitQuery = test.mock.fn(async (...queryArguments: unknown[]) => {
 (globalThis as unknown as { prisma: unknown }).prisma = {
   apiKey: {
     findUnique: apiKeyFindUnique,
+    findFirst: async () => ({ id: "api-key-current" }),
     update: apiKeyUpdate,
   },
   pageView: {
@@ -111,6 +112,10 @@ const rateLimitQuery = test.mock.fn(async (...queryArguments: unknown[]) => {
     findUnique: pageViewFindUnique,
     deleteMany: pageViewDeleteMany,
   },
+  project: {
+    findUnique: async () => ({ settings: { pageViewsEnabled, pageViewsConsentGrantedAt }, languages: [{ id: "language-en" }] }),
+  },
+  $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn((globalThis as unknown as { prisma: unknown }).prisma),
   translationExclusion: {
     findMany: exclusionFindMany,
   },

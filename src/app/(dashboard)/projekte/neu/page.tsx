@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,16 @@ export default function NeuesProjektPage() {
   const [domain, setDomain] = useState("");
   const [originalLang, setOriginalLang] = useState("de");
   const [selectedLangs, setSelectedLangs] = useState<string[]>(["en"]);
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string }>>([]);
+  const [organizationId, setOrganizationId] = useState("");
   const popularLanguages = getPopularLanguageOptions(locale);
+
+  useEffect(() => {
+    fetch("/api/workspaces").then((response) => response.json()).then((data) => {
+      const manageable = (data.workspaces ?? []).filter((row: { role: string }) => row.role === "OWNER" || row.role === "ADMIN");
+      setWorkspaces(manageable); setOrganizationId((current) => current || manageable[0]?.id || "");
+    }).catch(() => {});
+  }, []);
 
   function toggleLanguage(code: string) {
     setSelectedLangs((prev) =>
@@ -43,7 +52,7 @@ export default function NeuesProjektPage() {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, domain, originalLang, languages: selectedLangs }),
+        body: JSON.stringify({ name, domain, originalLang, languages: selectedLangs, organizationId }),
       });
 
       const data = await res.json();
@@ -88,6 +97,14 @@ export default function NeuesProjektPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="workspace">Workspace</Label>
+              <select id="workspace" className="w-full rounded-md border p-2" value={organizationId}
+                onChange={(event) => setOrganizationId(event.target.value)} required>
+                <option value="">{uiText(locale, "Choose workspace", "Workspace wählen")}</option>
+                {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+              </select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">{uiText(locale, "Project name", "Projektname")}</Label>
               <Input

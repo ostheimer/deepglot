@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { languageRemovalFingerprint } from "@/lib/project-language-lifecycle";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
+import { canManageProjectForWrite } from "@/lib/project-access";
 
 type Reader = PrismaClient | Prisma.TransactionClient;
 
@@ -72,9 +73,11 @@ export async function removeTargetLanguage(
   projectId: string,
   langCode: string,
   confirmationToken: string,
+  actorUserId?: string,
 ) {
   return db.$transaction(async (tx) => {
     if (!(await lockProjectRuntimeConfiguration(tx, projectId))) return { kind: "not_found" } as const;
+    if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) return { kind: "not_found" } as const;
     const current = await previewTargetLanguageRemoval(tx, projectId, langCode);
     if (!current) return { kind: "not_found" } as const;
     if (current.confirmationToken !== confirmationToken) return { kind: "stale_preview", preview: current } as const;
@@ -100,9 +103,11 @@ export async function removeTargetLanguages(
   db: PrismaClient,
   projectId: string,
   selections: { langCode: string; confirmationToken?: string }[],
+  actorUserId?: string,
 ) {
   return db.$transaction(async (tx) => {
     if (!(await lockProjectRuntimeConfiguration(tx, projectId))) return selections.map(({ langCode }) => ({ langCode, status: "not_found" }));
+    if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) return selections.map(({ langCode }) => ({ langCode, status: "not_found" }));
     const project = await tx.project.findUniqueOrThrow({ where: { id: projectId }, select: { updatedAt: true } });
     const seen = new Set<string>();
     const approved: string[] = [];

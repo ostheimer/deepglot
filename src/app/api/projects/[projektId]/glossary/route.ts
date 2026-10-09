@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { getCookieLocale } from "@/lib/request-locale";
-import { getAuthenticatedUserId, userHasProjectAccess } from "@/lib/project-access";
+import { getAuthenticatedUserId, userHasProjectAccess, canAccessProjectForWrite, canAccessProject } from "@/lib/project-access";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -89,6 +89,9 @@ export async function POST(
 
   try {
     const persistenceResult = await db.$transaction(async (tx) => {
+      if (!canAccessProject(await canAccessProjectForWrite(tx, userId, projektId))) {
+        return { kind: "language_configuration_changed" } as const;
+      }
       const languageConfigurationIsCurrent =
         await lockAndValidateProjectLanguageWrite(tx, {
           projectId: projektId,

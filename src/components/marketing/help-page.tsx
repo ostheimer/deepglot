@@ -94,6 +94,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             aria-label={de ? "Hilfebereiche" : "Help sections"}
             className="flex flex-wrap gap-3 text-sm"
           >
+            <a href="#workspace-transfer" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Workspaces und Transfer" : "Workspaces and transfer"}
+            </a>
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
             </a>
@@ -119,6 +122,16 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
               {de ? "Entwicklerdokumentation" : "Developer documentation"}
             </Link>
           </nav>
+
+          <section id="workspace-transfer" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold">{de ? "Workspaces verwalten und Projekte übertragen" : "Manage workspaces and transfer projects"}</h2>
+            <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Unter Konto-Einstellungen kannst du Workspaces erstellen und als Owner oder Admin umbenennen. Dort verwaltest du auch bereits registrierte Personen aus anderen Workspaces, die du verwaltest. Owner können Rollen ändern; Admins können nur Mitglieder hinzufügen oder entfernen. Planlimits und der Schutz des letzten Owners gelten immer. Einladungen per E-Mail sind nicht verfügbar. Jeder Workspace hat einen eigenen Plan und eine eigene Abrechnung. Neue Workspaces starten mit Free; dein aktiver Plan begrenzt, wie viele Workspaces du besitzen kannst. Beim Anlegen eines Projekts wählst du den Workspace."
+              : "Create workspaces in Account settings and rename them as an owner or admin. You can also manage registered people from other workspaces you manage. Owners can change roles; admins can only add or remove members. Plan limits and last-owner protection always apply. Email invitations are unavailable. Every workspace has its own plan and billing. New workspaces start on Free; your active plan limits how many you can own. Choose the workspace when creating a project."}</p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Owner und Admins können ein Projekt in einen Workspace übertragen, den sie ebenfalls verwalten. Die Vorschau zeigt Ziel-Planlimits, Mitglieder und alle Zugangsdaten, die getrennt werden. Bereits abgerechnete Wörter und Batch-Protokolle bleiben beim Ursprung; neue Nutzung wird dem Ziel zugerechnet. Übersetzungen einschließlich manueller Änderungen, URLs, Slugs und Domain-Zuordnungen bleiben beim Projekt. Source-only-Mitglieder und offene Einladungen verlieren den Zugriff. API-Keys werden widerrufen, Webhooks deaktiviert und ihr Secret entfernt; der Provider-Key wird entfernt. Verbinde Plugin, Webhooks und Provider im Ziel neu."
+              : "Owners and admins can transfer a project to another workspace they also manage. The preview shows destination limits, members, and credentials that will be disconnected. Already billed words and batch records remain with the source; new usage belongs to the destination. Translations including manual edits, URLs, slugs and domain mappings remain with the project. Source-only members and pending invitations lose access. API keys are revoked, webhooks are disabled and their secret removed, and the provider key is cleared. Reconnect the plugin, webhooks and provider in the destination."}</p>
+          </section>
 
           <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">
             <h2 className="text-3xl font-bold">{de ? "Elemente von der Übersetzung ausnehmen" : "Exclude elements from translation"}</h2>

@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { resolveBillingWorkspaceId, workspaceIdFromSearchParams } from "@/lib/billing-workspace";
 import { isRealStripeCustomerId } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
@@ -44,8 +45,10 @@ export default async function PlanUebersichtPage({
   const session = await auth();
   if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, await workspaceIdFromSearchParams(searchParams), true);
+  if (!workspaceId) return <p>{uiText(locale, "Choose a workspace in the sidebar.", "Wähle links einen Workspace.")}</p>;
+  const membership = await db.organizationMember.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: workspaceId } },
     include: {
       organization: {
         include: { subscription: true },
@@ -142,7 +145,7 @@ export default async function PlanUebersichtPage({
         <p className="text-sm text-gray-600 mt-5">
           {uiText(locale, "Review your", "Überprüfe deine")}{" "}
           <Link
-            href={withLocalePrefix("/subscription/usage", locale)}
+            href={`${withLocalePrefix("/subscription/usage", locale)}?workspaceId=${encodeURIComponent(workspaceId)}`}
             className="text-brand-600 hover:underline"
           >
             {uiText(
@@ -155,13 +158,14 @@ export default async function PlanUebersichtPage({
 
         <div className="flex items-center justify-between pt-5 mt-5 border-t border-gray-100">
           <CancelSubscriptionButton
+            workspaceId={workspaceId}
             subscriptionId={sub?.stripeSubscriptionId ?? null}
             plan={planKey}
           />
         </div>
       </div>
 
-      <PlanSwitcher currentPlan={planKey} hasStripeCustomer={hasStripeCustomer} />
+      <PlanSwitcher currentPlan={planKey} hasStripeCustomer={hasStripeCustomer} workspaceId={workspaceId} />
     </div>
   );
 }

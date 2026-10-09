@@ -268,6 +268,42 @@ model Project {
   webhookDeliveries WebhookDelivery[]
 }
 
+/// Immutable receipt for a committed workspace boundary change. No key, URL,
+/// translated content, or webhook payload is stored in this audit row.
+model ProjectTransferAudit {
+  id String @id @default(cuid())
+  projectId String
+  actorUserId String
+  sourceOrganizationId String
+  destinationOrganizationId String
+  previewFingerprint String @unique
+  projectVersion DateTime
+  outcome String @default("COMMITTED")
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([sourceOrganizationId, createdAt])
+  @@index([destinationOrganizationId, createdAt])
+}
+
+/// Factual workspace administration receipt. Kept without foreign keys so
+/// account lifecycle operations do not rewrite or erase historical actions.
+model WorkspaceAudit {
+  id String @id @default(cuid())
+  workspaceId String
+  actorUserId String
+  action String
+  targetUserId String?
+  previousRole OrganizationRole?
+  nextRole OrganizationRole?
+  previousName String?
+  nextName String?
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
 model ProjectLanguage {
   id        String   @id @default(cuid())
   langCode  String   // normalized lowercase BCP 47 language/script/region tag

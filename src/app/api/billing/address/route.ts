@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
 import { isRealStripeCustomerId } from "@/lib/billing";
@@ -13,6 +14,7 @@ function t(locale: SiteLocale, deText: string, enText: string) {
 }
 
 const schema = z.object({
+  workspaceId: z.string().min(1).optional(),
   billingName: z.string().max(200).optional(),
   address: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
@@ -42,8 +44,10 @@ export async function POST(request: Request) {
 
   const { billingName, address, city, zip, country, vatNumber } = parsed.data;
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, parsed.data.workspaceId ?? null, true);
+  if (!workspaceId) return NextResponse.json({ error: t(locale, "Workspace wählen", "Choose a workspace") }, { status: 409 });
+  const membership = await db.organizationMember.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: workspaceId } },
     include: { organization: { include: { subscription: true } } },
   });
 

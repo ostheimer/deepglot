@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   userCanManageProject,
+  canManageProjectForWrite,
   userHasProjectAccess,
 } from "@/lib/project-access";
 import {
@@ -51,7 +52,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
-  await db.project.delete({ where: { id: projektId } });
+  const deleted = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
+    await tx.project.delete({ where: { id: projektId } });
+    return true;
+  });
+  if (!deleted) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   return NextResponse.json({ success: true });
 }
 
@@ -80,6 +86,7 @@ export async function PATCH(
     projectId: projektId,
     expectedVersion,
     patch,
+    actorUserId: session.user.id,
   });
 
   if (result.kind === "updated") {

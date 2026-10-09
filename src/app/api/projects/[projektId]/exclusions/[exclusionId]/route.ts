@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { normalizeExclusionInput } from "@/lib/exclusions";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -56,6 +56,7 @@ export async function PATCH(
 
   try {
     const exclusion = await db.$transaction(async (tx) => {
+      if (!(await canManageProjectForWrite(tx, userId, projektId))) throw new Error(NOT_FOUND_ERROR);
       const existing = await tx.translationExclusion.findFirst({
         where: { id: exclusionId, projectId: projektId },
       });
@@ -168,9 +169,11 @@ export async function DELETE(
     );
   }
 
-  await db.translationExclusion.delete({
-    where: { id: existing.id },
+  const deleted = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
+    return (await tx.translationExclusion.deleteMany({ where: { id: existing.id, projectId: projektId } })).count === 1;
   });
+  if (!deleted) return NextResponse.json({ error: t(locale, "Ausnahmeregel nicht gefunden", "Exclusion rule not found") }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 }

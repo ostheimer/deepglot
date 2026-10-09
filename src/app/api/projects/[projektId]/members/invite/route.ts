@@ -12,7 +12,7 @@ import {
   hashProjectInvitationToken,
   normalizeProjectInvitationEmail,
 } from "@/lib/project-invitations";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -129,6 +129,9 @@ export async function POST(
 
   try {
     const persistenceResult = await db.$transaction(async (tx) => {
+      if (!(await canManageProjectForWrite(tx, userId, projektId))) {
+        return { kind: "access_changed" } as const;
+      }
       const languageConfigurationIsCurrent =
         await lockAndValidateProjectLanguageWrite(tx, {
           projectId: projektId,
@@ -173,6 +176,9 @@ export async function POST(
         },
         { status: 409 },
       );
+    }
+    if (persistenceResult.kind === "access_changed") {
+      return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
     }
     const invitation = persistenceResult.invitation;
 

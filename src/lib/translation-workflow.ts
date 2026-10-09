@@ -17,12 +17,23 @@ import {
   workspaceSqlOrder,
 } from "./translation-workspace-query";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
+import { canAccessProjectForWrite, canAccessProject, canManageProject } from "@/lib/project-access";
 
 export type TranslationWorkflowActor = {
   canManage: boolean;
   projectMemberId: string | null;
   langCode: string | null;
 };
+
+export async function actorForCurrentWorkspace(tx: Prisma.TransactionClient, projectId: string,
+  actorUserId: string | undefined, fallback: TranslationWorkflowActor): Promise<TranslationWorkflowActor> {
+  if (!actorUserId) return fallback;
+  const access = await canAccessProjectForWrite(tx, actorUserId, projectId);
+  if (!canAccessProject(access)) throw new TranslationWorkflowError("NOT_FOUND", "Project not found.");
+  const member = await tx.projectMember.findFirst({ where: { projectId, userId: actorUserId }, select: { id: true } });
+  return { canManage: canManageProject(access), projectMemberId: member?.id ?? null,
+    langCode: access?.langCode ?? null };
+}
 
 export type TranslationWorkflowPatch = {
   status?: TranslationWorkflowStatus;
@@ -423,14 +434,17 @@ export async function updateProjectTranslationWorkflow({
   translationId,
   actor,
   patch,
+  actorUserId,
 }: {
   projectId: string;
   translationId: string;
   actor: TranslationWorkflowActor;
   patch: TranslationWorkflowPatch;
+  actorUserId?: string;
 }) {
   const { db } = await import("@/lib/db");
   return db.$transaction(async (tx) => {
+    const writeActor = await actorForCurrentWorkspace(tx, projectId, actorUserId, actor);
     const current = await tx.translation.findFirst({
       where: { id: translationId, projectId },
       select: {
@@ -461,7 +475,7 @@ export async function updateProjectTranslationWorkflow({
         langTo: current.langTo,
       },
       patch,
-      actor,
+      actor: writeActor,
       assignee,
     });
 
@@ -512,6 +526,7 @@ export async function updateProjectTranslationContent({
     await import("@/lib/project-webhook-delivery");
   const { recordTranslationBatch } = await import("@/lib/translation-batches");
   return db.$transaction(async (tx) => {
+    const writeActor = await actorForCurrentWorkspace(tx, projectId, actorUserId, actor);
     const current = await tx.translation.findFirst({
       where: { id: translationId, projectId },
       select: {
@@ -534,7 +549,7 @@ export async function updateProjectTranslationContent({
       );
     }
     assertTranslationContentMutationAllowed({
-      actor,
+      actor: writeActor,
       langTo: current.langTo,
       assignedToId: current.assignedToId,
       operation: "edit",
@@ -648,16 +663,19 @@ export async function deleteProjectTranslation({
   translationId,
   actor,
   expectedUpdatedAt,
+  actorUserId,
 }: {
   projectId: string;
   translationId: string;
   actor: TranslationWorkflowActor;
   expectedUpdatedAt: Date;
+  actorUserId?: string;
 }) {
   const { db } = await import("@/lib/db");
   const { queueProjectWebhookEvent } =
     await import("@/lib/project-webhook-delivery");
   return db.$transaction(async (tx) => {
+    const writeActor = await actorForCurrentWorkspace(tx, projectId, actorUserId, actor);
     const current = await tx.translation.findFirst({
       where: { id: translationId, projectId },
       select: {
@@ -676,7 +694,7 @@ export async function deleteProjectTranslation({
       );
     }
     assertTranslationContentMutationAllowed({
-      actor,
+      actor: writeActor,
       langTo: current.langTo,
       assignedToId: current.assignedToId,
       operation: "delete",

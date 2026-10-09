@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+import { resolveBillingWorkspaceId, workspaceIdFromSearchParams } from "@/lib/billing-workspace";
+import type { LocaleSearchParams } from "@/lib/request-locale";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { stripe } from "@/lib/stripe";
@@ -19,13 +21,15 @@ export function generateMetadata() {
   );
 }
 
-export default async function KarteRechnungenPage() {
+export default async function KarteRechnungenPage({ searchParams }: { searchParams: LocaleSearchParams }) {
   const locale = await getRequestLocale();
   const session = await auth();
   if (!session?.user?.id) redirect(withLocalePrefix("/login", locale));
 
-  const membership = await db.organizationMember.findFirst({
-    where: { userId: session.user.id },
+  const workspaceId = await resolveBillingWorkspaceId(session.user.id, await workspaceIdFromSearchParams(searchParams), true);
+  if (!workspaceId) return <p>{uiText(locale, "Choose a workspace in the sidebar.", "Wähle links einen Workspace.")}</p>;
+  const membership = await db.organizationMember.findUnique({
+    where: { userId_organizationId: { userId: session.user.id, organizationId: workspaceId } },
     include: {
       organization: { include: { subscription: true } },
     },
@@ -135,6 +139,7 @@ export default async function KarteRechnungenPage() {
                 </div>
               </div>
               <PortalButton
+                workspaceId={workspaceId}
                 stripeCustomerId={stripeCustomerId}
                 label={uiText(locale, "Change card", "Karte ändern")}
               />
@@ -148,6 +153,7 @@ export default async function KarteRechnungenPage() {
                 </p>
               </div>
               <PortalButton
+                workspaceId={workspaceId}
                 stripeCustomerId={stripeCustomerId}
                 label={uiText(locale, "Add card", "Karte hinzufügen")}
               />
@@ -163,7 +169,7 @@ export default async function KarteRechnungenPage() {
           <p className="text-xs text-gray-500 mb-5">
             {uiText(locale, "Existing invoices cannot be changed. Only future invoices will be affected.", "Bestehende Rechnungen können nicht geändert werden – nur zukünftige Rechnungen sind betroffen.")}
           </p>
-          <BillingAddressForm />
+          <BillingAddressForm workspaceId={workspaceId} />
         </div>
 
         {/* Invoice History */}

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -34,7 +34,9 @@ export async function POST(
 
   const consentGrantedAt = new Date();
 
-  await db.projectSettings.upsert({
+  const changed = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
+    await tx.projectSettings.upsert({
     where: { projectId: projektId },
     create: {
       projectId: projektId,
@@ -45,7 +47,10 @@ export async function POST(
       pageViewsEnabled: true,
       pageViewsConsentGrantedAt: consentGrantedAt,
     },
+    });
+    return true;
   });
+  if (!changed) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ success: true });
 }
@@ -71,7 +76,9 @@ export async function DELETE(
     );
   }
 
-  await db.projectSettings.upsert({
+  const changed = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
+    await tx.projectSettings.upsert({
     where: { projectId: projektId },
     create: {
       projectId: projektId,
@@ -79,7 +86,10 @@ export async function DELETE(
       pageViewsConsentGrantedAt: null,
     },
     update: { pageViewsEnabled: false, pageViewsConsentGrantedAt: null },
+    });
+    return true;
   });
+  if (!changed) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ success: true });
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { userCanManageProject } from "@/lib/project-access";
+import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { planSupportsTranslationMemory } from "@/lib/translation-memory";
 
 const patchSchema = z.object({ enabled: z.boolean() });
@@ -27,30 +27,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });
   }
 
-  const project = await db.project.findUnique({
-    where: { id: projektId },
-    select: { organization: { select: { plan: true } } },
+  const result = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
+    const project = await tx.project.findUnique({ where: { id: projektId },
+      select: { organization: { select: { plan: true } } } });
+    if (!project) return null;
+    if (parsed.data.enabled && !planSupportsTranslationMemory(project.organization.plan)) return "PLAN" as const;
+    return tx.projectSettings.upsert({ where: { projectId: projektId },
+      create: { projectId: projektId, translationMemory: parsed.data.enabled },
+      update: { translationMemory: parsed.data.enabled }, select: { translationMemory: true } });
   });
-  if (!project) {
-    return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-  }
-
-  if (
-    parsed.data.enabled &&
-    !planSupportsTranslationMemory(project.organization.plan)
-  ) {
-    return NextResponse.json(
-      { error: "Das Übersetzungsgedächtnis ist ab dem Pro-Plan verfügbar." },
-      { status: 403 }
-    );
-  }
-
-  const settings = await db.projectSettings.upsert({
-    where: { projectId: projektId },
-    create: { projectId: projektId, translationMemory: parsed.data.enabled },
-    update: { translationMemory: parsed.data.enabled },
-    select: { translationMemory: true },
-  });
+  if (!result) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+  if (result === "PLAN") return NextResponse.json({ error: "Das Übersetzungsgedächtnis ist ab dem Pro-Plan verfügbar." }, { status: 403 });
+  const settings = result;
 
   return NextResponse.json({ enabled: settings.translationMemory });
 }

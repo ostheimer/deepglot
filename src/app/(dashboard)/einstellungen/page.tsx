@@ -2,9 +2,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Eye, Pencil, Plus } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { PasswordChangeForm } from "@/components/einstellungen/password-change-form";
 import { ProfileSettingsForm } from "@/components/einstellungen/profile-settings-form";
 import { ActivityDigestPreferences } from "@/components/einstellungen/activity-digest-preferences";
@@ -14,17 +13,11 @@ import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import { PasskeySettings } from "@/components/einstellungen/passkey-settings";
+import { WorkspaceManager } from "@/components/einstellungen/workspace-manager";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Account settings", "Konto-Einstellungen");
 }
-
-const PLAN_LABELS: Record<string, string> = {
-  FREE: "Free",
-  STARTER: "Starter",
-  PROFESSIONAL: "Professional",
-  ENTERPRISE: "Enterprise",
-};
 
 type EinstellungenPageProps = {
   searchParams: LocaleSearchParams;
@@ -188,145 +181,10 @@ export default async function EinstellungenPage({
         </div>
       </section>
 
-      {/* ── Workspaces ──────────────────────────────────── */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-            Workspaces
-            </h2>
-            <p className="mt-1 text-xs text-gray-500">
-              {uiText(locale, "Workspace creation and management will appear here once persistence for those actions is implemented.", "Workspace-Erstellung und Verwaltung werden hier angezeigt, sobald die Persistenz dafür umgesetzt ist.")}
-            </p>
-          </div>
-          <Button
-            disabled
-            className="bg-brand-600 hover:bg-brand-600 gap-1.5 h-8 px-4 text-sm opacity-50"
-            title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {uiText(locale, "Create", "Erstellen")}
-          </Button>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          {/* Table header */}
-          <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-5 py-3 bg-gray-50 border-b border-gray-200">
-            {[
-              "NAME",
-              locale === "de" ? "TYP" : "TYPE",
-              "PLAN",
-              locale === "de" ? "ROLLE" : "ROLE",
-              locale === "de" ? "PROJEKTE" : "PROJECTS",
-              locale === "de" ? "USER" : "USERS",
-              locale === "de" ? "AKTIONEN" : "ACTIONS",
-            ].map((h) => (
-              <span key={h} className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {h}
-              </span>
-            ))}
-          </div>
-
-          {memberships.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <p className="text-sm text-gray-400">
-                {uiText(locale, "No workspace yet.", "Noch kein Workspace vorhanden.")}
-              </p>
-            </div>
-          ) : (
-            memberships.map((m) => (
-              <div
-                key={m.id}
-                className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-5 py-4 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50"
-              >
-                {/* Name */}
-                <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">
-                      {m.organization.name.charAt(0)}
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 truncate">
-                    {m.organization.name}
-                  </span>
-                </div>
-
-                {/* Type */}
-                <span className="text-sm text-gray-600 flex items-center gap-1">
-                  <svg className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  {uiText(locale, "Personal", "Persönlich")}
-                </span>
-
-                {/* Plan */}
-                <Badge
-                  variant="outline"
-                  className="text-xs w-fit"
-                >
-                  {PLAN_LABELS[m.organization.plan] ?? m.organization.plan}
-                </Badge>
-
-                {/* Role */}
-                <span className="text-sm text-gray-700 capitalize">
-                  {m.role === "OWNER"
-                    ? "Admin"
-                    : m.role === "ADMIN"
-                      ? "Admin"
-                      : uiText(locale, "Member", "Mitglied")}
-                </span>
-
-                {/* Projects count */}
-                <span className="text-sm text-gray-700">
-                  {m.organization._count.projects}
-                </span>
-
-                {/* Users */}
-                <div className="flex items-center">
-                  <div className="h-6 w-6 rounded-full bg-brand-100 border-2 border-white flex items-center justify-center">
-                    <span className="text-xs font-bold text-brand-700">
-                      {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled
-                    aria-label={
-                      locale === "de"
-                        ? `${m.organization.name} ansehen - noch nicht verfügbar`
-                        : `View ${m.organization.name} - not available yet`
-                    }
-                    title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
-                    className="h-7 w-7 p-0 opacity-40"
-                  >
-                    <Eye className="h-3.5 w-3.5 text-gray-400" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled
-                    aria-label={
-                      locale === "de"
-                        ? `${m.organization.name} bearbeiten - noch nicht verfügbar`
-                        : `Edit ${m.organization.name} - not available yet`
-                    }
-                    title={uiText(locale, "Not available yet", "Noch nicht verfügbar")}
-                    className="h-7 w-7 p-0 opacity-40"
-                  >
-                    <Pencil className="h-3.5 w-3.5 text-gray-400" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+      <WorkspaceManager locale={locale} workspaces={memberships.map((m) => ({
+        id: m.organizationId, name: m.organization.name, plan: m.organization.plan, role: m.role,
+        projectCount: m.organization._count.projects, memberCount: m.organization._count.members,
+      }))} />
     </div>
   );
 }

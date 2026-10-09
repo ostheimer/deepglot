@@ -9,6 +9,7 @@ import {
   isProjectRuntimeSerializationConflict,
   lockProjectRuntimeConfiguration,
 } from "@/lib/project-runtime-configuration-lock";
+import { canManageProjectForWrite } from "@/lib/project-access";
 import { isSupportedTranslationLanguage } from "@/lib/supported-languages";
 
 export {
@@ -329,16 +330,21 @@ export async function updateProjectGeneralSettings(
     projectId,
     expectedVersion,
     patch,
+    actorUserId,
   }: {
     projectId: string;
     expectedVersion: string;
     patch: ProjectGeneralSettingsPatch;
+    actorUserId?: string;
   },
 ): Promise<UpdateProjectGeneralSettingsResult> {
   try {
     return await database.$transaction(
       async (tx) => {
         if (!(await lockProjectRuntimeConfiguration(tx, projectId))) {
+          return { kind: "not_found" } as const;
+        }
+        if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) {
           return { kind: "not_found" } as const;
         }
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
-import { getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -78,6 +78,9 @@ export async function PATCH(
     "langCode"
   );
   const persistenceResult = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) {
+      return { kind: "access_changed" } as const;
+    }
     if (changesLanguage && langCode) {
       const languageConfigurationIsCurrent =
         await lockAndValidateProjectLanguageWrite(tx, {
@@ -126,6 +129,10 @@ export async function PATCH(
     );
   }
 
+  if (persistenceResult.kind === "access_changed") {
+    return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
+  }
+
   return NextResponse.json({ member: persistenceResult.member });
 }
 
@@ -162,13 +169,17 @@ export async function DELETE(
     );
   }
 
-  await db.$transaction(async (tx) => {
+  const deleted = await db.$transaction(async (tx) => {
+    if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
     await resetProjectMemberWorkflowAssignments(tx, {
       projectId: projektId,
       memberId: member.id,
     });
     await tx.projectMember.delete({ where: { id: member.id } });
+    return true;
   });
+
+  if (!deleted) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 }
