@@ -10,8 +10,8 @@ workflow remains available while ordering is off.
 Only a project manager can create an order from 1–100 existing segments in one
 active target language. The server rechecks project ownership and language,
 copies the original text, hash and update timestamp into an order item, records
-the scope digest, originating workspace and word count, and never reprices an accepted snapshot. The
-manager's role, current workspace owner and active language are rechecked
+the scope digest, originating workspace and word count, and never reprices an
+accepted snapshot. The manager's role, current workspace owner and active language are rechecked
 inside every write transaction under Organization → Project row locks; a
 revocation or transfer after the API gate therefore cannot authorize a write.
 The quote is supplied by a specifically authorized vendor; it records minor-unit
@@ -34,24 +34,40 @@ A late payment after cancellation also becomes `REFUND_PENDING`. Verified
 provider callbacks alone may mark `PAID`, `REFUNDED` or `DISPUTED`; failure is
 tracked as `FAILED`. All financial and fulfillment events carry provider
 references and are idempotent. Work does not start on a checkout redirect.
-The originating organization remains immutable. This checkpoint is deliberately
-conservative: the order foreign key blocks physical project deletion and the
-integrity trigger blocks project transfer for **every** order row, including
-`CANCELED`, `EXPIRED` and `REFUNDED`. That is a temporary fail-closed gate,
-not a finished retention/lifecycle policy. Before release, integrate with #267's
-fresh Organization → Project transfer hold and billing fingerprint on the
-merged main. Define which pending/paid/refund/dispute obligations require a
-hard hold, how completed historical orders retain immutable original project
-and merchant attribution after project lifecycle changes, and a reviewed
-archival/retention path for completed evidence. Never erase paid history or
-silently transfer a late-payment/refund obligation to the new workspace.
+
+The order's original `organizationId` and `projectId` never change. Its
+`activeProjectId` is a separate live reference. The database holds a project
+transfer or deletion while an order is quoted, payment-pending, paid, in work,
+delivered, refund-pending, disputed or failed. An `EXPIRED` order or a
+`CANCELED` order with **no durable Checkout attempt and no payment identity**
+can detach. A `REFUNDED` receipt can detach only with persisted Checkout,
+PaymentIntent, payment and full-refund references. An unbound Checkout attempt
+remains unresolved even after its retry window expires; age never silently
+proves that no payment happened. Transfer and deletion clear only the live
+reference, never the immutable origin, quote, item, event or payment evidence.
+The integrity script backfills legacy live references once and marks detached
+receipts so reruns cannot reattach them. A later verified dispute on a detached
+refunded receipt still maps to its originating merchant.
+
+This is a reference-detachment path, **not** a retention period or permission
+to erase historical translation/payment content. Before release, integrate
+the hold with #267's fresh Organization → Project transfer contract on merged
+main and record the actual privacy/retention policy. Never move a late-payment
+or refund obligation to the destination workspace. Detached history is not
+available through a new manager/vendor project capability; only provider
+reconciliation may update its financial state. The source organization's own
+deletion and merchant-account retention policy also needs an explicit decision
+before launch; an immutable organization ID and Stripe object IDs preserve
+attribution, but do not themselves assign an operational dispute owner.
 
 One-time Stripe Checkout uses the accepted quote's amount and currency only.
 The server reserves a durable idempotency key in a short transaction, calls
 Stripe outside the Organization → Project locks, then binds the returned
 Session in a second transaction. A lost response retries the same key for at
 most 23 hours; after that, an unbound attempt fails closed for merchant
-reconciliation. Session and PaymentIntent identity, mode, paid state, quote
+reconciliation. Signed Checkout success/failure events additionally require a
+durable prior Checkout attempt; a canceled quote with no dispatch cannot be
+turned into a paid order by an unexpected event. Session and PaymentIntent identity, mode, paid state, quote
 reference, scope digest, originating organization, amount and currency are
 retrieved and checked server-side after a signed webhook. Untrusted redirect
 parameters or webhook metadata alone cannot mark payment. A synthetic
@@ -105,9 +121,12 @@ For a disposable local PostgreSQL database only: apply `npx prisma db push`,
 then run `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f
 scripts/sql/professional-order-integrity.sql` twice. The script is additive
 and idempotent and creates DB triggers preventing scope/quote/delivery/event
-mutation. The triggers are required for launch because Prisma schema push does
+mutation, holding unresolved project lifecycle changes and detaching terminal
+receipts. The triggers are required for launch because Prisma schema push does
 not create them. Verify `pg_trigger` names and that attempts to update order
-scope and order item source text fail. Run the focused unit and local integration
+scope and order item source text fail. Also verify that an unresolved Checkout
+blocks transfer/deletion and terminal receipts retain their immutable origin
+after detachment. Run the focused unit and local integration
 tests using `DEEPGLOT_ORDER_TEST_DATABASE_URL` pointed only at the disposable
 instance. Never point that variable at Neon or a customer database.
 

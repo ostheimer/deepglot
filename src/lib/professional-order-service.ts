@@ -20,8 +20,8 @@ function changed() { return new ProfessionalOrderError("CONFLICT", "Order change
 async function assertActiveVendorGrant(tx: Prisma.TransactionClient, orderId: string, grantId: string) {
   const grant = await tx.professionalTranslationVendorGrant.findFirst({ where: { id: grantId, orderId, revokedAt: null, expiresAt: { gt: new Date() } }, select: { id: true } });
   if (!grant) throw new ProfessionalOrderError("FORBIDDEN", "Vendor access expired or was revoked.");
-  const order = await tx.professionalTranslationOrder.findUnique({ where: { id: orderId }, select: { organizationId: true, project: { select: { organizationId: true } } } });
-  if (!order?.organizationId || order.organizationId !== order.project.organizationId) throw new ProfessionalOrderError("FORBIDDEN", "Order ownership changed.");
+  const order = await tx.professionalTranslationOrder.findUnique({ where: { id: orderId }, select: { organizationId: true, projectId: true, project: { select: { id: true, organizationId: true } } } });
+  if (!order?.organizationId || !order.project || order.project.id !== order.projectId || order.organizationId !== order.project.organizationId) throw new ProfessionalOrderError("FORBIDDEN", "Order ownership changed.");
 }
 
 export async function createProfessionalOrder(input: { projectId: string; requesterId: string; translationIds: string[]; targetLanguage: string }) {
@@ -45,7 +45,7 @@ export async function createProfessionalOrder(input: { projectId: string; reques
     if (!Number.isSafeInteger(wordCount) || wordCount === 0) throw new ProfessionalOrderError("INVALID", "Scope has no translatable words.");
     return tx.professionalTranslationOrder.create({
       data: {
-        projectId: input.projectId, organizationId: scope.organizationId, requesterId: input.requesterId,
+        projectId: input.projectId, activeProjectId: input.projectId, organizationId: scope.organizationId, requesterId: input.requesterId,
         sourceLanguage: scope.sourceLanguage, targetLanguage: input.targetLanguage,
         scopeDigest: scopeDigest(snapshots, scope.sourceLanguage, input.targetLanguage), wordCount,
         items: { create: snapshots.map((item) => ({ translationId: item.translationId, originalHash: item.originalHash, originalText: item.originalText, sourceUpdatedAt: item.sourceUpdatedAt })) },
@@ -62,7 +62,7 @@ export async function issueVendorGrant(input: { orderId: string; projectId: stri
   const expiresAt = new Date(Date.now() + MAX_VENDOR_TOKEN_DAYS * 86_400_000);
   await db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, organizationId: true, sourceLanguage: true, targetLanguage: true } });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, activeProjectId: input.projectId }, select: { status: true, organizationId: true, sourceLanguage: true, targetLanguage: true } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
     assertProfessionalOrderOwner(scope, order.organizationId);
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
@@ -95,7 +95,7 @@ export async function acceptProfessionalQuote(input: { orderId: string; projectI
   await expireProfessionalQuotes(input.projectId, input.actorId);
   return db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, organizationId: true, sourceLanguage: true, targetLanguage: true, quoteExpiresAt: true, scopeDigest: true, quoteReference: true, items: { select: { translationId: true, originalHash: true, sourceUpdatedAt: true } } } });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, activeProjectId: input.projectId }, select: { status: true, organizationId: true, sourceLanguage: true, targetLanguage: true, quoteExpiresAt: true, scopeDigest: true, quoteReference: true, items: { select: { translationId: true, originalHash: true, sourceUpdatedAt: true } } } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
     assertProfessionalOrderOwner(scope, order.organizationId);
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
@@ -118,7 +118,7 @@ export async function expireProfessionalQuotes(projectId: string, actorId: strin
   requireProfessionalOrdersEnabled();
   return db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, { projectId, actorId });
-    return tx.professionalTranslationOrder.updateMany({ where: { projectId, organizationId: scope.organizationId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
+    return tx.professionalTranslationOrder.updateMany({ where: { projectId, activeProjectId: projectId, organizationId: scope.organizationId, status: "QUOTED", quoteExpiresAt: { lte: new Date() } }, data: { status: "EXPIRED" } });
   }, txOptions);
 }
 
@@ -202,12 +202,12 @@ export async function adoptProfessionalDelivery(input: { orderId: string; projec
   requireProfessionalOrdersEnabled();
   return db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, status: "DELIVERED" }, select: { organizationId: true, sourceLanguage: true, targetLanguage: true } });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, activeProjectId: input.projectId, status: "DELIVERED" }, select: { organizationId: true, sourceLanguage: true, targetLanguage: true } });
     if (!order) throw changed();
     assertProfessionalOrderOwner(scope, order.organizationId);
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
     const item = await tx.professionalTranslationOrderItem.findFirst({
-      where: { id: input.itemId, orderId: input.orderId, order: { projectId: input.projectId, status: "DELIVERED" }, proposedText: { not: null }, adoptedAt: null },
+      where: { id: input.itemId, orderId: input.orderId, order: { projectId: input.projectId, activeProjectId: input.projectId, status: "DELIVERED" }, proposedText: { not: null }, adoptedAt: null },
       select: { translationId: true, proposedText: true, originalHash: true, sourceUpdatedAt: true },
     });
     if (!item || !item.proposedText) throw changed();
@@ -241,7 +241,7 @@ export async function cancelProfessionalOrder(input: { orderId: string; projectI
   requireProfessionalOrdersEnabled();
   return db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, { projectId: input.projectId, actorId: input.actorId });
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId }, select: { status: true, organizationId: true, sourceLanguage: true, targetLanguage: true } });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, activeProjectId: input.projectId }, select: { status: true, organizationId: true, sourceLanguage: true, targetLanguage: true } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
     assertProfessionalOrderOwner(scope, order.organizationId);
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);

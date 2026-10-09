@@ -1,6 +1,31 @@
 -- Apply after prisma db push, before enabling professional orders. Safe to rerun.
 -- Financial/order evidence is retained; operational cancellation is a state change.
 BEGIN;
+-- A terminal historical receipt can outlive its live project. A Checkout
+-- dispatch with an unknown outcome is never considered terminal by age alone.
+CREATE OR REPLACE FUNCTION deepglot_professional_order_unresolved(o "ProfessionalTranslationOrder") RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  SELECT NOT (o."organizationId" IS NOT NULL AND (
+    (o."status" IN ('EXPIRED', 'CANCELED') AND
+     o."checkoutRequestKey" IS NULL AND o."checkoutAttemptedAt" IS NULL AND
+     o."stripeCheckoutSessionId" IS NULL AND o."stripePaymentIntentId" IS NULL AND
+     o."paymentReference" IS NULL AND o."paidAt" IS NULL)
+    OR
+    (o."status" = 'REFUNDED' AND o."checkoutRequestKey" IS NOT NULL AND
+     o."checkoutAttemptedAt" IS NOT NULL AND
+     o."stripeCheckoutSessionId" IS NOT NULL AND o."stripePaymentIntentId" IS NOT NULL AND
+     o."paymentReference" IS NOT NULL AND o."paidAt" IS NOT NULL AND
+     o."refundReference" IS NOT NULL)
+  ))
+$$;
+
+-- Backfill only rows from the pre-detachment schema. An intentionally
+-- detached row is marked and is never reattached on rerun.
+UPDATE "ProfessionalTranslationOrder" o
+SET "activeProjectId" = o."projectId"
+WHERE o."activeProjectId" IS NULL AND o."projectDetachedAt" IS NULL
+  AND EXISTS (SELECT 1 FROM "Project" p WHERE p."id" = o."projectId");
+
 CREATE OR REPLACE FUNCTION deepglot_professional_order_immutable() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -26,6 +51,18 @@ BEGIN
      (OLD."paidAt" IS NOT NULL AND NEW."paidAt" IS DISTINCT FROM OLD."paidAt") THEN
     RAISE EXCEPTION 'professional order payment identity is immutable';
   END IF;
+  IF NEW."activeProjectId" IS NOT NULL AND
+     (NEW."activeProjectId" IS DISTINCT FROM NEW."projectId" OR NEW."projectDetachedAt" IS NOT NULL) THEN
+    RAISE EXCEPTION 'professional order live project reference is invalid';
+  END IF;
+  IF OLD."projectDetachedAt" IS NOT NULL AND
+     (NEW."projectDetachedAt" IS DISTINCT FROM OLD."projectDetachedAt" OR NEW."activeProjectId" IS NOT NULL) THEN
+    RAISE EXCEPTION 'professional order detachment is immutable';
+  END IF;
+  IF OLD."activeProjectId" IS NOT NULL AND NEW."activeProjectId" IS NULL AND
+     (NEW."projectDetachedAt" IS NULL OR deepglot_professional_order_unresolved(OLD)) THEN
+    RAISE EXCEPTION 'unresolved professional order cannot detach';
+  END IF;
   RETURN NEW;
 END;
 $$;
@@ -34,22 +71,36 @@ DROP TRIGGER IF EXISTS professional_order_immutable ON "ProfessionalTranslationO
 CREATE TRIGGER professional_order_immutable BEFORE UPDATE OR DELETE ON "ProfessionalTranslationOrder"
 FOR EACH ROW EXECUTE FUNCTION deepglot_professional_order_immutable();
 
--- Preserve the originating billing owner and financial obligations. A project
--- with order evidence must be reconciled explicitly before any workspace move.
-CREATE OR REPLACE FUNCTION deepglot_professional_order_transfer_guard() RETURNS trigger
+-- Org -> Project locks in manager writes serialize with this Project mutation.
+-- Detach only terminal receipts; unresolved orders keep the live project and
+-- must be settled/reconciled by their originating merchant first.
+CREATE OR REPLACE FUNCTION deepglot_professional_order_project_guard() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  IF NEW."organizationId" IS DISTINCT FROM OLD."organizationId" AND EXISTS (
-    SELECT 1 FROM "ProfessionalTranslationOrder" WHERE "projectId" = OLD."id"
-  ) THEN
-    RAISE EXCEPTION 'professional order ownership requires reconciliation before transfer';
+  IF TG_OP = 'DELETE' THEN
+    NULL;
+  ELSIF NEW."organizationId" IS NOT DISTINCT FROM OLD."organizationId" THEN
+    RETURN NEW;
   END IF;
+    IF EXISTS (
+      SELECT 1 FROM "ProfessionalTranslationOrder" o
+      WHERE o."projectId" = OLD."id" AND
+        (deepglot_professional_order_unresolved(o) OR
+         (o."activeProjectId" IS NULL AND o."projectDetachedAt" IS NULL))
+    ) THEN
+      RAISE EXCEPTION 'unresolved professional order blocks project lifecycle change';
+    END IF;
+    UPDATE "ProfessionalTranslationOrder"
+      SET "activeProjectId" = NULL, "projectDetachedAt" = now()
+      WHERE "projectId" = OLD."id" AND "activeProjectId" = OLD."id";
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END;
 $$;
 DROP TRIGGER IF EXISTS professional_order_transfer_guard ON "Project";
-CREATE TRIGGER professional_order_transfer_guard BEFORE UPDATE OF "organizationId" ON "Project"
-FOR EACH ROW EXECUTE FUNCTION deepglot_professional_order_transfer_guard();
+DROP TRIGGER IF EXISTS professional_order_project_guard ON "Project";
+CREATE TRIGGER professional_order_project_guard BEFORE UPDATE OF "organizationId" OR DELETE ON "Project"
+FOR EACH ROW EXECUTE FUNCTION deepglot_professional_order_project_guard();
 
 CREATE OR REPLACE FUNCTION deepglot_professional_order_item_immutable() RETURNS trigger
 LANGUAGE plpgsql AS $$

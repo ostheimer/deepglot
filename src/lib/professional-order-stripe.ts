@@ -79,7 +79,7 @@ export async function beginProfessionalCheckout(
   }
   const reserved = await db.$transaction(async (tx) => {
     const scope = await lockProfessionalOrderManagerScope(tx, input);
-    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId } });
+    const order = await tx.professionalTranslationOrder.findFirst({ where: { id: input.orderId, projectId: input.projectId, activeProjectId: input.projectId } });
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
     assertProfessionalOrderOwner(scope, order.organizationId);
     assertProfessionalOrderLanguage(scope, order.sourceLanguage, order.targetLanguage);
@@ -117,7 +117,7 @@ export async function beginProfessionalCheckout(
     const current = await tx.professionalTranslationOrder.findUniqueOrThrow({ where: { id: order.id } });
     assertProfessionalOrderOwner(scope, current.organizationId);
     assertProfessionalOrderLanguage(scope, current.sourceLanguage, current.targetLanguage);
-    if (current.checkoutRequestKey !== order.checkoutRequestKey || current.status !== "PAYMENT_PENDING" ||
+    if (current.activeProjectId !== input.projectId || current.checkoutRequestKey !== order.checkoutRequestKey || current.status !== "PAYMENT_PENDING" ||
         (current.stripeCheckoutSessionId && current.stripeCheckoutSessionId !== session.id)) throw conflict();
     await tx.professionalTranslationOrder.update({ where: { id: order.id }, data: { stripeCheckoutSessionId: session.id } });
   }, txOptions);
@@ -134,6 +134,7 @@ export async function applyProfessionalStripeEvent(event: Stripe.Event, stripe: 
     if (!orderId) throw conflict();
     const order = await paymentOrder(orderId);
     if (!order) throw new ProfessionalOrderError("NOT_FOUND", "Order not found.");
+    if (!order.checkoutRequestKey || !order.checkoutAttemptedAt) throw conflict("No durable Checkout attempt exists for this order.");
     const failed = event.type === "checkout.session.async_payment_failed";
     const latestSession = await stripe.checkout.sessions.retrieve(eventSession.id);
     const { session, intentId } = await verifiedSession(stripe, order, eventSession.id, !failed && latestSession.payment_status === "paid");

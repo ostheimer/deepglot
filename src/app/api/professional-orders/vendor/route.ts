@@ -17,9 +17,9 @@ async function authorize(request: NextRequest) {
   const token = authorization.slice(7);
   const grant = await db.professionalTranslationVendorGrant.findUnique({
     where: { tokenHash: hashVendorToken(token) },
-    select: { id: true, orderId: true, tokenHash: true, expiresAt: true, revokedAt: true, order: { select: { organizationId: true, project: { select: { organizationId: true } } } } },
+    select: { id: true, orderId: true, tokenHash: true, expiresAt: true, revokedAt: true, order: { select: { organizationId: true, projectId: true, project: { select: { id: true, organizationId: true } } } } },
   });
-  if (!grant || grant.revokedAt || grant.expiresAt <= new Date() || !vendorTokenMatches(token, grant.tokenHash) || !grant.order.organizationId || grant.order.organizationId !== grant.order.project.organizationId) return null;
+  if (!grant || grant.revokedAt || grant.expiresAt <= new Date() || !vendorTokenMatches(token, grant.tokenHash) || !grant.order.organizationId || !grant.order.project || grant.order.project.id !== grant.order.projectId || grant.order.organizationId !== grant.order.project.organizationId) return null;
   return grant;
 }
 
