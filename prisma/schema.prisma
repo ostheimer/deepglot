@@ -112,6 +112,8 @@ model Organization {
   autoUpgradePreference AutoUpgradePreference?
   autoUpgradeAttempts AutoUpgradeAttempt[]
   autoUpgradeNotifications AutoUpgradeNotification[]
+  aiBudgets AiBudget[]
+  aiSpendReservations AiSpendReservation[]
 }
 
 /// Dedup marker for the monthly word-quota warning emails to the org owner.
@@ -270,6 +272,109 @@ model Project {
   translationBatchLogs TranslationBatchLog[]
   webhookEndpoints WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
+  aiBudget AiBudget?
+  aiSpendReservations AiSpendReservation[]
+}
+
+/// Approval is explicit. A missing row is a deny, including for legacy tenants.
+/// An organization row has projectId NULL; a project row has its projectId.
+/// The SQL migration adds a partial unique index for the organization row.
+model AiBudget {
+  id String @id @default(cuid())
+  organizationId String
+  projectId String? @unique
+  currency String @db.VarChar(3)
+  capMicros BigInt
+  perCallCapMicros BigInt
+  warningPercent Int
+  period String // MONTHLY_UTC; no rollover
+  approvedByUserId String
+  approvedAt DateTime @default(now())
+  revision Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  models AiBudgetModel[]
+
+  @@index([organizationId])
+}
+
+/// Owner-approved conservative price ceilings, never live or inferred prices.
+/// micros are 1/1,000,000 of the configured currency per 1,000,000 units.
+model AiBudgetModel {
+  id String @id @default(cuid())
+  budgetId String
+  provider String
+  model String
+  unit String // TOKEN, CHARACTER or ZERO_COST
+  inputMicrosPerMillion BigInt
+  outputMicrosPerMillion BigInt
+  maxInputUnits Int
+  maxOutputUnits Int
+  outputCapVerified Boolean @default(false)
+  priceExpiresAt DateTime
+  approvedAt DateTime @default(now())
+  budget AiBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetId, provider, model])
+}
+
+/// Dispatch is durable before HTTP. Incomplete/unknown usage keeps its full
+/// reserved ceiling; no stale lease or retry may re-dispatch the same key.
+model AiSpendReservation {
+  id String @id @default(cuid())
+  organizationId String
+  projectId String
+  requestKeyHash String
+  requestGroupHash String
+  dispatchId String
+  actorKind String // USER or API_KEY
+  actorId String
+  action String
+  provider String
+  model String
+  currency String @db.VarChar(3)
+  periodKey Int // YYYYMM in UTC
+  state String // DISPATCHED, SETTLED, UNKNOWN
+  reservedMicros BigInt
+  reconciledCeilingMicros BigInt?
+  estimatedInputUnits Int
+  maxOutputUnits Int
+  orgInputMicrosPerMillion BigInt
+  orgOutputMicrosPerMillion BigInt
+  projectInputMicrosPerMillion BigInt
+  projectOutputMicrosPerMillion BigInt
+  actualInputUnits Int?
+  actualOutputUnits Int?
+  unit String
+  dispatchedAt DateTime @default(now())
+  settledAt DateTime?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, requestKeyHash])
+  @@index([organizationId, periodKey])
+  @@index([projectId, periodKey])
+  @@index([organizationId, requestGroupHash])
+}
+
+/// Durable, tenant-scoped approval and alert markers. Contains no content.
+model AiBudgetEvent {
+  id String @id @default(cuid())
+  organizationId String
+  projectId String?
+  budgetId String
+  kind String
+  periodKey Int?
+  threshold Int?
+  actorId String?
+  revision Int?
+  snapshot Json?
+  createdAt DateTime @default(now())
+
+  @@unique([budgetId, kind, periodKey, threshold])
+  @@index([organizationId, createdAt])
 }
 
 /// Immutable receipt for a committed workspace boundary change. No key, URL,

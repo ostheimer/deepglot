@@ -1,0 +1,164 @@
+import crypto from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { aiBudgetPolicyInput } from "@/lib/ai-budget-policy";
+import { lockAiSpendScope, preflightAiSpend } from "@/lib/ai-budget";
+import { AiBudgetError, utcPeriodKey } from "@/lib/ai-budget-math";
+import { userCanManageProject } from "@/lib/project-access";
+import { z } from "zod";
+
+export const runtime = "nodejs";
+
+async function context(projektId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  if (!(await userCanManageProject(session.user.id, projektId))) return null;
+  const project = await db.project.findUnique({ where: { id: projektId }, select: { organizationId: true } });
+  return project ? { userId: session.user.id, organizationId: project.organizationId } : null;
+}
+
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const { projektId } = await params;
+  const access = await context(projektId);
+  if (!access) return NextResponse.json({ code: "not_found" }, { status: 404 });
+  const budgets = await db.aiBudget.findMany({
+    where: { organizationId: access.organizationId, OR: [{ projectId: null }, { projectId: projektId }] },
+    include: { models: true },
+  });
+  const periodKey = utcPeriodKey(new Date());
+  const spend = await db.$queryRaw<Array<{ organizationMicros: bigint; projectMicros: bigint }>>`
+    SELECT
+      COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")), 0)::bigint AS "organizationMicros",
+      COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")) FILTER (WHERE "projectId" = ${projektId}), 0)::bigint AS "projectMicros"
+    FROM "AiSpendReservation"
+    WHERE "organizationId" = ${access.organizationId} AND "periodKey" = ${periodKey}
+  `;
+  const events = await db.aiBudgetEvent.findMany({
+    where: { organizationId: access.organizationId, OR: [{ projectId: null }, { projectId: projektId }] },
+    orderBy: { createdAt: "desc" }, take: 20,
+    select: { id: true, budgetId: true, kind: true, periodKey: true,
+      threshold: true, actorId: true, revision: true, snapshot: true, createdAt: true },
+  });
+  const recentSpend = await db.aiSpendReservation.findMany({
+    where: { projectId: projektId, organizationId: access.organizationId },
+    orderBy: { dispatchedAt: "desc" }, take: 20,
+    select: { id: true, action: true, provider: true, model: true, currency: true,
+      state: true, unit: true, estimatedInputUnits: true, actualInputUnits: true,
+      actualOutputUnits: true, reservedMicros: true, reconciledCeilingMicros: true,
+      periodKey: true, dispatchedAt: true, settledAt: true },
+  });
+  const serialize = (projectId: string | null) => {
+    const budget = budgets.find((item) => item.projectId === projectId);
+    if (!budget) return null;
+    return {
+      id: budget.id, revision: budget.revision, scope: projectId ? "project" : "organization",
+      currency: budget.currency, capMicros: budget.capMicros.toString(),
+      perCallCapMicros: budget.perCallCapMicros.toString(), warningPercent: budget.warningPercent,
+      period: budget.period, approvedAt: budget.approvedAt.toISOString(),
+      models: budget.models.map((model) => ({
+        provider: model.provider, model: model.model, unit: model.unit,
+        inputMicrosPerMillion: model.inputMicrosPerMillion.toString(),
+        outputMicrosPerMillion: model.outputMicrosPerMillion.toString(),
+        maxInputUnits: model.maxInputUnits, maxOutputUnits: model.maxOutputUnits,
+        outputCapVerified: model.outputCapVerified,
+        priceExpiresAt: model.priceExpiresAt.toISOString(),
+      })),
+    };
+  };
+  return NextResponse.json({
+    organization: serialize(null), project: serialize(projektId), periodKey,
+    organizationCommittedMicros: (spend[0]?.organizationMicros ?? BigInt(0)).toString(),
+    projectCommittedMicros: (spend[0]?.projectMicros ?? BigInt(0)).toString(),
+    events,
+    recentSpend: recentSpend.map((item) => ({ ...item,
+      reservedMicros: item.reservedMicros.toString(),
+      reconciledCeilingMicros: item.reconciledCeilingMicros?.toString() ?? null })),
+    wordQuotaIsSeparate: true, platformCreditsIncluded: false,
+  });
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const { projektId } = await params;
+  const access = await context(projektId);
+  if (!access) return NextResponse.json({ code: "not_found" }, { status: 404 });
+  const parsed = aiBudgetPolicyInput.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ code: "invalid_budget", issues: parsed.error.flatten() }, { status: 400 });
+  const input = parsed.data;
+  try {
+    const result = await db.$transaction(async (tx) => {
+      await lockAiSpendScope(tx, access.organizationId, projektId);
+      // Recheck the role under the same organization row lock used by transfer
+      // and spend admission; a revoked owner cannot race an approval through.
+      const membership = await tx.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: access.userId, organizationId: access.organizationId } },
+        select: { role: true },
+      });
+      if (membership?.role !== "OWNER") return { kind: "forbidden" } as const;
+      const projectId = input.scope === "project" ? projektId : null;
+      const existing = await tx.aiBudget.findFirst({ where: { organizationId: access.organizationId, projectId } });
+      const approvedAt = new Date();
+      const budget = existing
+        ? await tx.aiBudget.update({
+            where: { id: existing.id },
+            data: { currency: input.currency, capMicros: BigInt(input.capMicros),
+              perCallCapMicros: BigInt(input.perCallCapMicros), warningPercent: input.warningPercent,
+              period: input.period, approvedByUserId: access.userId, approvedAt,
+              revision: { increment: 1 } },
+          })
+        : await tx.aiBudget.create({
+            data: { organizationId: access.organizationId, projectId,
+              currency: input.currency, capMicros: BigInt(input.capMicros),
+              perCallCapMicros: BigInt(input.perCallCapMicros), warningPercent: input.warningPercent,
+              period: input.period, approvedByUserId: access.userId, approvedAt },
+          });
+      await tx.aiBudgetModel.deleteMany({ where: { budgetId: budget.id } });
+      await tx.aiBudgetModel.createMany({
+        data: input.models.map((model) => ({ id: crypto.randomUUID(), budgetId: budget.id,
+          provider: model.provider, model: model.model, unit: model.unit,
+          inputMicrosPerMillion: BigInt(model.inputMicrosPerMillion),
+          outputMicrosPerMillion: BigInt(model.outputMicrosPerMillion),
+          maxInputUnits: model.maxInputUnits, maxOutputUnits: model.maxOutputUnits,
+          outputCapVerified: model.outputCapVerified,
+          priceExpiresAt: new Date(model.priceExpiresAt), approvedAt })),
+      });
+      await tx.aiBudgetEvent.create({
+        data: { organizationId: access.organizationId, projectId, budgetId: budget.id,
+          kind: "APPROVED", actorId: access.userId, revision: budget.revision,
+          snapshot: input },
+      });
+      return { kind: "approved", scope: input.scope, revision: budget.revision } as const;
+    });
+    if (result.kind === "forbidden") return NextResponse.json({ code: "owner_required" }, { status: 403 });
+    return NextResponse.json(result);
+  } catch {
+    return NextResponse.json({ code: "budget_unavailable" }, { status: 503 });
+  }
+}
+
+const preflightInput = z.object({
+  action: z.enum(["TRANSLATION", "CONTEXT_TRANSLATION", "BULK_TRANSLATION", "AI_EDIT", "REWRITE", "IMPROVE"]),
+  provider: z.string().min(1).max(80), model: z.string().min(1).max(160),
+  inputUnits: z.number().int().min(0).max(10_000_000),
+  outputUnits: z.number().int().min(0).max(100_000),
+});
+
+/** Read-only, bounded estimate; the dispatcher still makes the final decision. */
+export async function POST(request: NextRequest, { params }: { params: Promise<{ projektId: string }> }) {
+  const { projektId } = await params;
+  const access = await context(projektId);
+  if (!access) return NextResponse.json({ code: "not_found" }, { status: 404 });
+  const parsed = preflightInput.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ code: "invalid_preflight" }, { status: 400 });
+  try {
+    const result = await preflightAiSpend({
+      organizationId: access.organizationId, projectId: projektId,
+      provider: parsed.data.provider, model: parsed.data.model,
+      inputUnits: parsed.data.inputUnits, outputUnits: parsed.data.outputUnits,
+    });
+    return NextResponse.json({ ...result, action: parsed.data.action });
+  } catch (error) {
+    if (error instanceof AiBudgetError) return NextResponse.json({ code: error.code, detail: error.message }, { status: 409 });
+    return NextResponse.json({ code: "budget_unavailable" }, { status: 503 });
+  }
+}

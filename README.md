@@ -550,6 +550,8 @@ For server-side return URLs such as the Stripe Billing Portal:
 
 ## Translation providers
 
+AI provider spending has a separate, explicit owner approval gate. An organization OWNER must approve both organization and project monthly caps, per-call caps, exact model/provider allowlists, and expiring conservative price ceilings in Project Settings → Language model → AI budget. Missing or stale approval blocks fresh provider calls; plan word quotas do not grant provider spending. `POST /api/projects/{projectId}/ai-budget` returns a read-only ceiling estimate; dispatch reserves atomically and settles provider usage separately. No credits, budget increases, plan changes, or paid media generation are triggered automatically. See [AI budget governance](docs/ai-budget-governance.md) for units, retry/unknown usage behavior, schema rollout, and the existing-customer activation gate.
+
 The translation flow uses a provider abstraction:
 
 - `TRANSLATION_PROVIDER` accepts `openai`, `openrouter`, `ollama`, `openai-compatible`, `deepl`, `gemini`, or `mock`.

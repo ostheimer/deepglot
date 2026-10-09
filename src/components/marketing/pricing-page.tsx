@@ -9,11 +9,13 @@ const PAGE_COPY = {
   en: {
     title: "Simple, fair pricing",
     description: "Start for free. No credit card required.",
+    aiCosts: "Plan word quotas are separate from external AI provider charges. New provider spending requires explicit organization and project budget approvals; no credits or plan upgrades are purchased automatically.",
     eyebrow: "Fair by design",
   },
   de: {
     title: "Einfache, faire Preise",
     description: "Kostenlos starten, keine Kreditkarte erforderlich.",
+    aiCosts: "Wortkontingente der Tarife sind von externen KI-Anbieterkosten getrennt. Neue Anbieteraufrufe benötigen ausdrücklich freigegebene Organisations- und Projektbudgets; Credits oder Tarif-Upgrades werden nie automatisch gekauft.",
     eyebrow: "Fair aus Prinzip",
   },
 } as const;
@@ -38,6 +40,7 @@ export async function PricingPage({ locale }: PricingPageProps) {
           {copy.title}
         </h1>
         <p className="text-lg text-[#58636d]">{copy.description}</p>
+        <p className="mx-auto mt-4 max-w-3xl text-sm text-[#58636d]">{copy.aiCosts}</p>
       </div>
 
       <div className="pt-14">

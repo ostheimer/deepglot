@@ -61,6 +61,8 @@ export type TranslationProviderConfig = {
   model?: string;
   baseUrl?: string;
   apiKey?: string;
+  maxOutputUnits?: number;
+  onUsage?: (usage: { inputUnits: number; outputUnits: number }) => void;
 };
 
 export type LanguageModelApiResponse = {

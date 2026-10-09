@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
+import { AiBudgetError } from "@/lib/ai-budget-math";
+import { reserveAiSpend, settleAiSpend } from "@/lib/ai-budget";
+import { validateTranslationProviderConfig } from "@/lib/translation-config";
 import { recordTranslationContexts } from "@/lib/translation-context";
 import { glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
 import { buildTranslationContext } from "@/lib/translation-context-settings";
@@ -741,6 +745,9 @@ export async function executeAuthenticatedTranslateRequest(
       // the conservative velocity charge.
       velocityReservation = null;
       forceRetranslate?.onProviderDispatch?.();
+      const requestGroupKey = `${apiKeyRecord.id}:${req.headers.get("Idempotency-Key")?.trim() || crypto.randomUUID()}`;
+      const dispatchId = crypto.randomUUID();
+      let attemptNumber = 0;
       const results: Awaited<ReturnType<typeof translateTexts>> =
         await translateTexts(
           {
@@ -751,6 +758,36 @@ export async function executeAuthenticatedTranslateRequest(
           },
           undefined,
           providerSettings,
+          {
+            spendControl: {
+              beforeAttempt: async (candidate, input) => {
+                validateTranslationProviderConfig(candidate);
+                const sequence = attemptNumber++;
+                const approval = await reserveAiSpend({
+                  organizationId: project.organizationId,
+                  projectId: project.id,
+                  requestGroupKey,
+                  dispatchId,
+                  requestKey: `${requestGroupKey}:${sequence}`,
+                  actorKind: "API_KEY",
+                  actorId: apiKeyRecord.id,
+                  action: "TRANSLATION",
+                  sourceLang: l_from,
+                  targetLang: l_to,
+                  expectedSettingsUpdatedAt: providerSettings?.updatedAt.toISOString() ?? null,
+                  provider: candidate.provider,
+                  model: candidate.model || candidate.provider,
+                  input,
+                });
+                return {
+                  maxOutputUnits: approval.maxOutputUnits,
+                  settle: async (usage?: { inputUnits: number; outputUnits: number }) => {
+                    await settleAiSpend(approval.reservationId, usage);
+                  },
+                };
+              },
+            },
+          },
         );
 
       const enabledTranslationWebhookEvents = await db.webhookEndpoint.findMany(
@@ -1156,6 +1193,23 @@ export async function executeAuthenticatedTranslateRequest(
       to_words: translatedTexts,
     });
   } catch (error) {
+    if (error instanceof AiBudgetError) {
+      const german = req.headers.get("accept-language")?.toLowerCase().startsWith("de") ?? false;
+      const details: Record<string, [string, string]> = {
+        budget_unapproved: ["KI-Budget fehlt. Eine Workspace-Inhaberin oder ein Workspace-Inhaber muss Organisation und Projekt freigeben.", "AI budget missing. A workspace owner must approve both organization and project."],
+        budget_exhausted: ["Das freigegebene KI-Budget reicht für diesen Aufruf nicht aus.", "The approved AI budget has insufficient headroom for this call."],
+        model_not_approved: ["Anbieter oder Modell ist nicht freigegeben. Auch Fallback-Modelle benötigen eine eigene Freigabe.", "Provider or model is not approved. Fallback models also need approval."],
+        price_stale: ["Die Preisobergrenze ist abgelaufen. Bitte eine neue Freigabe einholen.", "The price ceiling has expired. Request a new approval."],
+        spend_already_dispatched: ["Dieser Auftrag hat bereits einen Anbieter erreicht. Bitte den Abrechnungsstatus prüfen, bevor er wiederholt wird.", "This request has already reached a provider. Check settlement before retrying."],
+      };
+      return apiProblem({
+        status: error.code === "budget_unavailable" ? 503 : 409,
+        title: german ? "KI-Ausgabe gesperrt" : "AI spend blocked",
+        detail: (details[error.code] ?? ["KI-Ausgabe gesperrt. Bitte Budget und Anbieterpreis prüfen.", "AI spend blocked. Check the budget and provider price ceiling."])[german ? 0 : 1],
+        code: error.code,
+        instance: "/api/translate",
+      });
+    }
     if (error instanceof TranslationCountMismatchDeadlineError) {
       return apiProblem({
         status: 503,

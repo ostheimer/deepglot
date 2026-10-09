@@ -100,6 +100,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#auto-upgrade" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Automatische Planerhöhung" : "Automatic plan upgrade"}
             </a>
+            <a href="#ai-budget" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "KI-Budget" : "AI budget"}
+            </a>
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
             </a>
@@ -144,6 +147,15 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <p className="mt-3 max-w-3xl leading-7 text-[#35424b]">{de
               ? "Stripe kann sofort eine anteilige Rechnung stellen. Bei fehlgeschlagener Zahlung oder notwendiger Bestätigung bleibt das bisherige Wortkontingent erhalten. Der Verlauf in der Plan-Übersicht zeigt Versuche und bestätigte Erhöhungen. Deaktivieren verhindert neue Versuche, ändert aber ein bereits bezahltes Abonnement nicht rückwirkend."
               : "Stripe may issue an immediate prorated invoice. If payment fails or requires action, the existing word allowance remains. The plan overview shows attempted and confirmed upgrades. Disabling prevents new attempts; it does not undo an already paid subscription change."}</p>
+          </section>
+          <section id="ai-budget" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold">{de ? "KI-Kosten ausdrücklich freigeben" : "Approve AI costs explicitly"}</h2>
+            <p className="mt-5 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Eine Workspace-Inhaberin oder ein Workspace-Inhaber öffnet im Projekt Einstellungen → Sprachmodell → KI-Budget. Dort müssen Organisations- und Projektlimit getrennt freigegeben werden. Gib die Währung, ein Monatslimit, ein Limit je Anbieteraufruf, eine Warnschwelle und erlaubte Anbieter/Modelle mit konservativen Preisobergrenzen und Ablaufdatum an. Erst nach dem Speichern zeigt der unabhängige Readback die Freigabe. Ohne beide Freigaben bleibt neue KI-Arbeit gesperrt."
+              : "A workspace owner opens project Settings → Language model → AI budget. Organization and project limits must be approved separately. Enter a currency, monthly cap, per-call cap, warning threshold, and allowed provider/models with conservative price ceilings and an expiry date. The independent readback confirms the approval after saving. New AI work stays blocked until both scopes are approved."}</p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
+              ? "Preflight-Schätzungen sind unverbindliche Obergrenzen; vor jedem Anbieteraufruf wird erneut atomar reserviert. Fehlende oder veraltete Preise, unbekannte Usage und nicht freigegebene Fallback-Modelle werden konservativ behandelt. Das Wortkontingent des Tarifs ist kein Anbieterbudget. Deepglot kauft keine Credits und erhöht weder Budget noch Tarif automatisch."
+              : "Preflight estimates are indicative ceilings; each provider call repeats authorization and reserves atomically. Missing or expired prices, unknown usage, and unapproved fallback models are handled conservatively. A plan's word quota is not a provider budget. Deepglot does not buy credits or automatically raise a budget or plan."}</p>
           </section>
 
           <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">

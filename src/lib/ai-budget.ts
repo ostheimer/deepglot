@@ -1,0 +1,284 @@
+import crypto from "node:crypto";
+import type { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { canAccessProject, canAccessProjectLanguage } from "@/lib/project-access-policy";
+import {
+  AiBudgetError, conservativeInputUnits, quotedMicros, spendWithinCap, utcPeriodKey,
+  type ApprovedPrice, type AiPriceUnit,
+} from "@/lib/ai-budget-math";
+
+type BudgetWithModels = Prisma.AiBudgetGetPayload<{ include: { models: true } }>;
+
+export type AiSpendAttempt = {
+  organizationId: string;
+  projectId: string;
+  requestKey: string;
+  requestGroupKey: string;
+  dispatchId: string;
+  actorKind: "USER" | "API_KEY";
+  actorId: string;
+  sourceLang?: string;
+  targetLang?: string;
+  expectedSettingsUpdatedAt?: string | null;
+  action: string;
+  provider: string;
+  model: string;
+  input: unknown;
+};
+
+export type AiSpendApproval = {
+  reservationId: string;
+  currency: string;
+  reservedMicros: string;
+  inputUnits: number;
+  maxOutputUnits: number;
+  unit: AiPriceUnit;
+};
+
+export async function preflightAiSpend(input: {
+  organizationId: string; projectId: string; provider: string; model: string;
+  inputUnits: number; outputUnits: number;
+}) {
+  const project = await db.project.findFirst({
+    where: { id: input.projectId, organizationId: input.organizationId }, select: { id: true },
+  });
+  if (!project) throw new AiBudgetError("project_changed", "Project ownership changed.");
+  const budgets = await db.aiBudget.findMany({
+    where: { organizationId: input.organizationId, OR: [{ projectId: null }, { projectId: input.projectId }] },
+    include: { models: true },
+  });
+  const organizationBudget = budgets.find((item) => item.projectId === null);
+  const projectBudget = budgets.find((item) => item.projectId === input.projectId);
+  if (!organizationBudget || !projectBudget) throw new AiBudgetError("budget_unapproved", "Both organization and project budgets require owner approval.");
+  if (organizationBudget.currency !== projectBudget.currency ||
+      organizationBudget.period !== "MONTHLY_UTC" || projectBudget.period !== "MONTHLY_UTC") {
+    throw new AiBudgetError("budget_ambiguous", "Budget currency or period does not match.");
+  }
+  const orgPrice = approvedPrice(organizationBudget, input.provider, input.model);
+  const projectPrice = approvedPrice(projectBudget, input.provider, input.model);
+  if (orgPrice.unit !== projectPrice.unit) throw new AiBudgetError("price_ambiguous", "Approved price units do not match.");
+  const now = new Date();
+  const orgQuote = quotedMicros(orgPrice, input.inputUnits, input.outputUnits, now);
+  const projectQuote = quotedMicros(projectPrice, input.inputUnits, input.outputUnits, now);
+  const estimatedMaxMicros = orgQuote > projectQuote ? orgQuote : projectQuote;
+  const periodKey = utcPeriodKey(now);
+  const orgCommitted = await committedMicros(db, input.organizationId, periodKey);
+  const projectCommitted = await committedMicros(db, input.organizationId, periodKey, input.projectId);
+  const allowed = estimatedMaxMicros <= organizationBudget.perCallCapMicros &&
+    estimatedMaxMicros <= projectBudget.perCallCapMicros &&
+    spendWithinCap(orgCommitted, estimatedMaxMicros, organizationBudget.capMicros) &&
+    spendWithinCap(projectCommitted, estimatedMaxMicros, projectBudget.capMicros);
+  return {
+    allowed, code: allowed ? "approved_estimate" : "budget_exhausted",
+    currency: organizationBudget.currency, unit: orgPrice.unit,
+    estimatedMaxMicros: estimatedMaxMicros.toString(), periodKey,
+    organizationRemainingMicros: (organizationBudget.capMicros - orgCommitted).toString(),
+    projectRemainingMicros: (projectBudget.capMicros - projectCommitted).toString(),
+    platformCredits: false, paidFeatureActivation: false, externalProviderCost: orgPrice.unit !== "ZERO_COST",
+    note: "Read-only estimate. Dispatch repeats authorization and atomically reserves the conservative ceiling.",
+  };
+}
+
+function approvedPrice(budget: BudgetWithModels, provider: string, model: string): ApprovedPrice {
+  const allowance = budget.models.find((item) => item.provider === provider && item.model === model);
+  if (!allowance) throw new AiBudgetError("model_not_approved", "This provider and model have no approved price ceiling.");
+  if ((provider === "openrouter" || provider === "openai-compatible" ||
+      (provider === "ollama" && allowance.unit !== "ZERO_COST")) && !allowance.outputCapVerified) {
+    throw new AiBudgetError("capability_unverified", "The selected gateway model has no verified output cap contract.");
+  }
+  if (allowance.unit !== "TOKEN" && allowance.unit !== "CHARACTER" && allowance.unit !== "ZERO_COST") {
+    throw new AiBudgetError("price_unavailable", "Unknown provider price unit.");
+  }
+  return {
+    unit: allowance.unit,
+    inputMicrosPerMillion: allowance.inputMicrosPerMillion,
+    outputMicrosPerMillion: allowance.outputMicrosPerMillion,
+    maxInputUnits: allowance.maxInputUnits,
+    maxOutputUnits: allowance.maxOutputUnits,
+    priceExpiresAt: allowance.priceExpiresAt,
+  };
+}
+
+async function committedMicros(tx: Prisma.TransactionClient, organizationId: string, periodKey: number, projectId?: string) {
+  const rows = await tx.$queryRaw<Array<{ total: bigint }>>`
+    SELECT COALESCE(SUM(COALESCE("reconciledCeilingMicros", "reservedMicros")), 0)::bigint AS total
+    FROM "AiSpendReservation"
+    WHERE "organizationId" = ${organizationId} AND "periodKey" = ${periodKey}
+      AND (${projectId ?? null}::text IS NULL OR "projectId" = ${projectId ?? null})
+  `;
+  return rows[0]?.total ?? BigInt(0);
+}
+
+/** The Organization→Project row order matches workspace transfer and role guards. */
+export async function lockAiSpendScope(tx: Prisma.TransactionClient, organizationId: string, projectId: string) {
+  const organization = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE
+  `;
+  if (organization.length !== 1) throw new AiBudgetError("budget_unavailable", "Organization is unavailable.");
+  const project = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "Project" WHERE "id" = ${projectId} AND "organizationId" = ${organizationId} FOR UPDATE
+  `;
+  if (project.length !== 1) throw new AiBudgetError("project_changed", "Project ownership changed.");
+}
+
+export async function reserveAiSpend(attempt: AiSpendAttempt): Promise<AiSpendApproval> {
+  if (!attempt.requestKey || !attempt.requestGroupKey || !attempt.dispatchId || !attempt.actorId || !attempt.projectId || !attempt.organizationId ||
+      !attempt.action || !attempt.provider || !attempt.model) {
+    throw new AiBudgetError("budget_unavailable", "Spend identity is incomplete.");
+  }
+  const requestKeyHash = crypto.createHash("sha256").update(attempt.requestKey).digest("hex");
+  const requestGroupHash = crypto.createHash("sha256").update(attempt.requestGroupKey).digest("hex");
+  return db.$transaction(async (tx) => {
+    await lockAiSpendScope(tx, attempt.organizationId, attempt.projectId);
+    const now = new Date();
+    if (attempt.actorKind === "API_KEY") {
+      const keys = await tx.$queryRaw<Array<{ id: string; projectId: string; isActive: boolean; expiresAt: Date | null }>>`
+        SELECT "id", "projectId", "isActive", "expiresAt" FROM "ApiKey"
+        WHERE "id" = ${attempt.actorId} FOR SHARE
+      `;
+      const key = keys[0];
+      if (!key || key.projectId !== attempt.projectId || !key.isActive ||
+          (key.expiresAt && key.expiresAt <= now)) {
+        throw new AiBudgetError("actor_revoked", "The API key is no longer authorized for this project.");
+      }
+    } else {
+      const [membership, projectMember] = await Promise.all([
+        tx.organizationMember.findUnique({
+          where: { userId_organizationId: { userId: attempt.actorId, organizationId: attempt.organizationId } },
+          select: { role: true },
+        }),
+        tx.projectMember.findFirst({
+          where: { userId: attempt.actorId, projectId: attempt.projectId },
+          select: { role: true, langCode: true },
+        }),
+      ]);
+      const access = { organizationRole: membership?.role ?? null,
+        projectRole: projectMember?.role ?? null, langCode: projectMember?.langCode ?? null };
+      const allowed = attempt.targetLang
+        ? canAccessProjectLanguage(access, attempt.targetLang)
+        : canAccessProject(access) && projectMember?.role !== "TRANSLATOR";
+      if (!allowed) throw new AiBudgetError("actor_revoked", "The user no longer has access to this project and language.");
+    }
+    if (attempt.action === "TRANSLATION") {
+      if (!attempt.sourceLang || !attempt.targetLang) {
+        throw new AiBudgetError("project_changed", "Translation language scope is missing.");
+      }
+      const project = await tx.project.findUnique({
+        where: { id: attempt.projectId },
+        select: { originalLang: true, languages: { where: { isActive: true }, select: { langCode: true } },
+          settings: { select: { automaticTranslation: true, updatedAt: true } } },
+      });
+      if (!project || project.originalLang.toLowerCase() !== attempt.sourceLang.toLowerCase() ||
+          !project.languages.some((language) => language.langCode.toLowerCase() === attempt.targetLang!.toLowerCase()) ||
+          project.settings?.automaticTranslation === false ||
+          (attempt.expectedSettingsUpdatedAt ?? null) !== (project.settings?.updatedAt.toISOString() ?? null)) {
+        throw new AiBudgetError("project_changed", "Translation configuration changed before provider dispatch.");
+      }
+    }
+    const priorGroup = await tx.aiSpendReservation.findFirst({
+      where: { organizationId: attempt.organizationId, requestGroupHash, dispatchId: { not: attempt.dispatchId } },
+      select: { id: true },
+    });
+    if (priorGroup) throw new AiBudgetError("spend_already_dispatched", "This request has already reached a provider. Check its settlement before retrying.");
+    const existing = await tx.aiSpendReservation.findUnique({
+      where: { organizationId_requestKeyHash: { organizationId: attempt.organizationId, requestKeyHash } },
+    });
+    if (existing) throw new AiBudgetError("spend_already_dispatched", "This request has already reached a provider. Check its settlement before retrying.");
+
+    const periodKey = utcPeriodKey(now);
+    const budgets = await tx.aiBudget.findMany({
+      where: { organizationId: attempt.organizationId, OR: [{ projectId: null }, { projectId: attempt.projectId }] },
+      include: { models: true },
+    });
+    const organizationBudget = budgets.find((item) => item.projectId === null);
+    const projectBudget = budgets.find((item) => item.projectId === attempt.projectId);
+    if (!organizationBudget || !projectBudget) throw new AiBudgetError("budget_unapproved", "An owner must approve both organization and project budgets.");
+    if (organizationBudget.period !== "MONTHLY_UTC" || projectBudget.period !== "MONTHLY_UTC" ||
+        organizationBudget.currency !== projectBudget.currency) {
+      throw new AiBudgetError("budget_ambiguous", "Budget period or currency does not match.");
+    }
+    const orgPrice = approvedPrice(organizationBudget, attempt.provider, attempt.model);
+    const projectPrice = approvedPrice(projectBudget, attempt.provider, attempt.model);
+    if (orgPrice.unit !== projectPrice.unit) throw new AiBudgetError("price_ambiguous", "Approved price units do not match.");
+    const inputUnits = conservativeInputUnits(attempt.input, orgPrice.unit);
+    const maxOutputUnits = Math.min(orgPrice.maxOutputUnits, projectPrice.maxOutputUnits);
+    const orgQuote = quotedMicros(orgPrice, inputUnits, maxOutputUnits, now);
+    const projectQuote = quotedMicros(projectPrice, inputUnits, maxOutputUnits, now);
+    const reservedMicros = orgQuote > projectQuote ? orgQuote : projectQuote;
+    if (reservedMicros > organizationBudget.perCallCapMicros || reservedMicros > projectBudget.perCallCapMicros) {
+      throw new AiBudgetError("per_call_cap_exceeded", "The provider attempt exceeds an approved per-call ceiling.");
+    }
+    const [orgCommitted, projectCommitted] = await Promise.all([
+      committedMicros(tx, attempt.organizationId, periodKey),
+      committedMicros(tx, attempt.organizationId, periodKey, attempt.projectId),
+    ]);
+    if (!spendWithinCap(orgCommitted, reservedMicros, organizationBudget.capMicros) ||
+        !spendWithinCap(projectCommitted, reservedMicros, projectBudget.capMicros)) {
+      throw new AiBudgetError("budget_exhausted", "The approved AI budget has no room for this attempt.");
+    }
+    const reservation = await tx.aiSpendReservation.create({
+      data: {
+        organizationId: attempt.organizationId, projectId: attempt.projectId,
+        requestKeyHash, requestGroupHash, dispatchId: attempt.dispatchId,
+        actorKind: attempt.actorKind, actorId: attempt.actorId,
+        action: attempt.action, provider: attempt.provider, model: attempt.model,
+        currency: organizationBudget.currency, periodKey, state: "DISPATCHED",
+        reservedMicros, estimatedInputUnits: inputUnits, maxOutputUnits, unit: orgPrice.unit,
+        orgInputMicrosPerMillion: orgPrice.inputMicrosPerMillion,
+        orgOutputMicrosPerMillion: orgPrice.outputMicrosPerMillion,
+        projectInputMicrosPerMillion: projectPrice.inputMicrosPerMillion,
+        projectOutputMicrosPerMillion: projectPrice.outputMicrosPerMillion,
+      },
+    });
+    for (const [budget, prior] of [[organizationBudget, orgCommitted], [projectBudget, projectCommitted]] as const) {
+      for (const threshold of [budget.warningPercent, 100]) {
+        if (prior * BigInt(100) < budget.capMicros * BigInt(threshold) &&
+            (prior + reservedMicros) * BigInt(100) >= budget.capMicros * BigInt(threshold)) {
+          const eventId = crypto.createHash("sha256").update(`${budget.id}:${periodKey}:${threshold}`).digest("hex");
+          await tx.aiBudgetEvent.createMany({
+            data: [{ id: eventId, organizationId: attempt.organizationId,
+              projectId: budget.projectId, budgetId: budget.id,
+              kind: threshold === 100 ? "CAP_REACHED" : "WARNING_REACHED",
+              periodKey, threshold }],
+            skipDuplicates: true,
+          });
+        }
+      }
+    }
+    return {
+      reservationId: reservation.id, currency: reservation.currency,
+      reservedMicros: reservation.reservedMicros.toString(), inputUnits,
+      maxOutputUnits, unit: orgPrice.unit,
+    };
+  });
+}
+
+/** Missing, malformed or unexpectedly high usage remains charged at the hold. */
+export async function settleAiSpend(reservationId: string, usage?: { inputUnits: number; outputUnits: number }) {
+  return db.$transaction(async (tx) => {
+    const reservation = await tx.aiSpendReservation.findUnique({ where: { id: reservationId } });
+    if (!reservation) throw new AiBudgetError("budget_unavailable", "Spend reservation is missing.");
+    await lockAiSpendScope(tx, reservation.organizationId, reservation.projectId);
+    if (reservation.state !== "DISPATCHED") return reservation;
+    const complete = usage && Number.isSafeInteger(usage.inputUnits) &&
+      Number.isSafeInteger(usage.outputUnits) && usage.inputUnits >= 0 && usage.outputUnits >= 0 &&
+      usage.inputUnits <= reservation.estimatedInputUnits && usage.outputUnits <= reservation.maxOutputUnits;
+    if (!complete || !usage) {
+      return tx.aiSpendReservation.update({ where: { id: reservationId }, data: { state: "UNKNOWN", settledAt: new Date() } });
+    }
+    const now = new Date();
+    const calculate = (inputRate: bigint, outputRate: bigint) =>
+      (BigInt(usage.inputUnits) * inputRate + BigInt(usage.outputUnits) * outputRate + BigInt(999_999)) / BigInt(1_000_000);
+    const orgActual = calculate(reservation.orgInputMicrosPerMillion, reservation.orgOutputMicrosPerMillion);
+    const projectActual = calculate(reservation.projectInputMicrosPerMillion, reservation.projectOutputMicrosPerMillion);
+    const actual = orgActual > projectActual ? orgActual : projectActual;
+    if (actual > reservation.reservedMicros) {
+      return tx.aiSpendReservation.update({ where: { id: reservationId }, data: { state: "UNKNOWN", settledAt: now } });
+    }
+    return tx.aiSpendReservation.update({
+      where: { id: reservationId },
+      data: { state: "SETTLED", reconciledCeilingMicros: actual,
+        actualInputUnits: usage.inputUnits, actualOutputUnits: usage.outputUnits, settledAt: now },
+    });
+  });
+}
