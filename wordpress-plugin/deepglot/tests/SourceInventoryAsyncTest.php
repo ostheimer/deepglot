@@ -3,10 +3,25 @@
 require_once __DIR__ . '/WordPressTestBootstrap.php';
 
 function __($text, $domain = null) { return $text; }
-function get_option($key, $default = false) { return $GLOBALS['_dg_async_options'][$key] ?? $default; }
-function update_option($key, $value) { $GLOBALS['_dg_async_options'][$key] = $value; return true; }
+function get_option($key, $default = false) {
+    if ($key === 'deepglot_source_inventory_queue') {
+        if (array_key_exists($key, $GLOBALS['_dg_async_option_cache'])) return $GLOBALS['_dg_async_option_cache'][$key];
+        $GLOBALS['_dg_async_option_cache'][$key] = $GLOBALS['_dg_async_options'][$key] ?? $default;
+        return $GLOBALS['_dg_async_option_cache'][$key];
+    }
+    return $GLOBALS['_dg_async_options'][$key] ?? $default;
+}
+function update_option($key, $value) {
+    $GLOBALS['_dg_async_options'][$key] = $value;
+    if ($key === 'deepglot_source_inventory_queue') $GLOBALS['_dg_async_option_cache'][$key] = $value;
+    return true;
+}
 function add_option($key, $value) { if (array_key_exists($key, $GLOBALS['_dg_async_options'])) return false; $GLOBALS['_dg_async_options'][$key] = $value; return true; }
 function delete_option($key) { unset($GLOBALS['_dg_async_options'][$key]); return true; }
+function wp_cache_delete($key, $group = '') {
+    if ($group === 'options') unset($GLOBALS['_dg_async_option_cache'][$key]);
+    return true;
+}
 function get_transient($key) { return $GLOBALS['_dg_async_transients'][$key] ?? false; }
 function set_transient($key, $value, $ttl = 0) { $GLOBALS['_dg_async_transients'][$key] = $value; return true; }
 function wp_next_scheduled($hook) { return $GLOBALS['_dg_async_events'][$hook] ?? false; }
@@ -70,6 +85,7 @@ $GLOBALS['_dg_async_options'] = [];
 $GLOBALS['_dg_async_http'] = [];
 $GLOBALS['_dg_async_events'] = [];
 $GLOBALS['_dg_async_transients'] = [];
+$GLOBALS['_dg_async_option_cache'] = [];
 update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
     'enabled' => true, 'api_key' => 'local-fixture-key', 'api_url' => 'http://127.0.0.1:31557/api',
     'source_language' => 'de', 'target_languages' => ['en'],
@@ -145,12 +161,34 @@ if (count($racePending) !== 1 || current($racePending)['payload']['originalHashe
     fwrite(STDERR, "FAIL: cron response clobbered a newer render queued during HTTP.\n"); exit(1);
 }
 update_option(SourceInventoryQueue::QUEUE_OPTION, []);
+$cacheRaceUrl = 'https://example.test/en/request-cache-race';
+$queue->recordSourceInventory(['Old cached option'], 'de', 'en', $cacheRaceUrl, true, false,
+    (string) (time() * 1000000));
+$GLOBALS['_dg_async_during_http'] = static function (): void {
+    // A second WordPress process updates wp_options while this cron process
+    // still has its pre-HTTP get_option() value in its request-local cache.
+    $current = $GLOBALS['_dg_async_options'][SourceInventoryQueue::QUEUE_OPTION];
+    $key = array_key_first($current);
+    $hashes = [md5('New cached option|de|en')];
+    $current[$key]['payload']['originalHashes'] = $hashes;
+    $current[$key]['payload']['capturedMicros'] = (string) ((int) $current[$key]['payload']['capturedMicros'] + 1);
+    $current[$key]['digest'] = hash('sha256', json_encode([$hashes, true, false]));
+    $GLOBALS['_dg_async_options'][SourceInventoryQueue::QUEUE_OPTION] = $current;
+};
+$GLOBALS['_dg_async_events'] = [];
+$queue->run();
+$cacheRacePending = $GLOBALS['_dg_async_options'][SourceInventoryQueue::QUEUE_OPTION];
+if (count($cacheRacePending) !== 1
+    || current($cacheRacePending)['payload']['originalHashes'] !== [md5('New cached option|de|en')]) {
+    fwrite(STDERR, "FAIL: cron used a stale request-local WordPress option after HTTP.\n"); exit(1);
+}
+update_option(SourceInventoryQueue::QUEUE_OPTION, []);
 for ($i = 0; $i < 70; $i++) {
     $queue->recordSourceInventory(['Cached'], 'de', 'en', 'https://example.test/en/bound-' . $i,
         true, false, (string) (time() * 1000000 + $i));
 }
 if (count(get_option(SourceInventoryQueue::QUEUE_OPTION, [])) !== 64
-    || count($GLOBALS['_dg_async_http']) !== 3) {
+    || count($GLOBALS['_dg_async_http']) !== 4) {
     fwrite(STDERR, "FAIL: pending contexts must remain bounded without frontend HTTP.\n"); exit(1);
 }
 update_option(SourceInventoryQueue::QUEUE_OPTION, []);
@@ -177,7 +215,7 @@ update_option(Options::OPTION_KEY, array_merge(Options::defaults(), [
 ]));
 $GLOBALS['_dg_async_events'] = [];
 $queue->run();
-if (count($GLOBALS['_dg_async_http']) !== 3 || get_option(SourceInventoryQueue::QUEUE_OPTION, []) !== []) {
+if (count($GLOBALS['_dg_async_http']) !== 4 || get_option(SourceInventoryQueue::QUEUE_OPTION, []) !== []) {
     fwrite(STDERR, "FAIL: queued observation cannot cross API-key identity changes.\n"); exit(1);
 }
 fwrite(STDOUT, "SourceInventoryAsyncTest: OK\n");

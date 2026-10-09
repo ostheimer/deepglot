@@ -86,7 +86,7 @@ class SourceInventoryQueue
 
     public function run(): void
     {
-        $queue = get_option(self::QUEUE_OPTION, []);
+        $queue = $this->readQueueFresh();
         if (!is_array($queue) || !$queue) return;
         $processed = 0;
         foreach ($queue as $identity => $item) {
@@ -121,8 +121,7 @@ class SourceInventoryQueue
                 });
             }
         }
-        $latest = get_option(self::QUEUE_OPTION, []);
-        if (is_array($latest)) $this->schedule($latest);
+        $this->schedule($this->readQueueFresh());
     }
 
     private function removeIfCurrent(string $identity, array $item): bool
@@ -156,8 +155,7 @@ class SourceInventoryQueue
             if (!add_option(self::LOCK_OPTION, $lock, '', false)) return null;
         }
         try {
-            $queue = get_option(self::QUEUE_OPTION, []);
-            if (!is_array($queue)) $queue = [];
+            $queue = $this->readQueueFresh();
             $mutation($queue);
             update_option(self::QUEUE_OPTION, $queue, false);
             return $queue;
@@ -166,6 +164,17 @@ class SourceInventoryQueue
             if (is_array($current) && ($current['owner'] ?? null) === $owner)
                 delete_option(self::LOCK_OPTION);
         }
+    }
+
+    /** A different request can update wp_options while this cron awaits HTTP. */
+    private function readQueueFresh(): array
+    {
+        if (function_exists('wp_cache_delete')) {
+            wp_cache_delete(self::QUEUE_OPTION, 'options');
+            wp_cache_delete('notoptions', 'options');
+        }
+        $queue = get_option(self::QUEUE_OPTION, []);
+        return is_array($queue) ? $queue : [];
     }
 
     private function schedule(array $queue): void
