@@ -195,6 +195,12 @@ class LinkRewriter
 
     private function isInternalUrl(string $url): bool
     {
+        // Same-document fragments are not page URLs. Skipping the attribute
+        // also preserves any leading whitespace in its original value.
+        if (str_starts_with($url, '#')) {
+            return false;
+        }
+
         // URI schemes other than HTTP(S) are actions/resources, not site URLs.
         if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $url) && !preg_match('#^https?://#i', $url)) {
             return false;

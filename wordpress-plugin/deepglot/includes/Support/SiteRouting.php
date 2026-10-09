@@ -197,6 +197,12 @@ class SiteRouting
 
     public function rewriteUrl(string $url, string $language): string
     {
+        // Fragment-only references stay on the current document, including
+        // their original HTML whitespace and an empty fragment delimiter.
+        if (str_starts_with(ltrim($url, "\t\n\f\r "), '#')) {
+            return $url;
+        }
+
         if (!preg_match('#^https?://#i', $url)) {
             if (str_starts_with($url, '//')) {
                 return $url;
