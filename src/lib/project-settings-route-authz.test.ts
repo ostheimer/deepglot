@@ -48,6 +48,7 @@ const MANAGEMENT_ROUTES: ReadonlyArray<{
   { file: "exclusions/[exclusionId]/route.ts", methods: ["PATCH", "DELETE"] },
   { file: "exclusions/import/route.ts", methods: ["POST"] },
   { file: "exclusions/export/route.ts", methods: ["GET"] },
+  { file: "exclusions/visual-preview/route.ts", methods: ["POST"] },
   { file: "media/route.ts", methods: ["GET", "POST"] },
   { file: "media/[mediaId]/route.ts", methods: ["PATCH", "DELETE"] },
   { file: "members/route.ts", methods: ["GET"] },

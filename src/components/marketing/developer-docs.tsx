@@ -123,6 +123,11 @@ export function DeveloperDocs({ locale }: { locale: SiteLocale }) {
 
         <section id="wordpress" className="scroll-mt-8 pt-20">
           <h2 className="text-3xl font-bold">WordPress</h2>
+          <p className="mt-5 max-w-4xl leading-7 text-gray-700 [overflow-wrap:anywhere]">
+            {de
+              ? "Die visuelle Ausnahmenvorschau nutzt POST /api/projects/{projectId}/exclusions/visual-preview mit {path} und eine angemeldete Projektverwaltungssitzung. Sie lädt nur öffentliches, serverseitig gerendertes HTML auf der Projekt-Origin, ohne Weiterleitungen, mit acht Sekunden Frist und 1 MiB Grenze. Die Oberfläche speichert eine auf der Vorschauseite eindeutige wörtliche ID oder Klasse über die vorhandene Ausnahmen-Route. Nach dem nächsten WordPress-0.12.12-Sync gilt sie projektweit, wo das Merkmal vorkommt; beliebige CSS-Selektoren und seitengebundene Elementregeln unterstützt diese Route nicht. Dashboard-Routen sind keine stabile externe API."
+              : "The visual exclusion preview uses POST /api/projects/{projectId}/exclusions/visual-preview with {path} and an authenticated project manager session. It loads only public, server-rendered HTML on the project origin, without redirects, with an eight-second deadline and 1 MiB limit. The UI saves a literal ID or class unique on the preview page through the existing exclusions route. After the next WordPress 0.12.12 sync, it applies project-wide wherever the token occurs; arbitrary CSS selectors and page-bound element rules are unsupported. Dashboard routes are not a stable external API."}
+          </p>
           <p className="mt-5 max-w-4xl leading-7 text-gray-700">
             {de
               ? "Die Plugin-REST-Routen laufen auf der WordPress-Site und benötigen WordPress-Administratorrechte. Die dynamische Übersetzung verwendet Nonce, kurzlebiges Wortticket, per-IP-Budget und den serverseitigen Organisations-Cap. Fehlende Berechtigung fällt cachebasiert zurück; Bots lösen keine neue Übersetzung aus."
