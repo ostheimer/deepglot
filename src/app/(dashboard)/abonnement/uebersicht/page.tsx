@@ -7,6 +7,7 @@ import Link from "next/link";
 import { stripe } from "@/lib/stripe";
 import { CancelSubscriptionButton } from "@/components/abonnement/cancel-subscription-button";
 import { PlanSwitcher } from "@/components/abonnement/plan-switcher";
+import { AutoUpgradeToggle } from "@/components/abonnement/auto-upgrade-toggle";
 import { Badge } from "@/components/ui/badge";
 import { buildDashboardTitleMetadata } from "@/lib/dashboard-metadata";
 import { formatNumber, getIntlLocale } from "@/lib/locale-formatting";
@@ -16,6 +17,7 @@ import { uiText } from "@/lib/static-copy";
 import {
   BILLING_PLANS,
   getEffectiveWordsLimit,
+  getStripePriceIdFromEnv,
   resolveBillingPlanKey,
 } from "@/lib/billing-plans";
 
@@ -65,6 +67,7 @@ export default async function PlanUebersichtPage({
   const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.INACTIVE;
 
   const hasStripeCustomer = isRealStripeCustomerId(sub?.stripeCustomerId);
+  const billingInterval = sub?.stripePriceId === getStripePriceIdFromEnv(planKey, "yearly") ? "yearly" : "monthly";
 
   // Next invoice date from Stripe (best effort — never blocks the page).
   let nextInvoiceDate: string | null = null;
@@ -166,6 +169,7 @@ export default async function PlanUebersichtPage({
       </div>
 
       <PlanSwitcher currentPlan={planKey} hasStripeCustomer={hasStripeCustomer} workspaceId={workspaceId} />
+      {org && membership?.role === "OWNER" && <AutoUpgradeToggle organizationId={org.id} currentPlan={planKey} initialInterval={billingInterval} locale={locale} />}
     </div>
   );
 }

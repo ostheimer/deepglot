@@ -7,6 +7,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/auto-upgrade",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/activity-digest",
       "schedule": "0 8 * * 1"
     },

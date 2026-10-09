@@ -7,6 +7,7 @@ import { validateApiKey } from "@/lib/api-keys";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { crossedQuotaThresholds } from "@/lib/quota-usage";
 import { maybeSendQuotaAlerts } from "@/lib/quota-alert";
+import { maybeAutoUpgradeAfterUsage } from "@/lib/auto-upgrade";
 import {
   countWords,
   resolveTranslationProvider,
@@ -1066,6 +1067,13 @@ export async function executeAuthenticatedTranslateRequest(
         wordsLimit,
         signal: AbortSignal.timeout(5_000),
       });
+      // Only accepted, persisted fresh usage can trigger a paid change. Billing
+      // reconciliation has its own durable claim and must not fail translation.
+      try {
+        await maybeAutoUpgradeAfterUsage(project.organizationId, currentMonth);
+      } catch (error) {
+        console.error("[auto-upgrade] usage producer failed", error);
+      }
     }
 
     // 8. Fallback for bots or empty untranslated strings.

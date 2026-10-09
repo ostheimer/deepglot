@@ -97,6 +97,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <a href="#workspace-transfer" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Workspaces und Transfer" : "Workspaces and transfer"}
             </a>
+            <a href="#auto-upgrade" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Automatische Planerhöhung" : "Automatic plan upgrade"}
+            </a>
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
             </a>
@@ -131,6 +134,16 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
               ? "Owner und Admins können ein Projekt in einen Workspace übertragen, den sie ebenfalls verwalten. Ein URL-Provider-Auftrag mit ungeklärtem Ergebnis oder ein älterer URL-Beleg ohne belegten Abrechnungsursprung sperrt Vorschau und Transfer bis zur Klärung. Die Vorschau zeigt Ziel-Planlimits, Mitglieder und alle Zugangsdaten, die getrennt werden. Bereits abgerechnete Wörter, Batch-Protokolle und URL-Auftragsbelege bleiben beim Ursprung; neue Nutzung wird dem Ziel zugerechnet. Übersetzungen einschließlich manueller Änderungen, URLs, Slugs und Domain-Zuordnungen bleiben beim Projekt. Nur beim Ursprung berechtigte Mitglieder und offene Einladungen verlieren den Zugriff. API-Keys werden widerrufen, Webhooks deaktiviert und ihr Secret entfernt; ein vorhandener Projekt-Provider-Key wird entfernt. Hatte das Projekt einen eigenen Provider-Key, bleiben neue Provider-Aufträge bis zu einem neuen Key des Ziels pausiert. Projekte mit Plattform-Provider laufen innerhalb von Ziel-Plan und Kontingent weiter. Verbinde Plugin und Webhooks im Ziel neu."
               : "Owners and admins can transfer a project to another workspace they also manage. A URL provider operation with an unresolved outcome or an older receipt without evidenced billing origin blocks preview and transfer until reconciled. The preview shows destination limits, members, and credentials that will be disconnected. Already billed words, batch records and URL operation receipts remain with the source; new usage belongs to the destination. Translations including manual edits, URLs, slugs and domain mappings remain with the project. Source-only members and pending invitations lose access. API keys are revoked, webhooks are disabled and their secret removed, and an existing project provider key is cleared. If the project used its own provider key, fresh provider work pauses until the destination saves a new key. Projects using the platform provider continue under the destination plan and quota. Reconnect the plugin and webhooks in the destination."}</p>
+          </section>
+
+          <section id="auto-upgrade" className="scroll-mt-8 pt-20">
+            <h2 className="text-3xl font-bold tracking-tight">{de ? "Automatische Planerhöhung" : "Automatic plan upgrade"}</h2>
+            <p className="mt-4 max-w-3xl leading-7 text-[#35424b]">{de
+              ? "Die Einstellung ist standardmäßig aus. Nur Organisationsinhaber können sie in der Plan-Übersicht einschalten und einen höchsten Plan mit zugehörigem Euro-Preis festlegen. Ab 90 % der gemessenen monatlichen Wortnutzung wird höchstens die nächste bezahlte Stufe angefragt. Eine automatische Herabstufung findet nicht statt."
+              : "The setting is off by default. Only organization owners can turn it on in the plan overview and choose a highest plan with its euro price. Once measured monthly word usage reaches 90%, Deepglot may request only the next paid tier. There is no automatic downgrade."}</p>
+            <p className="mt-3 max-w-3xl leading-7 text-[#35424b]">{de
+              ? "Stripe kann sofort eine anteilige Rechnung stellen. Bei fehlgeschlagener Zahlung oder notwendiger Bestätigung bleibt das bisherige Wortkontingent erhalten. Der Verlauf in der Plan-Übersicht zeigt Versuche und bestätigte Erhöhungen. Deaktivieren verhindert neue Versuche, ändert aber ein bereits bezahltes Abonnement nicht rückwirkend."
+              : "Stripe may issue an immediate prorated invoice. If payment fails or requires action, the existing word allowance remains. The plan overview shows attempted and confirmed upgrades. Disabling prevents new attempts; it does not undo an already paid subscription change."}</p>
           </section>
 
           <section id="visual-exclusions" data-testid="help-visual-exclusions" className="scroll-mt-8 pt-20">

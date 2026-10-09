@@ -1,5 +1,9 @@
 # Deepglot
 
+## Automatic subscription upgrades
+
+Organization owners can opt in from **Subscription → Plan overview**. The setting is off for every existing and new organization. An owner chooses the highest paid plan and a EUR recurring-price ceiling. At 90% of measured monthly translated words, Deepglot may request one higher tier. Stripe can invoice a proration immediately. No automatic downgrade occurs, and a pending or failed payment never grants the proposed allowance. Attempts and confirmed upgrades remain visible in the owner's plan history. See [the operator runbook](docs/auto-upgrade.md) for the schema, reconciliation and release gates.
+
 Deepglot is a multilingual WordPress platform without cloud lock-in: a Next.js dashboard app with Stripe billing, NextAuth, Prisma/Neon, and a compatible translation API for a custom WordPress plugin.
 
 ## Author
