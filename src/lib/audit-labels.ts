@@ -46,6 +46,7 @@ const germanActions: Record<string, string> = {
   "translation.metadata_updated": "Übersetzungsmetadaten geändert",
   "translation.search_replaced": "Übersetzungen gesucht und ersetzt",
   "translation.url_retranslated": "URL erneut übersetzt",
+  "translation.url_deleted": "URL-Übersetzungen gelöscht",
   "translation.workflow_bulk_updated": "Übersetzungsstatus gesammelt geändert",
   "translation.workflow_updated": "Übersetzungsstatus geändert",
   "webhook.created": "Webhook erstellt",
