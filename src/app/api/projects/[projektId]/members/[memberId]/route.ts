@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+
 import { getCookieLocale } from "@/lib/request-locale";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -112,6 +114,8 @@ export async function PATCH(
         user: { select: { id: true, name: true, email: true, image: true } },
       },
     });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: "member.updated", category: "member", metadata: { affectedId: memberId, role: updatedMember.role } });
     return { kind: "updated", member: updatedMember } as const;
   });
 
@@ -176,7 +180,10 @@ export async function DELETE(
       memberId: member.id,
     });
     await tx.projectMember.delete({ where: { id: member.id } });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: "member.removed", category: "member", metadata: { affectedId: memberId } });
     return true;
+
   });
 
   if (!deleted) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });

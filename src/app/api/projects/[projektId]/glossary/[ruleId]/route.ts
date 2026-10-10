@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { getCookieLocale } from "@/lib/request-locale";
 import { getAuthenticatedUserId, userHasProjectAccess, canAccessProjectForWrite, canAccessProject } from "@/lib/project-access";
 import { queueProjectWebhookEvent } from "@/lib/project-webhook-delivery";
@@ -96,6 +97,8 @@ export async function PATCH(
         tx
       );
 
+      await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+        action: "glossary.updated", category: "glossary", metadata: { affectedId: ruleId } });
       return updated;
     });
 
@@ -191,6 +194,8 @@ export async function DELETE(
         },
         tx
       );
+      await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+        action: "glossary.deleted", category: "glossary", metadata: { affectedId: ruleId } });
     });
 
     return NextResponse.json({ ok: true });

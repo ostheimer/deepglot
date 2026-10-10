@@ -106,9 +106,19 @@ test("workspace transfer checks both owners, preserves history and content, and 
     const commitInput = { actorUserId: actor.id, projectId: project.id,
       destinationId: destination.id, fingerprint: preview.fingerprint, issuedAt: preview.issuedAt,
       confirmationToken: preview.confirmationToken };
+    const sourceActivity = await db.auditEvent.create({ data: {
+      organizationId: source.id, projectId: project.id, projectIdSnapshot: project.id,
+      actorUserId: actor.id, action: "project.settings_updated", category: "project",
+    } });
     const receipt = await commitWorkspaceTransfer(commitInput);
     assert.deepEqual(await commitWorkspaceTransfer(commitInput), receipt);
     assert.equal((await db.project.findUniqueOrThrow({ where: { id: project.id } })).organizationId, destination.id);
+    const retainedActivity = await db.auditEvent.findUniqueOrThrow({ where: { id: sourceActivity.id },
+      include: { project: { select: { name: true } } } });
+    assert.equal(retainedActivity.projectId, null);
+    assert.equal(retainedActivity.projectIdSnapshot, project.id);
+    assert.equal(retainedActivity.project, null);
+    assert.equal(await db.auditEvent.count({ where: { organizationId: destination.id, action: "project.transferred_in", projectId: project.id } }), 1);
     assert.equal((await db.usageRecord.findFirstOrThrow({ where: { projectId: project.id } })).organizationId, source.id);
     assert.equal((await db.translationBatchLog.findFirstOrThrow({ where: { projectId: project.id } })).organizationId, source.id);
     assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText, "Hello again");

@@ -29,9 +29,11 @@ model User {
   projectMemberships ProjectMember[]
   sentProjectInvitations ProjectInvitation[]
   activityDigestDeliveries ActivityDigestDelivery[]
+  auditEvents AuditEvent[] @relation("AuditActor")
   notificationPreferences NotificationPreference[]
   notificationDeliveries NotificationDelivery[]
   autoUpgradeNotifications AutoUpgradeNotification[]
+
   translationContentRevisions TranslationContentRevision[]
   professionalOrders ProfessionalTranslationOrder[] @relation("ProfessionalOrderRequester")
 }
@@ -109,6 +111,7 @@ model Organization {
   translationBatchLogs TranslationBatchLog[]
   usageAlerts  UsageAlert[]
   activityDigestDeliveries ActivityDigestDelivery[]
+  auditEvents AuditEvent[]
   notificationPreferences NotificationPreference[]
   notificationDeliveries NotificationDelivery[]
   autoUpgradePreference AutoUpgradePreference?
@@ -116,6 +119,7 @@ model Organization {
   autoUpgradeNotifications AutoUpgradeNotification[]
   aiBudgets AiBudget[]
   aiSpendReservations AiSpendReservation[]
+
 }
 
 /// Dedup marker for the monthly word-quota warning emails to the org owner.
@@ -275,8 +279,35 @@ model Project {
   translationBatchLogs TranslationBatchLog[]
   webhookEndpoints WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
+  auditEvents AuditEvent[]
   aiBudget AiBudget?
   professionalOrders ProfessionalTranslationOrder[]
+}
+
+/// Tenant-scoped, append-only activity records. The application has no update
+/// path; the retention cron removes rows older than 365 days. Tenant deletion
+/// cascades and project deletion retains the snapshot ID until expiry.
+model AuditEvent {
+  id String @id @default(cuid())
+  organizationId String
+  projectId String?
+  projectIdSnapshot String?
+  actorUserId String?
+  action String @db.VarChar(80)
+  category String @db.VarChar(32)
+  metadata Json @default("{}")
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, category, createdAt(sort: Desc)])
+  @@index([organizationId, actorUserId, createdAt(sort: Desc)])
+  @@index([organizationId, projectIdSnapshot, createdAt(sort: Desc)])
+  @@index([projectId])
+  @@index([createdAt])
 }
 
 /// Approval is explicit. A missing row is a deny, including for legacy tenants.
@@ -436,6 +467,7 @@ model BillingCommand {
 
   @@index([workspaceId, createdAt])
   @@index([actorUserId, createdAt])
+
 }
 
 model ProjectLanguage {

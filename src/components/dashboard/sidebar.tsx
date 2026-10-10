@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Activity,
   FolderOpen,
   Settings,
   CreditCard,
@@ -30,12 +31,14 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = {
   en: [
     { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+    { href: "/dashboard/aktivitaet", label: "Activity", icon: Activity },
     { href: "/projects", label: "Projects", icon: FolderOpen },
     { href: "/subscription", label: "Subscription", icon: CreditCard },
     { href: "/settings", label: "Settings", icon: Settings },
   ],
   de: [
     { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
+    { href: "/dashboard/aktivitaet", label: "Aktivität", icon: Activity },
     { href: "/projects", label: "Projekte", icon: FolderOpen },
     { href: "/subscription", label: "Abonnement", icon: CreditCard },
     { href: "/settings", label: "Einstellungen", icon: Settings },

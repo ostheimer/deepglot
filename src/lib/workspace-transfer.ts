@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { Prisma, type OrganizationRole } from "@prisma/client";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent, appendWorkspaceAuditEvent } from "@/lib/audit-events";
 import { BILLING_PLANS, getEffectiveWordsLimit, getEffectiveWorkspacePlanKey } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
 import { professionalOrderLifecycleState } from "@/lib/professional-order-lifecycle";
@@ -220,12 +221,21 @@ export async function commitWorkspaceTransfer(input: {
     // approve a new project policy. Sparse spend rows and approval events keep
     // their immutable original organization and project attribution.
     await tx.aiBudget.deleteMany({ where: { projectId: input.projectId } });
+    // Source events keep their opaque project snapshot, but must not follow
+    // the live relation into the destination tenant.
+    await tx.auditEvent.updateMany({ where: { organizationId: state.sourceId, projectId: input.projectId },
+      data: { projectId: null } });
     await tx.project.update({ where: { id: input.projectId }, data: { organizationId: input.destinationId } });
     const audit = await tx.projectTransferAudit.create({ data: {
       projectId: input.projectId, actorUserId: input.actorUserId,
       sourceOrganizationId: state.sourceId, destinationOrganizationId: input.destinationId,
       previewFingerprint: state.version, projectVersion: new Date(state.details.projectVersion),
     } });
+    await appendWorkspaceAuditEvent(tx, { organizationId: state.sourceId,
+      actorUserId: input.actorUserId, action: "project.transferred_out", category: "project",
+      metadata: { affectedId: input.projectId } });
+    await appendProjectAuditEvent(tx, { projectId: input.projectId,
+      actorUserId: input.actorUserId, action: "project.transferred_in", category: "project" });
     return { auditId: audit.id, projectId: input.projectId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 });
   } catch (error) {

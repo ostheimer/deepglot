@@ -131,8 +131,8 @@ export async function PATCH(
         projectId: projektId,
         translationId,
         actor,
-        metadata: parsed.data.metadata,
         actorUserId: userId,
+        metadata: parsed.data.metadata,
         expectedVersion: parsed.data.expectedVersion,
       });
       return NextResponse.json({ metadata });
@@ -204,12 +204,12 @@ export async function DELETE(
     await deleteProjectTranslation({
       projectId: projektId,
       translationId,
+      actorUserId: userId,
       actor: {
         canManage: canManageProject(access),
         projectMemberId: membership?.id ?? null,
         langCode: access.langCode ?? null,
       },
-      actorUserId: userId,
       expectedUpdatedAt: new Date(parsed.data.expectedUpdatedAt),
     });
     return new NextResponse(null, { status: 204 });
