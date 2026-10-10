@@ -119,6 +119,8 @@ test("workspace transfer checks both owners, preserves history and content, and 
     assert.equal(retainedActivity.projectIdSnapshot, project.id);
     assert.equal(retainedActivity.project, null);
     assert.equal(await db.auditEvent.count({ where: { organizationId: destination.id, action: "project.transferred_in", projectId: project.id } }), 1);
+    assert.equal(await db.auditEvent.count({ where: { organizationId: source.id, action: "project.transferred_out",
+      projectId: null, projectIdSnapshot: project.id } }), 1);
     assert.equal((await db.usageRecord.findFirstOrThrow({ where: { projectId: project.id } })).organizationId, source.id);
     assert.equal((await db.translationBatchLog.findFirstOrThrow({ where: { projectId: project.id } })).organizationId, source.id);
     assert.equal((await db.translation.findUniqueOrThrow({ where: { id: translation.id } })).translatedText, "Hello again");

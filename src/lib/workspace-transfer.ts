@@ -232,6 +232,7 @@ export async function commitWorkspaceTransfer(input: {
       previewFingerprint: state.version, projectVersion: new Date(state.details.projectVersion),
     } });
     await appendWorkspaceAuditEvent(tx, { organizationId: state.sourceId,
+      projectIdSnapshot: input.projectId,
       actorUserId: input.actorUserId, action: "project.transferred_out", category: "project",
       metadata: { affectedId: input.projectId } });
     await appendProjectAuditEvent(tx, { projectId: input.projectId,

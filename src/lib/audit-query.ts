@@ -68,7 +68,7 @@ export async function listAuditEvents(
   });
   if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) return null;
   const { from, toExclusive, actorUserId, projectId, category } = input.filters;
-  return database.auditEvent.findMany({
+  const events = await database.auditEvent.findMany({
     where: {
       organizationId: input.organizationId,
       ...(from || toExclusive ? { createdAt: {
@@ -83,9 +83,12 @@ export async function listAuditEvents(
       id: true, createdAt: true, action: true, category: true,
       projectIdSnapshot: true, actorUserId: true, metadata: true,
       project: { select: { name: true } },
-      actor: { select: { name: true, email: true } },
+      actor: { select: { name: true, email: true,
+        memberships: { where: { organizationId: input.organizationId }, select: { id: true }, take: 1 } } },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: Math.min(Math.max(input.limit ?? 100, 1), 1_000),
   });
+  return events.map(({ actor, ...event }) => ({ ...event,
+    actor: actor?.memberships.length ? { name: actor.name, email: actor.email } : null }));
 }

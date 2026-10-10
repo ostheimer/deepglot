@@ -63,6 +63,7 @@ export async function appendWorkspaceAuditEvent(
   input: {
     organizationId: string;
     actorUserId: string | null;
+    projectIdSnapshot?: string;
     action: string;
     category: AuditCategory;
     metadata?: AuditMetadata;
@@ -71,6 +72,7 @@ export async function appendWorkspaceAuditEvent(
   return client.auditEvent.create({
     data: {
       organizationId: input.organizationId,
+      projectIdSnapshot: input.projectIdSnapshot,
       actorUserId: input.actorUserId,
       action: input.action,
       category: input.category,

@@ -117,7 +117,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const recentAuditEvents = org && ["OWNER", "ADMIN"].includes(memberships[0]?.role ?? "")
     ? await db.auditEvent.findMany({
         where: { organizationId: org.id },
-        include: { project: { select: { name: true } }, actor: { select: { name: true, email: true } } },
+        include: { project: { select: { name: true } }, actor: { select: { name: true, email: true,
+          memberships: { where: { organizationId: org.id }, select: { id: true }, take: 1 } } } },
         orderBy: { createdAt: "desc" }, take: 8,
       })
     : [];
@@ -135,7 +136,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activityItems = recentAuditEvents.map((event) => ({
     id: event.id,
     project: event.project?.name ?? event.projectIdSnapshot ?? org?.name ?? "",
-    message: `${event.actor?.name || event.actor?.email || uiText(locale, "System", "System")}: ${auditActionLabel(event.action, locale)}`,
+    message: `${event.actor?.memberships.length ? (event.actor.name || event.actor.email) : (event.actorUserId || uiText(locale, "System", "System"))}: ${auditActionLabel(event.action, locale)}`,
     date: event.createdAt,
   }));
 

@@ -16,13 +16,15 @@ test("committed audit events are tenant-scoped, filtered and retained after proj
   const { db } = await import("@/lib/db");
   const suffix = crypto.randomUUID();
   const owner = await db.user.create({ data: { email: `audit-owner-${suffix}@example.test` } });
+  const reader = await db.user.create({ data: { email: `audit-reader-${suffix}@example.test` } });
   const foreign = await db.user.create({ data: { email: `audit-foreign-${suffix}@example.test` } });
-  userIds.push(owner.id, foreign.id);
+  userIds.push(owner.id, reader.id, foreign.id);
   const org = await db.organization.create({ data: { name: "Audit fixture", slug: `audit-${suffix}` } });
   const other = await db.organization.create({ data: { name: "Other fixture", slug: `other-audit-${suffix}` } });
   orgIds.push(org.id, other.id);
   await db.organizationMember.createMany({ data: [
     { organizationId: org.id, userId: owner.id, role: "OWNER" },
+    { organizationId: org.id, userId: reader.id, role: "ADMIN" },
     { organizationId: other.id, userId: foreign.id, role: "OWNER" },
   ] });
   const project = await db.project.create({ data: { organizationId: org.id, name: "Audit", domain: `${suffix}.example.test` } });
@@ -52,6 +54,13 @@ test("committed audit events are tenant-scoped, filtered and retained after proj
   assert.equal(retained.projectId, null);
   assert.equal(retained.projectIdSnapshot, project.id);
 
+  await db.organizationMember.delete({ where: { userId_organizationId: { userId: owner.id, organizationId: org.id } } });
+  await db.user.update({ where: { id: owner.id }, data: { name: "Later private name", email: `changed-${suffix}@example.test` } });
+  const formerActorEvents = await listAuditEvents(db, { organizationId: org.id, readerUserId: reader.id,
+    filters: { actorUserId: owner.id } });
+  assert.equal(formerActorEvents?.[0].actor, null);
+  assert.equal(formerActorEvents?.[0].actorUserId, owner.id);
+
   const expired = await db.auditEvent.create({ data: {
     organizationId: org.id, action: "workspace.old", category: "workspace",
     createdAt: new Date("2020-01-01T00:00:00.000Z"),
@@ -73,6 +82,7 @@ test("a real language mutation commits its audit row in the same workspace", { s
   const project = await db.project.create({ data: { organizationId: organization.id, name: "Language audit", domain: `language-${suffix}.example.test` } });
 
   assert.deepEqual(await addProjectTargetLanguages(db, { projectId: project.id, languages: ["fr"], actorUserId: actor.id }), { kind: "updated" });
+  assert.equal(await updateProjectTargetLanguage(db, { projectId: project.id, langCode: "fr", isVisible: false, actorUserId: actor.id }), true);
   assert.equal(await updateProjectTargetLanguage(db, { projectId: project.id, langCode: "fr", isVisible: false, actorUserId: actor.id }), true);
   const events = await listAuditEvents(db, { organizationId: organization.id, readerUserId: actor.id,
     filters: { projectId: project.id, actorUserId: actor.id } });

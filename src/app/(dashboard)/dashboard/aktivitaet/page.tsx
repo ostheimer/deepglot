@@ -62,7 +62,7 @@ export default async function ActivityPage({ searchParams }: Props) {
   }
   const path = withLocalePrefix("/dashboard/aktivitaet", locale);
   const csvRows = ["timestamp,actor,project,category,action,metadata", ...(events ?? []).map((event) => [
-    event.createdAt.toISOString(), event.actor?.name || event.actor?.email || "System",
+    event.createdAt.toISOString(), event.actor?.name || event.actor?.email || event.actorUserId || "System",
     event.project?.name || event.projectIdSnapshot || "", event.category, event.action,
     auditMetadataLabel(event.metadata, locale),
   ].map(csvCell).join(","))];
@@ -97,7 +97,7 @@ export default async function ActivityPage({ searchParams }: Props) {
       <th className="p-3">{uiText(locale, "Project", "Projekt")}</th><th className="p-3">{uiText(locale, "Action", "Aktion")}</th></tr></thead>
       <tbody>{(events ?? []).map((event) => <tr key={event.id} className="border-b last:border-0">
         <td className="whitespace-nowrap p-3">{new Intl.DateTimeFormat(locale === "de" ? "de-AT" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Vienna" }).format(event.createdAt)}</td>
-        <td className="p-3">{event.actor?.name || event.actor?.email || uiText(locale, "System", "System")}</td>
+        <td className="p-3">{event.actor?.name || event.actor?.email || event.actorUserId || uiText(locale, "System", "System")}</td>
         <td className="p-3">{event.project?.name || event.projectIdSnapshot || "—"}</td>
         <td className="p-3"><span className="text-gray-500">{auditCategoryLabel(event.category, locale)}</span><br />{auditActionLabel(event.action, locale)}
           {auditMetadataLabel(event.metadata, locale) && <p className="text-xs text-gray-500">{auditMetadataLabel(event.metadata, locale)}</p>}</td>

@@ -148,6 +148,12 @@ export async function updateProjectTargetLanguage(
     if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) return false;
     const project = await tx.project.findUnique({ where: { id: projectId }, select: { originalLang: true, updatedAt: true } });
     if (!project || project.originalLang.toLowerCase() === langCode) return false;
+    const current = await tx.projectLanguage.findUnique({ where: { projectId_langCode: { projectId, langCode } },
+      select: { isActive: true, isVisible: true, automaticTranslation: true } });
+    if (!current) return false;
+    if ((isActive === undefined || isActive === current.isActive) &&
+      (isVisible === undefined || isVisible === current.isVisible) &&
+      (automaticTranslation === undefined || automaticTranslation === current.automaticTranslation)) return true;
     const changed = await tx.projectLanguage.updateMany({
       where: { projectId, langCode },
       data: { isActive, isVisible, automaticTranslation },
