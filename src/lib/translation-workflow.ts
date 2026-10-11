@@ -443,14 +443,14 @@ export async function updateProjectTranslationWorkflow({
   projectId,
   translationId,
   actor,
-  patch,
   actorUserId,
+  patch,
 }: {
   projectId: string;
   translationId: string;
   actor: TranslationWorkflowActor;
-  patch: TranslationWorkflowPatch;
   actorUserId?: string;
+  patch: TranslationWorkflowPatch;
 }) {
   const { db } = await import("@/lib/db");
   return db.$transaction(async (tx) => {
@@ -508,6 +508,12 @@ export async function updateProjectTranslationWorkflow({
       );
     }
 
+    if (actorUserId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId,
+        action: "translation.workflow_updated", category: "translation",
+        metadata: { affectedId: translationId, status: planned.status } });
+    }
     return tx.translation.findUniqueOrThrow({
       where: { id: current.id },
       include: workflowInclude,
@@ -663,6 +669,13 @@ export async function updateProjectTranslationContentInTransaction(tx: Prisma.Tr
       tx,
     );
 
+    if (actorUserId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId,
+        action: "translation.content_updated", category: "translation",
+        metadata: { affectedId: translationId } });
+    }
+
     return saved;
 }
 
@@ -693,14 +706,14 @@ export async function deleteProjectTranslation({
   projectId,
   translationId,
   actor,
-  expectedUpdatedAt,
   actorUserId,
+  expectedUpdatedAt,
 }: {
   projectId: string;
   translationId: string;
   actor: TranslationWorkflowActor;
-  expectedUpdatedAt: Date;
   actorUserId?: string;
+  expectedUpdatedAt: Date;
 }) {
   const { db } = await import("@/lib/db");
   const { queueProjectWebhookEvent } =
@@ -762,6 +775,12 @@ export async function deleteProjectTranslation({
       },
       tx,
     );
+    if (actorUserId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId,
+        action: "translation.deleted", category: "translation",
+        metadata: { affectedId: translationId } });
+    }
     return { id: current.id };
   });
 }

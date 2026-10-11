@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteProjectWithAiSpendGuard } from "@/lib/ai-budget-project-deletion";
 import { AiBudgetError } from "@/lib/ai-budget-math";
+
 import {
   userCanManageProject,
   userHasProjectAccess,
@@ -80,6 +81,7 @@ export async function DELETE(
     }
     return NextResponse.json({ code: "project_delete_unavailable" }, { status: 503 });
   }
+
 }
 
 export async function PATCH(
@@ -105,9 +107,9 @@ export async function PATCH(
   const { expectedVersion, ...patch } = parsed.data;
   const result = await updateProjectGeneralSettings(db, {
     projectId: projektId,
+    actorUserId: session.user.id,
     expectedVersion,
     patch,
-    actorUserId: session.user.id,
   });
 
   if (result.kind === "updated") {

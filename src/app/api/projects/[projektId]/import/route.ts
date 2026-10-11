@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type Project } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent, type AuditCategory } from "@/lib/audit-events";
 import {
   MAX_IMPORT_ROWS,
   chunk,
@@ -159,7 +160,8 @@ async function writeInChunks<T>(
     items: readonly T[],
     tx: Prisma.TransactionClient,
   ) => Promise<void>,
-  handler: (item: T, tx: Prisma.TransactionClient) => Promise<void>
+  handler: (item: T, tx: Prisma.TransactionClient) => Promise<void>,
+  audit: { projectId: string; actorUserId: string; action: string; category: AuditCategory },
 ) {
   let committed = 0;
   for (const slice of chunk(items, IMPORT_CHUNK_SIZE)) {
@@ -169,6 +171,7 @@ async function writeInChunks<T>(
         for (const item of slice) {
           await handler(item, tx);
         }
+        await appendProjectAuditEvent(tx, { ...audit, metadata: { count: slice.length } });
       }, IMPORT_TX_OPTIONS);
     } catch (error) {
       if (error instanceof ImportError) {
@@ -207,12 +210,14 @@ type ImportContext = {
   userId: string;
   locale: SiteLocale;
   emitRowEvents: boolean;
+  actorUserId: string;
 };
 
 async function importTranslationsPo(
   content: string,
   langTo: string,
   { project, access, userId, locale, emitRowEvents }: ImportContext
+
 ) {
   if (!langTo) {
     throw new ImportError(
@@ -336,6 +341,7 @@ async function importTranslationsPo(
         );
       }
     },
+    { projectId: project.id, actorUserId: userId, action: "translation.import_chunk", category: "translation" },
   );
 
   const totalWords = rows.reduce((sum, row) => sum + countWords(row.originalText), 0);
@@ -369,6 +375,7 @@ async function importTranslationsPo(
 async function importGlossaryCsv(
   content: string,
   { project, access, userId, locale, emitRowEvents }: ImportContext
+
 ) {
   const rows = parseImport(() => parseGlossaryCsv(content), locale);
   assertRowLimit(rows.length, locale);
@@ -451,6 +458,7 @@ async function importGlossaryCsv(
         );
       }
     },
+    { projectId: project.id, actorUserId: userId, action: "glossary.import_chunk", category: "glossary" },
   );
 
   await queueProjectWebhookEvent({
@@ -470,6 +478,7 @@ async function importGlossaryCsv(
 async function importSlugsCsv(
   content: string,
   { project, access, userId, locale, emitRowEvents }: ImportContext
+
 ) {
   if (!canManageProject(access)) {
     throw new ImportError(locale === "de" ? "Keine Berechtigung zum Bearbeiten von URL-Slugs." : "You cannot edit URL slugs.", 403);
@@ -554,6 +563,8 @@ async function importSlugsCsv(
           eventType: "import.completed",
           payload: { type: "import.completed", asset: "slugs", format: "csv", importedRows: rows.length },
         }, tx);
+        await appendProjectAuditEvent(tx, { projectId: project.id, actorUserId: userId,
+          action: "project.slugs_imported", category: "project", metadata: { count: rows.length } });
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 });
       return { importedRows: rows.length };
     } catch (error) {
@@ -629,6 +640,7 @@ export async function POST(
     userId,
     locale,
     emitRowEvents: await projectHasWebhookEndpoints(project.id),
+    actorUserId: userId,
   };
 
   try {

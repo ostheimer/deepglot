@@ -300,6 +300,10 @@ table/indexes before traffic reaches the new dashboard or ingestion route. Do
 not use a broad schema push to apply unrelated existing drift merely to enable
 page-view analytics.
 
+## Workspace activity audit
+
+Workspace owners and admins can open `/dashboard/aktivitaet` (English alias `/dashboard/activity`) to filter saved changes by date, actor, project, and category. The view covers project, member, translation, glossary, exclusion, API-key, webhook, billing-setting, and workspace actions from rollout onward; older activity is not backfilled. CSV export contains the currently displayed 100 or fewer rows. Events hold bounded metadata without translated text, URLs, email addresses, credentials, or payment details. Project transfers keep source events in the source workspace but detach their live project relation. A daily authenticated job removes events older than 365 days; workspace deletion cascades them immediately. See [activity audit operations](docs/operations/activity-audit.md) for authorization, export, retention, and release order.
+
 ## Translated URL slug management
 
 Project managers can search original and translated URL slugs, filter by active language and mapping status, edit one target, or select visible rows for four-column CSV export and atomic reset. The existing CSV format also supports atomic reimport with line-specific conflict reports and a 5,000-row limit. Language-bound translators can view and export only their assigned active language; they cannot edit, reset, or import slug mappings.

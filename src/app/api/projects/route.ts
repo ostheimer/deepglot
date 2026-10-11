@@ -6,6 +6,7 @@ import { generateApiKey } from "@/lib/api-keys";
 import { getProjectsLimitForPlan } from "@/lib/billing-plans";
 import { z } from "zod";
 import { uiText } from "@/lib/static-copy";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import type { SiteLocale } from "@/lib/site-locale";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create project with languages in a transaction
-    const project = await db.$transaction(async (tx) => {
+    const created = await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${membership.organizationId} FOR UPDATE`;
       const currentMembership = await tx.organizationMember.findUnique({
         where: { userId_organizationId: { userId: session.user.id!, organizationId: membership.organizationId } },
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
         tx.organization.findUniqueOrThrow({ where: { id: membership.organizationId }, select: { plan: true } }),
       ]);
       if (currentProjects >= getProjectsLimitForPlan(currentOrganization.plan)) return null;
+
       const newProject = await tx.project.create({
         data: {
           name,
@@ -92,18 +94,21 @@ export async function POST(req: NextRequest) {
         })),
       });
 
-      return newProject;
+      const { rawKey, apiKey } = await generateApiKey({
+        projectId: newProject.id,
+        name: uiText(locale, "WordPress plugin", "WordPress Plugin"), tx,
+      });
+      await appendProjectAuditEvent(tx, { projectId: newProject.id,
+        actorUserId: session.user.id!, action: "project.created", category: "project",
+        metadata: { count: languages.length } });
+      await appendProjectAuditEvent(tx, { projectId: newProject.id,
+        actorUserId: session.user.id!, action: "api_key.created", category: "api_key",
+        metadata: { affectedId: apiKey.id } });
+      return { project: newProject, rawKey, apiKey };
     });
 
-    if (!project) return NextResponse.json({ error: t(locale, "Kein Zugriff oder Projektlimit erreicht", "No access or project limit reached") }, { status: 409 });
-
-    // Automatically create a default API key so the user can start using the
-    // plugin immediately without an extra step.
-    const defaultKeyName = uiText(locale, "WordPress plugin", "WordPress Plugin");
-    const { rawKey, apiKey } = await generateApiKey({
-      projectId: project.id,
-      name: defaultKeyName,
-    });
+    if (!created) return NextResponse.json({ error: t(locale, "Kein Zugriff oder Projektlimit erreicht", "No access or project limit reached") }, { status: 409 });
+    const { project, rawKey, apiKey } = created;
 
     return NextResponse.json(
       { projectId: project.id, rawKey, keyName: apiKey.name },

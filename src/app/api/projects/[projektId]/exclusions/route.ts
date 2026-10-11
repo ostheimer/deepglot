@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { normalizeExclusionInput } from "@/lib/exclusions";
 import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
@@ -97,7 +98,8 @@ export async function POST(
   try {
     const exclusion = await db.$transaction(async (tx) => {
       if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
-      return tx.translationExclusion.create({
+      const created = await tx.translationExclusion.create({
+
       data: {
         projectId: projektId,
         type: normalized.type,
@@ -110,8 +112,12 @@ export async function POST(
         createdAt: true,
       },
       });
+      await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+        action: "exclusion.created", category: "exclusion", metadata: { affectedId: created.id } });
+      return created;
     });
     if (!exclusion) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
+
 
     return NextResponse.json({ exclusion }, { status: 201 });
   } catch (error) {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
 import { BILLING_PLANS, getEffectiveWorkspacePlanKey } from "@/lib/billing-plans";
 
 const createSchema = z.object({ name: z.string().trim().min(2).max(100) });
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
       }, select: { id: true, name: true } });
       await tx.workspaceAudit.create({ data: { workspaceId: id, actorUserId: userId,
         action: "CREATE", nextName: parsed.data.name, targetUserId: userId, nextRole: "OWNER" } });
+      await appendWorkspaceAuditEvent(tx, { organizationId: id, actorUserId: userId,
+        action: "workspace.created", category: "workspace" });
       return organization;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     if (!workspace) return NextResponse.json({ error: "Workspace limit reached" }, { status: 409 });

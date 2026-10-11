@@ -13,17 +13,20 @@ export async function generateApiKey({
   name,
   expiresAt,
   tx,
+
 }: {
   projectId: string;
   name: string;
   expiresAt?: Date;
   tx?: Prisma.TransactionClient;
+
 }) {
   const rawKey = KEY_PREFIX + crypto.randomBytes(32).toString("hex");
   const hashedKey = hashApiKey(rawKey);
   const keyPrefix = rawKey.substring(0, 16); // display prefix
 
   const apiKey = await (tx ?? db).apiKey.create({
+
     data: {
       projectId,
       name,

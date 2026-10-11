@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
 
 const renameSchema = z.object({ name: z.string().trim().min(2).max(100) });
 
@@ -22,6 +23,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ works
         data: { name: parsed.data.name }, select: { id: true, name: true } });
       await tx.workspaceAudit.create({ data: { workspaceId, actorUserId: userId,
         action: "RENAME", previousName: previous.name, nextName: renamed.name } });
+      await appendWorkspaceAuditEvent(tx, { organizationId: workspaceId, actorUserId: userId,
+        action: "workspace.renamed", category: "workspace" });
       return renamed;
     });
     if (!workspace) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
