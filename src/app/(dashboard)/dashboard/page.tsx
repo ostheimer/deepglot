@@ -21,6 +21,7 @@ import { getPageLocale, type LocaleSearchParams } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
 import { auditActionLabel } from "@/lib/audit-labels";
+import { listAuditEvents } from "@/lib/audit-query";
 
 export function generateMetadata() {
   return buildDashboardTitleMetadata("Overview", "Übersicht");
@@ -114,14 +115,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       })
     : 0;
 
-  const recentAuditEvents = org && ["OWNER", "ADMIN"].includes(memberships[0]?.role ?? "")
-    ? await db.auditEvent.findMany({
-        where: { organizationId: org.id },
-        include: { project: { select: { name: true } }, actor: { select: { name: true, email: true,
-          memberships: { where: { organizationId: org.id }, select: { id: true }, take: 1 },
-          projectMemberships: { where: { project: { organizationId: org.id } }, select: { id: true }, take: 1 } } } },
-        orderBy: { createdAt: "desc" }, take: 8,
-      })
+  const recentAuditEvents = org
+    ? (await listAuditEvents(db, { organizationId: org.id, readerUserId: session.user.id,
+        filters: {}, limit: 8 })) ?? []
     : [];
 
   const wordsUsed = monthlyUsage?._sum.words ?? 0;
@@ -137,8 +133,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activityItems = recentAuditEvents.map((event) => ({
     id: event.id,
     project: event.project?.name ?? event.projectIdSnapshot ?? org?.name ?? "",
-    message: `${event.actor && (event.actor.memberships.length || event.actor.projectMemberships.length)
-      ? (event.actor.name || event.actor.email) : (event.actorUserId || uiText(locale, "System", "System"))}: ${auditActionLabel(event.action, locale)}`,
+    message: `${event.actor?.name || event.actor?.email || event.actorUserId || uiText(locale, "System", "System")}: ${auditActionLabel(event.action, locale)}`,
     date: event.createdAt,
   }));
 

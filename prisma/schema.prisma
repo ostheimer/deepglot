@@ -305,6 +305,7 @@ model AuditEvent {
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([organizationId, category, createdAt(sort: Desc)])
   @@index([organizationId, actorUserId, createdAt(sort: Desc)])
+  @@index([actorUserId])
   @@index([organizationId, projectIdSnapshot, createdAt(sort: Desc)])
   @@index([projectId])
   @@index([createdAt])

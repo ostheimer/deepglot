@@ -118,11 +118,11 @@ export async function PATCH(
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
     const current = await tx.webhookEndpoint.findFirst({ where: { id: existing.id, projectId: projektId } });
     if (!current || (parsed.data.enabled === true && !current.secret && !parsed.data.rotateSecret)) return null;
-    const changed = Boolean(parsed.data.rotateSecret) ||
-      (parsed.data.url !== undefined && parsed.data.url !== current.url) ||
+    const configurationChanged = (parsed.data.url !== undefined && parsed.data.url !== current.url) ||
       (parsed.data.enabled !== undefined && parsed.data.enabled !== current.enabled) ||
       (parsed.data.eventTypes !== undefined &&
         JSON.stringify([...parsed.data.eventTypes].sort()) !== JSON.stringify([...current.eventTypes].sort()));
+    const changed = Boolean(parsed.data.rotateSecret) || configurationChanged;
     if (!changed) return tx.webhookEndpoint.findUnique({ where: { id: current.id },
       include: { deliveries: { orderBy: { createdAt: "desc" }, take: 10 } } });
     const updated = await tx.webhookEndpoint.update({
@@ -145,9 +145,10 @@ export async function PATCH(
       },
     },
     });
-    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
-      action: parsed.data.rotateSecret ? "webhook.secret_rotated" : "webhook.updated",
-      category: "webhook", metadata: { affectedId: id } });
+    if (configurationChanged) await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: "webhook.updated", category: "webhook", metadata: { affectedId: id } });
+    if (parsed.data.rotateSecret) await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: "webhook.secret_rotated", category: "webhook", metadata: { affectedId: id } });
     return updated;
   });
 
