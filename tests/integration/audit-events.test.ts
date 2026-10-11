@@ -91,6 +91,31 @@ test("a real language mutation commits its audit row in the same workspace", { s
   assert.equal(await db.projectLanguage.count({ where: { projectId: project.id, langCode: "fr" } }), 1);
 });
 
+test("project-only actors remain named only while their project belongs to this workspace", { skip }, async () => {
+  const { db } = await import("@/lib/db");
+  const suffix = crypto.randomUUID();
+  const reader = await db.user.create({ data: { email: `project-reader-${suffix}@example.test` } });
+  const actor = await db.user.create({ data: { name: "Current translator", email: `project-actor-${suffix}@example.test` } });
+  userIds.push(reader.id, actor.id);
+  const organization = await db.organization.create({ data: { name: "Project actor", slug: `project-actor-${suffix}` } });
+  const destination = await db.organization.create({ data: { name: "Destination", slug: `project-destination-${suffix}` } });
+  orgIds.push(organization.id, destination.id);
+  await db.organizationMember.create({ data: { organizationId: organization.id, userId: reader.id, role: "OWNER" } });
+  const project = await db.project.create({ data: { organizationId: organization.id, name: "Actor project", domain: `actor-${suffix}.example.test` } });
+  await db.projectMember.create({ data: { projectId: project.id, userId: actor.id, email: actor.email, role: "TRANSLATOR" } });
+  await appendProjectAuditEvent(db, { projectId: project.id, actorUserId: actor.id,
+    action: "translation.manual_updated", category: "translation" });
+
+  const current = await listAuditEvents(db, { organizationId: organization.id, readerUserId: reader.id, filters: {} });
+  assert.equal(current?.[0].actor?.name, "Current translator");
+
+  await db.auditEvent.updateMany({ where: { organizationId: organization.id, projectId: project.id }, data: { projectId: null } });
+  await db.project.update({ where: { id: project.id }, data: { organizationId: destination.id } });
+  const transferred = await listAuditEvents(db, { organizationId: organization.id, readerUserId: reader.id, filters: {} });
+  assert.equal(transferred?.[0].actor, null);
+  assert.equal(transferred?.[0].actorUserId, actor.id);
+});
+
 after(async () => {
   if (!localOnly) return;
   const { db } = await import("@/lib/db");

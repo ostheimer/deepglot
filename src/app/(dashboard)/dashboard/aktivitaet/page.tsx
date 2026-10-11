@@ -41,18 +41,29 @@ export default async function ActivityPage({ searchParams }: Props) {
   try {
     filters = parseAuditFilters(params);
   } catch { invalid = true; }
-  const events = invalid ? [] : await listAuditEvents(db, {
-    organizationId, readerUserId: user.id, filters, limit: 100,
+  const auditEvents = await listAuditEvents(db, {
+    organizationId, readerUserId: user.id, filters: invalid ? {} : filters, limit: 100,
   });
-  const [actors, projects, historicalActors, historicalProjects] = await Promise.all([
+  if (auditEvents === null) {
+    return <div className="rounded-xl border bg-white p-6">{uiText(locale, "Activity is available to workspace owners and admins.", "Aktivitäten sind für Inhaber und Administratoren des Arbeitsbereichs verfügbar.")}</div>;
+  }
+  const events = invalid ? [] : auditEvents;
+  const [actors, projectActors, projects, historicalActors, historicalProjects] = await Promise.all([
     db.organizationMember.findMany({
       where: { organizationId }, select: { user: { select: { id: true, name: true, email: true } } },
+    }),
+    db.projectMember.findMany({
+      where: { project: { organizationId }, userId: { not: null } },
+      select: { user: { select: { id: true, name: true, email: true } } },
     }),
     db.project.findMany({ where: { organizationId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.auditEvent.groupBy({ by: ["actorUserId"], where: { organizationId, actorUserId: { not: null } } }),
     db.auditEvent.groupBy({ by: ["projectIdSnapshot"], where: { organizationId, projectIdSnapshot: { not: null } } }),
   ]);
   const actorOptions = new Map(actors.map(({ user: actor }) => [actor.id, actor.name || actor.email || actor.id]));
+  for (const { user: actor } of projectActors) if (actor) {
+    actorOptions.set(actor.id, actor.name || actor.email || actor.id);
+  }
   for (const row of historicalActors) if (row.actorUserId && !actorOptions.has(row.actorUserId)) {
     actorOptions.set(row.actorUserId, `${uiText(locale, "Former member", "Ehemaliges Mitglied")} (${row.actorUserId})`);
   }

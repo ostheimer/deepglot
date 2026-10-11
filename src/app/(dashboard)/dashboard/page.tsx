@@ -118,7 +118,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ? await db.auditEvent.findMany({
         where: { organizationId: org.id },
         include: { project: { select: { name: true } }, actor: { select: { name: true, email: true,
-          memberships: { where: { organizationId: org.id }, select: { id: true }, take: 1 } } } },
+          memberships: { where: { organizationId: org.id }, select: { id: true }, take: 1 },
+          projectMemberships: { where: { project: { organizationId: org.id } }, select: { id: true }, take: 1 } } } },
         orderBy: { createdAt: "desc" }, take: 8,
       })
     : [];
@@ -136,7 +137,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activityItems = recentAuditEvents.map((event) => ({
     id: event.id,
     project: event.project?.name ?? event.projectIdSnapshot ?? org?.name ?? "",
-    message: `${event.actor?.memberships.length ? (event.actor.name || event.actor.email) : (event.actorUserId || uiText(locale, "System", "System"))}: ${auditActionLabel(event.action, locale)}`,
+    message: `${event.actor && (event.actor.memberships.length || event.actor.projectMemberships.length)
+      ? (event.actor.name || event.actor.email) : (event.actorUserId || uiText(locale, "System", "System"))}: ${auditActionLabel(event.action, locale)}`,
     date: event.createdAt,
   }));
 
@@ -475,7 +477,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {activityItems.length > 0 && (
               <div className="px-5 py-3 border-t border-gray-100 text-center">
                 <Link
-                  href={withLocalePrefix("/dashboard/aktivitaet", locale)}
+                  href={`${withLocalePrefix("/dashboard/aktivitaet", locale)}?workspace=${encodeURIComponent(org!.id)}`}
                   className="text-xs text-brand-600 hover:underline"
                 >
                   {uiText(locale, "View activity", "Aktivitäten anzeigen")}

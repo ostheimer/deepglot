@@ -84,11 +84,13 @@ export async function listAuditEvents(
       projectIdSnapshot: true, actorUserId: true, metadata: true,
       project: { select: { name: true } },
       actor: { select: { name: true, email: true,
-        memberships: { where: { organizationId: input.organizationId }, select: { id: true }, take: 1 } } },
+        memberships: { where: { organizationId: input.organizationId }, select: { id: true }, take: 1 },
+        projectMemberships: { where: { project: { organizationId: input.organizationId } }, select: { id: true }, take: 1 } } },
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: Math.min(Math.max(input.limit ?? 100, 1), 1_000),
   });
   return events.map(({ actor, ...event }) => ({ ...event,
-    actor: actor?.memberships.length ? { name: actor.name, email: actor.email } : null }));
+    actor: actor && (actor.memberships.length || actor.projectMemberships.length)
+      ? { name: actor.name, email: actor.email } : null }));
 }

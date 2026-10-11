@@ -6,6 +6,7 @@ import { resolveBillingWorkspaceId } from "@/lib/billing-workspace";
 import { BILLING_PLAN_KEYS, BILLING_PLANS, getStripePriceIdFromEnv, type BillingInterval, type BillingPlanKey } from "@/lib/billing-plans";
 import { isRealStripeCustomerId } from "@/lib/billing";
 import { configuredPriceMatches, stripeSubscriptionEligible } from "@/lib/auto-upgrade";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,9 +48,16 @@ export async function PUT(request: Request) {
       await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
       const latestMember = await tx.organizationMember.findUnique({ where: { userId_organizationId: { userId: context.userId!, organizationId } }, select: { role: true } });
       if (latestMember?.role !== "OWNER") return null;
-      return tx.autoUpgradePreference.upsert({ where: { organizationId },
+      const current = await tx.autoUpgradePreference.findUnique({ where: { organizationId } });
+      if (current && !current.enabled) return current;
+      const preference = await tx.autoUpgradePreference.upsert({ where: { organizationId },
         create: { organizationId, enabled: false, updatedByUserId: context.userId },
         update: { enabled: false, updatedByUserId: context.userId } });
+      if (current?.enabled) await appendWorkspaceAuditEvent(tx, {
+        organizationId, actorUserId: context.userId!, action: "billing.auto_upgrade_updated",
+        category: "billing", metadata: { status: "disabled" },
+      });
+      return preference;
     });
     if (!preference) return NextResponse.json({ error: "Owner access required" }, { status: 403 });
     return NextResponse.json({ preference }, { headers: { "Cache-Control": "private, no-store" } });
@@ -100,9 +108,17 @@ export async function PUT(request: Request) {
     const latestSub = await tx.subscription.findUnique({ where: { organizationId } });
     if (latestMember?.role !== "OWNER" || latestOrg?.plan !== org.plan || latestSub?.stripePriceId !== sub.stripePriceId ||
         latestSub?.status !== "ACTIVE" || latestSub.stripeSubscriptionId !== sub.stripeSubscriptionId) return null;
-    return tx.autoUpgradePreference.upsert({ where: { organizationId },
+    const current = await tx.autoUpgradePreference.findUnique({ where: { organizationId } });
+    if (current?.enabled && current.maxPlan === maxPlan && current.maxPriceCents === maxPriceCents &&
+        current.interval === interval) return current;
+    const preference = await tx.autoUpgradePreference.upsert({ where: { organizationId },
       create: { organizationId, enabled: true, maxPlan, maxPriceCents, interval, updatedByUserId: context.userId },
       update: { enabled: true, maxPlan, maxPriceCents, interval, updatedByUserId: context.userId } });
+    await appendWorkspaceAuditEvent(tx, {
+      organizationId, actorUserId: context.userId!, action: "billing.auto_upgrade_updated",
+      category: "billing", metadata: { status: "enabled", kind: maxPlan, source: interval },
+    });
+    return preference;
   });
   if (!preference) return NextResponse.json({ error: "Billing context changed; refresh and try again" }, { status: 409 });
   return NextResponse.json({ preference }, { headers: { "Cache-Control": "private, no-store" } });
