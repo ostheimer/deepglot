@@ -31,6 +31,7 @@ type MediaQuery = {
 };
 
 let runtimeMediaRows: MediaRow[] = [];
+let apiKeyLastUsedAt: Date | null = null;
 
 const apiKeyFindUnique = test.mock.fn(
   async (args: { where: { key: string } }) => {
@@ -43,6 +44,7 @@ const apiKeyFindUnique = test.mock.fn(
       projectId: currentProjectId,
       isActive: true,
       expiresAt: null,
+      lastUsedAt: apiKeyLastUsedAt,
       project: {
         name: "Runtime media project",
         domain: "runtime-media.example.test",
@@ -59,7 +61,17 @@ const apiKeyFindUnique = test.mock.fn(
     };
   },
 );
-const apiKeyUpdate = test.mock.fn(async () => ({}));
+const apiKeyUpdateMany = test.mock.fn(async (args: {
+  where: { id: string; OR: { lastUsedAt: null | { lte: Date } }[] };
+  data: { lastUsedAt: Date };
+}) => {
+  const matches = args.where.id === "api_key_runtime_media_current" &&
+    args.where.OR.some(({ lastUsedAt }) => lastUsedAt === null
+      ? apiKeyLastUsedAt === null
+      : apiKeyLastUsedAt !== null && apiKeyLastUsedAt <= lastUsedAt.lte);
+  if (matches) apiKeyLastUsedAt = args.data.lastUsedAt;
+  return { count: matches ? 1 : 0 };
+});
 const exclusionFindMany = test.mock.fn(async () => []);
 const slugFindMany = test.mock.fn(async () => []);
 const mediaFindMany = test.mock.fn(async (args: MediaQuery) =>
@@ -93,7 +105,7 @@ const rateLimitQuery = test.mock.fn(async () => [
 (globalThis as unknown as { prisma: unknown }).prisma = {
   apiKey: {
     findUnique: apiKeyFindUnique,
-    update: apiKeyUpdate,
+    updateMany: apiKeyUpdateMany,
   },
   translationExclusion: {
     findMany: exclusionFindMany,
@@ -142,10 +154,11 @@ function mediaRow(
 
 test.beforeEach(() => {
   runtimeMediaRows = [];
+  apiKeyLastUsedAt = null;
 
   for (const mock of [
     apiKeyFindUnique,
-    apiKeyUpdate,
+    apiKeyUpdateMany,
     exclusionFindMany,
     slugFindMany,
     mediaFindMany,
