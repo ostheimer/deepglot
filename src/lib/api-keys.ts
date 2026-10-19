@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
 const KEY_PREFIX = "dg_live_";
+const LAST_USED_TOUCH_INTERVAL_MS = 5 * 60_000;
 
 /**
  * Generates a new API key, stores its hash in the DB.
@@ -60,11 +61,18 @@ export async function validateApiKey(rawKey: string) {
   if (!apiKey || !apiKey.isActive) return null;
   if (apiKey.expiresAt && apiKey.expiresAt < new Date()) return null;
 
-  // Update last used timestamp (fire and forget)
-  db.apiKey.update({
-    where: { id: apiKey.id },
-    data: { lastUsedAt: new Date() },
-  }).catch(() => {});
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - LAST_USED_TOUCH_INTERVAL_MS);
+  if (!apiKey.lastUsedAt || apiKey.lastUsedAt <= cutoff) {
+    // Best effort; the DB guard lets only one concurrent stale reader touch the key.
+    db.apiKey.updateMany({
+      where: {
+        id: apiKey.id,
+        OR: [{ lastUsedAt: null }, { lastUsedAt: { lte: cutoff } }],
+      },
+      data: { lastUsedAt: now },
+    }).catch(() => {});
+  }
 
   return apiKey;
 }
