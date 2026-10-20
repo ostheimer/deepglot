@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["fra1"],
+  "git": {
+    "deploymentEnabled": {
+      "codex/deepglot-region-fra1-20261020": false
+    }
+  },
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
   "crons": [
     {
