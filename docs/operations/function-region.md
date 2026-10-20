@@ -8,9 +8,11 @@ was squash-merged on 2026-10-20 at 17:30:22 UTC as
 `cdde476017b673cd7fe13595b334122fdc01dfb7`. Its source tree exactly matches
 the previously tested region PR head `ffb255d`.
 
-Production deployment `dpl_AA6RSiYxkoSgeCtjKY7GUpLezQib` is READY, targets
-production, uses Node 24.x and `fra1`, and serves `deepglot.ai` / `www.deepglot.ai`.
-This was verified from deployment metadata and aliases, not CDN ingress headers.
+At release verification on 2026-10-20 at 17:44 UTC, production deployment
+`dpl_AA6RSiYxkoSgeCtjKY7GUpLezQib` was READY, targeted production, used
+Node 24.x and `fra1`, and served `deepglot.ai` / `www.deepglot.ai`.
+This historical release record was verified from deployment metadata and aliases,
+not CDN ingress headers; later documentation-only deployments may replace its aliases.
 The [merge-commit CI run](https://github.com/ostheimer/deepglot/actions/runs/39466667575)
 completed successfully, independently of the green pre-merge PR CI. Both the
 actual main commit and its Vercel production deployment were monitored to green.
