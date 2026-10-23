@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { authorizeBillingCommand, resolveBillingWorkspaceId } from "@/lib/billing-workspace";
+import { db } from "@/lib/db";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
+
 import { getCookieLocale } from "@/lib/request-locale";
 import { stripe } from "@/lib/stripe";
 import type { SiteLocale } from "@/lib/site-locale";
@@ -42,6 +45,10 @@ export async function POST(request: Request) {
   // remains live.
   await stripe.subscriptions.update(sub.stripeSubscriptionId, {
     cancel_at_period_end: true,
+  });
+  await appendWorkspaceAuditEvent(db, {
+    organizationId: workspaceId, actorUserId: session.user.id,
+    action: "billing.cancellation_requested", category: "billing",
   });
 
   return NextResponse.json({ success: true });

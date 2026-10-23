@@ -1,6 +1,7 @@
 import type { Prisma, Project } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import {
   MAX_IMPORT_ROWS,
   chunk,
@@ -112,6 +113,7 @@ async function writeInChunks<T>(
     tx: Prisma.TransactionClient,
   ) => Promise<void>,
   handler: (item: T, tx: Prisma.TransactionClient) => Promise<void>,
+  audit?: { projectId: string; actorUserId: string },
 ) {
   let committed = 0;
   for (const slice of chunk(items, IMPORT_CHUNK_SIZE)) {
@@ -121,6 +123,8 @@ async function writeInChunks<T>(
         for (const item of slice) {
           await handler(item, tx);
         }
+        if (audit) await appendProjectAuditEvent(tx, { ...audit, action: "translation.import_chunk",
+          category: "translation", metadata: { count: slice.length } });
       }, IMPORT_TX_OPTIONS);
     } catch (error) {
       if (error instanceof ProjectTranslationImportError) {
@@ -158,6 +162,7 @@ export type ProjectTranslationImportContext = {
   access: ProjectAccessContext;
   locale: SiteLocale;
   emitRowEvents: boolean;
+  actorUserId?: string;
 };
 
 /**
@@ -166,7 +171,7 @@ export type ProjectTranslationImportContext = {
  */
 export async function importTranslationsCsv(
   content: string,
-  { project, access, locale, emitRowEvents }: ProjectTranslationImportContext,
+  { project, access, locale, emitRowEvents, actorUserId }: ProjectTranslationImportContext,
 ) {
   const rows = parseImport(() => parseTranslationsCsv(content), locale);
   assertRowLimit(rows.length, locale);
@@ -277,6 +282,7 @@ export async function importTranslationsCsv(
         );
       }
     },
+    actorUserId ? { projectId: project.id, actorUserId } : undefined,
   );
 
   const wordsByPair = new Map<

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { CLEARED_RUNTIME_SYNC_ORIGIN } from "@/lib/plugin-settings-sync";
 import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
@@ -63,6 +64,9 @@ export async function DELETE(
       where: { projectId: projektId, runtimeSyncSiteHost: expectedSiteHost },
       data: CLEARED_RUNTIME_SYNC_ORIGIN,
     });
+    if (result.count === 1) await appendProjectAuditEvent(tx, {
+      projectId: projektId, actorUserId: session.user.id,
+      action: "project.runtime_sync_origin_cleared", category: "project" });
     return result.count === 1;
   });
 

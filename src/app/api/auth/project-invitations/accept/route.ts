@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { hashProjectInvitationToken } from "@/lib/project-invitations";
 import { lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 import { getCookieLocale } from "@/lib/request-locale";
@@ -246,6 +247,9 @@ export async function POST(request: NextRequest) {
       where: { id: invitation.id },
       data: { acceptedAt: new Date() },
     });
+    await appendProjectAuditEvent(tx, { projectId: invitation.project.id,
+      actorUserId: user.id, action: "member.joined", category: "member",
+      metadata: { affectedId: member.id, role: member.role } });
 
     return { kind: "accepted", user, member } as const;
   });

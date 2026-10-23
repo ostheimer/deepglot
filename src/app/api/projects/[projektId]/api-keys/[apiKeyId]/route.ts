@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { CLEARED_RUNTIME_SYNC_ORIGIN } from "@/lib/plugin-settings-sync";
 import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
@@ -66,7 +67,10 @@ export async function DELETE(
       where: { projectId: projektId, runtimeSyncApiKeyId: apiKey.id },
       data: CLEARED_RUNTIME_SYNC_ORIGIN,
     });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!,
+      action: "api_key.revoked", category: "api_key", metadata: { affectedId: apiKey.id } });
     return true;
+
   });
 
   if (!revoked) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });

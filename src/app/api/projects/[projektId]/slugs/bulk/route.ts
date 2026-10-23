@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { isProjectRuntimeSerializationConflict, lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
 
@@ -43,7 +44,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           });
           if (result.count !== 1) throw new Error("stale_slug");
         }
-        return rows.filter((row) => row.translatedSlug !== null).length;
+        const count = rows.filter((row) => row.translatedSlug !== null).length;
+        if (count > 0) await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+          action: "project.slugs_reset", category: "project", metadata: { count } });
+        return count;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       return NextResponse.json({ count });
     } catch (error) {

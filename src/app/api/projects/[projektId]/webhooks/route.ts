@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import {
   getAuthenticatedUserId,
   userCanManageProject,
@@ -122,7 +123,8 @@ export async function POST(
 
   const endpoint = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return null;
-    return tx.webhookEndpoint.create({
+    const created = await tx.webhookEndpoint.create({
+
     data: {
       projectId: projektId,
       url: parsed.data.url,
@@ -137,6 +139,9 @@ export async function POST(
       },
     },
     });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+      action: "webhook.created", category: "webhook", metadata: { affectedId: created.id } });
+    return created;
   });
 
   if (!endpoint) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });

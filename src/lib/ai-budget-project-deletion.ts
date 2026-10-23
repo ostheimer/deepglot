@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { lockAiSpendScope } from "@/lib/ai-budget";
 import { AiBudgetError } from "@/lib/ai-budget-math";
 import { canManageProject } from "@/lib/project-access-policy";
@@ -31,6 +32,8 @@ export async function deleteProjectWithAiSpendGuard(projectId: string, userId: s
     if (orders.pendingCount) {
       throw new AiBudgetError("professional_order_pending", "Project has unresolved professional order or payment obligations.");
     }
+    await appendProjectAuditEvent(tx, { projectId, actorUserId: userId,
+      action: "project.deleted", category: "project" });
     await tx.project.delete({ where: { id: projectId } });
     // AiSpendReservation.projectId is immutable historical text, without a
     // live Project FK; settled organization spend survives this deletion.

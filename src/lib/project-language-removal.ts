@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { languageRemovalFingerprint } from "@/lib/project-language-lifecycle";
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { canManageProjectForWrite } from "@/lib/project-access";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 
 type Reader = PrismaClient | Prisma.TransactionClient;
 
@@ -83,6 +84,7 @@ export async function removeTargetLanguage(
     if (current.confirmationToken !== confirmationToken) return { kind: "stale_preview", preview: current } as const;
     await deleteTargetData(tx, projectId, langCode);
     await tx.project.update({ where: { id: projectId }, data: { updatedAt: new Date(Math.max(Date.now(), new Date(current.projectVersion).getTime() + 1)) } });
+    if (actorUserId) await appendProjectAuditEvent(tx, { projectId, actorUserId, action: "project.language_removed", category: "project", metadata: { language: langCode } });
     return { kind: "removed", preview: current } as const;
   }, { isolationLevel: "ReadCommitted" });
 }
@@ -126,6 +128,7 @@ export async function removeTargetLanguages(
     for (const langCode of approved) await deleteTargetData(tx, projectId, langCode);
     if (approved.length > 0) {
       await tx.project.update({ where: { id: projectId }, data: { updatedAt: new Date(Math.max(Date.now(), project.updatedAt.getTime() + 1)) } });
+      if (actorUserId) for (const langCode of approved) await appendProjectAuditEvent(tx, { projectId, actorUserId, action: "project.language_removed", category: "project", metadata: { language: langCode } });
     }
     return results;
   }, { isolationLevel: "ReadCommitted" });

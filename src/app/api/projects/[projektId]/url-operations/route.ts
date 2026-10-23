@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
 import { getEffectiveWordsLimit } from "@/lib/billing-plans";
 import { getUsageMonthKey } from "@/lib/translation-batches";
@@ -188,6 +189,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             await tx.translationContext.deleteMany({ where: { translationId: { in: ids }, urlPath: fresh.record.urlPath } });
             await tx.translatedUrl.delete({ where: { id } });
           }
+          await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: actorId,
+            action: "translation.url_deleted", category: "translation",
+            metadata: { affectedId: id, count: fresh.eligible.length } });
         }); } catch (error) {
           if (error instanceof Error && error.message === "ACCESS_REVOKED") return { status: 404, headers: {}, body: { error: "Project not found" } };
           if (error instanceof Error && error.message === "STALE_URL") return { status: 409, headers: {}, body: { error: "URL changed during deletion", code: "stale_preview" } };

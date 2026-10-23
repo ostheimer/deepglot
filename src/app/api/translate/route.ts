@@ -21,6 +21,7 @@ import {
   translateTexts,
 } from "@/lib/translation";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import {
   buildGlossaryProtection,
   hasGlossaryProtection,
@@ -1011,6 +1012,7 @@ export async function executeAuthenticatedTranslateRequest(
               })) });
             }
 
+
             await incrementUsageRecord({
               organizationId: project.organizationId,
               projectId: project.id,
@@ -1035,6 +1037,16 @@ export async function executeAuthenticatedTranslateRequest(
               },
               tx,
             );
+
+            if (pendingTranslations.length > 0) {
+              await appendProjectAuditEvent(tx, {
+                projectId: project.id,
+                actorUserId: forceRetranslate?.actorId ?? null,
+                action: forceRetranslate ? "translation.url_retranslated" : "translation.machine_saved",
+                category: "translation",
+                metadata: { count: pendingTranslations.length, source: forceRetranslate ? "manager" : "api_key" },
+              });
+            }
 
             if (forceRetranslate?.receipt) {
               await tx.urlOperationReceipt.create({ data: {
