@@ -26,6 +26,9 @@ class RequestRouter
     /** Canonical localized URL when a request uses stale source slugs. */
     private ?string $canonicalRedirectUrl = null;
 
+    /** True only while issuing our own verified canonical redirect. */
+    private bool $issuingCanonicalRedirect = false;
+
     public function __construct(Options $options, SiteRouting $routing)
     {
         $this->options = $options;
@@ -113,6 +116,12 @@ class RequestRouter
     public function preventLanguageStrippingRedirect($location)
     {
         if ($this->currentLanguage === null || !$location) {
+            return $location;
+        }
+
+        // The canonical target for /en/en/page is /en/page. It matches the
+        // stripped request path, but must remain a valid Location header.
+        if ($this->issuingCanonicalRedirect && $location === $this->canonicalRedirectUrl) {
             return $location;
         }
 
@@ -248,7 +257,14 @@ class RequestRouter
             return;
         }
 
-        if (wp_safe_redirect($this->canonicalRedirectUrl, 301, 'Deepglot')) {
+        $this->issuingCanonicalRedirect = true;
+        try {
+            $redirected = wp_safe_redirect($this->canonicalRedirectUrl, 301, 'Deepglot');
+        } finally {
+            $this->issuingCanonicalRedirect = false;
+        }
+
+        if ($redirected) {
             exit;
         }
     }
