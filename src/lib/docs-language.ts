@@ -29,6 +29,11 @@ export const DOCS_LANGUAGE_IGNORED_DIRECTORIES = new Set([
   "output",
 ]);
 
+const DOCS_LANGUAGE_IGNORED_FILES = new Set([
+  "AGENTS.md",
+  ".github/pull_request_template.md",
+]);
+
 const STRONG_GERMAN_MARKERS = [
   {
     rule: "German umlaut characters",
@@ -146,7 +151,13 @@ export function collectMarkdownFiles(rootDir: string): string[] {
       }
 
       if (entry.isFile() && entry.name.endsWith(MARKDOWN_EXTENSION)) {
-        files.push(path.join(currentDir, entry.name));
+        const filePath = path.join(currentDir, entry.name);
+        const relativePath = path.relative(rootDir, filePath).split(path.sep).join("/");
+        if (DOCS_LANGUAGE_IGNORED_FILES.has(relativePath)) {
+          continue;
+        }
+
+        files.push(filePath);
       }
     }
   }
