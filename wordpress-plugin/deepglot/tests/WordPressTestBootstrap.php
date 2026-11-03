@@ -15,6 +15,15 @@ if (!function_exists('wp_parse_url')) {
     }
 }
 
+if (!function_exists('wp_sanitize_redirect')) {
+    function wp_sanitize_redirect(string $location): string
+    {
+        // The redirect tests exercise WordPress's removal of a raw apostrophe
+        // before the wp_redirect location filter runs.
+        return str_replace("'", '', $location);
+    }
+}
+
 if (!function_exists('wp_unslash')) {
     function wp_unslash(mixed $value): mixed
     {
