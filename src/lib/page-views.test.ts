@@ -25,6 +25,7 @@ let pageViewsEnabled = true;
 let pageViewsConsentGrantedAt: Date | null = new Date("2026-08-25T10:00:00.000Z");
 let projectId = "project-current";
 let rateLimitCount = 1;
+let apiKeyLastUsedAt: Date | null = null;
 
 type RecordedEvent = {
   eventId: string;
@@ -48,6 +49,7 @@ const apiKeyFindUnique = test.mock.fn(async (args: {
     projectId,
     isActive: true,
     expiresAt: null,
+    lastUsedAt: apiKeyLastUsedAt,
     project: {
       id: projectId,
       name: "Page-view project",
@@ -63,7 +65,17 @@ const apiKeyFindUnique = test.mock.fn(async (args: {
     },
   };
 });
-const apiKeyUpdate = test.mock.fn(async () => ({}));
+const apiKeyUpdateMany = test.mock.fn(async (args: {
+  where: { id: string; OR: { lastUsedAt: null | { lte: Date } }[] };
+  data: { lastUsedAt: Date };
+}) => {
+  const matches = args.where.id === "api-key-current" &&
+    args.where.OR.some(({ lastUsedAt }) => lastUsedAt === null
+      ? apiKeyLastUsedAt === null
+      : apiKeyLastUsedAt !== null && apiKeyLastUsedAt <= lastUsedAt.lte);
+  if (matches) apiKeyLastUsedAt = args.data.lastUsedAt;
+  return { count: matches ? 1 : 0 };
+});
 const pageViewCreate = test.mock.fn(async (args: { data: RecordedEvent }) => {
   if (recordedEvents.has(args.data.eventId)) {
     throw new Prisma.PrismaClientKnownRequestError("Duplicate event ID", {
@@ -105,7 +117,7 @@ const rateLimitQuery = test.mock.fn(async (...queryArguments: unknown[]) => {
   apiKey: {
     findUnique: apiKeyFindUnique,
     findFirst: async () => ({ id: "api-key-current" }),
-    update: apiKeyUpdate,
+    updateMany: apiKeyUpdateMany,
   },
   pageView: {
     create: pageViewCreate,
@@ -182,11 +194,12 @@ test.beforeEach(() => {
   pageViewsConsentGrantedAt = new Date("2026-08-25T10:00:00.000Z");
   projectId = "project-current";
   rateLimitCount = 1;
+  apiKeyLastUsedAt = null;
   recordedEvents.clear();
 
   for (const mock of [
     apiKeyFindUnique,
-    apiKeyUpdate,
+    apiKeyUpdateMany,
     pageViewCreate,
     pageViewFindUnique,
     pageViewDeleteMany,

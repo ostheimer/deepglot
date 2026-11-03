@@ -29,12 +29,14 @@ let runtimeSlugRows: Array<{
   translatedSlug: string | null;
   langTo: string;
 }> = [];
+let apiKeyLastUsedAt: Date | null = null;
 
 const apiKeyFindUnique = test.mock.fn(async () => ({
   id: "api_key_1",
   projectId: "project_current",
   isActive: true,
   expiresAt: null,
+  lastUsedAt: apiKeyLastUsedAt,
   project: {
     id: "project_current",
     name: "Runtime project",
@@ -49,7 +51,17 @@ const apiKeyFindUnique = test.mock.fn(async () => ({
     settings: null,
   },
 }));
-const apiKeyUpdate = test.mock.fn(async () => ({}));
+const apiKeyUpdateMany = test.mock.fn(async (args: {
+  where: { id: string; OR: { lastUsedAt: null | { lte: Date } }[] };
+  data: { lastUsedAt: Date };
+}) => {
+  const matches = args.where.id === "api_key_1" &&
+    args.where.OR.some(({ lastUsedAt }) => lastUsedAt === null
+      ? apiKeyLastUsedAt === null
+      : apiKeyLastUsedAt !== null && apiKeyLastUsedAt <= lastUsedAt.lte);
+  if (matches) apiKeyLastUsedAt = args.data.lastUsedAt;
+  return { count: matches ? 1 : 0 };
+});
 const exclusionFindMany = test.mock.fn(async () => []);
 const slugFindMany = test.mock.fn(async (args: {
   where?: { langTo?: { in?: string[] } };
@@ -72,7 +84,7 @@ const rateLimitQuery = test.mock.fn(async () => [{
 (globalThis as unknown as { prisma: unknown }).prisma = {
   apiKey: {
     findUnique: apiKeyFindUnique,
-    update: apiKeyUpdate,
+    updateMany: apiKeyUpdateMany,
   },
   translationExclusion: {
     findMany: exclusionFindMany,
