@@ -18,6 +18,8 @@ function is_404(): bool
 
 function wp_safe_redirect($location, $status = 302, $xRedirectBy = 'WordPress'): bool
 {
+    // WordPress sanitizes before invoking the wp_redirect location filter.
+    $location = wp_sanitize_redirect($location);
     $location = $GLOBALS['_deepglot_double_prefix_router']->preventLanguageStrippingRedirect($location);
     $GLOBALS['_deepglot_double_prefix_redirect'] = [
         'status' => $status,
@@ -68,6 +70,7 @@ $_SERVER['REQUEST_METHOD'] = 'GET';
 foreach ([
     ['/en/en/impressum/', 'https://example.com/en/impressum/'],
     ['/en/en/impressum/?ref=nav&x=1', 'https://example.com/en/impressum/?ref=nav&x=1'],
+    ["/en/en/impressum/?q=O'Reilly", 'https://example.com/en/impressum/?q=OReilly'],
     ['/fr/fr/contact/?ref=nav', 'https://example.com/fr/contact/?ref=nav'],
 ] as [$requestUri, $expectedLocation]) {
     $_SERVER['REQUEST_URI'] = $requestUri;
