@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { AUDIT_CATEGORIES, type AuditCategory } from "@/lib/audit-events";
 
 export type AuditFilters = {
@@ -7,7 +7,10 @@ export type AuditFilters = {
   actorUserId?: string;
   projectId?: string;
   category?: AuditCategory;
+  afterId?: string;
 };
+
+export class InvalidAuditCursorError extends Error {}
 
 const viennaParts = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/Vienna", year: "numeric", month: "2-digit", day: "2-digit",
@@ -55,7 +58,7 @@ export function parseAuditFilters(params: URLSearchParams): AuditFilters {
     return value;
   };
   return { from, toExclusive, category: category as AuditCategory | undefined,
-    actorUserId: id("actor"), projectId: id("project") };
+    actorUserId: id("actor"), projectId: id("project"), afterId: id("after") };
 }
 
 export async function listAuditEvents(
@@ -67,18 +70,26 @@ export async function listAuditEvents(
     select: { role: true },
   });
   if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) return null;
-  const { from, toExclusive, actorUserId, projectId, category } = input.filters;
+  const { from, toExclusive, actorUserId, projectId, category, afterId } = input.filters;
+  const where: Prisma.AuditEventWhereInput = {
+    organizationId: input.organizationId,
+    ...(from || toExclusive ? { createdAt: {
+      ...(from ? { gte: from } : {}),
+      ...(toExclusive ? { lt: toExclusive } : {}),
+    } } : {}),
+    ...(actorUserId ? { actorUserId } : {}),
+    ...(projectId ? { projectIdSnapshot: projectId } : {}),
+    ...(category ? { category } : {}),
+  };
+  if (afterId) {
+    const cursor = await database.auditEvent.findFirst({ where: { ...where, id: afterId },
+      select: { id: true, createdAt: true } });
+    if (!cursor) throw new InvalidAuditCursorError("Invalid audit cursor");
+    where.OR = [{ createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { lt: cursor.id } }];
+  }
   const events = await database.auditEvent.findMany({
-    where: {
-      organizationId: input.organizationId,
-      ...(from || toExclusive ? { createdAt: {
-        ...(from ? { gte: from } : {}),
-        ...(toExclusive ? { lt: toExclusive } : {}),
-      } } : {}),
-      ...(actorUserId ? { actorUserId } : {}),
-      ...(projectId ? { projectIdSnapshot: projectId } : {}),
-      ...(category ? { category } : {}),
-    },
+    where,
     select: {
       id: true, createdAt: true, action: true, category: true,
       projectIdSnapshot: true, actorUserId: true, metadata: true,

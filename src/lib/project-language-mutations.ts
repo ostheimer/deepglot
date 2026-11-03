@@ -88,16 +88,25 @@ export async function addProjectTargetLanguages(
       return { kind: "source_language_cannot_be_target" } as const;
     }
 
+    const requested = [...new Set(languages)];
+    const existing = await tx.projectLanguage.findMany({
+      where: { projectId, langCode: { in: requested } },
+      select: { langCode: true, isActive: true },
+    });
+    const active = new Set(existing.filter((row) => row.isActive).map((row) => row.langCode));
+    const added = requested.filter((langCode) => !active.has(langCode));
+    if (added.length === 0) return { kind: "updated" } as const;
+
     return withBoundedMediaRuntimeMutation(tx, projectId, async () => {
       // Source migrations retain the source language row as inactive. If that
       // language later becomes a target again, createMany(skipDuplicates) alone
       // would silently leave the existing row inactive.
       await tx.projectLanguage.updateMany({
-        where: { projectId, langCode: { in: languages } },
+        where: { projectId, langCode: { in: added } },
         data: { isActive: true },
       });
       await tx.projectLanguage.createMany({
-        data: languages.map((langCode) => ({
+        data: added.map((langCode) => ({
           projectId,
           langCode,
           isActive: true,
@@ -115,7 +124,7 @@ export async function addProjectTargetLanguages(
         const { appendProjectAuditEvent } = await import("@/lib/audit-events");
         await appendProjectAuditEvent(tx, { projectId, actorUserId,
           action: "project.languages_added", category: "project",
-          metadata: { count: languages.length } });
+          metadata: { count: added.length } });
       }
 
       return { kind: "updated" } as const;

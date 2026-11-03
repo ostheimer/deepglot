@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AUDIT_CATEGORIES } from "@/lib/audit-events";
 import { auditActionLabel, auditCategoryLabel, auditMetadataLabel } from "@/lib/audit-labels";
-import { listAuditEvents, parseAuditFilters, type AuditFilters } from "@/lib/audit-query";
+import { InvalidAuditCursorError, listAuditEvents, parseAuditFilters, type AuditFilters } from "@/lib/audit-query";
 import { getRequestLocale } from "@/lib/request-locale";
 import { withLocalePrefix } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -33,7 +33,7 @@ export default async function ActivityPage({ searchParams }: Props) {
     return <div className="rounded-xl border bg-white p-6">{uiText(locale, "Activity is available to workspace owners and admins.", "Aktivitäten sind für Inhaber und Administratoren des Arbeitsbereichs verfügbar.")}</div>;
   }
   const params = new URLSearchParams();
-  for (const key of ["from", "to", "actor", "project", "category"]) {
+  for (const key of ["from", "to", "actor", "project", "category", "after"]) {
     if (one(key)) params.set(key, one(key));
   }
   let filters: AuditFilters = {};
@@ -41,13 +41,21 @@ export default async function ActivityPage({ searchParams }: Props) {
   try {
     filters = parseAuditFilters(params);
   } catch { invalid = true; }
-  const auditEvents = await listAuditEvents(db, {
-    organizationId, readerUserId: user.id, filters: invalid ? {} : filters, limit: 100,
-  });
+  let auditEvents: Awaited<ReturnType<typeof listAuditEvents>>;
+  try {
+    auditEvents = await listAuditEvents(db, {
+      organizationId, readerUserId: user.id, filters: invalid ? {} : filters, limit: 101,
+    });
+  } catch (error) {
+    if (!(error instanceof InvalidAuditCursorError)) throw error;
+    invalid = true;
+    auditEvents = [];
+  }
   if (auditEvents === null) {
     return <div className="rounded-xl border bg-white p-6">{uiText(locale, "Activity is available to workspace owners and admins.", "Aktivitäten sind für Inhaber und Administratoren des Arbeitsbereichs verfügbar.")}</div>;
   }
-  const events = invalid ? [] : auditEvents;
+  const events = invalid ? [] : auditEvents.slice(0, 100);
+  const hasMore = !invalid && auditEvents.length > 100;
   const [actors, projectActors, projects, historicalActors, historicalProjects] = await Promise.all([
     db.organizationMember.findMany({
       where: { organizationId }, select: { user: { select: { id: true, name: true, email: true } } },
@@ -72,7 +80,12 @@ export default async function ActivityPage({ searchParams }: Props) {
     projectOptions.set(row.projectIdSnapshot, `${uiText(locale, "Former project", "Früheres Projekt")} (${row.projectIdSnapshot})`);
   }
   const path = withLocalePrefix("/dashboard/aktivitaet", locale);
-  const csvRows = ["timestamp,actor,project,category,action,metadata", ...(events ?? []).map((event) => [
+  const olderParams = new URLSearchParams(params);
+  olderParams.set("workspace", organizationId);
+  const firstParams = new URLSearchParams(olderParams);
+  firstParams.delete("after");
+  if (hasMore) olderParams.set("after", events[events.length - 1].id);
+  const csvRows = ["timestamp,actor,project,category,action,metadata", ...events.map((event) => [
     event.createdAt.toISOString(), event.actor?.name || event.actor?.email || event.actorUserId || "System",
     event.project?.name || event.projectIdSnapshot || "", event.category, event.action,
     auditMetadataLabel(event.metadata, locale),
@@ -106,16 +119,19 @@ export default async function ActivityPage({ searchParams }: Props) {
     <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-left text-sm"><thead className="border-b bg-gray-50 text-gray-600"><tr>
       <th className="p-3">{uiText(locale, "Date", "Datum")}</th><th className="p-3">{uiText(locale, "Actor", "Person")}</th>
       <th className="p-3">{uiText(locale, "Project", "Projekt")}</th><th className="p-3">{uiText(locale, "Action", "Aktion")}</th></tr></thead>
-      <tbody>{(events ?? []).map((event) => <tr key={event.id} className="border-b last:border-0">
+      <tbody>{events.map((event) => <tr key={event.id} className="border-b last:border-0">
         <td className="whitespace-nowrap p-3">{new Intl.DateTimeFormat(locale === "de" ? "de-AT" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Vienna" }).format(event.createdAt)}</td>
         <td className="p-3">{event.actor?.name || event.actor?.email || event.actorUserId || uiText(locale, "System", "System")}</td>
         <td className="p-3">{event.project?.name || event.projectIdSnapshot || "—"}</td>
         <td className="p-3"><span className="text-gray-500">{auditCategoryLabel(event.category, locale)}</span><br />{auditActionLabel(event.action, locale)}
           {auditMetadataLabel(event.metadata, locale) && <p className="text-xs text-gray-500">{auditMetadataLabel(event.metadata, locale)}</p>}</td>
       </tr>)}</tbody></table>
-      {!events?.length && !invalid ? <p className="p-6 text-sm text-gray-500">{uiText(locale, "No saved activity matches these filters.", "Keine gespeicherte Aktivität passt zu diesen Filtern.")}</p> : null}
+      {!events.length && !invalid ? <p className="p-6 text-sm text-gray-500">{uiText(locale, "No saved activity matches these filters.", "Keine gespeicherte Aktivität passt zu diesen Filtern.")}</p> : null}
     </div>
-    {events && events.length >= 100 ? <p className="text-sm text-gray-600">{uiText(locale, "Showing the latest 100 events. Narrow the date range to see older events.", "Die letzten 100 Ereignisse werden angezeigt. Schränke den Zeitraum für ältere Ereignisse ein.")}</p> : null}
+    <div className="flex gap-4 text-sm">
+      {one("after") ? <Link className="text-brand-700 underline" href={`${path}?${firstParams.toString()}`}>{uiText(locale, "First page", "Erste Seite")}</Link> : null}
+      {hasMore ? <Link className="text-brand-700 underline" href={`${path}?${olderParams.toString()}`}>{uiText(locale, "Older events", "Ältere Ereignisse")}</Link> : null}
+    </div>
     <a className="text-sm text-brand-700 underline" download="deepglot-activity.csv" href={csvHref}>{uiText(locale, "Export displayed events as CSV", "Angezeigte Ereignisse als CSV exportieren")}</a>
     <Link className="text-sm text-brand-700 underline" href={withLocalePrefix("/dashboard", locale)}>{uiText(locale, "Back to overview", "Zur Übersicht")}</Link>
   </div>;

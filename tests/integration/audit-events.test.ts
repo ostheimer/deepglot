@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { resolveDatabaseUrl } from "@/lib/database-url";
 import { appendProjectAuditEvent, appendWorkspaceAuditEvent } from "@/lib/audit-events";
-import { listAuditEvents } from "@/lib/audit-query";
+import { InvalidAuditCursorError, listAuditEvents } from "@/lib/audit-query";
 import { deleteExpiredAuditEvents } from "@/lib/audit-retention";
 import { addProjectTargetLanguages, updateProjectTargetLanguage } from "@/lib/project-language-mutations";
 
@@ -81,6 +81,7 @@ test("a real language mutation commits its audit row in the same workspace", { s
   await db.organizationMember.create({ data: { organizationId: organization.id, userId: actor.id, role: "OWNER" } });
   const project = await db.project.create({ data: { organizationId: organization.id, name: "Language audit", domain: `language-${suffix}.example.test` } });
 
+  assert.deepEqual(await addProjectTargetLanguages(db, { projectId: project.id, languages: ["fr", "fr"], actorUserId: actor.id }), { kind: "updated" });
   assert.deepEqual(await addProjectTargetLanguages(db, { projectId: project.id, languages: ["fr"], actorUserId: actor.id }), { kind: "updated" });
   assert.equal(await updateProjectTargetLanguage(db, { projectId: project.id, langCode: "fr", isVisible: false, actorUserId: actor.id }), true);
   assert.equal(await updateProjectTargetLanguage(db, { projectId: project.id, langCode: "fr", isVisible: false, actorUserId: actor.id }), true);
@@ -88,6 +89,7 @@ test("a real language mutation commits its audit row in the same workspace", { s
     filters: { projectId: project.id, actorUserId: actor.id } });
   assert.equal(events?.length, 2);
   assert.deepEqual(new Set(events?.map((event) => event.action)), new Set(["project.languages_added", "project.language_updated"]));
+  assert.equal((events?.find((event) => event.action === "project.languages_added")?.metadata as { count: number }).count, 1);
   assert.equal(await db.projectLanguage.count({ where: { projectId: project.id, langCode: "fr" } }), 1);
 });
 
@@ -114,6 +116,29 @@ test("project-only actors remain named only while their project belongs to this 
   const transferred = await listAuditEvents(db, { organizationId: organization.id, readerUserId: reader.id, filters: {} });
   assert.equal(transferred?.[0].actor, null);
   assert.equal(transferred?.[0].actorUserId, actor.id);
+});
+
+test("cursor pagination reaches every event when one day has over 100 rows", { skip }, async () => {
+  const { db } = await import("@/lib/db");
+  const suffix = crypto.randomUUID();
+  const reader = await db.user.create({ data: { email: `page-reader-${suffix}@example.test` } });
+  userIds.push(reader.id);
+  const organization = await db.organization.create({ data: { name: "Paged activity", slug: `paged-activity-${suffix}` } });
+  orgIds.push(organization.id);
+  await db.organizationMember.create({ data: { organizationId: organization.id, userId: reader.id, role: "OWNER" } });
+  await db.auditEvent.createMany({ data: Array.from({ length: 105 }, (_, index) => ({
+    organizationId: organization.id, action: "translation.machine_saved", category: "translation",
+    metadata: { count: index + 1 }, createdAt: new Date("2026-10-09T12:00:00.000Z"),
+  })) });
+  const first = await listAuditEvents(db, { organizationId: organization.id, readerUserId: reader.id,
+    filters: {}, limit: 101 });
+  assert.equal(first?.length, 101);
+  const second = await listAuditEvents(db, { organizationId: organization.id, readerUserId: reader.id,
+    filters: { afterId: first![99].id }, limit: 101 });
+  assert.equal(second?.length, 5);
+  assert.equal(new Set([...first!.slice(0, 100), ...second!].map((row) => row.id)).size, 105);
+  await assert.rejects(listAuditEvents(db, { organizationId: organization.id, readerUserId: reader.id,
+    filters: { afterId: "not-an-event" } }), InvalidAuditCursorError);
 });
 
 after(async () => {

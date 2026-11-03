@@ -204,12 +204,21 @@ export async function PATCH(
 
   const settings = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
+    const current = await tx.projectSettings.findUnique({ where: { projectId: projektId } });
+    const changed = Object.entries(data).some(([key, value]) => {
+      const previous = current
+        ? current[key as keyof typeof current]
+        : (["useGlossaryAsContext", "useApprovedTranslationsAsContext", "providerReconnectRequired"].includes(key) ? false : null);
+      return previous instanceof Date && value instanceof Date
+        ? previous.getTime() !== value.getTime() : previous !== value;
+    });
+    if (!changed && current) return current;
     const updated = await tx.projectSettings.upsert({
       where: { projectId: projektId },
       create: { projectId: projektId, ...data },
       update: data,
     });
-    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!, action: "project.language_model_updated", category: "project" });
+    if (changed) await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!, action: "project.language_model_updated", category: "project" });
     return updated;
   });
   if (!settings) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });

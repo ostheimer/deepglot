@@ -1,8 +1,23 @@
 import { expect, test } from "@playwright/test";
+import { db } from "@/lib/db";
 
 import { signInAndGetProjectId } from "./helpers";
 
 test.describe("provider settings", () => {
+  test("unchanged language-model saves do not append audit events", async ({ page }) => {
+    const projectId = await signInAndGetProjectId(page);
+    const settingsUrl = `/api/projects/${projectId}/language-model`;
+    const before = await db.auditEvent.count({ where: { projectId, action: "project.language_model_updated" } });
+    const empty = await page.request.patch(settingsUrl, { data: {} });
+    expect(empty.ok()).toBeTruthy();
+    const current = await page.request.get(settingsUrl);
+    expect(current.ok()).toBeTruthy();
+    const { settings } = await current.json();
+    const repeated = await page.request.patch(settingsUrl, { data: { translationTone: settings.translationTone } });
+    expect(repeated.ok()).toBeTruthy();
+    expect(await db.auditEvent.count({ where: { projectId, action: "project.language_model_updated" } })).toBe(before);
+  });
+
   test("rejects anonymous description suggestions", async ({ request }) => {
     const response = await request.post("/api/projects/unknown/language-model");
     expect(response.status()).toBe(401);
