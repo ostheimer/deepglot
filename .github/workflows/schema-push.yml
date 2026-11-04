@@ -186,48 +186,7 @@ jobs:
         run: node --import tsx scripts/schema-plan-attestation.ts
 
       - name: Guard against destructive SQL
-        run: |
-          node -e '
-            const fs = require("node:fs");
-            const planFile = "schema-plan.sql";
-            const apply = process.env.APPLY === "true";
-            const raw = fs.readFileSync(planFile, "utf8");
-
-            // Drop full-line SQL comments before splitting into statements so
-            // a comment that merely mentions DROP/TRUNCATE/etc never trips
-            // the guard (e.g. "-- replaces the dropped legacy column").
-            const withoutComments = raw
-              .split("\n")
-              .filter((line) => !/^\s*--/.test(line))
-              .join("\n");
-
-            const statements = withoutComments
-              .split(";")
-              .map((s) => s.trim())
-              .filter(Boolean);
-
-            // DROP (TABLE/COLUMN/INDEX/CONSTRAINT/TYPE/...), TRUNCATE, DELETE,
-            // and a column type change (ALTER COLUMN ... TYPE) can all lose
-            // data; everything else `migrate diff` emits (CREATE, ADD COLUMN,
-            // ADD CONSTRAINT, ...) is additive and passes through.
-            const destructiveRe = /\b(DROP|TRUNCATE|DELETE)\b|ALTER\s+COLUMN\b[\s\S]*?\bTYPE\b/i;
-            const destructive = statements.filter((s) => destructiveRe.test(s));
-
-            if (destructive.length === 0) {
-              console.log(`No destructive statements detected in ${planFile}.`);
-              process.exit(0);
-            }
-
-            console.log(`${apply ? "::error::" : "::warning::"}Destructive statement(s) detected in ${planFile}:`);
-            for (const s of destructive) console.log(`  ${s};`);
-
-            if (apply) {
-              console.error("::error::Refusing to apply destructive SQL with apply=true. Review schema-plan.sql manually, then run the statements by hand if they are intended.");
-              process.exit(1);
-            }
-
-            console.log("::warning::apply=false, so this run continues as a plan only; re-check schema-plan.sql before dispatching with apply=true.");
-          '
+        run: node --import tsx scripts/check-schema-plan-safety.ts
 
       - name: Apply schema
         if: ${{ inputs.apply }}
