@@ -36,23 +36,25 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
-  const updated = await db.$transaction(async (tx) => { const saved = await tx.organizationMember.update({
-    where: { id: membership.id },
-    data: {
-      activityDigestEnabled: parsed.data.enabled,
-      activityDigestLocale: parsed.data.locale,
-    },
-    select: {
-      organizationId: true,
-      activityDigestEnabled: true,
-      activityDigestLocale: true,
-    },
-  });
+  const updated = await db.$transaction(async (tx) => {
+    const current = await tx.organizationMember.findUnique({ where: { id: membership.id }, select: {
+      organizationId: true, activityDigestEnabled: true, activityDigestLocale: true,
+    } });
+    if (!current) return null;
+    if (current.activityDigestEnabled === parsed.data.enabled && current.activityDigestLocale === parsed.data.locale) {
+      return current;
+    }
+    const saved = await tx.organizationMember.update({
+      where: { id: membership.id },
+      data: { activityDigestEnabled: parsed.data.enabled, activityDigestLocale: parsed.data.locale },
+      select: { organizationId: true, activityDigestEnabled: true, activityDigestLocale: true },
+    });
     await appendWorkspaceAuditEvent(tx, { organizationId: parsed.data.organizationId,
       actorUserId: session.user.id, action: "workspace.activity_digest_updated",
       category: "workspace", metadata: { status: parsed.data.enabled ? "enabled" : "disabled" } });
     return saved;
   });
+  if (!updated) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
   return NextResponse.json({
     organizationId: updated.organizationId,

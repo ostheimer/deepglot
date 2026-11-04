@@ -28,6 +28,7 @@ const germanActions: Record<string, string> = {
   "project.languages_added": "Zielsprachen hinzugefügt",
   "project.page_views_disabled": "Seitenaufrufe deaktiviert",
   "project.page_views_enabled": "Seitenaufrufe aktiviert",
+  "project.page_views_consent_renewed": "Einwilligung für Seitenaufrufe erneuert",
   "project.runtime_sync_origin_cleared": "Synchronisierungsquelle entfernt",
   "project.settings_updated": "Projekteinstellungen geändert",
   "project.slugs_imported": "URL-Pfade importiert",

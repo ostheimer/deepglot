@@ -38,6 +38,8 @@ export async function POST(
 
   const changed = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
+    const current = await tx.projectSettings.findUnique({ where: { projectId: projektId },
+      select: { pageViewsEnabled: true, pageViewsConsentGrantedAt: true } });
     await tx.projectSettings.upsert({
 
     where: { projectId: projektId },
@@ -51,7 +53,8 @@ export async function POST(
       pageViewsConsentGrantedAt: consentGrantedAt,
     },
     });
-    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!, action: "project.page_views_enabled", category: "project" });
+    await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!,
+      action: current?.pageViewsEnabled ? "project.page_views_consent_renewed" : "project.page_views_enabled", category: "project" });
     return true;
   });
   if (!changed) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
@@ -83,6 +86,9 @@ export async function DELETE(
 
   const changed = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return false;
+    const current = await tx.projectSettings.findUnique({ where: { projectId: projektId },
+      select: { pageViewsEnabled: true, pageViewsConsentGrantedAt: true } });
+    if (!current?.pageViewsEnabled && !current?.pageViewsConsentGrantedAt) return true;
     await tx.projectSettings.upsert({
 
     where: { projectId: projektId },

@@ -32,9 +32,12 @@ export async function PATCH(
   const result = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
     const project = await tx.project.findUnique({ where: { id: projektId },
-      select: { organization: { select: { plan: true } } } });
+      select: { organization: { select: { plan: true } }, settings: { select: { translationMemory: true } } } });
     if (!project) return null;
     if (parsed.data.enabled && !planSupportsTranslationMemory(project.organization.plan)) return "PLAN" as const;
+    if ((project.settings?.translationMemory ?? false) === parsed.data.enabled) {
+      return { translationMemory: parsed.data.enabled };
+    }
     const settings = await tx.projectSettings.upsert({ where: { projectId: projektId },
       create: { projectId: projektId, translationMemory: parsed.data.enabled },
       update: { translationMemory: parsed.data.enabled }, select: { translationMemory: true } });

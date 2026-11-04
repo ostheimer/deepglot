@@ -56,6 +56,30 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     assert.equal(importedEvents[0].organizationId, organization.id);
     assert.equal(importedEvents[0].actorUserId, user.id);
     assert.deepEqual(importedEvents[0].metadata, { count: 1, source: "xliff" });
+    const rejectFunction = `reject_xliff_audit_${token}`;
+    const rejectTrigger = `reject_xliff_audit_${token}`;
+    const rollbackSource = "Rollback Satz";
+    const rollbackHash = computeTranslationHash(rollbackSource, "de", "en");
+    const auditCount = await db.auditEvent.count({ where: { projectId: project.id } });
+    const translationCount = await db.translation.count({ where: { projectId: project.id } });
+    assert.match(rejectFunction, /^[a-z0-9_]+$/);
+    await db.$executeRawUnsafe(`CREATE FUNCTION "${rejectFunction}"() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW."projectId" = '${project.id}' AND NEW.action = 'translation.import_chunk' THEN
+        RAISE EXCEPTION 'synthetic audit rejection'; END IF; RETURN NEW; END $$`);
+    await db.$executeRawUnsafe(`CREATE TRIGGER "${rejectTrigger}" BEFORE INSERT ON "AuditEvent"
+      FOR EACH ROW EXECUTE FUNCTION "${rejectFunction}"()`);
+    try {
+      await assert.rejects(() => importTranslationsXliff({ bytes: bytes([{ originalText: rollbackSource,
+        translatedText: "Rollback sentence", workflowStatus: "MACHINE" }]), project, access, userId: user.id,
+        langTo: "en", applyApproved: false, emitRowEvents: false }), /synthetic audit rejection/);
+      assert.equal(await db.translation.count({ where: { projectId: project.id } }), translationCount);
+      assert.equal(await db.translation.findUnique({ where: { projectId_originalHash: { projectId: project.id,
+        originalHash: rollbackHash } } }), null);
+      assert.equal(await db.auditEvent.count({ where: { projectId: project.id } }), auditCount);
+    } finally {
+      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${rejectTrigger}" ON "AuditEvent"`);
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${rejectFunction}"()`);
+    }
     const protectedAfter = await db.translation.findUniqueOrThrow({
       where: { projectId_originalHash: { projectId: project.id, originalHash: protectedHash } },
     });

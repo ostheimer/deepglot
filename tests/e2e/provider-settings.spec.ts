@@ -4,6 +4,19 @@ import { db } from "@/lib/db";
 import { signInAndGetProjectId } from "./helpers";
 
 test.describe("provider settings", () => {
+  test("unchanged translation-memory saves do not append audit events", async ({ page }) => {
+    const projectId = await signInAndGetProjectId(page);
+    const settingsUrl = `/api/projects/${projectId}/translation-memory`;
+    const current = await db.projectSettings.findUnique({ where: { projectId }, select: { translationMemory: true } });
+    const enabled = current?.translationMemory ?? false;
+    const before = await db.auditEvent.count({ where: { projectId, action: "project.translation_memory_updated" } });
+    const first = await page.request.patch(settingsUrl, { data: { enabled } });
+    const second = await page.request.patch(settingsUrl, { data: { enabled } });
+    expect(first.ok()).toBeTruthy();
+    expect(second.ok()).toBeTruthy();
+    expect(await db.auditEvent.count({ where: { projectId, action: "project.translation_memory_updated" } })).toBe(before);
+  });
+
   test("unchanged language-model saves do not append audit events", async ({ page }) => {
     const projectId = await signInAndGetProjectId(page);
     const settingsUrl = `/api/projects/${projectId}/language-model`;
