@@ -11,7 +11,7 @@ import {
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import type { BilingualPublicLocale } from "@/lib/bilingual-public-content";
-import { getMarketingPath } from "@/lib/site-locale";
+import { getMarketingPath, withLocalePrefix } from "@/lib/site-locale";
 
 const RELEASES = [
   {
@@ -105,6 +105,9 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             </a>
             <a href="#professional-orders" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Professionelle Übersetzungen" : "Professional translations"}
+            </a>
+            <a href="#activity-log" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
+              {de ? "Aktivitätsprotokoll" : "Activity log"}
             </a>
             <a href="#weekly-digest" className="rounded-md border border-[#c9c7be] bg-white px-4 py-2 font-semibold transition-colors hover:border-[#f03b22] hover:text-[#d92f19]">
               {de ? "Wochenrückblick" : "Weekly digest"}
@@ -222,6 +225,22 @@ export function HelpPage({ locale }: { locale: BilingualPublicLocale }) {
             <p className="mt-3 max-w-3xl leading-7 text-[#58636d]">{de
               ? "Der Filter für Quellseiten-Vorkommen unterscheidet nachweislich vorhandene Texte, unbekannte Fälle und Texte, die in vollständig erfassten Quellseiten nicht mehr vorkommen. WordPress erfasst dafür die serverseitig gerenderte Seite auch bei lokalen Übersetzungs-Cache-Treffern. Alle bekannten Seitenkontexte brauchen frische vollständige Nachweise. Dynamische Inhalte, abgebrochene Seiten, fehlende oder veraltete Nachweise bleiben unbekannt. Die Aussage gilt nur für diese erfassten Seiten, nicht für die gesamte Website."
               : "The source-page presence filter distinguishes proven presence, unknown cases and text no longer present in fully captured source pages. WordPress captures the server-rendered page even on local translation-cache hits. Every known page context needs fresh complete evidence. Dynamic content, aborted pages, missing or stale evidence remain unknown. The result applies only to those captured pages, not the entire website."}</p>
+          </section>
+
+          <section id="activity-log" data-testid="help-activity-log" className="scroll-mt-8 pt-20">
+            <div className="max-w-3xl">
+              <h2 className="text-4xl font-extrabold tracking-[-0.045em]">
+                {de ? "Gespeicherte Aktivitäten im Workspace" : "Saved workspace activity"}
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#58636d]">
+                {de
+                  ? "Im Dashboard unter Aktivität findest du gespeicherte Änderungen für den gewählten Workspace. Du kannst nach Datum, Person, Projekt und Kategorie filtern und die angezeigten Ereignisse als CSV exportieren. Frühere Änderungen werden nicht nachgetragen."
+                  : "In Dashboard → Activity, you can see saved changes for the selected workspace, filter by date, actor, project and category, and export the displayed events as CSV. Earlier changes are not backfilled."}
+              </p>
+              <Link className="mt-4 inline-flex font-semibold text-[#c62812] underline underline-offset-4" href={withLocalePrefix("/dashboard/aktivitaet", locale)}>
+                {de ? "Zum Aktivitätsprotokoll" : "Open the activity log"}
+              </Link>
+            </div>
           </section>
 
           <section id="weekly-digest" data-testid="help-weekly-digest" className="scroll-mt-8 pt-20">
