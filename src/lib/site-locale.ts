@@ -1150,6 +1150,8 @@ const LOCALIZED_SEGMENTS: Record<SiteLocale, Record<SegmentKey, string>> = {
 };
 
 const LEGACY_EXTERNAL_TO_INTERNAL_SEGMENT: Record<string, string> = {
+  activity: "aktivitaet",
+  aktivitaet: "aktivitaet",
   preise: INTERNAL_SEGMENTS.pricing,
   anmelden: INTERNAL_SEGMENTS.login,
   registrieren: INTERNAL_SEGMENTS.signup,
@@ -1232,6 +1234,7 @@ function getExternalToInternalSegmentMap(locale: SiteLocale) {
 function getInternalToExternalSegmentMap(locale: SiteLocale) {
   return {
     ...buildInternalToExternalSegmentMap(locale),
+    aktivitaet: locale === "de" ? "aktivitaet" : "activity",
     [HELP_INTERNAL_SEGMENT]: HELP_EXTERNAL_SEGMENTS[locale],
   };
 }

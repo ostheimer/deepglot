@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { normalizeExclusionInput } from "@/lib/exclusions";
 import { getAuthenticatedUserId, userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
 import { getCookieLocale } from "@/lib/request-locale";
@@ -70,7 +71,7 @@ export async function PATCH(
         value: parsed.data.value ?? existing.value,
       });
 
-      return tx.translationExclusion.update({
+      const updated = await tx.translationExclusion.update({
         where: { id: exclusionId },
         data: {
           type: normalized.type,
@@ -83,6 +84,9 @@ export async function PATCH(
           createdAt: true,
         },
       });
+      await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: userId,
+        action: "exclusion.updated", category: "exclusion", metadata: { affectedId: exclusionId } });
+      return updated;
     });
 
     return NextResponse.json({ exclusion });
@@ -171,7 +175,12 @@ export async function DELETE(
 
   const deleted = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
-    return (await tx.translationExclusion.deleteMany({ where: { id: existing.id, projectId: projektId } })).count === 1;
+    const result = await tx.translationExclusion.deleteMany({ where: { id: existing.id, projectId: projektId } });
+    if (result.count === 1) await appendProjectAuditEvent(tx, { projectId: projektId,
+      actorUserId: userId, action: "exclusion.deleted", category: "exclusion",
+      metadata: { affectedId: existing.id } });
+    return result.count === 1;
+
   });
   if (!deleted) return NextResponse.json({ error: t(locale, "Ausnahmeregel nicht gefunden", "Exclusion rule not found") }, { status: 404 });
 

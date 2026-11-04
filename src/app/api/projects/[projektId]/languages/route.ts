@@ -253,4 +253,5 @@ export async function DELETE(
   if (result.kind === "not_found") return NextResponse.json({ error: locale === "de" ? "Zielsprache nicht gefunden" : "Target language not found" }, { status: 404 });
   if (result.kind === "stale_preview") return NextResponse.json({ error: locale === "de" ? "Die Vorschau ist nicht mehr aktuell. Bitte erneut prüfen." : "The preview is out of date. Please review it again.", preview: result.preview }, { status: 409 });
   return NextResponse.json({ success: true, removed: result.preview });
+
 }

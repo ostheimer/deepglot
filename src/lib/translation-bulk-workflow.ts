@@ -171,6 +171,12 @@ export async function updateProjectTranslationsBulkWorkflow({
         data: { workflowStatus: planned.status, assignedToId: planned.assignedToId },
       });
     }
+    if (userId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId: userId,
+        action: "translation.workflow_bulk_updated", category: "translation",
+        metadata: { count: items.length, kind: action.kind } });
+    }
     return { updated: items.length };
   }, { timeout: 15_000 });
 }

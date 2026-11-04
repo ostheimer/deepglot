@@ -3,7 +3,9 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
+
 import { getCookieLocale } from "@/lib/request-locale";
 import { encryptSecret } from "@/lib/secret-encryption";
 import { suggestWebsiteDescription } from "@/lib/translation-context-settings";
@@ -202,14 +204,26 @@ export async function PATCH(
 
   const settings = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, session.user.id!, projektId))) return null;
-    return tx.projectSettings.upsert({
+    const current = await tx.projectSettings.findUnique({ where: { projectId: projektId } });
+    const changed = Object.entries(data).some(([key, value]) => {
+      const previous = current
+        ? current[key as keyof typeof current]
+        : (["useGlossaryAsContext", "useApprovedTranslationsAsContext", "providerReconnectRequired"].includes(key) ? false : null);
+      return previous instanceof Date && value instanceof Date
+        ? previous.getTime() !== value.getTime() : previous !== value;
+    });
+    if (!changed && current) return current;
+    const updated = await tx.projectSettings.upsert({
       where: { projectId: projektId },
       create: { projectId: projektId, ...data },
       update: data,
     });
+    if (changed) await appendProjectAuditEvent(tx, { projectId: projektId, actorUserId: session.user.id!, action: "project.language_model_updated", category: "project" });
+    return updated;
   });
   if (!settings) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
   const effective = resolveTranslationProviderDisplayConfig(settings);
+
 
   return NextResponse.json(
     serializeLanguageModelApiResponse({ settings, effective })

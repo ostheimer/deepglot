@@ -300,6 +300,10 @@ table/indexes before traffic reaches the new dashboard or ingestion route. Do
 not use a broad schema push to apply unrelated existing drift merely to enable
 page-view analytics.
 
+## Workspace activity audit
+
+Workspace owners and admins can open `/dashboard/aktivitaet` (English alias `/dashboard/activity`) to filter saved changes by date, actor, project, and category. The view covers project, member, translation, glossary, exclusion, API-key, webhook, billing-setting, and workspace actions from rollout onward; older activity is not backfilled. Cursor pagination reaches older events even on busy days; CSV export contains the currently displayed 100 or fewer rows. Events hold bounded metadata without translated text, URLs, email addresses, credentials, or payment details. Project transfers keep source events in the source workspace but detach their live project relation. A daily authenticated job removes events older than 365 days; workspace deletion cascades them immediately. See [activity audit operations](docs/operations/activity-audit.md) for authorization, export, retention, and release order.
+
 ## Translation XLIFF round trip
 
 The authenticated project Import & Export page supports a documented XLIFF 1.2 subset for translations, one project and target language per file. Export uses `GET /api/projects/{projectId}/export?asset=translations&format=xliff&langTo=en`; import sends multipart `asset=translations`, `format=xliff`, `langTo=en`, and `file` to `POST /api/projects/{projectId}/import`. These dashboard routes require a signed-in project member and enforce target-language access; they are not a stable external API.

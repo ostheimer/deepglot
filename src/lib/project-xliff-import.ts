@@ -1,6 +1,7 @@
 import { Prisma, type Project } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { chunk } from "@/lib/import-export";
 import { canAccessProjectForWrite, canAccessProjectLanguage, canManageProject, type ProjectAccessContext } from "@/lib/project-access";
 import { isProjectRuntimeSerializationConflict, lockAndValidateProjectLanguageWrite } from "@/lib/project-runtime-configuration-lock";
@@ -183,6 +184,9 @@ export async function importTranslationsXliff(input: {
         if (contentChanges.length) await recordTranslationBatch({ organizationId: lockedProject.organizationId, projectId: project.id,
           langFrom: project.originalLang, langTo, provider: "import", totalWords: words,
           cachedWords: 0, manualWords: words, glossaryWords: 0, translatedWords: 0 }, tx);
+        if (invalidations.length) await appendProjectAuditEvent(tx, { projectId: project.id, actorUserId: input.userId,
+          action: "translation.import_chunk", category: "translation",
+          metadata: { count: invalidations.length, source: "xliff" } });
         await queueProjectWebhookEvent({ projectId: project.id, eventType: "import.completed",
           payload: { type: "import.completed", asset: "translations", format: "xliff", importedRows: rows.length } }, tx);
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 });

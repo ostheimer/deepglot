@@ -43,6 +43,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       return true;
     });
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 1);
+    assert.equal(await db.auditEvent.count({ where: { projectId: project.id, action: "translation.import_chunk" } }), 0);
     assert.equal((await db.translation.findUniqueOrThrow({ where: { projectId_originalHash: { projectId: project.id, originalHash: protectedHash } } })).translatedText, "Protected sentence");
 
     segments[1].translatedText = "Protected sentence";
@@ -50,6 +51,35 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       langTo: "en", applyApproved: false, emitRowEvents: false });
     assert.equal(result.importedRows, 2);
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 2);
+    const importedEvents = await db.auditEvent.findMany({ where: { projectId: project.id, action: "translation.import_chunk" } });
+    assert.equal(importedEvents.length, 1);
+    assert.equal(importedEvents[0].organizationId, organization.id);
+    assert.equal(importedEvents[0].actorUserId, user.id);
+    assert.deepEqual(importedEvents[0].metadata, { count: 1, source: "xliff" });
+    const rejectFunction = `reject_xliff_audit_${token}`;
+    const rejectTrigger = `reject_xliff_audit_${token}`;
+    const rollbackSource = "Rollback Satz";
+    const rollbackHash = computeTranslationHash(rollbackSource, "de", "en");
+    const auditCount = await db.auditEvent.count({ where: { projectId: project.id } });
+    const translationCount = await db.translation.count({ where: { projectId: project.id } });
+    assert.match(rejectFunction, /^[a-z0-9_]+$/);
+    await db.$executeRawUnsafe(`CREATE FUNCTION "${rejectFunction}"() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN IF NEW."projectId" = '${project.id}' AND NEW.action = 'translation.import_chunk' THEN
+        RAISE EXCEPTION 'synthetic audit rejection'; END IF; RETURN NEW; END $$`);
+    await db.$executeRawUnsafe(`CREATE TRIGGER "${rejectTrigger}" BEFORE INSERT ON "AuditEvent"
+      FOR EACH ROW EXECUTE FUNCTION "${rejectFunction}"()`);
+    try {
+      await assert.rejects(() => importTranslationsXliff({ bytes: bytes([{ originalText: rollbackSource,
+        translatedText: "Rollback sentence", workflowStatus: "MACHINE" }]), project, access, userId: user.id,
+        langTo: "en", applyApproved: false, emitRowEvents: false }), /synthetic audit rejection/);
+      assert.equal(await db.translation.count({ where: { projectId: project.id } }), translationCount);
+      assert.equal(await db.translation.findUnique({ where: { projectId_originalHash: { projectId: project.id,
+        originalHash: rollbackHash } } }), null);
+      assert.equal(await db.auditEvent.count({ where: { projectId: project.id } }), auditCount);
+    } finally {
+      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${rejectTrigger}" ON "AuditEvent"`);
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${rejectFunction}"()`);
+    }
     const protectedAfter = await db.translation.findUniqueOrThrow({
       where: { projectId_originalHash: { projectId: project.id, originalHash: protectedHash } },
     });
@@ -81,6 +111,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     });
     assert.equal(machineUnchanged.updatedAt.getTime(), machineAfter.updatedAt.getTime());
     assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), invalidationCount);
+    assert.equal(await db.auditEvent.count({ where: { projectId: project.id, action: "translation.import_chunk" } }), 1);
 
     await db.translationContext.createMany({ data: Array.from({ length: 300 }, (_, index) => ({
       translationId: machineAfter.id, urlPath: `/page-${String(index).padStart(3, "0")}`,
@@ -109,6 +140,8 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       langTo: "en", applyApproved: false, emitRowEvents: true });
     assert.equal(bulkResult.importedRows, 205);
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 208);
+    assert.ok(await db.auditEvent.findFirst({ where: { projectId: project.id, action: "translation.import_chunk", actorUserId: user.id,
+      metadata: { path: ["count"], equals: 205 } } }));
     assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id, eventType: "translation.created" } }), 410);
 
     const legacySource = "Alter Satz mit großgeschriebenen Sprachcodes";

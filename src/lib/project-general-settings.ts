@@ -329,13 +329,13 @@ export async function updateProjectGeneralSettings(
   {
     projectId,
     expectedVersion,
-    patch,
     actorUserId,
+    patch,
   }: {
     projectId: string;
     expectedVersion: string;
-    patch: ProjectGeneralSettingsPatch;
     actorUserId?: string;
+    patch: ProjectGeneralSettingsPatch;
   },
 ): Promise<UpdateProjectGeneralSettingsResult> {
   try {
@@ -446,6 +446,11 @@ export async function updateProjectGeneralSettings(
             create: { projectId, ...settingsData },
             update: settingsData,
           });
+        }
+        if (actorUserId) {
+          const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+          await appendProjectAuditEvent(tx, { projectId, actorUserId,
+            action: "project.settings_updated", category: "project" });
         }
 
         if (languagePlan.kind === "migrate") {

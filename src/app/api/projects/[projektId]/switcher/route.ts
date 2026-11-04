@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { userCanManageProject, canManageProjectForWrite } from "@/lib/project-access";
+
 import { lockProjectRuntimeConfiguration } from "@/lib/project-runtime-configuration-lock";
 import { switcherConfigSchema, validateSwitcherLanguages } from "@/lib/switcher-contract";
 
@@ -19,6 +21,7 @@ async function managerId(context: Context) {
   const { projektId } = await context.params;
   if (!(await userCanManageProject(session.user.id, projektId))) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
   return { projektId, userId: session.user.id };
+
 }
 
 export async function GET(_request: Request, context: Context) {
@@ -56,6 +59,9 @@ export async function PATCH(request: Request, context: Context) {
         switcherOwner: "wordpress", switcherRevision: { increment: 1 }, switcherConflict: false,
         switcherPluginSyncedAt: null,
       } });
+      await appendProjectAuditEvent(tx, { projectId: access.projektId,
+        actorUserId: access.userId, action: "project.switcher_returned_to_wordpress",
+        category: "project" });
       return { status: 200, revision: updated.switcherRevision };
     }
     if (!validateSwitcherLanguages(body.config, [project.originalLang, ...project.languages.map((lang) => lang.langCode)])) {
@@ -79,6 +85,8 @@ export async function PATCH(request: Request, context: Context) {
         } : {}),
         switcherConflict: false },
     });
+    await appendProjectAuditEvent(tx, { projectId: access.projektId,
+      actorUserId: access.userId, action: "project.switcher_updated", category: "project" });
     return { status: 200, revision: updated.switcherRevision };
   });
   return NextResponse.json(result.status === 200 ? result : { error: result.code ?? "Not found", ...result }, { status: result.status });

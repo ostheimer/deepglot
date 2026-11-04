@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { exclusionCsvText } from "@/lib/exclusion-csv-copy";
 import {
   MAX_EXCLUSION_CSV_BYTES,
@@ -98,6 +99,9 @@ export async function POST(
           data: { projectId: projektId, type: row.type, value: row.value },
         });
       }
+      if (fresh.creates.length) await appendProjectAuditEvent(tx, { projectId: projektId,
+        actorUserId: userId, action: "exclusion.imported", category: "exclusion",
+        metadata: { count: fresh.creates.length } });
       return { creates: fresh.creates.length, updates: 0, skips: fresh.skips.length, conflicts: 0 };
     }, { maxWait: 10_000, timeout: 30_000 });
     return NextResponse.json({ dryRun: false, summary: committed, issues: [], importedRows: committed.creates });

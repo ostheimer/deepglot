@@ -1,5 +1,6 @@
 import { Prisma, type OrganizationRole } from "@prisma/client";
 import { db } from "@/lib/db";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
 import { BILLING_PLANS, getEffectiveWorkspacePlanKey } from "@/lib/billing-plans";
 
 export class WorkspaceMemberError extends Error {
@@ -90,6 +91,10 @@ export async function changeWorkspaceMember(input: {
       actorUserId: input.actorUserId, action: `MEMBER_${input.action}`,
       targetUserId: input.targetUserId, previousRole: target?.role ?? null,
       nextRole: input.action === "REMOVE" ? null : input.role! } });
+    await appendWorkspaceAuditEvent(tx, { organizationId: input.workspaceId,
+      actorUserId: input.actorUserId, action: `workspace.member_${input.action.toLowerCase()}`,
+      category: "workspace", metadata: { affectedId: input.targetUserId,
+        ...(input.action === "REMOVE" ? {} : { role: input.role! }) } });
     return { auditId: audit.id };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

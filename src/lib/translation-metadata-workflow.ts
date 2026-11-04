@@ -99,10 +99,17 @@ export async function updateProjectTranslationMetadata({
         "Variables must be supported placeholders present in the original text.",
       );
     }
-    return tx.translationMetadata.upsert({
+    const saved = await tx.translationMetadata.upsert({
       where: { translationId },
       create: { translationId, ...parsed.data },
       update: { ...parsed.data, version: { increment: 1 } },
     });
+    if (actorUserId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId,
+        action: "translation.metadata_updated", category: "translation",
+        metadata: { affectedId: translationId } });
+    }
+    return saved;
   });
 }

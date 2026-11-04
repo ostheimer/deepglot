@@ -88,16 +88,25 @@ export async function addProjectTargetLanguages(
       return { kind: "source_language_cannot_be_target" } as const;
     }
 
+    const requested = [...new Set(languages)];
+    const existing = await tx.projectLanguage.findMany({
+      where: { projectId, langCode: { in: requested } },
+      select: { langCode: true, isActive: true },
+    });
+    const active = new Set(existing.filter((row) => row.isActive).map((row) => row.langCode));
+    const added = requested.filter((langCode) => !active.has(langCode));
+    if (added.length === 0) return { kind: "updated" } as const;
+
     return withBoundedMediaRuntimeMutation(tx, projectId, async () => {
       // Source migrations retain the source language row as inactive. If that
       // language later becomes a target again, createMany(skipDuplicates) alone
       // would silently leave the existing row inactive.
       await tx.projectLanguage.updateMany({
-        where: { projectId, langCode: { in: languages } },
+        where: { projectId, langCode: { in: added } },
         data: { isActive: true },
       });
       await tx.projectLanguage.createMany({
-        data: languages.map((langCode) => ({
+        data: added.map((langCode) => ({
           projectId,
           langCode,
           isActive: true,
@@ -110,6 +119,12 @@ export async function addProjectTargetLanguages(
       });
       if (versionWrite.count !== 1) {
         throw new ProjectLanguageMutationConflictError();
+      }
+      if (actorUserId) {
+        const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+        await appendProjectAuditEvent(tx, { projectId, actorUserId,
+          action: "project.languages_added", category: "project",
+          metadata: { count: added.length } });
       }
 
       return { kind: "updated" } as const;
@@ -125,6 +140,7 @@ export async function updateProjectTargetLanguage(
     isActive,
     isVisible,
     automaticTranslation,
+
     actorUserId,
   }: {
     projectId: string;
@@ -132,6 +148,7 @@ export async function updateProjectTargetLanguage(
     isActive?: boolean;
     isVisible?: boolean;
     automaticTranslation?: boolean;
+
     actorUserId?: string;
   },
 ) {
@@ -140,6 +157,12 @@ export async function updateProjectTargetLanguage(
     if (actorUserId && !(await canManageProjectForWrite(tx, actorUserId, projectId))) return false;
     const project = await tx.project.findUnique({ where: { id: projectId }, select: { originalLang: true, updatedAt: true } });
     if (!project || project.originalLang.toLowerCase() === langCode) return false;
+    const current = await tx.projectLanguage.findUnique({ where: { projectId_langCode: { projectId, langCode } },
+      select: { isActive: true, isVisible: true, automaticTranslation: true } });
+    if (!current) return false;
+    if ((isActive === undefined || isActive === current.isActive) &&
+      (isVisible === undefined || isVisible === current.isVisible) &&
+      (automaticTranslation === undefined || automaticTranslation === current.automaticTranslation)) return true;
     const changed = await tx.projectLanguage.updateMany({
       where: { projectId, langCode },
       data: { isActive, isVisible, automaticTranslation },
@@ -150,6 +173,14 @@ export async function updateProjectTargetLanguage(
       data: { updatedAt: nextProjectUpdatedAt(project.updatedAt) },
     });
     if (versionWrite.count !== 1) throw new ProjectLanguageMutationConflictError();
+
+    if (actorUserId) {
+      const { appendProjectAuditEvent } = await import("@/lib/audit-events");
+      await appendProjectAuditEvent(tx, { projectId, actorUserId,
+        action: "project.language_updated", category: "project",
+        metadata: { language: langCode } });
+    }
+
     return true;
   });
 }

@@ -6,6 +6,7 @@ import { getCookieLocale } from "@/lib/request-locale";
 import { z } from "zod";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { appendWorkspaceAuditEvent } from "@/lib/audit-events";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
@@ -91,6 +92,9 @@ export async function POST(req: NextRequest) {
           wordsLimit: BILLING_PLANS.FREE.wordsLimit,
         },
       });
+
+      await appendWorkspaceAuditEvent(tx, { organizationId: org.id, actorUserId: user.id,
+        action: "workspace.created", category: "workspace" });
 
       return { user, org };
     });

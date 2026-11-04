@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { appendProjectAuditEvent } from "@/lib/audit-events";
 import { canManageProjectForWrite, getAuthenticatedUserId, userCanManageProject } from "@/lib/project-access";
+
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
@@ -45,10 +47,14 @@ export async function DELETE(
 
   const deleted = await db.$transaction(async (tx) => {
     if (!(await canManageProjectForWrite(tx, userId, projektId))) return false;
-    await tx.projectInvitation.deleteMany({ where: { id: invitation.id, projectId: projektId, acceptedAt: null } });
-    return true;
+    const result = await tx.projectInvitation.deleteMany({ where: { id: invitation.id, projectId: projektId, acceptedAt: null } });
+    if (result.count === 1) await appendProjectAuditEvent(tx, { projectId: projektId,
+      actorUserId: userId, action: "member.invitation_canceled", category: "member",
+      metadata: { affectedId: invitation.id } });
+    return result.count === 1;
   });
   if (!deleted) return NextResponse.json({ error: t(locale, "Projekt nicht gefunden", "Project not found") }, { status: 404 });
+
 
   return NextResponse.json({ ok: true });
 }
