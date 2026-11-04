@@ -50,6 +50,22 @@ test("collects markdown files and skips ignored directories", () => {
   assert.deepEqual(files, [path.join("docs", "guide.md"), "README.md"]);
 });
 
+test("skips German agent guidance and PR template while checking documentation", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepglot-docs-policy-"));
+  fs.writeFileSync(path.join(tempDir, "README.md"), "# Public documentation\n", "utf8");
+  fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Deutsche Agentenanweisungen\n", "utf8");
+  fs.mkdirSync(path.join(tempDir, ".github"));
+  fs.writeFileSync(
+    path.join(tempDir, ".github", "pull_request_template.md"),
+    "# Deutsche PR-Vorlage\n",
+    "utf8"
+  );
+
+  const files = collectMarkdownFiles(tempDir).map((filePath) => path.relative(tempDir, filePath));
+
+  assert.deepEqual(files, ["README.md"]);
+});
+
 test("reports file paths for markdown documentation issues", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepglot-docs-report-"));
   const markdownPath = path.join(tempDir, "notes.md");

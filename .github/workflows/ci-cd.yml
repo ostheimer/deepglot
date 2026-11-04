@@ -12,10 +12,12 @@ permissions:
 jobs:
   verify:
     name: Verify
-    runs-on: ubuntu-latest
+    # Playwright 1.58.2 in the lockfile has browser builds through Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
       postgres:
+        # Docker Hub's anonymous pull limit can block CI before checkout.
         image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: ci

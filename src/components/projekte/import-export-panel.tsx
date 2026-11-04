@@ -13,9 +13,27 @@ import { uiText } from "@/lib/static-copy";
 
 type ImportConfig = {
   asset: "translations" | "glossary" | "slugs";
-  format: "csv" | "po";
+  format: "csv" | "po" | "xliff";
   langTo?: string;
 };
+
+function xliffCopy(locale: string, deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
+}
+
+function xliffIssueCopy(locale: string, message: string) {
+  if (locale !== "de") return message;
+  const translated: Record<string, string> = {
+    "Approval requires explicit manager confirmation": "Freigabe erfordert eine ausdrückliche Bestätigung durch die Projektverwaltung",
+    "Existing manual or approved translation differs": "Vorhandene manuelle oder freigegebene Übersetzung weicht ab",
+    "Stored source conflicts with segment ID": "Gespeicherter Quelltext widerspricht der Segment-ID",
+    "Duplicate segment ID": "Doppelte Segment-ID",
+    "Segment ID does not match its source and languages": "Segment-ID passt nicht zu Quelltext und Sprachen",
+    "Source and target must not be empty": "Quell- und Zieltext dürfen nicht leer sein",
+    "Expected one source followed by one target": "Ein Quelltext gefolgt von einem Zieltext erwartet",
+  };
+  return translated[message] ?? message;
+}
 
 type ImportExportPanelProps = {
   projectId: string;
@@ -52,6 +70,8 @@ export function ImportExportPanel({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [poLanguage, setPoLanguage] = useState(languages[0]?.langCode ?? "");
+  const [applyApproved, setApplyApproved] = useState(false);
+  const [importIssues, setImportIssues] = useState<Array<{ segment: number; message: string }>>([]);
   const [exclusionFile, setExclusionFile] = useState<File | null>(null);
   const [exclusionReport, setExclusionReport] = useState<{
     dryRun: boolean;
@@ -69,7 +89,7 @@ export function ImportExportPanel({
   const copy = {
     title: uiText(locale, "Import & export", "Import & Export"),
     description:
-      uiText(locale, "CSV covers translations, glossary rules, and URL slugs. PO files support translations per target language.", "CSV deckt Übersetzungen, Glossarregeln und URL-Slugs ab. PO-Dateien unterstützen Übersetzungen pro Zielsprache."),
+      xliffCopy(locale, "CSV deckt Übersetzungen, Glossarregeln und URL-Slugs ab. PO und XLIFF unterstützen Übersetzungen pro Zielsprache.", "CSV covers translations, glossary rules, and URL slugs. PO and XLIFF support translations per target language."),
     import: uiText(locale, "Import", "Importieren"),
     export: uiText(locale, "Export", "Exportieren"),
     translations:
@@ -77,7 +97,7 @@ export function ImportExportPanel({
     glossary: uiText(locale, "Glossary rules", "Glossarregeln"),
     slugs: uiText(locale, "URL slugs", "URL-Slugs"),
     chooseLanguage:
-      uiText(locale, "Target language for PO", "Zielsprache für PO"),
+      xliffCopy(locale, "Zielsprache für PO und XLIFF", "Target language for PO and XLIFF"),
     importSuccess:
       uiText(locale, "Import finished successfully", "Import erfolgreich abgeschlossen"),
     csvHint:
@@ -87,7 +107,7 @@ export function ImportExportPanel({
         ? `PO-Dateien immer pro Zielsprache. Ausgangssprache: ${getLanguageName(originalLang, locale)}.`
         : `PO files are always per target language. Source language: ${getLanguageName(originalLang, locale)}.`,
     noPoLanguages:
-      uiText(locale, "Add an active target language before importing or exporting PO files.", "Füge zuerst eine aktive Zielsprache hinzu, bevor du PO-Dateien importierst oder exportierst."),
+      xliffCopy(locale, "Füge zuerst eine aktive Zielsprache hinzu, bevor du PO- oder XLIFF-Dateien importierst oder exportierst.", "Add an active target language before importing or exporting PO or XLIFF files."),
   };
 
   function openImport(config: ImportConfig) {
@@ -119,6 +139,7 @@ export function ImportExportPanel({
     formData.set("asset", config.asset);
     formData.set("format", config.format);
     formData.set("file", file);
+    if (config.format === "xliff") formData.set("applyApproved", String(applyApproved));
 
     if (config.langTo) {
       formData.set("langTo", config.langTo);
@@ -132,15 +153,19 @@ export function ImportExportPanel({
       const data = (await response.json().catch(() => ({}))) as {
         error?: string;
         importedRows?: number;
+        issues?: Array<{ segment: number; message: string }>;
       };
 
       if (!response.ok) {
+        setImportIssues(data.issues ?? []);
         toast.error(
           data.error ??
             (uiText(locale, "Import failed", "Import fehlgeschlagen"))
         );
         return;
       }
+
+      setImportIssues([]);
 
       toast.success(
         locale === "de"
@@ -227,7 +252,7 @@ export function ImportExportPanel({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv,.po,text/csv,text/plain"
+        accept=".csv,.po,.xlf,.xliff,text/csv,text/plain,application/x-xliff+xml"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -383,6 +408,33 @@ export function ImportExportPanel({
             </Button>
           )}
         </div>
+      </section>
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold text-gray-900">{copy.translations} XLIFF 1.2</h3>
+        <p className="mt-1 text-sm text-gray-500">{xliffCopy(locale,
+          "Eine Datei pro Projekt und Zielsprache, bis 4 MB und 5000 Segmente. Der Import schützt vorhandene manuelle und freigegebene Texte und weist bei einem Konflikt alle Segmente zurück.",
+          "One project and target language per file, up to 4 MB and 5000 segments. Import preserves existing manual and approved text and rejects all segments if any conflict occurs.")}</p>
+        <p className="mt-3 text-xs text-gray-500">{xliffCopy(locale,
+          "Freigaben aus der Datei muss eine Projektverwaltung ausdrücklich bestätigen. Importierter Text wird zur manuellen Überschreibung.",
+          "Approved segments require a project manager to explicitly confirm applying approvals. Imported text becomes a manual override.")}</p>
+        <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={applyApproved} disabled={!canManageExclusions} onChange={(event) => setApplyApproved(event.target.checked)} />
+          {xliffCopy(locale, "Freigabestatus übernehmen (nur Projektverwaltung)", "Apply approved status (project managers only)")}
+        </label>
+        <div className="mt-4 flex gap-2">
+          <Button type="button" variant="outline" disabled={isPending || !hasPoLanguages}
+            onClick={() => openImport({ asset: "translations", format: "xliff", langTo: poLanguage })}>
+            <Upload className="mr-2 h-4 w-4" />{copy.import}
+          </Button>
+          {hasPoLanguages && <Button asChild className="bg-brand-600 hover:bg-brand-700"><a href={buildExportHref({ asset: "translations", format: "xliff", langTo: poLanguage })}>
+            <Download className="mr-2 h-4 w-4" />{copy.export}
+          </a></Button>}
+        </div>
+        {importIssues.length > 0 && <ul role="alert" className="mt-4 list-disc pl-5 text-sm text-red-700">
+          {importIssues.map((issue, index) => <li key={`${issue.segment}-${index}`}>
+            Segment {issue.segment}: {xliffIssueCopy(locale, issue.message)}
+          </li>)}
+        </ul>}
       </section>
     </div>
   );
