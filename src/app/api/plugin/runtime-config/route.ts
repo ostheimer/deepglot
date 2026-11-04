@@ -11,6 +11,7 @@ import {
 import { MAX_RUNTIME_MEDIA_REPLACEMENTS } from "@/lib/media-replacements";
 import { apiProblem } from "@/lib/problem-details";
 import { buildProjectRuntimeSettings } from "@/lib/project-general-settings";
+import { decodeWordpressCacheInvalidationKey } from "@/lib/url-operations";
 import {
   PLUGIN_RATE_LIMIT_SCOPE,
   buildRateLimitHeaders,
@@ -180,7 +181,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       cacheInvalidations: {
-        entries: cacheInvalidationRows.slice(0, 250).map((item) => ({ id: item.id.toString(), urlPath: item.urlPath, cacheKey: item.cacheKey })),
+        entries: cacheInvalidationRows.slice(0, 250).map((item) => ({
+          id: item.id.toString(), urlPath: item.urlPath,
+          ...decodeWordpressCacheInvalidationKey(item.cacheKey),
+        })),
         hasMore: cacheInvalidationRows.length > 250,
       },
       exclusions,

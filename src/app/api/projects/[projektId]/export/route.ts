@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 
 import { db } from "@/lib/db";
 import {
@@ -17,9 +18,14 @@ import {
 import { getCookieLocale } from "@/lib/request-locale";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { serializeXliff, XliffError, XLIFF_MAX_BYTES, XLIFF_MAX_SEGMENTS } from "@/lib/xliff";
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
+}
+
+function xliffCopy(locale: SiteLocale, deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
 }
 
 export async function GET(
@@ -116,6 +122,57 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
+  }
+
+  if (format === "xliff") {
+    if (asset !== "translations" || !langTo) {
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export benötigt eine Zielsprache", "XLIFF export requires a target language") }, { status: 400 });
+    }
+    if (!canAccessProjectLanguage(access, langTo)) {
+      return NextResponse.json({ error: xliffCopy(locale, "Keine Berechtigung für diese Sprache", "No access to this language") }, { status: 403 });
+    }
+    const translations = await db.$transaction(async (tx) => {
+      const [size] = await tx.$queryRaw<Array<{ rows: bigint; bytes: bigint }>>`
+        SELECT COUNT(*)::bigint AS rows,
+          COALESCE(SUM(octet_length("originalText") + octet_length("translatedText")), 0)::bigint AS bytes
+        FROM "Translation"
+        WHERE "projectId" = ${projektId} AND LOWER("langFrom") = ${project.originalLang.toLowerCase()}
+          AND LOWER("langTo") = ${langTo}
+      `;
+      if (size.rows > BigInt(XLIFF_MAX_SEGMENTS) || size.bytes > BigInt(XLIFF_MAX_BYTES)) return null;
+      return tx.translation.findMany({
+        where: { projectId: projektId,
+          langFrom: { equals: project.originalLang, mode: "insensitive" },
+          langTo: { equals: langTo, mode: "insensitive" } },
+        orderBy: { originalHash: "asc" },
+        select: { originalHash: true, originalText: true, translatedText: true, workflowStatus: true,
+          isManual: true, langFrom: true, langTo: true },
+        take: XLIFF_MAX_SEGMENTS + 1,
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, maxWait: 10_000, timeout: 30_000 });
+    if (!translations || translations.length > XLIFF_MAX_SEGMENTS) {
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 4 MB oder 5000 Segmente", "XLIFF export exceeds 4 MB or 5000 segments") }, { status: 413 });
+    }
+    if (new Set(translations.map((item) => item.originalText)).size !== translations.length) {
+      return NextResponse.json({ error: xliffCopy(locale,
+        "XLIFF-Export enthält denselben Quelltext mit mehreren Sprachcode-Schreibweisen",
+        "XLIFF export contains the same source with multiple language-code spellings") }, { status: 409 });
+    }
+    let xliff: string;
+    try { xliff = serializeXliff({ projectId: projektId, langFrom: project.originalLang, langTo, segments: translations }); }
+    catch (error) {
+      if (error instanceof XliffError) return NextResponse.json({ error: xliffCopy(locale,
+        "Eine Übersetzung enthält ein in XML 1.0 nicht unterstütztes Zeichen.",
+        "A translation contains a character unsupported by XML 1.0.") }, { status: 422 });
+      throw error;
+    }
+    if (new TextEncoder().encode(xliff).byteLength > XLIFF_MAX_BYTES) {
+      return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Export überschreitet 4 MB oder 5000 Segmente", "XLIFF export exceeds 4 MB or 5000 segments") }, { status: 413 });
+    }
+    return new Response(xliff, { headers: {
+      "Content-Type": "application/x-xliff+xml; charset=utf-8",
+      "Content-Disposition": `attachment; filename="deepglot-translations-${sanitizeFilenamePart(langTo)}.xlf"`,
+    } });
   }
 
   if (asset === "translations") {

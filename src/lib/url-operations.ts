@@ -56,5 +56,17 @@ export function managerProviderOutcome(input: { providerDispatched: boolean; rec
 
 /** Matches the WordPress TranslationCache transient suffix; never persist text here. */
 export function wordpressCacheKey(sourceLang: string, targetLang: string, text: string) {
-  return createHash("sha1").update(`${sourceLang}|${targetLang}|${text}`).digest("hex");
+  return createHash("sha1").update(`${sourceLang.toLowerCase()}|${targetLang.toLowerCase()}|${text}`).digest("hex");
+}
+
+/** Versioned storage encoding; legacy rows contain the bare digest. */
+export function encodeWordpressCacheInvalidationKey(sourceLang: string, targetLang: string, text: string) {
+  const digest = wordpressCacheKey(sourceLang, targetLang, text);
+  const language = targetLang.toLowerCase();
+  return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(language) ? `v2:${language}:${digest}` : digest;
+}
+
+export function decodeWordpressCacheInvalidationKey(value: string) {
+  const match = /^v2:([a-z]{2,3}(?:-[a-z0-9]{2,8})*):([a-f0-9]{40})$/.exec(value);
+  return match ? { targetLang: match[1], cacheKey: match[2] } : { targetLang: null, cacheKey: value };
 }

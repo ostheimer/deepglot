@@ -6,7 +6,7 @@ import { preflightTranslationAction } from "@/lib/ai-action-preflight";
 import { currentAiBudgetEnforcementState, selectAiBudgetSpendControl } from "@/lib/ai-budget-enforcement";
 import { validateTranslationProviderConfig } from "@/lib/translation-config";
 import { recordTranslationContexts } from "@/lib/translation-context";
-import { glossaryDispatchFingerprint, glossaryRuleVersion, wordpressCacheKey } from "@/lib/url-operations";
+import { encodeWordpressCacheInvalidationKey, glossaryDispatchFingerprint, glossaryRuleVersion } from "@/lib/url-operations";
 import { buildTranslationContext } from "@/lib/translation-context-settings";
 import { recordTranslationTypes } from "@/lib/translation-type-observations";
 import { validateApiKey } from "@/lib/api-keys";
@@ -1007,7 +1007,7 @@ export async function executeAuthenticatedTranslateRequest(
               await tx.urlCacheInvalidation.createMany({ data: pendingTranslations.map((item) => ({
                 projectId: project.id,
                 urlPath: new URL(request_url).pathname,
-                cacheKey: wordpressCacheKey(l_from, l_to, texts[item.index]),
+                cacheKey: encodeWordpressCacheInvalidationKey(l_from, l_to, texts[item.index]),
               })) });
             }
 
