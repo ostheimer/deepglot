@@ -132,7 +132,9 @@ export default async function ActivityPage({ searchParams }: Props) {
       {one("after") ? <Link className="text-brand-700 underline" href={`${path}?${firstParams.toString()}`}>{uiText(locale, "First page", "Erste Seite")}</Link> : null}
       {hasMore ? <Link className="text-brand-700 underline" href={`${path}?${olderParams.toString()}`}>{uiText(locale, "Older events", "Ältere Ereignisse")}</Link> : null}
     </div>
-    <a className="text-sm text-brand-700 underline" download="deepglot-activity.csv" href={csvHref}>{uiText(locale, "Export displayed events as CSV", "Angezeigte Ereignisse als CSV exportieren")}</a>
-    <Link className="text-sm text-brand-700 underline" href={withLocalePrefix("/dashboard", locale)}>{uiText(locale, "Back to overview", "Zur Übersicht")}</Link>
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+      <a className="text-brand-700 underline" download="deepglot-activity.csv" href={csvHref}>{uiText(locale, "Export displayed events as CSV", "Angezeigte Ereignisse als CSV exportieren")}</a>
+      <Link className="text-brand-700 underline" href={withLocalePrefix("/dashboard", locale)}>{uiText(locale, "Back to overview", "Zur Übersicht")}</Link>
+    </div>
   </div>;
 }
