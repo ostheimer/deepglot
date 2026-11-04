@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyUrlTranslation, createUrlOperationFingerprint, glossaryDispatchFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "./url-operations";
+import { classifyUrlTranslation, createUrlOperationFingerprint, decodeWordpressCacheInvalidationKey, encodeWordpressCacheInvalidationKey, glossaryDispatchFingerprint, glossaryRuleVersion, managerProviderOutcome, wordpressCacheKey } from "./url-operations";
 
 test("URL deletion protects shared, manual, and reviewed segments", () => {
   assert.equal(classifyUrlTranslation({ isManual: false, workflowStatus: "MACHINE", paths: ["/one"] }, "/one"), "delete");
@@ -12,6 +12,12 @@ test("URL deletion protects shared, manual, and reviewed segments", () => {
 
 test("invalidation digest matches the WordPress transient identity without storing text", () => {
   assert.equal(wordpressCacheKey("de", "en", "Änderung"), "b8b4b98e0acbde70771140308f16597155d928c3");
+  assert.equal(wordpressCacheKey("DE", "EN", "Änderung"), "b8b4b98e0acbde70771140308f16597155d928c3");
+  assert.deepEqual(decodeWordpressCacheInvalidationKey(encodeWordpressCacheInvalidationKey("DE", "EN", "Änderung")),
+    { targetLang: "en", cacheKey: "b8b4b98e0acbde70771140308f16597155d928c3" });
+  assert.deepEqual(decodeWordpressCacheInvalidationKey("b8b4b98e0acbde70771140308f16597155d928c3"),
+    { targetLang: null, cacheKey: "b8b4b98e0acbde70771140308f16597155d928c3" });
+  assert.equal(decodeWordpressCacheInvalidationKey(encodeWordpressCacheInvalidationKey("DE", "PT-BR", "Änderung")).targetLang, "pt-br");
 });
 
 test("confirmation identity changes when source content, context, status or quota limit changes", () => {

@@ -39,6 +39,8 @@ import {
 } from "@/lib/postgres-text";
 import type { SiteLocale } from "@/lib/site-locale";
 import { uiText } from "@/lib/static-copy";
+import { importTranslationsXliff, ProjectXliffImportError } from "@/lib/project-xliff-import";
+import { XLIFF_MAX_BYTES } from "@/lib/xliff";
 
 export const runtime = "nodejs";
 
@@ -49,6 +51,10 @@ const IMPORT_TX_OPTIONS = { maxWait: 10_000, timeout: 60_000 } as const;
 
 function t(locale: SiteLocale, deText: string, enText: string) {
   return uiText(locale, enText, deText);
+}
+
+function xliffCopy(locale: SiteLocale, deText: string, enText: string) {
+  return locale === "de" ? deText : enText;
 }
 
 function countWords(text: string) {
@@ -603,6 +609,7 @@ export async function POST(
   const format = String(formData.get("format") ?? "csv");
   const file = formData.get("file");
   const poLangTo = String(formData.get("langTo") ?? "").toLowerCase();
+  const applyApproved = formData.get("applyApproved") === "true";
 
   if (!(file instanceof File)) {
     return NextResponse.json(
@@ -622,7 +629,10 @@ export async function POST(
     );
   }
 
-  const content = await file.text();
+  if (format === "xliff" && file.size > XLIFF_MAX_BYTES) {
+    return NextResponse.json({ error: xliffCopy(locale, "XLIFF-Datei überschreitet 4 MB", "XLIFF file exceeds 4 MB") }, { status: 413 });
+  }
+  const content = format === "xliff" ? "" : await file.text();
   const context: ImportContext = {
     project,
     access,
@@ -634,7 +644,11 @@ export async function POST(
   try {
     let result: { importedRows: number };
 
-    if (format === "po") {
+    if (format === "xliff") {
+      if (asset !== "translations") throw new ImportError(xliffCopy(locale, "XLIFF unterstützt nur Übersetzungen", "XLIFF supports translations only"));
+      result = await importTranslationsXliff({ bytes: new Uint8Array(await file.arrayBuffer()), project,
+        access, userId, langTo: poLangTo, applyApproved, emitRowEvents: context.emitRowEvents });
+    } else if (format === "po") {
       if (asset !== "translations") {
         throw new ImportError(
           t(
@@ -665,10 +679,11 @@ export async function POST(
   } catch (error) {
     if (
       error instanceof ImportError ||
-      error instanceof ProjectTranslationImportError
+      error instanceof ProjectTranslationImportError ||
+      error instanceof ProjectXliffImportError
     ) {
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, ...(error instanceof ProjectXliffImportError ? { issues: error.issues } : {}) },
         { status: error.status }
       );
     }

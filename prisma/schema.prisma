@@ -1018,7 +1018,7 @@ model UrlCacheInvalidation {
   id        BigInt   @id @default(autoincrement())
   projectId String
   urlPath   String
-  cacheKey  String   // SHA-1 of source language, target language and original text
+  cacheKey  String   // Legacy SHA-1 digest or v2:<target language>:<SHA-1 digest>
   createdAt DateTime @default(now())
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

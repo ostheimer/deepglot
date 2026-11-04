@@ -300,6 +300,14 @@ table/indexes before traffic reaches the new dashboard or ingestion route. Do
 not use a broad schema push to apply unrelated existing drift merely to enable
 page-view analytics.
 
+## Translation XLIFF round trip
+
+The authenticated project Import & Export page supports a documented XLIFF 1.2 subset for translations, one project and target language per file. Export uses `GET /api/projects/{projectId}/export?asset=translations&format=xliff&langTo=en`; import sends multipart `asset=translations`, `format=xliff`, `langTo=en`, and `file` to `POST /api/projects/{projectId}/import`. These dashboard routes require a signed-in project member and enforce target-language access; they are not a stable external API.
+
+The root namespace is `urn:oasis:names:tc:xliff:document:1.2`. Its sole `file` has the project ID in `original`, the project's source language in `source-language`, and the chosen target in `target-language`. Each `trans-unit` ID is the existing stable translation hash of source text and language pair. The `source` and `target` contain UTF-8 text; variables and HTML markup are XML-escaped text and survive export/import unchanged. Nested XLIFF inline elements are rejected with a segment error. Files must be at most 4,000,000 bytes (4 MB) and 5,000 segments. DTDs, entity declarations, external entities, and extra processing instructions are rejected.
+
+Imports validate the complete document, segment IDs, duplicates, project and language pair, and existing protected content before one atomic database transaction. A conflict leaves every segment unchanged and returns `issues` with one-based segment numbers. Existing manual or approved translations cannot be overwritten by a different target. New or edited imports become manual overrides; an unchanged machine segment keeps its status only when its target still matches. The optional namespaced `dg:manual` marker defaults to manual when absent. An exported `approved="yes"` is applied only when a project manager explicitly checks the approval option, which sends `applyApproved=true`; without that confirmation the import rejects the file. File metadata alone never grants approval.
+
 ## Translated URL slug management
 
 Project managers can search original and translated URL slugs, filter by active language and mapping status, edit one target, or select visible rows for four-column CSV export and atomic reset. The existing CSV format also supports atomic reimport with line-specific conflict reports and a 5,000-row limit. Language-bound translators can view and export only their assigned active language; they cannot edit, reset, or import slug mappings.
