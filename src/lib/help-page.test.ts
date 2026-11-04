@@ -95,3 +95,18 @@ test("help visual layout keeps digest and release content responsive", () => {
   assert.ok(sectionOrder.every((position) => position >= 0));
   assert.deepEqual([...sectionOrder].sort((left, right) => left - right), sectionOrder);
 });
+
+test("help explains the saved activity log separately from the weekly digest", () => {
+  const source = read("src/components/marketing/help-page.tsx");
+
+  assert.match(source, /href="#activity-log"/);
+  assert.match(source, /id="activity-log" data-testid="help-activity-log"/);
+  assert.match(source, /withLocalePrefix\("\/dashboard\/aktivitaet", locale\)/);
+  assert.match(source, /nach Datum, Person, Projekt und Kategorie filtern/);
+  assert.match(source, /filter by date, actor, project and category/);
+  assert.match(source, /als CSV exportieren/);
+  assert.match(source, /export the displayed events as CSV/);
+  assert.match(source, /Frühere Änderungen werden nicht nachgetragen/);
+  assert.match(source, /Earlier changes are not backfilled/);
+  assert.ok(source.indexOf('id="activity-log"') < source.indexOf('id="weekly-digest"'));
+});
