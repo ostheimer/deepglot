@@ -43,6 +43,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       return true;
     });
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 1);
+    assert.equal(await db.auditEvent.count({ where: { projectId: project.id, action: "translation.import_chunk" } }), 0);
     assert.equal((await db.translation.findUniqueOrThrow({ where: { projectId_originalHash: { projectId: project.id, originalHash: protectedHash } } })).translatedText, "Protected sentence");
 
     segments[1].translatedText = "Protected sentence";
@@ -50,6 +51,11 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       langTo: "en", applyApproved: false, emitRowEvents: false });
     assert.equal(result.importedRows, 2);
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 2);
+    const importedEvents = await db.auditEvent.findMany({ where: { projectId: project.id, action: "translation.import_chunk" } });
+    assert.equal(importedEvents.length, 1);
+    assert.equal(importedEvents[0].organizationId, organization.id);
+    assert.equal(importedEvents[0].actorUserId, user.id);
+    assert.deepEqual(importedEvents[0].metadata, { count: 1, source: "xliff" });
     const protectedAfter = await db.translation.findUniqueOrThrow({
       where: { projectId_originalHash: { projectId: project.id, originalHash: protectedHash } },
     });
@@ -81,6 +87,7 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
     });
     assert.equal(machineUnchanged.updatedAt.getTime(), machineAfter.updatedAt.getTime());
     assert.equal(await db.urlCacheInvalidation.count({ where: { projectId: project.id } }), invalidationCount);
+    assert.equal(await db.auditEvent.count({ where: { projectId: project.id, action: "translation.import_chunk" } }), 1);
 
     await db.translationContext.createMany({ data: Array.from({ length: 300 }, (_, index) => ({
       translationId: machineAfter.id, urlPath: `/page-${String(index).padStart(3, "0")}`,
@@ -109,6 +116,8 @@ test("XLIFF conflict aborts all writes and valid retry commits all segments", { 
       langTo: "en", applyApproved: false, emitRowEvents: true });
     assert.equal(bulkResult.importedRows, 205);
     assert.equal(await db.translation.count({ where: { projectId: project.id } }), 208);
+    assert.ok(await db.auditEvent.findFirst({ where: { projectId: project.id, action: "translation.import_chunk", actorUserId: user.id,
+      metadata: { path: ["count"], equals: 205 } } }));
     assert.equal(await db.webhookDelivery.count({ where: { projectId: project.id, eventType: "translation.created" } }), 410);
 
     const legacySource = "Alter Satz mit großgeschriebenen Sprachcodes";
