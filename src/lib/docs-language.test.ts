@@ -44,6 +44,9 @@ test("collects markdown files and skips ignored directories", () => {
   fs.writeFileSync(path.join(tempDir, "docs", "guide.md"), "# Guide\n", "utf8");
   fs.mkdirSync(path.join(tempDir, "node_modules"));
   fs.writeFileSync(path.join(tempDir, "node_modules", "ignored.md"), "# Ignored\n", "utf8");
+  fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Agent instructions\n", "utf8");
+  fs.mkdirSync(path.join(tempDir, ".github"));
+  fs.writeFileSync(path.join(tempDir, ".github", "pull_request_template.md"), "# PR template\n", "utf8");
 
   const files = collectMarkdownFiles(tempDir).map((filePath) => path.relative(tempDir, filePath));
 

@@ -22,6 +22,7 @@ const MARKDOWN_EXTENSION = ".md";
 
 export const DOCS_LANGUAGE_IGNORED_DIRECTORIES = new Set([
   ".git",
+  ".github",
   ".next",
   "coverage",
   "dist",
@@ -145,7 +146,8 @@ export function collectMarkdownFiles(rootDir: string): string[] {
         continue;
       }
 
-      if (entry.isFile() && entry.name.endsWith(MARKDOWN_EXTENSION)) {
+      // Agent instructions are operational configuration, not public docs.
+      if (entry.isFile() && entry.name !== "AGENTS.md" && entry.name.endsWith(MARKDOWN_EXTENSION)) {
         files.push(path.join(currentDir, entry.name));
       }
     }
