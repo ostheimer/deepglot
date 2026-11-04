@@ -103,6 +103,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 
 = 0.12.16 =
 * Sends doubled language-prefix URLs to a canonical single-prefix URL with a valid redirect destination, including query strings.
+* Applies translation-cache invalidations from XLIFF imports by target language and purges known page caches in bounded background work.
 
 = 0.12.15 =
 * Reports bounded, digest-only source-page observations to the Deepglot workspace from public server-rendered pages, including cached translation renders, through a background WordPress job.
@@ -239,7 +240,7 @@ Deepglot returns translated text, language and quota status, and the synchronize
 == Upgrade Notice ==
 
 = 0.12.16 =
-Corrects doubled language-prefix redirects. After updating, verify the public destination and clear any stale page or CDN redirect cache separately.
+Corrects doubled language-prefix redirects and applies language-scoped XLIFF cache invalidations. After updating, verify public destinations and clear any stale page or CDN redirect cache separately.
 
 = 0.12.15 =
 Adds background source-page observations for the workspace's bounded presence filter. Keep WP-Cron running; page and CDN caches that bypass WordPress PHP cannot report new observations until WordPress renders the source page again.
