@@ -14,7 +14,7 @@ test("the region review branch cannot trigger an automatic deployment", () => {
   });
 });
 
-test("the region change preserves the existing build policy and cron schedules", () => {
+test("the region change preserves existing schedules and includes audit retention", () => {
   const { regions: _regions, git: _git, ...unchanged } = config;
   void _regions;
   void _git;
@@ -26,6 +26,7 @@ test("the region change preserves the existing build policy and cron schedules",
       { path: "/api/cron/auto-upgrade", schedule: "*/15 * * * *" },
       { path: "/api/cron/activity-digest", schedule: "0 8 * * 1" },
       { path: "/api/cron/page-view-retention", schedule: "17 3 * * *" },
+      { path: "/api/cron/audit-retention", schedule: "27 3 * * *" },
     ],
   });
 });

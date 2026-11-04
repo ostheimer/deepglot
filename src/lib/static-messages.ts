@@ -17,6 +17,8 @@ const WORKSPACE_ENGLISH_FALLBACK_MESSAGES: Record<string, string> = {
   "System": "System",
   "No saved activity matches these filters.": "No saved activity matches these filters.",
   "Showing the latest 100 events. Narrow the date range to see older events.": "Showing the latest 100 events. Narrow the date range to see older events.",
+  "First page": "First page",
+  "Older events": "Older events",
   "Export displayed events as CSV": "Export displayed events as CSV",
   "Back to overview": "Back to overview",
   "Saved changes will appear here.": "Saved changes will appear here.",

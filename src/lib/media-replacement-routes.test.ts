@@ -235,7 +235,7 @@ test("language reactivation preserves manager access and duplicate handling whil
 test("dashboard language activation revives existing inactive rows and rejects the 501-image sentinel with a stable conflict", () => {
   assert.match(
     languageMutations,
-    /projectLanguage\.updateMany\(\{[\s\S]*?projectId[\s\S]*?langCode:\s*\{\s*in:\s*languages[\s\S]*?data:\s*\{\s*isActive:\s*true/,
+    /projectLanguage\.updateMany\(\{[\s\S]*?projectId[\s\S]*?langCode:\s*\{\s*in:\s*added[\s\S]*?data:\s*\{\s*isActive:\s*true/,
   );
   assert.match(
     languageRoute,
