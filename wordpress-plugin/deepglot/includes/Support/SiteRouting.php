@@ -186,7 +186,7 @@ class SiteRouting
         $canonicalQuery = (string) wp_parse_url($canonicalUrl, PHP_URL_QUERY);
         if (
             $this->normalizeHost($host) === $this->normalizeHost($canonicalHost)
-            && $requestPath === $canonicalRequestPath
+            && $this->normalizePercentEscapeCase($requestPath) === $this->normalizePercentEscapeCase($canonicalRequestPath)
             && $query === $canonicalQuery
         ) {
             return null;
@@ -681,6 +681,20 @@ class SiteRouting
         $host = $this->domainMappings[$language] ?? null;
 
         return $host ? $host : null;
+    }
+
+    /**
+     * Uppercases the hex digits of percent-escapes only. Paths that differ
+     * solely in that case are the same URL (RFC 3986, 6.2.2.1); the rest of
+     * the path stays case-sensitive.
+     */
+    private function normalizePercentEscapeCase(string $path): string
+    {
+        return preg_replace_callback(
+            '/%[0-9a-f]{2}/i',
+            static fn (array $match): string => strtoupper($match[0]),
+            $path
+        ) ?? $path;
     }
 
     private function normalizeSlugSegment(string $slug): string
