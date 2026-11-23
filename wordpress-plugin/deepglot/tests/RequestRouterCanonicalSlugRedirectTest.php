@@ -548,6 +548,56 @@ canonicalSlugRedirectAssert(
     'An explicit default HTTPS port must still count as the WordPress origin.'
 );
 
+$GLOBALS['_deepglot_canonical_site_url'] = 'https://example.com';
+$percentCaseRouter = new RequestRouter(
+    $options,
+    new SiteRouting(
+        $resolver,
+        'https://example.com',
+        'PATH_PREFIX',
+        [],
+        ['en' => ['nicht-operativ' => "non\u{2011}surgical", 'zahnbehandlungen' => 'treatments']]
+    )
+);
+
+canonicalSlugRedirectAssert(
+    null,
+    canonicalSlugRedirectRun($percentCaseRouter, '/en/non%e2%80%91surgical/', 'example.com'),
+    'A slug stored with lowercase percent-escapes must not redirect to the same URL with uppercase escapes (RFC 3986 6.2.2.1).'
+);
+
+canonicalSlugRedirectAssert(
+    null,
+    canonicalSlugRedirectRun($percentCaseRouter, '/en/non%E2%80%91surgical/', 'example.com'),
+    'A slug requested with uppercase percent-escapes must not redirect.'
+);
+
+canonicalSlugRedirectAssert(
+    null,
+    canonicalSlugRedirectRun($percentCaseRouter, '/en/non%e2%80%91surgical/?ref=nav', 'example.com'),
+    'Percent-escape case differences must not redirect when a query string is present.'
+);
+
+canonicalSlugRedirectAssert(
+    [
+        'location' => 'https://example.com/en/non%E2%80%91surgical/?ref=nav',
+        'status' => 301,
+        'by' => 'Deepglot',
+    ],
+    canonicalSlugRedirectRun($percentCaseRouter, '/en/nicht-operativ/?ref=nav', 'example.com'),
+    'A genuinely stale source slug must still redirect to the canonical URL with normalized percent-escapes.'
+);
+
+canonicalSlugRedirectAssert(
+    [
+        'location' => 'https://example.com/en/treatments/',
+        'status' => 301,
+        'by' => 'Deepglot',
+    ],
+    canonicalSlugRedirectRun($percentCaseRouter, '/en/zahnbehandlungen/', 'example.com'),
+    'A stale slug on a router that also has percent-encoded slugs must still redirect.'
+);
+
 if ($GLOBALS['_deepglot_canonical_redirect_failures'] > 0) {
     exit(1);
 }
