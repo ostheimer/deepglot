@@ -4,7 +4,7 @@ Tags: translation, multilingual, language switcher, localization, machine transl
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.12.16
+Stable tag: 0.12.17
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -100,6 +100,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Privacy policy: https://deepglot.ai/privacy
 
 == Changelog ==
+
+= 0.12.17 =
+* Stops redirecting a translated URL to itself when the request and the canonical URL differ only in the letter case of percent-encoded characters, for example %e2%80%91 versus %E2%80%91 in a slug.
 
 = 0.12.16 =
 * Sends doubled language-prefix URLs to a canonical single-prefix URL with a valid redirect destination, including query strings.
@@ -238,6 +241,9 @@ Deepglot returns translated text, language and quota status, and the synchronize
 * Added independent switcher instances, templates, visual placement, AMP handling, and a multilingual sitemap.
 
 == Upgrade Notice ==
+
+= 0.12.17 =
+Fixes a redirect loop on translated URLs whose slugs contain percent-encoded characters written in lowercase. After updating, clear any stale page or CDN redirect cache and verify the affected URLs.
 
 = 0.12.16 =
 Corrects doubled language-prefix redirects and applies language-scoped XLIFF cache invalidations. After updating, verify public destinations and clear any stale page or CDN redirect cache separately.
