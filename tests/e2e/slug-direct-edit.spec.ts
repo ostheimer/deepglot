@@ -104,6 +104,9 @@ test("manager edits and resets one slug while CSV and CAS stay consistent", asyn
 
 test("language-bound translator reads only their slug language and cannot edit", async ({ browser, page }) => {
   const projectId = await signInAndGetProjectId(page);
+  // A separate cookie jar: late responses to the manager page cannot sign the
+  // translator back in as the manager (see signOut in ./helpers).
+  const translator = await browser.newPage();
   const email = `${e2eId("slug-translator")}@example.test`;
   const password = e2eId("password");
   const user = await db.user.create({ data: {
@@ -116,9 +119,6 @@ test("language-bound translator reads only their slug language and cannot edit",
   const slug = await db.urlSlug.create({ data: {
     projectId, originalSlug: e2eId("slug-fr"), translatedSlug: "chemin-fr", langTo: "fr",
   } });
-  // A separate cookie jar: late responses to the manager page cannot sign the
-  // translator back in as the manager (see signOut in ./helpers).
-  const translator = await browser.newPage();
   try {
     await translator.goto("/login");
     await translator.getByLabel("Email").fill(email);
@@ -147,10 +147,10 @@ test("language-bound translator reads only their slug language and cannot edit",
     const unchanged = await db.urlSlug.findUniqueOrThrow({ where: { id: slug.id } });
     expect(unchanged.translatedSlug).toBe("chemin-fr");
   } finally {
-    await translator.close();
     await db.urlSlug.delete({ where: { id: slug.id } });
     await db.projectMember.delete({ where: { id: member.id } });
     await db.user.delete({ where: { id: user.id } });
+    await translator.close();
   }
 });
 

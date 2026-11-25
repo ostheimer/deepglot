@@ -67,6 +67,9 @@ async function startBarrierProvider() {
 
 test("language-bound translator reads URL inventory without manager controls", async ({ browser, page }) => {
   const projectId = await signInAndGetProjectId(page);
+  // A separate cookie jar: late responses to the manager page cannot sign the
+  // translator back in as the manager (see signOut in ./helpers).
+  const translator = await browser.newPage();
   const email = `${e2eId("url-translator")}@example.test`;
   const password = e2eId("password");
   const user = await db.user.create({ data: { email, password: await bcrypt.hash(password, 10) } });
@@ -74,9 +77,6 @@ test("language-bound translator reads URL inventory without manager controls", a
   const path = `/${e2eId("translator-url")}`;
   const english = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
   const french = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "fr" } });
-  // A separate cookie jar: late responses to the manager page cannot sign the
-  // translator back in as the manager (see signOut in ./helpers).
-  const translator = await browser.newPage();
   try {
     await translator.goto("/en/login");
     await expect(translator.getByRole("heading", { name: "Welcome back" })).toBeVisible();
@@ -96,10 +96,10 @@ test("language-bound translator reads URL inventory without manager controls", a
     const denied = await translator.request.post(`/api/projects/${projectId}/url-operations`, { data: { action: "delete", id: english.id } });
     expect(denied.status()).toBe(404);
   } finally {
-    await translator.close();
     await db.translatedUrl.deleteMany({ where: { id: { in: [english.id, french.id] } } });
     await db.projectMember.delete({ where: { id: member.id } });
     await db.user.delete({ where: { id: user.id } });
+    await translator.close();
   }
 });
 
