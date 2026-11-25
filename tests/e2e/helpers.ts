@@ -20,6 +20,23 @@ export async function signInAsTestUser(page: Page) {
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 }
 
+/**
+ * Ends the browser session of `page` while keeping the page usable.
+ *
+ * The proxy re-issues the session cookie on every page request, including the
+ * Next.js link prefetches that are still running after the dashboard has loaded.
+ * A response arriving after `clearCookies()` would restore the old session, and
+ * the login page would redirect to the dashboard. Unloading the document first
+ * aborts those requests.
+ *
+ * To act as a different user, prefer a new `browser.newContext()`, which has its
+ * own cookie jar.
+ */
+export async function signOut(page: Page) {
+  await page.goto("about:blank");
+  await page.context().clearCookies();
+}
+
 export async function getSeededProjectId(page: Page) {
   await page.goto("/dashboard");
 

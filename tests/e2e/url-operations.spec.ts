@@ -65,7 +65,7 @@ async function startBarrierProvider() {
   };
 }
 
-test("language-bound translator reads URL inventory without manager controls", async ({ page }) => {
+test("language-bound translator reads URL inventory without manager controls", async ({ browser, page }) => {
   const projectId = await signInAndGetProjectId(page);
   const email = `${e2eId("url-translator")}@example.test`;
   const password = e2eId("password");
@@ -74,26 +74,29 @@ test("language-bound translator reads URL inventory without manager controls", a
   const path = `/${e2eId("translator-url")}`;
   const english = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "en" } });
   const french = await db.translatedUrl.create({ data: { projectId, urlPath: path, langTo: "fr" } });
+  // A separate cookie jar: late responses to the manager page cannot sign the
+  // translator back in as the manager (see signOut in ./helpers).
+  const translator = await browser.newPage();
   try {
-    await page.context().clearCookies();
-    await page.goto("/en/login");
-    await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await page.waitForURL(/\/dashboard$/);
-    const inventory = await page.goto(`/projects/${projectId}/translations/urls?lang=en`);
+    await translator.goto("/en/login");
+    await expect(translator.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+    await translator.getByLabel("Email").fill(email);
+    await translator.getByLabel("Password").fill(password);
+    await translator.getByRole("button", { name: "Sign in", exact: true }).click();
+    await translator.waitForURL(/\/dashboard$/);
+    const inventory = await translator.goto(`/projects/${projectId}/translations/urls?lang=en`);
     expect(inventory?.status()).toBe(200);
-    await expect(page.getByText(path, { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Retranslate" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Delete" })).toHaveCount(0);
-    await expect(page.getByRole("checkbox")).toHaveCount(0);
-    await expect(page.getByText("Open WordPress to confirm retry")).toHaveCount(0);
-    await expect(page.getByRole("navigation", { name: "URL target languages" }).getByRole("link", { name: "FR" })).toHaveCount(0);
-    expect((await page.goto(`/projects/${projectId}/translations/urls?lang=fr`))?.status()).toBe(404);
-    const denied = await page.request.post(`/api/projects/${projectId}/url-operations`, { data: { action: "delete", id: english.id } });
+    await expect(translator.getByText(path, { exact: true })).toBeVisible();
+    await expect(translator.getByRole("button", { name: "Retranslate" })).toHaveCount(0);
+    await expect(translator.getByRole("button", { name: "Delete" })).toHaveCount(0);
+    await expect(translator.getByRole("checkbox")).toHaveCount(0);
+    await expect(translator.getByText("Open WordPress to confirm retry")).toHaveCount(0);
+    await expect(translator.getByRole("navigation", { name: "URL target languages" }).getByRole("link", { name: "FR" })).toHaveCount(0);
+    expect((await translator.goto(`/projects/${projectId}/translations/urls?lang=fr`))?.status()).toBe(404);
+    const denied = await translator.request.post(`/api/projects/${projectId}/url-operations`, { data: { action: "delete", id: english.id } });
     expect(denied.status()).toBe(404);
   } finally {
+    await translator.close();
     await db.translatedUrl.deleteMany({ where: { id: { in: [english.id, french.id] } } });
     await db.projectMember.delete({ where: { id: member.id } });
     await db.user.delete({ where: { id: user.id } });

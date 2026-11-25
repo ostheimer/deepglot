@@ -102,7 +102,7 @@ test("manager edits and resets one slug while CSV and CAS stay consistent", asyn
 });
 
 
-test("language-bound translator reads only their slug language and cannot edit", async ({ page }) => {
+test("language-bound translator reads only their slug language and cannot edit", async ({ browser, page }) => {
   const projectId = await signInAndGetProjectId(page);
   const email = `${e2eId("slug-translator")}@example.test`;
   const password = e2eId("password");
@@ -116,35 +116,38 @@ test("language-bound translator reads only their slug language and cannot edit",
   const slug = await db.urlSlug.create({ data: {
     projectId, originalSlug: e2eId("slug-fr"), translatedSlug: "chemin-fr", langTo: "fr",
   } });
+  // A separate cookie jar: late responses to the manager page cannot sign the
+  // translator back in as the manager (see signOut in ./helpers).
+  const translator = await browser.newPage();
   try {
-    await page.context().clearCookies();
-    await page.goto("/login");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill(password);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await page.waitForURL(/\/dashboard$/);
+    await translator.goto("/login");
+    await translator.getByLabel("Email").fill(email);
+    await translator.getByLabel("Password").fill(password);
+    await translator.getByRole("button", { name: "Sign in", exact: true }).click();
+    await translator.waitForURL(/\/dashboard$/);
 
-    await page.goto(`/projects/${projectId}/translations/slugs?lang=fr`);
-    await expect(page.getByText(slug.originalSlug, { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
-    const forbiddenLanguage = await page.goto(`/projects/${projectId}/translations/slugs?lang=en`);
+    await translator.goto(`/projects/${projectId}/translations/slugs?lang=fr`);
+    await expect(translator.getByText(slug.originalSlug, { exact: true })).toBeVisible();
+    await expect(translator.getByRole("button", { name: "Edit" })).toHaveCount(0);
+    const forbiddenLanguage = await translator.goto(`/projects/${projectId}/translations/slugs?lang=en`);
     expect(forbiddenLanguage?.status()).toBe(404);
 
-    const deniedWrite = await page.request.patch(`/api/projects/${projectId}/slugs/${slug.id}`, {
+    const deniedWrite = await translator.request.patch(`/api/projects/${projectId}/slugs/${slug.id}`, {
       data: { translatedSlug: "pas-autorise", updatedAt: slug.updatedAt.toISOString() },
     });
     expect(deniedWrite.status()).toBe(404);
-    const deniedBulk = await page.request.post(`/api/projects/${projectId}/slugs/bulk`, {
+    const deniedBulk = await translator.request.post(`/api/projects/${projectId}/slugs/bulk`, {
       data: { action: "reset", rows: [{ id: slug.id, updatedAt: slug.updatedAt.toISOString() }] },
     });
     expect(deniedBulk.status()).toBe(404);
-    const deniedImport = await page.request.post(`/api/projects/${projectId}/import`, {
+    const deniedImport = await translator.request.post(`/api/projects/${projectId}/import`, {
       multipart: { asset: "slugs", format: "csv", file: { name: "slugs.csv", mimeType: "text/csv", buffer: Buffer.from(`originalSlug,translatedSlug,langTo,urlCount\n${slug.originalSlug},new-target,fr,0\n`) } },
     });
     expect(deniedImport.status()).toBe(403);
     const unchanged = await db.urlSlug.findUniqueOrThrow({ where: { id: slug.id } });
     expect(unchanged.translatedSlug).toBe("chemin-fr");
   } finally {
+    await translator.close();
     await db.urlSlug.delete({ where: { id: slug.id } });
     await db.projectMember.delete({ where: { id: member.id } });
     await db.user.delete({ where: { id: user.id } });
