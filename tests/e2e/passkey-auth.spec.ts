@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { signInAsTestUser } from "./helpers";
+import { signInAsTestUser, signOut } from "./helpers";
 
 const passkeyLocales = [
   {
@@ -70,7 +70,7 @@ for (const locale of passkeyLocales) {
       await expect(removeButtons).toHaveCount(initialPasskeyCount + 1);
       passkeyCreated = true;
 
-      await context.clearCookies();
+      await signOut(page);
       await page.goto(locale.loginPath);
 
       for (const email of [
@@ -100,7 +100,7 @@ for (const locale of passkeyLocales) {
       await expect(removeButtons).toHaveCount(initialPasskeyCount);
       passkeyCreated = false;
 
-      await context.clearCookies();
+      await signOut(page);
       await page.goto(locale.loginPath);
       await page.getByRole("button", { name: locale.loginButton }).click();
       await expect(page.getByText(locale.failedLogin)).toBeVisible();
